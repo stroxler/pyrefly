@@ -17,7 +17,11 @@ ASTs. We aim to fully replace the existing Pyre by the end of 2025.
 
 Typeshed can be fetched from upstream into the codebase using the following
 command (assuming this is the current directory):
+<<<<<<< HEAD
 `python scripts/fetch_typeshed.py -o pyre2/third_party`
+=======
+`python scripts/fetch_typeshed.py -o pyre2/stubs`
+>>>>>>> 8ec19726 (Check in typeshed source for Pyre2 into source control)
 
 ### Meta internal developers
 
@@ -33,6 +37,7 @@ From this directory, you can run:
 - Debug a file: `buck2 run pyre2 -- check <filename> --debug-info=debug.js`,
   then open `debug.html` in your browser
 - Fetch Typeshed from upstream
+<<<<<<< HEAD
   `HTTPS_PROXY=https://fwdproxy:8080 fbpython scripts/fetch_typeshed.py -o pyre2/third_party`
 
 ## Packaging
@@ -41,6 +46,9 @@ We use [maturin](https://github.com/PyO3/maturin) to build wheels and source
 distributions. This also means that you can pip install `maturin` and use
 `maturin build` and `maturin develop` for local development. `pip install .` in
 the `pyre2/pyre2` directory works as well.
+=======
+  `HTTPS_PROXY=https://fwdproxy:8080 fbpython scripts/fetch_typeshed.py -o pyre2/stubs`
+>>>>>>> 8ec19726 (Check in typeshed source for Pyre2 into source control)
 
 ## Coding conventions
 
