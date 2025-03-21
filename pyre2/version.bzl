@@ -1,7 +1,7 @@
 # IMPORTANT: *Any* change to this file will kick off an upload of a new version of pyrefly to PyPI,
-# although the upload will likely fail if you haven't changed the version number.
+# and a new VSCode extension although the upload will likely fail if you haven't changed the version number.
 #
-# An automated PyPI release happens once a week. To update the version for a manual release:
+# An automated PyPI/extension release happens once a week. To update the version for a manual release:
 # * The version number is in the format "<major>.<minor>.<patch>".
 # * Do exactly ONE of the following:
 #   * Increase the patch number by 1 if the release contains only minor changes like bug fixes.
