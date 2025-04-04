@@ -32,8 +32,6 @@ use crate::metadata::RuntimeMetadata;
 use crate::metadata::DEFAULT_PYTHON_PLATFORM;
 use crate::module::module_path::ModulePath;
 
-static PYPROJECT_FILE_NAME: &str = "pyproject.toml";
-
 static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonEnvironment>>>> =
     LazyLock::new(|| Mutex::new(SmallMap::new()));
 
@@ -302,6 +300,10 @@ impl Default for ConfigFile {
 }
 
 impl ConfigFile {
+    pub const CONFIG_FILE_NAME: &str = "pyrefly.toml";
+    pub const PYPROJECT_FILE_NAME: &str = "pyproject.toml";
+    pub const CONFIG_FILE_NAMES: [&str; 2] = [Self::CONFIG_FILE_NAME, Self::PYPROJECT_FILE_NAME];
+
     pub fn default_project_includes() -> Globs {
         Globs::new(vec!["**/*".to_owned()])
     }
@@ -424,7 +426,8 @@ impl ConfigFile {
             .with_context(|| format!("Path `{}` cannot be absolutized", config_path.display()))?
             .into_owned();
         let config_str = fs::read_to_string(&config_path)?;
-        let mut config = if config_path.file_name() == Some(OsStr::new(&PYPROJECT_FILE_NAME)) {
+        let mut config = if config_path.file_name() == Some(OsStr::new(&Self::PYPROJECT_FILE_NAME))
+        {
             Self::parse_pyproject_toml(&config_str)
         } else {
             Self::parse_config(&config_str)

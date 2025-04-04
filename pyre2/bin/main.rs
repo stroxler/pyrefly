@@ -72,8 +72,8 @@ enum Command {
         /// Explicitly set the Pyre configuration to use when type checking or starting a language server.
         /// It is an error to pass this flag in "single-file checking mode".
         /// When not set, Pyre will perform an upward-filesystem-walk approach to find the nearest
-        /// pyre.toml or 'pyproject.toml with `tool.pyre` section'. If no config is found, Pyre exits with error.
-        /// If both a pyre.toml and valid pyproject.toml are found, pyre.toml takes precedence.
+        /// pyrefly.toml or 'pyproject.toml with `tool.pyre` section'. If no config is found, Pyre exits with error.
+        /// If both a pyrefly.toml and valid pyproject.toml are found, pyrefly.toml takes precedence.
         #[clap(long, short, env = clap_env("CONFIG"))]
         config: Option<std::path::PathBuf>,
 
@@ -104,7 +104,7 @@ fn get_open_source_config(file: &Path) -> anyhow::Result<ConfigFile> {
 }
 
 fn get_implicit_config_path_from(path: &Path) -> anyhow::Result<PathBuf> {
-    if let Some(search_result) = first_match(path, &["pyrefly.toml", "pyproject.toml"]) {
+    if let Some(search_result) = first_match(path, &ConfigFile::CONFIG_FILE_NAMES) {
         Ok(search_result.to_path_buf())
     } else {
         Err(anyhow!(
