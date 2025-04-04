@@ -252,6 +252,10 @@ pub struct ConfigFile {
     #[serde(default = "ConfigFile::default_project_excludes")]
     pub project_excludes: Globs,
 
+    /// analyze function body and infer return type
+    #[serde(default)]
+    pub skip_untyped_functions: bool,
+
     /// corresponds to --search-path in Args, the list of directories where imports are
     /// found (including type checked files).
     #[serde(default = "ConfigFile::default_search_path")]
@@ -288,6 +292,7 @@ impl Default for ConfigFile {
             },
             project_includes: Self::default_project_includes(),
             project_excludes: Self::default_project_excludes(),
+            skip_untyped_functions: false,
             python_interpreter: PythonEnvironment::get_default_interpreter(),
             errors: ErrorConfig::default(),
             extras: Self::default_extras(),
@@ -477,6 +482,7 @@ mod tests {
         let config_str = "
             project_includes = [\"tests\", \"./implementation\"]
             project_excludes = [\"tests/untyped/**\"]
+            skip_untyped_functions = false
             search_path = [\"../..\"]
             python_platform = \"darwin\"
             python_version = \"1.2.3\"
@@ -496,6 +502,7 @@ mod tests {
                     "./implementation".to_owned()
                 ]),
                 project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]),
+                skip_untyped_functions: false,
                 search_path: vec![PathBuf::from("../..")],
                 python_environment: PythonEnvironment::new(
                     "darwin".to_owned(),
@@ -635,6 +642,7 @@ mod tests {
         let mut config = ConfigFile {
             project_includes: Globs::new(vec!["path1/**".to_owned(), "path2/path3".to_owned()]),
             project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]),
+            skip_untyped_functions: false,
             search_path: vec![PathBuf::from("../..")],
             python_environment: python_environment.clone(),
             python_interpreter: PythonEnvironment::get_default_interpreter(),
@@ -651,6 +659,7 @@ mod tests {
             path_str.clone() + &with_sep("/path2/path3"),
         ];
         let project_excludes_vec = vec![path_str.clone() + &with_sep("/tests/untyped/**")];
+        let skip_untyped_functions = false;
         let search_path = vec![test_path.join("../.."), test_path.clone()];
         python_environment.site_package_path =
             Some(vec![test_path.join("venv/lib/python1.2.3/site-packages")]);
@@ -660,6 +669,7 @@ mod tests {
         let expected_config = ConfigFile {
             project_includes: Globs::new(project_includes_vec),
             project_excludes: Globs::new(project_excludes_vec),
+            skip_untyped_functions,
             search_path,
             python_environment,
             ..ConfigFile::default()
