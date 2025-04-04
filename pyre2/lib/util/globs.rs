@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use itertools::Itertools;
 use serde::Deserialize;
+use serde::Serialize;
 use starlark_map::small_set::SmallSet;
 
 use crate::util::fs_anyhow;
@@ -21,7 +22,7 @@ use crate::util::listing::FileList;
 use crate::util::prelude::SliceExt;
 use crate::util::prelude::VecExt;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Globs(Vec<PathBuf>);
 
 impl Globs {

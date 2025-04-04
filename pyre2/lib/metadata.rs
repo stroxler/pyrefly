@@ -28,6 +28,7 @@ use ruff_python_ast::UnaryOp;
 use serde::de;
 use serde::de::Visitor;
 use serde::Deserialize;
+use serde::Serialize;
 
 use crate::ruff::ast::Ast;
 use crate::util::prelude::SliceExt;
@@ -128,6 +129,15 @@ impl<'de> Deserialize<'de> for PythonVersion {
         }
 
         deserializer.deserialize_string(PythonVersionVisitor)
+    }
+}
+
+impl Serialize for PythonVersion {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
     }
 }
 

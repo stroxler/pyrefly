@@ -27,6 +27,7 @@ use pyrefly::run::BuckCheckArgs;
 use pyrefly::run::CheckArgs;
 use pyrefly::run::CommandExitStatus;
 use pyrefly::run::CommonGlobalArgs;
+use pyrefly::run::ConfigMigrationArgs;
 use pyrefly::run::LspArgs;
 use pyrefly::ConfigFile;
 use pyrefly::NotifyWatcher;
@@ -86,6 +87,10 @@ enum Command {
 
     /// Start an LSP server
     Lsp(LspArgs),
+
+    /// Migrate a mypy or pyright configuration to a pyrefly configuration.
+    /// The main argument is the path to the configuration file to migrate.
+    ConfigMigration(ConfigMigrationArgs),
 }
 
 fn exit_on_panic() {
@@ -246,6 +251,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
         }
         Command::BuckCheck(args) => args.run(),
         Command::Lsp(args) => args.run(Vec::new()),
+        Command::ConfigMigration(args) => args.run(),
     }
 }
 

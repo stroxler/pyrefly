@@ -20,6 +20,7 @@ use anyhow::Context;
 use itertools::Itertools;
 use path_absolutize::Absolutize;
 use serde::Deserialize;
+use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 use toml::Table;
 #[cfg(not(target_arch = "wasm32"))]
@@ -52,7 +53,7 @@ pub fn set_option_if_some<T: Clone>(config_field: &mut Option<T>, value: Option<
 /// (true = show error, false = don't show error).
 /// Not all error kinds are required to be defined in this map. Any that are missing
 /// will be treated as `<error-kind> = true`.
-#[derive(Debug, PartialEq, Eq, Deserialize, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
 #[serde(transparent)]
 pub struct ErrorConfig(HashMap<ErrorKind, bool>);
 
@@ -99,7 +100,7 @@ impl ErrorConfigs {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(transparent)]
 pub struct ExtraConfigs(Table);
 
@@ -112,7 +113,7 @@ impl PartialEq for ExtraConfigs {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct PythonEnvironment {
     #[serde(default)]
     pub python_platform: Option<String>,
@@ -237,7 +238,7 @@ impl Default for PythonEnvironment {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct ConfigFile {
     /// Files that should be counted as sources (e.g. user-space code).
     /// NOTE: this is never replaced with CLI args in this config, but may be overridden by CLI args where used.

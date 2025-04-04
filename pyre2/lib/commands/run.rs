@@ -10,6 +10,7 @@ use clap::Parser;
 use crate::clap_env;
 pub use crate::commands::buck_check::Args as BuckCheckArgs;
 pub use crate::commands::check::Args as CheckArgs;
+pub use crate::commands::config_migration::Args as ConfigMigrationArgs;
 pub use crate::commands::lsp::Args as LspArgs;
 use crate::util::thread_pool::ThreadCount;
 

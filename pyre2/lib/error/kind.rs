@@ -13,6 +13,7 @@ use dupe::Dupe;
 use enum_iterator::Sequence;
 use parse_display::Display;
 use serde::Deserialize;
+use serde::Serialize;
 
 /// ErrorKind categorizes an error by the part of the spec the error is related to.
 /// They are used in suppressions to identify which error should be suppressed.
@@ -39,7 +40,8 @@ use serde::Deserialize;
     Dupe,
     Display,
     Sequence,
-    Deserialize
+    Deserialize,
+    Serialize
 )]
 #[serde(rename_all = "kebab-case")]
 pub enum ErrorKind {
