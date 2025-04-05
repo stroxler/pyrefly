@@ -36,7 +36,6 @@ describe('Try Pyre2 Component', () => {
             const { container } = render(<TryPyre2
                 sampleFilename={fileName}
                 isCodeSnippet={true}
-                showErrorPanel={false}
                 codeSample={programContent}
             />
             );

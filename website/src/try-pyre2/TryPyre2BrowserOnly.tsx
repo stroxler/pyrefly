@@ -14,14 +14,12 @@ interface TryPyre2BrowserOnlyProps {
     sampleFilename: string;
     isCodeSnippet?: boolean;
     codeSample?: string;
-    showErrorPanel?: boolean;
 }
 
 export default function TryPyre2BrowserOnly({
     sampleFilename,
     isCodeSnippet = false,
     codeSample = '',
-    showErrorPanel = true,
 }: TryPyre2BrowserOnlyProps): JSX.Element {
     if (sampleFilename == null) {
         throw 'Missing sampleFilename. IDE services won\'t work properly.';
@@ -34,7 +32,6 @@ export default function TryPyre2BrowserOnly({
                         sampleFilename={sampleFilename}
                         isCodeSnippet={isCodeSnippet}
                         codeSample={codeSample}
-                        showErrorPanel={showErrorPanel}
                     />
                 </React.Suspense>
             )}

@@ -60,14 +60,12 @@ interface TryPyre2Props {
     sampleFilename: string;
     isCodeSnippet?: boolean;
     codeSample?: string;
-    showErrorPanel?: boolean;
 }
 
 export default function TryPyre2({
     sampleFilename,
     isCodeSnippet = false,
     codeSample = DEFAULT_PYTHON_PROGRAM,
-    showErrorPanel = true,
 }: TryPyre2Props): React.ReactElement {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const [errors, setErrors] = useState<ReadonlyArray<PyreflyErrorMessage> | null>(
@@ -184,7 +182,7 @@ export default function TryPyre2({
                     </button>
                 )}
             </div>
-            {showErrorPanel && (
+            {!isCodeSnippet && (
                 <TryPyre2Results
                     loading={loading}
                     goToDef={handleGoToDefFromErrors}
