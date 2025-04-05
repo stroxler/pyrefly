@@ -145,6 +145,17 @@ x9: list[str] = {"a": 1}  # E: `dict[str, int]` is not assignable to `list[str]`
 );
 
 testcase!(
+    test_call_keyword_arg_is_context_even_for_duplicates,
+    r#"
+from typing import assert_type, Callable, Any
+def f(cb: Callable[[int], None]) -> None: ...
+def g(cb: Any) -> None: ...
+f(cb = lambda x: assert_type(x, int), cb = lambda x: assert_type(x, int))  # E: Multiple values for argument `cb`  # E: Parse error
+g(cb = lambda x: assert_type(x, Any), cb = lambda x: assert_type(x, Any))  # E: Multiple values for argument `cb`  # E: Parse error
+    "#,
+);
+
+testcase!(
     test_context_list_comprehension,
     r#"
 class A: ...
