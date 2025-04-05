@@ -365,15 +365,16 @@ def twice(f: Callable[P, int], *args: P.args, **kwargs: P.kwargs) -> int:
 def a_int_b_str(a: int, b: str) -> int:
   return a
 
-twice(a_int_b_str, 1, "A")     # Accepted # E: Argument `(a: int, b: str) -> int` is not assignable to parameter with type `(*Unknown, **Unknown) -> int`
+twice(a_int_b_str, 1, "A")     # Accepted # E: Expected 1 positional argument, got 3
 
-twice(a_int_b_str, b="A", a=1) # Accepted # E: Argument `(a: int, b: str) -> int` is not assignable to parameter with type `(*Unknown, **Unknown) -> int`
+twice(a_int_b_str, b="A", a=1) # Accepted # E: Unexpected keyword argument `b` # E: Unexpected keyword argument `a`
 
-twice(a_int_b_str, "A", 1)     # Rejected # E: Argument `(a: int, b: str) -> int` is not assignable to parameter with type `(*Unknown, **Unknown) -> int`
+twice(a_int_b_str, "A", 1)     # Rejected # E: Expected 1 positional argument, got 3
 "#,
 );
 
 testcase!(
+    bug = "False positive",
     test_functools_wraps_paramspec,
     r#"
 from functools import wraps
@@ -381,7 +382,7 @@ from functools import wraps
 def f(fn):
     @wraps(fn)
     def wrapped_fn(x):
-        return fn(x)
+        return fn(x) # E: Expected 0 positional arguments, got 1
 
     return wrapped_fn
 "#,

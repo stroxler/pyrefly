@@ -32,6 +32,7 @@ use crate::types::callable::Required;
 use crate::types::quantified::Quantified;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
+use crate::types::types::Var;
 use crate::util::display::count;
 use crate::util::prelude::VecExt;
 
@@ -218,6 +219,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         callable_name: Option<FuncId>,
         params: &ParamList,
+        _paramspec: Option<Var>,
         self_arg: Option<CallArg>,
         args: &[CallArg],
         keywords: &[Keyword],
@@ -630,6 +632,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.callable_infer_params(
                     callable_name,
                     &params,
+                    None,
                     self_arg,
                     args,
                     keywords,
@@ -646,15 +649,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Params::ParamSpec(concatenate, p) => {
-                let mut p = self.solver().expand(p);
-                if let Type::Var(v) = p {
-                    // We are making a call, so if it hasn't been forced yet, do so now.
-                    p = self.solver().force_var(v);
-                }
+                let p = self.solver().expand(p);
                 match p {
                     Type::ParamSpecValue(params) => self.callable_infer_params(
                         callable_name,
                         &params.prepend_types(&concatenate),
+                        None,
+                        self_arg,
+                        args,
+                        keywords,
+                        range,
+                        arg_errors,
+                        call_errors,
+                        context,
+                    ),
+                    // This can happen with a signature like `(f: Callable[P, None], *args: P.args, **kwargs: P.kwargs)`.
+                    // Before we match an argument to `f`, we don't know what `P` is, so we don't have an answer for the Var yet.
+                    Type::Var(var) => self.callable_infer_params(
+                        callable_name,
+                        &ParamList::new_types(&concatenate),
+                        Some(var),
                         self_arg,
                         args,
                         keywords,
@@ -682,6 +696,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.callable_infer_params(
                                 callable_name,
                                 &ParamList::new_types(&concatenate),
+                                None,
                                 self_arg,
                                 &args[0..args.len() - 1],
                                 &keywords[0..keywords.len() - 1],
