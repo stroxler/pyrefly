@@ -226,7 +226,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         call_errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) {
-        let error = |errors, range, kind, context, msg: String| {
+        let error = |errors, range, kind, msg: String| {
             self.error(
                 errors,
                 range,
@@ -389,7 +389,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 call_errors,
                 arg_range,
                 ErrorKind::BadArgumentType,
-                context,
                 format!("Expected {expected}, got {actual}"),
             );
         }
@@ -431,7 +430,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 call_errors,
                 range,
                 ErrorKind::BadArgumentCount,
-                context,
                 format!(
                     "Expected {}",
                     count(need_positional, "more positional argument")
@@ -453,7 +451,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         call_errors,
                                         kw.range,
                                         ErrorKind::BadKeywordArgument,
-                                        context,
                                         format!("Multiple values for argument `{}`", name),
                                     );
                                     params.items()[p_idx].visit(&mut |ty| hint = Some(ty));
@@ -464,7 +461,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             call_errors,
                                             kw.range,
                                             ErrorKind::MissingArgument,
-                                            context,
                                             format!("Expected key `{}` to be required", name),
                                         );
                                     }
@@ -474,7 +470,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         call_errors,
                                         kw.range,
                                         ErrorKind::UnexpectedKeyword,
-                                        context,
                                         format!("Unexpected keyword argument `{}`", name),
                                     );
                                 }
@@ -524,7 +519,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         call_errors,
                                         kw.value.range(),
                                         ErrorKind::BadUnpacking,
-                                        context,
                                         format!(
                                             "Expected argument after ** to have `str` keys, got: {}",
                                             self.for_display(key)
@@ -537,7 +531,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     call_errors,
                                     kw.value.range(),
                                     ErrorKind::BadUnpacking,
-                                    context,
                                     format!(
                                         "Expected argument after ** to be a mapping, got: {}",
                                         self.for_display(ty)
@@ -555,7 +548,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             call_errors,
                             kw.range,
                             ErrorKind::BadKeywordArgument,
-                            context,
                             format!("Multiple values for argument `{}`", id.id),
                         );
                         params.items()[p_idx].visit(&mut |ty| {
@@ -571,7 +563,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             call_errors,
                             kw.range,
                             ErrorKind::UnexpectedKeyword,
-                            context,
                             format!("Unexpected keyword argument `{}`", id.id),
                         );
                     }
@@ -602,7 +593,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         call_errors,
                         range,
                         ErrorKind::MissingArgument,
-                        context,
                         format!("Missing argument `{}`", name),
                     );
                 }
