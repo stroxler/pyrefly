@@ -63,7 +63,8 @@ impl TypeInfo {
     // to narrow, at the moment only test code uses this method.
     #[allow(dead_code)]
     pub fn add_narrow_mut(&mut self, names: Vec1<&Name>, ty: Type) {
-        self.attrs.add_narrow_mut(names, ty)
+        let (name, more_names) = names.split_off_first();
+        self.attrs.add_narrow_mut(name.clone(), &more_names, ty)
     }
 
     pub fn ty(&self) -> &Type {
@@ -101,17 +102,18 @@ impl NarrowedAttrs {
         Self(None)
     }
 
-    fn add_narrow_mut(&mut self, names: Vec1<&Name>, ty: Type) {
-        let (name, more_names) = names.split_off_first();
+    fn add_narrow_mut(&mut self, name: Name, more_names: &[&Name], ty: Type) {
         if self.0.is_none() {
             self.0 = Some(OrderedMap::with_capacity(1))
         }
         match &mut self.0 {
             None => unreachable!("We just ensured that we have a map of attrs"),
             Some(attrs) => {
-                // TODO(stroxler): We need to handle the case where we already
-                // have narrowing under the same name.
-                attrs.insert(name.clone(), NarrowedAttr::new(&more_names, ty));
+                let attr = match attrs.remove(&name) {
+                    Some(attr) => attr.add_narrow(more_names, ty),
+                    None => NarrowedAttr::new(more_names, ty),
+                };
+                attrs.insert(name, attr);
             }
         }
     }
@@ -202,7 +204,6 @@ impl Display for NarrowedAttrs {
     }
 }
 
-#[expect(dead_code)]
 #[derive(
     Debug, Clone, Visit, VisitMut, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash
 )]
@@ -218,6 +219,39 @@ impl NarrowedAttr {
             [] => Self::Leaf(ty),
             [name, more_names @ ..] => {
                 Self::WithoutRoot(NarrowedAttrs::of_narrow((*name).clone(), more_names, ty))
+            }
+        }
+    }
+
+    fn add_narrow(self, names: &[&Name], narrowed_ty: Type) -> Self {
+        match names {
+            [] => {
+                // We are setting a narrow at the current node (potentially overriding an existing narrow; it is
+                // up to callers to make sure this works correctly, we just take what was given).
+                match self {
+                    Self::Leaf(_) => Self::Leaf(narrowed_ty),
+                    Self::WithRoot(_, attrs) | Self::WithoutRoot(attrs) => {
+                        Self::WithRoot(narrowed_ty, attrs)
+                    }
+                }
+            }
+            [name, more_names @ ..] => {
+                // We are setting a narrow in a subtree. We need to preserve any existing tree.
+                match self {
+                    Self::Leaf(root_ty) => {
+                        let attrs =
+                            NarrowedAttrs::of_narrow((*name).clone(), more_names, narrowed_ty);
+                        Self::WithRoot(root_ty, attrs)
+                    }
+                    Self::WithoutRoot(mut attrs) => {
+                        attrs.add_narrow_mut((*name).clone(), more_names, narrowed_ty);
+                        Self::WithoutRoot(attrs)
+                    }
+                    Self::WithRoot(root_ty, mut attrs) => {
+                        attrs.add_narrow_mut((*name).clone(), more_names, narrowed_ty);
+                        Self::WithRoot(root_ty, attrs)
+                    }
+                }
             }
         }
     }

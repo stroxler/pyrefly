@@ -564,8 +564,10 @@ mod tests {
         assert_eq!(type_info.to_string(), "Foo (_.x: Bar)");
         type_info.add_narrow_mut(Vec1::new(&y), foo);
         assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.y: Foo)");
-        // TODO(stroxler): The API isn't ready for prime time just yet, it wipes subtrees!
         type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &x), bar);
-        assert_eq!(type_info.to_string(), "Foo (_.x.x: Bar, _.y: Foo)")
+        assert_eq!(
+            type_info.to_string(),
+            "Foo (_.y: Foo, _.x: Bar, _.x.x: Bar)"
+        )
     }
 }
