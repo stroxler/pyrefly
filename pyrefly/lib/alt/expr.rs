@@ -596,7 +596,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.expr_infer_type_info(x, errors).into_ty()
     }
 
-    fn expr_infer_type_info(&self, x: &Expr, errors: &ErrorCollector) -> TypeInfo {
+    pub fn expr_infer_type_info(&self, x: &Expr, errors: &ErrorCollector) -> TypeInfo {
         self.expr_infer_type_info_with_hint(x, None, errors)
     }
 

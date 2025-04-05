@@ -24,6 +24,7 @@ use crate::error::kind::ErrorKind;
 use crate::types::callable::unexpected_keyword;
 use crate::types::special_form::SpecialForm;
 use crate::types::types::Type;
+use crate::util::visit::VisitMut;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn call_assert_type(
@@ -97,13 +98,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         if args.len() == 1 {
-            let t = self.solver().deep_force(self.expr_infer(&args[0], errors));
+            let mut type_info = self.expr_infer_type_info(&args[0], errors);
+            type_info.visit_mut(&mut |ty| {
+                *ty = self.for_display(self.solver().deep_force(ty.clone()));
+            });
             self.error(
                 errors,
                 range,
                 ErrorKind::RevealType,
                 None,
-                format!("revealed type: {}", self.for_display(t)),
+                format!("revealed type: {}", type_info),
             );
         } else {
             self.error(
