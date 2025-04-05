@@ -351,6 +351,7 @@ mod tests {
     use dupe::Dupe;
     use ruff_python_ast::Identifier;
     use ruff_text_size::TextSize;
+    use vec1::Vec1;
 
     use super::*;
     use crate::module::module_info::ModuleInfo;
@@ -551,7 +552,20 @@ mod tests {
             fake_class("Foo", "foo", 5, Vec::new()),
             TArgs::default(),
         ));
-        let type_info = TypeInfo::of_ty(foo);
-        assert_eq!(type_info.to_string(), "Foo")
+        let bar = Type::ClassType(ClassType::new(
+            fake_class("Bar", "foo", 5, Vec::new()),
+            TArgs::default(),
+        ));
+        let x = Name::new_static("x");
+        let y = Name::new_static("y");
+        let mut type_info = TypeInfo::of_ty(foo.clone());
+        assert_eq!(type_info.to_string(), "Foo");
+        type_info.add_narrow_mut(Vec1::new(&x), bar.clone());
+        assert_eq!(type_info.to_string(), "Foo (_.x: Bar)");
+        type_info.add_narrow_mut(Vec1::new(&y), foo);
+        assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.y: Foo)");
+        // TODO(stroxler): The API isn't ready for prime time just yet, it wipes subtrees!
+        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &x), bar);
+        assert_eq!(type_info.to_string(), "Foo (_.x.x: Bar, _.y: Foo)")
     }
 }

@@ -15,6 +15,7 @@ use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use ruff_python_ast::name::Name;
 use starlark_map::ordered_map::OrderedMap;
+use vec1::Vec1;
 
 use crate::types::types::Type;
 use crate::util::visit::Visit;
@@ -58,6 +59,13 @@ impl TypeInfo {
         }
     }
 
+    // TODO(stroxler): remove this directive once we have a production API
+    // to narrow, at the moment only test code uses this method.
+    #[allow(dead_code)]
+    pub fn add_narrow_mut(&mut self, names: Vec1<&Name>, ty: Type) {
+        self.attrs.add_narrow_mut(names, ty)
+    }
+
     pub fn ty(&self) -> &Type {
         &self.ty
     }
@@ -91,6 +99,27 @@ pub struct NarrowedAttrs(Option<OrderedMap<Name, NarrowedAttr>>);
 impl NarrowedAttrs {
     fn new() -> Self {
         Self(None)
+    }
+
+    fn add_narrow_mut(&mut self, names: Vec1<&Name>, ty: Type) {
+        let (name, more_names) = names.split_off_first();
+        if self.0.is_none() {
+            self.0 = Some(OrderedMap::with_capacity(1))
+        }
+        match &mut self.0 {
+            None => unreachable!("We just ensured that we have a map of attrs"),
+            Some(attrs) => {
+                // TODO(stroxler): We need to handle the case where we already
+                // have narrowing under the same name.
+                attrs.insert(name.clone(), NarrowedAttr::new(&more_names, ty));
+            }
+        }
+    }
+
+    fn of_narrow(name: Name, more_names: &[&Name], ty: Type) -> Self {
+        let mut attrs = OrderedMap::with_capacity(1);
+        attrs.insert(name.clone(), NarrowedAttr::new(more_names, ty));
+        Self(Some(attrs))
     }
 
     fn fmt_with_prefix(&self, prefix: &mut Vec<String>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -181,4 +210,15 @@ pub enum NarrowedAttr {
     Leaf(Type),
     WithRoot(Type, NarrowedAttrs),
     WithoutRoot(NarrowedAttrs),
+}
+
+impl NarrowedAttr {
+    fn new(names: &[&Name], ty: Type) -> Self {
+        match names {
+            [] => Self::Leaf(ty),
+            [name, more_names @ ..] => {
+                Self::WithoutRoot(NarrowedAttrs::of_narrow((*name).clone(), more_names, ty))
+            }
+        }
+    }
 }
