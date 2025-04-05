@@ -361,3 +361,19 @@ class Bar:
       self()
     "#,
 );
+
+// See https://typing.python.org/en/latest/spec/generics.html#instantiating-generic-classes-and-type-erasure.
+// When no type argument is provided, we fall back to the default or Any. Specifically, the bound is not used.
+testcase!(
+    bug = "Wrong type for C1()",
+    test_construction_no_targ,
+    r#"
+from typing import assert_type, Any
+class C1[T: float]:
+    pass
+class C2[T: float = int]:
+    pass
+assert_type(C1(), C1[Any])  # E: assert_type(C1[float], C1[Any])
+assert_type(C2(), C2[int])
+    "#,
+);
