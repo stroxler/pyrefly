@@ -502,9 +502,10 @@ impl Args {
         if let Some(path_index) = self.summarize_errors {
             print_error_summary(&errors.shown, path_index);
         }
+        let shown_errors_count = errors.shown.len();
         info!(
             "{} errors shown, {} errors disabled, {} errors suppressed, {} modules, {} lines, took {printing:.2?} ({computing:.2?} without printing errors), peak memory {}",
-            number_thousands(errors.shown.len()),
+            number_thousands(shown_errors_count),
             number_thousands(errors.disabled.len()),
             number_thousands(errors.suppressed.len()),
             number_thousands(readable_state.module_count()),
@@ -535,7 +536,7 @@ impl Args {
         }
         if self.suppress_errors {
             let errors: SmallMap<PathBuf, Vec<Error>> = errors
-                .suppressed
+                .shown
                 .into_iter()
                 .filter(|e| matches!(e.path().details(), ModulePathDetails::FileSystem(_)))
                 .fold(SmallMap::new(), |mut acc, e| {
@@ -548,7 +549,7 @@ impl Args {
         if self.expectations {
             loads.check_against_expectations(error_configs)?;
             Ok(CommandExitStatus::Success)
-        } else if !errors.shown.is_empty() {
+        } else if shown_errors_count > 0 {
             Ok(CommandExitStatus::UserError)
         } else {
             Ok(CommandExitStatus::Success)
