@@ -29,8 +29,8 @@ use crate::commands::util::module_from_path;
 use crate::config::set_if_some;
 use crate::config::set_option_if_some;
 use crate::config::ConfigFile;
-use crate::config::ErrorConfig;
 use crate::config::ErrorConfigs;
+use crate::config::ErrorDisplayConfig;
 use crate::error::error::print_error_counts;
 use crate::error::error::print_errors;
 use crate::error::error::Error;
@@ -212,7 +212,7 @@ struct Handles {
     /// The value type is basically everything else in `Handle` except for the file path.
     path_data: HashMap<PathBuf, (ModuleName, RuntimeMetadata, LoaderId)>,
     /// A the underlying HashMap that will be used to create an `ErrorConfigs` when requested.
-    module_to_error_config: HashMap<ModulePath, ErrorConfig>,
+    module_to_error_config: HashMap<ModulePath, ErrorDisplayConfig>,
 }
 
 impl Handles {

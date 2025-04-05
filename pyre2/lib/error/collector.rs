@@ -14,7 +14,7 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use vec1::vec1;
 
-use crate::config::ErrorConfig;
+use crate::config::ErrorDisplayConfig;
 use crate::error::context::ErrorContext;
 use crate::error::error::Error;
 use crate::error::kind::ErrorKind;
@@ -166,7 +166,7 @@ impl ErrorCollector {
         self.errors.lock().len()
     }
 
-    pub fn collect(&self, error_config: &ErrorConfig) -> CollectedErrors {
+    pub fn collect(&self, error_config: &ErrorDisplayConfig) -> CollectedErrors {
         let mut shown = Vec::new();
         let mut suppressed = Vec::new();
         let mut disabled = Vec::new();
@@ -262,7 +262,7 @@ mod tests {
         );
         assert_eq!(
             errors
-                .collect(&ErrorConfig::default())
+                .collect(&ErrorDisplayConfig::default())
                 .shown
                 .map(|x| x.msg()),
             vec!["a", "b", "a"]
@@ -308,7 +308,7 @@ mod tests {
             None,
         );
 
-        let config = ErrorConfig::new(HashMap::from([
+        let config = ErrorDisplayConfig::new(HashMap::from([
             (ErrorKind::AsyncError, true),
             (ErrorKind::BadAssignment, false),
             (ErrorKind::NotIterable, false),

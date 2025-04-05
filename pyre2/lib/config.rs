@@ -55,9 +55,9 @@ pub fn set_option_if_some<T: Clone>(config_field: &mut Option<T>, value: Option<
 /// will be treated as `<error-kind> = true`.
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
 #[serde(transparent)]
-pub struct ErrorConfig(HashMap<ErrorKind, bool>);
+pub struct ErrorDisplayConfig(HashMap<ErrorKind, bool>);
 
-impl ErrorConfig {
+impl ErrorDisplayConfig {
     pub fn new(config: HashMap<ErrorKind, bool>) -> Self {
         Self(config)
     }
@@ -69,14 +69,14 @@ impl ErrorConfig {
     }
 }
 
-/// Represents a collection of `ErrorConfig`s keyed on the `ModulePath` of the file.
-/// INternal detail: the `ErrorConfig` in `self.1` is an `ErrorConfig::default()`, which
-/// is used in the `ErrorConfigs::get()` function when no config is found, so that we can
+/// Represents a collection of `ErrorDisplayConfig`s keyed on the `ModulePath` of the file.
+/// Internal detail: the `ErrorDisplayConfig` in `default_config` is an `ErrorDisplayConfig::default()`,
+/// which is used in the `ErrorConfigs::get()` function when no config is found, so that we can
 /// return a reference without dropping the original immediately after.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ErrorConfigs {
-    overrides: HashMap<ModulePath, ErrorConfig>,
-    default_config: ErrorConfig,
+    overrides: HashMap<ModulePath, ErrorDisplayConfig>,
+    default_config: ErrorDisplayConfig,
 }
 
 impl Default for ErrorConfigs {
@@ -86,16 +86,16 @@ impl Default for ErrorConfigs {
 }
 
 impl ErrorConfigs {
-    pub fn new(overrides: HashMap<ModulePath, ErrorConfig>) -> Self {
+    pub fn new(overrides: HashMap<ModulePath, ErrorDisplayConfig>) -> Self {
         Self {
             overrides,
-            default_config: ErrorConfig::default(),
+            default_config: ErrorDisplayConfig::default(),
         }
     }
 
-    /// Gets a reference to the `ErrorConfig` for the given path, or returns a reference to
+    /// Gets a reference to the `ErrorDisplayConfig` for the given path, or returns a reference to
     /// the 'default' error config if none could be found.
-    pub fn get(&self, path: &ModulePath) -> &ErrorConfig {
+    pub fn get(&self, path: &ModulePath) -> &ErrorDisplayConfig {
         self.overrides.get(path).unwrap_or(&self.default_config)
     }
 }
@@ -268,7 +268,7 @@ pub struct ConfigFile {
     pub python_environment: PythonEnvironment,
 
     #[serde(default)]
-    pub errors: ErrorConfig,
+    pub errors: ErrorDisplayConfig,
 
     /// String-prefix-matched names of modules from which import errors should be ignored
     /// and the module should always be replaced with `typing.Any`
@@ -298,7 +298,7 @@ impl Default for ConfigFile {
             project_excludes: Self::default_project_excludes(),
             skip_untyped_functions: false,
             python_interpreter: PythonEnvironment::get_default_interpreter(),
-            errors: ErrorConfig::default(),
+            errors: ErrorDisplayConfig::default(),
             ignore_errors_in_generated_code: false,
             extras: Self::default_extras(),
             replace_imports_with_any: Vec::new(),
@@ -347,8 +347,8 @@ impl ConfigFile {
         self.python_environment.get_runtime_metadata()
     }
 
-    pub fn default_error_config() -> ErrorConfig {
-        ErrorConfig::default()
+    pub fn default_error_config() -> ErrorDisplayConfig {
+        ErrorDisplayConfig::default()
     }
 
     pub fn configure(&mut self) {
@@ -522,7 +522,7 @@ mod tests {
                 ),
                 python_interpreter: Some(PathBuf::from("python2")),
                 extras: ConfigFile::default_extras(),
-                errors: ErrorConfig::new(HashMap::from_iter([
+                errors: ErrorDisplayConfig::new(HashMap::from_iter([
                     (ErrorKind::AssertType, true),
                     (ErrorKind::BadReturn, false)
                 ])),
