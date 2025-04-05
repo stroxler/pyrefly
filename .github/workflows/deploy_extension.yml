@@ -2,7 +2,7 @@ name: deploy_extension
 on:
   push:
     paths:
-      - pyre2/version.bzl
+      - version.bzl
     branches: [ main ]
   workflow_dispatch:
 

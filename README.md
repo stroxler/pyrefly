@@ -52,7 +52,7 @@ version to PyPI.
 
 If you'd like to do a manual release between the weekly automated releases,
 follow the instructions in
-[version.bzl](https://www.internalfb.com/code/fbsource/fbcode/tools/pyre/pyre2/pyre2/version.bzl)
+[version.bzl](https://www.internalfb.com/code/fbsource/fbcode/tools/pyre/pyre2/version.bzl)
 to update the version number.
 
 Behind the scenes, what's happening is:
