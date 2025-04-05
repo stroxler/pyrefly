@@ -8,7 +8,7 @@ set -ex
 
 # clone upstream so we can copy code in
 rm -rf /tmp/oss-python-typing
-git clone https://github.com/python/typing.git /tmp/oss-python-typing
+git -c http.proxy=fwdproxy:8080 clone https://github.com/python/typing.git /tmp/oss-python-typing
 
 # set up the source tree for (internal) pyre
 find third_party -type f -name "*.py" -exec rm {} +

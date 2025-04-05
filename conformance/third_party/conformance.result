@@ -39,13 +39,13 @@
   "aliases_type_statement.py": [
     "Line 26: Expected 1 errors",
     "Line 43: Expected 1 errors",
-    "Line 52: Expected 1 errors",
-    "Line 58: Expected 1 errors",
+    "Line 56: Expected 1 errors",
+    "Line 77: Expected 1 errors",
     "Line 79: Expected 1 errors",
-    "Line 81: Expected 1 errors",
+    "Line 82: Expected 1 errors",
     "Line 84: Expected 1 errors",
-    "Line 86: Expected 1 errors",
-    "Line 90: Expected 1 errors"
+    "Lines 51, 52: Expected error (tag 'TA14')",
+    "Lines 88, 89: Expected error (tag 'RTA6')"
   ],
   "aliases_typealiastype.py": [
     "Line 44: Expected 1 errors",
@@ -93,8 +93,8 @@
   "annotations_generators.py": [
     "Line 87: Expected 1 errors",
     "Line 92: Expected 1 errors",
-    "Line 182: Unexpected errors ['assert_type(() -> AsyncIterator[int], () -> Coroutine[Any, Any, AsyncIterator[int]]) failed']",
-    "Line 187: Unexpected errors ['Expected to yield a value of type `int`, but a bare `yield` gives `None` instead']"
+    "Line 185: Unexpected errors ['`() -> AsyncIterator[int]` is not assignable to `() -> Coroutine[Any, Any, AsyncIterator[int]]`']",
+    "Line 190: Unexpected errors ['Expected to yield a value of type `int`, but a bare `yield` gives `None` instead']"
   ],
   "annotations_methods.py": [
     "Line 19: Unexpected errors ['Expected a callable, got type[TypeVar[T]]']",
@@ -122,7 +122,7 @@
     "Line 54: Expected 1 errors"
   ],
   "classes_override.py": [
-    "Lines 56, 65: Expected error (tag 'method4')"
+    "Lines 56, 64, 65: Expected error (tag 'method4')"
   ],
   "constructors_call_init.py": [
     "Line 107: Expected 1 errors",
@@ -293,20 +293,21 @@
   ],
   "generics_base_class.py": [
     "Line 30: Expected 1 errors",
-    "Line 68: Expected 1 errors"
+    "Line 68: Expected 1 errors",
+    "Line 98: Expected 1 errors"
   ],
   "generics_basic.py": [
     "Line 49: Expected 1 errors",
     "Line 55: Expected 1 errors",
     "Line 121: Expected 1 errors",
-    "Line 191: Expected 1 errors",
+    "Line 162: Expected 1 errors",
+    "Line 163: Expected 1 errors",
+    "Line 208: Expected 1 errors",
     "Line 34: Unexpected errors ['`+` is not supported between `TypeVar[AnyStr]` and `TypeVar[AnyStr]`\\n  TODO: Expr::binop_infer attribute base undefined for type: TypeVar[AnyStr] (trying to access __add__)', '`+` is not supported between `TypeVar[AnyStr]` and `TypeVar[AnyStr]`\\n  TODO: Expr::binop_infer attribute base undefined for type: TypeVar[AnyStr] (trying to access __radd__)']",
     "Line 67: Unexpected errors ['assert_type(MyStr, str) failed']",
     "Line 68: Unexpected errors ['assert_type(MyStr, str) failed', 'Argument `str` is not assignable to parameter `y` with type `MyStr` in function `concat`']"
   ],
   "generics_defaults.py": [
-    "Line 104: Expected 1 errors",
-    "Line 111: Expected 1 errors",
     "Line 127: Unexpected errors ['assert_type(Any, int) failed']",
     "Line 148: Unexpected errors ['A type parameter without a default cannot follow one with a default', 'Class `Foo6` uses type variables not specified in `Generic` or `Protocol` base']",
     "Line 151: Unexpected errors ['assert_type(type[Foo6[Ellipsis, tuple[str]]], type[Foo6[Ellipsis, tuple[str, [float, bool]]]]) failed', 'Expected a valid ParamSpec expression, got `int`', 'Expected a valid ParamSpec expression, got `int`']",
@@ -317,12 +318,12 @@
   "generics_defaults_referential.py": [
     "Line 53: Expected 1 errors",
     "Line 60: Expected 1 errors",
-    "Line 68: Expected 1 errors",
-    "Line 74: Expected 1 errors",
-    "Line 78: Expected 1 errors",
     "Line 23: Unexpected errors ['assert_type(type[slice[int, TypeVar(StartT, default=int, invariant), int | None]], type[slice[int, int, int | None]]) failed']",
     "Line 24: Unexpected errors ['assert_type(slice[int, TypeVar(StartT, default=int, invariant), int | None], slice[int, int, int | None]) failed']",
     "Line 25: Unexpected errors ['assert_type(slice[str, TypeVar(StartT, default=int, invariant), int | None], slice[str, str, int | None]) failed']",
+    "Line 66: Unexpected errors ['Expected default `TypeVar(X1, bound=int, invariant)` of `Ok1` to be assignable to the upper bound of `float`']",
+    "Line 67: Unexpected errors ['Expected default `TypeVar(X1, bound=int, invariant)` of `AlsoOk1` to be assignable to the upper bound of `int`']",
+    "Line 77: Unexpected errors ['Expected default `TypeVar(Y2, constraints=(int, str), invariant)` of `AlsoOk2` to be one of the following constraints: `int`, `str`, `bool`']",
     "Line 94: Unexpected errors ['assert_type(type[Bar[Any, list[TypeVar(Z1, invariant)]]], type[Bar[Any, list[Any]]]) failed']",
     "Line 95: Unexpected errors ['assert_type(type[Bar[int, list[TypeVar(Z1, invariant)]]], type[Bar[int, list[int]]]) failed']",
     "Line 96: Unexpected errors ['assert_type(Bar[int, list[TypeVar(Z1, invariant)]], Bar[int, list[int]]) failed']"
@@ -382,19 +383,15 @@
   ],
   "generics_syntax_compatibility.py": [],
   "generics_syntax_declarations.py": [
-    "Line 46: Expected 1 errors",
-    "Line 14: Unexpected errors ['assert_type(type[TypeVar[T]], TypeVar) failed']",
-    "Line 15: Unexpected errors ['assert_type(type[TypeVarTuple[Ts]], TypeVarTuple) failed']",
-    "Line 16: Unexpected errors ['assert_type(type[ParamSpec[P]], ParamSpec) failed']"
+    "Line 44: Expected 1 errors"
   ],
   "generics_syntax_infer_variance.py": [
     "Line 28: Unexpected errors ['`ShouldBeCovariant1[int]` is not assignable to `ShouldBeCovariant1[float]`']",
     "Line 36: Unexpected errors ['`ShouldBeCovariant2[int]` is not assignable to `ShouldBeCovariant2[float]`']",
     "Line 45: Unexpected errors ['`ShouldBeCovariant3[int]` is not assignable to `ShouldBeCovariant3[float]`']",
-    "Line 54: Unexpected errors ['`ShouldBeCovariant4[int]` is not assignable to `ShouldBeCovariant4[float]`']",
-    "Line 67: Unexpected errors ['`ShouldBeCovariant5[int]` is not assignable to `ShouldBeCovariant5[float]`']",
-    "Line 78: Unexpected errors ['`ShouldBeCovariant6[int]` is not assignable to `ShouldBeCovariant6[float]`']",
-    "Line 149: Unexpected errors ['`ShouldBeContravariant1[float]` is not assignable to `ShouldBeContravariant1[int]`']"
+    "Line 74: Unexpected errors ['`ShouldBeCovariant5[int]` is not assignable to `ShouldBeCovariant5[float]`']",
+    "Line 85: Unexpected errors ['`ShouldBeCovariant6[int]` is not assignable to `ShouldBeCovariant6[float]`']",
+    "Line 156: Unexpected errors ['`ShouldBeContravariant1[float]` is not assignable to `ShouldBeContravariant1[int]`']"
   ],
   "generics_syntax_scoping.py": [
     "Line 14: Expected 1 errors",
@@ -492,7 +489,38 @@
     "Line 199: Expected 1 errors"
   ],
   "overloads_basic.py": [
-    "Line 36: Unexpected errors ['assert_type(Any, bytes) failed', 'Cannot index into `Bytes`\\n  No matching overload found for function `Bytes.__getitem__`, reporting errors for closest overload: `(__i: int) -> int`', 'Argument `slice[int, int, int]` is not assignable to parameter `__i` with type `int` in function `Bytes.__getitem__`']"
+    "Line 38: Unexpected errors ['assert_type(Any, bytes) failed', 'Cannot index into `Bytes`\\n  No matching overload found for function `Bytes.__getitem__`, reporting errors for closest overload: `(__i: int) -> int`', 'Argument `slice[int, int, int]` is not assignable to parameter `__i` with type `int` in function `Bytes.__getitem__`']"
+  ],
+  "overloads_consistency.py": [
+    "Lines 25, 28: Expected error (tag 'return_type')",
+    "Lines 41, 44: Expected error (tag 'parameter_type')"
+  ],
+  "overloads_definitions.py": [
+    "Lines 71, 73, 78, 81: Expected error (tag 'func5')",
+    "Lines 84, 86, 90, 94: Expected error (tag 'func6')",
+    "Lines 121, 123, 127: Expected error (tag 'invalid_final')",
+    "Lines 135, 137, 142: Expected error (tag 'invalid_final_2')",
+    "Lines 170, 175, 181, 183: Expected error (tag 'override-final')",
+    "Lines 190, 191, 198: Expected error (tag 'bad_override')",
+    "Lines 220, 222, 226: Expected error (tag 'override_impl')",
+    "Line 49: Unexpected errors ['Overloaded function must have an implementation']"
+  ],
+  "overloads_evaluation.py": [
+    "Line 105: Unexpected errors ['No matching overload found for function `example2`, reporting errors for closest overload: `(x: int, y: str, z: int) -> str`', 'Argument `int | str` is not assignable to parameter `y` with type `str` in function `example2`']",
+    "Line 106: Unexpected errors ['assert_type(Any, int | str) failed']",
+    "Line 134: Unexpected errors ['No matching overload found for function `expand_bool`, reporting errors for closest overload: `(x: Literal[False]) -> Literal[0]`', 'Argument `bool` is not assignable to parameter `x` with type `Literal[False]` in function `expand_bool`']",
+    "Line 135: Unexpected errors ['assert_type(Any, Literal[0, 1]) failed']",
+    "Line 156: Unexpected errors ['Returned type `property` is not assignable to declared return type `int`']",
+    "Line 160: Unexpected errors ['No matching overload found for function `expand_enum`, reporting errors for closest overload: `(x: Literal[Color.RED]) -> Literal[0]`', 'Argument `Color` is not assignable to parameter `x` with type `Literal[Color.RED]` in function `expand_enum`']",
+    "Line 161: Unexpected errors ['assert_type(Any, Literal[0, 1]) failed']",
+    "Line 180: Unexpected errors ['No matching overload found for function `expand_type_union`, reporting errors for closest overload: `(x: type[int]) -> int`', 'Argument `type[int | str]` is not assignable to parameter `x` with type `type[int]` in function `expand_type_union`']",
+    "Line 181: Unexpected errors ['assert_type(Any, int | str) failed']",
+    "Line 204: Unexpected errors ['No matching overload found for function `expand_tuple`, reporting errors for closest overload: `(x: tuple[int, int]) -> int`', 'Argument `tuple[Literal[1], int | str]` is not assignable to parameter `x` with type `tuple[int, int]` in function `expand_tuple`']",
+    "Line 205: Unexpected errors ['assert_type(Any, int | str) failed']",
+    "Line 234: Unexpected errors ['assert_type(str, int) failed']",
+    "Line 264: Unexpected errors ['assert_type(list[int], Any) failed']",
+    "Line 280: Unexpected errors ['assert_type(list[int], Any) failed']",
+    "Line 345: Unexpected errors ['assert_type(list[int], Any) failed']"
   ],
   "protocols_class_objects.py": [
     "Line 29: Expected 1 errors",
@@ -518,8 +546,7 @@
   ],
   "protocols_generic.py": [
     "Line 87: Unexpected errors ['Returned type `HasParent` is not assignable to declared return type `TypeVar[GenericHasParent]`']",
-    "Line 144: Unexpected errors ['`ConcreteHasProperty1` is not assignable to `HasPropertyProto`']",
-    "Line 145: Unexpected errors ['`ConcreteHasProperty2` is not assignable to `HasPropertyProto`']"
+    "Line 144: Unexpected errors ['`ConcreteHasProperty1` is not assignable to `HasPropertyProto`']"
   ],
   "protocols_merging.py": [
     "Line 82: Expected 1 errors"
@@ -577,6 +604,8 @@
     "Line 149: Expected 1 errors",
     "Line 152: Expected 1 errors",
     "Line 155: Expected 1 errors",
+    "Line 166: Expected 1 errors",
+    "Line 170: Expected 1 errors",
     "Line 131: Unexpected errors ['Expected first item to be a string literal', 'Expected first item to be a string literal']",
     "Line 133: Unexpected errors ['Unexpected keyword argument `x` in function `N.__new__`', 'Unexpected keyword argument `y` in function `N.__new__`']"
   ],
