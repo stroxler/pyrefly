@@ -1839,16 +1839,6 @@
     {
       "code": -2,
       "column": 17,
-      "concise_description": "Argument `int` is not assignable to parameter `v1` with type `Unpack[TypedDict[TD2]]` in function `func1`",
-      "description": "Argument `int` is not assignable to parameter `v1` with type `Unpack[TypedDict[TD2]]` in function `func1`",
-      "line": 63,
-      "name": "bad-argument-type",
-      "stop_column": 22,
-      "stop_line": 63
-    },
-    {
-      "code": -2,
-      "column": 17,
       "concise_description": "Multiple values for argument `v1` in function `func1`",
       "description": "Multiple values for argument `v1` in function `func1`",
       "line": 63,
@@ -1875,16 +1865,6 @@
       "name": "bad-keyword-argument",
       "stop_column": 19,
       "stop_line": 64
-    },
-    {
-      "code": -2,
-      "column": 17,
-      "concise_description": "Argument `int` is not assignable to parameter `v1` with type `Unpack[TypedDict[TD1]]` in function `func2`",
-      "description": "Argument `int` is not assignable to parameter `v1` with type `Unpack[TypedDict[TD1]]` in function `func2`",
-      "line": 65,
-      "name": "bad-argument-type",
-      "stop_column": 22,
-      "stop_line": 65
     },
     {
       "code": -2,

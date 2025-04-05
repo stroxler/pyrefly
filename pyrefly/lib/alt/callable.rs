@@ -12,6 +12,7 @@ use ruff_python_ast::Keyword;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
@@ -33,7 +34,6 @@ use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 use crate::util::display::count;
 use crate::util::prelude::VecExt;
-use crate::util::visit::Visit;
 
 #[derive(Clone, Debug)]
 pub enum CallArg<'a> {
@@ -240,10 +240,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )
         };
         let iargs = self_arg.iter().chain(args.iter());
-        let mut iparams = params.items().iter().enumerate().peekable();
+        let mut iparams = params.items().iter().peekable();
         let mut num_positional_params = 0;
         let mut num_positional_args = 0;
-        let mut seen_names: SmallMap<Name, usize> = SmallMap::new();
+        let mut seen_names = SmallSet::new();
         let mut extra_arg_pos = None;
         let mut unpacked_vararg = None;
         let mut unpacked_vararg_matched_args = Vec::new();
@@ -252,7 +252,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             while arg_pre.step() {
                 num_positional_args += 1;
                 let mut matched_unpacked_vararg = false;
-                let param = if let Some((p_idx, p)) = iparams.peek() {
+                let param = if let Some(p) = iparams.peek() {
                     match p {
                         Param::PosOnly(ty, _required) => {
                             num_positional_params += 1;
@@ -261,7 +261,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                         Param::Pos(name, ty, _required) => {
                             num_positional_params += 1;
-                            seen_names.insert(name.clone(), *p_idx);
+                            seen_names.insert(name.clone());
                             iparams.next();
                             Some((ty, Some(name), false))
                         }
@@ -399,7 +399,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut kwparams = SmallMap::new();
         let mut kwargs = None;
         let mut kwargs_is_unpack = false;
-        for (p_idx, p) in iparams {
+        for p in iparams {
             match p {
                 Param::PosOnly(_, required) => {
                     if *required == Required::Required {
@@ -408,14 +408,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 Param::VarArg(..) => {}
                 Param::Pos(name, ty, required) | Param::KwOnly(name, ty, required) => {
-                    kwparams.insert(name.clone(), (p_idx, ty, *required == Required::Required));
+                    kwparams.insert(name.clone(), (ty, *required == Required::Required));
                 }
                 Param::Kwargs(Type::Unpack(box Type::TypedDict(typed_dict))) => {
                     let i = kwargs_typed_dict_fields_vec.push(self.typed_dict_fields(typed_dict));
                     kwargs_typed_dict_fields_vec[i]
                         .iter()
                         .for_each(|(name, field)| {
-                            kwparams.insert(name.clone(), (p_idx, &field.ty, field.required));
+                            kwparams.insert(name.clone(), (&field.ty, field.required));
                         });
                     kwargs_is_unpack = true;
                 }
@@ -446,16 +446,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .iter()
                             .for_each(|(name, field)| {
                                 let mut hint = kwargs;
-                                if let Some(&p_idx) = seen_names.get(name) {
+                                if seen_names.contains(name) {
                                     error(
                                         call_errors,
                                         kw.range,
                                         ErrorKind::BadKeywordArgument,
                                         format!("Multiple values for argument `{}`", name),
                                     );
-                                    params.items()[p_idx].visit(&mut |ty| hint = Some(ty));
-                                } else if let Some(&(p_idx, ty, required)) = kwparams.get(name) {
-                                    seen_names.insert(name.clone(), p_idx);
+                                } else if let Some(&(ty, required)) = kwparams.get(name) {
+                                    seen_names.insert(name.clone());
                                     if required && !field.required {
                                         error(
                                             call_errors,
@@ -543,19 +542,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(id) => {
                     let mut hint = kwargs;
                     let mut has_matching_param = false;
-                    if let Some(&p_idx) = seen_names.get(&id.id) {
+                    if seen_names.contains(&id.id) {
                         error(
                             call_errors,
                             kw.range,
                             ErrorKind::BadKeywordArgument,
                             format!("Multiple values for argument `{}`", id.id),
                         );
-                        params.items()[p_idx].visit(&mut |ty| {
-                            hint = Some(ty);
-                        });
                         has_matching_param = true;
-                    } else if let Some(&(p_idx, ty, _)) = kwparams.get(&id.id) {
-                        seen_names.insert(id.id.clone(), p_idx);
+                    } else if let Some(&(ty, _)) = kwparams.get(&id.id) {
+                        seen_names.insert(id.id.clone());
                         hint = Some(ty);
                         has_matching_param = true;
                     } else if kwargs.is_none() {
@@ -586,8 +582,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
         }
-        for (name, &(_, want, required)) in kwparams.iter() {
-            if !seen_names.contains_key(name) {
+        for (name, &(want, required)) in kwparams.iter() {
+            if !seen_names.contains(name) {
                 if splat_kwargs.is_empty() && required {
                     error(
                         call_errors,
