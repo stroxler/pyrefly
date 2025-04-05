@@ -21,7 +21,6 @@ use crate::module::module_name::ModuleName;
 use crate::types::callable::Function;
 use crate::types::class::TArgs;
 use crate::types::qname::QName;
-use crate::types::type_info::TypeInfo;
 use crate::types::type_var::Restriction;
 use crate::types::types::AnyStyle;
 use crate::types::types::BoundMethod;
@@ -344,12 +343,6 @@ impl Display for Type {
     }
 }
 
-impl Display for TypeInfo {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.ty().fmt(f)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -374,6 +367,7 @@ mod tests {
     use crate::types::quantified::QuantifiedInfo;
     use crate::types::quantified::QuantifiedKind;
     use crate::types::tuple::Tuple;
+    use crate::types::type_info::TypeInfo;
     use crate::types::type_var::Restriction;
     use crate::types::type_var::TypeVar;
     use crate::types::type_var::Variance;
@@ -549,5 +543,15 @@ mod tests {
             Type::TypedDict(Box::new(td)).to_string(),
             "TypedDict[C[None]]"
         );
+    }
+
+    #[test]
+    fn test_display_type_info() {
+        let foo = Type::ClassType(ClassType::new(
+            fake_class("Foo", "foo", 5, Vec::new()),
+            TArgs::default(),
+        ));
+        let type_info = TypeInfo::of_ty(foo);
+        assert_eq!(type_info.to_string(), "Foo")
     }
 }

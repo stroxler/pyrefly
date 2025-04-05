@@ -5,8 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::fmt;
+use std::fmt::Display;
 use std::sync::Arc;
 
+use itertools::Itertools;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
@@ -72,12 +75,75 @@ impl TypeInfo {
     }
 }
 
+impl Display for TypeInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.ty().fmt(f)?;
+        if let NarrowedAttrs(Some(_)) = &self.attrs {
+            write!(f, " ({})", self.attrs)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
 pub struct NarrowedAttrs(Option<OrderedMap<Name, NarrowedAttr>>);
 
 impl NarrowedAttrs {
     fn new() -> Self {
         Self(None)
+    }
+
+    fn fmt_with_prefix(&self, prefix: &mut Vec<String>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(attrs) = &self.0 {
+            let mut first = true;
+            for (name, value) in attrs.iter() {
+                if first {
+                    first = false
+                } else {
+                    write!(f, ", ")?;
+                }
+                match value {
+                    NarrowedAttr::Leaf(ty) => Self::fmt_type_with_label(prefix, name, ty, f),
+                    NarrowedAttr::WithRoot(ty, attrs) => {
+                        Self::fmt_type_with_label(prefix, name, ty, f)?;
+                        write!(f, ", ")?;
+                        attrs.fmt_with_prefix_and_name(prefix, name, f)
+                    }
+                    NarrowedAttr::WithoutRoot(attrs) => {
+                        attrs.fmt_with_prefix_and_name(prefix, name, f)
+                    }
+                }?;
+            }
+        }
+        Ok(())
+    }
+
+    fn fmt_with_prefix_and_name<'a>(
+        &self,
+        prefix: &mut Vec<String>,
+        name: &'a Name,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        prefix.push(name.to_string());
+        self.fmt_with_prefix(prefix, f)?;
+        prefix.pop();
+        Ok(())
+    }
+
+    fn fmt_type_with_label(
+        prefix: &[String],
+        name: &Name,
+        ty: &Type,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        write!(
+            f,
+            "_.{}{}{}: {}",
+            prefix.iter().join("."),
+            if prefix.is_empty() { "" } else { "." },
+            name,
+            ty
+        )
     }
 }
 
@@ -98,6 +164,12 @@ impl VisitMut<Type> for NarrowedAttrs {
                 value.visit_mut(f);
             })
         }
+    }
+}
+
+impl Display for NarrowedAttrs {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_with_prefix(&mut Vec::new(), f)
     }
 }
 
