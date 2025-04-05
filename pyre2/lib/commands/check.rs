@@ -503,9 +503,10 @@ impl Args {
             print_error_summary(&errors.shown, path_index);
         }
         info!(
-            "{} errors ({} suppressed), {} modules, {} lines, took {printing:.2?} ({computing:.2?} without printing errors), peak memory {}",
-            number_thousands(errors.shown.len() + errors.suppressed.len() + errors.disabled.len()),
-            number_thousands(errors.suppressed.len() + errors.disabled.len()),
+            "{} errors shown, {} errors disabled, {} errors suppressed, {} modules, {} lines, took {printing:.2?} ({computing:.2?} without printing errors), peak memory {}",
+            number_thousands(errors.shown.len()),
+            number_thousands(errors.disabled.len()),
+            number_thousands(errors.suppressed.len()),
             number_thousands(readable_state.module_count()),
             number_thousands(readable_state.line_count()),
             memory_trace.peak()
