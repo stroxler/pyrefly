@@ -275,6 +275,11 @@ pub struct ConfigFile {
     #[serde(default)]
     pub replace_imports_with_any: Vec<String>,
 
+    /// Whether to ignore type errors in generated code. By default this is disabled.
+    /// Generated code is defined as code that contains the marker string `@` immediately followed by `generated`.
+    #[serde(default)]
+    pub ignore_errors_in_generated_code: bool,
+
     /// Any unknown config items
     #[serde(default, flatten)]
     pub extras: ExtraConfigs,
@@ -294,6 +299,7 @@ impl Default for ConfigFile {
             skip_untyped_functions: false,
             python_interpreter: PythonEnvironment::get_default_interpreter(),
             errors: ErrorConfig::default(),
+            ignore_errors_in_generated_code: false,
             extras: Self::default_extras(),
             replace_imports_with_any: Vec::new(),
         }
@@ -493,6 +499,7 @@ mod tests {
             site_package_path = [\"venv/lib/python1.2.3/site-packages\"]
             python_interpreter = \"python2\"
             replace_imports_with_any = [\"fibonacci\"]
+            ignore_errors_in_generated_code = true
             [errors]
             assert-type = true
             bad-return = false
@@ -519,6 +526,7 @@ mod tests {
                     (ErrorKind::AssertType, true),
                     (ErrorKind::BadReturn, false)
                 ])),
+                ignore_errors_in_generated_code: true,
                 replace_imports_with_any: vec!["fibonacci".to_owned()],
             },
         );
@@ -650,9 +658,7 @@ mod tests {
             search_path: vec![PathBuf::from("../..")],
             python_environment: python_environment.clone(),
             python_interpreter: PythonEnvironment::get_default_interpreter(),
-            errors: ErrorConfig::default(),
-            extras: ConfigFile::default_extras(),
-            replace_imports_with_any: Vec::new(),
+            ..Default::default()
         };
 
         let path_str = with_sep("path/to/my/config");

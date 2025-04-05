@@ -128,6 +128,10 @@ pub struct Args {
     /// Check against any `E:` lines in the file.
     #[clap(long, env = clap_env("EXPECTATIONS"))]
     expectations: bool,
+    /// Whether to ignore type errors in generated code.
+    /// Generated code is defined as code that contains the marker string `@` immediately followed by `generated`.
+    #[clap(long, env = clap_env("IGNORE_ERRORS_IN_GENERATED_CODE"))]
+    ignore_errors_in_generated_code: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -410,6 +414,10 @@ impl Args {
         set_option_if_some(
             &mut config.python_interpreter,
             self.python_interpreter.as_ref(),
+        );
+        set_if_some(
+            &mut config.ignore_errors_in_generated_code,
+            self.ignore_errors_in_generated_code.as_ref(),
         );
         config.configure();
     }

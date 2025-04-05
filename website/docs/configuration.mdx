@@ -170,6 +170,13 @@ the config is invalid.
   - Equivalent configs: `ignore_missing_imports` in mypy
   - Notes: `reportMissingImports = false` has similar behavior in Pyright, but ignores *all* import errors instead
     of import errors from specific modules.
+- `ignore_errors_in_generated_code`: Whether to ignore type errors in generated code. If enabled, generated files
+  will be treated as if they are included in `project_excludes`.
+  Generated code are determined by checking if the file contents contain the substring `{'@' + 'generated'}`.
+  - Type: bool
+  - Default: false
+  - Flag equivalent: `--ignore-errors-in-generated-code`
+  - ENV equivalent: `IGNORE_ERRORS_IN_GENERATED_CODE`
 
 # Environment Autoconfiguration
 
