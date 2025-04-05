@@ -10,30 +10,49 @@ use std::sync::Arc;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
+use ruff_python_ast::name::Name;
+use starlark_map::ordered_map::OrderedMap;
 
 use crate::types::types::Type;
+use crate::util::visit::Visit;
+use crate::util::visit::VisitMut;
 
 /// The `TypeInfo` datatype represents type information associated with a
 /// name or expression in a control flow context.
 ///
-/// This is distinct from `Type` because expressions and bound names can have
-/// additional type information in them - in particular, knowledge of type
-/// narrowing - that is not part of the composable type system because it *only*
-/// applies to top-level expressions and names.
+/// This is distinct from `Type` because expressions and bound names can
+/// track, in addition to the type of the top-level value, zero or more
+/// attribute narrows where we have access to additional control-flow-dependent
+/// knowledge about how a chain of attribute accesses will resolve.
+///
+/// For example:
+/// ```
+/// x: Foo
+/// if x.foo is not None x.foo.bar is None and x.baz is None:
+///     # here, `x` is still `Foo` but we also can narrow
+///     # `x.foo`, `x.foo.bar`, and `x.baz`.
+/// ```
 #[derive(
     Debug, Clone, PartialEq, Eq, Visit, VisitMut, TypeEq, PartialOrd, Ord, Hash
 )]
 pub struct TypeInfo {
     pub ty: Type,
+    pub attrs: NarrowedAttrs,
 }
 
 impl TypeInfo {
     pub fn of_ty(ty: Type) -> Self {
-        Self { ty }
+        Self {
+            ty,
+            attrs: NarrowedAttrs::new(),
+        }
     }
 
     pub fn with_ty(self, ty: Type) -> Self {
-        Self { ty }
+        Self {
+            ty,
+            attrs: self.attrs,
+        }
     }
 
     pub fn ty(&self) -> &Type {
@@ -51,4 +70,43 @@ impl TypeInfo {
     pub fn arc_clone_ty(self: Arc<Self>) -> Type {
         self.arc_clone().into_ty()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+pub struct NarrowedAttrs(Option<OrderedMap<Name, NarrowedAttr>>);
+
+impl NarrowedAttrs {
+    fn new() -> Self {
+        Self(None)
+    }
+}
+
+impl Visit<Type> for NarrowedAttrs {
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Type)) {
+        if let Some(attrs) = &self.0 {
+            attrs.values().for_each(|value| {
+                value.visit(f);
+            })
+        }
+    }
+}
+
+impl VisitMut<Type> for NarrowedAttrs {
+    fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut Type)) {
+        if let Some(attrs) = &mut self.0 {
+            attrs.values_mut().for_each(|value| {
+                value.visit_mut(f);
+            })
+        }
+    }
+}
+
+#[expect(dead_code)]
+#[derive(
+    Debug, Clone, Visit, VisitMut, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash
+)]
+pub enum NarrowedAttr {
+    Leaf(Type),
+    WithRoot(Type, NarrowedAttrs),
+    WithoutRoot(NarrowedAttrs),
 }
