@@ -80,7 +80,7 @@ export default function TryPyre2Results({
     const activeToolbarTab = 'errors';
 
     return (
-        <div className={styles.resultsContainer}>
+        <div id="tryPyre2-results-container" className={styles.resultsContainer}>
             <div className={styles.resultsToolbar}>
                 <ul className={styles.tabs}>
                     <li

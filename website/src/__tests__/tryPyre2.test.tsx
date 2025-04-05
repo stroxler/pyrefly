@@ -1,0 +1,59 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * @format
+ */
+
+import '@testing-library/jest-dom';
+import { act } from 'react'
+import { render } from '@testing-library/react';
+import TryPyre2, { DEFAULT_PYTHON_PROGRAM } from '../try-pyre2/TryPyre2';
+import { PLAYGROUND_FILE_NAME } from '../pages/try';
+
+describe('Try Pyre2 Component', () => {
+    test('render sandbox correctly', async () => {
+        const container = await act(async () => {
+            const { container } = render(<TryPyre2 sampleFilename={PLAYGROUND_FILE_NAME} />);
+
+            await Promise.resolve(); // Let any promises from timers resolve
+            return container;
+        });
+
+        // Verify that the main editor component is rendered with the correct ID
+        const tryEditorElement = container.querySelector('#tryPyre2-editor');
+        expect(tryEditorElement).toBeInTheDocument();
+
+        // Verify that the code editor container is a child of tryPyre2-editor
+        const codeEditorContainer = tryEditorElement?.querySelector('#tryPyre2-code-editor-container');
+        expect(codeEditorContainer).toBeInTheDocument();
+
+        // Verify that the results container is a child of tryPyre2-editor
+        const resultsContainer = tryEditorElement?.querySelector('#tryPyre2-results-container');
+        expect(resultsContainer).toBeInTheDocument();
+
+        // Verify that the Monaco editor is rendered
+        const monacoEditor = codeEditorContainer.querySelector('#monaco-editor');
+        expect(monacoEditor).toBeInTheDocument();
+
+        // Verify that the editor has the correct path
+        expect(monacoEditor.textContent).toContain(`Monaco Editor (Path: ${PLAYGROUND_FILE_NAME})`);
+
+        // Verify that the editor textarea is rendered
+        const editorTextarea = monacoEditor.querySelector('#editor-textarea');
+        expect(editorTextarea).toBeInTheDocument();
+
+        // Verify that the editor content exactly matches the default Python program
+        expect(editorTextarea).toHaveValue(DEFAULT_PYTHON_PROGRAM);
+
+        // Verify that the share URL button exists
+        const shareUrlButton = codeEditorContainer.querySelector('#share-url-button');
+        expect(shareUrlButton).toBeInTheDocument();
+
+        // Run test with --update-snapshot to update the snapshot if the test is failing after
+        // you made a intentional change to the home page
+        expect(container).toMatchSnapshot();
+    });
+});

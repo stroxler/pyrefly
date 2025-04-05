@@ -23,7 +23,7 @@ import {
 import type { editor } from 'monaco-editor';
 import type { PyreflyErrorMessage } from './TryPyre2Results';
 
-const DEFAULT_PYTHON_PROGRAM = `
+export const DEFAULT_PYTHON_PROGRAM = `
 from typing import *
 
 def test(x: int):
@@ -159,8 +159,8 @@ export default function TryPyre2({
     };
 
     return (
-        <div className={styles.tryEditor}>
-            <div className={styles.codeEditorContainer}>
+        <div id="tryPyre2-editor" className={styles.tryEditor} >
+            <div id="tryPyre2-code-editor-container" className={styles.codeEditorContainer}>
                 {getPyre2Editor(
                     isCodeSnippet,
                     sampleFilename,
@@ -171,6 +171,7 @@ export default function TryPyre2({
                 )}
                 {!isCodeSnippet && (
                     <button
+                        id="share-url-button"
                         className={clsx(
                             styles.shareButton,
                             isCopied && styles.shareButtonCopied,

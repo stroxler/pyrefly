@@ -14,6 +14,8 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 const TryPyre2 = React.lazy(() => import('../try-pyre2/TryPyre2'));
 
+export const PLAYGROUND_FILE_NAME = "playground.py";
+
 export default function TryPyre2Page(): JSX.Element {
     const { siteConfig = {} } = useDocusaurusContext();
     return (
@@ -24,7 +26,7 @@ export default function TryPyre2Page(): JSX.Element {
             <BrowserOnly>
                 {() => (
                     <React.Suspense fallback={<div>Loading...</div>}>
-                        <TryPyre2 sampleFilename="playground.py" />
+                        <TryPyre2 sampleFilename={PLAYGROUND_FILE_NAME} />
                     </React.Suspense>
                 )}
             </BrowserOnly>

@@ -1,0 +1,79 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Try Pyre2 Component render sandbox correctly 1`] = `
+<div>
+  <div
+    id="tryPyre2-editor"
+  >
+    <div
+      id="tryPyre2-code-editor-container"
+    >
+      <div
+        data-language="python"
+        data-value="from typing import *
+
+def test(x: int):
+  return f"{x}"
+
+# reveal_type will produce a type error that tells you the type Pyrefly has
+# computed for the return (in this case, str)
+reveal_type(test(42))
+"
+        id="monaco-editor"
+      >
+        <div>
+          Monaco Editor (Path: playground.py)
+        </div>
+        <textarea
+          id="editor-textarea"
+          readonly=""
+          style="width: 100%; height: 200px;"
+        >
+          from typing import *
+
+def test(x: int):
+  return f"{x}"
+
+# reveal_type will produce a type error that tells you the type Pyrefly has
+# computed for the return (in this case, str)
+reveal_type(test(42))
+
+        </textarea>
+      </div>
+      <button
+        aria-label="share URL button"
+        class=""
+        id="share-url-button"
+      >
+        <span>
+          📋 Share URL
+        </span>
+      </button>
+    </div>
+    <div
+      id="tryPyre2-results-container"
+    >
+      <div>
+        <ul>
+          <li
+            class=""
+          >
+            Errors
+          </li>
+        </ul>
+      </div>
+      <div>
+        <pre
+          class=""
+        >
+          <ul>
+            <li>
+              No errors!
+            </li>
+          </ul>
+        </pre>
+      </div>
+    </div>
+  </div>
+</div>
+`;
