@@ -170,13 +170,17 @@ impl ErrorCollector {
         let mut shown = Vec::new();
         let mut suppressed = Vec::new();
         let mut disabled = Vec::new();
-        for err in self.errors.lock().iter() {
-            if err.is_ignored() {
-                suppressed.push(err.clone());
-            } else if !error_config.display_config.is_enabled(err.error_kind()) {
-                disabled.push(err.clone());
-            } else {
-                shown.push(err.clone());
+
+        let mut errors = self.errors.lock();
+        if !(self.module_info.is_generated() && error_config.ignore_errors_in_generated_code) {
+            for err in errors.iter() {
+                if err.is_ignored() {
+                    suppressed.push(err.clone());
+                } else if !error_config.display_config.is_enabled(err.error_kind()) {
+                    disabled.push(err.clone());
+                } else {
+                    shown.push(err.clone());
+                }
             }
         }
         CollectedErrors {
@@ -322,5 +326,27 @@ mod tests {
             errors.collect(&config).shown.map(|x| x.msg()),
             vec!["b", "a", "d"]
         );
+    }
+
+    #[test]
+    fn test_error_collector_generated_code() {
+        let mi = ModuleInfo::new(
+            ModuleName::from_name(&Name::new_static("main")),
+            ModulePath::filesystem(Path::new("main.py").to_owned()),
+            Arc::new(format!("# {}{}\ncontents", "@", "generated")),
+        );
+        let errors = ErrorCollector::new(mi.dupe(), ErrorStyle::Delayed);
+        errors.add(
+            TextRange::new(TextSize::new(1), TextSize::new(3)),
+            "a".to_owned(),
+            ErrorKind::InternalError,
+            None,
+        );
+
+        let config0 = ErrorConfig::new(ErrorDisplayConfig::default(), false);
+        assert_eq!(errors.collect(&config0).shown.map(|x| x.msg()), vec!["a"]);
+
+        let config1 = ErrorConfig::new(ErrorDisplayConfig::default(), true);
+        assert!(errors.collect(&config1).shown.map(|x| x.msg()).is_empty());
     }
 }

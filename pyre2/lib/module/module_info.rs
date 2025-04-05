@@ -24,6 +24,8 @@ use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::ruff::ast::Ast;
 
+static GENERATED_TOKEN: &str = concat!("@", "generated");
+
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Default)]
 pub struct SourceRange {
     pub start: SourceLocation,
@@ -62,6 +64,7 @@ struct ModuleInfoInner {
     path: ModulePath,
     index: LineIndex,
     ignore: Ignore,
+    is_generated: bool,
     contents: Arc<String>,
 }
 
@@ -70,11 +73,13 @@ impl ModuleInfo {
     pub fn new(name: ModuleName, path: ModulePath, contents: Arc<String>) -> Self {
         let index = LineIndex::from_source_text(&contents);
         let ignore = Ignore::new(&contents);
+        let is_generated = contents.contains(GENERATED_TOKEN);
         Self(Arc::new(ModuleInfoInner {
             name,
             path,
             index,
             ignore,
+            is_generated,
             contents,
         }))
     }
@@ -112,6 +117,10 @@ impl ModuleInfo {
 
     pub fn path(&self) -> &ModulePath {
         &self.0.path
+    }
+
+    pub fn is_generated(&self) -> bool {
+        self.0.is_generated
     }
 
     pub fn contents(&self) -> &Arc<String> {
