@@ -29,8 +29,8 @@ use crate::commands::util::module_from_path;
 use crate::config::set_if_some;
 use crate::config::set_option_if_some;
 use crate::config::ConfigFile;
+use crate::config::ErrorConfig;
 use crate::config::ErrorConfigs;
-use crate::config::ErrorDisplayConfig;
 use crate::error::error::print_error_counts;
 use crate::error::error::print_errors;
 use crate::error::error::Error;
@@ -212,7 +212,7 @@ struct Handles {
     /// The value type is basically everything else in `Handle` except for the file path.
     path_data: HashMap<PathBuf, (ModuleName, RuntimeMetadata, LoaderId)>,
     /// A the underlying HashMap that will be used to create an `ErrorConfigs` when requested.
-    module_to_error_config: HashMap<ModulePath, ErrorDisplayConfig>,
+    module_to_error_config: HashMap<ModulePath, ErrorConfig>,
 }
 
 impl Handles {
@@ -234,8 +234,13 @@ impl Handles {
         config_finder: &impl Fn(&Path) -> ConfigFile,
     ) -> &(ModuleName, RuntimeMetadata, LoaderId) {
         let config = config_finder(&path);
-        self.module_to_error_config
-            .insert(ModulePath::filesystem(path.clone()), config.errors.clone());
+        self.module_to_error_config.insert(
+            ModulePath::filesystem(path.clone()),
+            ErrorConfig::new(
+                config.errors.clone(),
+                config.ignore_errors_in_generated_code,
+            ),
+        );
         let loader = self.get_or_register_loader(&config);
         let module_name = module_from_path(&path, &config.search_path);
         self.path_data

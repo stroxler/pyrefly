@@ -69,14 +69,29 @@ impl ErrorDisplayConfig {
     }
 }
 
-/// Represents a collection of `ErrorDisplayConfig`s keyed on the `ModulePath` of the file.
-/// Internal detail: the `ErrorDisplayConfig` in `default_config` is an `ErrorDisplayConfig::default()`,
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub struct ErrorConfig {
+    pub display_config: ErrorDisplayConfig,
+    pub ignore_errors_in_generated_code: bool,
+}
+
+impl ErrorConfig {
+    pub fn new(display_config: ErrorDisplayConfig, ignore_errors_in_generated_code: bool) -> Self {
+        Self {
+            display_config,
+            ignore_errors_in_generated_code,
+        }
+    }
+}
+
+/// Represents a collection of `ErrorConfig`s keyed on the `ModulePath` of the file.
+/// Internal detail: the `ErrorConfig` in `default_config` is an `ErrorConfig::default()`,
 /// which is used in the `ErrorConfigs::get()` function when no config is found, so that we can
 /// return a reference without dropping the original immediately after.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ErrorConfigs {
-    overrides: HashMap<ModulePath, ErrorDisplayConfig>,
-    default_config: ErrorDisplayConfig,
+    overrides: HashMap<ModulePath, ErrorConfig>,
+    default_config: ErrorConfig,
 }
 
 impl Default for ErrorConfigs {
@@ -86,16 +101,16 @@ impl Default for ErrorConfigs {
 }
 
 impl ErrorConfigs {
-    pub fn new(overrides: HashMap<ModulePath, ErrorDisplayConfig>) -> Self {
+    pub fn new(overrides: HashMap<ModulePath, ErrorConfig>) -> Self {
         Self {
             overrides,
-            default_config: ErrorDisplayConfig::default(),
+            default_config: ErrorConfig::default(),
         }
     }
 
-    /// Gets a reference to the `ErrorDisplayConfig` for the given path, or returns a reference to
+    /// Gets a reference to the `ErrorConfig` for the given path, or returns a reference to
     /// the 'default' error config if none could be found.
-    pub fn get(&self, path: &ModulePath) -> &ErrorDisplayConfig {
+    pub fn get(&self, path: &ModulePath) -> &ErrorConfig {
         self.overrides.get(path).unwrap_or(&self.default_config)
     }
 }

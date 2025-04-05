@@ -14,7 +14,7 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use vec1::vec1;
 
-use crate::config::ErrorDisplayConfig;
+use crate::config::ErrorConfig;
 use crate::error::context::ErrorContext;
 use crate::error::error::Error;
 use crate::error::kind::ErrorKind;
@@ -166,14 +166,14 @@ impl ErrorCollector {
         self.errors.lock().len()
     }
 
-    pub fn collect(&self, error_config: &ErrorDisplayConfig) -> CollectedErrors {
+    pub fn collect(&self, error_config: &ErrorConfig) -> CollectedErrors {
         let mut shown = Vec::new();
         let mut suppressed = Vec::new();
         let mut disabled = Vec::new();
         for err in self.errors.lock().iter() {
             if err.is_ignored() {
                 suppressed.push(err.clone());
-            } else if !error_config.is_enabled(err.error_kind()) {
+            } else if !error_config.display_config.is_enabled(err.error_kind()) {
                 disabled.push(err.clone());
             } else {
                 shown.push(err.clone());
@@ -218,6 +218,7 @@ mod tests {
     use ruff_text_size::TextSize;
 
     use super::*;
+    use crate::config::ErrorDisplayConfig;
     use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
     use crate::util::prelude::SliceExt;
@@ -262,7 +263,7 @@ mod tests {
         );
         assert_eq!(
             errors
-                .collect(&ErrorDisplayConfig::default())
+                .collect(&ErrorConfig::default())
                 .shown
                 .map(|x| x.msg()),
             vec!["a", "b", "a"]
@@ -308,11 +309,14 @@ mod tests {
             None,
         );
 
-        let config = ErrorDisplayConfig::new(HashMap::from([
-            (ErrorKind::AsyncError, true),
-            (ErrorKind::BadAssignment, false),
-            (ErrorKind::NotIterable, false),
-        ]));
+        let config = ErrorConfig::new(
+            ErrorDisplayConfig::new(HashMap::from([
+                (ErrorKind::AsyncError, true),
+                (ErrorKind::BadAssignment, false),
+                (ErrorKind::NotIterable, false),
+            ])),
+            false,
+        );
 
         assert_eq!(
             errors.collect(&config).shown.map(|x| x.msg()),
