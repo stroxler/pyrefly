@@ -14,7 +14,7 @@ use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use ruff_python_ast::name::Name;
-use starlark_map::ordered_map::OrderedMap;
+use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
 
 use crate::types::types::Type;
@@ -36,9 +36,7 @@ use crate::util::visit::VisitMut;
 ///     # here, `x` is still `Foo` but we also can narrow
 ///     # `x.foo`, `x.foo.bar`, and `x.baz`.
 /// ```
-#[derive(
-    Debug, Clone, PartialEq, Eq, Visit, VisitMut, TypeEq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut, TypeEq)]
 pub struct TypeInfo {
     pub ty: Type,
     pub attrs: NarrowedAttrs,
@@ -94,8 +92,8 @@ impl Display for TypeInfo {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
-pub struct NarrowedAttrs(Option<OrderedMap<Name, NarrowedAttr>>);
+#[derive(Debug, Clone, PartialEq, Eq, TypeEq)]
+pub struct NarrowedAttrs(Option<Box<SmallMap<Name, NarrowedAttr>>>);
 
 impl NarrowedAttrs {
     fn new() -> Self {
@@ -104,12 +102,12 @@ impl NarrowedAttrs {
 
     fn add_narrow_mut(&mut self, name: Name, more_names: &[&Name], ty: Type) {
         if self.0.is_none() {
-            self.0 = Some(OrderedMap::with_capacity(1))
+            self.0 = Some(Box::new(SmallMap::with_capacity(1)))
         }
         match &mut self.0 {
             None => unreachable!("We just ensured that we have a map of attrs"),
-            Some(attrs) => {
-                let attr = match attrs.remove(&name) {
+            Some(box attrs) => {
+                let attr = match attrs.shift_remove(&name) {
                     Some(attr) => attr.add_narrow(more_names, ty),
                     None => NarrowedAttr::new(more_names, ty),
                 };
@@ -119,9 +117,9 @@ impl NarrowedAttrs {
     }
 
     fn of_narrow(name: Name, more_names: &[&Name], ty: Type) -> Self {
-        let mut attrs = OrderedMap::with_capacity(1);
+        let mut attrs = SmallMap::with_capacity(1);
         attrs.insert(name.clone(), NarrowedAttr::new(more_names, ty));
-        Self(Some(attrs))
+        Self(Some(Box::new(attrs)))
     }
 
     fn fmt_with_prefix(&self, prefix: &mut Vec<String>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -204,9 +202,7 @@ impl Display for NarrowedAttrs {
     }
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, Visit, VisitMut, PartialEq, Eq, TypeEq)]
 pub enum NarrowedAttr {
     Leaf(Type),
     WithRoot(Type, NarrowedAttrs),
