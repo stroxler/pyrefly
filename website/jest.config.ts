@@ -35,7 +35,13 @@ const config: Config.InitialOptions = {
         '@theme/Layout': '<rootDir>/__mocks__/themeMock.ts',
         '\\.(css|less|sass|scss)$': '<rootDir>/__mocks__/stylexMock.ts',
         '@stylexjs/stylex': '<rootDir>/__mocks__/stylexMock.ts',
-        '@docusaurus/useDocusaurusContext': '<rootDir>/__mocks__/docusaurusContextMock.ts'
+        '@docusaurus/useDocusaurusContext': '<rootDir>/__mocks__/docusaurusContextMock.ts',
+        '@docusaurus/BrowserOnly': '<rootDir>/__mocks__/browserOnlyMock.ts',
+        '@monaco-editor/react': '<rootDir>/__mocks__/monacoEditorMock.ts',
+        './pyrefly_wasm': '<rootDir>/__mocks__/pyreflyWasmMock.ts',
+        './configured-monaco': '<rootDir>/__mocks__/configuredMonacoMock.ts',
+        'lz-string': '<rootDir>/__mocks__/lzStringMock.ts',
+        'monaco-editor': '<rootDir>/__mocks__/monaco-editor.ts'
     },
     setupFilesAfterEnv: ['@testing-library/jest-dom'],
 };
