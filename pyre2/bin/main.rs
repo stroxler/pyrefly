@@ -258,13 +258,13 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
 /// Run based on the command line arguments.
 async fn run() -> anyhow::Result<ExitCode> {
     let args = Args::parse_from(get_args_expanded(args_os())?);
+    init_tracing(args.verbose, false);
+    init_thread_pool(args.common.threads);
     if args.profiling {
         loop {
             let _ = run_command(args.command.clone(), false).await;
         }
     } else {
-        init_tracing(args.verbose, false);
-        init_thread_pool(args.common.threads);
         run_command(args.command, true).await.map(to_exit_code)
     }
 }
