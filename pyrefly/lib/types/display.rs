@@ -346,7 +346,7 @@ impl Display for Type {
 
 impl Display for TypeInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        TypeDisplayContext::new(&[self.ty()]).fmt(self.ty(), f)
+        self.ty().fmt(f)
     }
 }
 
