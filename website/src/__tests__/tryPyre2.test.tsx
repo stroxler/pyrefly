@@ -22,7 +22,37 @@ describe('Try Pyre2 Component', () => {
             return container;
         });
 
-        // Verify that the main editor component is rendered with the correct ID
+        expectMonacoEditorLoadedWithContent(container, PLAYGROUND_FILE_NAME, DEFAULT_PYTHON_PROGRAM, false);
+
+        // Run test with --update-snapshot to update the snapshot if the test is failing after
+        // you made a intentional change to the home page
+        expect(container).toMatchSnapshot();
+    });
+
+    test('renders in code snippet mode without error panel', async () => {
+        const fileName = 'snippet.py';
+        const programContent = 'def hello(): pass';
+        const container = await act(async () => {
+            const { container } = render(<TryPyre2
+                sampleFilename={fileName}
+                isCodeSnippet={true}
+                showErrorPanel={false}
+                codeSample={programContent}
+            />
+            );
+
+            await Promise.resolve(); // Let any promises from timers resolve
+            return container;
+        });
+
+        expectMonacoEditorLoadedWithContent(container, fileName, programContent, true);
+
+        // Run test with --update-snapshot to update the snapshot if the test is failing after
+        // you made a intentional change to the home page
+        expect(container).toMatchSnapshot();
+    });
+
+    function expectMonacoEditorLoadedWithContent(container: HTMLElement, fileName: string, programContent: string, isCodeSnippet: boolean) {
         const tryEditorElement = container.querySelector('#tryPyre2-editor');
         expect(tryEditorElement).toBeInTheDocument();
 
@@ -32,28 +62,32 @@ describe('Try Pyre2 Component', () => {
 
         // Verify that the results container is a child of tryPyre2-editor
         const resultsContainer = tryEditorElement?.querySelector('#tryPyre2-results-container');
-        expect(resultsContainer).toBeInTheDocument();
+        if (isCodeSnippet) {
+            expect(resultsContainer).not.toBeInTheDocument();
+        } else {
+            expect(resultsContainer).toBeInTheDocument();
+        }
 
         // Verify that the Monaco editor is rendered
         const monacoEditor = codeEditorContainer.querySelector('#monaco-editor');
         expect(monacoEditor).toBeInTheDocument();
 
         // Verify that the editor has the correct path
-        expect(monacoEditor.textContent).toContain(`Monaco Editor (Path: ${PLAYGROUND_FILE_NAME})`);
+        expect(monacoEditor.textContent).toContain(`Monaco Editor (Path: ${fileName})`);
 
         // Verify that the editor textarea is rendered
         const editorTextarea = monacoEditor.querySelector('#editor-textarea');
         expect(editorTextarea).toBeInTheDocument();
 
         // Verify that the editor content exactly matches the default Python program
-        expect(editorTextarea).toHaveValue(DEFAULT_PYTHON_PROGRAM);
+        expect(editorTextarea).toHaveValue(programContent);
 
         // Verify that the share URL button exists
         const shareUrlButton = codeEditorContainer.querySelector('#share-url-button');
-        expect(shareUrlButton).toBeInTheDocument();
-
-        // Run test with --update-snapshot to update the snapshot if the test is failing after
-        // you made a intentional change to the home page
-        expect(container).toMatchSnapshot();
-    });
+        if (isCodeSnippet) {
+            expect(shareUrlButton).not.toBeInTheDocument();
+        } else {
+            expect(shareUrlButton).toBeInTheDocument();
+        }
+    }
 });

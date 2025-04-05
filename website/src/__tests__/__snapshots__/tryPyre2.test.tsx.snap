@@ -77,3 +77,32 @@ reveal_type(test(42))
   </div>
 </div>
 `;
+
+exports[`Try Pyre2 Component renders in code snippet mode without error panel 1`] = `
+<div>
+  <div
+    id="tryPyre2-editor"
+  >
+    <div
+      id="tryPyre2-code-editor-container"
+    >
+      <div
+        data-language="python"
+        data-value="def hello(): pass"
+        id="monaco-editor"
+      >
+        <div>
+          Monaco Editor (Path: snippet.py)
+        </div>
+        <textarea
+          id="editor-textarea"
+          readonly=""
+          style="width: 100%; height: 200px;"
+        >
+          def hello(): pass
+        </textarea>
+      </div>
+    </div>
+  </div>
+</div>
+`;
