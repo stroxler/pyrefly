@@ -470,22 +470,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
             ),
             SpecialForm::Annotated if arguments.len() > 1 => self.expr_infer(&arguments[0], errors),
-            SpecialForm::ClassVar => self.error(
+            SpecialForm::SelfType
+            | SpecialForm::LiteralString
+            | SpecialForm::Never
+            | SpecialForm::NoReturn
+            | SpecialForm::TypeAlias
+            | SpecialForm::TypedDict => self.error(
                 errors,
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                "ClassVar may not be used in this context".to_owned(),
+                format!("{} may not be subscripted", special_form),
             ),
-            _ => self.todo(
+            SpecialForm::ClassVar
+            | SpecialForm::Final
+            | SpecialForm::Generic
+            | SpecialForm::Protocol
+            | SpecialForm::ReadOnly
+            | SpecialForm::NotRequired
+            | SpecialForm::Required
+            | SpecialForm::Annotated => self.error(
                 errors,
-                &format!(
-                    "Answers::apply_special_form cannot handle `{special_form}[{}]`",
-                    arguments
-                        .map(|x| self.module_info().display(x).to_string())
-                        .join(", ")
-                ),
                 range,
+                ErrorKind::InvalidAnnotation,
+                None,
+                format!("{} may not be used in this context", special_form),
             ),
         }
     }

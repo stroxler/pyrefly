@@ -5180,10 +5180,10 @@
     {
       "code": -2,
       "column": 14,
-      "concise_description": "TODO: Answers::apply_special_form cannot handle `Generic[T]`",
-      "description": "TODO: Answers::apply_special_form cannot handle `Generic[T]`",
+      "concise_description": "Generic may not be used in this context",
+      "description": "Generic may not be used in this context",
       "line": 29,
-      "name": "unsupported",
+      "name": "invalid-annotation",
       "stop_column": 24,
       "stop_line": 29
     },
@@ -6304,10 +6304,10 @@
     {
       "code": -2,
       "column": 26,
-      "concise_description": "TODO: Answers::apply_special_form cannot handle `Self[int]`",
-      "description": "TODO: Answers::apply_special_form cannot handle `Self[int]`",
+      "concise_description": "Self may not be subscripted",
+      "description": "Self may not be subscripted",
       "line": 67,
-      "name": "unsupported",
+      "name": "invalid-annotation",
       "stop_column": 35,
       "stop_line": 67
     }
@@ -9719,10 +9719,10 @@
     {
       "code": -2,
       "column": 9,
-      "concise_description": "TODO: Answers::apply_special_form cannot handle `Final[int]`",
-      "description": "TODO: Answers::apply_special_form cannot handle `Final[int]`",
+      "concise_description": "Final may not be used in this context",
+      "description": "Final may not be used in this context",
       "line": 118,
-      "name": "unsupported",
+      "name": "invalid-annotation",
       "stop_column": 19,
       "stop_line": 118
     },
@@ -9739,10 +9739,10 @@
     {
       "code": -2,
       "column": 14,
-      "concise_description": "TODO: Answers::apply_special_form cannot handle `Final[list[int]]`",
-      "description": "TODO: Answers::apply_special_form cannot handle `Final[list[int]]`",
+      "concise_description": "Final may not be used in this context",
+      "description": "Final may not be used in this context",
       "line": 121,
-      "name": "unsupported",
+      "name": "invalid-annotation",
       "stop_column": 30,
       "stop_line": 121
     },
@@ -11267,10 +11267,10 @@
     {
       "code": -2,
       "column": 8,
-      "concise_description": "TODO: Answers::apply_special_form cannot handle `NotRequired[int]`",
-      "description": "TODO: Answers::apply_special_form cannot handle `NotRequired[int]`",
+      "concise_description": "NotRequired may not be used in this context",
+      "description": "NotRequired may not be used in this context",
       "line": 19,
-      "name": "unsupported",
+      "name": "invalid-annotation",
       "stop_column": 24,
       "stop_line": 19
     },
