@@ -394,7 +394,7 @@ fn make_bound_classmethod(cls: &Class, attr: &Type) -> Option<Type> {
 fn make_bound_method(cls: &ClassType, attr: &Type) -> Option<Type> {
     let should_bind =
         |meta: &FuncMetadata| !meta.flags.is_staticmethod && !meta.flags.is_classmethod;
-    make_bound_method_helper(cls.instance_type(), attr, &should_bind)
+    make_bound_method_helper(cls.clone().to_type(), attr, &should_bind)
 }
 
 fn bind_instance_attribute(

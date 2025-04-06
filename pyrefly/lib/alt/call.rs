@@ -417,7 +417,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors.extend(dunder_init_errors);
             }
         }
-        cls.instance_type()
+        cls.to_type()
     }
 
     fn construct_typed_dict(
@@ -501,7 +501,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None
                 };
                 let self_obj = match first_arg_type {
-                    Some(Type::Type(box Type::ClassType(c))) => Some(c.instance_type()),
+                    Some(Type::Type(box Type::ClassType(c))) => Some(c.to_type()),
                     _ => None,
                 };
                 if let Some(self_obj) = self_obj {

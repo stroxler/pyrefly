@@ -411,8 +411,4 @@ impl ClassType {
     pub fn to_type(self) -> Type {
         Type::ClassType(self)
     }
-
-    pub fn instance_type(&self) -> Type {
-        self.instantiate_member(self.class_object().instance_type())
-    }
 }
