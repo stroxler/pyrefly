@@ -58,7 +58,7 @@
     },
     {
       "type": "shell",
-      "command": "cargo build --release --all-features --target-dir lsp/bin --manifest-path pyre2/Cargo.toml",
+      "command": "cargo build --release --all-features --target-dir lsp/bin --manifest-path pyrefly/Cargo.toml",
       "group": "build",
       "isBackground": true,
       "label": "cargo: build pyrefly for extension",
