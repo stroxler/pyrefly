@@ -470,6 +470,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
             ),
             SpecialForm::Annotated if arguments.len() > 1 => self.expr_infer(&arguments[0], errors),
+            SpecialForm::ClassVar => self.error(
+                errors,
+                range,
+                ErrorKind::InvalidAnnotation,
+                None,
+                "ClassVar may not be used in this context".to_owned(),
+            ),
             _ => self.todo(
                 errors,
                 &format!(

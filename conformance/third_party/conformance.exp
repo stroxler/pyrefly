@@ -2515,10 +2515,20 @@
     {
       "code": -2,
       "column": 17,
-      "concise_description": "TODO: Answers::apply_special_form cannot handle `ClassVar[int]`",
-      "description": "TODO: Answers::apply_special_form cannot handle `ClassVar[int]`",
+      "concise_description": "`ClassVar` may not be nested inside `Final`",
+      "description": "`ClassVar` may not be nested inside `Final`",
+      "line": 54,
+      "name": "invalid-annotation",
+      "stop_column": 30,
+      "stop_line": 54
+    },
+    {
+      "code": -2,
+      "column": 17,
+      "concise_description": "ClassVar may not be used in this context",
+      "description": "ClassVar may not be used in this context",
       "line": 55,
-      "name": "unsupported",
+      "name": "invalid-annotation",
       "stop_column": 30,
       "stop_line": 55
     },
@@ -2535,10 +2545,10 @@
     {
       "code": -2,
       "column": 26,
-      "concise_description": "TODO: Answers::apply_special_form cannot handle `ClassVar[int]`",
-      "description": "TODO: Answers::apply_special_form cannot handle `ClassVar[int]`",
+      "concise_description": "ClassVar may not be used in this context",
+      "description": "ClassVar may not be used in this context",
       "line": 63,
-      "name": "unsupported",
+      "name": "invalid-annotation",
       "stop_column": 39,
       "stop_line": 63
     },
@@ -2555,10 +2565,10 @@
     {
       "code": -2,
       "column": 12,
-      "concise_description": "TODO: Answers::apply_special_form cannot handle `ClassVar[str]`",
-      "description": "TODO: Answers::apply_special_form cannot handle `ClassVar[str]`",
+      "concise_description": "ClassVar may not be used in this context",
+      "description": "ClassVar may not be used in this context",
       "line": 64,
-      "name": "unsupported",
+      "name": "invalid-annotation",
       "stop_column": 25,
       "stop_line": 64
     },
@@ -2585,10 +2595,10 @@
     {
       "code": -2,
       "column": 26,
-      "concise_description": "TODO: Answers::apply_special_form cannot handle `ClassVar[int]`",
-      "description": "TODO: Answers::apply_special_form cannot handle `ClassVar[int]`",
+      "concise_description": "ClassVar may not be used in this context",
+      "description": "ClassVar may not be used in this context",
       "line": 67,
-      "name": "unsupported",
+      "name": "invalid-annotation",
       "stop_column": 39,
       "stop_line": 67
     },
@@ -2605,20 +2615,20 @@
     {
       "code": -2,
       "column": 8,
-      "concise_description": "TODO: Answers::apply_special_form cannot handle `ClassVar[int]`",
-      "description": "TODO: Answers::apply_special_form cannot handle `ClassVar[int]`",
+      "concise_description": "ClassVar may not be used in this context",
+      "description": "ClassVar may not be used in this context",
       "line": 71,
-      "name": "unsupported",
+      "name": "invalid-annotation",
       "stop_column": 21,
       "stop_line": 71
     },
     {
       "code": -2,
       "column": 20,
-      "concise_description": "TODO: Answers::apply_special_form cannot handle `ClassVar[str]`",
-      "description": "TODO: Answers::apply_special_form cannot handle `ClassVar[str]`",
+      "concise_description": "ClassVar may not be used in this context",
+      "description": "ClassVar may not be used in this context",
       "line": 72,
-      "name": "unsupported",
+      "name": "invalid-annotation",
       "stop_column": 33,
       "stop_line": 72
     },
@@ -9655,6 +9665,16 @@
       "name": "bad-override",
       "stop_column": 17,
       "stop_line": 94
+    },
+    {
+      "code": -2,
+      "column": 19,
+      "concise_description": "`ClassVar` may not be nested inside `Final`",
+      "description": "`ClassVar` may not be nested inside `Final`",
+      "line": 108,
+      "name": "invalid-annotation",
+      "stop_column": 27,
+      "stop_line": 108
     },
     {
       "code": -2,

@@ -116,9 +116,7 @@
     "Line 213: Unexpected errors ['`ProtocolWithP[ParamSpec[P]]` is not assignable to `(ParamSpec(ParamSpec[P])) -> None`']",
     "Line 214: Unexpected errors ['`(ParamSpec(ParamSpec[P])) -> None` is not assignable to `ProtocolWithP[ParamSpec[P]]`']"
   ],
-  "classes_classvar.py": [
-    "Line 54: Expected 1 errors"
-  ],
+  "classes_classvar.py": [],
   "classes_override.py": [
     "Lines 56, 64, 65: Expected error (tag 'method4')"
   ],
@@ -595,7 +593,6 @@
     "Line 67: Expected 1 errors",
     "Line 81: Expected 1 errors",
     "Line 107: Expected 1 errors",
-    "Line 108: Expected 1 errors",
     "Line 149: Expected 1 errors",
     "Line 152: Expected 1 errors",
     "Line 155: Expected 1 errors",

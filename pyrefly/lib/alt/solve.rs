@@ -441,6 +441,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         "`ClassVar` arguments may not contain any type variables".to_owned(),
                     );
                 }
+                if qualifier == Qualifier::Final && ann.is_class_var() {
+                    self.error(
+                        errors,
+                        unpacked_slice[0].range(),
+                        ErrorKind::InvalidAnnotation,
+                        None,
+                        "`ClassVar` may not be nested inside `Final`".to_owned(),
+                    );
+                }
                 ann.qualifiers.insert(0, qualifier);
                 ann
             }
