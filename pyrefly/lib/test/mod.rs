@@ -10,6 +10,7 @@
 mod assign;
 mod attributes;
 mod callable;
+mod calls;
 mod class_keywords;
 mod class_overrides;
 mod class_subtyping;
