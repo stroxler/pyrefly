@@ -260,3 +260,41 @@ impl NarrowedAttr {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use ruff_python_ast::name::Name;
+    use vec1::Vec1;
+
+    use crate::types::class::ClassType;
+    use crate::types::class::TArgs;
+    use crate::types::display::tests::fake_class;
+    use crate::types::type_info::TypeInfo;
+    use crate::types::types::Type;
+
+    #[test]
+    fn test_display_type_info() {
+        let foo = Type::ClassType(ClassType::new(
+            fake_class("Foo", "foo", 5, Vec::new()),
+            TArgs::default(),
+        ));
+        let bar = Type::ClassType(ClassType::new(
+            fake_class("Bar", "foo", 5, Vec::new()),
+            TArgs::default(),
+        ));
+        let x = Name::new_static("x");
+        let y = Name::new_static("y");
+        let mut type_info = TypeInfo::of_ty(foo.clone());
+        assert_eq!(type_info.to_string(), "Foo");
+        type_info.add_narrow_mut(Vec1::new(&x), bar.clone());
+        assert_eq!(type_info.to_string(), "Foo (_.x: Bar)");
+        type_info.add_narrow_mut(Vec1::new(&y), foo);
+        assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.y: Foo)");
+        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &x), bar);
+        assert_eq!(
+            type_info.to_string(),
+            "Foo (_.y: Foo, _.x: Bar, _.x.x: Bar)"
+        )
+    }
+}

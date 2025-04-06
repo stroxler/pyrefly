@@ -344,14 +344,13 @@ impl Display for Type {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
     use dupe::Dupe;
     use ruff_python_ast::Identifier;
     use ruff_text_size::TextSize;
-    use vec1::Vec1;
 
     use super::*;
     use crate::module::module_info::ModuleInfo;
@@ -368,7 +367,6 @@ mod tests {
     use crate::types::quantified::QuantifiedInfo;
     use crate::types::quantified::QuantifiedKind;
     use crate::types::tuple::Tuple;
-    use crate::types::type_info::TypeInfo;
     use crate::types::type_var::Restriction;
     use crate::types::type_var::TypeVar;
     use crate::types::type_var::Variance;
@@ -377,7 +375,7 @@ mod tests {
     use crate::types::types::TParams;
     use crate::util::uniques::UniqueFactory;
 
-    fn fake_class(name: &str, module: &str, range: u32, tparams: Vec<TParamInfo>) -> Class {
+    pub fn fake_class(name: &str, module: &str, range: u32, tparams: Vec<TParamInfo>) -> Class {
         let mi = ModuleInfo::new(
             ModuleName::from_str(module),
             ModulePath::filesystem(PathBuf::from(module)),
@@ -544,30 +542,5 @@ mod tests {
             Type::TypedDict(Box::new(td)).to_string(),
             "TypedDict[C[None]]"
         );
-    }
-
-    #[test]
-    fn test_display_type_info() {
-        let foo = Type::ClassType(ClassType::new(
-            fake_class("Foo", "foo", 5, Vec::new()),
-            TArgs::default(),
-        ));
-        let bar = Type::ClassType(ClassType::new(
-            fake_class("Bar", "foo", 5, Vec::new()),
-            TArgs::default(),
-        ));
-        let x = Name::new_static("x");
-        let y = Name::new_static("y");
-        let mut type_info = TypeInfo::of_ty(foo.clone());
-        assert_eq!(type_info.to_string(), "Foo");
-        type_info.add_narrow_mut(Vec1::new(&x), bar.clone());
-        assert_eq!(type_info.to_string(), "Foo (_.x: Bar)");
-        type_info.add_narrow_mut(Vec1::new(&y), foo);
-        assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.y: Foo)");
-        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &x), bar);
-        assert_eq!(
-            type_info.to_string(),
-            "Foo (_.y: Foo, _.x: Bar, _.x.x: Bar)"
-        )
     }
 }
