@@ -281,7 +281,7 @@ mod tests {
     }
 
     #[test]
-    fn test_type_info_display() {
+    fn test_type_info_one_level_only() {
         let x = Name::new_static("x");
         let y = Name::new_static("y");
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
@@ -290,10 +290,74 @@ mod tests {
         assert_eq!(type_info.to_string(), "Foo (_.x: Bar)");
         type_info.add_narrow_mut(Vec1::new(&y), fake_class_type("Baz"));
         assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.y: Baz)");
-        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &x), fake_class_type("Qux"));
+    }
+
+    #[test]
+    fn test_type_info_adding_sub_attributes() {
+        let x = Name::new_static("x");
+        let y = Name::new_static("y");
+        let z = Name::new_static("z");
+        let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
+        type_info.add_narrow_mut(Vec1::new(&x), fake_class_type("Bar"));
+        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Baz"));
+        assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.x.y: Baz)");
+        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &z), fake_class_type("Qux"));
         assert_eq!(
             type_info.to_string(),
-            "Foo (_.y: Baz, _.x: Bar, _.x.x: Qux)"
-        )
+            "Foo (_.x: Bar, _.x.y: Baz, _.x.z: Qux)"
+        );
+        type_info.add_narrow_mut(
+            Vec1::from_vec_push(vec![&x, &y], &x),
+            fake_class_type("Foo"),
+        );
+        assert_eq!(
+            type_info.to_string(),
+            "Foo (_.x: Bar, _.x.z: Qux, _.x.y: Baz, _.x.y.x: Foo)"
+        );
+    }
+
+    #[test]
+    fn test_type_info_creating_subtrees_and_narrowing_roots() {
+        let x = Name::new_static("x");
+        let y = Name::new_static("y");
+        let z = Name::new_static("z");
+        let w = Name::new_static("w");
+        let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
+        type_info.add_narrow_mut(
+            Vec1::from_vec_push(vec![&x, &y], &z),
+            fake_class_type("Bar"),
+        );
+        assert_eq!(type_info.to_string(), "Foo (_.x.y.z: Bar)");
+        type_info.add_narrow_mut(
+            Vec1::from_vec_push(vec![&x, &y], &w),
+            fake_class_type("Baz"),
+        );
+        assert_eq!(type_info.to_string(), "Foo (_.x.y.z: Bar, _.x.y.w: Baz)");
+        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux"));
+        assert_eq!(
+            type_info.to_string(),
+            "Foo (_.x.y: Qux, _.x.y.z: Bar, _.x.y.w: Baz)"
+        );
+    }
+
+    #[test]
+    fn test_type_info_overwiting_existing_narrows() {
+        let x = Name::new_static("x");
+        let y = Name::new_static("y");
+        let z = Name::new_static("z");
+        let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
+        type_info.add_narrow_mut(
+            Vec1::from_vec_push(vec![&x, &y], &z),
+            fake_class_type("Bar"),
+        );
+        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux"));
+        assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux, _.x.y.z: Bar)");
+        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux1"));
+        assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux1, _.x.y.z: Bar)");
+        type_info.add_narrow_mut(
+            Vec1::from_vec_push(vec![&x, &y], &z),
+            fake_class_type("Bar1"),
+        );
+        assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux1, _.x.y.z: Bar1)");
     }
 }
