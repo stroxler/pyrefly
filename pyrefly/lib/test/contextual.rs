@@ -145,7 +145,6 @@ x9: list[str] = {"a": 1}  # E: `dict[str, int]` is not assignable to `list[str]`
 );
 
 testcase!(
-    bug = "Need to pass hint to duplicate argument",
     test_call_keyword_arg_is_context_even_for_duplicates,
     r#"
 from typing import assert_type, Callable, Any
