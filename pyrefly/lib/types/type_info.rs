@@ -61,9 +61,9 @@ impl TypeInfo {
     // TODO(stroxler): remove this directive once we have a production API
     // to narrow, at the moment only test code uses this method.
     #[allow(dead_code)]
-    pub fn add_narrow_mut(&mut self, names: Vec1<&Name>, ty: Type) {
+    pub fn add_narrow(&mut self, names: Vec1<&Name>, ty: Type) {
         let (name, more_names) = names.split_off_first();
-        self.attrs.add_narrow_mut(name.clone(), &more_names, ty)
+        self.attrs.add_narrow(name.clone(), &more_names, ty)
     }
 
     pub fn ty(&self) -> &Type {
@@ -101,7 +101,7 @@ impl NarrowedAttrs {
         Self(None)
     }
 
-    fn add_narrow_mut(&mut self, name: Name, more_names: &[&Name], ty: Type) {
+    fn add_narrow(&mut self, name: Name, more_names: &[&Name], ty: Type) {
         if self.0.is_none() {
             self.0 = Some(Box::new(SmallMap::with_capacity(1)))
         }
@@ -109,7 +109,7 @@ impl NarrowedAttrs {
             None => unreachable!("We just ensured that we have a map of attrs"),
             Some(box attrs) => {
                 let attr = match attrs.shift_remove(&name) {
-                    Some(attr) => attr.add_narrow(more_names, ty),
+                    Some(attr) => attr.with_narrow(more_names, ty),
                     None => NarrowedAttr::new(more_names, ty),
                 };
                 attrs.insert(name, attr);
@@ -227,7 +227,7 @@ impl NarrowedAttr {
         }
     }
 
-    fn add_narrow(self, names: &[&Name], narrowed_ty: Type) -> Self {
+    fn with_narrow(self, names: &[&Name], narrowed_ty: Type) -> Self {
         match names {
             [] => {
                 // We are setting a narrow at the current node (potentially overriding an existing narrow; it is
@@ -248,11 +248,11 @@ impl NarrowedAttr {
                         Self::WithRoot(root_ty, attrs)
                     }
                     Self::WithoutRoot(mut attrs) => {
-                        attrs.add_narrow_mut((*name).clone(), more_names, narrowed_ty);
+                        attrs.add_narrow((*name).clone(), more_names, narrowed_ty);
                         Self::WithoutRoot(attrs)
                     }
                     Self::WithRoot(root_ty, mut attrs) => {
-                        attrs.add_narrow_mut((*name).clone(), more_names, narrowed_ty);
+                        attrs.add_narrow((*name).clone(), more_names, narrowed_ty);
                         Self::WithRoot(root_ty, attrs)
                     }
                 }
@@ -286,9 +286,9 @@ mod tests {
         let y = Name::new_static("y");
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         assert_eq!(type_info.to_string(), "Foo");
-        type_info.add_narrow_mut(Vec1::new(&x), fake_class_type("Bar"));
+        type_info.add_narrow(Vec1::new(&x), fake_class_type("Bar"));
         assert_eq!(type_info.to_string(), "Foo (_.x: Bar)");
-        type_info.add_narrow_mut(Vec1::new(&y), fake_class_type("Baz"));
+        type_info.add_narrow(Vec1::new(&y), fake_class_type("Baz"));
         assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.y: Baz)");
     }
 
@@ -298,15 +298,15 @@ mod tests {
         let y = Name::new_static("y");
         let z = Name::new_static("z");
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
-        type_info.add_narrow_mut(Vec1::new(&x), fake_class_type("Bar"));
-        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Baz"));
+        type_info.add_narrow(Vec1::new(&x), fake_class_type("Bar"));
+        type_info.add_narrow(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Baz"));
         assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.x.y: Baz)");
-        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &z), fake_class_type("Qux"));
+        type_info.add_narrow(Vec1::from_vec_push(vec![&x], &z), fake_class_type("Qux"));
         assert_eq!(
             type_info.to_string(),
             "Foo (_.x: Bar, _.x.y: Baz, _.x.z: Qux)"
         );
-        type_info.add_narrow_mut(
+        type_info.add_narrow(
             Vec1::from_vec_push(vec![&x, &y], &x),
             fake_class_type("Foo"),
         );
@@ -323,17 +323,17 @@ mod tests {
         let z = Name::new_static("z");
         let w = Name::new_static("w");
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
-        type_info.add_narrow_mut(
+        type_info.add_narrow(
             Vec1::from_vec_push(vec![&x, &y], &z),
             fake_class_type("Bar"),
         );
         assert_eq!(type_info.to_string(), "Foo (_.x.y.z: Bar)");
-        type_info.add_narrow_mut(
+        type_info.add_narrow(
             Vec1::from_vec_push(vec![&x, &y], &w),
             fake_class_type("Baz"),
         );
         assert_eq!(type_info.to_string(), "Foo (_.x.y.z: Bar, _.x.y.w: Baz)");
-        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux"));
+        type_info.add_narrow(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux"));
         assert_eq!(
             type_info.to_string(),
             "Foo (_.x.y: Qux, _.x.y.z: Bar, _.x.y.w: Baz)"
@@ -346,15 +346,15 @@ mod tests {
         let y = Name::new_static("y");
         let z = Name::new_static("z");
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
-        type_info.add_narrow_mut(
+        type_info.add_narrow(
             Vec1::from_vec_push(vec![&x, &y], &z),
             fake_class_type("Bar"),
         );
-        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux"));
+        type_info.add_narrow(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux"));
         assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux, _.x.y.z: Bar)");
-        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux1"));
+        type_info.add_narrow(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux1"));
         assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux1, _.x.y.z: Bar)");
-        type_info.add_narrow_mut(
+        type_info.add_narrow(
             Vec1::from_vec_push(vec![&x, &y], &z),
             fake_class_type("Bar1"),
         );
