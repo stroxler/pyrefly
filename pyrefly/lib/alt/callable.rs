@@ -202,6 +202,48 @@ impl CallArgPreEval<'_> {
     }
 }
 
+/// Helps track matching of arguments against positional parameters in AnswersSolver::callable_infer_params.
+enum PosParamKind {
+    Positional,
+    Unpacked,
+    Variadic,
+}
+
+/// Helps track matching of arguments against positional parameters in AnswersSolver::callable_infer_params.
+struct PosParam {
+    ty: Type,
+    name: Option<Name>,
+    kind: PosParamKind,
+}
+
+impl PosParam {
+    fn new(p: &Param) -> Option<Self> {
+        match p {
+            Param::PosOnly(ty, _required) => Some(Self {
+                ty: ty.clone(),
+                name: None,
+                kind: PosParamKind::Positional,
+            }),
+            Param::Pos(name, ty, _required) => Some(Self {
+                ty: ty.clone(),
+                name: Some(name.clone()),
+                kind: PosParamKind::Positional,
+            }),
+            Param::VarArg(name, Type::Unpack(box ty)) => Some(Self {
+                ty: ty.clone(),
+                name: name.clone(),
+                kind: PosParamKind::Unpacked,
+            }),
+            Param::VarArg(name, ty) => Some(Self {
+                ty: ty.clone(),
+                name: name.clone(),
+                kind: PosParamKind::Variadic,
+            }),
+            Param::KwOnly(..) | Param::Kwargs(..) => None,
+        }
+    }
+}
+
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn is_param_spec_args(&self, x: &CallArg, q: Quantified, errors: &ErrorCollector) -> bool {
         match x {
@@ -253,47 +295,60 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let mut arg_pre = arg.pre_eval(self, arg_errors);
             while arg_pre.step() {
                 num_positional_args += 1;
-                let mut matched_unpacked_vararg = false;
                 let param = if let Some(p) = iparams.peek() {
-                    match p {
-                        Param::PosOnly(ty, _required) => {
-                            num_positional_params += 1;
-                            iparams.next();
-                            Some((ty, None, false))
-                        }
-                        Param::Pos(name, ty, _required) => {
-                            num_positional_params += 1;
-                            seen_names.insert(name.clone());
-                            iparams.next();
-                            Some((ty, Some(name), false))
-                        }
-                        Param::VarArg(name, Type::Unpack(box ty)) => {
-                            // Store args that get matched to an unpacked *args param
-                            // Matched args are typechecked separately later
-                            unpacked_vararg = Some((name, ty));
-                            unpacked_vararg_matched_args.push(arg_pre.clone());
-                            matched_unpacked_vararg = true;
-                            None
-                        }
-                        Param::VarArg(name, ty) => Some((ty, name.as_ref(), true)),
-                        Param::KwOnly(..) | Param::Kwargs(..) => None,
-                    }
+                    PosParam::new(p)
                 } else {
                     None
                 };
                 match param {
-                    Some((hint, name, vararg)) => arg_pre.post_check(
+                    Some(PosParam {
+                        ty,
+                        name,
+                        kind: PosParamKind::Positional,
+                    }) => {
+                        num_positional_params += 1;
+                        iparams.next();
+                        if let Some(name) = &name {
+                            seen_names.insert(name.clone());
+                        }
+                        arg_pre.post_check(
+                            self,
+                            callable_name.as_ref(),
+                            &ty,
+                            name.as_ref(),
+                            false,
+                            arg.range(),
+                            arg_errors,
+                            call_errors,
+                            context,
+                        )
+                    }
+                    Some(PosParam {
+                        ty,
+                        name,
+                        kind: PosParamKind::Unpacked,
+                    }) => {
+                        // Store args that get matched to an unpacked *args param
+                        // Matched args are typechecked separately later
+                        unpacked_vararg = Some((name, ty));
+                        unpacked_vararg_matched_args.push(arg_pre.clone());
+                        arg_pre.post_skip();
+                    }
+                    Some(PosParam {
+                        ty,
+                        name,
+                        kind: PosParamKind::Variadic,
+                    }) => arg_pre.post_check(
                         self,
                         callable_name.as_ref(),
-                        hint,
-                        name,
-                        vararg,
+                        &ty,
+                        name.as_ref(),
+                        true,
                         arg.range(),
                         arg_errors,
                         call_errors,
                         context,
                     ),
-                    None if matched_unpacked_vararg => arg_pre.post_skip(),
                     None => {
                         arg_pre.post_infer(self, arg_errors);
                         if arg_pre.is_star() {
@@ -357,7 +412,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 )),
             };
             self.check_type(
-                unpacked_param_ty,
+                &unpacked_param_ty,
                 &unpacked_args_ty,
                 range,
                 arg_errors,
