@@ -104,6 +104,9 @@ impl Stdlib {
                 name,
             })
         };
+        let lookup_concrete = |module: ModuleName, name: &'static str| {
+            lookup_generic(module, name).map(|obj| ClassType::new_for_stdlib(obj, TArgs::default()))
+        };
 
         let none_location = if version >= PythonVersion::new(3, 10, 0) {
             types
@@ -149,8 +152,7 @@ impl Stdlib {
             enum_flag: lookup_generic(enum_, "Flag"),
             named_tuple: lookup_generic(typing, "NamedTuple"),
             property: lookup_generic(builtins, "property"),
-            object: lookup_generic(builtins, "object")
-                .map(|obj| ClassType::new_for_stdlib(obj, TArgs::default())),
+            object: lookup_concrete(builtins, "object"),
         }
     }
 
