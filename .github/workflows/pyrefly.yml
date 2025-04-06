@@ -1,4 +1,4 @@
-name: pyre2
+name: pyrefly
 on:
   push:
   pull_request:
@@ -7,9 +7,6 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        working-directory: pyre2
 
     strategy:
       fail-fast: false
