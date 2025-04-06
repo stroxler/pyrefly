@@ -170,7 +170,7 @@ impl ClassMetadata {
     pub fn ancestors<'a>(&'a self, stdlib: &'a Stdlib) -> impl Iterator<Item = &'a ClassType> {
         self.ancestors_no_object()
             .iter()
-            .chain(iter::once(stdlib.object_class_type()))
+            .chain(iter::once(stdlib.object()))
     }
 
     /// The MRO doesn't track `object` directly for efficiency, since it always comes last, and

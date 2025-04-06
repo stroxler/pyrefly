@@ -241,12 +241,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 _ => (),
             }
         }
-        let object_type = self
-            .type_order
-            .stdlib()
-            .object_class_type()
-            .clone()
-            .to_type();
+        let object_type = self.type_order.stdlib().object().clone().to_type();
         // Expand typed dict kwargs if necessary, check regular kwargs
         let l_kwargs = match (l_kwargs, u_kwargs) {
             (
@@ -647,9 +642,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (_, Type::Any(_)) => true,
             (Type::Never(_), _) => true,
-            (_, Type::ClassType(want))
-                if *want == *self.type_order.stdlib().object_class_type() =>
-            {
+            (_, Type::ClassType(want)) if want == self.type_order.stdlib().object() => {
                 true // everything is an instance of `object`
             }
             (Type::Union(ls), u) => ls.iter().all(|l| self.is_subset_eq(l, u)),
@@ -756,10 +749,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 let stdlib = self.type_order.stdlib();
                 self.is_subset_eq(
                     &stdlib
-                        .mapping(
-                            stdlib.str().to_type(),
-                            stdlib.object_class_type().clone().to_type(),
-                        )
+                        .mapping(stdlib.str().to_type(), stdlib.object().clone().to_type())
                         .to_type(),
                     want,
                 )
@@ -963,15 +953,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 Restriction::Constraints(constraints) => constraints
                     .iter()
                     .all(|constraint| self.is_subset_eq(constraint, t2)),
-                Restriction::Unrestricted => self.is_subset_eq_impl(
-                    &self
-                        .type_order
-                        .stdlib()
-                        .object_class_type()
-                        .clone()
-                        .to_type(),
-                    want,
-                ),
+                Restriction::Unrestricted => self
+                    .is_subset_eq_impl(&self.type_order.stdlib().object().clone().to_type(), want),
             },
             _ => false,
         }

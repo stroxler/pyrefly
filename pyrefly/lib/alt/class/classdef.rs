@@ -179,7 +179,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .iter()
                             .map(|t| {
                                 self.unwrap_iterable(t)
-                                    .unwrap_or(self.stdlib.object_class_type().clone().to_type())
+                                    .unwrap_or(self.stdlib.object().clone().to_type())
                             })
                             .collect();
                         Type::Tuple(Tuple::unpacked(

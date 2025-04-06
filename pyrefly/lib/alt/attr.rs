@@ -1063,10 +1063,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::SelfType(class_type)) => {
                 Some(AttributeBase::ClassObject(class_type.class_object().dupe()))
             }
-            Type::TypedDict(_) => Some(AttributeBase::ClassInstance(stdlib.mapping(
-                stdlib.str().to_type(),
-                stdlib.object_class_type().clone().to_type(),
-            ))),
+            Type::TypedDict(_) => Some(AttributeBase::ClassInstance(
+                stdlib.mapping(stdlib.str().to_type(), stdlib.object().clone().to_type()),
+            )),
             Type::Tuple(Tuple::Unbounded(box element)) => {
                 Some(AttributeBase::ClassInstance(stdlib.tuple(element)))
             }
@@ -1165,7 +1164,7 @@ impl<'a, Ans: LookupAnswer + LookupExport> AnswersSolver<'a, Ans> {
                 .ancestors(self.stdlib)
                 .map(|x| x.class_object()),
         ) {
-            if c == self.stdlib.object_class_type().class_object() {
+            if c == self.stdlib.object().class_object() {
                 // Don't want to suggest `__hash__`
                 break;
             }
