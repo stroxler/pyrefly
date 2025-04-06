@@ -25,14 +25,14 @@ type StdlibResult<T> = Result<T, StdlibError>;
 
 #[derive(Debug, Clone)]
 pub struct Stdlib {
-    str: StdlibResult<Class>,
-    bool: StdlibResult<Class>,
-    int: StdlibResult<Class>,
-    bytes: StdlibResult<Class>,
-    float: StdlibResult<Class>,
-    complex: StdlibResult<Class>,
+    str: StdlibResult<ClassType>,
+    bool: StdlibResult<ClassType>,
+    int: StdlibResult<ClassType>,
+    bytes: StdlibResult<ClassType>,
+    float: StdlibResult<ClassType>,
+    complex: StdlibResult<ClassType>,
     slice: StdlibResult<Class>,
-    base_exception: StdlibResult<Class>,
+    base_exception: StdlibResult<ClassType>,
     /// Introduced in Python 3.11.
     base_exception_group: StdlibResult<Class>,
     /// Introduced in Python 3.11.
@@ -48,35 +48,35 @@ pub struct Stdlib {
     async_generator: StdlibResult<Class>,
     awaitable: StdlibResult<Class>,
     coroutine: StdlibResult<Class>,
-    type_var: StdlibResult<Class>,
+    type_var: StdlibResult<ClassType>,
     /// Defined in `typing_extensions` util 3.13, defined in `typing` since 3.10.
     /// After 3.13, `typing_extensions` reexports from `typing`.
     /// For 3.10 to 3.12 defined separately in both locations.
-    param_spec: StdlibResult<Class>,
+    param_spec: StdlibResult<ClassType>,
     /// Moved from `typing` to `typing_extensions` in 3.10.
-    param_spec_args: StdlibResult<Class>,
+    param_spec_args: StdlibResult<ClassType>,
     /// Moved from `typing` to `typing_extensions` in 3.10.
-    param_spec_kwargs: StdlibResult<Class>,
+    param_spec_kwargs: StdlibResult<ClassType>,
     /// Defined in `typing_extensions` until 3.13, defined in `typing` since 3.11.
     /// After 3.13, `typing_extensions` reexports from `typing`.
     /// For 3.11 and 3.12 defined separately in both locations.
-    type_var_tuple: StdlibResult<Class>,
+    type_var_tuple: StdlibResult<ClassType>,
     /// Defined in `typing_extensions` until 3.14, defined in `typing` since 3.12.
     /// After 3.14, `typing_extensions` reexports from `typing`.
     /// For 3.12 and 3.13 defined separately in both locations.
-    type_alias_type: StdlibResult<Class>,
-    traceback_type: StdlibResult<Class>,
-    builtins_type: StdlibResult<Class>,
+    type_alias_type: StdlibResult<ClassType>,
+    traceback_type: StdlibResult<ClassType>,
+    builtins_type: StdlibResult<ClassType>,
     /// Introduced in Python 3.10.
-    ellipsis_type: StdlibResult<Class>,
+    ellipsis_type: StdlibResult<ClassType>,
     /// Moved from `_typeshed` to `types` in 3.10.
-    none_type: StdlibResult<Class>,
-    function_type: StdlibResult<Class>,
-    method_type: StdlibResult<Class>,
-    enum_meta: StdlibResult<Class>,
-    enum_flag: StdlibResult<Class>,
-    named_tuple: StdlibResult<Class>,
-    property: StdlibResult<Class>,
+    none_type: StdlibResult<ClassType>,
+    function_type: StdlibResult<ClassType>,
+    method_type: StdlibResult<ClassType>,
+    enum_meta: StdlibResult<ClassType>,
+    enum_flag: StdlibResult<ClassType>,
+    named_tuple: StdlibResult<ClassType>,
+    property: StdlibResult<ClassType>,
     object: StdlibResult<ClassType>,
 }
 
@@ -115,43 +115,43 @@ impl Stdlib {
         };
 
         Self {
-            str: lookup_generic(builtins, "str"),
-            bool: lookup_generic(builtins, "bool"),
-            int: lookup_generic(builtins, "int"),
-            bytes: lookup_generic(builtins, "bytes"),
-            float: lookup_generic(builtins, "float"),
-            complex: lookup_generic(builtins, "complex"),
+            str: lookup_concrete(builtins, "str"),
+            bool: lookup_concrete(builtins, "bool"),
+            int: lookup_concrete(builtins, "int"),
+            bytes: lookup_concrete(builtins, "bytes"),
+            float: lookup_concrete(builtins, "float"),
+            complex: lookup_concrete(builtins, "complex"),
             slice: lookup_generic(builtins, "slice"),
-            base_exception: lookup_generic(builtins, "BaseException"),
+            base_exception: lookup_concrete(builtins, "BaseException"),
             base_exception_group: lookup_generic(builtins, "BaseExceptionGroup"),
             exception_group: lookup_generic(builtins, "ExceptionGroup"),
             list: lookup_generic(builtins, "list"),
             dict: lookup_generic(builtins, "dict"),
             set: lookup_generic(builtins, "set"),
             tuple: lookup_generic(builtins, "tuple"),
-            builtins_type: lookup_generic(builtins, "type"),
-            ellipsis_type: lookup_generic(types, "EllipsisType"),
-            none_type: lookup_generic(none_location, "NoneType"),
+            builtins_type: lookup_concrete(builtins, "type"),
+            ellipsis_type: lookup_concrete(types, "EllipsisType"),
+            none_type: lookup_concrete(none_location, "NoneType"),
             iterable: lookup_generic(typing, "Iterable"),
             async_iterable: lookup_generic(typing, "AsyncIterable"),
             generator: lookup_generic(typing, "Generator"),
             async_generator: lookup_generic(typing, "AsyncGenerator"),
             awaitable: lookup_generic(typing, "Awaitable"),
             coroutine: lookup_generic(typing, "Coroutine"),
-            type_var: lookup_generic(typing, "TypeVar"),
-            param_spec: lookup_generic(typing, "ParamSpec"),
-            param_spec_args: lookup_generic(typing, "ParamSpecArgs"),
-            param_spec_kwargs: lookup_generic(typing, "ParamSpecKwargs"),
-            type_var_tuple: lookup_generic(typing, "TypeVarTuple"),
-            type_alias_type: lookup_generic(typing, "TypeAliasType"),
-            traceback_type: lookup_generic(types, "TracebackType"),
-            function_type: lookup_generic(types, "FunctionType"),
-            method_type: lookup_generic(types, "MethodType"),
+            type_var: lookup_concrete(typing, "TypeVar"),
+            param_spec: lookup_concrete(typing, "ParamSpec"),
+            param_spec_args: lookup_concrete(typing, "ParamSpecArgs"),
+            param_spec_kwargs: lookup_concrete(typing, "ParamSpecKwargs"),
+            type_var_tuple: lookup_concrete(typing, "TypeVarTuple"),
+            type_alias_type: lookup_concrete(typing, "TypeAliasType"),
+            traceback_type: lookup_concrete(types, "TracebackType"),
+            function_type: lookup_concrete(types, "FunctionType"),
+            method_type: lookup_concrete(types, "MethodType"),
             mapping: lookup_generic(typing, "Mapping"),
-            enum_meta: lookup_generic(enum_, "EnumMeta"),
-            enum_flag: lookup_generic(enum_, "Flag"),
-            named_tuple: lookup_generic(typing, "NamedTuple"),
-            property: lookup_generic(builtins, "property"),
+            enum_meta: lookup_concrete(enum_, "EnumMeta"),
+            enum_flag: lookup_concrete(enum_, "Flag"),
+            named_tuple: lookup_concrete(typing, "NamedTuple"),
+            property: lookup_concrete(builtins, "property"),
             object: lookup_concrete(builtins, "object"),
         }
     }
@@ -184,9 +184,9 @@ impl Stdlib {
         }
     }
 
-    fn primitive(cls: &StdlibResult<Class>) -> ClassType {
+    fn primitive(cls: &StdlibResult<ClassType>) -> ClassType {
         // Note: this construction will panic if we incorrectly mark a generic type as primitive.
-        ClassType::new_for_stdlib(Self::unwrap(cls).dupe(), TArgs::default())
+        Self::unwrap(cls).clone()
     }
 
     pub fn object(&self) -> &ClassType {
