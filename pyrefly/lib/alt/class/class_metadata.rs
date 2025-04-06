@@ -78,48 +78,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn check_new_type_base(
         &self,
         base_type_and_range: &Option<(Type, TextRange)>,
-        cls: &Class,
         errors: &ErrorCollector,
-        is_new_type: bool,
     ) {
-        match (base_type_and_range, is_new_type) {
-            (Some((Type::ClassType(c), _)), false) => {
-                let base_cls = c.class_object();
-                let base_class_metadata = self.get_metadata_for_class(base_cls);
-                if base_class_metadata.is_new_type() {
-                    self.error(
-                        errors,
-                        cls.range(),
-                        ErrorKind::InvalidInheritance,
-                        None,
-                        "Subclassing a NewType not allowed".to_owned(),
-                    );
-                }
-            }
+        match base_type_and_range {
             // TODO: raise an error for generic classes and other forbidden types such as hashable
-            (Some((Type::ClassType(c), _)), true) => {
+            Some((Type::ClassType(c), range)) => {
                 let base_cls = c.class_object();
                 let base_class_metadata = self.get_metadata_for_class(base_cls);
                 if base_class_metadata.is_protocol() {
                     self.error(
                         errors,
-                        cls.range(),
+                        *range,
                         ErrorKind::InvalidArgument,
                         None,
                         "Second argument to NewType cannot be a protocol".to_owned(),
                     );
                 }
             }
-            (_, true) => {
+            Some((_, range)) => {
                 self.error(
                     errors,
-                    cls.range(),
+                    *range,
                     ErrorKind::InvalidArgument,
                     None,
                     "Second argument to NewType is incorrect".to_owned(),
                 );
             }
-            (_, _) => {}
+            _ => {}
         }
     }
 
@@ -163,7 +148,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     _ => None,
                 };
-                self.check_new_type_base(&base_type_and_range, cls, errors, is_new_type);
+                if is_new_type {
+                self.check_new_type_base(&base_type_and_range, errors);
+                }
                 match base_type_and_range {
                     Some((Type::ClassType(c), range)) => {
                         let base_cls = c.class_object();
@@ -180,6 +167,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 ErrorKind::InvalidInheritance,
                                 None,
                                 format!("Cannot extend final class `{}`", base_cls.name()),
+                            );
+                        }
+                       if base_class_metadata.is_new_type() && !is_new_type {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorKind::InvalidInheritance,
+                                None,
+                                "Subclassing a NewType not allowed".to_owned(),
                             );
                         }
                         if base_cls.has_qname("typing", "NamedTuple")

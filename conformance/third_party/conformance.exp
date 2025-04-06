@@ -457,12 +457,12 @@
     },
     {
       "code": -2,
-      "column": 7,
+      "column": 21,
       "concise_description": "Subclassing a NewType not allowed",
       "description": "Subclassing a NewType not allowed",
       "line": 23,
       "name": "invalid-inheritance",
-      "stop_column": 20,
+      "stop_column": 27,
       "stop_line": 23
     },
     {
@@ -487,42 +487,42 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 38,
       "concise_description": "Second argument to NewType is incorrect",
       "description": "Second argument to NewType is incorrect",
       "line": 44,
       "name": "invalid-argument",
-      "stop_column": 12,
+      "stop_column": 47,
       "stop_line": 44
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 38,
       "concise_description": "Second argument to NewType cannot be a protocol",
       "description": "Second argument to NewType cannot be a protocol",
       "line": 49,
       "name": "invalid-argument",
-      "stop_column": 12,
+      "stop_column": 46,
       "stop_line": 49
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 38,
       "concise_description": "Second argument to NewType is incorrect",
       "description": "Second argument to NewType is incorrect",
       "line": 51,
       "name": "invalid-argument",
-      "stop_column": 12,
+      "stop_column": 48,
       "stop_line": 51
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 38,
       "concise_description": "Second argument to NewType is incorrect",
       "description": "Second argument to NewType is incorrect",
       "line": 58,
       "name": "invalid-argument",
-      "stop_column": 12,
+      "stop_column": 41,
       "stop_line": 58
     },
     {
@@ -537,12 +537,12 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 38,
       "concise_description": "Second argument to NewType is incorrect",
       "description": "Second argument to NewType is incorrect",
       "line": 62,
       "name": "invalid-argument",
-      "stop_column": 12,
+      "stop_column": 41,
       "stop_line": 62
     }
   ],
