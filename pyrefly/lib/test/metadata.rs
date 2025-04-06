@@ -132,6 +132,12 @@ assert_type(Y(), int)
 );
 
 testcase!(
+    test_python_3_14,
+    TestEnv::new_with_version(PythonVersion::new(3, 14, 0)),
+    "",
+);
+
+testcase!(
     test_python_3_13,
     TestEnv::new_with_version(PythonVersion::new(3, 13, 0)),
     "",
