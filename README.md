@@ -18,23 +18,23 @@ of 2025.
 
 Typeshed can be fetched from upstream into the codebase using the following
 command (assuming this is the current directory):
-`python scripts/fetch_typeshed.py -o pyre2/third_party`
+`python scripts/fetch_typeshed.py -o pyrefly/third_party`
 
 ### Meta internal developers
 
 From this directory, you can run:
 
 - Check things are plausible: `./test.py` (runs the basic tests and linter)
-- Run a command: `buck2 run pyre2 -- COMMAND_LINE_ARGUMENTS`
-  - For example, run on a single file: `buck2 run pyre2 -- check test.py`
-- Run a single test: `buck2 test pyre2 -- NAME_OF_THE_TEST`
+- Run a command: `buck2 run pyrefly -- COMMAND_LINE_ARGUMENTS`
+  - For example, run on a single file: `buck2 run pyrefly -- check test.py`
+- Run a single test: `buck2 test pyrefly -- NAME_OF_THE_TEST`
 - Run the end-to-end tests: `buck2 test test:`
 - Run `arc pyre` (a.k.a. per-target type checking) with Pyrefly:
   `arc pyre check <targets_to_check> -c python.type_checker=fbcode//tools/pyre/pyre2:pyrefly_for_buck`
-- Debug a file: `buck2 run pyre2 -- check <filename> --debug-info=debug.js`,
+- Debug a file: `buck2 run pyrefly -- check <filename> --debug-info=debug.js`,
   then open `debug.html` in your browser
 - Fetch Typeshed from upstream
-  `HTTPS_PROXY=https://fwdproxy:8080 fbpython scripts/fetch_typeshed.py -o pyre2/third_party`
+  `HTTPS_PROXY=https://fwdproxy:8080 fbpython scripts/fetch_typeshed.py -o pyrefly/third_party`
 
 ## Packaging
 
