@@ -295,6 +295,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut extra_arg_pos = None;
         let mut unpacked_vararg = None;
         let mut unpacked_vararg_matched_args = Vec::new();
+        let var_to_rparams = |var| {
+            let ps = match self.solver().force_var(var) {
+                Type::ParamSpecValue(ps) => ps,
+                Type::Any(_) => ParamList::everything(),
+                t => {
+                    error(
+                        call_errors,
+                        range,
+                        ErrorKind::BadArgumentType,
+                        format!("Expected `{}` to be a ParamSpec value", self.for_display(t)),
+                    );
+                    ParamList::everything()
+                }
+            };
+            ps.items().iter().cloned().rev().collect()
+        };
         for arg in iargs {
             let mut arg_pre = arg.pre_eval(self, arg_errors);
             while arg_pre.step() {
@@ -305,24 +321,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // We've run out of parameters but haven't finished matching arguments. If we
                     // have a ParamSpec Var, it may contribute more parameters; force it and tack
                     // the result onto the parameter list.
-                    let ps = match self.solver().force_var(var) {
-                        Type::ParamSpecValue(ps) => ps,
-                        Type::Any(_) => ParamList::everything(),
-                        t => {
-                            error(
-                                call_errors,
-                                range,
-                                ErrorKind::BadArgumentType,
-                                format!(
-                                    "Expected `{}` to be a ParamSpec value",
-                                    self.for_display(t)
-                                ),
-                            );
-                            ParamList::everything()
-                        }
-                    };
+                    rparams = var_to_rparams(var);
                     paramspec = None;
-                    rparams = ps.items().iter().cloned().rev().collect();
                     continue;
                 } else {
                     None
@@ -483,23 +483,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut kwparams = SmallMap::new();
         let mut kwargs = None;
         let mut kwargs_is_unpack = false;
-        for p in rparams.iter().rev() {
+        loop {
+            let p = match rparams.pop() {
+                Some(p) => p,
+                None if let Some(var) = paramspec => {
+                    // We've reached the end of our regular parameter list. Now check if we have more parameters from a ParamSpec.
+                    rparams = var_to_rparams(var);
+                    paramspec = None;
+                    continue;
+                }
+                None => {
+                    break;
+                }
+            };
             match p {
                 Param::PosOnly(_, required) => {
-                    if *required == Required::Required {
+                    if required == Required::Required {
                         need_positional += 1;
                     }
                 }
                 Param::VarArg(..) => {}
                 Param::Pos(name, ty, required) | Param::KwOnly(name, ty, required) => {
-                    kwparams.insert(name.clone(), (ty, *required == Required::Required));
+                    kwparams.insert(name.clone(), (ty, required == Required::Required));
                 }
                 Param::Kwargs(Type::Unpack(box Type::TypedDict(typed_dict))) => {
-                    let i = kwargs_typed_dict_fields_vec.push(self.typed_dict_fields(typed_dict));
+                    let i = kwargs_typed_dict_fields_vec.push(self.typed_dict_fields(&typed_dict));
                     kwargs_typed_dict_fields_vec[i]
                         .iter()
                         .for_each(|(name, field)| {
-                            kwparams.insert(name.clone(), (&field.ty, field.required));
+                            kwparams.insert(name.clone(), (field.ty.clone(), field.required));
                         });
                     kwargs_is_unpack = true;
                 }
@@ -529,7 +541,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.typed_dict_fields(&typed_dict)
                             .iter()
                             .for_each(|(name, field)| {
-                                let mut hint = kwargs;
+                                let mut hint = kwargs.clone();
                                 if seen_names.contains(name) {
                                     error(
                                         call_errors,
@@ -537,9 +549,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         ErrorKind::BadKeywordArgument,
                                         format!("Multiple values for argument `{}`", name),
                                     );
-                                } else if let Some(&(ty, required)) = kwparams.get(name) {
+                                } else if let Some((ty, required)) = kwparams.get(name) {
                                     seen_names.insert(name.clone());
-                                    if required && !field.required {
+                                    if *required && !field.required {
                                         error(
                                             call_errors,
                                             kw.range,
@@ -547,7 +559,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             format!("Expected key `{}` to be required", name),
                                         );
                                     }
-                                    hint = Some(ty)
+                                    hint = Some(ty.clone())
                                 } else if kwargs.is_none() && !kwargs_is_unpack {
                                     error(
                                         call_errors,
@@ -624,7 +636,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 Some(id) => {
-                    let mut hint = kwargs;
+                    let mut hint = kwargs.clone();
                     let mut has_matching_param = false;
                     if seen_names.contains(&id.id) {
                         error(
@@ -634,9 +646,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             format!("Multiple values for argument `{}`", id.id),
                         );
                         has_matching_param = true;
-                    } else if let Some(&(ty, _)) = kwparams.get(&id.id) {
+                    } else if let Some((ty, _)) = kwparams.get(&id.id) {
                         seen_names.insert(id.id.clone());
-                        hint = Some(ty);
+                        hint = Some(ty.clone());
                         has_matching_param = true;
                     } else if kwargs.is_none() {
                         error(
@@ -660,15 +672,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     };
                     self.expr_with_separate_check_errors(
                         &kw.value,
-                        hint.map(|ty| (ty, tcc, call_errors)),
+                        hint.as_ref().map(|ty| (ty, tcc, call_errors)),
                         arg_errors,
                     );
                 }
             }
         }
-        for (name, &(want, required)) in kwparams.iter() {
+        for (name, (want, required)) in kwparams.iter() {
             if !seen_names.contains(name) {
-                if splat_kwargs.is_empty() && required {
+                if splat_kwargs.is_empty() && *required {
                     error(
                         call_errors,
                         range,

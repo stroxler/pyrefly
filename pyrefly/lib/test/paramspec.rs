@@ -352,7 +352,6 @@ def foo(x: int, *args: P1.args, **kwargs: P2.kwargs) -> None: ...  # E: *args an
 );
 
 testcase!(
-    bug = "The twice() call with keyword args should be accepted",
     test_paramspec_twice,
     r#"
 from typing import Callable, ParamSpec
@@ -367,7 +366,7 @@ def a_int_b_str(a: int, b: str) -> int:
 
 twice(a_int_b_str, 1, "A")     # Accepted
 
-twice(a_int_b_str, b="A", a=1) # Accepted # E: Unexpected keyword argument `b` # E: Unexpected keyword argument `a`
+twice(a_int_b_str, b="A", a=1) # Accepted
 
 twice(a_int_b_str, "A", 1)     # Rejected # E: `Literal['A']` is not assignable to parameter `a` with type `int` # E: `Literal[1]` is not assignable to parameter `b` with type `str`
 "#,
