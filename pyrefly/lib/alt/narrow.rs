@@ -8,6 +8,7 @@
 use ruff_python_ast::name::Name;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
 use crate::alt::answers::AnswersSolver;

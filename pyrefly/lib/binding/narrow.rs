@@ -37,8 +37,8 @@ pub enum NarrowVal {
     Type(Type, TextRange),
 }
 
-impl NarrowVal {
-    pub fn range(&self) -> TextRange {
+impl Ranged for NarrowVal {
+    fn range(&self) -> TextRange {
         match self {
             Self::Expr(e) => e.range(),
             Self::Type(_, r) => *r,
