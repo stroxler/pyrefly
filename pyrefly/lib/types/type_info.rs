@@ -273,28 +273,27 @@ mod tests {
     use crate::types::type_info::TypeInfo;
     use crate::types::types::Type;
 
+    fn fake_class_type(class_name: &str) -> Type {
+        Type::ClassType(ClassType::new(
+            fake_class(class_name, "class_defs_module", 5, Vec::new()),
+            TArgs::default(),
+        ))
+    }
+
     #[test]
-    fn test_display_type_info() {
-        let foo = Type::ClassType(ClassType::new(
-            fake_class("Foo", "foo", 5, Vec::new()),
-            TArgs::default(),
-        ));
-        let bar = Type::ClassType(ClassType::new(
-            fake_class("Bar", "foo", 5, Vec::new()),
-            TArgs::default(),
-        ));
+    fn test_type_info_display() {
         let x = Name::new_static("x");
         let y = Name::new_static("y");
-        let mut type_info = TypeInfo::of_ty(foo.clone());
+        let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         assert_eq!(type_info.to_string(), "Foo");
-        type_info.add_narrow_mut(Vec1::new(&x), bar.clone());
+        type_info.add_narrow_mut(Vec1::new(&x), fake_class_type("Bar"));
         assert_eq!(type_info.to_string(), "Foo (_.x: Bar)");
-        type_info.add_narrow_mut(Vec1::new(&y), foo);
-        assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.y: Foo)");
-        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &x), bar);
+        type_info.add_narrow_mut(Vec1::new(&y), fake_class_type("Baz"));
+        assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.y: Baz)");
+        type_info.add_narrow_mut(Vec1::from_vec_push(vec![&x], &x), fake_class_type("Qux"));
         assert_eq!(
             type_info.to_string(),
-            "Foo (_.y: Foo, _.x: Bar, _.x.x: Bar)"
+            "Foo (_.y: Baz, _.x: Bar, _.x.x: Qux)"
         )
     }
 }
