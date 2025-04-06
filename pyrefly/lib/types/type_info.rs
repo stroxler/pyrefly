@@ -30,7 +30,8 @@ use crate::util::visit::VisitMut;
 /// knowledge about how a chain of attribute accesses will resolve.
 ///
 /// For example:
-/// ```
+///
+/// ```python
 /// x: Foo
 /// if x.foo is not None x.foo.bar is None and x.baz is None:
 ///     # here, `x` is still `Foo` but we also can narrow
