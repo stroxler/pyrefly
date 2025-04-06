@@ -216,7 +216,7 @@ struct Handles {
 }
 
 impl Handles {
-    pub fn new(files: Vec<PathBuf>, config_finder: &impl Fn(&Path) -> ConfigFile) -> Self {
+    fn new(files: Vec<PathBuf>, config_finder: &impl Fn(&Path) -> ConfigFile) -> Self {
         let mut handles = Self {
             loader_factory: SmallMap::new(),
             path_data: HashMap::new(),
@@ -263,7 +263,7 @@ impl Handles {
         }
     }
 
-    pub fn all(&self, specified_require: Require) -> Vec<(Handle, Require)> {
+    fn all(&self, specified_require: Require) -> Vec<(Handle, Require)> {
         self.path_data
             .iter()
             .map(|(path, (module_name, runtime_metadata, loader))| {
@@ -280,15 +280,15 @@ impl Handles {
             .collect()
     }
 
-    pub fn loaders(&self) -> Vec<LoaderId> {
+    fn loaders(&self) -> Vec<LoaderId> {
         self.loader_factory.values().duped().collect()
     }
 
-    pub fn error_configs(&self) -> ErrorConfigs {
+    fn error_configs(&self) -> ErrorConfigs {
         ErrorConfigs::new(self.module_to_error_config.clone())
     }
 
-    pub fn update<'a>(
+    fn update<'a>(
         &mut self,
         created_files: impl Iterator<Item = &'a PathBuf>,
         removed_files: impl Iterator<Item = &'a PathBuf>,

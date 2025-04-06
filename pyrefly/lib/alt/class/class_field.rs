@@ -74,7 +74,7 @@ impl Display for ClassFieldInitialization {
 }
 
 impl ClassFieldInitialization {
-    pub fn recursive() -> Self {
+    fn recursive() -> Self {
         ClassFieldInitialization::Class(None)
     }
 }
@@ -358,7 +358,7 @@ impl ClassField {
     }
 }
 
-pub fn bind_class_attribute(cls: &Class, attr: Type) -> Attribute {
+fn bind_class_attribute(cls: &Class, attr: Type) -> Attribute {
     Attribute::read_write(make_bound_classmethod(cls, &attr).unwrap_or(attr))
 }
 
