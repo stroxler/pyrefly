@@ -188,10 +188,10 @@ def compare_conformance_output(
     return messages
 
 
-def get_pyre2_command() -> list[str]:
-    pyre2_path = resources.files(__package__).joinpath("pyrefly.exe")
+def get_pyrefly_command() -> list[str]:
+    pyrefly_path = resources.files(__package__).joinpath("pyrefly.exe")
     return [
-        str(pyre2_path),
+        str(pyrefly_path),
         "check",
         "--expectations",
         # We seem to be a bit non-deterministic in some places, so let's disable
@@ -214,7 +214,7 @@ def get_conformance_output(directory: str) -> Dict[str, List[Dict[str, Any]]]:
     outputs = defaultdict(lambda: [])
     with tempfile.NamedTemporaryFile() as tmp_file:
         cmd = (
-            get_pyre2_command()
+            get_pyrefly_command()
             + [
                 "--output",
                 tmp_file.name,
@@ -255,7 +255,7 @@ def get_conformance_output_separate(directory: str) -> Dict[str, List[Dict[str, 
     for file in files_to_check:
         with tempfile.NamedTemporaryFile() as tmp_file:
             cmd = (
-                get_pyre2_command()
+                get_pyrefly_command()
                 + [
                     "--output",
                     tmp_file.name,
