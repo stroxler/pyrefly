@@ -5318,6 +5318,16 @@
       "name": "invalid-type-var",
       "stop_column": 11,
       "stop_line": 172
+    },
+    {
+      "code": -2,
+      "column": 7,
+      "concise_description": "Metaclass may not be an unbound generic",
+      "description": "Metaclass may not be an unbound generic",
+      "line": 208,
+      "name": "invalid-inheritance",
+      "stop_column": 26,
+      "stop_line": 208
     }
   ],
   "generics_defaults.py": [

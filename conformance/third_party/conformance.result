@@ -300,7 +300,6 @@
     "Line 121: Expected 1 errors",
     "Line 162: Expected 1 errors",
     "Line 163: Expected 1 errors",
-    "Line 208: Expected 1 errors",
     "Line 34: Unexpected errors ['`+` is not supported between `TypeVar[AnyStr]` and `TypeVar[AnyStr]`\\n  TODO: Expr::binop_infer attribute base undefined for type: TypeVar[AnyStr] (trying to access __add__)', '`+` is not supported between `TypeVar[AnyStr]` and `TypeVar[AnyStr]`\\n  TODO: Expr::binop_infer attribute base undefined for type: TypeVar[AnyStr] (trying to access __radd__)']",
     "Line 67: Unexpected errors ['assert_type(MyStr, str) failed']",
     "Line 68: Unexpected errors ['assert_type(MyStr, str) failed', 'Argument `str` is not assignable to parameter `y` with type `MyStr` in function `concat`']"

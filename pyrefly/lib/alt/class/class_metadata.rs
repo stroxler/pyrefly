@@ -331,6 +331,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     "Typed dictionary definitions may not specify a metaclass".to_owned(),
                 );
             }
+            if metaclass.targs().as_slice().iter().any(|targ| {
+                targ.any(|ty| {
+                    matches!(
+                        ty,
+                        Type::TypeVar(_) | Type::TypeVarTuple(_) | Type::ParamSpec(_)
+                    )
+                })
+            }) {
+                self.error(
+                    errors,
+                    cls.range(),
+                    ErrorKind::InvalidInheritance,
+                    None,
+                    "Metaclass may not be an unbound generic".to_owned(),
+                );
+            }
         }
         let mut is_final = false;
         for decorator in decorators {
