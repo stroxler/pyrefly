@@ -151,7 +151,7 @@ testcase!(
 from typing import assert_type, Callable, Any
 def f(cb: Callable[[int], None]) -> None: ...
 def g(cb: Any) -> None: ...
-f(cb = lambda x: assert_type(x, int), cb = lambda x: assert_type(x, int))  # E: Multiple values for argument `cb` # E: Parse error # E: assert_type(Any, int)
+f(cb = lambda x: assert_type(x, int), cb = lambda x: assert_type(x, int))  # E: Multiple values for argument `cb` # E: Parse error
 g(cb = lambda x: assert_type(x, Any), cb = lambda x: assert_type(x, Any))  # E: Multiple values for argument `cb` # E: Parse error
     "#,
 );

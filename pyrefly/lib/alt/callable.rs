@@ -12,7 +12,6 @@ use ruff_python_ast::Keyword;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
-use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
@@ -291,7 +290,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut rparams = params.items().iter().cloned().rev().collect::<Vec<_>>();
         let mut num_positional_params = 0;
         let mut num_positional_args = 0;
-        let mut seen_names = SmallSet::new();
+        let mut seen_names = SmallMap::new();
         let mut extra_arg_pos = None;
         let mut unpacked_vararg = None;
         let mut unpacked_vararg_matched_args = Vec::new();
@@ -336,7 +335,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         num_positional_params += 1;
                         rparams.pop();
                         if let Some(name) = &name {
-                            seen_names.insert(name.clone());
+                            seen_names.insert(name.clone(), ty.clone());
                         }
                         arg_pre.post_check(
                             self,
@@ -542,15 +541,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .iter()
                             .for_each(|(name, field)| {
                                 let mut hint = kwargs.clone();
-                                if seen_names.contains(name) {
+                                if let Some(ty) = seen_names.get(name) {
                                     error(
                                         call_errors,
                                         kw.range,
                                         ErrorKind::BadKeywordArgument,
                                         format!("Multiple values for argument `{}`", name),
                                     );
+                                    hint = Some(ty.clone());
                                 } else if let Some((ty, required)) = kwparams.get(name) {
-                                    seen_names.insert(name.clone());
+                                    seen_names.insert(name.clone(), ty.clone());
                                     if *required && !field.required {
                                         error(
                                             call_errors,
@@ -638,16 +638,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(id) => {
                     let mut hint = kwargs.clone();
                     let mut has_matching_param = false;
-                    if seen_names.contains(&id.id) {
+                    if let Some(ty) = seen_names.get(&id.id) {
                         error(
                             call_errors,
                             kw.range,
                             ErrorKind::BadKeywordArgument,
                             format!("Multiple values for argument `{}`", id.id),
                         );
+                        hint = Some(ty.clone());
                         has_matching_param = true;
                     } else if let Some((ty, _)) = kwparams.get(&id.id) {
-                        seen_names.insert(id.id.clone());
+                        seen_names.insert(id.id.clone(), ty.clone());
                         hint = Some(ty.clone());
                         has_matching_param = true;
                     } else if kwargs.is_none() {
@@ -679,7 +680,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         for (name, (want, required)) in kwparams.iter() {
-            if !seen_names.contains(name) {
+            if !seen_names.contains_key(name) {
                 if splat_kwargs.is_empty() && *required {
                     error(
                         call_errors,
