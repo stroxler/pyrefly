@@ -83,7 +83,7 @@ pub struct Stdlib {
 impl Stdlib {
     pub fn new(
         version: PythonVersion,
-        lookup_class: impl FnMut(ModuleName, &Name) -> Option<Class>,
+        lookup_class: &dyn Fn(ModuleName, &Name) -> Option<Class>,
     ) -> Self {
         Self::new_with_bootstrapping(false, version, lookup_class)
     }
@@ -91,14 +91,14 @@ impl Stdlib {
     pub fn new_with_bootstrapping(
         bootstrapping: bool,
         version: PythonVersion,
-        mut lookup_class: impl FnMut(ModuleName, &Name) -> Option<Class>,
+        lookup_class: &dyn Fn(ModuleName, &Name) -> Option<Class>,
     ) -> Self {
         let builtins = ModuleName::builtins();
         let types = ModuleName::types();
         let typing = ModuleName::typing();
         let enum_ = ModuleName::enum_();
 
-        let mut lookup_str = |module: ModuleName, name: &'static str| {
+        let lookup_str = |module: ModuleName, name: &'static str| {
             lookup_class(module, &Name::new_static(name)).ok_or(StdlibError {
                 bootstrapping,
                 name,
@@ -162,7 +162,7 @@ impl Stdlib {
     /// It works because the lookups only need a tiny subset of all `AnswersSolver` functionality,
     /// none of which actually depends on `Stdlib`.
     pub fn for_bootstrapping() -> Stdlib {
-        Self::new_with_bootstrapping(true, PythonVersion::default(), |_, _| None)
+        Self::new_with_bootstrapping(true, PythonVersion::default(), &|_, _| None)
     }
 
     fn unwrap<T>(x: &StdlibResult<T>) -> &T {
