@@ -203,10 +203,17 @@ impl Display for NarrowedAttrs {
     }
 }
 
+/// A `NarrowedAttr` represents a single attribute within a tree of narrowed
+/// attributes. The attribute itself may or may not be narrowed, and it may or
+/// may not have any sub-attributes (but at least one must be the case, or it
+/// wouldn't be in the tree at all)
 #[derive(Debug, Clone, Visit, VisitMut, PartialEq, Eq, TypeEq)]
 pub enum NarrowedAttr {
+    /// This attribute is narrowed, and has no narrowed sub-attributes (Leaf)
     Leaf(Type),
+    /// This attribute is narrowed, and has one or more narrowed sub-attributes (WithRoot)
     WithRoot(Type, NarrowedAttrs),
+    /// This attribute is not narrowed, and has one or more narrowed sub-attributes (WithoutRoot)
     WithoutRoot(NarrowedAttrs),
 }
 
