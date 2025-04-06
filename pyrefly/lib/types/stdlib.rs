@@ -33,7 +33,9 @@ pub struct Stdlib {
     complex: StdlibResult<Class>,
     slice: StdlibResult<Class>,
     base_exception: StdlibResult<Class>,
+    /// Introduced in Python 3.11.
     base_exception_group: StdlibResult<Class>,
+    /// Introduced in Python 3.11.
     exception_group: StdlibResult<Class>,
     list: StdlibResult<Class>,
     dict: StdlibResult<Class>,
@@ -47,14 +49,27 @@ pub struct Stdlib {
     awaitable: StdlibResult<Class>,
     coroutine: StdlibResult<Class>,
     type_var: StdlibResult<Class>,
+    /// Defined in `typing_extensions` util 3.13, defined in `typing` since 3.10.
+    /// After 3.13, `typing_extensions` reexports from `typing`.
+    /// For 3.10 to 3.12 defined separately in both locations.
     param_spec: StdlibResult<Class>,
+    /// Moved from `typing` to `typing_extensions` in 3.10.
     param_spec_args: StdlibResult<Class>,
+    /// Moved from `typing` to `typing_extensions` in 3.10.
     param_spec_kwargs: StdlibResult<Class>,
+    /// Defined in `typing_extensions` until 3.13, defined in `typing` since 3.11.
+    /// After 3.13, `typing_extensions` reexports from `typing`.
+    /// For 3.11 and 3.12 defined separately in both locations.
     type_var_tuple: StdlibResult<Class>,
+    /// Defined in `typing_extensions` until 3.14, defined in `typing` since 3.12.
+    /// After 3.14, `typing_extensions` reexports from `typing`.
+    /// For 3.12 and 3.13 defined separately in both locations.
     type_alias_type: StdlibResult<Class>,
     traceback_type: StdlibResult<Class>,
     builtins_type: StdlibResult<Class>,
+    /// Introduced in Python 3.10.
     ellipsis_type: StdlibResult<Class>,
+    /// Moved from `_typeshed` to `types` in 3.10.
     none_type: StdlibResult<Class>,
     function_type: StdlibResult<Class>,
     method_type: StdlibResult<Class>,
