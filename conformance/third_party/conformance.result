@@ -334,7 +334,6 @@
   ],
   "generics_paramspec_components.py": [
     "Line 30: Expected 1 errors",
-    "Line 96: Unexpected errors ['Expected 1 positional argument, got 3 in function `twice`']",
     "Line 97: Unexpected errors ['Unexpected keyword argument `b` in function `twice`', 'Unexpected keyword argument `a` in function `twice`']"
   ],
   "generics_paramspec_semantics.py": [],

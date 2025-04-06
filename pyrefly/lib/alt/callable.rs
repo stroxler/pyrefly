@@ -261,7 +261,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         callable_name: Option<FuncId>,
         params: &ParamList,
-        _paramspec: Option<Var>,
+        // A ParamSpec Var (if any) that comes at the end of the parameter list.
+        // See test::paramspec::test_paramspec_twice for an example of this.
+        mut paramspec: Option<Var>,
         self_arg: Option<CallArg>,
         args: &[CallArg],
         keywords: &[Keyword],
@@ -284,7 +286,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )
         };
         let iargs = self_arg.iter().chain(args.iter());
-        let mut iparams = params.items().iter().peekable();
+        // Creates a reversed copy of the parameters that we iterate through from back to front,
+        // so that we can easily peek at and pop from the end.
+        let mut rparams = params.items().iter().cloned().rev().collect::<Vec<_>>();
         let mut num_positional_params = 0;
         let mut num_positional_args = 0;
         let mut seen_names = SmallSet::new();
@@ -295,8 +299,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let mut arg_pre = arg.pre_eval(self, arg_errors);
             while arg_pre.step() {
                 num_positional_args += 1;
-                let param = if let Some(p) = iparams.peek() {
+                let param = if let Some(p) = rparams.last() {
                     PosParam::new(p)
+                } else if let Some(var) = paramspec {
+                    // We've run out of parameters but haven't finished matching arguments. If we
+                    // have a ParamSpec Var, it may contribute more parameters; force it and tack
+                    // the result onto the parameter list.
+                    let ps = match self.solver().force_var(var) {
+                        Type::ParamSpecValue(ps) => ps,
+                        Type::Any(_) => ParamList::everything(),
+                        t => {
+                            error(
+                                call_errors,
+                                range,
+                                ErrorKind::BadArgumentType,
+                                format!(
+                                    "Expected `{}` to be a ParamSpec value",
+                                    self.for_display(t)
+                                ),
+                            );
+                            ParamList::everything()
+                        }
+                    };
+                    paramspec = None;
+                    rparams = ps.items().iter().cloned().rev().collect();
+                    continue;
                 } else {
                     None
                 };
@@ -307,7 +334,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         kind: PosParamKind::Positional,
                     }) => {
                         num_positional_params += 1;
-                        iparams.next();
+                        rparams.pop();
                         if let Some(name) = &name {
                             seen_names.insert(name.clone());
                         }
@@ -456,7 +483,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut kwparams = SmallMap::new();
         let mut kwargs = None;
         let mut kwargs_is_unpack = false;
-        for p in iparams {
+        for p in rparams.iter().rev() {
             match p {
                 Param::PosOnly(_, required) => {
                     if *required == Required::Required {

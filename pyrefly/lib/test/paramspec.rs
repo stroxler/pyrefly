@@ -352,7 +352,7 @@ def foo(x: int, *args: P1.args, **kwargs: P2.kwargs) -> None: ...  # E: *args an
 );
 
 testcase!(
-    bug = "Rejects everything",
+    bug = "The twice() call with keyword args should be accepted",
     test_paramspec_twice,
     r#"
 from typing import Callable, ParamSpec
@@ -365,16 +365,15 @@ def twice(f: Callable[P, int], *args: P.args, **kwargs: P.kwargs) -> int:
 def a_int_b_str(a: int, b: str) -> int:
   return a
 
-twice(a_int_b_str, 1, "A")     # Accepted # E: Expected 1 positional argument, got 3
+twice(a_int_b_str, 1, "A")     # Accepted
 
 twice(a_int_b_str, b="A", a=1) # Accepted # E: Unexpected keyword argument `b` # E: Unexpected keyword argument `a`
 
-twice(a_int_b_str, "A", 1)     # Rejected # E: Expected 1 positional argument, got 3
+twice(a_int_b_str, "A", 1)     # Rejected # E: `Literal['A']` is not assignable to parameter `a` with type `int` # E: `Literal[1]` is not assignable to parameter `b` with type `str`
 "#,
 );
 
 testcase!(
-    bug = "False positive",
     test_functools_wraps_paramspec,
     r#"
 from functools import wraps
@@ -382,7 +381,7 @@ from functools import wraps
 def f(fn):
     @wraps(fn)
     def wrapped_fn(x):
-        return fn(x) # E: Expected 0 positional arguments, got 1
+        return fn(x)
 
     return wrapped_fn
 "#,
