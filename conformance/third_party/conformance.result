@@ -14,9 +14,7 @@
     "Line 117: Expected 1 errors",
     "Line 58: Unexpected errors ['Expected 1 type argument for `GoodTypeAlias13`, got 0']"
   ],
-  "aliases_newtype.py": [
-    "Line 47: Expected 1 errors"
-  ],
+  "aliases_newtype.py": [],
   "aliases_recursive.py": [
     "Line 19: Expected 1 errors",
     "Line 20: Expected 1 errors",

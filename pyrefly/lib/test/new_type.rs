@@ -43,19 +43,18 @@ nt1: GoodNewType1[int] # E: Expected 0 type arguments for `GoodNewType1`, got 1
 );
 
 testcase!(
-    bug = "TODO: None of these types are allowed for a NewType. We will add checks for that.",
     test_new_type_generic,
     r#"
 from typing import NewType, TypeVar, Hashable, Literal
 
-BadNewType1 = NewType("BadNewType1", int | str) # E: Second argument to NewType is incorrect
+BadNewType1 = NewType("BadNewType1", int | str) # E: Second argument to NewType is invalid
 
 T = TypeVar("T")
-BadNewType2 = NewType("BadNewType2", list[T])
+BadNewType2 = NewType("BadNewType2", list[T])  # E: Second argument to NewType cannot be an unbound generic
 
 BadNewType3 = NewType("BadNewType3", Hashable) # E: Second argument to NewType cannot be a protocol
 
-BadNewType4 = NewType("BadNewType4", Literal[7]) # E: Second argument to NewType is incorrect
+BadNewType4 = NewType("BadNewType4", Literal[7]) # E: Second argument to NewType is invalid
      "#,
 );
 
@@ -77,8 +76,8 @@ from typing import NewType , TypedDict, Any
 class TD1(TypedDict):
     a: int
 
-BadNewType1 = NewType("BadNewType1", TD1)  # E: Second argument to NewType is incorrect
+BadNewType1 = NewType("BadNewType1", TD1)  # E: Second argument to NewType is invalid
 
-BadNewType2 = NewType("BadNewType2", Any)  # E: Second argument to NewType is incorrect
+BadNewType2 = NewType("BadNewType2", Any)  # E: Second argument to NewType is invalid
      "#,
 );

@@ -1,10 +1,11 @@
 {
   "total": 136,
-  "pass": 42,
-  "fail": 94,
-  "pass_rate": 0.31,
-  "differences": 477,
+  "pass": 43,
+  "fail": 93,
+  "pass_rate": 0.32,
+  "differences": 476,
   "passing": [
+    "aliases_newtype.py",
     "annotations_coroutines.py",
     "callables_protocol.py",
     "constructors_call_metaclass.py",
@@ -51,7 +52,6 @@
   "failing": {
     "aliases_explicit.py": 3,
     "aliases_implicit.py": 7,
-    "aliases_newtype.py": 1,
     "aliases_recursive.py": 17,
     "aliases_type_statement.py": 9,
     "aliases_typealiastype.py": 25,

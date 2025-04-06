@@ -488,12 +488,22 @@
     {
       "code": -2,
       "column": 38,
-      "concise_description": "Second argument to NewType is incorrect",
-      "description": "Second argument to NewType is incorrect",
+      "concise_description": "Second argument to NewType is invalid",
+      "description": "Second argument to NewType is invalid",
       "line": 44,
       "name": "invalid-argument",
       "stop_column": 47,
       "stop_line": 44
+    },
+    {
+      "code": -2,
+      "column": 38,
+      "concise_description": "Second argument to NewType cannot be an unbound generic",
+      "description": "Second argument to NewType cannot be an unbound generic",
+      "line": 47,
+      "name": "invalid-argument",
+      "stop_column": 45,
+      "stop_line": 47
     },
     {
       "code": -2,
@@ -508,8 +518,8 @@
     {
       "code": -2,
       "column": 38,
-      "concise_description": "Second argument to NewType is incorrect",
-      "description": "Second argument to NewType is incorrect",
+      "concise_description": "Second argument to NewType is invalid",
+      "description": "Second argument to NewType is invalid",
       "line": 51,
       "name": "invalid-argument",
       "stop_column": 48,
@@ -518,8 +528,8 @@
     {
       "code": -2,
       "column": 38,
-      "concise_description": "Second argument to NewType is incorrect",
-      "description": "Second argument to NewType is incorrect",
+      "concise_description": "Second argument to NewType is invalid",
+      "description": "Second argument to NewType is invalid",
       "line": 58,
       "name": "invalid-argument",
       "stop_column": 41,
@@ -538,8 +548,8 @@
     {
       "code": -2,
       "column": 38,
-      "concise_description": "Second argument to NewType is incorrect",
-      "description": "Second argument to NewType is incorrect",
+      "concise_description": "Second argument to NewType is invalid",
+      "description": "Second argument to NewType is invalid",
       "line": 62,
       "name": "invalid-argument",
       "stop_column": 41,

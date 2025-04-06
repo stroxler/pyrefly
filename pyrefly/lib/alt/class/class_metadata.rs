@@ -78,11 +78,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn check_new_type_base(
         &self,
         base_type_and_range: &Option<(Type, TextRange)>,
+        fallback_range: TextRange,
         errors: &ErrorCollector,
     ) {
         match base_type_and_range {
             // TODO: raise an error for generic classes and other forbidden types such as hashable
-            Some((Type::ClassType(c), range)) => {
+            Some((t @ Type::ClassType(c), range)) => {
                 let base_cls = c.class_object();
                 let base_class_metadata = self.get_metadata_for_class(base_cls);
                 if base_class_metadata.is_protocol() {
@@ -94,6 +95,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         "Second argument to NewType cannot be a protocol".to_owned(),
                     );
                 }
+                if t.any(|ty| {
+                    matches!(
+                        ty,
+                        Type::TypeVar(_) | Type::TypeVarTuple(_) | Type::ParamSpec(_)
+                    )
+                }) {
+                    self.error(
+                        errors,
+                        *range,
+                        ErrorKind::InvalidArgument,
+                        None,
+                        "Second argument to NewType cannot be an unbound generic".to_owned(),
+                    );
+                }
             }
             Some((_, range)) => {
                 self.error(
@@ -101,10 +116,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     *range,
                     ErrorKind::InvalidArgument,
                     None,
-                    "Second argument to NewType is incorrect".to_owned(),
+                    "Second argument to NewType is invalid".to_owned(),
                 );
             }
-            _ => {}
+            _ => {
+                self.error(
+                    errors,
+                    fallback_range,
+                    ErrorKind::InvalidArgument,
+                    None,
+                    "Second argument to NewType is invalid".to_owned(),
+                );
+            }
         }
     }
 
@@ -149,7 +172,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     _ => None,
                 };
                 if is_new_type {
-                self.check_new_type_base(&base_type_and_range, errors);
+                    self.check_new_type_base(&base_type_and_range, cls.range(), errors);
                 }
                 match base_type_and_range {
                     Some((Type::ClassType(c), range)) => {
