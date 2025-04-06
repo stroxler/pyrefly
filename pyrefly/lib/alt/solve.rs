@@ -121,8 +121,9 @@ pub enum TypeFormContext {
     TypeArgumentCallableReturn,
     /// Type argument for the parameters list of a Callable type or a tuple
     TupleOrCallableParam,
-    /// Scoped type params for functions and classes
+    /// Constraints or upper bound for type variables
     TypeVarConstraint,
+    /// Default values for each kind of type variable
     TypeVarDefault,
     ParamSpecDefault,
     TypeVarTupleDefault,
@@ -2181,34 +2182,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 default,
                 constraints,
             }) => {
-                let restriction = if let Some((bound_idx, bound_range)) = bound {
-                    let bound_ty = self.untype(
-                        self.get_idx(*bound_idx).arc_clone_ty(),
-                        *bound_range,
-                        errors,
-                    );
+                let restriction = if let Some(bound) = bound {
+                    let bound_ty =
+                        self.expr_untype(bound, TypeFormContext::TypeVarConstraint, errors);
                     Restriction::Bound(bound_ty)
-                } else if let Some((constraint_idxs, constraint_range)) = constraints {
-                    if constraint_idxs.len() < 2 {
+                } else if let Some((constraints, range)) = constraints {
+                    if constraints.len() < 2 {
                         self.error(
                             errors,
-                            *constraint_range,
+                            *range,
                             ErrorKind::InvalidTypeVar,
                             None,
                             format!(
                                 "Expected at least 2 constraints in TypeVar `{}`, got {}",
                                 name,
-                                constraint_idxs.len(),
+                                constraints.len(),
                             ),
                         );
                         Restriction::Unrestricted
                     } else {
-                        let constraint_tys = constraint_idxs.map(|idx| {
-                            self.untype(
-                                self.get_idx(*idx).arc_clone_ty(),
-                                *constraint_range,
-                                errors,
-                            )
+                        let constraint_tys = constraints.map(|constraint| {
+                            self.expr_untype(constraint, TypeFormContext::TypeVarConstraint, errors)
                         });
                         Restriction::Constraints(constraint_tys)
                     }
@@ -2690,6 +2684,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     "TypeVarTuple must be unpacked.".to_owned(),
                 );
             }
+        }
+        if type_form_context == TypeFormContext::TypeVarConstraint
+            && result.any(Type::is_type_variable)
+        {
+            return self.error(
+                errors,
+                x.range(),
+                ErrorKind::InvalidAnnotation,
+                None,
+                "Type variable bounds and constraints must be concrete".to_owned(),
+            );
         }
         result
     }

@@ -5251,6 +5251,16 @@
     },
     {
       "code": -2,
+      "column": 53,
+      "concise_description": "Type variable bounds and constraints must be concrete",
+      "description": "Type variable bounds and constraints must be concrete",
+      "line": 55,
+      "name": "invalid-annotation",
+      "stop_column": 60,
+      "stop_line": 55
+    },
+    {
+      "code": -2,
       "column": 5,
       "concise_description": "assert_type(MyStr, str) failed",
       "description": "assert_type(MyStr, str) failed",
@@ -6441,6 +6451,16 @@
     },
     {
       "code": -2,
+      "column": 21,
+      "concise_description": "Type variable bounds and constraints must be concrete",
+      "description": "Type variable bounds and constraints must be concrete",
+      "line": 44,
+      "name": "invalid-annotation",
+      "stop_column": 33,
+      "stop_line": 44
+    },
+    {
+      "code": -2,
       "column": 17,
       "concise_description": "Expected a type form, got instance of `list[type[int] | type[str]]`",
       "description": "Expected a type form, got instance of `list[type[int] | type[str]]`",
@@ -6481,12 +6501,12 @@
     },
     {
       "code": -2,
-      "column": 17,
+      "column": 18,
       "concise_description": "Expected a type form, got instance of `Literal[3]`",
       "description": "Expected a type form, got instance of `Literal[3]`",
       "line": 75,
       "name": "not-a-type",
-      "stop_column": 27,
+      "stop_column": 19,
       "stop_line": 75
     },
     {
@@ -6743,6 +6763,16 @@
     }
   ],
   "generics_syntax_scoping.py": [
+    {
+      "code": -2,
+      "column": 20,
+      "concise_description": "Type variable bounds and constraints must be concrete",
+      "description": "Type variable bounds and constraints must be concrete",
+      "line": 14,
+      "name": "invalid-annotation",
+      "stop_column": 31,
+      "stop_line": 14
+    },
     {
       "code": -2,
       "column": 26,
@@ -7310,6 +7340,16 @@
     }
   ],
   "generics_upper_bound.py": [
+    {
+      "code": -2,
+      "column": 38,
+      "concise_description": "Type variable bounds and constraints must be concrete",
+      "description": "Type variable bounds and constraints must be concrete",
+      "line": 24,
+      "name": "invalid-annotation",
+      "stop_column": 45,
+      "stop_line": 24
+    },
     {
       "code": -2,
       "column": 1,

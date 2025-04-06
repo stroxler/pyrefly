@@ -294,7 +294,6 @@
   ],
   "generics_basic.py": [
     "Line 49: Expected 1 errors",
-    "Line 55: Expected 1 errors",
     "Line 121: Expected 1 errors",
     "Line 162: Expected 1 errors",
     "Line 163: Expected 1 errors",
@@ -375,9 +374,7 @@
     "Line 63: Unexpected errors ['Argument `Self@HasNestedFunction` is not assignable to parameter `inner_self` with type `Self` in function `nested`']"
   ],
   "generics_syntax_compatibility.py": [],
-  "generics_syntax_declarations.py": [
-    "Line 44: Expected 1 errors"
-  ],
+  "generics_syntax_declarations.py": [],
   "generics_syntax_infer_variance.py": [
     "Line 28: Unexpected errors ['`ShouldBeCovariant1[int]` is not assignable to `ShouldBeCovariant1[float]`']",
     "Line 36: Unexpected errors ['`ShouldBeCovariant2[int]` is not assignable to `ShouldBeCovariant2[float]`']",
@@ -387,7 +384,6 @@
     "Line 156: Unexpected errors ['`ShouldBeContravariant1[float]` is not assignable to `ShouldBeContravariant1[int]`']"
   ],
   "generics_syntax_scoping.py": [
-    "Line 14: Expected 1 errors",
     "Line 35: Expected 1 errors",
     "Line 92: Expected 1 errors",
     "Line 95: Expected 1 errors",
@@ -417,7 +413,6 @@
   ],
   "generics_typevartuple_unpack.py": [],
   "generics_upper_bound.py": [
-    "Line 24: Expected 1 errors",
     "Line 51: Expected 1 errors"
   ],
   "generics_variance.py": [

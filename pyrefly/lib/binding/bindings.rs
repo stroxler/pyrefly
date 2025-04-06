@@ -783,31 +783,25 @@ impl<'a> BindingsBuilder<'a> {
         info.annot
     }
 
-    pub fn handle_type_param_constraint(&mut self, x: &mut Expr) -> Idx<Key> {
-        self.ensure_type(x, &mut None);
-        self.table
-            .insert(Key::Anon(x.range()), Binding::Expr(None, x.clone()))
-    }
-
     pub fn type_params(&mut self, x: &mut TypeParams) {
         for x in x.type_params.iter_mut() {
             let name = x.name().clone();
             let mut default = None;
-            let mut bound_info = None;
-            let mut constraint_info = None;
+            let mut bound = None;
+            let mut constraints = None;
             let kind = match x {
                 TypeParam::TypeVar(tv) => {
-                    if let Some(box bound) = &mut tv.bound {
-                        if let Expr::Tuple(tuple) = bound {
-                            let mut constraints = Vec::new();
+                    if let Some(box bound_expr) = &mut tv.bound {
+                        if let Expr::Tuple(tuple) = bound_expr {
+                            let mut constraint_exprs = Vec::new();
                             for constraint in &mut tuple.elts {
-                                let idx = self.handle_type_param_constraint(constraint);
-                                constraints.push(idx);
+                                self.ensure_type(constraint, &mut None);
+                                constraint_exprs.push(constraint.clone());
                             }
-                            constraint_info = Some((constraints, bound.range()))
+                            constraints = Some((constraint_exprs, bound_expr.range()))
                         } else {
-                            let idx = self.handle_type_param_constraint(bound);
-                            bound_info = Some((idx, bound.range()));
+                            self.ensure_type(bound_expr, &mut None);
+                            bound = Some(bound_expr);
                         }
                     }
                     if let Some(box default_expr) = &mut tv.default {
@@ -842,8 +836,8 @@ impl<'a> BindingsBuilder<'a> {
                     unique: self.uniques.fresh(),
                     kind,
                     default: default.cloned(),
-                    bound: bound_info,
-                    constraints: constraint_info,
+                    bound: bound.cloned(),
+                    constraints,
                 })),
                 None,
             );
