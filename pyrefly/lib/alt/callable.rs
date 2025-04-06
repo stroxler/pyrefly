@@ -775,16 +775,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         if !args
                             .last()
                             .is_some_and(|x| self.is_param_spec_args(x, q.clone(), arg_errors))
-                            || !keywords
-                                .last()
-                                .is_some_and(|x| self.is_param_spec_kwargs(x, q, arg_errors))
+                            || !keywords.last().is_some_and(|x| {
+                                self.is_param_spec_kwargs(x, q.clone(), arg_errors)
+                            })
                         {
                             self.error(
                                 call_errors,
                                 range,
                                 ErrorKind::InvalidParamSpec,
                                 context,
-                                "Expected a `*args` and `**kwargs` for `ParamSpec` (TODO: improve error message)".to_owned(),
+                                format!(
+                                    "Expected *-unpacked {}.args and **-unpacked {}.kwargs",
+                                    q.name(),
+                                    q.name()
+                                ),
                             );
                         } else {
                             self.callable_infer_params(

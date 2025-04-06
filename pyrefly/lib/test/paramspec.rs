@@ -312,7 +312,7 @@ def decorator(f: Callable[P, int]) -> Callable[P, None]:
 
     assert_type(f(*args, **kwargs), int)    # Accepted, should resolve to int
 
-    f(*kwargs, **args)    # Rejected # E: Expected a `*args` and `**kwargs` for `ParamSpec`
+    f(*kwargs, **args)    # Rejected # E: Expected *-unpacked P.args and **-unpacked P.kwargs
 
     f(1, *args, **kwargs) # Rejected # E: Expected 0 positional arguments, got 1
 

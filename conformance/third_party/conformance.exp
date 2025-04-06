@@ -5852,8 +5852,8 @@
     {
       "code": -2,
       "column": 9,
-      "concise_description": "Expected a `*args` and `**kwargs` for `ParamSpec` (TODO: improve error message)",
-      "description": "Expected a `*args` and `**kwargs` for `ParamSpec` (TODO: improve error message)",
+      "concise_description": "Expected *-unpacked P.args and **-unpacked P.kwargs",
+      "description": "Expected *-unpacked P.args and **-unpacked P.kwargs",
       "line": 49,
       "name": "invalid-param-spec",
       "stop_column": 10,
@@ -5882,8 +5882,8 @@
     {
       "code": -2,
       "column": 9,
-      "concise_description": "Expected a `*args` and `**kwargs` for `ParamSpec` (TODO: improve error message)",
-      "description": "Expected a `*args` and `**kwargs` for `ParamSpec` (TODO: improve error message)",
+      "concise_description": "Expected *-unpacked P.args and **-unpacked P.kwargs",
+      "description": "Expected *-unpacked P.args and **-unpacked P.kwargs",
       "line": 70,
       "name": "invalid-param-spec",
       "stop_column": 10,
