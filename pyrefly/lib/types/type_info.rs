@@ -39,8 +39,8 @@ use crate::util::visit::VisitMut;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut, TypeEq)]
 pub struct TypeInfo {
-    pub ty: Type,
-    pub attrs: NarrowedAttrs,
+    ty: Type,
+    attrs: NarrowedAttrs,
 }
 
 impl TypeInfo {
@@ -94,7 +94,7 @@ impl Display for TypeInfo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq)]
-pub struct NarrowedAttrs(Option<Box<SmallMap<Name, NarrowedAttr>>>);
+struct NarrowedAttrs(Option<Box<SmallMap<Name, NarrowedAttr>>>);
 
 impl NarrowedAttrs {
     fn new() -> Self {
@@ -208,7 +208,7 @@ impl Display for NarrowedAttrs {
 /// may not have any sub-attributes (but at least one must be the case, or it
 /// wouldn't be in the tree at all)
 #[derive(Debug, Clone, Visit, VisitMut, PartialEq, Eq, TypeEq)]
-pub enum NarrowedAttr {
+enum NarrowedAttr {
     /// This attribute is narrowed, and has no narrowed sub-attributes (Leaf)
     Leaf(Type),
     /// This attribute is narrowed, and has one or more narrowed sub-attributes (WithRoot)
