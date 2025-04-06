@@ -3,7 +3,7 @@ name = "pyrefly_wasm"
 version = "0.0.0"
 authors = ["Meta"]
 edition = "2021"
-repository = "https://github.com/facebook/pyre-check/tree/main/pyre2"
+repository = "https://github.com/facebook/pyrefly"
 license = "MIT"
 
 [lib]
