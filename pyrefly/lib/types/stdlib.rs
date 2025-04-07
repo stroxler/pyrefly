@@ -98,14 +98,20 @@ impl Stdlib {
         let typing = ModuleName::typing();
         let enum_ = ModuleName::enum_();
 
-        let lookup_generic = |module: ModuleName, name: &'static str| {
-            lookup_class(module, &Name::new_static(name)).ok_or(StdlibError {
-                bootstrapping,
-                name,
-            })
-        };
+        let lookup_generic =
+            |module: ModuleName, name: &'static str, args: usize| match lookup_class(
+                module,
+                &Name::new_static(name),
+            ) {
+                Some(cls) if cls.tparams().len() == args => Ok(cls),
+                _ => Err(StdlibError {
+                    bootstrapping,
+                    name,
+                }),
+            };
         let lookup_concrete = |module: ModuleName, name: &'static str| {
-            lookup_generic(module, name).map(|obj| ClassType::new_for_stdlib(obj, TArgs::default()))
+            lookup_generic(module, name, 0)
+                .map(|obj| ClassType::new_for_stdlib(obj, TArgs::default()))
         };
 
         let none_location = if version.at_least(3, 10) {
@@ -121,29 +127,29 @@ impl Stdlib {
             bytes: lookup_concrete(builtins, "bytes"),
             float: lookup_concrete(builtins, "float"),
             complex: lookup_concrete(builtins, "complex"),
-            slice: lookup_generic(builtins, "slice"),
+            slice: lookup_generic(builtins, "slice", 3),
             base_exception: lookup_concrete(builtins, "BaseException"),
             base_exception_group: version
                 .at_least(3, 11)
-                .then(|| lookup_generic(builtins, "BaseExceptionGroup")),
+                .then(|| lookup_generic(builtins, "BaseExceptionGroup", 1)),
             exception_group: version
                 .at_least(3, 11)
-                .then(|| lookup_generic(builtins, "ExceptionGroup")),
-            list: lookup_generic(builtins, "list"),
-            dict: lookup_generic(builtins, "dict"),
-            set: lookup_generic(builtins, "set"),
-            tuple: lookup_generic(builtins, "tuple"),
+                .then(|| lookup_generic(builtins, "ExceptionGroup", 1)),
+            list: lookup_generic(builtins, "list", 1),
+            dict: lookup_generic(builtins, "dict", 2),
+            set: lookup_generic(builtins, "set", 1),
+            tuple: lookup_generic(builtins, "tuple", 1),
             builtins_type: lookup_concrete(builtins, "type"),
             ellipsis_type: version
                 .at_least(3, 10)
                 .then(|| lookup_concrete(types, "EllipsisType")),
             none_type: lookup_concrete(none_location, "NoneType"),
-            iterable: lookup_generic(typing, "Iterable"),
-            async_iterable: lookup_generic(typing, "AsyncIterable"),
-            generator: lookup_generic(typing, "Generator"),
-            async_generator: lookup_generic(typing, "AsyncGenerator"),
-            awaitable: lookup_generic(typing, "Awaitable"),
-            coroutine: lookup_generic(typing, "Coroutine"),
+            iterable: lookup_generic(typing, "Iterable", 1),
+            async_iterable: lookup_generic(typing, "AsyncIterable", 1),
+            generator: lookup_generic(typing, "Generator", 3),
+            async_generator: lookup_generic(typing, "AsyncGenerator", 2),
+            awaitable: lookup_generic(typing, "Awaitable", 1),
+            coroutine: lookup_generic(typing, "Coroutine", 3),
             type_var: lookup_concrete(typing, "TypeVar"),
             param_spec: lookup_concrete(typing, "ParamSpec"),
             param_spec_args: lookup_concrete(typing, "ParamSpecArgs"),
@@ -153,7 +159,7 @@ impl Stdlib {
             traceback_type: lookup_concrete(types, "TracebackType"),
             function_type: lookup_concrete(types, "FunctionType"),
             method_type: lookup_concrete(types, "MethodType"),
-            mapping: lookup_generic(typing, "Mapping"),
+            mapping: lookup_generic(typing, "Mapping", 2),
             enum_meta: lookup_concrete(enum_, "EnumMeta"),
             enum_flag: lookup_concrete(enum_, "Flag"),
             named_tuple: lookup_concrete(typing, "NamedTuple"),
