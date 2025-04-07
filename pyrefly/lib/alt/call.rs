@@ -156,7 +156,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     _ => None,
                 }
             }
-            Type::ClassDef(cls) => self.as_call_target(self.instantiate_fresh(&cls)),
+            Type::ClassDef(cls) => {
+                self.as_call_target(Type::type_form(self.instantiate_fresh(&cls)))
+            }
             Type::Type(box Type::ClassType(cls))
             | Type::Type(box Type::SelfType(cls))
             | Type::SelfType(cls) => Some(CallTarget::new(Target::Class(cls))),

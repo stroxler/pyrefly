@@ -394,14 +394,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.type_of_instance(cls, cls.tparams_as_targs())
     }
 
-    /// Creates a type from the class with fresh variables for its type parameters.
+    /// Instantiates a class or typed dictionary with fresh variables for its type parameters.
     pub fn instantiate_fresh(&self, cls: &Class) -> Type {
         self.solver()
-            .fresh_quantified(
-                cls.tparams(),
-                Type::type_form(self.instantiate(cls)),
-                self.uniques,
-            )
+            .fresh_quantified(cls.tparams(), self.instantiate(cls), self.uniques)
             .1
     }
 
