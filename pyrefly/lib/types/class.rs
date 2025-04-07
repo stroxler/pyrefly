@@ -346,11 +346,11 @@ impl ClassType {
         {
             // Invariant violation: we should always have valid type arguments when
             // constructing `ClassType`.
-            assert_eq!(
-                targs.0.len(),
-                tparams.len(),
-                "Encountered invalid type arguments in class {}.{}",
+            panic!(
+                "Encountered invalid type arguments in class `{}`, expected `{}` type arguments, got `{}`.{}",
                 class.name(),
+                tparams.len(),
+                targs.0.len(),
                 extra_context,
             )
         }
