@@ -979,6 +979,9 @@ impl<'a> Transaction<'a> {
     /// Specify which files might have changed.
     /// You must use the same absolute/relative paths as were given by `find`.
     pub fn invalidate_disk(&mut self, files: &[PathBuf]) {
+        if files.is_empty() {
+            return;
+        }
         // We create the set out of ModulePath as it allows us to reuse the fact `ModulePath` has cheap hash
         // when checking the modules.
         let files = files

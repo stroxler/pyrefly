@@ -25,6 +25,7 @@ use lsp_types::notification::Cancel;
 use lsp_types::notification::DidChangeTextDocument;
 use lsp_types::notification::DidCloseTextDocument;
 use lsp_types::notification::DidOpenTextDocument;
+use lsp_types::notification::DidSaveTextDocument;
 use lsp_types::notification::PublishDiagnostics;
 use lsp_types::request::Completion;
 use lsp_types::request::GotoDefinition;
@@ -38,6 +39,7 @@ use lsp_types::Diagnostic;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidCloseTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
+use lsp_types::DidSaveTextDocumentParams;
 use lsp_types::GotoDefinitionParams;
 use lsp_types::GotoDefinitionResponse;
 use lsp_types::Hover;
@@ -286,6 +288,8 @@ impl<'a> Server<'a> {
                     self.did_change(params)
                 } else if let Some(params) = as_notification::<DidCloseTextDocument>(&x) {
                     self.did_close(params)
+                } else if let Some(params) = as_notification::<DidSaveTextDocument>(&x) {
+                    self.did_save(params)
                 } else if let Some(params) = as_notification::<Cancel>(&x) {
                     let id = match params.id {
                         NumberOrString::Number(i) => RequestId::from(i),
@@ -354,7 +358,7 @@ impl<'a> Server<'a> {
         ));
     }
 
-    fn validate(&self) -> anyhow::Result<()> {
+    fn validate(&self, invalidate_disk: &[PathBuf]) -> anyhow::Result<()> {
         self.configs
             .values()
             .chain(once(&self.default_config))
@@ -377,6 +381,7 @@ impl<'a> Server<'a> {
                     .collect::<Vec<_>>();
                 let state = self.state.lock();
                 let mut transaction = state.new_committable_transaction(Require::Exports, None);
+                transaction.as_mut().invalidate_disk(invalidate_disk);
                 transaction.as_mut().invalidate_memory(
                     config.loader.dupe(),
                     &config.open_files.lock().keys().cloned().collect::<Vec<_>>(),
@@ -421,6 +426,11 @@ impl<'a> Server<'a> {
         Ok(())
     }
 
+    fn did_save(&self, params: DidSaveTextDocumentParams) -> anyhow::Result<()> {
+        let uri = params.text_document.uri.to_file_path().unwrap();
+        self.validate(&[uri])
+    }
+
     fn did_open(&self, params: DidOpenTextDocumentParams) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
         self.get_config(uri.clone()).open_files.lock().insert(
@@ -430,7 +440,7 @@ impl<'a> Server<'a> {
                 Arc::new(params.text_document.text),
             ),
         );
-        self.validate()
+        self.validate(&[])
     }
 
     fn did_change(&self, params: DidChangeTextDocumentParams) -> anyhow::Result<()> {
@@ -441,7 +451,7 @@ impl<'a> Server<'a> {
             .open_files
             .lock()
             .insert(uri, (params.text_document.version, Arc::new(change.text)));
-        self.validate()
+        self.validate(&[])
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
