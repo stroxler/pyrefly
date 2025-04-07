@@ -93,14 +93,21 @@ impl Class {
         TArgs::new(self.tparams().quantified().map(|q| q.to_type()).collect())
     }
 
-    pub fn instance_type(&self) -> Type {
-        ClassType::new(self.clone(), self.tparams_as_targs()).to_type()
+    /// Gets this Class as a ClassType with its tparams as the arguments. For non-TypedDict
+    /// classes, this is the type of an instance of this class. Unless you specifically need the
+    /// ClassType inside the Type and know you don't have a TypedDict, you should instead use
+    /// AnswersSolver::instantiate() to get an instance type.
+    pub fn as_class_type(&self) -> ClassType {
+        ClassType::new(self.dupe(), self.tparams_as_targs())
     }
 
     pub fn self_param(&self) -> Param {
         Param::Pos(
             Name::new_static("self"),
-            self.instance_type(),
+            // Note that this always creates a ClassType rather than a TypedDict (even for
+            // TypedDict classes). We do this so that we can reuse the regular method binding
+            // mechanism to call a TypedDict's synthesized `__init__` method.
+            self.as_class_type().to_type(),
             Required::Required,
         )
     }

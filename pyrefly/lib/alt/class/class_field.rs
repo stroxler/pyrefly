@@ -806,9 +806,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        let Type::ClassType(class_type) = class.instance_type() else {
-            return;
-        };
+        let class_type = class.as_class_type();
         let got_attr = self.as_instance_attribute(class_field.clone(), &class_type);
         let metadata = self.get_metadata_for_class(class);
         let parents = metadata.bases_with_metadata();
