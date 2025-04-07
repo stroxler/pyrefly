@@ -209,7 +209,7 @@ def f(a: A):
 
 testcase!(
     bug = "TODO(stroxler): We are always promoting literals. It is sound to preserve literals for read-only attributes",
-    test_final_attribute_assined_in_init,
+    test_final_attribute_assigned_in_init,
     r#"
 from typing import assert_type, Final, Literal
 class A:

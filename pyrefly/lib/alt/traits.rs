@@ -95,7 +95,7 @@ pub trait Solve<Ans: LookupAnswer>: SolveRecursive {
     /// sufficient for now.
     fn promote_recursive(x: Self::Recursive) -> Self::Answer;
 
-    /// We solved a binding, but during its execution we gave some peope back a recursive value.
+    /// We solved a binding, but during its execution we gave some people back a recursive value.
     /// Record that recursive value along with the answer.
     fn record_recursive(
         _answers: &AnswersSolver<Ans>,

@@ -96,14 +96,14 @@ fn derive_visit_impl(
                 )
             }
             Fields::Unnamed(fields_unnamed) => {
-                let indicies = fields_unnamed
+                let indices = fields_unnamed
                     .unnamed
                     .iter()
                     .enumerate()
                     .map(|(i, _)| syn::Index::from(i));
                 (
                     quote_spanned! {fields_unnamed.span() =>
-                        #( #trait_name::#method_name(#reff self.#indicies, f); )*
+                        #( #trait_name::#method_name(#reff self.#indices, f); )*
                     },
                     fields_unnamed.unnamed.iter().map(|x| &x.ty).collect(),
                 )

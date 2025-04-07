@@ -1188,7 +1188,7 @@ impl<'a> CommittingTransaction<'a> {
 ///
 ///     1. There can be as many concurrent reads over state as possible,
 ///        but they will block committing.
-///     2. During the commiting of `Transaction`, all reads will be blocked.
+///     2. During the committing of `Transaction`, all reads will be blocked.
 pub struct State {
     threads: ThreadPool,
     uniques: UniqueFactory,

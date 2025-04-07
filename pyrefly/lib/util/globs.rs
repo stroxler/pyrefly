@@ -322,7 +322,7 @@ mod tests {
             let root = root.to_owned();
 
             // because windows will construct all paths with `\` instead of `/`, let's make things simple by
-            // switching evertyhing over to that ourselves
+            // switching everything over to that ourselves
             if cfg!(windows) {
                 expected.extend(
                     windows_extras

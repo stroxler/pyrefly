@@ -91,7 +91,7 @@ const styles = stylex.create({
 });
 
 function getData(project: ProjectValue): TypeCheckerData[] {
-    const filteredData = performanceComparsionChartData
+    const filteredData = performanceComparisonChartData
         .filter(data => data.project === project)
         .map(data => data.data);
 
@@ -102,7 +102,7 @@ function getData(project: ProjectValue): TypeCheckerData[] {
     return filteredData[0];
 }
 
-const performanceComparsionChartData: ProjectData[] = [
+const performanceComparisonChartData: ProjectData[] = [
     {
         project: Project.PYTORCH,
         data: [

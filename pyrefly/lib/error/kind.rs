@@ -99,7 +99,7 @@ pub enum ErrorKind {
     /// Attempting to use a value that is not a valid kind of Literal.
     InvalidLiteral,
     /// An error caused by incorrect usage of the @overload decorator.
-    /// e.g. not defining multiple variants for an overlaoded function.
+    /// e.g. not defining multiple variants for an overloaded function.
     InvalidOverload,
     /// An error related to ParamSpec definition or usage.
     InvalidParamSpec,
