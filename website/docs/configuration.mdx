@@ -34,7 +34,7 @@ The following is the order in which configuration options are selected:
 3. Configuration option
 4. Hard-coded default
 
-# Configuration Finding
+## Configuration Finding
 
 In both project checking mode (with no explicit configuration supplied) and
 single-file checking mode, we perform an upward file search to find a
@@ -54,7 +54,7 @@ If a `pyproject.toml` is found, Pyrefly will stop searching, even if no `[tool.p
 section is found. The same errors will be returned as when loading a `pyrefly.toml` if
 the config is invalid.
 
-# Configuration Options
+## Configuration Options
 
 - `project_includes`: the glob patterns used to describe which files to type
   check, typically understood as user-space files. This takes highest precedence
@@ -178,7 +178,7 @@ the config is invalid.
   - Flag equivalent: `--ignore-errors-in-generated-code`
   - ENV equivalent: `IGNORE_ERRORS_IN_GENERATED_CODE`
 
-# Environment Autoconfiguration
+## Environment Autoconfiguration
 
 If any of `python_platform`, `python_version`, or `site_package_path` are empty, we attempt to query an interpreter
 for the missing values. By default we query `python3` if it's available on the path, but the interpreter can be
