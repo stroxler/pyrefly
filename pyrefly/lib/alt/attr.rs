@@ -1129,7 +1129,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::BoundMethod(_) => {
                 Some(AttributeBase::ClassInstance(stdlib.method_type().clone()))
             }
-            Type::Ellipsis => Some(AttributeBase::ClassInstance(stdlib.ellipsis_type().clone())),
+            Type::Ellipsis => Some(AttributeBase::ClassInstance(
+                stdlib.ellipsis_type()?.clone(),
+            )),
             Type::Forall(forall) => self.as_attribute_base_no_union(forall.body.as_type(), stdlib),
             Type::Var(v) => {
                 if let Some(_guard) = self.recurser.recurse(v) {

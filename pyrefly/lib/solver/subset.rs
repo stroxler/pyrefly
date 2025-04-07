@@ -936,13 +936,12 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::Concatenate(box ls, box l_pspec), Type::Concatenate(box us, box u_pspec)) => {
                 self.is_paramspec_subset_of_paramspec(ls, l_pspec, us, u_pspec)
             }
-            (Type::Ellipsis, _) => {
+            (Type::Ellipsis, _)
+                if let Some(ellipsis) = self.type_order.stdlib().ellipsis_type() =>
+            {
                 // Bit of a weird case - pretty sure we should be modelling these slightly differently
                 // - probably not as a dedicated Type alternative.
-                self.is_subset_eq(
-                    &self.type_order.stdlib().ellipsis_type().clone().to_type(),
-                    want,
-                )
+                self.is_subset_eq(&ellipsis.clone().to_type(), want)
             }
             (Type::None, _) => self.is_subset_eq(
                 &self.type_order.stdlib().none_type().clone().to_type(),

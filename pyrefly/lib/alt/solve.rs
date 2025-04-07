@@ -1920,11 +1920,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // was introduced in Python3.11).
                     // We can't unconditionally query for `BaseExceptionGroup` until Python3.10
                     // is out of its EOL period.
-                    Some(
-                        self.stdlib
-                            .base_exception_group(Type::Any(AnyStyle::Implicit))
-                            .to_type(),
-                    )
+                    let res = self
+                        .stdlib
+                        .base_exception_group(Type::Any(AnyStyle::Implicit))
+                        .map(|x| x.to_type());
+                    if res.is_none() {
+                        self.error(
+                            errors,
+                            ann.range(),
+                            ErrorKind::Unsupported,
+                            None,
+                            "`expect*` is unsupported until Python 3.11".to_owned(),
+                        );
+                    }
+                    res
                 } else {
                     None
                 };
@@ -1972,12 +1981,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                 };
-                if *is_star {
-                    self.stdlib
-                        .exception_group(self.unions(exceptions))
-                        .to_type()
+                let exceptions = self.unions(exceptions);
+                if *is_star && let Some(t) = self.stdlib.exception_group(exceptions.clone()) {
+                    t.to_type()
                 } else {
-                    self.unions(exceptions)
+                    exceptions
                 }
             }
             Binding::AugAssign(ann, x) => self.augassign_infer(*ann, x, errors),

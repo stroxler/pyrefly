@@ -34,9 +34,9 @@ pub struct Stdlib {
     slice: StdlibResult<Class>,
     base_exception: StdlibResult<ClassType>,
     /// Introduced in Python 3.11.
-    base_exception_group: StdlibResult<Class>,
+    base_exception_group: Option<StdlibResult<Class>>,
     /// Introduced in Python 3.11.
-    exception_group: StdlibResult<Class>,
+    exception_group: Option<StdlibResult<Class>>,
     list: StdlibResult<Class>,
     dict: StdlibResult<Class>,
     mapping: StdlibResult<Class>,
@@ -68,7 +68,7 @@ pub struct Stdlib {
     traceback_type: StdlibResult<ClassType>,
     builtins_type: StdlibResult<ClassType>,
     /// Introduced in Python 3.10.
-    ellipsis_type: StdlibResult<ClassType>,
+    ellipsis_type: Option<StdlibResult<ClassType>>,
     /// Moved from `_typeshed` to `types` in 3.10.
     none_type: StdlibResult<ClassType>,
     function_type: StdlibResult<ClassType>,
@@ -123,14 +123,20 @@ impl Stdlib {
             complex: lookup_concrete(builtins, "complex"),
             slice: lookup_generic(builtins, "slice"),
             base_exception: lookup_concrete(builtins, "BaseException"),
-            base_exception_group: lookup_generic(builtins, "BaseExceptionGroup"),
-            exception_group: lookup_generic(builtins, "ExceptionGroup"),
+            base_exception_group: version
+                .at_least(3, 11)
+                .then(|| lookup_generic(builtins, "BaseExceptionGroup")),
+            exception_group: version
+                .at_least(3, 11)
+                .then(|| lookup_generic(builtins, "ExceptionGroup")),
             list: lookup_generic(builtins, "list"),
             dict: lookup_generic(builtins, "dict"),
             set: lookup_generic(builtins, "set"),
             tuple: lookup_generic(builtins, "tuple"),
             builtins_type: lookup_concrete(builtins, "type"),
-            ellipsis_type: lookup_concrete(types, "EllipsisType"),
+            ellipsis_type: version
+                .at_least(3, 10)
+                .then(|| lookup_concrete(types, "EllipsisType")),
             none_type: lookup_concrete(none_location, "NoneType"),
             iterable: lookup_generic(typing, "Iterable"),
             async_iterable: lookup_generic(typing, "AsyncIterable"),
@@ -213,8 +219,8 @@ impl Stdlib {
         Self::primitive(&self.named_tuple)
     }
 
-    pub fn ellipsis_type(&self) -> &ClassType {
-        Self::primitive(&self.ellipsis_type)
+    pub fn ellipsis_type(&self) -> Option<&ClassType> {
+        Some(Self::primitive(self.ellipsis_type.as_ref()?))
     }
 
     pub fn none_type(&self) -> &ClassType {
@@ -254,12 +260,12 @@ impl Stdlib {
         ClassType::new_for_stdlib(Self::unwrap(cls).dupe(), TArgs::new(targs))
     }
 
-    pub fn base_exception_group(&self, x: Type) -> ClassType {
-        Self::apply(&self.base_exception_group, vec![x])
+    pub fn base_exception_group(&self, x: Type) -> Option<ClassType> {
+        Some(Self::apply(self.base_exception_group.as_ref()?, vec![x]))
     }
 
-    pub fn exception_group(&self, x: Type) -> ClassType {
-        Self::apply(&self.exception_group, vec![x])
+    pub fn exception_group(&self, x: Type) -> Option<ClassType> {
+        Some(Self::apply(self.exception_group.as_ref()?, vec![x]))
     }
 
     pub fn tuple(&self, x: Type) -> ClassType {
