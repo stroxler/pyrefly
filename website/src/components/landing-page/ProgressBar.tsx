@@ -30,7 +30,8 @@ export default function ProgressBar({
             style={{
                 height: '80%',
                 width: `${relativeWidth}%`,
-            }}>
+            }}
+        >
             <div
                 {...stylex.props(styles.fill, highlight && styles.highlight)}
                 style={{ animationDuration: `${durationInSeconds}s` }}
@@ -65,5 +66,5 @@ const styles = stylex.create({
     },
     highlight: {
         backgroundColor: 'var(--dark-yellow)',
-    }
+    },
 });

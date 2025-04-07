@@ -13,7 +13,7 @@ export enum Project {
     EXAMPLE = 'Example',
 }
 
-export type ProjectValue = typeof Project[keyof typeof Project];
+export type ProjectValue = (typeof Project)[keyof typeof Project];
 
 export enum TypeChecker {
     PYREFLY = 'Pyrefly',
@@ -23,4 +23,4 @@ export enum TypeChecker {
     PYRE1 = 'Pyre1',
 }
 
-export type TypeCheckerValue = typeof TypeChecker[keyof typeof TypeChecker];
+export type TypeCheckerValue = (typeof TypeChecker)[keyof typeof TypeChecker];

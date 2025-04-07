@@ -22,7 +22,7 @@ declare module 'clsx' {
         [id: string]: any;
     }
 
-    interface ClassArray extends Array<ClassValue> { }
+    interface ClassArray extends Array<ClassValue> {}
 
     /**
      * A utility function for conditionally joining class names together

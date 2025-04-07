@@ -22,7 +22,7 @@ export default function TryPyreflyBrowserOnly({
     codeSample = '',
 }: TryPyreflyBrowserOnlyProps): JSX.Element {
     if (sampleFilename == null) {
-        throw 'Missing sampleFilename. IDE services won\'t work properly.';
+        throw "Missing sampleFilename. IDE services won't work properly.";
     }
     return (
         <BrowserOnly>

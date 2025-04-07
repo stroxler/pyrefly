@@ -8,7 +8,7 @@
  */
 
 import '@testing-library/jest-dom';
-import { act } from 'react'
+import { act } from 'react';
 import { render } from '@testing-library/react';
 import TryPyrefly, { DEFAULT_PYTHON_PROGRAM } from '../try-pyrefly/TryPyrefly';
 import { PLAYGROUND_FILE_NAME } from '../pages/try';
@@ -16,13 +16,20 @@ import { PLAYGROUND_FILE_NAME } from '../pages/try';
 describe('Try Pyrefly Component', () => {
     test('render sandbox correctly', async () => {
         const container = await act(async () => {
-            const { container } = render(<TryPyrefly sampleFilename={PLAYGROUND_FILE_NAME} />);
+            const { container } = render(
+                <TryPyrefly sampleFilename={PLAYGROUND_FILE_NAME} />,
+            );
 
             await Promise.resolve(); // Let any promises from timers resolve
             return container;
         });
 
-        expectMonacoEditorLoadedWithContent(container, PLAYGROUND_FILE_NAME, DEFAULT_PYTHON_PROGRAM, false);
+        expectMonacoEditorLoadedWithContent(
+            container,
+            PLAYGROUND_FILE_NAME,
+            DEFAULT_PYTHON_PROGRAM,
+            false,
+        );
 
         // Run test with --update-snapshot to update the snapshot if the test is failing after
         // you made a intentional change to the home page
@@ -33,34 +40,49 @@ describe('Try Pyrefly Component', () => {
         const fileName = 'snippet.py';
         const programContent = 'def hello(): pass';
         const container = await act(async () => {
-            const { container } = render(<TryPyrefly
-                sampleFilename={fileName}
-                isCodeSnippet={true}
-                codeSample={programContent}
-            />
+            const { container } = render(
+                <TryPyrefly
+                    sampleFilename={fileName}
+                    isCodeSnippet={true}
+                    codeSample={programContent}
+                />,
             );
 
             await Promise.resolve(); // Let any promises from timers resolve
             return container;
         });
 
-        expectMonacoEditorLoadedWithContent(container, fileName, programContent, true);
+        expectMonacoEditorLoadedWithContent(
+            container,
+            fileName,
+            programContent,
+            true,
+        );
 
         // Run test with --update-snapshot to update the snapshot if the test is failing after
         // you made a intentional change to the home page
         expect(container).toMatchSnapshot();
     });
 
-    function expectMonacoEditorLoadedWithContent(container: HTMLElement, fileName: string, programContent: string, isCodeSnippet: boolean) {
+    function expectMonacoEditorLoadedWithContent(
+        container: HTMLElement,
+        fileName: string,
+        programContent: string,
+        isCodeSnippet: boolean,
+    ) {
         const tryEditorElement = container.querySelector('#tryPyrefly-editor');
         expect(tryEditorElement).toBeInTheDocument();
 
         // Verify that the code editor container is a child of tryPyrefly-editor
-        const codeEditorContainer = tryEditorElement?.querySelector('#tryPyrefly-code-editor-container');
+        const codeEditorContainer = tryEditorElement?.querySelector(
+            '#tryPyrefly-code-editor-container',
+        );
         expect(codeEditorContainer).toBeInTheDocument();
 
         // Verify that the results container is a child of tryPyrefly-editor
-        const resultsContainer = tryEditorElement?.querySelector('#tryPyrefly-results-container');
+        const resultsContainer = tryEditorElement?.querySelector(
+            '#tryPyrefly-results-container',
+        );
         if (isCodeSnippet) {
             expect(resultsContainer).not.toBeInTheDocument();
         } else {
@@ -68,11 +90,14 @@ describe('Try Pyrefly Component', () => {
         }
 
         // Verify that the Monaco editor is rendered
-        const monacoEditor = codeEditorContainer.querySelector('#monaco-editor');
+        const monacoEditor =
+            codeEditorContainer.querySelector('#monaco-editor');
         expect(monacoEditor).toBeInTheDocument();
 
         // Verify that the editor has the correct path
-        expect(monacoEditor.textContent).toContain(`Monaco Editor (Path: ${fileName})`);
+        expect(monacoEditor.textContent).toContain(
+            `Monaco Editor (Path: ${fileName})`,
+        );
 
         // Verify that the editor textarea is rendered
         const editorTextarea = monacoEditor.querySelector('#editor-textarea');
@@ -82,7 +107,8 @@ describe('Try Pyrefly Component', () => {
         expect(editorTextarea).toHaveValue(programContent);
 
         // Verify that the share URL button exists
-        const shareUrlButton = codeEditorContainer.querySelector('#share-url-button');
+        const shareUrlButton =
+            codeEditorContainer.querySelector('#share-url-button');
         if (isCodeSnippet) {
             expect(shareUrlButton).not.toBeInTheDocument();
         } else {

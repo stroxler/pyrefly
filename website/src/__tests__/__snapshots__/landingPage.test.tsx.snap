@@ -26,17 +26,23 @@ exports[`Home page renders external site correctly 1`] = `
           <a
             href="https://github.com/facebook/pyrefly/milestone/1"
           >
-             Github 
+             
+            Github
+             
           </a>
           <a
             href="https://pyrefly.org/try/"
           >
-             Demo 
+             
+            Demo
+             
           </a>
           <a
             href="https://pyrefly.org/en/docs/learn-python-typing/"
           >
-             Docs 
+             
+            Docs
+             
           </a>
         </section>
         <section>
@@ -93,17 +99,23 @@ exports[`Home page renders internal site correctly 1`] = `
           <a
             href="https://github.com/facebook/pyrefly/milestone/1"
           >
-             Github 
+             
+            Github
+             
           </a>
           <a
             href="https://pyrefly.org/try/"
           >
-             Demo 
+             
+            Demo
+             
           </a>
           <a
             href="https://pyrefly.org/en/docs/learn-python-typing/"
           >
-             Docs 
+             
+            Docs
+             
           </a>
         </section>
         <section>

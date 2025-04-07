@@ -9,31 +9,31 @@
 
 import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
-import typography from './typography'
+import typography from './typography';
 interface WhyPyreflyGridItemProps {
-  title: string;
-  content: string;
+    title: string;
+    content: string;
 }
 
 export default function WhyPyreflyGridItem({
-  title,
-  content,
+    title,
+    content,
 }: WhyPyreflyGridItemProps): React.ReactElement {
-  return (
-    <div {...stylex.props(styles.whyPyreflyCard)}>
-      <h3 {...stylex.props(typography.h4)}>{title}</h3>
-      <p {...stylex.props(styles.contentText, typography.p)}>{content}</p>
-    </div>
-  );
+    return (
+        <div {...stylex.props(styles.whyPyreflyCard)}>
+            <h3 {...stylex.props(typography.h4)}>{title}</h3>
+            <p {...stylex.props(styles.contentText, typography.p)}>{content}</p>
+        </div>
+    );
 }
 
 const styles = stylex.create({
-  whyPyreflyCard: {
-    padding: '1.5rem',
-  },
-  contentText: {
-    fontSize: '1rem',
-    lineHeight: '1.6',
-    marginBottom: '0rem',
-  },
+    whyPyreflyCard: {
+        padding: '1.5rem',
+    },
+    contentText: {
+        fontSize: '1rem',
+        lineHeight: '1.6',
+        marginBottom: '0rem',
+    },
 });

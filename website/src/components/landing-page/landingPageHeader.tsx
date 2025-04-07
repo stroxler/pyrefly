@@ -19,19 +19,35 @@ export default function LandingPageHeader(): React.ReactElement {
                 pyrefly<span>.</span>
             </h1>
             <p {...stylex.props(styles.subtitle, typography.h3)}>
-                <span>
-                    A faster Python type checker written in Rust
-                </span>
+                <span>A faster Python type checker written in Rust</span>
             </p>
             <section {...stylex.props(styles.buttonGroup)}>
-                <a href="https://github.com/facebook/pyrefly/milestone/1"
-                    {...stylex.props(styles.button, typography.p)}> Github </a>
-                <a href="https://pyrefly.org/try/" {...stylex.props(styles.button, typography.p)}> Demo </a>
-                <a href="https://pyrefly.org/en/docs/learn-python-typing/" {...stylex.props(styles.button, typography.p)}> Docs </a>
+                <a
+                    href="https://github.com/facebook/pyrefly/milestone/1"
+                    {...stylex.props(styles.button, typography.p)}
+                >
+                    {' '}
+                    Github{' '}
+                </a>
+                <a
+                    href="https://pyrefly.org/try/"
+                    {...stylex.props(styles.button, typography.p)}
+                >
+                    {' '}
+                    Demo{' '}
+                </a>
+                <a
+                    href="https://pyrefly.org/en/docs/learn-python-typing/"
+                    {...stylex.props(styles.button, typography.p)}
+                >
+                    {' '}
+                    Docs{' '}
+                </a>
             </section>
-            <section {...stylex.props(styles.buttonGroup,
-            )}>
-                <p {...stylex.props(typography.p, typography.italic)}>Launching Spring 2025</p>
+            <section {...stylex.props(styles.buttonGroup)}>
+                <p {...stylex.props(typography.p, typography.italic)}>
+                    Launching Spring 2025
+                </p>
             </section>
             <section>
                 <Firefly />
@@ -40,7 +56,7 @@ export default function LandingPageHeader(): React.ReactElement {
                 <Firefly />
                 <Firefly />
             </section>
-        </header >
+        </header>
     );
 }
 
@@ -128,7 +144,7 @@ const styles = stylex.create({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: '20px'
+        marginTop: '20px',
     },
     button: {
         padding: '0.75rem 1.5rem',

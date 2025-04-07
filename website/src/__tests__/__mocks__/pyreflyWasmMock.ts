@@ -16,13 +16,15 @@ class MockState {
      * Updates the source code to be analyzed
      * @param source The source code
      */
-    updateSource(source?: string): void { }
+    updateSource(source?: string): void {}
 
     /**
      * Gets the errors from the analysis
      * @returns An empty array of errors
      */
-    getErrors(): any[] { return []; }
+    getErrors(): any[] {
+        return [];
+    }
 
     /**
      * Provides auto-completion suggestions
@@ -30,7 +32,9 @@ class MockState {
      * @param column Column number
      * @returns Empty auto-completion result
      */
-    autoComplete(line?: number, column?: number): Record<string, any> { return {}; }
+    autoComplete(line?: number, column?: number): Record<string, any> {
+        return {};
+    }
 
     /**
      * Provides definition location
@@ -38,7 +42,9 @@ class MockState {
      * @param column Column number
      * @returns Empty definition result
      */
-    gotoDefinition(line?: number, column?: number): Record<string, any> { return {}; }
+    gotoDefinition(line?: number, column?: number): Record<string, any> {
+        return {};
+    }
 
     /**
      * Provides type information
@@ -46,17 +52,21 @@ class MockState {
      * @param column Column number
      * @returns Empty type information
      */
-    queryType(line?: number, column?: number): Record<string, any> { return {}; }
+    queryType(line?: number, column?: number): Record<string, any> {
+        return {};
+    }
 
     /**
      * Provides inlay hints
      * @returns Empty inlay hints
      */
-    inlayHint(): Record<string, any> { return {}; }
+    inlayHint(): Record<string, any> {
+        return {};
+    }
 }
 
 module.exports = {
     __esModule: true,
     default: (): Promise<void> => Promise.resolve(),
-    State: MockState
+    State: MockState,
 };

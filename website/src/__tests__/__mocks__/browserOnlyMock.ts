@@ -22,6 +22,7 @@ interface BrowserOnlyProps {
  * @param props Component props
  * @returns The result of calling the children function
  */
-const BrowserOnly = ({ children }: BrowserOnlyProps): React.ReactNode => children();
+const BrowserOnly = ({ children }: BrowserOnlyProps): React.ReactNode =>
+    children();
 
 module.exports = BrowserOnly;

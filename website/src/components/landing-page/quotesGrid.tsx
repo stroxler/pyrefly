@@ -45,5 +45,4 @@ const styles = stylex.create({
             gridTemplateColumns: 'repeat(1, 1fr)',
         },
     },
-
 });

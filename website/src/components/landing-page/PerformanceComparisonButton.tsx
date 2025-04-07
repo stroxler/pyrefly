@@ -29,7 +29,8 @@ export default function PerformanceComparisonButton({
                 typography.p,
                 selectedProject === project && styles.buttonActive,
             )}
-            onClick={() => setSelectedProject(project)}>
+            onClick={() => setSelectedProject(project)}
+        >
             {project}
         </button>
     );

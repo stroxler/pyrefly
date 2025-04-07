@@ -37,7 +37,7 @@ const MonacoEditor = jest.fn((props: EditorProps) => {
         language,
         defaultLanguage,
         options,
-        defaultPath
+        defaultPath,
     } = props;
 
     // Use value or defaultValue, with defaultValue taking precedence if both are provided
@@ -46,20 +46,28 @@ const MonacoEditor = jest.fn((props: EditorProps) => {
     const editorPath = options?.path || defaultPath || 'playground.py';
 
     // Simple mock implementation that renders a div
-    return React.createElement('div', {
-        id: 'monaco-editor',
-        'data-language': editorLanguage,
-        'data-value': editorValue,
-    }, [
-        React.createElement('div', { key: 'editor-header' }, `Monaco Editor (Path: ${editorPath})`),
-        React.createElement('textarea', {
-            id: 'editor-textarea',
-            key: 'editor-textarea',
-            value: editorValue,
-            readOnly: true,
-            style: { width: '100%', height: '200px' }
-        })
-    ]);
+    return React.createElement(
+        'div',
+        {
+            id: 'monaco-editor',
+            'data-language': editorLanguage,
+            'data-value': editorValue,
+        },
+        [
+            React.createElement(
+                'div',
+                { key: 'editor-header' },
+                `Monaco Editor (Path: ${editorPath})`,
+            ),
+            React.createElement('textarea', {
+                id: 'editor-textarea',
+                key: 'editor-textarea',
+                value: editorValue,
+                readOnly: true,
+                style: { width: '100%', height: '200px' },
+            }),
+        ],
+    );
 });
 
 // Mock loader

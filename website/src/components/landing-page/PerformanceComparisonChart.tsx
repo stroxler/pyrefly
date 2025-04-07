@@ -39,7 +39,7 @@ export default function PerformanceComparisonChart({
     const data = getData(project);
 
     // Calculate the maximum duration for scaling
-    const maxDuration = Math.max(...data.map(item => item.durationInSeconds));
+    const maxDuration = Math.max(...data.map((item) => item.durationInSeconds));
 
     return (
         <div key={project}>
@@ -49,7 +49,8 @@ export default function PerformanceComparisonChart({
                         styles.barContainer,
                         index !== data.length - 1 ? { marginBottom: 20 } : null,
                     )}
-                    key={index}>
+                    key={index}
+                >
                     <span {...stylex.props(styles.typecheckerName)}>
                         <strong>{typechecker.typechecker}</strong>
                     </span>
@@ -57,11 +58,15 @@ export default function PerformanceComparisonChart({
                         <ProgressBar
                             durationInSeconds={typechecker.durationInSeconds}
                             maxDurationInSeconds={maxDuration}
-                            highlight={typechecker.typechecker === TypeChecker.PYREFLY}
+                            highlight={
+                                typechecker.typechecker === TypeChecker.PYREFLY
+                            }
                         />
                     </div>
                     <span {...stylex.props(styles.duration)}>
-                        <PerformanceComparisonChartTimer targetSeconds={typechecker.durationInSeconds} />
+                        <PerformanceComparisonChartTimer
+                            targetSeconds={typechecker.durationInSeconds}
+                        />
                     </span>
                 </div>
             ))}
@@ -83,7 +88,7 @@ const styles = stylex.create({
     progressBarContainer: {
         flexGrow: 1,
         marginRight: 20,
-        paddingTop: '8px'
+        paddingTop: '8px',
     },
     duration: {
         marginLeft: 'auto',
@@ -92,8 +97,8 @@ const styles = stylex.create({
 
 function getData(project: ProjectValue): TypeCheckerData[] {
     const filteredData = performanceComparisonChartData
-        .filter(data => data.project === project)
-        .map(data => data.data);
+        .filter((data) => data.project === project)
+        .map((data) => data.data);
 
     if (filteredData.length === 0) {
         throw new Error(`No data found for project ${project}`);

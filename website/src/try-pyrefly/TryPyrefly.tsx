@@ -47,14 +47,14 @@ interface PyreflyState {
 const pyreflyWasmUninitializedPromise =
     typeof window !== 'undefined'
         ? import('./pyrefly_wasm')
-        : new Promise<any>(_resolve => { });
+        : new Promise<any>((_resolve) => {});
 
 const pyreflyWasmInitializedPromise = pyreflyWasmUninitializedPromise
-    .then(async mod => {
+    .then(async (mod) => {
         await mod.default();
         return mod;
     })
-    .catch(e => console.log(e));
+    .catch((e) => console.log(e));
 
 interface TryPyreflyProps {
     sampleFilename: string;
@@ -68,15 +68,13 @@ export default function TryPyrefly({
     codeSample = DEFAULT_PYTHON_PROGRAM,
 }: TryPyreflyProps): React.ReactElement {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-    const [errors, setErrors] = useState<ReadonlyArray<PyreflyErrorMessage> | null>(
-        []
-    );
+    const [errors, setErrors] =
+        useState<ReadonlyArray<PyreflyErrorMessage> | null>([]);
     const [internalError, setInternalError] = useState('');
     const [loading, setLoading] = useState(true);
     const [pyreService, setPyreService] = useState<PyreflyState | null>(null);
-    const [editorHeightforCodeSnippet, setEditorHeightforCodeSnippet] = useState<
-        number | null
-    >(null);
+    const [editorHeightforCodeSnippet, setEditorHeightforCodeSnippet] =
+        useState<number | null>(null);
     const [model, setModel] = useState<editor.ITextModel | null>(null);
     const [isCopied, setIsCopied] = useState(false);
 
@@ -84,19 +82,19 @@ export default function TryPyrefly({
     useEffect(() => {
         setLoading(true);
         pyreflyWasmInitializedPromise
-            .then(pyrefly => {
+            .then((pyrefly) => {
                 setPyreService(new pyrefly.State());
                 setLoading(false);
                 setInternalError('');
             })
-            .catch(e => {
+            .catch((e) => {
                 setLoading(false);
                 setInternalError(JSON.stringify(e));
             });
     }, []);
 
     // Need to add createModel handler in case monaco model was not created at mount time
-    monaco.editor.onDidCreateModel(model => {
+    monaco.editor.onDidCreateModel((model) => {
         const curModel = fetchCurMonacoModelAndTriggerUpdate(sampleFilename);
         setModel(curModel);
         forceRecheck();
@@ -111,16 +109,27 @@ export default function TryPyrefly({
         if (model == null || pyreService == null) return;
         const value = model.getValue();
 
-        setAutoCompleteFunction(model, (l: number, c: number) => pyreService.autoComplete(l, c));
-        setGetDefFunction(model, (l: number, c: number) => pyreService.gotoDefinition(l, c));
-        setHoverFunctionForMonaco(model, (l: number, c: number) => pyreService.queryType(l, c));
+        setAutoCompleteFunction(model, (l: number, c: number) =>
+            pyreService.autoComplete(l, c),
+        );
+        setGetDefFunction(model, (l: number, c: number) =>
+            pyreService.gotoDefinition(l, c),
+        );
+        setHoverFunctionForMonaco(model, (l: number, c: number) =>
+            pyreService.queryType(l, c),
+        );
         setInlayHintFunctionForMonaco(model, () => pyreService.inlayHint());
 
         // typecheck on edit
         try {
             pyreService.updateSource(model.getValue());
-            const errors = pyreService.getErrors() as ReadonlyArray<PyreflyErrorMessage>;
-            monaco.editor.setModelMarkers(model, 'default', mapPyreflyErrorsToMarkerData(errors));
+            const errors =
+                pyreService.getErrors() as ReadonlyArray<PyreflyErrorMessage>;
+            monaco.editor.setModelMarkers(
+                model,
+                'default',
+                mapPyreflyErrorsToMarkerData(errors),
+            );
             setInternalError('');
             setErrors(errors);
         } catch (e) {
@@ -135,7 +144,9 @@ export default function TryPyrefly({
         setModel(model);
 
         if (isCodeSnippet) {
-            setEditorHeightforCodeSnippet(Math.max(50, editor.getContentHeight()));
+            setEditorHeightforCodeSnippet(
+                Math.max(50, editor.getContentHeight()),
+            );
         }
         editorRef.current = editor;
     }
@@ -150,15 +161,23 @@ export default function TryPyrefly({
         if (editor === null) {
             return;
         }
-        const range = { startLineNumber, startColumn, endLineNumber, endColumn };
+        const range = {
+            startLineNumber,
+            startColumn,
+            endLineNumber,
+            endColumn,
+        };
 
         editor.revealRange(range);
         editor.setSelection(range);
     };
 
     return (
-        <div id="tryPyrefly-editor" className={styles.tryEditor} >
-            <div id="tryPyrefly-code-editor-container" className={styles.codeEditorContainer}>
+        <div id="tryPyrefly-editor" className={styles.tryEditor}>
+            <div
+                id="tryPyrefly-code-editor-container"
+                className={styles.codeEditorContainer}
+            >
                 {getPyreflyEditor(
                     isCodeSnippet,
                     sampleFilename,
@@ -175,7 +194,8 @@ export default function TryPyrefly({
                             isCopied && styles.shareButtonCopied,
                         )}
                         onClick={() => copyToClipboard(setIsCopied)}
-                        aria-label="share URL button">
+                        aria-label="share URL button"
+                    >
                         <span className={styles.shareButtonText}>
                             {isCopied ? '✓ URL Copied!' : '📋 Share URL'}
                         </span>
@@ -215,10 +235,12 @@ function getCodeFromURL(): string | null {
     return code ? LZString.decompressFromEncodedURIComponent(code) : null;
 }
 
-function fetchCurMonacoModelAndTriggerUpdate(fileName: string): editor.ITextModel | null {
+function fetchCurMonacoModelAndTriggerUpdate(
+    fileName: string,
+): editor.ITextModel | null {
     const model = monaco.editor
         .getModels()
-        .filter(model => model?.uri?.path === `/${fileName}`)[0];
+        .filter((model) => model?.uri?.path === `/${fileName}`)[0];
 
     if (model == null) {
         return null;
@@ -275,7 +297,9 @@ function getPyreflyEditor(
         // use flexbox behavior to make the sandbox height to be 75% of the screen
         // This doesn't seem to work with the monaco editor currently.
         const screenHeight = window.innerHeight;
-        const navbarElement = document.querySelector('.navbar') as HTMLElement | null; // Replace with your navbar selector
+        const navbarElement = document.querySelector(
+            '.navbar',
+        ) as HTMLElement | null; // Replace with your navbar selector
         const navbarHeight = navbarElement?.offsetHeight || 0;
 
         const sandboxHeight = ((screenHeight - navbarHeight) * 75) / 100;
@@ -286,7 +310,7 @@ function getPyreflyEditor(
                 defaultValue={codeSample}
                 defaultLanguage="python"
                 theme="vs-light"
-                onChange={value => {
+                onChange={(value) => {
                     forceRecheck();
                     if (typeof value === 'string') {
                         updateURL(value);
@@ -306,17 +330,18 @@ function getPyreflyEditor(
     }
 }
 
-
 /**
  * Maps PyreflyErrorMessage array to Monaco editor IMarkerData array
  */
-function mapPyreflyErrorsToMarkerData(errors: ReadonlyArray<PyreflyErrorMessage>): editor.IMarkerData[] {
-    return errors.map(error => ({
+function mapPyreflyErrorsToMarkerData(
+    errors: ReadonlyArray<PyreflyErrorMessage>,
+): editor.IMarkerData[] {
+    return errors.map((error) => ({
         startLineNumber: error.startLineNumber,
         startColumn: error.startColumn,
         endLineNumber: error.endLineNumber,
         endColumn: error.endColumn,
         message: error.message,
-        severity: error.severity
+        severity: error.severity,
     }));
 }

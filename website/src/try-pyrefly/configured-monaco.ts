@@ -39,7 +39,10 @@ function setAutoCompleteFunction(
     autoCompleteFunctionsForMonaco.set(model, f);
 }
 
-const defaultGetDefFunctionForMonaco: GetDefFunction = (_l: number, _c: number): Range | null => null;
+const defaultGetDefFunctionForMonaco: GetDefFunction = (
+    _l: number,
+    _c: number,
+): Range | null => null;
 const getDefFunctionsForMonaco = new Map<
     monaco.editor.ITextModel,
     GetDefFunction
@@ -52,7 +55,10 @@ function setGetDefFunction(
     getDefFunctionsForMonaco.set(model, f);
 }
 
-const defaultHoverFunctionForMonaco: HoverFunction = (_l: number, _c: number): Hover | null => null;
+const defaultHoverFunctionForMonaco: HoverFunction = (
+    _l: number,
+    _c: number,
+): Hover | null => null;
 const hoverFunctionsForMonaco = new Map<
     monaco.editor.ITextModel,
     HoverFunction
@@ -65,7 +71,8 @@ function setHoverFunctionForMonaco(
     hoverFunctionsForMonaco.set(model, f);
 }
 
-const defaultInlayHintFunctionForMonaco: InlayHintFunction = (): InlayHint[] => [];
+const defaultInlayHintFunctionForMonaco: InlayHintFunction =
+    (): InlayHint[] => [];
 const inlayHintFunctionsForMonaco = new Map<
     monaco.editor.ITextModel,
     InlayHintFunction
@@ -73,7 +80,7 @@ const inlayHintFunctionsForMonaco = new Map<
 
 function setInlayHintFunctionForMonaco(
     model: monaco.editor.ITextModel,
-    f: InlayHintFunction
+    f: InlayHintFunction,
 ): void {
     inlayHintFunctionsForMonaco.set(model, f);
 }
@@ -161,7 +168,10 @@ monaco.languages.registerCompletionItemProvider('python', {
                 defaultAutoCompleteFunctionForMonaco;
             const result = f(position.lineNumber, position.column);
             return {
-                suggestions: result.map((r) => ({ ...r, insertText: r.label.toString() }))
+                suggestions: result.map((r) => ({
+                    ...r,
+                    insertText: r.label.toString(),
+                })),
             };
         } catch (e) {
             console.error(e);
@@ -174,7 +184,8 @@ monaco.languages.registerDefinitionProvider('python', {
     provideDefinition(model, position) {
         try {
             const f =
-                getDefFunctionsForMonaco.get(model) ?? defaultGetDefFunctionForMonaco;
+                getDefFunctionsForMonaco.get(model) ??
+                defaultGetDefFunctionForMonaco;
             const range = f(position.lineNumber, position.column);
             return range != null ? { uri: model.uri, range } : null;
         } catch (e) {
@@ -199,7 +210,7 @@ monaco.languages.registerInlayHintsProvider('python', {
             inlayHintFunctionsForMonaco.get(model) ??
             defaultInlayHintFunctionForMonaco;
         const hints = f();
-        return { hints, dispose: () => { } };
+        return { hints, dispose: () => {} };
     },
 });
 

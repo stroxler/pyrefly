@@ -14,7 +14,11 @@ interface LayoutProps {
 }
 
 // Mock for @theme/Layout
-const Layout = ({ children, title, description }: LayoutProps): React.ReactElement => {
+const Layout = ({
+    children,
+    title,
+    description,
+}: LayoutProps): React.ReactElement => {
     // Set document.title when Layout is rendered with a title prop
     if (title) {
         document.title = title;
@@ -23,7 +27,7 @@ const Layout = ({ children, title, description }: LayoutProps): React.ReactEleme
     return React.createElement('div', {}, [
         React.createElement('div', { key: 'title' }, title),
         React.createElement('div', { key: 'description' }, description),
-        React.createElement('div', { key: 'children' }, children)
+        React.createElement('div', { key: 'children' }, children),
     ]);
 };
 

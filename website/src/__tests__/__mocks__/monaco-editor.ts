@@ -17,7 +17,12 @@ interface EditorModel {
     updateOptions: (options: any) => void;
     dispose: () => void;
     onDidChangeContent: (listener: any) => { dispose: () => void };
-    getFullModelRange: () => { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number };
+    getFullModelRange: () => {
+        startLineNumber: number;
+        startColumn: number;
+        endLineNumber: number;
+        endColumn: number;
+    };
 }
 
 /**
@@ -50,7 +55,12 @@ const monaco = {
             updateOptions: jest.fn(),
             dispose: jest.fn(),
             onDidChangeContent: jest.fn(() => ({ dispose: jest.fn() })),
-            getFullModelRange: jest.fn(() => ({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 })),
+            getFullModelRange: jest.fn(() => ({
+                startLineNumber: 1,
+                startColumn: 1,
+                endLineNumber: 1,
+                endColumn: 1,
+            })),
         })),
         onDidCreateModel: jest.fn((callback) => ({ dispose: jest.fn() })),
         setModelMarkers: jest.fn(),
@@ -119,13 +129,23 @@ const monaco = {
     },
 
     // Range and position
-    Range: jest.fn((startLineNumber: number, startColumn: number, endLineNumber: number, endColumn: number) => ({
-        startLineNumber,
-        startColumn,
-        endLineNumber,
-        endColumn,
+    Range: jest.fn(
+        (
+            startLineNumber: number,
+            startColumn: number,
+            endLineNumber: number,
+            endColumn: number,
+        ) => ({
+            startLineNumber,
+            startColumn,
+            endLineNumber,
+            endColumn,
+        }),
+    ),
+    Position: jest.fn((lineNumber: number, column: number) => ({
+        lineNumber,
+        column,
     })),
-    Position: jest.fn((lineNumber: number, column: number) => ({ lineNumber, column })),
 
     // Markers
     MarkerSeverity: {

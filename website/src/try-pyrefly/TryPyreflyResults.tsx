@@ -17,7 +17,7 @@ export interface PyreflyErrorMessage {
     endLineNumber: number;
     endColumn: number;
     message: string;
-    kind: string,
+    kind: string;
     severity: number;
 }
 
@@ -33,7 +33,10 @@ interface ErrorMessageProps {
     goToDef: GoToDefFromError;
 }
 
-function ErrorMessage({ error, goToDef }: ErrorMessageProps): React.ReactElement {
+function ErrorMessage({
+    error,
+    goToDef,
+}: ErrorMessageProps): React.ReactElement {
     // This logic is meant to be an exact match of how we output errors in the cli defined here:
     // - https://fburl.com/code/e9lqk0h2
     // - https://fburl.com/code/hwhe60zt
@@ -57,7 +60,8 @@ function ErrorMessage({ error, goToDef }: ErrorMessageProps): React.ReactElement
             className={styles.msgType}
             onClick={() =>
                 goToDef(startLineNumber, startColumn, endLineNumber, endColumn)
-            }>
+            }
+        >
             <span className={styles.errorMessageError}>ERROR </span>
             {message}
         </span>
@@ -80,14 +84,18 @@ export default function TryPyreflyResults({
     const activeToolbarTab = 'errors';
 
     return (
-        <div id="tryPyrefly-results-container" className={styles.resultsContainer}>
+        <div
+            id="tryPyrefly-results-container"
+            className={styles.resultsContainer}
+        >
             <div className={styles.resultsToolbar}>
                 <ul className={styles.tabs}>
                     <li
                         className={clsx(
                             styles.tab,
                             activeToolbarTab === 'errors' && styles.selectedTab,
-                        )}>
+                        )}
+                    >
                         Errors
                     </li>
                 </ul>
@@ -107,7 +115,10 @@ export default function TryPyreflyResults({
                     <pre className={clsx(styles.resultBody, styles.errors)}>
                         <ul>
                             {internalError ? (
-                                <li>Pyrefly encountered an internal error: {internalError}.</li>
+                                <li>
+                                    Pyrefly encountered an internal error:{' '}
+                                    {internalError}.
+                                </li>
                             ) : errors === undefined || errors === null ? (
                                 <li>Pyrefly failed to fetch errors.</li>
                             ) : errors?.length === 0 ? (
@@ -115,7 +126,11 @@ export default function TryPyreflyResults({
                             ) : (
                                 errors.map((error, i) => (
                                     <li key={i}>
-                                        <ErrorMessage key={i} error={error} goToDef={goToDef} />
+                                        <ErrorMessage
+                                            key={i}
+                                            error={error}
+                                            goToDef={goToDef}
+                                        />
                                     </li>
                                 ))
                             )}

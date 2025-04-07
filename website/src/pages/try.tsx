@@ -14,7 +14,7 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 const TryPyrefly = React.lazy(() => import('../try-pyrefly/TryPyrefly'));
 
-export const PLAYGROUND_FILE_NAME = "playground.py";
+export const PLAYGROUND_FILE_NAME = 'playground.py';
 
 export default function TryPyreflyPage(): JSX.Element {
     const { siteConfig = {} } = useDocusaurusContext();
@@ -22,7 +22,8 @@ export default function TryPyreflyPage(): JSX.Element {
         <Layout
             title="Try Pyrefly: the Pyrefly Playground"
             description={siteConfig.description}
-            noFooter>
+            noFooter
+        >
             <BrowserOnly>
                 {() => (
                     <React.Suspense fallback={<div>Loading...</div>}>
