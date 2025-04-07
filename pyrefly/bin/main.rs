@@ -37,10 +37,6 @@ use pyrefly::NotifyWatcher;
 #[command(about = "Next generation of Pyre type checker", long_about = None)]
 #[command(version)]
 struct Args {
-    /// Enable verbose logging.
-    #[clap(long = "verbose", short = 'v', global = true, env = clap_env("VERBOSE"))]
-    verbose: bool,
-
     /// Set this to true to run profiling of fast jobs.
     /// Will run the command repeatedly.
     #[clap(long = "profiling", global = true, hide = true, env = clap_env("PROFILING"))]
@@ -258,7 +254,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
 /// Run based on the command line arguments.
 async fn run() -> anyhow::Result<ExitCode> {
     let args = Args::parse_from(get_args_expanded(args_os())?);
-    init_tracing(args.verbose, false);
+    init_tracing(args.common.verbose, false);
     init_thread_pool(args.common.threads);
     if args.profiling {
         loop {

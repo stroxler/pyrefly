@@ -21,6 +21,10 @@ pub struct CommonGlobalArgs {
     /// Setting the value to 0 means to pick the number of threads automatically using default heuristics.
     #[clap(long, short = 'j', default_value = "0", global = true, env = clap_env("THREADS"))]
     pub threads: ThreadCount,
+
+    /// Enable verbose logging.
+    #[clap(long = "verbose", short = 'v', global = true, env = clap_env("VERBOSE"))]
+    pub verbose: bool,
 }
 
 /// Exit status of a command, if the run is completed.
