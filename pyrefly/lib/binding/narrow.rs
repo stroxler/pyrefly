@@ -13,7 +13,6 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBoolOp;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprCompare;
-use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprNamed;
 use ruff_python_ast::ExprUnaryOp;
 use ruff_python_ast::UnaryOp;
@@ -198,7 +197,7 @@ impl NarrowOps {
 
                 for (op, range) in ops {
                     for name in names.iter() {
-                        narrow_ops.and(name.id.clone(), op.clone(), range);
+                        narrow_ops.and(name.clone(), op.clone(), range);
                     }
                 }
                 narrow_ops
@@ -250,7 +249,7 @@ impl NarrowOps {
                 let mut narrow_ops = Self::new();
                 for name in expr_to_names(&posargs[0]) {
                     narrow_ops.and(
-                        name.id.clone(),
+                        name,
                         NarrowOp::Call(Box::new(NarrowVal::Expr((**func).clone())), args.clone()),
                         *range,
                     );
@@ -260,7 +259,7 @@ impl NarrowOps {
             Some(e) => {
                 let mut narrow_ops = Self::new();
                 for name in expr_to_names(e) {
-                    narrow_ops.and(name.id.clone(), NarrowOp::Truthy, e.range());
+                    narrow_ops.and(name, NarrowOp::Truthy, e.range());
                 }
                 narrow_ops
             }
@@ -269,10 +268,10 @@ impl NarrowOps {
     }
 }
 
-fn expr_to_names<'a>(expr: &'a Expr) -> Vec<&'a ExprName> {
-    fn f<'a>(expr: &'a Expr, res: &mut Vec<&'a ExprName>) {
+fn expr_to_names(expr: &Expr) -> Vec<Name> {
+    fn f(expr: &Expr, res: &mut Vec<Name>) {
         match expr {
-            Expr::Name(name) => res.push(name),
+            Expr::Name(name) => res.push(name.id.clone()),
             Expr::Named(ExprNamed { target, value, .. }) => {
                 f(target, res);
                 f(value, res);
