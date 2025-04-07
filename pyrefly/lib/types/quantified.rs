@@ -34,6 +34,16 @@ pub struct QuantifiedInfo {
     pub restriction: Restriction,
 }
 
+impl QuantifiedInfo {
+    pub fn as_gradual_type(&self) -> Type {
+        if let Some(d) = &self.default {
+            d.clone()
+        } else {
+            self.kind.empty_value()
+        }
+    }
+}
+
 #[derive(
     Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, Ord, PartialOrd, Hash
 )]
@@ -53,7 +63,7 @@ pub enum QuantifiedKind {
 }
 
 impl QuantifiedKind {
-    pub fn empty_value(self) -> Type {
+    fn empty_value(self) -> Type {
         match self {
             QuantifiedKind::TypeVar => Type::any_implicit(),
             QuantifiedKind::ParamSpec => Type::ParamSpecValue(ParamList::everything()),
@@ -188,7 +198,6 @@ impl Quantified {
     }
 
     pub fn as_gradual_type(&self) -> Type {
-        // TODO(stroxler): Look into what it would take to do better when there's an upper-bound on a TypeVar.
-        self.info.kind.empty_value()
+        self.info.as_gradual_type()
     }
 }

@@ -25,10 +25,8 @@ use crate::types::callable::Function;
 use crate::types::callable::Params;
 use crate::types::module::Module;
 use crate::types::quantified::QuantifiedInfo;
-use crate::types::quantified::QuantifiedKind;
 use crate::types::simplify::simplify_tuples;
 use crate::types::simplify::unions;
-use crate::types::type_var::Restriction;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::Var;
@@ -166,28 +164,13 @@ impl Solver {
         match e {
             Variable::Answer(t) => t.clone(),
             _ => {
-                let (kind, default) = match e {
-                    Variable::Quantified(QuantifiedInfo {
-                        kind,
-                        default,
-                        restriction,
-                        ..
-                    }) => {
-                        if default.is_some() {
-                            (*kind, default.clone())
-                        } else if let Restriction::Bound(bound) = restriction {
-                            // If there is no default but the type variable has a bound, use that.
-                            (*kind, Some(bound.clone()))
-                        } else {
-                            (*kind, default.clone())
-                        }
-                    }
-                    Variable::Recursive(default) => (QuantifiedKind::TypeVar, default.clone()),
-                    _ => (QuantifiedKind::TypeVar, None),
+                let default = match e {
+                    Variable::Quantified(q) => q.as_gradual_type(),
+                    Variable::Recursive(Some(default)) => default.clone(),
+                    _ => Type::any_implicit(),
                 };
-                let res = default.unwrap_or_else(|| kind.empty_value());
-                *e = Variable::Answer(res.clone());
-                res
+                *e = Variable::Answer(default.clone());
+                default
             }
         }
     }
