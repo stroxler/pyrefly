@@ -116,6 +116,18 @@ impl NarrowOps {
         Self(SmallMap::new())
     }
 
+    pub fn is(name: &Name, v: Expr, range: TextRange) -> Self {
+        Self(smallmap! { name.clone() => (NarrowOp::Is(NarrowVal::Expr(v)), range) })
+    }
+
+    pub fn eq(name: &Name, v: Expr, range: TextRange) -> Self {
+        Self(smallmap! { name.clone() => (NarrowOp::Eq(NarrowVal::Expr(v)), range) })
+    }
+
+    pub fn isinstance(name: &Name, v: Expr, range: TextRange) -> Self {
+        Self(smallmap! { name.clone() => (NarrowOp::IsInstance(NarrowVal::Expr(v)), range) })
+    }
+
     pub fn negate(&self) -> Self {
         if self.0.len() == 1 {
             let (name, (op, range)) = self.0.first().unwrap();

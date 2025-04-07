@@ -13,7 +13,6 @@ use ruff_python_ast::Pattern;
 use ruff_python_ast::PatternKeyword;
 use ruff_python_ast::StmtMatch;
 use ruff_text_size::Ranged;
-use starlark_map::smallmap;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingExpect;
@@ -22,9 +21,7 @@ use crate::binding::binding::KeyExpect;
 use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
-use crate::binding::narrow::NarrowOp;
 use crate::binding::narrow::NarrowOps;
-use crate::binding::narrow::NarrowVal;
 use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 use crate::ruff::ast::Ast;
@@ -41,9 +38,7 @@ impl<'a> BindingsBuilder<'a> {
             Pattern::MatchValue(mut p) => {
                 self.ensure_expr(&mut p.value);
                 if let Some(subject_name) = subject_name {
-                    NarrowOps(
-                        smallmap! { subject_name.clone() => (NarrowOp::Eq(NarrowVal::Expr((*p.value).clone())), p.range()) },
-                    )
+                    NarrowOps::eq(subject_name, (*p.value).clone(), p.range())
                 } else {
                     NarrowOps::new()
                 }
@@ -51,9 +46,7 @@ impl<'a> BindingsBuilder<'a> {
             Pattern::MatchSingleton(p) => {
                 let value = Ast::pattern_match_singleton_to_expr(&p);
                 if let Some(subject_name) = subject_name {
-                    NarrowOps(
-                        smallmap! { subject_name.clone() => (NarrowOp::Is(NarrowVal::Expr(value)), p.range()) },
-                    )
+                    NarrowOps::is(subject_name, value, p.range())
                 } else {
                     NarrowOps::new()
                 }
@@ -143,9 +136,7 @@ impl<'a> BindingsBuilder<'a> {
             Pattern::MatchClass(mut x) => {
                 self.ensure_expr(&mut x.cls);
                 let mut narrow_ops = if let Some(subject_name) = subject_name {
-                    NarrowOps(
-                        smallmap! { subject_name.clone() => (NarrowOp::IsInstance(NarrowVal::Expr((*x.cls).clone())), x.cls.range()) },
-                    )
+                    NarrowOps::isinstance(subject_name, (*x.cls).clone(), x.cls.range())
                 } else {
                     NarrowOps::new()
                 };
