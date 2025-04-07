@@ -304,7 +304,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         TArgs::new(checked_targs)
     }
 
-    pub fn create_default_targs(
+    /// Creates default type arguments for a class, falling back to Any for type parameters without defaults.
+    fn create_default_targs(
         &self,
         cls: &Class,
         // Placeholder for strict mode: we want to force callers to pass a range so
@@ -329,6 +330,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .collect(),
             )
         }
+    }
+
+    /// Silently promotes a Class to a ClassType, using default type arguments. It is up to the
+    /// caller to ensure they are not calling this method on a TypedDict class, which should be
+    /// promoted to TypedDict instead of ClassType.
+    pub fn promote_nontypeddict_silently_to_classtype(&self, cls: &Class) -> ClassType {
+        ClassType::new(cls.dupe(), self.create_default_targs(cls, None))
     }
 
     fn type_of_instance(&self, cls: &Class, targs: TArgs) -> Type {

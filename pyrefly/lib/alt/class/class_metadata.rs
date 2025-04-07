@@ -8,7 +8,6 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
-use dupe::Dupe;
 use itertools::Either;
 use itertools::Itertools;
 use ruff_python_ast::name::Name;
@@ -312,7 +311,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 enum_metadata = Some(EnumMetadata {
                     // A generic enum is an error, but we create Any type args anyway to handle it gracefully.
-                    cls: ClassType::new(cls.dupe(), self.create_default_targs(cls, None)),
+                    cls: self.promote_nontypeddict_silently_to_classtype(cls),
                     is_flag: bases_with_metadata.iter().any(|(base, _)| {
                         self.solver().is_subset_eq(
                             &Type::ClassType(base.clone()),
