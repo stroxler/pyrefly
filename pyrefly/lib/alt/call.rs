@@ -136,7 +136,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let self_replacement = if func.metadata().flags.is_classmethod
                     && let Type::ClassDef(c) = &obj
                 {
-                    &c.instance_type()
+                    &self.instantiate(c)
                 } else {
                     &obj
                 };

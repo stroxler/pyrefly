@@ -30,7 +30,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Param::Pos(Name::new_static("_x"), base.to_type(), Required::Required),
         ];
         let ty = Type::Function(Box::new(Function {
-            signature: Callable::list(ParamList::new(params), cls.instance_type()),
+            signature: Callable::list(ParamList::new(params), self.instantiate(cls)),
             metadata: FuncMetadata::def(
                 self.module_info().name(),
                 cls.name().clone(),
@@ -44,13 +44,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let params = vec![
             Param::Pos(
                 Name::new_static("cls"),
-                Type::type_form(cls.instance_type()),
+                Type::type_form(self.instantiate(cls)),
                 Required::Required,
             ),
             Param::Pos(Name::new_static("_x"), base.to_type(), Required::Required),
         ];
         let ty = Type::Function(Box::new(Function {
-            signature: Callable::list(ParamList::new(params), cls.instance_type()),
+            signature: Callable::list(ParamList::new(params), self.instantiate(cls)),
             metadata: FuncMetadata::def(self.module_info().name(), cls.name().clone(), dunder::NEW),
         }));
         ClassSynthesizedField::new(ty)

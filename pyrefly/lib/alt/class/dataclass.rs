@@ -180,7 +180,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let self_ = cls.self_param();
         let other = Param::Pos(
             Name::new_static("other"),
-            cls.instance_type(),
+            self.instantiate(cls),
             Required::Required,
         );
         let ret = Type::ClassType(self.stdlib.bool());
