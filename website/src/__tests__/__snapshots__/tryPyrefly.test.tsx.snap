@@ -1,12 +1,12 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Try Pyre2 Component render sandbox correctly 1`] = `
+exports[`Try Pyrefly Component render sandbox correctly 1`] = `
 <div>
   <div
-    id="tryPyre2-editor"
+    id="tryPyrefly-editor"
   >
     <div
-      id="tryPyre2-code-editor-container"
+      id="tryPyrefly-code-editor-container"
     >
       <div
         data-language="python"
@@ -51,7 +51,7 @@ reveal_type(test(42))
       </button>
     </div>
     <div
-      id="tryPyre2-results-container"
+      id="tryPyrefly-results-container"
     >
       <div>
         <ul>
@@ -78,13 +78,13 @@ reveal_type(test(42))
 </div>
 `;
 
-exports[`Try Pyre2 Component renders in code snippet mode without error panel 1`] = `
+exports[`Try Pyrefly Component renders in code snippet mode without error panel 1`] = `
 <div>
   <div
-    id="tryPyre2-editor"
+    id="tryPyrefly-editor"
   >
     <div
-      id="tryPyre2-code-editor-container"
+      id="tryPyrefly-code-editor-container"
     >
       <div
         data-language="python"

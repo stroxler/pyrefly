@@ -8,19 +8,19 @@
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import * as React from 'react';
 
-const TryPyre2 = React.lazy(() => import('./TryPyre2'));
+const TryPyrefly = React.lazy(() => import('./TryPyrefly'));
 
-interface TryPyre2BrowserOnlyProps {
+interface TryPyreflyBrowserOnlyProps {
     sampleFilename: string;
     isCodeSnippet?: boolean;
     codeSample?: string;
 }
 
-export default function TryPyre2BrowserOnly({
+export default function TryPyreflyBrowserOnly({
     sampleFilename,
     isCodeSnippet = false,
     codeSample = '',
-}: TryPyre2BrowserOnlyProps): JSX.Element {
+}: TryPyreflyBrowserOnlyProps): JSX.Element {
     if (sampleFilename == null) {
         throw 'Missing sampleFilename. IDE services won\'t work properly.';
     }
@@ -28,7 +28,7 @@ export default function TryPyre2BrowserOnly({
         <BrowserOnly>
             {() => (
                 <React.Suspense fallback={<div>Loading...</div>}>
-                    <TryPyre2
+                    <TryPyrefly
                         sampleFilename={sampleFilename}
                         isCodeSnippet={isCodeSnippet}
                         codeSample={codeSample}

@@ -11,8 +11,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import Editor from '@monaco-editor/react';
 import * as LZString from 'lz-string';
-import styles from './TryPyre2.module.css';
-import TryPyre2Results from './TryPyre2Results';
+import styles from './TryPyrefly.module.css';
+import TryPyreflyResults from './TryPyreflyResults';
 import {
     monaco,
     setAutoCompleteFunction,
@@ -21,7 +21,7 @@ import {
     setInlayHintFunctionForMonaco,
 } from './configured-monaco';
 import type { editor } from 'monaco-editor';
-import type { PyreflyErrorMessage } from './TryPyre2Results';
+import type { PyreflyErrorMessage } from './TryPyreflyResults';
 
 export const DEFAULT_PYTHON_PROGRAM = `
 from typing import *
@@ -34,8 +34,8 @@ def test(x: int):
 reveal_type(test(42))
 `.trimStart();
 
-// Import type for Pyre2 State
-interface Pyre2State {
+// Import type for Pyrefly State
+interface PyreflyState {
     updateSource: (source: string) => void;
     getErrors: () => ReadonlyArray<PyreflyErrorMessage>;
     autoComplete: (line: number, column: number) => any;
@@ -44,36 +44,36 @@ interface Pyre2State {
     inlayHint: () => any;
 }
 
-const pyre2WasmUninitializedPromise =
+const pyreflyWasmUninitializedPromise =
     typeof window !== 'undefined'
         ? import('./pyrefly_wasm')
         : new Promise<any>(_resolve => { });
 
-const pyre2WasmInitializedPromise = pyre2WasmUninitializedPromise
+const pyreflyWasmInitializedPromise = pyreflyWasmUninitializedPromise
     .then(async mod => {
         await mod.default();
         return mod;
     })
     .catch(e => console.log(e));
 
-interface TryPyre2Props {
+interface TryPyreflyProps {
     sampleFilename: string;
     isCodeSnippet?: boolean;
     codeSample?: string;
 }
 
-export default function TryPyre2({
+export default function TryPyrefly({
     sampleFilename,
     isCodeSnippet = false,
     codeSample = DEFAULT_PYTHON_PROGRAM,
-}: TryPyre2Props): React.ReactElement {
+}: TryPyreflyProps): React.ReactElement {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const [errors, setErrors] = useState<ReadonlyArray<PyreflyErrorMessage> | null>(
         []
     );
     const [internalError, setInternalError] = useState('');
     const [loading, setLoading] = useState(true);
-    const [pyreService, setPyreService] = useState<Pyre2State | null>(null);
+    const [pyreService, setPyreService] = useState<PyreflyState | null>(null);
     const [editorHeightforCodeSnippet, setEditorHeightforCodeSnippet] = useState<
         number | null
     >(null);
@@ -83,9 +83,9 @@ export default function TryPyre2({
     // Only run for initial render, and not on subsequent updates
     useEffect(() => {
         setLoading(true);
-        pyre2WasmInitializedPromise
-            .then(pyre2 => {
-                setPyreService(new pyre2.State());
+        pyreflyWasmInitializedPromise
+            .then(pyrefly => {
+                setPyreService(new pyrefly.State());
                 setLoading(false);
                 setInternalError('');
             })
@@ -157,9 +157,9 @@ export default function TryPyre2({
     };
 
     return (
-        <div id="tryPyre2-editor" className={styles.tryEditor} >
-            <div id="tryPyre2-code-editor-container" className={styles.codeEditorContainer}>
-                {getPyre2Editor(
+        <div id="tryPyrefly-editor" className={styles.tryEditor} >
+            <div id="tryPyrefly-code-editor-container" className={styles.codeEditorContainer}>
+                {getPyreflyEditor(
                     isCodeSnippet,
                     sampleFilename,
                     codeSample,
@@ -183,7 +183,7 @@ export default function TryPyre2({
                 )}
             </div>
             {!isCodeSnippet && (
-                <TryPyre2Results
+                <TryPyreflyResults
                     loading={loading}
                     goToDef={handleGoToDefFromErrors}
                     errors={errors}
@@ -242,7 +242,7 @@ function isMobile(): boolean {
     return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 }
 
-function getPyre2Editor(
+function getPyreflyEditor(
     isCodeSnippet: boolean,
     fileName: string,
     codeSample: string,

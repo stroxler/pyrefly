@@ -14,7 +14,7 @@
 #
 ../pyrefly_wasm/build.sh
 echo "copying wasm files from pyrefly_wasm/ to website/"
-cp ../pyrefly_wasm/target/pyrefly_wasm.js src/try-pyre2/pyrefly_wasm.js
-cp ../pyrefly_wasm/target/pyrefly_wasm_bg.wasm.opt src/try-pyre2/pyrefly_wasm.wasm
+cp ../pyrefly_wasm/target/pyrefly_wasm.js src/try-pyrefly/pyrefly_wasm.js
+cp ../pyrefly_wasm/target/pyrefly_wasm_bg.wasm.opt src/try-pyrefly/pyrefly_wasm.wasm
 echo "finished copying wasm files"
 yarn start --port 3000

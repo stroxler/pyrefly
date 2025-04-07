@@ -10,13 +10,13 @@
 import '@testing-library/jest-dom';
 import { act } from 'react'
 import { render } from '@testing-library/react';
-import TryPyre2, { DEFAULT_PYTHON_PROGRAM } from '../try-pyre2/TryPyre2';
+import TryPyrefly, { DEFAULT_PYTHON_PROGRAM } from '../try-pyrefly/TryPyrefly';
 import { PLAYGROUND_FILE_NAME } from '../pages/try';
 
-describe('Try Pyre2 Component', () => {
+describe('Try Pyrefly Component', () => {
     test('render sandbox correctly', async () => {
         const container = await act(async () => {
-            const { container } = render(<TryPyre2 sampleFilename={PLAYGROUND_FILE_NAME} />);
+            const { container } = render(<TryPyrefly sampleFilename={PLAYGROUND_FILE_NAME} />);
 
             await Promise.resolve(); // Let any promises from timers resolve
             return container;
@@ -33,7 +33,7 @@ describe('Try Pyre2 Component', () => {
         const fileName = 'snippet.py';
         const programContent = 'def hello(): pass';
         const container = await act(async () => {
-            const { container } = render(<TryPyre2
+            const { container } = render(<TryPyrefly
                 sampleFilename={fileName}
                 isCodeSnippet={true}
                 codeSample={programContent}
@@ -52,15 +52,15 @@ describe('Try Pyre2 Component', () => {
     });
 
     function expectMonacoEditorLoadedWithContent(container: HTMLElement, fileName: string, programContent: string, isCodeSnippet: boolean) {
-        const tryEditorElement = container.querySelector('#tryPyre2-editor');
+        const tryEditorElement = container.querySelector('#tryPyrefly-editor');
         expect(tryEditorElement).toBeInTheDocument();
 
-        // Verify that the code editor container is a child of tryPyre2-editor
-        const codeEditorContainer = tryEditorElement?.querySelector('#tryPyre2-code-editor-container');
+        // Verify that the code editor container is a child of tryPyrefly-editor
+        const codeEditorContainer = tryEditorElement?.querySelector('#tryPyrefly-code-editor-container');
         expect(codeEditorContainer).toBeInTheDocument();
 
-        // Verify that the results container is a child of tryPyre2-editor
-        const resultsContainer = tryEditorElement?.querySelector('#tryPyre2-results-container');
+        // Verify that the results container is a child of tryPyrefly-editor
+        const resultsContainer = tryEditorElement?.querySelector('#tryPyrefly-results-container');
         if (isCodeSnippet) {
             expect(resultsContainer).not.toBeInTheDocument();
         } else {

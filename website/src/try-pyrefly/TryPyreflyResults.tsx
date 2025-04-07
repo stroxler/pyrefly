@@ -9,7 +9,7 @@
 
 import * as React from 'react';
 import clsx from 'clsx';
-import styles from './TryPyre2.module.css';
+import styles from './TryPyrefly.module.css';
 
 export interface PyreflyErrorMessage {
     startLineNumber: number;
@@ -37,7 +37,7 @@ function ErrorMessage({ error, goToDef }: ErrorMessageProps): React.ReactElement
     // This logic is meant to be an exact match of how we output errors in the cli defined here:
     // - https://fburl.com/code/e9lqk0h2
     // - https://fburl.com/code/hwhe60zt
-    // TODO (T217247871): expose full error message from Pyre2 binary and use it directly here instead of duplicating the logic
+    // TODO (T217247871): expose full error message from Pyrefly binary and use it directly here instead of duplicating the logic
     const { startLineNumber, startColumn, endLineNumber, endColumn } = error;
 
     let rangeStr;
@@ -64,23 +64,23 @@ function ErrorMessage({ error, goToDef }: ErrorMessageProps): React.ReactElement
     );
 }
 
-interface TryPyre2ResultsProps {
+interface TryPyreflyResultsProps {
     loading: boolean;
     goToDef: GoToDefFromError;
     errors?: ReadonlyArray<PyreflyErrorMessage> | null;
     internalError: string;
 }
 
-export default function TryPyre2Results({
+export default function TryPyreflyResults({
     loading,
     goToDef,
     errors,
     internalError,
-}: TryPyre2ResultsProps): React.ReactElement {
+}: TryPyreflyResultsProps): React.ReactElement {
     const activeToolbarTab = 'errors';
 
     return (
-        <div id="tryPyre2-results-container" className={styles.resultsContainer}>
+        <div id="tryPyrefly-results-container" className={styles.resultsContainer}>
             <div className={styles.resultsToolbar}>
                 <ul className={styles.tabs}>
                     <li
