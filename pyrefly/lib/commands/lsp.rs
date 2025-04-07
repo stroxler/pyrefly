@@ -101,7 +101,7 @@ struct Server<'a> {
     send: &'a dyn Fn(Message),
     #[expect(dead_code)] // we'll use it later on
     initialize_params: InitializeParams,
-    state: Mutex<State>,
+    state: State,
     configs: SmallMap<PathBuf, Config>,
     default_config: Config,
     canceled_requests: HashSet<RequestId>,
@@ -337,7 +337,7 @@ impl<'a> Server<'a> {
         Self {
             send,
             initialize_params,
-            state: Mutex::new(State::new()),
+            state: State::new(),
             configs,
             default_config: Config::new(search_path.clone(), site_package_path.clone()),
             canceled_requests: HashSet::new(),
@@ -379,21 +379,24 @@ impl<'a> Server<'a> {
                         )
                     })
                     .collect::<Vec<_>>();
-                let state = self.state.lock();
-                let mut transaction = state.new_committable_transaction(Require::Exports, None);
+                let mut transaction = self
+                    .state
+                    .new_committable_transaction(Require::Exports, None);
                 transaction.as_mut().invalidate_disk(invalidate_disk);
                 transaction.as_mut().invalidate_memory(
                     config.loader.dupe(),
                     &config.open_files.lock().keys().cloned().collect::<Vec<_>>(),
                 );
-                state.run_with_committing_transaction(transaction, &handles);
+                self.state
+                    .run_with_committing_transaction(transaction, &handles);
                 let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
                 let open_files = config.open_files.lock();
                 for x in open_files.keys() {
                     diags.insert(x.as_path().to_owned(), Vec::new());
                 }
                 // TODO(connernilsen): replace with real error config from config file
-                for e in state
+                for e in self
+                    .state
                     .transaction()
                     .readable()
                     .get_loads(handles.iter().map(|(handle, _)| handle))
@@ -482,8 +485,7 @@ impl<'a> Server<'a> {
     }
 
     fn goto_definition(&self, params: GotoDefinitionParams) -> Option<GotoDefinitionResponse> {
-        let state = self.state.lock();
-        let transaction = state.transaction();
+        let transaction = self.state.transaction();
         let handle = self.make_handle(&params.text_document_position_params.text_document.uri);
         let info = transaction.readable().get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
@@ -500,8 +502,7 @@ impl<'a> Server<'a> {
     }
 
     fn completion(&self, params: CompletionParams) -> anyhow::Result<CompletionResponse> {
-        let state = self.state.lock();
-        let transaction = state.transaction();
+        let transaction = self.state.transaction();
         let handle = self.make_handle(&params.text_document_position.text_document.uri);
         let items = transaction
             .readable()
@@ -520,9 +521,8 @@ impl<'a> Server<'a> {
     }
 
     fn hover(&self, params: HoverParams) -> Option<Hover> {
-        let state = self.state.lock();
         let handle = self.make_handle(&params.text_document_position_params.text_document.uri);
-        let transaction = state.transaction();
+        let transaction = self.state.transaction();
         let info = transaction.readable().get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
         let t = transaction.hover(&handle, range)?;
@@ -541,9 +541,8 @@ impl<'a> Server<'a> {
     }
 
     fn inlay_hints(&self, params: InlayHintParams) -> Option<Vec<InlayHint>> {
-        let state = self.state.lock();
         let handle = self.make_handle(&params.text_document.uri);
-        let transaction = state.transaction();
+        let transaction = self.state.transaction();
         let info = transaction.readable().get_module_info(&handle)?;
         let t = transaction.inlay_hints(&handle)?;
         Some(t.into_map(|x| {
