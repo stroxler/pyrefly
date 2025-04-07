@@ -16,7 +16,6 @@ use ruff_python_ast::name::Name;
 
 use crate::alt::solve::TypeFormContext;
 use crate::error::kind::ErrorKind;
-use crate::types::callable::ParamList;
 use crate::types::class::ClassType;
 use crate::types::stdlib::Stdlib;
 use crate::types::type_var::Restriction;
@@ -66,7 +65,7 @@ impl QuantifiedKind {
     fn empty_value(self) -> Type {
         match self {
             QuantifiedKind::TypeVar => Type::any_implicit(),
-            QuantifiedKind::ParamSpec => Type::ParamSpecValue(ParamList::everything()),
+            QuantifiedKind::ParamSpec => Type::Ellipsis,
             QuantifiedKind::TypeVarTuple => Type::any_tuple(),
         }
     }

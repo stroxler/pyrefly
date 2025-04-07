@@ -164,3 +164,20 @@ def f(a: AChild, b: BChild):
     assert_type(b.x, int)
     "#,
 );
+
+testcase!(
+    test_subclass_generic_missing_targs,
+    r#"
+from typing import Any, assert_type
+class A[T1, T2, T3 = int]:
+    x1: T1
+    x2: T2
+    x3: T3
+class B(A[str]):  # E: Expected 3 type arguments for `A`, got 1
+    pass
+def f(b: B):
+    assert_type(b.x1, str)
+    assert_type(b.x2, Any)
+    assert_type(b.x3, int)
+    "#,
+);
