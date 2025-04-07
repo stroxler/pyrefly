@@ -110,8 +110,7 @@ impl Stdlib {
                 }),
             };
         let lookup_concrete = |module: ModuleName, name: &'static str| {
-            lookup_generic(module, name, 0)
-                .map(|obj| ClassType::new_for_stdlib(obj, TArgs::default()))
+            lookup_generic(module, name, 0).map(|obj| ClassType::new(obj, TArgs::default()))
         };
 
         let none_location = if version.at_least(3, 10) {
@@ -263,7 +262,7 @@ impl Stdlib {
 
     fn apply(cls: &StdlibResult<Class>, targs: Vec<Type>) -> ClassType {
         // Note: this construction will panic if we use `apply` with the wrong arity.
-        ClassType::new_for_stdlib(Self::unwrap(cls).dupe(), TArgs::new(targs))
+        ClassType::new(Self::unwrap(cls).dupe(), TArgs::new(targs))
     }
 
     pub fn base_exception_group(&self, x: Type) -> Option<ClassType> {

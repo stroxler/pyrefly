@@ -337,7 +337,9 @@ impl Display for ClassType {
 }
 
 impl ClassType {
-    fn new_impl(class: Class, targs: TArgs, extra_context: &str) -> Self {
+    /// Create a class type.
+    /// The `targs` must match the `tparams`, if this fails we will panic.
+    pub fn new(class: Class, targs: TArgs) -> Self {
         let tparams = class.tparams();
         if targs.0.len() != tparams.len()
             && !tparams
@@ -347,28 +349,13 @@ impl ClassType {
             // Invariant violation: we should always have valid type arguments when
             // constructing `ClassType`.
             panic!(
-                "Encountered invalid type arguments in class `{}`, expected `{}` type arguments, got `{}`.{}",
+                "Encountered invalid type arguments in class `{}`, expected `{}` type arguments, got `{}`.",
                 class.name(),
                 tparams.len(),
                 targs.0.len(),
-                extra_context,
             )
         }
         Self(class, targs)
-    }
-
-    /// Create a class type.
-    /// The `targs` must match the `tparams`, if this fails we will panic.
-    pub fn new(class: Class, targs: TArgs) -> Self {
-        Self::new_impl(class, targs, "")
-    }
-
-    pub fn new_for_stdlib(class: Class, targs: TArgs) -> Self {
-        Self::new_impl(
-            class,
-            targs,
-            " This is caused by typeshed not matching the type checker assumptions about stdlib.",
-        )
     }
 
     pub fn class_object(&self) -> &Class {
