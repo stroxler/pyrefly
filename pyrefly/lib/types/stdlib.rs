@@ -108,7 +108,7 @@ impl Stdlib {
             lookup_generic(module, name).map(|obj| ClassType::new_for_stdlib(obj, TArgs::default()))
         };
 
-        let none_location = if version >= PythonVersion::new(3, 10, 0) {
+        let none_location = if version.at_least(3, 10) {
             types
         } else {
             ModuleName::from_str("_typeshed")

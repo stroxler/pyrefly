@@ -149,6 +149,10 @@ impl PythonVersion {
             micro,
         }
     }
+
+    pub fn at_least(self, major: u32, minor: u32) -> bool {
+        self >= PythonVersion::new(major, minor, 0)
+    }
 }
 
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, Hash)]
