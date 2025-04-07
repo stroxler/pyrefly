@@ -150,7 +150,7 @@ impl Quantified {
         Type::Quantified(self)
     }
 
-    pub fn as_value(&self, stdlib: &Stdlib) -> ClassType {
+    pub fn as_value<'a>(&self, stdlib: &'a Stdlib) -> &'a ClassType {
         match self.info.kind {
             QuantifiedKind::TypeVar => stdlib.type_var(),
             QuantifiedKind::ParamSpec => stdlib.param_spec(),

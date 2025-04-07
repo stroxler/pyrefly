@@ -81,11 +81,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             for t in t.into_unions() {
                 // If we reach the last value, we should always keep it.
                 if i == last_index || !should_discard(&t) {
-                    if i != last_index && t == self.stdlib.bool().to_type() {
+                    if i != last_index && t == self.stdlib.bool().clone().to_type() {
                         types.push(Lit::Bool(target).to_type());
-                    } else if i != last_index && t == self.stdlib.int().to_type() && !target {
+                    } else if i != last_index && t == self.stdlib.int().clone().to_type() && !target
+                    {
                         types.push(Lit::Int(LitInt::new(0)).to_type());
-                    } else if i != last_index && t == self.stdlib.str().to_type() && !target {
+                    } else if i != last_index && t == self.stdlib.str().clone().to_type() && !target
+                    {
                         types.push(Lit::String(String::new().into_boxed_str()).to_type());
                     } else {
                         types.push(t);
@@ -1094,15 +1096,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 match Lit::from_fstring(x) {
                     Some(lit) => lit.to_type(),
                     _ if all_literal_strings => Type::LiteralString,
-                    _ => self.stdlib.str().to_type(),
+                    _ => self.stdlib.str().clone().to_type(),
                 }
             }
             Expr::StringLiteral(x) => Lit::from_string_literal(x).to_type(),
             Expr::BytesLiteral(x) => Lit::from_bytes_literal(x).to_type(),
             Expr::NumberLiteral(x) => match &x.value {
                 Number::Int(x) => Lit::from_int(x).to_type(),
-                Number::Float(_) => self.stdlib.float().to_type(),
-                Number::Complex { .. } => self.stdlib.complex().to_type(),
+                Number::Float(_) => self.stdlib.float().clone().to_type(),
+                Number::Complex { .. } => self.stdlib.complex().clone().to_type(),
             },
             Expr::BooleanLiteral(x) => Lit::from_boolean_literal(x).to_type(),
             Expr::NoneLiteral(_) => Type::None,
@@ -1211,7 +1213,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Type::Any(style) => style.propagate(),
                         Type::LiteralString | Type::Literal(Lit::String(_)) if xs.len() <= 3 => {
                             // We could have a more precise type here, but this matches Pyright.
-                            self.stdlib.str().to_type()
+                            self.stdlib.str().clone().to_type()
                         }
                         Type::ClassType(ref cls)
                             if let Some(elts) = self.named_tuple_element_types(cls) =>
@@ -1287,7 +1289,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Expr::Slice(_) => {
                 // TODO(stroxler, yangdanny): slices are generic, we should not hard code to int.
-                let int = self.stdlib.int().to_type();
+                let int = self.stdlib.int().clone().to_type();
                 self.stdlib.slice(int.clone(), int.clone(), int).to_type()
             }
             Expr::IpyEscapeCommand(x) => self.error(

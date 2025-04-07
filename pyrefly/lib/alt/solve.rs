@@ -498,7 +498,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let ty = self
                     .unwrap_iterable(iterable)
                     .or_else(|| {
-                        let int_ty = self.stdlib.int().to_type();
+                        let int_ty = self.stdlib.int().clone().to_type();
                         let arg = CallArg::Type(&int_ty, range);
                         self.call_method(
                             iterable,
@@ -565,7 +565,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         let base_exception_class = self.stdlib.base_exception();
         let base_exception_class_type = Type::ClassDef(base_exception_class.class_object().dupe());
-        let base_exception_type = base_exception_class.to_type();
+        let base_exception_type = base_exception_class.clone().to_type();
         let expected_types = vec![base_exception_type, base_exception_class_type];
         if !self.solver().is_subset_eq(
             &actual_type,
@@ -825,10 +825,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Type {
-        let base_exception_class_type = Type::type_form(self.stdlib.base_exception().to_type());
+        let base_exception_class_type =
+            Type::type_form(self.stdlib.base_exception().clone().to_type());
         let arg1 = Type::Union(vec![base_exception_class_type, Type::None]);
-        let arg2 = Type::Union(vec![self.stdlib.base_exception().to_type(), Type::None]);
-        let arg3 = Type::Union(vec![self.stdlib.traceback_type().to_type(), Type::None]);
+        let arg2 = Type::Union(vec![
+            self.stdlib.base_exception().clone().to_type(),
+            Type::None,
+        ]);
+        let arg3 = Type::Union(vec![
+            self.stdlib.traceback_type().clone().to_type(),
+            Type::None,
+        ]);
         let exit_arg_types = [
             CallArg::Type(&arg1, range),
             CallArg::Type(&arg2, range),
@@ -879,7 +886,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let exit_type =
                 self.context_value_exit(context_manager_type, kind, range, errors, Some(&context));
             self.check_type(
-                &Type::Union(vec![self.stdlib.bool().to_type(), Type::None]),
+                &Type::Union(vec![self.stdlib.bool().clone().to_type(), Type::None]),
                 &exit_type,
                 range,
                 errors,
@@ -1848,7 +1855,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             &|| TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn);
                         self.expr(expr, hint.as_ref().map(|t| (t, tcc)), errors)
                     } else if matches!(hint, Some(Type::TypeGuard(_) | Type::TypeIs(_))) {
-                        let hint = Some(Type::ClassType(self.stdlib.bool()));
+                        let hint = Some(Type::ClassType(self.stdlib.bool().clone()));
                         let tcc: &dyn Fn() -> TypeCheckContext =
                             &|| TypeCheckContext::of_kind(TypeCheckKind::TypeGuardReturn);
                         self.expr(expr, hint.as_ref().map(|t| (t, tcc)), errors)
@@ -1907,7 +1914,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::ExceptionHandler(box ann, is_star) => {
-                let base_exception_type = self.stdlib.base_exception().to_type();
+                let base_exception_type = self.stdlib.base_exception().clone().to_type();
                 let base_exception_group_any_type = if *is_star {
                     // Only query for `BaseExceptionGroup` if we see an `except*` handler (which
                     // was introduced in Python3.11).
@@ -2169,7 +2176,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None => self.binding_to_type(val, errors),
             },
             Binding::Type(x) => x.clone(),
-            Binding::StrType => self.stdlib.str().to_type(),
+            Binding::StrType => self.stdlib.str().clone().to_type(),
             Binding::TypeParameter(box TypeParameter {
                 name,
                 unique,
@@ -2337,7 +2344,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         _ => {
                             annotated_ty = self
                                 .stdlib
-                                .dict(self.stdlib.str().to_type(), annotated_ty.clone())
+                                .dict(self.stdlib.str().clone().to_type(), annotated_ty.clone())
                                 .to_type()
                         }
                     },

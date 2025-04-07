@@ -749,7 +749,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 let stdlib = self.type_order.stdlib();
                 self.is_subset_eq(
                     &stdlib
-                        .mapping(stdlib.str().to_type(), stdlib.object().clone().to_type())
+                        .mapping(
+                            stdlib.str().clone().to_type(),
+                            stdlib.object().clone().to_type(),
+                        )
                         .to_type(),
                     want,
                 )
@@ -760,15 +763,15 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 true
             }
             (Type::ClassType(got), Type::ClassType(want))
-                if *want == self.type_order.stdlib().float()
-                    && *got == self.type_order.stdlib().int() =>
+                if want == self.type_order.stdlib().float()
+                    && got == self.type_order.stdlib().int() =>
             {
                 true
             }
             (Type::ClassType(got), Type::ClassType(want))
-                if *want == self.type_order.stdlib().complex()
-                    && (*got == self.type_order.stdlib().int()
-                        || *got == self.type_order.stdlib().float()) =>
+                if want == self.type_order.stdlib().complex()
+                    && (got == self.type_order.stdlib().int()
+                        || got == self.type_order.stdlib().float()) =>
             {
                 true
             }
@@ -887,17 +890,20 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (Type::Literal(lit), Type::LiteralString) => lit.is_string(),
             (Type::Literal(lit), t @ Type::ClassType(_)) => self.is_subset_eq(
-                &lit.general_class_type(self.type_order.stdlib()).to_type(),
+                &lit.general_class_type(self.type_order.stdlib())
+                    .clone()
+                    .to_type(),
                 t,
             ),
             (Type::Literal(l_lit), Type::Literal(u_lit)) => l_lit == u_lit,
             (Type::LiteralString, _) => {
-                self.is_subset_eq(&self.type_order.stdlib().str().to_type(), want)
+                self.is_subset_eq(&self.type_order.stdlib().str().clone().to_type(), want)
             }
             (Type::Type(l), Type::Type(u)) => self.is_subset_eq(l, u),
-            (Type::Type(_), _) => {
-                self.is_subset_eq(&self.type_order.stdlib().builtins_type().to_type(), want)
-            }
+            (Type::Type(_), _) => self.is_subset_eq(
+                &self.type_order.stdlib().builtins_type().clone().to_type(),
+                want,
+            ),
             (
                 Type::ClassType(class),
                 Type::Type(_)
@@ -905,7 +911,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 | Type::BoundMethod(_)
                 | Type::Callable(_)
                 | Type::Function(_),
-            ) if *class == self.type_order.stdlib().builtins_type() => {
+            ) if *class == self.type_order.stdlib().builtins_type().clone() => {
                 // Unparameterized `type` is equivalent to `type[Any]`
                 true
             }
@@ -914,7 +920,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 self.is_subset_eq(l, u)
             }
             (Type::TypeGuard(_) | Type::TypeIs(_), _) => {
-                self.is_subset_eq(&self.type_order.stdlib().bool().to_type(), want)
+                self.is_subset_eq(&self.type_order.stdlib().bool().clone().to_type(), want)
             }
             (Type::Ellipsis, Type::ParamSpecValue(_) | Type::Concatenate(_, _))
             | (Type::ParamSpecValue(_) | Type::Concatenate(_, _), Type::Ellipsis) => true,
@@ -933,13 +939,17 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::Ellipsis, _) => {
                 // Bit of a weird case - pretty sure we should be modelling these slightly differently
                 // - probably not as a dedicated Type alternative.
-                self.is_subset_eq(&self.type_order.stdlib().ellipsis_type().to_type(), want)
+                self.is_subset_eq(
+                    &self.type_order.stdlib().ellipsis_type().clone().to_type(),
+                    want,
+                )
             }
-            (Type::None, _) => {
-                self.is_subset_eq(&self.type_order.stdlib().none_type().to_type(), want)
-            }
+            (Type::None, _) => self.is_subset_eq(
+                &self.type_order.stdlib().none_type().clone().to_type(),
+                want,
+            ),
             (_, Type::None) => {
-                self.is_subset_eq(got, &self.type_order.stdlib().none_type().to_type())
+                self.is_subset_eq(got, &self.type_order.stdlib().none_type().clone().to_type())
             }
             (Type::Forall(_), _) => {
                 // TODO: Probably need to do some kind of substitution here

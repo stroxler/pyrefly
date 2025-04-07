@@ -318,14 +318,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     None,
                                     context().format(),
                                 );
-                                self.stdlib.bool().to_type()
+                                self.stdlib.bool().clone().to_type()
                             };
                             match op {
                                 CmpOp::Eq | CmpOp::NotEq | CmpOp::Is | CmpOp::IsNot => {
                                     // We assume these comparisons never error. Technically, `__eq__` and
                                     // `__ne__` can be overridden, but we generally bake in the assumption
                                     // that `==` and `!=` check equality as typically defined in Python.
-                                    self.stdlib.bool().to_type()
+                                    self.stdlib.bool().clone().to_type()
                                 }
                                 CmpOp::In | CmpOp::NotIn => {
                                     // `x in y` desugars to `y.__contains__(x)`
@@ -376,11 +376,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     } else if !errs.is_empty() {
                                         // Report errors from calling the comparison method on the LHS.
                                         errors.extend(errs);
-                                        self.stdlib.bool().to_type()
+                                        self.stdlib.bool().clone().to_type()
                                     } else if !fallback_errs.is_empty() {
                                         // Report errors from calling the comparison method on the RHS.
                                         errors.extend(fallback_errs);
-                                        self.stdlib.bool().to_type()
+                                        self.stdlib.bool().clone().to_type()
                                     } else {
                                         // We couldn't find a comparison method.
                                         comparison_error()
@@ -432,7 +432,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 unop(t, &f, &dunder::POS)
             }
             UnaryOp::Not => match t.as_bool() {
-                None => self.stdlib.bool().to_type(),
+                None => self.stdlib.bool().clone().to_type(),
                 Some(b) => Type::Literal(Lit::Bool(!b)),
             },
             UnaryOp::Invert => {

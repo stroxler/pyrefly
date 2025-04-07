@@ -59,7 +59,7 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
             Some(m) => {
                 self.0.as_superclass(m, metaclass.class_object()).as_ref() == Some(metaclass)
             }
-            None => *metaclass == self.stdlib().builtins_type(),
+            None => metaclass == self.stdlib().builtins_type(),
         }
     }
 

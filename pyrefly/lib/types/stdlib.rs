@@ -184,60 +184,60 @@ impl Stdlib {
         }
     }
 
-    fn primitive(cls: &StdlibResult<ClassType>) -> ClassType {
+    fn primitive(cls: &StdlibResult<ClassType>) -> &ClassType {
         // Note: this construction will panic if we incorrectly mark a generic type as primitive.
-        Self::unwrap(cls).clone()
+        Self::unwrap(cls)
     }
 
     pub fn object(&self) -> &ClassType {
         Self::unwrap(&self.object)
     }
 
-    pub fn bool(&self) -> ClassType {
+    pub fn bool(&self) -> &ClassType {
         Self::primitive(&self.bool)
     }
 
-    pub fn builtins_type(&self) -> ClassType {
+    pub fn builtins_type(&self) -> &ClassType {
         Self::primitive(&self.builtins_type)
     }
 
-    pub fn enum_meta(&self) -> ClassType {
+    pub fn enum_meta(&self) -> &ClassType {
         Self::primitive(&self.enum_meta)
     }
 
-    pub fn enum_flag(&self) -> ClassType {
+    pub fn enum_flag(&self) -> &ClassType {
         Self::primitive(&self.enum_flag)
     }
 
-    pub fn named_tuple(&self) -> ClassType {
+    pub fn named_tuple(&self) -> &ClassType {
         Self::primitive(&self.named_tuple)
     }
 
-    pub fn ellipsis_type(&self) -> ClassType {
+    pub fn ellipsis_type(&self) -> &ClassType {
         Self::primitive(&self.ellipsis_type)
     }
 
-    pub fn none_type(&self) -> ClassType {
+    pub fn none_type(&self) -> &ClassType {
         Self::primitive(&self.none_type)
     }
 
-    pub fn int(&self) -> ClassType {
+    pub fn int(&self) -> &ClassType {
         Self::primitive(&self.int)
     }
 
-    pub fn float(&self) -> ClassType {
+    pub fn float(&self) -> &ClassType {
         Self::primitive(&self.float)
     }
 
-    pub fn complex(&self) -> ClassType {
+    pub fn complex(&self) -> &ClassType {
         Self::primitive(&self.complex)
     }
 
-    pub fn bytes(&self) -> ClassType {
+    pub fn bytes(&self) -> &ClassType {
         Self::primitive(&self.bytes)
     }
 
-    pub fn str(&self) -> ClassType {
+    pub fn str(&self) -> &ClassType {
         Self::primitive(&self.str)
     }
 
@@ -245,7 +245,7 @@ impl Stdlib {
         Self::apply(&self.slice, vec![start_ty, stop_ty, step_ty])
     }
 
-    pub fn base_exception(&self) -> ClassType {
+    pub fn base_exception(&self) -> &ClassType {
         Self::primitive(&self.base_exception)
     }
 
@@ -310,43 +310,43 @@ impl Stdlib {
         Self::apply(&self.coroutine, vec![yield_ty, send_ty, return_ty])
     }
 
-    pub fn type_var(&self) -> ClassType {
+    pub fn type_var(&self) -> &ClassType {
         Self::primitive(&self.type_var)
     }
 
-    pub fn param_spec(&self) -> ClassType {
+    pub fn param_spec(&self) -> &ClassType {
         Self::primitive(&self.param_spec)
     }
 
-    pub fn type_var_tuple(&self) -> ClassType {
+    pub fn type_var_tuple(&self) -> &ClassType {
         Self::primitive(&self.type_var_tuple)
     }
 
-    pub fn param_spec_args(&self) -> ClassType {
+    pub fn param_spec_args(&self) -> &ClassType {
         Self::primitive(&self.param_spec_args)
     }
 
-    pub fn param_spec_kwargs(&self) -> ClassType {
+    pub fn param_spec_kwargs(&self) -> &ClassType {
         Self::primitive(&self.param_spec_kwargs)
     }
 
-    pub fn type_alias_type(&self) -> ClassType {
+    pub fn type_alias_type(&self) -> &ClassType {
         Self::primitive(&self.type_alias_type)
     }
 
-    pub fn traceback_type(&self) -> ClassType {
+    pub fn traceback_type(&self) -> &ClassType {
         Self::primitive(&self.traceback_type)
     }
 
-    pub fn function_type(&self) -> ClassType {
+    pub fn function_type(&self) -> &ClassType {
         Self::primitive(&self.function_type)
     }
 
-    pub fn method_type(&self) -> ClassType {
+    pub fn method_type(&self) -> &ClassType {
         Self::primitive(&self.method_type)
     }
 
-    pub fn property(&self) -> ClassType {
+    pub fn property(&self) -> &ClassType {
         Self::primitive(&self.property)
     }
 }

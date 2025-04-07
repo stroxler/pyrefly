@@ -233,7 +233,7 @@ impl TypeAlias {
     /// position - for example, for a function call or attribute access.
     pub fn as_value(&self, stdlib: &Stdlib) -> Type {
         if self.style == TypeAliasStyle::Scoped {
-            stdlib.type_alias_type().to_type()
+            stdlib.type_alias_type().clone().to_type()
         } else {
             *self.ty.clone()
         }
@@ -967,7 +967,7 @@ impl Type {
 
     pub fn promote_literals(self, stdlib: &Stdlib) -> Type {
         self.transform(&mut |ty| match &ty {
-            Type::Literal(lit) => *ty = lit.general_class_type(stdlib).to_type(),
+            Type::Literal(lit) => *ty = lit.general_class_type(stdlib).clone().to_type(),
             _ => {}
         })
     }

@@ -183,7 +183,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.instantiate(cls),
             Required::Required,
         );
-        let ret = Type::ClassType(self.stdlib.bool());
+        let ret = Type::ClassType(self.stdlib.bool().clone());
         let callable = Callable::list(ParamList::new(vec![self_, other]), ret);
         dunder::RICH_CMPS
             .iter()
@@ -205,7 +205,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn get_dataclass_hash(&self, cls: &Class) -> ClassSynthesizedField {
         let params = vec![cls.self_param()];
-        let ret = self.stdlib.int().to_type();
+        let ret = self.stdlib.int().clone().to_type();
         ClassSynthesizedField::new(Type::Function(Box::new(Function {
             signature: Callable::list(ParamList::new(params), ret),
             metadata: FuncMetadata::def(

@@ -884,7 +884,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         let instance_attr = match metadata.metaclass() {
                             Some(meta) => self.get_instance_attribute(meta, attr_name),
                             None => {
-                                self.get_instance_attribute(&self.stdlib.builtins_type(), attr_name)
+                                self.get_instance_attribute(self.stdlib.builtins_type(), attr_name)
                             }
                         };
                         match instance_attr {
@@ -914,15 +914,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     LookupResult::found_type(Type::type_form(Type::Kwargs(q)))
                 } else {
                     let class = q.as_value(self.stdlib);
-                    match self.get_instance_attribute(&class, attr_name) {
+                    match self.get_instance_attribute(class, attr_name) {
                         Some(attr) => LookupResult::Found(attr),
-                        None => LookupResult::NotFound(NotFound::Attribute(class)),
+                        None => LookupResult::NotFound(NotFound::Attribute(class.clone())),
                     }
                 }
             }
             AttributeBase::TypeAny(style) => {
                 let builtins_type_classtype = self.stdlib.builtins_type();
-                self.get_instance_attribute(&builtins_type_classtype, attr_name)
+                self.get_instance_attribute(builtins_type_classtype, attr_name)
                     .and_then(|Attribute { inner }| {
                         self.resolve_as_instance_method_with_attribute_inner(inner)
                             .map(LookupResult::found_type)
@@ -950,9 +950,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )
                 } else {
                     let class = self.stdlib.property();
-                    match self.get_instance_attribute(&class, attr_name) {
+                    match self.get_instance_attribute(class, attr_name) {
                         Some(attr) => LookupResult::Found(attr),
-                        None => LookupResult::NotFound(NotFound::Attribute(class)),
+                        None => LookupResult::NotFound(NotFound::Attribute(class.clone())),
                     }
                 }
             }
@@ -1063,9 +1063,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::SelfType(class_type)) => {
                 Some(AttributeBase::ClassObject(class_type.class_object().dupe()))
             }
-            Type::TypedDict(_) => Some(AttributeBase::ClassInstance(
-                stdlib.mapping(stdlib.str().to_type(), stdlib.object().clone().to_type()),
-            )),
+            Type::TypedDict(_) => Some(AttributeBase::ClassInstance(stdlib.mapping(
+                stdlib.str().clone().to_type(),
+                stdlib.object().clone().to_type(),
+            ))),
             Type::Tuple(Tuple::Unbounded(box element)) => {
                 Some(AttributeBase::ClassInstance(stdlib.tuple(element)))
             }
@@ -1093,12 +1094,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Tuple(Tuple::Unpacked(_)) => Some(AttributeBase::ClassInstance(
                 stdlib.tuple(Type::any_implicit()),
             )),
-            Type::LiteralString => Some(AttributeBase::ClassInstance(stdlib.str())),
-            Type::Literal(lit) => {
-                Some(AttributeBase::ClassInstance(lit.general_class_type(stdlib)))
-            }
+            Type::LiteralString => Some(AttributeBase::ClassInstance(stdlib.str().clone())),
+            Type::Literal(lit) => Some(AttributeBase::ClassInstance(
+                lit.general_class_type(stdlib).clone(),
+            )),
             Type::TypeGuard(_) | Type::TypeIs(_) => {
-                Some(AttributeBase::ClassInstance(stdlib.bool()))
+                Some(AttributeBase::ClassInstance(stdlib.bool().clone()))
             }
             Type::Any(style) => Some(AttributeBase::Any(style)),
             Type::TypeAlias(ta) => self.as_attribute_base_no_union(ta.as_value(stdlib), stdlib),
@@ -1108,19 +1109,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::Quantified(q)) => Some(AttributeBase::Quantified(q)),
             Type::Type(box Type::Any(style)) => Some(AttributeBase::TypeAny(style)),
             Type::Module(module) => Some(AttributeBase::Module(module)),
-            Type::TypeVar(_) => Some(AttributeBase::ClassInstance(stdlib.type_var())),
-            Type::ParamSpec(_) => Some(AttributeBase::ClassInstance(stdlib.param_spec())),
-            Type::TypeVarTuple(_) => Some(AttributeBase::ClassInstance(stdlib.type_var_tuple())),
-            Type::Args(_) => Some(AttributeBase::ClassInstance(stdlib.param_spec_args())),
-            Type::Kwargs(_) => Some(AttributeBase::ClassInstance(stdlib.param_spec_kwargs())),
-            Type::None => Some(AttributeBase::ClassInstance(stdlib.none_type())),
+            Type::TypeVar(_) => Some(AttributeBase::ClassInstance(stdlib.type_var().clone())),
+            Type::ParamSpec(_) => Some(AttributeBase::ClassInstance(stdlib.param_spec().clone())),
+            Type::TypeVarTuple(_) => Some(AttributeBase::ClassInstance(
+                stdlib.type_var_tuple().clone(),
+            )),
+            Type::Args(_) => Some(AttributeBase::ClassInstance(
+                stdlib.param_spec_args().clone(),
+            )),
+            Type::Kwargs(_) => Some(AttributeBase::ClassInstance(
+                stdlib.param_spec_kwargs().clone(),
+            )),
+            Type::None => Some(AttributeBase::ClassInstance(stdlib.none_type().clone())),
             Type::Never(_) => Some(AttributeBase::Never),
             _ if ty.is_property_getter() => Some(AttributeBase::Property(ty)),
             Type::Callable(_) | Type::Function(_) | Type::Overload(_) => {
-                Some(AttributeBase::ClassInstance(stdlib.function_type()))
+                Some(AttributeBase::ClassInstance(stdlib.function_type().clone()))
             }
-            Type::BoundMethod(_) => Some(AttributeBase::ClassInstance(stdlib.method_type())),
-            Type::Ellipsis => Some(AttributeBase::ClassInstance(stdlib.ellipsis_type())),
+            Type::BoundMethod(_) => {
+                Some(AttributeBase::ClassInstance(stdlib.method_type().clone()))
+            }
+            Type::Ellipsis => Some(AttributeBase::ClassInstance(stdlib.ellipsis_type().clone())),
             Type::Forall(forall) => self.as_attribute_base_no_union(forall.body.as_type(), stdlib),
             Type::Var(v) => {
                 if let Some(_guard) = self.recurser.recurse(v) {
@@ -1209,10 +1218,10 @@ impl<'a, Ans: LookupAnswer + LookupExport> AnswersSolver<'a, Ans> {
                 }
                 AttributeBase::ClassObject(class) => self.completions_class(class, &mut res),
                 AttributeBase::Quantified(q) => {
-                    self.completions_class_type(&q.as_value(self.stdlib), &mut res)
+                    self.completions_class_type(q.as_value(self.stdlib), &mut res)
                 }
                 AttributeBase::TypeAny(_) => {
-                    self.completions_class_type(&self.stdlib.builtins_type(), &mut res)
+                    self.completions_class_type(self.stdlib.builtins_type(), &mut res)
                 }
                 AttributeBase::Module(module) => {
                     self.completions_module(module, &mut res);

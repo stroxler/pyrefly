@@ -166,7 +166,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         None
                     }
                     BaseClass::CollectionsNamedTuple(range) => {
-                        Some((self.stdlib.named_tuple().to_type(), *range))
+                        Some((self.stdlib.named_tuple().clone().to_type(), *range))
                     }
                     _ => None,
                 };
@@ -297,7 +297,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.check_base_class_metaclasses(cls, metaclass, &base_metaclasses, errors);
             if self.solver().is_subset_eq(
                 &Type::ClassType(metaclass.clone()),
-                &Type::ClassType(self.stdlib.enum_meta()),
+                &Type::ClassType(self.stdlib.enum_meta().clone()),
                 self.type_order(),
             ) {
                 if !cls.tparams().is_empty() {
@@ -315,7 +315,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     is_flag: bases_with_metadata.iter().any(|(base, _)| {
                         self.solver().is_subset_eq(
                             &Type::ClassType(base.clone()),
-                            &Type::ClassType(self.stdlib.enum_flag()),
+                            &Type::ClassType(self.stdlib.enum_flag().clone()),
                             self.type_order(),
                         )
                     }),
@@ -643,7 +643,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::ClassType(meta) => {
                 if self.solver().is_subset_eq(
                     &Type::ClassType(meta.clone()),
-                    &Type::ClassType(self.stdlib.builtins_type()),
+                    &Type::ClassType(self.stdlib.builtins_type().clone()),
                     self.type_order(),
                 ) {
                     Some(meta)

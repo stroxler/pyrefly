@@ -589,7 +589,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Some((key, value)) => {
                                 if self.solver().is_subset_eq(
                                     &key,
-                                    &self.stdlib.str().to_type(),
+                                    &self.stdlib.str().clone().to_type(),
                                     self.type_order(),
                                 ) {
                                     kwargs.iter().for_each(|want| {

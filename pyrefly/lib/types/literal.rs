@@ -141,13 +141,13 @@ impl Lit {
 
     /// Convert a literal to a `ClassType` that is the general class_type of the literal.
     /// For example, `1` is converted to `int`, and `"foo"` is converted to `str`.
-    pub fn general_class_type(&self, stdlib: &Stdlib) -> ClassType {
+    pub fn general_class_type<'a>(&'a self, stdlib: &'a Stdlib) -> &'a ClassType {
         match self {
             Lit::String(_) => stdlib.str(),
             Lit::Int(_) => stdlib.int(),
             Lit::Bool(_) => stdlib.bool(),
             Lit::Bytes(_) => stdlib.bytes(),
-            Lit::Enum(box (class_type, ..)) => class_type.clone(),
+            Lit::Enum(box (class_type, ..)) => class_type,
         }
     }
 
