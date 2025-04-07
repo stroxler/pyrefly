@@ -73,6 +73,10 @@ export default function LandingPageSection({
 
 const styles = stylex.create({
   section: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
     flex: 1,
     position: 'relative',
     paddingVertical: 20,

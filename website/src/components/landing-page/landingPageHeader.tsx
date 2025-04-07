@@ -11,39 +11,35 @@ import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import Firefly from './firefly';
 import typography from './typography';
-import { display } from 'docusaurus-plugin-internaldocs-fb/internal/internComponent';
-import { StyleXClassNameTag } from '@stylexjs/stylex/lib/StyleXTypes';
 
 export default function LandingPageHeader(): React.ReactElement {
     return (
         <header {...stylex.props(styles.featureHero)}>
-            <div className="container">
-                <h1 {...stylex.props(styles.title, typography.h1)}>
-                    pyrefly<span>.</span>
-                </h1>
-                <p {...stylex.props(styles.subtitle, typography.h3)}>
-                    <span>
-                        A faster Python type checker written in Rust
-                    </span>
-                </p>
-                <section {...stylex.props(styles.buttonGroup)}>
-                    <a href="https://github.com/facebook/pyrefly/milestone/1"
-                        {...stylex.props(styles.button, typography.p)}> Github </a>
-                    <a href="https://pyrefly.org/try/" {...stylex.props(styles.button, typography.p)}> Demo </a>
-                    <a href="https://pyrefly.org/en/docs/learn-python-typing/" {...stylex.props(styles.button, typography.p)}> Docs </a>
-                </section>
-                <section {...stylex.props(styles.buttonGroup,
-                )}>
-                    <p {...stylex.props(typography.p, typography.italic)}>Launching Spring 2025</p>
-                </section>
-                <section>
-                    <Firefly />
-                    <Firefly />
-                    <Firefly />
-                    <Firefly />
-                    <Firefly />
-                </section>
-            </div >
+            <h1 {...stylex.props(styles.title, typography.h1)}>
+                pyrefly<span>.</span>
+            </h1>
+            <p {...stylex.props(styles.subtitle, typography.h3)}>
+                <span>
+                    A faster Python type checker written in Rust
+                </span>
+            </p>
+            <section {...stylex.props(styles.buttonGroup)}>
+                <a href="https://github.com/facebook/pyrefly/milestone/1"
+                    {...stylex.props(styles.button, typography.p)}> Github </a>
+                <a href="https://pyrefly.org/try/" {...stylex.props(styles.button, typography.p)}> Demo </a>
+                <a href="https://pyrefly.org/en/docs/learn-python-typing/" {...stylex.props(styles.button, typography.p)}> Docs </a>
+            </section>
+            <section {...stylex.props(styles.buttonGroup,
+            )}>
+                <p {...stylex.props(typography.p, typography.italic)}>Launching Spring 2025</p>
+            </section>
+            <section>
+                <Firefly />
+                <Firefly />
+                <Firefly />
+                <Firefly />
+                <Firefly />
+            </section>
         </header >
     );
 }
@@ -56,7 +52,6 @@ const styles = stylex.create({
     featureHero: {
         padding: '7rem 0',
         width: '100%',
-        alignItems: 'center',
         position: 'relative',
         overflow: 'hidden',
         background: 'var(--color-background)',
@@ -65,7 +60,6 @@ const styles = stylex.create({
         marginLeft: 'auto',
         marginRight: 'auto',
         lineHeight: 1.1,
-        flex: 1,
     },
     title: {
         textAlign: 'center',
