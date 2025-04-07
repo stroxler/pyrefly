@@ -41,7 +41,7 @@ export default function WhyPyrefly(): React.ReactElement {
       />
       <WhyPyreflyGridItem
         title="Fully Featured"
-        content=" Actively under development. Follows the typing standards introduced in PEPs 484, 526, 612."
+        content=" Actively under development. Follows the official Python typing specification."
       />
     </div>
   );

@@ -192,7 +192,7 @@ exports[`Home page renders internal site correctly 1`] = `
                 Fully Featured
               </h3>
               <p>
-                 Actively under development. Follows the typing standards introduced in PEPs 484, 526, 612.
+                 Actively under development. Follows the official Python typing specification.
               </p>
             </div>
           </div>
