@@ -342,6 +342,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Given a class or typed dictionary and some (explicit) type arguments, construct a `Type`
     /// that represents the type of an instance of the class or typed dictionary with those `targs`.
+    ///
+    /// Note how this differs from `promote` and `instantiate`:
+    /// specialize(list, [int]) == list[int]
+    /// promote(list) == list[Any]
+    /// instantiate(list) == list[T]
     pub fn specialize(
         &self,
         cls: &Class,
@@ -361,6 +366,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ///
     /// We require a range because depending on the configuration we may raise
     /// a type error when a generic class or typed dictionary is promoted using gradual types.
+    ///
+    /// Note how this differs from `specialize` and `instantiate`:
+    /// specialize(list, [int]) == list[int]
+    /// promote(list) == list[Any]
+    /// instantiate(list) == list[T]
     pub fn promote(&self, cls: &Class, range: TextRange) -> Type {
         let targs = self.create_default_targs(cls, Some(range));
         self.type_of_instance(cls, targs)
@@ -373,6 +383,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.type_of_instance(cls, targs)
     }
 
+    /// Given a class or typed dictionary, create a `Type` that represents a generic instance of
+    /// the class or typed dictionary.
+    ///
+    /// Note how this differs from `specialize` and `promote`:
+    /// specialize(list, [int]) == list[int]
+    /// promote(list) == list[Any]
+    /// instantiate(list) == list[T]
+    pub fn instantiate(&self, cls: &Class) -> Type {
+        self.type_of_instance(cls, cls.tparams_as_targs())
+    }
+
+    /// Creates a type from the class with fresh variables for its type parameters.
+    pub fn instantiate_fresh(&self, cls: &Class) -> Type {
+        self.solver()
+            .fresh_quantified(
+                cls.tparams(),
+                Type::type_form(self.instantiate(cls)),
+                self.uniques,
+            )
+            .1
+    }
+
     pub fn unwrap_class_object_silently(&self, ty: &Type) -> Option<Type> {
         match ty {
             Type::ClassDef(c) => Some(self.promote_silently(c)),
@@ -380,14 +412,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::ClassType(_) => Some(ty.clone()),
             _ => None,
         }
-    }
-
-    /// Creates a type from the class with fresh variables for its type parameters.
-    pub fn instantiate_fresh(&self, cls: &Class) -> Type {
-        let promoted_cls = Type::type_form(self.type_of_instance(cls, cls.tparams_as_targs()));
-        self.solver()
-            .fresh_quantified(cls.tparams(), promoted_cls, self.uniques)
-            .1
     }
 
     /// Get an ancestor `ClassType`, in terms of the type parameters of `class`.
