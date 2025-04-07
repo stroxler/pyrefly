@@ -46,15 +46,13 @@ impl Ranged for NarrowVal {
 }
 
 #[derive(Clone, Debug)]
-pub enum NarrowOp {
+pub enum AtomicNarrowOp {
     Is(NarrowVal),
     IsNot(NarrowVal),
     Truthy,
     Falsy,
     Eq(NarrowVal),
     NotEq(NarrowVal),
-    And(Vec<NarrowOp>),
-    Or(Vec<NarrowOp>),
     IsInstance(NarrowVal),
     IsNotInstance(NarrowVal),
     IsSubclass(NarrowVal),
@@ -68,7 +66,14 @@ pub enum NarrowOp {
     NotCall(Box<NarrowVal>, Arguments),
 }
 
-impl NarrowOp {
+#[derive(Clone, Debug)]
+pub enum NarrowOp {
+    Atomic(AtomicNarrowOp),
+    And(Vec<NarrowOp>),
+    Or(Vec<NarrowOp>),
+}
+
+impl AtomicNarrowOp {
     pub fn negate(&self) -> Self {
         match self {
             Self::Is(v) => Self::IsNot(v.clone()),
@@ -81,14 +86,22 @@ impl NarrowOp {
             Self::NotEq(v) => Self::Eq(v.clone()),
             Self::Truthy => Self::Falsy,
             Self::Falsy => Self::Truthy,
-            Self::And(ops) => Self::Or(ops.map(|op| op.negate())),
-            Self::Or(ops) => Self::And(ops.map(|op| op.negate())),
             Self::TypeGuard(ty, args) => Self::NotTypeGuard(ty.clone(), args.clone()),
             Self::NotTypeGuard(ty, args) => Self::TypeGuard(ty.clone(), args.clone()),
             Self::TypeIs(ty, args) => Self::NotTypeIs(ty.clone(), args.clone()),
             Self::NotTypeIs(ty, args) => Self::TypeIs(ty.clone(), args.clone()),
             Self::Call(f, args) => Self::NotCall(f.clone(), args.clone()),
             Self::NotCall(f, args) => Self::Call(f.clone(), args.clone()),
+        }
+    }
+}
+
+impl NarrowOp {
+    pub fn negate(&self) -> Self {
+        match self {
+            Self::Atomic(op) => Self::Atomic(op.negate()),
+            Self::And(ops) => Self::Or(ops.map(|op| op.negate())),
+            Self::Or(ops) => Self::And(ops.map(|op| op.negate())),
         }
     }
 
@@ -116,15 +129,21 @@ impl NarrowOps {
     }
 
     pub fn is(name: &Name, v: Expr, range: TextRange) -> Self {
-        Self(smallmap! { name.clone() => (NarrowOp::Is(NarrowVal::Expr(v)), range) })
+        Self(
+            smallmap! { name.clone() => (NarrowOp::Atomic(AtomicNarrowOp::Is(NarrowVal::Expr(v))), range) },
+        )
     }
 
     pub fn eq(name: &Name, v: Expr, range: TextRange) -> Self {
-        Self(smallmap! { name.clone() => (NarrowOp::Eq(NarrowVal::Expr(v)), range) })
+        Self(
+            smallmap! { name.clone() => (NarrowOp::Atomic(AtomicNarrowOp::Eq(NarrowVal::Expr(v))), range) },
+        )
     }
 
     pub fn isinstance(name: &Name, v: Expr, range: TextRange) -> Self {
-        Self(smallmap! { name.clone() => (NarrowOp::IsInstance(NarrowVal::Expr(v)), range) })
+        Self(
+            smallmap! { name.clone() => (NarrowOp::Atomic(AtomicNarrowOp::IsInstance(NarrowVal::Expr(v))), range) },
+        )
     }
 
     pub fn negate(&self) -> Self {
@@ -184,10 +203,10 @@ impl NarrowOps {
                     .filter_map(|(cmp_op, right)| {
                         let range = right.range();
                         let op = match cmp_op {
-                            CmpOp::Is => NarrowOp::Is(NarrowVal::Expr(right.clone())),
-                            CmpOp::IsNot => NarrowOp::IsNot(NarrowVal::Expr(right.clone())),
-                            CmpOp::Eq => NarrowOp::Eq(NarrowVal::Expr(right.clone())),
-                            CmpOp::NotEq => NarrowOp::NotEq(NarrowVal::Expr(right.clone())),
+                            CmpOp::Is => AtomicNarrowOp::Is(NarrowVal::Expr(right.clone())),
+                            CmpOp::IsNot => AtomicNarrowOp::IsNot(NarrowVal::Expr(right.clone())),
+                            CmpOp::Eq => AtomicNarrowOp::Eq(NarrowVal::Expr(right.clone())),
+                            CmpOp::NotEq => AtomicNarrowOp::NotEq(NarrowVal::Expr(right.clone())),
                             _ => {
                                 return None;
                             }
@@ -197,7 +216,7 @@ impl NarrowOps {
 
                 for (op, range) in ops {
                     for name in names.iter() {
-                        narrow_ops.and(name.clone(), op.clone(), range);
+                        narrow_ops.and(name.clone(), NarrowOp::Atomic(op.clone()), range);
                     }
                 }
                 narrow_ops
@@ -250,7 +269,10 @@ impl NarrowOps {
                 for name in expr_to_names(&posargs[0]) {
                     narrow_ops.and(
                         name,
-                        NarrowOp::Call(Box::new(NarrowVal::Expr((**func).clone())), args.clone()),
+                        NarrowOp::Atomic(AtomicNarrowOp::Call(
+                            Box::new(NarrowVal::Expr((**func).clone())),
+                            args.clone(),
+                        )),
                         *range,
                     );
                 }
@@ -259,7 +281,7 @@ impl NarrowOps {
             Some(e) => {
                 let mut narrow_ops = Self::new();
                 for name in expr_to_names(e) {
-                    narrow_ops.and(name, NarrowOp::Truthy, e.range());
+                    narrow_ops.and(name, NarrowOp::Atomic(AtomicNarrowOp::Truthy), e.range());
                 }
                 narrow_ops
             }
