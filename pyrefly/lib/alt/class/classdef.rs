@@ -321,7 +321,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Placeholder for strict mode: we want to force callers to pass a range so
         // that we don't refactor in a way where none is available, but this is unused
         // because we do not have a strict mode yet.
-        range: Option<TextRange>,
+        _range: Option<TextRange>,
     ) -> TArgs {
         let tparams = cls.tparams();
         if tparams.is_empty() {
@@ -336,18 +336,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             TArgs::new(
                 tparams
                     .iter()
-                    .map(|x| {
-                        if let Some(default) = x.default() {
-                            default.clone()
-                        } else if let Restriction::Bound(bound) = x.restriction() {
-                            bound.clone()
-                        } else if range.is_some() {
-                            Type::any_error()
-                        } else {
-                            // TODO: use different defaults for ParamSpec/TypeVarTuple
-                            Type::any_implicit()
-                        }
-                    })
+                    .map(|x| x.quantified.as_gradual_type())
                     .collect(),
             )
         }

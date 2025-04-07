@@ -64,13 +64,13 @@ class A[T]: pass
 class B[T](A[T]): pass
 
 a0: type[A] = B
-b0: type[B] = A  # E: `type[A]` is not assignable to `type[B[Error]]`
+b0: type[B] = A  # E: `type[A]` is not assignable to `type[B[Unknown]]`
 
 a1: type[A[int]] = B
 b1: type[B[int]] = A  # E: `type[A]` is not assignable to `type[B[int]]`
 
 a2: type[A] = B[int]
-b2: type[B] = A[int]  # E: `type[A[int]]` is not assignable to `type[B[Error]]`
+b2: type[B] = A[int]  # E: `type[A[int]]` is not assignable to `type[B[Unknown]]`
 "#,
 );
 
@@ -142,4 +142,25 @@ test5: Callable[[], TypeIs[int]] = t3  # E: `() -> bool` is not assignable to `(
 test6: Callable[[], object] = t0
 test7: Callable[[], object] = t2
 "#,
+);
+
+// See https://typing.python.org/en/latest/spec/generics.html#user-defined-generic-types.
+// When no type argument is specified when inheriting from a generic class, we use the default or Any.
+// In particular, the bound is not used.
+testcase!(
+    test_subclass_generic_no_targ,
+    r#"
+from typing import Any, assert_type
+class A[T: float]:
+    x: T
+class B[T: float = int]:
+    x: T
+class AChild(A):
+    pass
+class BChild(B):
+    pass
+def f(a: AChild, b: BChild):
+    assert_type(a.x, Any)
+    assert_type(b.x, int)
+    "#,
 );
