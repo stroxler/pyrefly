@@ -223,8 +223,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 {
                     let class = &*self.get_idx(*class_key);
                     if let Some(cls) = &class.0 {
-                        let cls_type = ClassType::new(cls.dupe(), cls.tparams_as_targs());
-                        ty.subst_self_special_form_mut(&Type::SelfType(cls_type));
+                        ty.subst_self_special_form_mut(&Type::SelfType(cls.as_class_type()));
                     }
                 }
                 Arc::new(AnnotationWithTarget {
@@ -1290,7 +1289,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Type::ClassType(obj_cls) => make_super_instance(obj_cls, &|| SuperObj::Instance(obj_cls.clone())),
                             Type::Type(box Type::ClassType(obj_cls)) => make_super_instance(obj_cls, &|| SuperObj::Class(obj_cls.class_object().dupe())),
                             Type::ClassDef(obj_cls) => {
-                                let obj_type = ClassType::new(obj_cls.dupe(), self.create_default_targs(obj_cls, None));
+                                let obj_type = obj_cls.as_class_type();
                                 make_super_instance(&obj_type, &|| SuperObj::Class(obj_cls.dupe()))
                             }
                             Type::SelfType(obj_cls) => {
@@ -1325,10 +1324,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             SuperStyle::ImplicitArgs(self_binding, method) => {
                 match &self.get_idx(*self_binding).0 {
                     Some(obj_cls) => {
-                        let obj_type = ClassType::new(
-                            obj_cls.dupe(),
-                            self.create_default_targs(obj_cls, None),
-                        );
+                        let obj_type = obj_cls.as_class_type();
                         let lookup_cls = self.get_super_lookup_class(obj_cls, &obj_type).unwrap();
                         let obj = if method.id == dunder::NEW {
                             // __new__ is special: it's the only static method in which the
