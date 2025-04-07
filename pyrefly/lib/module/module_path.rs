@@ -70,7 +70,7 @@ impl Display for ModulePath {
             ModulePathDetails::BundledTypeshed(relative_path) => {
                 write!(
                     f,
-                    "bundled /pyre2/third_party/typeshed/{}",
+                    "bundled /pyrefly/third_party/typeshed/{}",
                     relative_path.display()
                 )
             }
