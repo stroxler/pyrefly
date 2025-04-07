@@ -21,8 +21,6 @@ use pyrefly::fs_upward_search::first_match;
 use pyrefly::get_args_expanded;
 use pyrefly::globs::FilteredGlobs;
 use pyrefly::globs::Globs;
-use pyrefly::init_thread_pool;
-use pyrefly::init_tracing;
 use pyrefly::run::BuckCheckArgs;
 use pyrefly::run::CheckArgs;
 use pyrefly::run::CommandExitStatus;
@@ -254,8 +252,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
 /// Run based on the command line arguments.
 async fn run() -> anyhow::Result<ExitCode> {
     let args = Args::parse_from(get_args_expanded(args_os())?);
-    init_tracing(args.common.verbose, false);
-    init_thread_pool(args.common.threads);
+    args.common.init();
     if args.profiling {
         loop {
             let _ = run_command(args.command.clone(), false).await;

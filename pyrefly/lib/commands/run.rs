@@ -12,6 +12,8 @@ pub use crate::commands::buck_check::Args as BuckCheckArgs;
 pub use crate::commands::check::Args as CheckArgs;
 pub use crate::commands::config_migration::Args as ConfigMigrationArgs;
 pub use crate::commands::lsp::Args as LspArgs;
+use crate::init_thread_pool;
+use crate::init_tracing;
 use crate::util::thread_pool::ThreadCount;
 
 #[derive(Debug, Parser, Clone)]
@@ -25,6 +27,13 @@ pub struct CommonGlobalArgs {
     /// Enable verbose logging.
     #[clap(long = "verbose", short = 'v', global = true, env = clap_env("VERBOSE"))]
     pub verbose: bool,
+}
+
+impl CommonGlobalArgs {
+    pub fn init(&self) {
+        init_tracing(self.verbose, false);
+        init_thread_pool(self.threads);
+    }
 }
 
 /// Exit status of a command, if the run is completed.
