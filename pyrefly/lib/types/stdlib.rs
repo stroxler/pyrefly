@@ -96,6 +96,7 @@ impl Stdlib {
         let builtins = ModuleName::builtins();
         let types = ModuleName::types();
         let typing = ModuleName::typing();
+        let typing_extensions = ModuleName::typing_extensions();
         let enum_ = ModuleName::enum_();
 
         let lookup_generic =
@@ -117,6 +118,14 @@ impl Stdlib {
             types
         } else {
             ModuleName::from_str("_typeshed")
+        };
+
+        let standardised = |major: u32, minor: u32| -> ModuleName {
+            if version.at_least(major, minor) {
+                typing
+            } else {
+                typing_extensions
+            }
         };
 
         Self {
@@ -150,11 +159,11 @@ impl Stdlib {
             awaitable: lookup_generic(typing, "Awaitable", 1),
             coroutine: lookup_generic(typing, "Coroutine", 3),
             type_var: lookup_concrete(typing, "TypeVar"),
-            param_spec: lookup_concrete(typing, "ParamSpec"),
-            param_spec_args: lookup_concrete(typing, "ParamSpecArgs"),
-            param_spec_kwargs: lookup_concrete(typing, "ParamSpecKwargs"),
-            type_var_tuple: lookup_concrete(typing, "TypeVarTuple"),
-            type_alias_type: lookup_concrete(typing, "TypeAliasType"),
+            param_spec: lookup_concrete(standardised(3, 10), "ParamSpec"),
+            param_spec_args: lookup_concrete(standardised(3, 10), "ParamSpecArgs"),
+            param_spec_kwargs: lookup_concrete(standardised(3, 10), "ParamSpecKwargs"),
+            type_var_tuple: lookup_concrete(standardised(3, 11), "TypeVarTuple"),
+            type_alias_type: lookup_concrete(standardised(3, 12), "TypeAliasType"),
             traceback_type: lookup_concrete(types, "TracebackType"),
             function_type: lookup_concrete(types, "FunctionType"),
             method_type: lookup_concrete(types, "MethodType"),
