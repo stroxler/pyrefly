@@ -96,6 +96,25 @@ impl AtomicNarrowOp {
     }
 }
 
+#[derive(Clone, Debug)]
+enum NarrowingSubject {
+    Name(Name),
+}
+
+impl NarrowingSubject {
+    pub fn name(&self) -> &Name {
+        match self {
+            Self::Name(name) => name,
+        }
+    }
+
+    pub fn into_name(self) -> Name {
+        match self {
+            Self::Name(name) => name,
+        }
+    }
+}
+
 impl NarrowOp {
     pub fn negate(&self) -> Self {
         match self {
@@ -196,7 +215,7 @@ impl NarrowOps {
                 comparators,
             })) => {
                 let mut narrow_ops = Self::new();
-                let names = expr_to_names(left);
+                let subjects = expr_to_subjects(left);
                 let ops = cmp_ops
                     .iter()
                     .zip(comparators)
@@ -215,8 +234,8 @@ impl NarrowOps {
                     });
 
                 for (op, range) in ops {
-                    for name in names.iter() {
-                        narrow_ops.and(name.clone(), NarrowOp::Atomic(op.clone()), range);
+                    for subject in subjects.iter() {
+                        narrow_ops.and(subject.name().clone(), NarrowOp::Atomic(op.clone()), range);
                     }
                 }
                 narrow_ops
@@ -266,9 +285,9 @@ impl NarrowOps {
                 // This may be a function call that narrows the type of its first argument. Record
                 // it as a possible narrowing operation that we'll resolve in the answers phase.
                 let mut narrow_ops = Self::new();
-                for name in expr_to_names(&posargs[0]) {
+                for subject in expr_to_subjects(&posargs[0]) {
                     narrow_ops.and(
-                        name,
+                        subject.into_name(),
                         NarrowOp::Atomic(AtomicNarrowOp::Call(
                             Box::new(NarrowVal::Expr((**func).clone())),
                             args.clone(),
@@ -280,8 +299,12 @@ impl NarrowOps {
             }
             Some(e) => {
                 let mut narrow_ops = Self::new();
-                for name in expr_to_names(e) {
-                    narrow_ops.and(name, NarrowOp::Atomic(AtomicNarrowOp::Truthy), e.range());
+                for subject in expr_to_subjects(e) {
+                    narrow_ops.and(
+                        subject.into_name(),
+                        NarrowOp::Atomic(AtomicNarrowOp::Truthy),
+                        e.range(),
+                    );
                 }
                 narrow_ops
             }
@@ -290,10 +313,10 @@ impl NarrowOps {
     }
 }
 
-fn expr_to_names(expr: &Expr) -> Vec<Name> {
-    fn f(expr: &Expr, res: &mut Vec<Name>) {
+fn expr_to_subjects(expr: &Expr) -> Vec<NarrowingSubject> {
+    fn f(expr: &Expr, res: &mut Vec<NarrowingSubject>) {
         match expr {
-            Expr::Name(name) => res.push(name.id.clone()),
+            Expr::Name(name) => res.push(NarrowingSubject::Name(name.id.clone())),
             Expr::Named(ExprNamed { target, value, .. }) => {
                 f(target, res);
                 f(value, res);
