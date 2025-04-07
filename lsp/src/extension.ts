@@ -25,10 +25,10 @@ function requireSetting<T>(path: string): T {
 }
 
 export function activate(context: ExtensionContext) {
-    const path: string = requireSetting("pyre2.lspPath");
-    const args: [string] = requireSetting("pyre2.lspArguments");
+    const path: string = requireSetting("pyrefly.lspPath");
+    const args: [string] = requireSetting("pyrefly.lspArguments");
 
-    const bundledPyre2Path = vscode.Uri.joinPath(
+    const bundledPyreflyPath = vscode.Uri.joinPath(
         context.extensionUri,
         'bin',
         'release',
@@ -37,8 +37,8 @@ export function activate(context: ExtensionContext) {
     );
 
     // Otherwise to spawn the server
-    let serverOptions: ServerOptions = { command: path === '' ? bundledPyre2Path.fsPath : path, args: args };
-    let rawInitialisationOptions = vscode.workspace.getConfiguration("pyre2");
+    let serverOptions: ServerOptions = { command: path === '' ? bundledPyreflyPath.fsPath : path, args: args };
+    let rawInitialisationOptions = vscode.workspace.getConfiguration("pyrefly");
 
     // Options to control the language client
     let clientOptions: LanguageClientOptions = {
@@ -49,7 +49,7 @@ export function activate(context: ExtensionContext) {
 
     // Create the language client and start the client.
     client = new LanguageClient(
-        'pyre2',
+        'pyrefly',
         'Pyrefly language server',
         serverOptions,
         clientOptions
@@ -59,10 +59,10 @@ export function activate(context: ExtensionContext) {
     client.start();
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('pyre2.restartClient', async () => {
+        vscode.commands.registerCommand('pyrefly.restartClient', async () => {
             await client.stop();
             client = new LanguageClient(
-                'pyre2',
+                'pyrefly',
                 'Pyrefly language server',
                 serverOptions,
                 clientOptions

@@ -4,9 +4,9 @@
 
 A VSCode LSP extension that talks over stdin/stdout to a binary.
 
-If using another binary, the settings to be aware of are `pyre2.lspPath` (the
-binary path) and `pyre2.lspArguments` (the arguments to that binary). These are
-available in the VSCode extension settings UI.
+If using another binary, the settings to be aware of are `pyrefly.lspPath` (the
+binary path) and `pyrefly.lspArguments` (the arguments to that binary). These
+are available in the VSCode extension settings UI.
 
 Based on a combination of:
 
@@ -30,7 +30,7 @@ Based on a combination of:
 - Run the launch config.
 - By default, stderr of the language server will appear in the output pane of
   VSCode under "Pyrefly language server".
-- Add `"pyre2.trace.server": "verbose"` to the VSCode config. Then all the LSP
+- Add `"pyrefly.trace.server": "verbose"` to the VSCode config. Then all the LSP
   JSON requests and responses will be logged together with stderr of language
   server in the output pane.
 
@@ -38,17 +38,17 @@ Based on a combination of:
 
 - Follow steps in Pre-requisites section.
 - Build the Pyrefly binary with
-  `buck2 build pyre2 @fbcode//mode/opt --show-output` or `cargo build` and
+  `buck2 build pyrefly @fbcode//mode/opt --show-output` or `cargo build` and
   either:
 
 1. Place binary at `lsp/bin/release/pyrefly(.exe)`
-2. Add the `pyre2.lspPath` configuration key to point at it after extension
+2. Add the `pyrefly.lspPath` configuration key to point at it after extension
    startup.
 
 - Run `npm install vsce`
 - Run `npm exec vsce package`
 - In VS Code, go to Extensions, click on the "..." button in the Extensions bar,
-  select "Install from VSIX" and then select the `pyre2-1.0.0.vsix` file that
+  select "Install from VSIX" and then select the `pyrefly-1.0.0.vsix` file that
   was produced.
 
 ## Building for all Platforms

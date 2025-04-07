@@ -39,18 +39,18 @@
         "commands": [
             {
                 "title": "Restart Pyrefly Client",
-                "category": "pyre2",
-                "command": "pyre2.restartClient"
+                "category": "pyrefly",
+                "command": "pyrefly.restartClient"
             }
         ],
         "configuration": {
             "properties": {
-                "pyre2.lspPath": {
+                "pyrefly.lspPath": {
                     "type": "string",
                     "default": "",
                     "description": "The path to the binary used for the lsp"
                 },
-                "pyre2.lspArguments": {
+                "pyrefly.lspArguments": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -58,9 +58,9 @@
                     "default": [
                         "lsp"
                     ],
-                    "description": "Additional arguments that should be passed to the binary at pyre2.lspPath"
+                    "description": "Additional arguments that should be passed to the binary at pyrefly.lspPath"
                 },
-                "pyre2.trace.server": {
+                "pyrefly.trace.server": {
                     "type": "string",
                     "description": "Set to 'verbose' to enable LSP trace in the console",
                     "default": "off",
