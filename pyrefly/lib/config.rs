@@ -315,7 +315,28 @@ pub struct ConfigFile {
 }
 
 impl Default for ConfigFile {
+    /// Gets a default ConfigFile, with all paths rewritten relative to cwd.
     fn default() -> ConfigFile {
+        let mut result = Self::default_no_path_rewrite();
+        match std::env::current_dir() {
+            Ok(cwd) => {
+                result.rewrite_with_path_to_config(&cwd);
+            }
+            Err(err) => {
+                tracing::debug!(
+                    "Cannot identify current dir for default config path rewriting: {}",
+                    err
+                );
+            }
+        }
+        result
+    }
+}
+
+impl ConfigFile {
+    /// Gets a default ConfigFile, with no path rewriting. This should only be used for unit testing,
+    /// since it may have strange runtime behavior. Prefer to use `ConfigFile::default()` instead.
+    fn default_no_path_rewrite() -> Self {
         ConfigFile {
             search_path: Self::default_search_path(),
             python_environment: PythonEnvironment {
@@ -445,8 +466,17 @@ impl ConfigFile {
 
     pub fn validate(&self) {
         fn warn_on_invalid(p: &Path, field: &str) {
-            if p.exists() {
-                return;
+            match p.try_exists() {
+                Ok(true) => return,
+                Err(err) => {
+                    tracing::debug!(
+                        "Error checking for existence of path {}: {}",
+                        p.display(),
+                        err
+                    );
+                    return;
+                }
+                _ => (),
             }
             let p = if p == Path::new("") {
                 Path::new("./")
@@ -576,7 +606,7 @@ mod tests {
     fn deserialize_pyrefly_config_defaults() {
         let config_str = "";
         let config = ConfigFile::parse_config(config_str).unwrap();
-        assert_eq!(config, ConfigFile::default());
+        assert_eq!(config, ConfigFile::default_no_path_rewrite());
     }
 
     #[test]
@@ -613,7 +643,7 @@ mod tests {
                     python_version: Some(PythonVersion::new(1, 2, 3)),
                     site_package_path: None,
                 },
-                ..ConfigFile::default()
+                ..ConfigFile::default_no_path_rewrite()
             }
         );
     }
@@ -645,7 +675,7 @@ mod tests {
                     python_platform: None,
                     site_package_path: None,
                 },
-                ..ConfigFile::default()
+                ..ConfigFile::default_no_path_rewrite()
             }
         );
     }
@@ -660,7 +690,7 @@ mod tests {
             pysa_value = 2
         ";
         let config = ConfigFile::parse_pyproject_toml(config_str).unwrap();
-        assert_eq!(config, ConfigFile::default(),);
+        assert_eq!(config, ConfigFile::default());
     }
 
     #[test]
@@ -724,7 +754,7 @@ mod tests {
             search_path,
             python_environment,
             python_interpreter: Some(test_path.join(interpreter)),
-            ..ConfigFile::default()
+            ..ConfigFile::default_no_path_rewrite()
         };
         assert_eq!(config, expected_config);
     }
