@@ -136,16 +136,16 @@ impl TParams {
         let mut tparams: Vec<TParam> = Vec::with_capacity(info.len());
         let mut seen = SmallSet::new();
         for mut tparam in info {
-            if tparams
-                .last()
-                .is_some_and(|p| p.quantified.default().is_some())
+            if let Some(p) = tparams.last()
+                && p.quantified.default().is_some()
             {
                 // Fix missing default.
                 if !tparam.quantified.ensure_default() {
-                    error = Some(
-                        "A type parameter without a default cannot follow one with a default"
-                            .to_owned(),
-                    );
+                    error = Some(format!(
+                        "Type parameter `{}` without a default cannot follow type parameter `{}` with a default",
+                        tparam.quantified.name(),
+                        p.name()
+                    ));
                 }
             }
             if error.is_none()

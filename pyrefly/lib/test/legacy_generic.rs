@@ -381,7 +381,7 @@ testcase!(
 from typing import Generic, TypeVar
 T1 = TypeVar('T1', default=int)
 T2 = TypeVar('T2')
-class C(Generic[T1, T2]):  # E: A type parameter without a default cannot follow one with a default
+class C(Generic[T1, T2]):  # E: Type parameter `T2` without a default cannot follow type parameter `T1` with a default
     pass
     "#,
 );

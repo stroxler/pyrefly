@@ -5354,8 +5354,8 @@
     {
       "code": -2,
       "column": 7,
-      "concise_description": "A type parameter without a default cannot follow one with a default",
-      "description": "A type parameter without a default cannot follow one with a default",
+      "concise_description": "Type parameter `T` without a default cannot follow type parameter `DefaultStrT` with a default",
+      "description": "Type parameter `T` without a default cannot follow type parameter `DefaultStrT` with a default",
       "line": 24,
       "name": "invalid-type-var",
       "stop_column": 31,
@@ -5404,16 +5404,6 @@
     {
       "code": -2,
       "column": 7,
-      "concise_description": "A type parameter without a default cannot follow one with a default",
-      "description": "A type parameter without a default cannot follow one with a default",
-      "line": 138,
-      "name": "invalid-type-var",
-      "stop_column": 11,
-      "stop_line": 138
-    },
-    {
-      "code": -2,
-      "column": 7,
       "concise_description": "Class `Foo5` uses type variables not specified in `Generic` or `Protocol` base",
       "description": "Class `Foo5` uses type variables not specified in `Generic` or `Protocol` base",
       "line": 138,
@@ -5424,8 +5414,18 @@
     {
       "code": -2,
       "column": 7,
-      "concise_description": "A type parameter without a default cannot follow one with a default",
-      "description": "A type parameter without a default cannot follow one with a default",
+      "concise_description": "Type parameter `Ts` without a default cannot follow type parameter `T5` with a default",
+      "description": "Type parameter `Ts` without a default cannot follow type parameter `T5` with a default",
+      "line": 138,
+      "name": "invalid-type-var",
+      "stop_column": 11,
+      "stop_line": 138
+    },
+    {
+      "code": -2,
+      "column": 7,
+      "concise_description": "Class `Foo6` uses type variables not specified in `Generic` or `Protocol` base",
+      "description": "Class `Foo6` uses type variables not specified in `Generic` or `Protocol` base",
       "line": 148,
       "name": "invalid-type-var",
       "stop_column": 11,
@@ -5434,8 +5434,8 @@
     {
       "code": -2,
       "column": 7,
-      "concise_description": "Class `Foo6` uses type variables not specified in `Generic` or `Protocol` base",
-      "description": "Class `Foo6` uses type variables not specified in `Generic` or `Protocol` base",
+      "concise_description": "Type parameter `Ts` without a default cannot follow type parameter `P` with a default",
+      "description": "Type parameter `Ts` without a default cannot follow type parameter `P` with a default",
       "line": 148,
       "name": "invalid-type-var",
       "stop_column": 11,
