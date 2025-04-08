@@ -20,13 +20,15 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
+use vec1::Vec1;
 
 use crate::assert_words;
 use crate::types::types::Type;
 use crate::util::prelude::SliceExt;
 
 assert_words!(NarrowVal, 8);
-assert_words!(NarrowOp, 10);
+assert_words!(AtomicNarrowOp, 10);
+assert_words!(NarrowOp, 11);
 
 /// Nearly all `NarrowVal` are of type `Expr`, so even though `Expr` is bigger,
 /// we don't bother boxing it.
@@ -67,8 +69,12 @@ pub enum AtomicNarrowOp {
 }
 
 #[derive(Clone, Debug)]
+#[expect(dead_code)]
+pub struct NarrowedAttribute(Box<Vec1<Name>>);
+
+#[derive(Clone, Debug)]
 pub enum NarrowOp {
-    Atomic(AtomicNarrowOp),
+    Atomic(Option<NarrowedAttribute>, AtomicNarrowOp),
     And(Vec<NarrowOp>),
     Or(Vec<NarrowOp>),
 }
@@ -118,7 +124,7 @@ impl NarrowingSubject {
 impl NarrowOp {
     pub fn negate(&self) -> Self {
         match self {
-            Self::Atomic(op) => Self::Atomic(op.negate()),
+            Self::Atomic(attr, op) => Self::Atomic(attr.clone(), op.negate()),
             Self::And(ops) => Self::Or(ops.map(|op| op.negate())),
             Self::Or(ops) => Self::And(ops.map(|op| op.negate())),
         }
@@ -149,19 +155,19 @@ impl NarrowOps {
 
     pub fn is(name: &Name, v: Expr, range: TextRange) -> Self {
         Self(
-            smallmap! { name.clone() => (NarrowOp::Atomic(AtomicNarrowOp::Is(NarrowVal::Expr(v))), range) },
+            smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::Is(NarrowVal::Expr(v))), range) },
         )
     }
 
     pub fn eq(name: &Name, v: Expr, range: TextRange) -> Self {
         Self(
-            smallmap! { name.clone() => (NarrowOp::Atomic(AtomicNarrowOp::Eq(NarrowVal::Expr(v))), range) },
+            smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::Eq(NarrowVal::Expr(v))), range) },
         )
     }
 
     pub fn isinstance(name: &Name, v: Expr, range: TextRange) -> Self {
         Self(
-            smallmap! { name.clone() => (NarrowOp::Atomic(AtomicNarrowOp::IsInstance(NarrowVal::Expr(v))), range) },
+            smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::IsInstance(NarrowVal::Expr(v))), range) },
         )
     }
 
@@ -235,7 +241,11 @@ impl NarrowOps {
 
                 for (op, range) in ops {
                     for subject in subjects.iter() {
-                        narrow_ops.and(subject.name().clone(), NarrowOp::Atomic(op.clone()), range);
+                        narrow_ops.and(
+                            subject.name().clone(),
+                            NarrowOp::Atomic(None, op.clone()),
+                            range,
+                        );
                     }
                 }
                 narrow_ops
@@ -288,10 +298,13 @@ impl NarrowOps {
                 for subject in expr_to_subjects(&posargs[0]) {
                     narrow_ops.and(
                         subject.into_name(),
-                        NarrowOp::Atomic(AtomicNarrowOp::Call(
-                            Box::new(NarrowVal::Expr((**func).clone())),
-                            args.clone(),
-                        )),
+                        NarrowOp::Atomic(
+                            None,
+                            AtomicNarrowOp::Call(
+                                Box::new(NarrowVal::Expr((**func).clone())),
+                                args.clone(),
+                            ),
+                        ),
                         *range,
                     );
                 }
@@ -302,7 +315,7 @@ impl NarrowOps {
                 for subject in expr_to_subjects(e) {
                     narrow_ops.and(
                         subject.into_name(),
-                        NarrowOp::Atomic(AtomicNarrowOp::Truthy),
+                        NarrowOp::Atomic(None, AtomicNarrowOp::Truthy),
                         e.range(),
                     );
                 }
