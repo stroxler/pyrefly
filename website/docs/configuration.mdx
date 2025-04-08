@@ -67,7 +67,7 @@ the config is invalid.
   - Notes:
     - When overridden by passing in `FILES...`, we do not consult the
       relevant config file for what to use for `project_excludes`. If
-      `project_excludes` should not use the default, override it with the flag as
+      `project_excludes` should not use the default value, override it with the flag as
       well.
     - When a `project_includes` pattern does not match any files, we will return
       an error.
@@ -88,6 +88,9 @@ the config is invalid.
       not files under a directory named `__pycache__/`.
     - It is an error if no files are returned from any `project_includes` because
       they are filtered out by `project_excludes` entries.
+    - When passing in `FILES...`, we also do not consult the config file for
+      what to use for `project_excludes`. If `project_excludes` should not use
+      the default value, override it with a flag as well.
 - `search_path`: a file path describing a root from which imports should be
   found and imported from (including modules in `project_includes`). This takes
   the highest precedence in import order, before `typeshed` and
