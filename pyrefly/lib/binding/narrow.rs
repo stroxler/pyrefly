@@ -10,6 +10,7 @@ use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::CmpOp;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprBoolOp;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprCompare;
@@ -72,6 +73,12 @@ pub enum AtomicNarrowOp {
 #[expect(dead_code)]
 pub struct NarrowedAttribute(Box<Vec1<Name>>);
 
+impl NarrowedAttribute {
+    pub fn new(chain: Vec1<Name>) -> Self {
+        Self(Box::new(chain))
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum NarrowOp {
     Atomic(Option<NarrowedAttribute>, AtomicNarrowOp),
@@ -105,6 +112,7 @@ impl AtomicNarrowOp {
 #[derive(Clone, Debug)]
 enum NarrowingSubject {
     Name(Name),
+    Attribute(Name, NarrowedAttribute),
 }
 
 impl NarrowOp {
@@ -180,6 +188,7 @@ impl NarrowOps {
     fn and_atomic(&mut self, subject: NarrowingSubject, op: AtomicNarrowOp, range: TextRange) {
         let (name, attr) = match subject {
             NarrowingSubject::Name(name) => (name, None),
+            NarrowingSubject::Attribute(name, attr) => (name, Some(attr)),
         };
         self.and(name, NarrowOp::Atomic(attr, op), range);
     }
@@ -308,10 +317,32 @@ impl NarrowOps {
     }
 }
 
+fn subject_for_attribute(
+    expr: &ExprAttribute,
+    mut rev_attr_chain: Vec<Name>,
+) -> Option<NarrowingSubject> {
+    match &*expr.value {
+        Expr::Name(name) => {
+            let mut final_chain = Vec1::from_vec_push(rev_attr_chain, expr.attr.id.clone());
+            final_chain.reverse();
+            Some(NarrowingSubject::Attribute(
+                name.id.clone(),
+                NarrowedAttribute::new(final_chain),
+            ))
+        }
+        Expr::Attribute(x) => {
+            rev_attr_chain.push(expr.attr.id.clone());
+            subject_for_attribute(x, rev_attr_chain)
+        }
+        _ => None,
+    }
+}
+
 fn expr_to_subjects(expr: &Expr) -> Vec<NarrowingSubject> {
     fn f(expr: &Expr, res: &mut Vec<NarrowingSubject>) {
         match expr {
             Expr::Name(name) => res.push(NarrowingSubject::Name(name.id.clone())),
+            Expr::Attribute(x) => res.extend(subject_for_attribute(x, Vec::new())),
             Expr::Named(ExprNamed { target, value, .. }) => {
                 f(target, res);
                 f(value, res);
