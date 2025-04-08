@@ -41,6 +41,33 @@ impl QuantifiedInfo {
             self.kind.empty_value()
         }
     }
+
+    fn type_var(name: Name, default: Option<Type>, restriction: Restriction) -> Self {
+        Self {
+            name,
+            kind: QuantifiedKind::TypeVar,
+            restriction,
+            default,
+        }
+    }
+
+    fn param_spec(name: Name, default: Option<Type>) -> Self {
+        Self {
+            name,
+            kind: QuantifiedKind::ParamSpec,
+            restriction: Restriction::Unrestricted,
+            default,
+        }
+    }
+
+    fn type_var_tuple(name: Name, default: Option<Type>) -> Self {
+        Self {
+            name,
+            kind: QuantifiedKind::TypeVarTuple,
+            restriction: Restriction::Unrestricted,
+            default,
+        }
+    }
 }
 
 #[derive(
@@ -113,36 +140,18 @@ impl Quantified {
     ) -> Self {
         Self::new(
             uniques.fresh(),
-            QuantifiedInfo {
-                name,
-                kind: QuantifiedKind::TypeVar,
-                restriction,
-                default,
-            },
+            QuantifiedInfo::type_var(name, default, restriction),
         )
     }
 
     pub fn param_spec(name: Name, uniques: &UniqueFactory, default: Option<Type>) -> Self {
-        Self::new(
-            uniques.fresh(),
-            QuantifiedInfo {
-                name,
-                kind: QuantifiedKind::ParamSpec,
-                restriction: Restriction::Unrestricted,
-                default,
-            },
-        )
+        Self::new(uniques.fresh(), QuantifiedInfo::param_spec(name, default))
     }
 
     pub fn type_var_tuple(name: Name, uniques: &UniqueFactory, default: Option<Type>) -> Self {
         Self::new(
             uniques.fresh(),
-            QuantifiedInfo {
-                name,
-                kind: QuantifiedKind::TypeVarTuple,
-                restriction: Restriction::Unrestricted,
-                default,
-            },
+            QuantifiedInfo::type_var_tuple(name, default),
         )
     }
 
