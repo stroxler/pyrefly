@@ -581,10 +581,10 @@ mod tests {
 
     #[test]
     fn deserialize_pyrefly_config_with_unknown() {
-        let config_str = "
-            laszewo = \"good kids\"
-            python_platform = \"windows\"
-        ";
+        let config_str = r#"
+            laszewo = "good kids"
+            python_platform = "windows"
+        "#;
         let config = ConfigFile::parse_config(config_str).unwrap();
         assert_eq!(
             config.extras.0,
@@ -594,12 +594,12 @@ mod tests {
 
     #[test]
     fn deserialize_pyproject_toml() {
-        let config_str = "
+        let config_str = r#"
             [tool.pyrefly]
-            project_includes = [\"./tests\", \"./implementation\"]
-            python_platform = \"darwin\"
-            python_version = \"1.2.3\"
-        ";
+            project_includes = ["./tests", "./implementation"]
+            python_platform = "darwin"
+            python_version = "1.2.3"
+        "#;
         let config = ConfigFile::parse_pyproject_toml(config_str).unwrap();
         assert_eq!(
             config,
@@ -627,15 +627,15 @@ mod tests {
 
     #[test]
     fn deserialize_pyproject_toml_with_unknown() {
-        let config_str = "
+        let config_str = r#"
             top_level = 1
             [table1]
             table1_value = 2
             [tool.pysa]
             pysa_value = 2
             [tool.pyrefly]
-            python_version = \"1.2.3\"
-        ";
+            python_version = "1.2.3"
+        "#;
         let config = ConfigFile::parse_pyproject_toml(config_str).unwrap();
         assert_eq!(
             config,
@@ -665,16 +665,16 @@ mod tests {
 
     #[test]
     fn deserialize_pyproject_toml_with_unknown_in_pyrefly() {
-        let config_str = "
+        let config_str = r#"
             top_level = 1
             [table1]
             table1_value = 2
             [tool.pysa]
             pysa_value = 2
             [tool.pyrefly]
-            python_version = \"1.2.3\"
-            inzo = \"overthinker\"
-        ";
+            python_version = "1.2.3"
+            inzo = "overthinker"
+        "#;
         let config = ConfigFile::parse_pyproject_toml(config_str).unwrap();
         assert_eq!(
             config.extras.0,
