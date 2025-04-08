@@ -26,9 +26,9 @@ static INIT_TRACING_ONCE: Once = Once::new();
 /// Most things should use `info` and `debug` level for showing messages.
 pub fn init_tracing(verbose: bool, force_ansi: bool) {
     INIT_TRACING_ONCE.call_once(|| {
-        let env = "PYRE_LOG";
-        let mut env_filter = EnvFilter::from_env(env);
-        if std::env::var_os(env).is_none() {
+        const ENV_VAR: &str = "PYREFLY_LOG";
+        let mut env_filter = EnvFilter::from_env(ENV_VAR);
+        if std::env::var_os(ENV_VAR).is_none() {
             // Enable info log by default
             env_filter = env_filter.add_directive(if verbose {
                 LevelFilter::DEBUG.into()
