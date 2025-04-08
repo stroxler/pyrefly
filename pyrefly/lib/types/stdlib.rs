@@ -205,7 +205,6 @@ impl Stdlib {
     }
 
     fn primitive(cls: &StdlibResult<ClassType>) -> &ClassType {
-        // Note: this construction will panic if we incorrectly mark a generic type as primitive.
         Self::unwrap(cls)
     }
 
