@@ -22,6 +22,9 @@ use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 use toml::Table;
+use tracing::debug;
+use tracing::error;
+use tracing::warn;
 #[cfg(not(target_arch = "wasm32"))]
 use which::which;
 
@@ -239,7 +242,7 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
             .lock().unwrap()
         .entry(interpreter.to_path_buf()).or_insert_with(move || {
             Self::get_env_from_interpreter(interpreter).inspect_err(|e| {
-                tracing::error!("Failed to query interpreter, falling back to default Python environment settings\n{}", e);
+                error!("Failed to query interpreter, falling back to default Python environment settings\n{}", e);
             }).ok()
         }).clone().unwrap_or_default()
     }
@@ -322,7 +325,7 @@ impl Default for ConfigFile {
                 result.rewrite_with_path_to_config(&cwd);
             }
             Err(err) => {
-                tracing::debug!(
+                debug!(
                     "Cannot identify current dir for default config path rewriting: {}",
                     err
                 );
@@ -422,7 +425,7 @@ impl ConfigFile {
                 env.site_package_path = system_env.site_package_path;
             }
         } else if env_has_empty {
-            tracing::warn!(
+            warn!(
                 "Python environment (version, platform, or site_package_path) has value unset, \
                 but no Python interpreter could be found to query for values. Falling back to \
                 Pyrefly defaults for missing values."
@@ -468,7 +471,7 @@ impl ConfigFile {
             match p.try_exists() {
                 Ok(true) => return,
                 Err(err) => {
-                    tracing::debug!(
+                    debug!(
                         "Error checking for existence of path {}: {}",
                         p.display(),
                         err
@@ -482,7 +485,7 @@ impl ConfigFile {
             } else {
                 p
             };
-            tracing::warn!("Nonexistent `{field}` found: {}", p.display());
+            warn!("Nonexistent `{field}` found: {}", p.display());
         }
         self.python_environment
             .site_package_path

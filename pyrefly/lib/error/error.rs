@@ -10,6 +10,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use starlark_map::small_map::SmallMap;
+use tracing::error;
 use vec1::Vec1;
 
 use crate::error::kind::ErrorKind;
@@ -41,7 +42,7 @@ impl Display for Error {
 
 pub fn print_errors(errors: &[Error]) {
     for err in errors {
-        tracing::error!("{err}");
+        error!("{err}");
     }
 }
 

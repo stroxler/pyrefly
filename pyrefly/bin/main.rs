@@ -30,6 +30,8 @@ use pyrefly::run::LspArgs;
 use pyrefly::ConfigFile;
 use pyrefly::NotifyWatcher;
 use starlark_map::small_map::SmallMap;
+use tracing::debug;
+use tracing::info;
 
 #[derive(Debug, Parser)]
 #[command(name = "pyrefly")]
@@ -149,11 +151,11 @@ fn get_implicit_config_for_project(
     fn get_config_path() -> anyhow::Result<ConfigFile> {
         let current_dir = std::env::current_dir().context("cannot identify current dir")?;
         let config_path = get_implicit_config_path_from(&current_dir)?;
-        tracing::info!("Using config found at {}", config_path.display());
+        info!("Using config found at {}", config_path.display());
         get_open_source_config(&config_path)
     }
     let config = get_config_path().unwrap_or_else(|err| {
-        tracing::debug!("{err}. Default configuration will be used as fallback.");
+        debug!("{err}. Default configuration will be used as fallback.");
         ConfigFile::default()
     });
     override_config(config)
@@ -167,7 +169,7 @@ async fn run_check_on_project(
     allow_forget: bool,
 ) -> anyhow::Result<CommandExitStatus> {
     let config = if let Some(explicit_config_path) = config {
-        tracing::info!(
+        info!(
             "Using config file explicitly provided at `{}`",
             explicit_config_path.display()
         );
@@ -200,7 +202,7 @@ fn get_implicit_config_for_file<'a>(
         get_implicit_config_path_from(parent_dir.as_ref())
     }
     let log_err = |err| {
-        tracing::debug!("{err}. Default configuration will be used as fallback.");
+        debug!("{err}. Default configuration will be used as fallback.");
     };
 
     let get_implicit_config = move |config_path: PathBuf| -> ConfigFile {
