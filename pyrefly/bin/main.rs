@@ -29,6 +29,7 @@ use pyrefly::run::ConfigMigrationArgs;
 use pyrefly::run::LspArgs;
 use pyrefly::ConfigFile;
 use pyrefly::NotifyWatcher;
+use starlark_map::small_map::SmallMap;
 
 #[derive(Debug, Parser)]
 #[command(name = "pyrefly")]
@@ -186,24 +187,42 @@ async fn run_check_on_project(
     .await
 }
 
-fn get_implicit_config_for_file(
-    path: &Path,
-    override_config: &impl Fn(ConfigFile) -> ConfigFile,
-) -> ConfigFile {
-    let get_implicit_config_path = |path: &Path| -> anyhow::Result<ConfigFile> {
+fn get_implicit_config_for_file<'a>(
+    override_config: &'a impl Fn(ConfigFile) -> ConfigFile,
+) -> impl Fn(&Path) -> ConfigFile + 'a {
+    let mut config_cache: SmallMap<PathBuf, ConfigFile> = SmallMap::new();
+    fn get_implicit_config_path(path: &Path) -> anyhow::Result<PathBuf> {
         let parent_dir = path
             .parent()
             .with_context(|| format!("Path `{}` has no parent directory", path.display()))?
             .absolutize()
             .with_context(|| format!("Path `{}` cannot be absolutized", path.display()))?;
-        let config_path = get_implicit_config_path_from(parent_dir.as_ref())?;
-        let config = get_open_source_config(&config_path)?;
-        Ok(override_config(config))
-    };
-    get_implicit_config_path(path).unwrap_or_else(|err| {
+        get_implicit_config_path_from(parent_dir.as_ref())
+    }
+    let log_err = |err| {
         tracing::debug!("{err}. Default configuration will be used as fallback.");
-        override_config(ConfigFile::default())
-    })
+    };
+
+    let get_implicit_config = move |config_path: PathBuf| -> ConfigFile {
+        if let Some(config) = config_cache.get(&config_path) {
+            return config.clone();
+        }
+        let config = override_config(get_open_source_config(&config_path).unwrap_or_else(|err| {
+            log_err(err);
+            ConfigFile::default()
+        }));
+        config_cache.insert(config_path, config.clone());
+        config
+    };
+    move |path| {
+        get_implicit_config_path(path).map_or_else(
+            |err| {
+                log_err(err);
+                override_config(ConfigFile::default())
+            },
+            get_implicit_config.clone(),
+        )
+    }
 }
 
 async fn run_check_on_files(
@@ -220,7 +239,7 @@ async fn run_check_on_files(
         args.clone(),
         watch,
         FilteredGlobs::new(files_to_check, project_excludes),
-        &|path| get_implicit_config_for_file(path, &|c| args.override_config(c)),
+        &get_implicit_config_for_file(&|c| args.override_config(c)),
         allow_forget,
     )
     .await
