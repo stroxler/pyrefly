@@ -765,3 +765,14 @@ class A:
         return self
     "#,
 );
+
+testcase!(
+    test_typevar_attr_default_error,
+    r#"
+from typing import Any, assert_type
+class A[T1 = int, T2]:  # E:
+    x: T2
+def f(a: A):
+    assert_type(a.x, Any)
+    "#,
+);

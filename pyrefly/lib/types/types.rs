@@ -110,9 +110,9 @@ impl TParam {
     }
 }
 
-/// TParams that have been fixed up after encountering an error
+/// TParams that contain an error
 #[derive(Debug)]
-pub struct FixedTParams {
+pub struct TParamsWithError {
     pub tparams: TParams,
     pub error: String,
 }
@@ -131,16 +131,16 @@ impl Display for TParams {
 }
 
 impl TParams {
-    pub fn new(info: Vec<TParamInfo>) -> Result<Self, FixedTParams> {
+    pub fn new(info: Vec<TParamInfo>) -> Result<Self, TParamsWithError> {
         let mut error = None;
         let mut tparams: Vec<TParam> = Vec::with_capacity(info.len());
         let mut seen = SmallSet::new();
-        for mut tparam in info {
+        for tparam in info {
             if let Some(p) = tparams.last()
                 && p.quantified.default().is_some()
             {
-                // Fix missing default.
-                if !tparam.quantified.ensure_default() {
+                // Check for missing default
+                if tparam.quantified.default().is_none() {
                     error = Some(format!(
                         "Type parameter `{}` without a default cannot follow type parameter `{}` with a default",
                         tparam.quantified.name(),
@@ -184,7 +184,7 @@ impl TParams {
             });
         }
         if let Some(error) = error {
-            Err(FixedTParams {
+            Err(TParamsWithError {
                 tparams: Self(tparams),
                 error,
             })

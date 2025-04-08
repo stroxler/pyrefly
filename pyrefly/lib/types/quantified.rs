@@ -197,16 +197,6 @@ impl Quantified {
         self.info.default.as_ref()
     }
 
-    /// Ensure this Quantified has a default.
-    pub fn ensure_default(&mut self) -> bool {
-        if self.info.default.is_none() {
-            self.info.default = Some(Type::any_error());
-            false
-        } else {
-            true
-        }
-    }
-
     pub fn restriction(&self) -> &Restriction {
         &self.info.restriction
     }
