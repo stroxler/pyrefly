@@ -339,10 +339,7 @@ impl Args {
         }
 
         let mut holder = Forgetter::new(State::new(), allow_forget);
-        let handles = Handles::new(
-            expanded_file_list,
-            &self.overriding_config_finder(config_finder),
-        );
+        let handles = Handles::new(expanded_file_list, config_finder);
         let require_levels = self.get_required_levels();
         self.run_inner(
             holder.as_mut(),
@@ -363,7 +360,6 @@ impl Args {
         // - Config search is stable across incremental runs.
         let expanded_file_list = files_to_check.files()?;
         let require_levels = self.get_required_levels();
-        let config_finder = self.overriding_config_finder(config_finder);
         let mut handles = Handles::new(expanded_file_list, &config_finder);
         let state = State::new();
         let mut transaction = None;
@@ -402,7 +398,7 @@ impl Args {
         }
     }
 
-    fn override_config(&self, config: &mut ConfigFile) {
+    pub fn override_config(&self, mut config: ConfigFile) -> ConfigFile {
         set_option_if_some(
             &mut config.python_environment.python_platform,
             self.python_platform.as_ref(),
@@ -425,18 +421,8 @@ impl Args {
             self.ignore_errors_in_generated_code.as_ref(),
         );
         config.configure();
-    }
-
-    fn overriding_config_finder<'a>(
-        &'a self,
-        config_finder: &'a impl Fn(&Path) -> ConfigFile,
-    ) -> impl Fn(&Path) -> ConfigFile + 'a {
-        move |path| {
-            let mut config = config_finder(path);
-            self.override_config(&mut config);
-            config.validate();
-            config
-        }
+        config.validate();
+        config
     }
 
     fn get_required_levels(&self) -> RequireLevels {

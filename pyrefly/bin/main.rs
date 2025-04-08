@@ -142,17 +142,20 @@ async fn run_check(
     }
 }
 
-fn get_implicit_config_for_project() -> ConfigFile {
+fn get_implicit_config_for_project(
+    override_config: &impl Fn(ConfigFile) -> ConfigFile,
+) -> ConfigFile {
     fn get_config_path() -> anyhow::Result<ConfigFile> {
         let current_dir = std::env::current_dir().context("cannot identify current dir")?;
         let config_path = get_implicit_config_path_from(&current_dir)?;
         tracing::info!("Using config found at {}", config_path.display());
         get_open_source_config(&config_path)
     }
-    get_config_path().unwrap_or_else(|err| {
+    let config = get_config_path().unwrap_or_else(|err| {
         tracing::debug!("{err}. Default configuration will be used as fallback.");
         ConfigFile::default()
-    })
+    });
+    override_config(config)
 }
 
 async fn run_check_on_project(
@@ -167,9 +170,9 @@ async fn run_check_on_project(
             "Using config file explicitly provided at `{}`",
             explicit_config_path.display()
         );
-        get_open_source_config(&explicit_config_path)?
+        args.override_config(get_open_source_config(&explicit_config_path)?)
     } else {
-        get_implicit_config_for_project()
+        get_implicit_config_for_project(&|c| args.override_config(c))
     };
     let project_excludes =
         project_excludes.map_or_else(|| config.project_excludes.clone(), Globs::new);
@@ -183,19 +186,23 @@ async fn run_check_on_project(
     .await
 }
 
-fn get_implicit_config_for_file(path: &Path) -> ConfigFile {
-    fn get_implicit_config_path(path: &Path) -> anyhow::Result<ConfigFile> {
+fn get_implicit_config_for_file(
+    path: &Path,
+    override_config: &impl Fn(ConfigFile) -> ConfigFile,
+) -> ConfigFile {
+    let get_implicit_config_path = |path: &Path| -> anyhow::Result<ConfigFile> {
         let parent_dir = path
             .parent()
             .with_context(|| format!("Path `{}` has no parent directory", path.display()))?
             .absolutize()
             .with_context(|| format!("Path `{}` cannot be absolutized", path.display()))?;
         let config_path = get_implicit_config_path_from(parent_dir.as_ref())?;
-        get_open_source_config(&config_path)
-    }
+        let config = get_open_source_config(&config_path)?;
+        Ok(override_config(config))
+    };
     get_implicit_config_path(path).unwrap_or_else(|err| {
         tracing::debug!("{err}. Default configuration will be used as fallback.");
-        ConfigFile::default()
+        override_config(ConfigFile::default())
     })
 }
 
@@ -210,10 +217,10 @@ async fn run_check_on_files(
         project_excludes.map_or_else(ConfigFile::default_project_excludes, Globs::new);
     let files_to_check = files_to_check.from_root(PathBuf::new().absolutize()?.as_ref());
     run_check(
-        args,
+        args.clone(),
         watch,
         FilteredGlobs::new(files_to_check, project_excludes),
-        &|path| get_implicit_config_for_file(path),
+        &|path| get_implicit_config_for_file(path, &|c| args.override_config(c)),
         allow_forget,
     )
     .await
