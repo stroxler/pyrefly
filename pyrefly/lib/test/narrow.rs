@@ -486,6 +486,19 @@ def f(x: str | int | None):
 );
 
 testcase!(
+    bug = "issubclass tuple logic does not appear to work correctly",
+    test_issubclass_tuple,
+    r#"
+from typing import assert_type
+def f(x: type[int | str | bool]):
+    if issubclass(x, (str, int)):
+        assert_type(x, type[str] | type[int])  # E: assert_type(type[bool | int] | type[str], type[int] | type[str])
+    else:
+        assert_type(x, type[bool])  # E: assert_type(type[Never], type[bool])
+    "#,
+);
+
+testcase!(
     test_isinstance_alias,
     r#"
 from typing import assert_type
