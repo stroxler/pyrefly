@@ -12,7 +12,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use dupe::Dupe;
 use ruff_python_ast::name::Name;
 use ruff_python_ast::Identifier;
 use ruff_text_size::TextRange;
@@ -95,8 +94,8 @@ impl QName {
         self.name.range
     }
 
-    pub fn module_info(&self) -> ModuleInfo {
-        self.module.dupe()
+    pub fn module_info(&self) -> &ModuleInfo {
+        &self.module
     }
 
     pub fn module_name(&self) -> ModuleName {

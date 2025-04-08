@@ -1184,7 +1184,7 @@ impl<'a, Ans: LookupAnswer + LookupExport> AnswersSolver<'a, Ans> {
                     res.push(AttrInfo {
                         name: fld.clone(),
                         ty: None,
-                        module: Some(c.module_info()),
+                        module: Some(c.module_info().dupe()),
                         range: c.field_decl_range(fld),
                     });
                 }
