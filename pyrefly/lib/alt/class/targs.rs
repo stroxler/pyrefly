@@ -267,8 +267,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if let Some(typevar_name) = typevar_name {
                 *default = if let Some(i) = name_to_idx.get(typevar_name) {
                     // The default of this TypeVar contains the value of a previous TypeVar.
-                    let val: &Type = &checked_targs[*i];
-                    val.clone()
+                    checked_targs[*i].clone()
                 } else {
                     // The default refers to the value of a TypeVar that isn't in scope. We've
                     // already logged an error in TParams::new(); return a sensible default.
