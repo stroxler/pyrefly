@@ -5,17 +5,18 @@ The website is a combination of static content (built using
 
 ## Development
 
-### On a Devserver
+### Prerequisites
 
-Install the prerequisites:
+Install dependencies:
 
 ```bash
-sudo dnf install clang
-export HTTPS_PROXY=fwdproxy:8080
-rustup install nightly && rustup default nightly
-cargo install wasm-pack wasm-opt
-yarn install
+scripts/install.sh
 ```
+
+If you are running into issues with compiling zstd on your mac when running `build.sh` or `start.sh`, you'll need to install
+clang following the instructions here: https://github.com/briansmith/ring/issues/1824.
+
+### Running the Website
 
 Compile it:
 
@@ -23,7 +24,9 @@ Compile it:
 ./scripts/start.sh
 ```
 
-Go to the following URI in your browser:
+This would automatically install all rust dependencies and start the server.
+
+To see the website, go to the following URI in your browser:
 
 ```
 localhost:3000
@@ -31,26 +34,10 @@ localhost:3000
 
 Most changes are reflected live without having to restart the server.
 
-### On a Local Mac
+### For Meta Employees
 
-Install dependencies:
-
-```bash
-rustup install nightly && rustup default nightly
-cargo install wasm-pack wasm-opt
-yarn install
-```
-
-Run it:
-
-```bash
-./scripts/start.sh
-```
-
-Go to the following URI in your browser:
+If you want to run the static docs website, run the following command:
 
 ```
-localhost:3000
+./static_docs_build_script.sh
 ```
-
-Most changes are reflected live without having to restart the server.
