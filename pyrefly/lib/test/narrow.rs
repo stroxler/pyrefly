@@ -474,15 +474,14 @@ def f(x: str | int):
 );
 
 testcase!(
-    bug = "We can't yet handle isinstance on unions of simple classes",
     test_isinstance_union,
     r#"
 from typing import assert_type
 def f(x: str | int | None):
-    if isinstance(x, str | int):  # E: Expected class object, got type[int | str]
-        assert_type(x, str | int)  # E: assert_type(int | str | None, int | str)
+    if isinstance(x, str | int):
+        assert_type(x, str | int)
     else:
-        assert_type(x, None)  # E: assert_type(int | str | None, None)
+        assert_type(x, None)
     "#,
 );
 

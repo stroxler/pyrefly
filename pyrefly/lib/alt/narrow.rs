@@ -141,7 +141,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        if let Some(ts) = as_decomposed_tuple(right) {
+        if let Some(ts) = as_decomposed_tuple_or_union(right) {
             self.unions(
                 ts.iter()
                     .map(|t| self.narrow_isinstance(left, t, range, errors))
@@ -161,7 +161,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        if let Some(ts) = as_decomposed_tuple(right) {
+        if let Some(ts) = as_decomposed_tuple_or_union(right) {
             self.intersects(&ts.map(|t| self.narrow_is_not_instance(left, t, range, errors)))
         } else if let Some(right) = self.unwrap_class_object_or_error(right, range, errors) {
             self.subtract(left, &right)
@@ -369,8 +369,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 }
 
-fn as_decomposed_tuple(ty: &Type) -> Option<&[Type]> {
+fn as_decomposed_tuple_or_union(ty: &Type) -> Option<&[Type]> {
     if let Type::Tuple(Tuple::Concrete(ts)) = ty {
+        Some(ts)
+    } else if let Type::Type(box Type::Union(ts)) = ty {
         Some(ts)
     } else {
         None
