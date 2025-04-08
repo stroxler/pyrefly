@@ -172,7 +172,7 @@ v = sys.version_info
 version = '{}.{}.{}'.format(v.major, v.minor, v.micro)
 packages = site.getsitepackages()
 print(json.dumps({'python_platform': platform, 'python_version': version, 'site_package_path': packages}))
-        ";
+";
 
         let mut command = Command::new(interpreter);
         command.arg("-c");
