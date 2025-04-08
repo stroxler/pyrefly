@@ -94,7 +94,7 @@ inspiration from [Pyre1](https://pyre-check.org/),
 ## Design
 
 There are many nuances of design that change on a regular basis. But the basic
-substrate on which the checker is built involves three phases:
+substrate on which the checker is built involves three steps:
 
 1. Figure out what each module exports. That requires solving all `import *`
    statements transitively.
@@ -105,6 +105,15 @@ substrate on which the checker is built involves three phases:
 
 If we encounter unknowable information (e.g. recursion) we use `Type::Var` to
 insert placeholders which are filled in later.
+
+For each module, we solve the steps sequentially and completely. In particular,
+we do not try and solve a specific identifier first (like
+[Rosyln](https://github.com/dotnet/roslyn) or
+[TypeScript](https://www.typescriptlang.org/)), and do not used fine-grained
+incrementality (like [Rust Analyzer](https://github.com/rust-lang/rust-analyzer)
+using [Salsa](https://github.com/salsa-rs/salsa)). Instead, we aim for raw
+performance and a simpler module-centric design - there's no need to solve a
+single binding in isolation if solving all bindings in a module is fast enough.
 
 ### Example of bindings
 
