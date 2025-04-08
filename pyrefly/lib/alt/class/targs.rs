@@ -17,7 +17,9 @@ use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Required;
 use crate::types::class::TArgs;
+use crate::types::quantified::QuantifiedKind;
 use crate::types::tuple::Tuple;
+use crate::types::types::TParam;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::util::display::count;
@@ -38,191 +40,48 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut targ_idx = 0;
         let mut name_to_idx = SmallMap::new();
         for (param_idx, param) in tparams.iter().enumerate() {
-            if param.quantified.is_type_var_tuple() && targs.get(targ_idx).is_some() {
-                let n_remaining_params = tparams.len() - param_idx - 1;
-                let n_remaining_args = nargs - targ_idx;
-                let mut prefix = Vec::new();
-                let mut middle = Vec::new();
-                let mut suffix = Vec::new();
-                let args_to_consume = n_remaining_args.saturating_sub(n_remaining_params);
-                for _ in 0..args_to_consume {
-                    match targs.get(targ_idx) {
-                        Some(Type::Unpack(box Type::Tuple(Tuple::Concrete(elts)))) => {
-                            if middle.is_empty() {
-                                prefix.extend(elts.clone());
-                            } else {
-                                suffix.extend(elts.clone());
-                            }
-                        }
-                        Some(Type::Unpack(box t)) => {
-                            if !suffix.is_empty() {
-                                middle.push(Type::Tuple(Tuple::Unbounded(Box::new(
-                                    self.unions(suffix),
-                                ))));
-                                suffix = Vec::new();
-                            } else {
-                                middle.push(t.clone())
-                            }
-                        }
-                        Some(arg) => {
-                            let arg = if arg.is_kind_type_var_tuple() {
-                                self.error(
-                                    errors,
-                                    range,
-                                    ErrorKind::InvalidTypeVarTuple,
-                                    None,
-                                    "TypeVarTuple must be unpacked".to_owned(),
-                                )
-                            } else {
-                                arg.clone()
-                            };
-                            if middle.is_empty() {
-                                prefix.push(arg);
-                            } else {
-                                suffix.push(arg);
-                            }
-                        }
-                        _ => {}
-                    }
-                    targ_idx += 1;
-                }
-                let tuple_type = match middle.as_slice() {
-                    [] => Type::tuple(prefix),
-                    [middle] => Type::Tuple(Tuple::unpacked(prefix, middle.clone(), suffix)),
-                    // We can't precisely model unpacking two unbounded iterables, so we'll keep any
-                    // concrete prefix and suffix elements and merge everything in between into an unbounded tuple
-                    _ => {
-                        let middle_types: Vec<Type> = middle
-                            .iter()
-                            .map(|t| {
-                                self.unwrap_iterable(t)
-                                    .unwrap_or(self.stdlib.object().clone().to_type())
-                            })
-                            .collect();
-                        Type::Tuple(Tuple::unpacked(
-                            prefix,
-                            Type::Tuple(Tuple::Unbounded(Box::new(self.unions(middle_types)))),
-                            suffix,
-                        ))
-                    }
-                };
-                checked_targs.push(tuple_type);
-            } else if param.quantified.is_param_spec()
-                && nparams == 1
-                && let Some(arg) = targs.get(targ_idx)
-            {
-                if arg.is_kind_param_spec() {
-                    checked_targs.push(arg.clone());
-                    targ_idx += 1;
-                } else {
-                    // If the only type param is a ParamSpec and the type argument
-                    // is not a parameter expression, then treat the entire type argument list
-                    // as a parameter list
-                    let params: Vec<Param> =
-                        targs.map(|t| Param::PosOnly(t.clone(), Required::Required));
-                    checked_targs.push(Type::ParamSpecValue(ParamList::new(params)));
-                    targ_idx = nargs;
-                }
-            } else if param.quantified.is_param_spec()
-                && let Some(arg) = targs.get(targ_idx)
-            {
-                if arg.is_kind_param_spec() {
-                    checked_targs.push(arg.clone());
-                } else {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorKind::InvalidParamSpec,
-                        None,
-                        format!("Expected a valid ParamSpec expression, got `{arg}`"),
-                    );
-                    checked_targs.push(Type::Ellipsis);
-                }
-                targ_idx += 1;
-            } else if let Some(arg) = targs.get(targ_idx) {
-                match arg {
-                    Type::Unpack(_) => {
-                        checked_targs.push(self.error(
-                            errors,
+            if let Some(arg) = targs.get(targ_idx) {
+                // Get next type argument
+                match param.quantified.kind() {
+                    QuantifiedKind::TypeVarTuple => {
+                        let args_to_consume = self
+                            .num_typevartuple_args_to_consume(param_idx, nparams, targ_idx, nargs);
+                        let new_targ_idx = targ_idx + args_to_consume;
+                        checked_targs.push(self.create_next_typevartuple_arg(
+                            &targs[targ_idx..new_targ_idx],
                             range,
-                            ErrorKind::BadUnpacking,
-                            None,
-                            format!(
-                                "Unpacked argument cannot be used for type parameter {}",
-                                param.name()
-                            ),
+                            errors,
                         ));
+                        targ_idx = new_targ_idx;
                     }
-                    _ => {
-                        let arg = if arg.is_kind_type_var_tuple() {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorKind::InvalidTypeVarTuple,
-                                None,
-                                "TypeVarTuple must be unpacked".to_owned(),
-                            )
-                        } else if arg.is_kind_param_spec() {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorKind::InvalidParamSpec,
-                                None,
-                                "ParamSpec cannot be used for type parameter".to_owned(),
-                            )
-                        } else {
-                            arg.clone()
-                        };
-                        checked_targs.push(arg);
+                    QuantifiedKind::ParamSpec if nparams == 1 && !arg.is_kind_param_spec() => {
+                        // If the only type param is a ParamSpec and the type argument
+                        // is not a parameter expression, then treat the entire type argument list
+                        // as a parameter list
+                        checked_targs.push(self.create_paramspec_value(&targs));
+                        targ_idx = nargs;
+                    }
+                    QuantifiedKind::ParamSpec => {
+                        checked_targs.push(self.create_next_paramspec_arg(arg, range, errors));
+                        targ_idx += 1;
+                    }
+                    QuantifiedKind::TypeVar => {
+                        checked_targs.push(self.create_next_typevar_arg(param, arg, range, errors));
+                        targ_idx += 1;
                     }
                 }
-                targ_idx += 1;
             } else if let Some(default) = param.default() {
-                let resolved_default = default.clone().transform(&mut |default| {
-                    let typevar_name = match default {
-                        Type::TypeVar(t) => Some(t.qname().id()),
-                        Type::TypeVarTuple(t) => Some(t.qname().id()),
-                        Type::ParamSpec(p) => Some(p.qname().id()),
-                        Type::Quantified(q) => Some(q.name()),
-                        _ => None,
-                    };
-                    if let Some(typevar_name) = typevar_name {
-                        *default = if let Some(i) = name_to_idx.get(typevar_name) {
-                            // The default of this TypeVar contains the value of a previous TypeVar.
-                            let val: &Type = &checked_targs[*i];
-                            val.clone()
-                        } else {
-                            // The default refers to the value of a TypeVar that isn't in scope. We've
-                            // already logged an error in TParams::new(); return a sensible default.
-                            Type::any_implicit()
-                        }
-                    }
-                });
-                checked_targs.push(resolved_default);
+                // We've run out of arguments, but the next type parameter has a default.
+                checked_targs.push(self.get_tparam_default(
+                    default.clone(),
+                    &checked_targs,
+                    &name_to_idx,
+                ))
             } else {
-                let only_type_var_tuples_left = tparams
-                    .iter()
-                    .skip(param_idx)
-                    .all(|x| x.quantified.is_type_var_tuple());
-                if !only_type_var_tuples_left {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorKind::BadSpecialization,
-                        None,
-                        format!(
-                            "Expected {} for `{}`, got {}",
-                            count(tparams.len(), "type argument"),
-                            name,
-                            nargs
-                        ),
-                    );
-                }
-                let defaults = tparams
-                    .iter()
-                    .skip(param_idx)
-                    .map(|x| x.quantified.as_gradual_type());
-                checked_targs.extend(defaults);
+                // We've run out of arguments, and we have type parameters without defaults left to consume.
+                checked_targs.extend(
+                    self.consume_remaining_tparams(name, tparams, param_idx, nargs, range, errors),
+                );
                 break;
             }
             name_to_idx.insert(param.name(), param_idx);
@@ -235,12 +94,222 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None,
                 format!(
                     "Expected {} for `{}`, got {}",
-                    count(tparams.len(), "type argument"),
+                    count(nparams, "type argument"),
                     name,
                     nargs
                 ),
             );
         }
         TArgs::new(checked_targs)
+    }
+
+    fn num_typevartuple_args_to_consume(
+        &self,
+        param_idx: usize,
+        nparams: usize,
+        targ_idx: usize,
+        nargs: usize,
+    ) -> usize {
+        let n_remaining_params = nparams - param_idx - 1;
+        let n_remaining_args = nargs - targ_idx;
+        n_remaining_args.saturating_sub(n_remaining_params)
+    }
+
+    fn create_next_typevartuple_arg(
+        &self,
+        args: &[Type],
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let mut prefix = Vec::new();
+        let mut middle = Vec::new();
+        let mut suffix = Vec::new();
+        for arg in args {
+            match arg {
+                Type::Unpack(box Type::Tuple(Tuple::Concrete(elts))) => {
+                    if middle.is_empty() {
+                        prefix.extend(elts.clone());
+                    } else {
+                        suffix.extend(elts.clone());
+                    }
+                }
+                Type::Unpack(box t) => {
+                    if !suffix.is_empty() {
+                        middle.push(Type::Tuple(Tuple::Unbounded(Box::new(self.unions(suffix)))));
+                        suffix = Vec::new();
+                    } else {
+                        middle.push(t.clone())
+                    }
+                }
+                arg => {
+                    let arg = if arg.is_kind_type_var_tuple() {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorKind::InvalidTypeVarTuple,
+                            None,
+                            "TypeVarTuple must be unpacked".to_owned(),
+                        )
+                    } else {
+                        arg.clone()
+                    };
+                    if middle.is_empty() {
+                        prefix.push(arg);
+                    } else {
+                        suffix.push(arg);
+                    }
+                }
+            }
+        }
+        match middle.as_slice() {
+            [] => Type::tuple(prefix),
+            [middle] => Type::Tuple(Tuple::unpacked(prefix, middle.clone(), suffix)),
+            // We can't precisely model unpacking two unbounded iterables, so we'll keep any
+            // concrete prefix and suffix elements and merge everything in between into an unbounded tuple
+            _ => {
+                let middle_types: Vec<Type> = middle
+                    .iter()
+                    .map(|t| {
+                        self.unwrap_iterable(t)
+                            .unwrap_or(self.stdlib.object().clone().to_type())
+                    })
+                    .collect();
+                Type::Tuple(Tuple::unpacked(
+                    prefix,
+                    Type::Tuple(Tuple::Unbounded(Box::new(self.unions(middle_types)))),
+                    suffix,
+                ))
+            }
+        }
+    }
+
+    fn create_paramspec_value(&self, targs: &[Type]) -> Type {
+        let params: Vec<Param> = targs.map(|t| Param::PosOnly(t.clone(), Required::Required));
+        Type::ParamSpecValue(ParamList::new(params))
+    }
+
+    fn create_next_paramspec_arg(
+        &self,
+        arg: &Type,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        if arg.is_kind_param_spec() {
+            arg.clone()
+        } else {
+            self.error(
+                errors,
+                range,
+                ErrorKind::InvalidParamSpec,
+                None,
+                format!("Expected a valid ParamSpec expression, got `{arg}`"),
+            );
+            Type::Ellipsis
+        }
+    }
+
+    fn create_next_typevar_arg(
+        &self,
+        param: &TParam,
+        arg: &Type,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        match arg {
+            Type::Unpack(_) => self.error(
+                errors,
+                range,
+                ErrorKind::BadUnpacking,
+                None,
+                format!(
+                    "Unpacked argument cannot be used for type parameter {}",
+                    param.name()
+                ),
+            ),
+            _ => {
+                if arg.is_kind_type_var_tuple() {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::InvalidTypeVarTuple,
+                        None,
+                        "TypeVarTuple must be unpacked".to_owned(),
+                    )
+                } else if arg.is_kind_param_spec() {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::InvalidParamSpec,
+                        None,
+                        "ParamSpec cannot be used for type parameter".to_owned(),
+                    )
+                } else {
+                    arg.clone()
+                }
+            }
+        }
+    }
+
+    fn get_tparam_default(
+        &self,
+        default: Type,
+        checked_targs: &[Type],
+        name_to_idx: &SmallMap<&Name, usize>,
+    ) -> Type {
+        default.transform(&mut |default| {
+            let typevar_name = match default {
+                Type::TypeVar(t) => Some(t.qname().id()),
+                Type::TypeVarTuple(t) => Some(t.qname().id()),
+                Type::ParamSpec(p) => Some(p.qname().id()),
+                Type::Quantified(q) => Some(q.name()),
+                _ => None,
+            };
+            if let Some(typevar_name) = typevar_name {
+                *default = if let Some(i) = name_to_idx.get(typevar_name) {
+                    // The default of this TypeVar contains the value of a previous TypeVar.
+                    let val: &Type = &checked_targs[*i];
+                    val.clone()
+                } else {
+                    // The default refers to the value of a TypeVar that isn't in scope. We've
+                    // already logged an error in TParams::new(); return a sensible default.
+                    Type::any_implicit()
+                }
+            }
+        })
+    }
+
+    /// Consume all remaining type parameters after we've run out of arguments.
+    fn consume_remaining_tparams(
+        &self,
+        name: &Name,
+        tparams: &TParams,
+        param_idx: usize,
+        nargs: usize,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Vec<Type> {
+        let only_type_var_tuples_left = tparams
+            .iter()
+            .skip(param_idx)
+            .all(|x| x.quantified.is_type_var_tuple());
+        if !only_type_var_tuples_left {
+            self.error(
+                errors,
+                range,
+                ErrorKind::BadSpecialization,
+                None,
+                format!(
+                    "Expected {} for `{}`, got {}",
+                    count(tparams.len(), "type argument"),
+                    name,
+                    nargs,
+                ),
+            );
+        }
+        tparams
+            .iter()
+            .skip(param_idx)
+            .map(|x| x.quantified.as_gradual_type())
+            .collect()
     }
 }
