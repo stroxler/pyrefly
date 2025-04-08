@@ -437,6 +437,10 @@ impl ConfigFile {
                 });
             });
         self.project_excludes = self.project_excludes.clone().from_root(config_root);
+        self.python_interpreter = self
+            .python_interpreter
+            .as_ref()
+            .map(|i| config_root.join(i));
     }
 
     pub fn validate(&self) {
@@ -525,21 +529,21 @@ mod tests {
 
     #[test]
     fn deserialize_pyrefly_config() {
-        let config_str = "
-            project_includes = [\"tests\", \"./implementation\"]
-            project_excludes = [\"tests/untyped/**\"]
+        let config_str = r#"
+            project_includes = ["tests", "./implementation"]
+            project_excludes = ["tests/untyped/**"]
             skip_untyped_functions = false
-            search_path = [\"../..\"]
-            python_platform = \"darwin\"
-            python_version = \"1.2.3\"
-            site_package_path = [\"venv/lib/python1.2.3/site-packages\"]
-            python_interpreter = \"python2\"
-            replace_imports_with_any = [\"fibonacci\"]
+            search_path = ["../.."]
+            python_platform = "darwin"
+            python_version = "1.2.3"
+            site_package_path = ["venv/lib/python1.2.3/site-packages"]
+            python_interpreter = "venv/my/python"
+            replace_imports_with_any = ["fibonacci"]
             ignore_errors_in_generated_code = true
             [errors]
             assert-type = true
             bad-return = false
-        ";
+        "#;
         let config = ConfigFile::parse_config(config_str).unwrap();
         assert_eq!(
             config,
@@ -556,7 +560,7 @@ mod tests {
                     PythonVersion::new(1, 2, 3),
                     vec![PathBuf::from("venv/lib/python1.2.3/site-packages")],
                 ),
-                python_interpreter: Some(PathBuf::from("python2")),
+                python_interpreter: Some(PathBuf::from("venv/my/python")),
                 extras: ConfigFile::default_extras(),
                 errors: ErrorDisplayConfig::new(HashMap::from_iter([
                     (ErrorKind::AssertType, true),
@@ -687,13 +691,14 @@ mod tests {
             site_package_path: Some(vec![PathBuf::from("venv/lib/python1.2.3/site-packages")]),
             ..PythonEnvironment::default()
         };
+        let interpreter = "venv/bin/python3".to_owned();
         let mut config = ConfigFile {
             project_includes: Globs::new(vec!["path1/**".to_owned(), "path2/path3".to_owned()]),
             project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]),
             skip_untyped_functions: false,
             search_path: vec![PathBuf::from("../..")],
             python_environment: python_environment.clone(),
-            python_interpreter: PythonEnvironment::get_default_interpreter(),
+            python_interpreter: Some(PathBuf::from(interpreter.clone())),
             ..Default::default()
         };
 
@@ -718,6 +723,7 @@ mod tests {
             skip_untyped_functions,
             search_path,
             python_environment,
+            python_interpreter: Some(test_path.join(interpreter)),
             ..ConfigFile::default()
         };
         assert_eq!(config, expected_config);
