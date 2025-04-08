@@ -736,31 +736,22 @@ impl<'a> Transaction<'a> {
     }
 
     fn get_stdlib(&self, handle: &Handle) -> Arc<Stdlib> {
-        if self.readable.stdlib.len() == 1 {
+        if self.stdlib.len() == 1 {
             // Since we know our one must exist, we can shortcut
-            return self.readable.stdlib.first().unwrap().1.dupe();
+            return self.stdlib.first().unwrap().1.dupe();
         }
 
-        if let Some(stdlib) = self
-            .stdlib
+        self.stdlib
             .get(&(handle.config().dupe(), handle.loader().dupe()))
-        {
-            stdlib.dupe()
-        } else {
-            // Safe because we always run compute_stdlib first
-            self.readable
-                .stdlib
-                .get(&(handle.config().dupe(), handle.loader().dupe()))
-                .unwrap()
-                .dupe()
-        }
+            .unwrap()
+            .dupe()
     }
 
     fn compute_stdlib(&mut self, configs: SmallSet<(RuntimeMetadata, LoaderId)>) {
-        self.stdlib = configs
-            .iter()
-            .map(|k| (k.dupe(), Arc::new(Stdlib::for_bootstrapping())))
-            .collect();
+        for k in &configs {
+            self.stdlib
+                .insert(k.dupe(), Arc::new(Stdlib::for_bootstrapping()));
+        }
         let stdlibs = configs
             .iter()
             .map(|(c, l)| {
@@ -772,8 +763,10 @@ impl<'a> Transaction<'a> {
                     })),
                 )
             })
-            .collect();
-        self.stdlib = stdlibs;
+            .collect::<SmallMap<_, _>>();
+        for (k, stdlib) in stdlibs {
+            self.stdlib.insert(k, stdlib);
+        }
     }
 
     fn work(&self) {
@@ -1211,11 +1204,13 @@ impl State {
         require: Require,
         subscriber: Option<Box<dyn Subscriber>>,
     ) -> Transaction<'a> {
+        let readable = self.read_state();
+        let stdlib = readable.stdlib.clone();
         Transaction {
             threads: &self.threads,
             uniques: &self.uniques,
-            readable: self.read_state(),
-            stdlib: Default::default(),
+            readable,
+            stdlib,
             updated_modules: Default::default(),
             additional_loaders: Default::default(),
             now: self.read_state().now,
