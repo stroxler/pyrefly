@@ -71,7 +71,9 @@ the type checker.
 ## Choices
 
 There are a number of choices when writing a Python type checker. We are take
-inspiration from Pyre1, Pyright and MyPy. Some notable choices:
+inspiration from [Pyre1](https://pyre-check.org/),
+[Pyright](https://github.com/microsoft/pyright) and
+[MyPy](https://mypy.readthedocs.io/en/stable/). Some notable choices:
 
 - We infer types in most locations, apart from parameters to functions. We do
   infer types of variables and return types. As an example,
