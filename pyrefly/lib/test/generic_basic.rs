@@ -634,3 +634,15 @@ def f(a1: A[int], a2: A):
     assert_type(a2, A[float, list[float]])
     "#,
 );
+
+// Test that we get the most precise type arguments we can even in the presence of errors.
+testcase!(
+    test_typevar_default_contains_typevar_error,
+    r#"
+from typing import Any, assert_type
+class A[T1, T2 = int, T3, T4 = T1]:  # E: `T3` without a default cannot follow type parameter `T2` with a default
+    pass
+def f(a: A[str]):  # E: Expected 4 type arguments for `A`, got 1
+    assert_type(a, A[str, int, Any, str])
+    "#,
+);

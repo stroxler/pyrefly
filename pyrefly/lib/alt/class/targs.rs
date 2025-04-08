@@ -70,18 +70,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         targ_idx += 1;
                     }
                 }
-            } else if let Some(default) = param.default() {
-                // We've run out of arguments, but the next type parameter has a default.
-                checked_targs.push(self.get_tparam_default(
-                    default.clone(),
-                    &checked_targs,
-                    &name_to_idx,
-                ))
             } else {
-                // We've run out of arguments, and we have type parameters without defaults left to consume.
-                checked_targs.extend(
-                    self.consume_remaining_tparams(name, tparams, param_idx, nargs, range, errors),
-                );
+                // We've run out of arguments, and we have type parameters left to consume.
+                checked_targs.extend(self.consume_remaining_tparams(
+                    name,
+                    tparams,
+                    param_idx,
+                    &checked_targs,
+                    nargs,
+                    &name_to_idx,
+                    range,
+                    errors,
+                ));
                 break;
             }
             name_to_idx.insert(param.name(), param_idx);
@@ -252,29 +252,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn get_tparam_default(
         &self,
-        default: Type,
+        param: &TParam,
         checked_targs: &[Type],
         name_to_idx: &SmallMap<&Name, usize>,
     ) -> Type {
-        default.transform(&mut |default| {
-            let typevar_name = match default {
-                Type::TypeVar(t) => Some(t.qname().id()),
-                Type::TypeVarTuple(t) => Some(t.qname().id()),
-                Type::ParamSpec(p) => Some(p.qname().id()),
-                Type::Quantified(q) => Some(q.name()),
-                _ => None,
-            };
-            if let Some(typevar_name) = typevar_name {
-                *default = if let Some(i) = name_to_idx.get(typevar_name) {
-                    // The default of this TypeVar contains the value of a previous TypeVar.
-                    checked_targs[*i].clone()
-                } else {
-                    // The default refers to the value of a TypeVar that isn't in scope. We've
-                    // already logged an error in TParams::new(); return a sensible default.
-                    Type::any_implicit()
+        if let Some(default) = param.default() {
+            default.clone().transform(&mut |default| {
+                let typevar_name = match default {
+                    Type::TypeVar(t) => Some(t.qname().id()),
+                    Type::TypeVarTuple(t) => Some(t.qname().id()),
+                    Type::ParamSpec(p) => Some(p.qname().id()),
+                    Type::Quantified(q) => Some(q.name()),
+                    _ => None,
+                };
+                if let Some(typevar_name) = typevar_name {
+                    *default = if let Some(i) = name_to_idx.get(typevar_name) {
+                        // The default of this TypeVar contains the value of a previous TypeVar.
+                        checked_targs[*i].clone()
+                    } else {
+                        // The default refers to the value of a TypeVar that isn't in scope. We've
+                        // already logged an error in TParams::new(); return a sensible default.
+                        Type::any_implicit()
+                    }
                 }
-            }
-        })
+            })
+        } else {
+            param.quantified.as_gradual_type()
+        }
     }
 
     /// Consume all remaining type parameters after we've run out of arguments.
@@ -283,15 +287,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         tparams: &TParams,
         param_idx: usize,
+        checked_targs: &[Type],
         nargs: usize,
+        name_to_idx: &SmallMap<&Name, usize>,
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Vec<Type> {
-        let only_type_var_tuples_left = tparams
+        let all_remaining_params_can_be_empty = tparams
             .iter()
             .skip(param_idx)
-            .all(|x| x.quantified.is_type_var_tuple());
-        if !only_type_var_tuples_left {
+            .all(|x| x.quantified.is_type_var_tuple() || x.default().is_some());
+        if !all_remaining_params_can_be_empty {
             self.error(
                 errors,
                 range,
@@ -308,7 +314,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         tparams
             .iter()
             .skip(param_idx)
-            .map(|x| x.quantified.as_gradual_type())
+            .map(|x| self.get_tparam_default(x, checked_targs, name_to_idx))
             .collect()
     }
 }
