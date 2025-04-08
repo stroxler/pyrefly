@@ -17,9 +17,11 @@ use ruff_python_ast::name::Name;
 use crate::alt::solve::TypeFormContext;
 use crate::error::kind::ErrorKind;
 use crate::types::class::ClassType;
+use crate::types::simplify::unions;
 use crate::types::stdlib::Stdlib;
 use crate::types::type_var::Restriction;
 use crate::types::types::Type;
+use crate::util::prelude::SliceExt;
 use crate::util::uniques::Unique;
 use crate::util::uniques::UniqueFactory;
 
@@ -34,12 +36,28 @@ pub struct QuantifiedInfo {
 }
 
 impl QuantifiedInfo {
-    pub fn as_gradual_type(&self) -> Type {
-        if let Some(d) = &self.default {
-            d.clone()
-        } else {
-            self.kind.empty_value()
+    fn as_gradual_type_helper(&self, default: Option<&Type>) -> Type {
+        match default {
+            Some(Type::TypeVar(t)) => Self::type_var(
+                t.qname().id().clone(),
+                t.default().cloned(),
+                t.restriction().clone(),
+            )
+            .as_gradual_type(),
+            Some(Type::TypeVarTuple(t)) => {
+                Self::type_var_tuple(t.qname().id().clone(), t.default().cloned()).as_gradual_type()
+            }
+            Some(Type::ParamSpec(p)) => {
+                Self::param_spec(p.qname().id().clone(), p.default().cloned()).as_gradual_type()
+            }
+            Some(Type::Union(ts)) => unions(ts.map(|t| self.as_gradual_type_helper(Some(t)))),
+            Some(d) => d.clone(),
+            None => self.kind.empty_value(),
         }
+    }
+
+    pub fn as_gradual_type(&self) -> Type {
+        self.as_gradual_type_helper(self.default.as_ref())
     }
 
     fn type_var(name: Name, default: Option<Type>, restriction: Restriction) -> Self {

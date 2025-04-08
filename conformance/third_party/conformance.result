@@ -312,8 +312,6 @@
   "generics_defaults_referential.py": [
     "Line 53: Expected 1 errors",
     "Line 60: Expected 1 errors",
-    "Line 23: Unexpected errors ['assert_type(type[slice[int, TypeVar(StartT, default=int, invariant), int | None]], type[slice[int, int, int | None]]) failed']",
-    "Line 24: Unexpected errors ['assert_type(slice[int, TypeVar(StartT, default=int, invariant), int | None], slice[int, int, int | None]) failed']",
     "Line 66: Unexpected errors ['Expected default `TypeVar(X1, bound=int, invariant)` of `Ok1` to be assignable to the upper bound of `float`']",
     "Line 67: Unexpected errors ['Expected default `TypeVar(X1, bound=int, invariant)` of `AlsoOk1` to be assignable to the upper bound of `int`']",
     "Line 77: Unexpected errors ['Expected default `TypeVar(Y2, constraints=(int, str), invariant)` of `AlsoOk2` to be one of the following constraints: `int`, `str`, `bool`']",
@@ -398,7 +396,7 @@
   ],
   "generics_typevartuple_callable.py": [],
   "generics_typevartuple_concat.py": [
-    "Line 56: Unexpected errors ['Returned type `tuple[*tuple[@_, ...], Unknown]` is not assignable to declared return type `tuple[*TypeVarTuple[Ts], TypeVar[T]]`', 'Cannot index into `tuple[TypeVar[T], *TypeVarTuple[Ts]]`\\n  No matching overload found for function `tuple.__getitem__`, reporting errors for closest overload: `(SupportsIndex) -> Unknown`', 'Argument `slice[Literal[1], Literal[1], Literal[1]]` is not assignable to parameter with type `SupportsIndex` in function `tuple.__getitem__`']"
+    "Line 56: Unexpected errors ['Returned type `tuple[*tuple[Unknown, ...], Unknown]` is not assignable to declared return type `tuple[*TypeVarTuple[Ts], TypeVar[T]]`']"
   ],
   "generics_typevartuple_overloads.py": [],
   "generics_typevartuple_specialization.py": [
@@ -475,9 +473,7 @@
     "Line 195: Expected 1 errors",
     "Line 199: Expected 1 errors"
   ],
-  "overloads_basic.py": [
-    "Line 38: Unexpected errors ['assert_type(Any, bytes) failed', 'Cannot index into `Bytes`\\n  No matching overload found for function `Bytes.__getitem__`, reporting errors for closest overload: `(__i: int) -> int`', 'Argument `slice[Literal[0], Literal[1], Literal[0, 1]]` is not assignable to parameter `__i` with type `int` in function `Bytes.__getitem__`']"
-  ],
+  "overloads_basic.py": [],
   "overloads_consistency.py": [
     "Lines 25, 28: Expected error (tag 'return_type')",
     "Lines 41, 44: Expected error (tag 'parameter_type')"

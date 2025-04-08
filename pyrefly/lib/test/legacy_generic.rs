@@ -481,9 +481,9 @@ T = TypeVar('T')  # E: `type[TypeVar(T, invariant)]` is not assignable to variab
 testcase!(
     test_typevar_default_is_typevar,
     r#"
-from typing import Any, Generic, TypeVar, assert_type
+from typing import Generic, TypeVar, assert_type
 
-T1 = TypeVar('T1', default=Any)
+T1 = TypeVar('T1', default=float)
 T2 = TypeVar('T2', default=T1)
 
 class A(Generic[T1, T2]):
@@ -491,5 +491,8 @@ class A(Generic[T1, T2]):
 
 def f(a: A[int]):
     assert_type(a.x, int)
+
+def g(a: A):
+    assert_type(a.x, float)
     "#,
 );
