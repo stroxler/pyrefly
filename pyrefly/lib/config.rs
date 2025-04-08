@@ -150,7 +150,7 @@ pub struct PythonEnvironment {
 }
 
 impl PythonEnvironment {
-    const DEFAULT_INTERPRETERS: [&'static str; 2] = ["python3", "python"];
+    const DEFAULT_INTERPRETERS: &[&str] = &["python3", "python"];
 
     pub fn new(
         python_platform: String,
