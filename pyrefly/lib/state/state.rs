@@ -748,24 +748,14 @@ impl<'a> Transaction<'a> {
     }
 
     fn compute_stdlib(&mut self, configs: SmallSet<(RuntimeMetadata, LoaderId)>) {
-        for k in &configs {
+        for k in configs.into_iter_hashed() {
             self.stdlib
-                .insert(k.dupe(), Arc::new(Stdlib::for_bootstrapping()));
-        }
-        let stdlibs = configs
-            .iter()
-            .map(|(c, l)| {
-                (
-                    (c.dupe(), l.dupe()),
-                    Arc::new(Stdlib::new(c.version(), &|module, name| {
-                        let path = self.get_cached_find_dependency(l, module).ok()?;
-                        self.lookup_stdlib(&Handle::new(module, path, c.dupe(), l.dupe()), name)
-                    })),
-                )
-            })
-            .collect::<SmallMap<_, _>>();
-        for (k, stdlib) in stdlibs {
-            self.stdlib.insert(k, stdlib);
+                .insert_hashed(k.to_owned(), Arc::new(Stdlib::for_bootstrapping()));
+            let v = Arc::new(Stdlib::new(k.0.version(), &|module, name| {
+                let path = self.get_cached_find_dependency(&k.1, module).ok()?;
+                self.lookup_stdlib(&Handle::new(module, path, k.0.dupe(), k.1.dupe()), name)
+            }));
+            self.stdlib.insert_hashed(k, v);
         }
     }
 
