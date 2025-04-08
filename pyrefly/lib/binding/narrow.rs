@@ -107,20 +107,6 @@ enum NarrowingSubject {
     Name(Name),
 }
 
-impl NarrowingSubject {
-    pub fn name(&self) -> &Name {
-        match self {
-            Self::Name(name) => name,
-        }
-    }
-
-    pub fn into_name(self) -> Name {
-        match self {
-            Self::Name(name) => name,
-        }
-    }
-}
-
 impl NarrowOp {
     pub fn negate(&self) -> Self {
         match self {
@@ -191,6 +177,13 @@ impl NarrowOps {
         }
     }
 
+    fn and_atomic(&mut self, subject: NarrowingSubject, op: AtomicNarrowOp, range: TextRange) {
+        let (name, attr) = match subject {
+            NarrowingSubject::Name(name) => (name, None),
+        };
+        self.and(name, NarrowOp::Atomic(attr, op), range);
+    }
+
     pub fn and_all(&mut self, other: Self) {
         for (name, (op, range)) in other.0 {
             self.and(name, op, range);
@@ -241,11 +234,7 @@ impl NarrowOps {
 
                 for (op, range) in ops {
                     for subject in subjects.iter() {
-                        narrow_ops.and(
-                            subject.name().clone(),
-                            NarrowOp::Atomic(None, op.clone()),
-                            range,
-                        );
+                        narrow_ops.and_atomic(subject.clone(), op.clone(), range);
                     }
                 }
                 narrow_ops
@@ -296,14 +285,11 @@ impl NarrowOps {
                 // it as a possible narrowing operation that we'll resolve in the answers phase.
                 let mut narrow_ops = Self::new();
                 for subject in expr_to_subjects(&posargs[0]) {
-                    narrow_ops.and(
-                        subject.into_name(),
-                        NarrowOp::Atomic(
-                            None,
-                            AtomicNarrowOp::Call(
-                                Box::new(NarrowVal::Expr((**func).clone())),
-                                args.clone(),
-                            ),
+                    narrow_ops.and_atomic(
+                        subject,
+                        AtomicNarrowOp::Call(
+                            Box::new(NarrowVal::Expr((**func).clone())),
+                            args.clone(),
                         ),
                         *range,
                     );
@@ -313,11 +299,7 @@ impl NarrowOps {
             Some(e) => {
                 let mut narrow_ops = Self::new();
                 for subject in expr_to_subjects(e) {
-                    narrow_ops.and(
-                        subject.into_name(),
-                        NarrowOp::Atomic(None, AtomicNarrowOp::Truthy),
-                        e.range(),
-                    );
+                    narrow_ops.and_atomic(subject, AtomicNarrowOp::Truthy, e.range());
                 }
                 narrow_ops
             }
