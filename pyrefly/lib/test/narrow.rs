@@ -498,6 +498,19 @@ def f(x: str | int | None):
 );
 
 testcase!(
+    bug = "issubclass union narrowing is not yet supported",
+    test_issubclass_union,
+    r#"
+from typing import assert_type
+def f(x: type[int | str | bool]):
+    if issubclass(x, str | int):  # E: Expected class object, got type[int | str]
+        assert_type(x, type[str] | type[int])  # E: assert_type(type[bool | int | str], type[int] | type[str])
+    else:
+        assert_type(x, type[bool])  # E: assert_type(type[bool | int | str], type[bool])
+    "#,
+);
+
+testcase!(
     bug = "issubclass tuple narrowing is not yet supported",
     test_issubclass_tuple,
     r#"
