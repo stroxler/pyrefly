@@ -278,9 +278,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 return checked_targs[i].clone();
                             }
                         }
-                        // TODO: error if the default points to a TypeVar that doesn't appear in the
-                        // previous tparams. We should probably error and adjust the default when the
-                        // class is constructed.
+                        // The default refers to the value of a TypeVar that isn't in scope. We've
+                        // already logged an error in TParams::new(); return a sensible default.
                         Type::any_implicit()
                     } else {
                         default.clone()

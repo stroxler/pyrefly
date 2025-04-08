@@ -5555,6 +5555,26 @@
     },
     {
       "code": -2,
+      "column": 7,
+      "concise_description": "Default of type parameter `Start2T` refers to out-of-scope type parameter `StopT`",
+      "description": "Default of type parameter `Start2T` refers to out-of-scope type parameter `StopT`",
+      "line": 53,
+      "name": "invalid-type-var",
+      "stop_column": 13,
+      "stop_line": 53
+    },
+    {
+      "code": -2,
+      "column": 11,
+      "concise_description": "Default of type parameter `S2` refers to out-of-scope type parameter `S1`",
+      "description": "Default of type parameter `S2` refers to out-of-scope type parameter `S1`",
+      "line": 60,
+      "name": "invalid-type-var",
+      "stop_column": 15,
+      "stop_line": 60
+    },
+    {
+      "code": -2,
       "column": 30,
       "concise_description": "Expected default `TypeVar(X1, bound=int, invariant)` of `Ok1` to be assignable to the upper bound of `float`",
       "description": "Expected default `TypeVar(X1, bound=int, invariant)` of `Ok1` to be assignable to the upper bound of `float`",

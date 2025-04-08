@@ -496,3 +496,19 @@ def g(a: A):
     assert_type(a.x, float)
     "#,
 );
+
+testcase!(
+    test_typevar_default_is_out_of_scope_typevar,
+    r#"
+from typing import Any, Generic, TypeVar, assert_type
+
+T1 = TypeVar('T1')
+T2 = TypeVar('T2', default=T1)
+
+class A(Generic[T2]):  # E: Default of type parameter `T2` refers to out-of-scope type parameter `T1`
+    x: T2
+
+def f(a: A):
+    assert_type(a.x, Any)
+    "#,
+);

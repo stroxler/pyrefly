@@ -132,16 +132,50 @@ impl Display for TParams {
 
 impl TParams {
     pub fn new(info: Vec<TParamInfo>) -> Result<Self, FixedTParams> {
-        let mut error = false;
+        let mut error = None;
         let mut tparams: Vec<TParam> = Vec::with_capacity(info.len());
+        let mut seen = SmallSet::new();
         for mut tparam in info {
             if tparams
                 .last()
                 .is_some_and(|p| p.quantified.default().is_some())
             {
                 // Fix missing default.
-                error = !tparam.quantified.ensure_default();
+                if !tparam.quantified.ensure_default() {
+                    error = Some(
+                        "A type parameter without a default cannot follow one with a default"
+                            .to_owned(),
+                    );
+                }
             }
+            if error.is_none()
+                && let Some(default) = tparam.quantified.default()
+            {
+                let mut typevar_names = Vec::new();
+                default.universe(&mut |t| match t {
+                    Type::TypeVar(t) => {
+                        typevar_names.push(t.qname().id().clone());
+                    }
+                    Type::TypeVarTuple(t) => {
+                        typevar_names.push(t.qname().id().clone());
+                    }
+                    Type::ParamSpec(p) => {
+                        typevar_names.push(p.qname().id().clone());
+                    }
+                    _ => {}
+                });
+                for typevar_name in typevar_names {
+                    if !seen.contains(&typevar_name) {
+                        error = Some(format!(
+                            "Default of type parameter `{}` refers to out-of-scope type parameter `{}`",
+                            tparam.quantified.name(),
+                            typevar_name
+                        ));
+                        break;
+                    }
+                }
+            }
+            seen.insert(tparam.quantified.name().clone());
             tparams.push(TParam {
                 quantified: tparam.quantified,
                 // Classes set the variance before getting here. For functions and aliases, the variance isn't meaningful;
@@ -149,11 +183,10 @@ impl TParams {
                 variance: tparam.variance.unwrap_or(Variance::Invariant),
             });
         }
-        if error {
+        if let Some(error) = error {
             Err(FixedTParams {
                 tparams: Self(tparams),
-                error: "A type parameter without a default cannot follow one with a default"
-                    .to_owned(),
+                error,
             })
         } else {
             Ok(Self(tparams))

@@ -310,8 +310,6 @@
     "Line 167: Unexpected errors ['assert_type(Any, int) failed', 'Instance-only attribute `attr` of class `Foo7` is not visible on the class']"
   ],
   "generics_defaults_referential.py": [
-    "Line 53: Expected 1 errors",
-    "Line 60: Expected 1 errors",
     "Line 66: Unexpected errors ['Expected default `TypeVar(X1, bound=int, invariant)` of `Ok1` to be assignable to the upper bound of `float`']",
     "Line 67: Unexpected errors ['Expected default `TypeVar(X1, bound=int, invariant)` of `AlsoOk1` to be assignable to the upper bound of `int`']",
     "Line 77: Unexpected errors ['Expected default `TypeVar(Y2, constraints=(int, str), invariant)` of `AlsoOk2` to be one of the following constraints: `int`, `str`, `bool`']",
