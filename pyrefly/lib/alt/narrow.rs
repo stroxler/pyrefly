@@ -17,7 +17,6 @@ use crate::alt::callable::CallArg;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOp;
 use crate::binding::narrow::NarrowVal;
-use crate::binding::narrow::NarrowedAttribute;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::types::callable::FunctionKind;
@@ -66,6 +65,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
+    fn intersects(&self, ts: &[Type]) -> Type {
+        match ts {
+            [] => Type::ClassType(self.stdlib.object().clone()),
+            [ty] => ty.clone(),
+            [ty0, ty1] => self.intersect(ty0, ty1),
+            [ty0, ts @ ..] => self.intersect(ty0, &self.intersects(ts)),
+        }
+    }
+
     fn subtract(&self, left: &Type, right: &Type) -> Type {
         self.distribute_over_union(left, |left| {
             // Special is_any check because `Any <: int` as a special case, but would mess up this.
@@ -111,24 +119,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn narrow_val_infer(&self, val: &NarrowVal, errors: &ErrorCollector) -> Type {
         match val {
             NarrowVal::Expr(e) => self.expr_infer(e, errors),
-            NarrowVal::Type(t, _) => t.clone(),
         }
-    }
-
-    fn distribute_narrow_op_over_tuple(
-        &self,
-        build_op: &dyn Fn(NarrowVal) -> AtomicNarrowOp,
-        ts: &[Type],
-        attr: Option<NarrowedAttribute>,
-        range: TextRange,
-    ) -> NarrowOp {
-        NarrowOp::Or(
-            ts.iter()
-                .map(|t| {
-                    NarrowOp::Atomic(attr.clone(), build_op(NarrowVal::Type(t.clone(), range)))
-                })
-                .collect(),
-        )
     }
 
     fn unwrap_class_object_or_error(
@@ -158,9 +149,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         if let Some(ts) = as_decomposed_tuple(right) {
-            let distributed_op =
-                self.distribute_narrow_op_over_tuple(&AtomicNarrowOp::IsInstance, ts, None, range);
-            self.narrow_type(left, &distributed_op, range, errors)
+            self.unions(
+                ts.iter()
+                    .map(|t| self.narrow_isinstance(left, t, range, errors))
+                    .collect(),
+            )
         } else if let Some(right) = self.unwrap_class_object_or_error(right, range, errors) {
             self.intersect(left, &right)
         } else {
@@ -176,9 +169,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         if let Some(ts) = as_decomposed_tuple(right) {
-            let distributed_op =
-                self.distribute_narrow_op_over_tuple(&AtomicNarrowOp::IsInstance, ts, None, range);
-            self.narrow_type(left, &distributed_op.negate(), range, errors)
+            self.intersects(&ts.map(|t| self.narrow_is_not_instance(left, t, range, errors)))
         } else if let Some(right) = self.unwrap_class_object_or_error(right, range, errors) {
             self.subtract(left, &right)
         } else {

@@ -31,19 +31,15 @@ assert_words!(NarrowVal, 8);
 assert_words!(AtomicNarrowOp, 10);
 assert_words!(NarrowOp, 11);
 
-/// Nearly all `NarrowVal` are of type `Expr`, so even though `Expr` is bigger,
-/// we don't bother boxing it.
 #[derive(Clone, Debug)]
 pub enum NarrowVal {
     Expr(Expr),
-    Type(Type, TextRange),
 }
 
 impl Ranged for NarrowVal {
     fn range(&self) -> TextRange {
         match self {
             Self::Expr(e) => e.range(),
-            Self::Type(_, r) => *r,
         }
     }
 }
