@@ -16,7 +16,6 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::callable::CallArg;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOp;
-use crate::binding::narrow::NarrowVal;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::types::callable::FunctionKind;
@@ -87,20 +86,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn resolve_narrowing_call(
         &self,
-        func: &NarrowVal,
+        func: &Expr,
         args: &Arguments,
         errors: &ErrorCollector,
     ) -> Option<AtomicNarrowOp> {
-        let func_ty = self.narrow_val_infer(func, errors);
+        let func_ty = self.expr_infer(func, errors);
         if args.args.len() > 1 {
             let second_arg = &args.args[1];
             let op = match func_ty.callee_kind() {
-                Some(CalleeKind::Function(FunctionKind::IsInstance)) => Some(
-                    AtomicNarrowOp::IsInstance(NarrowVal::Expr(second_arg.clone())),
-                ),
-                Some(CalleeKind::Function(FunctionKind::IsSubclass)) => Some(
-                    AtomicNarrowOp::IsSubclass(NarrowVal::Expr(second_arg.clone())),
-                ),
+                Some(CalleeKind::Function(FunctionKind::IsInstance)) => {
+                    Some(AtomicNarrowOp::IsInstance(second_arg.clone()))
+                }
+                Some(CalleeKind::Function(FunctionKind::IsSubclass)) => {
+                    Some(AtomicNarrowOp::IsSubclass(second_arg.clone()))
+                }
                 _ => None,
             };
             if op.is_some() {
@@ -113,12 +112,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(AtomicNarrowOp::TypeGuard(func_ty.clone(), args.clone()))
         } else {
             None
-        }
-    }
-
-    fn narrow_val_infer(&self, val: &NarrowVal, errors: &ErrorCollector) -> Type {
-        match val {
-            NarrowVal::Expr(e) => self.expr_infer(e, errors),
         }
     }
 
@@ -186,12 +179,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Type {
         match op {
             AtomicNarrowOp::Is(v) => {
-                let right = self.narrow_val_infer(v, errors);
+                let right = self.expr_infer(v, errors);
                 // Get our best approximation of ty & right.
                 self.intersect(ty, &right)
             }
             AtomicNarrowOp::IsNot(v) => {
-                let right = self.narrow_val_infer(v, errors);
+                let right = self.expr_infer(v, errors);
                 // Get our best approximation of ty - right.
                 self.distribute_over_union(ty, |t| {
                     // Only certain literal types can be compared by identity.
@@ -214,15 +207,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 })
             }
             AtomicNarrowOp::IsInstance(v) => {
-                let right = self.narrow_val_infer(v, errors);
+                let right = self.expr_infer(v, errors);
                 self.narrow_isinstance(ty, &right, v.range(), errors)
             }
             AtomicNarrowOp::IsNotInstance(v) => {
-                let right = self.narrow_val_infer(v, errors);
+                let right = self.expr_infer(v, errors);
                 self.narrow_is_not_instance(ty, &right, v.range(), errors)
             }
             AtomicNarrowOp::IsSubclass(v) => {
-                let right = self.narrow_val_infer(v, errors);
+                let right = self.expr_infer(v, errors);
                 if let Some(left) = self.untype_opt(ty.clone(), v.range())
                     && let Some(right) =
                         self.unwrap_class_object_or_error(&right, v.range(), errors)
@@ -233,7 +226,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             AtomicNarrowOp::IsNotSubclass(v) => {
-                let right = self.narrow_val_infer(v, errors);
+                let right = self.expr_infer(v, errors);
                 if let Some(left) = self.untype_opt(ty.clone(), v.range())
                     && let Some(right) =
                         self.unwrap_class_object_or_error(&right, v.range(), errors)
@@ -294,7 +287,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }),
             AtomicNarrowOp::Eq(v) => {
-                let right = self.narrow_val_infer(v, errors);
+                let right = self.expr_infer(v, errors);
                 if matches!(right, Type::Literal(_) | Type::None) {
                     self.intersect(ty, &right)
                 } else {
@@ -302,7 +295,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             AtomicNarrowOp::NotEq(v) => {
-                let right = self.narrow_val_infer(v, errors);
+                let right = self.expr_infer(v, errors);
                 if matches!(right, Type::Literal(_) | Type::None) {
                     self.distribute_over_union(ty, |t| match (t, &right) {
                         (_, _) if *t == right => Type::never(),

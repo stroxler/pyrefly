@@ -27,42 +27,28 @@ use crate::assert_words;
 use crate::types::types::Type;
 use crate::util::prelude::SliceExt;
 
-assert_words!(NarrowVal, 8);
 assert_words!(AtomicNarrowOp, 10);
 assert_words!(NarrowOp, 11);
 
 #[derive(Clone, Debug)]
-pub enum NarrowVal {
-    Expr(Expr),
-}
-
-impl Ranged for NarrowVal {
-    fn range(&self) -> TextRange {
-        match self {
-            Self::Expr(e) => e.range(),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
 pub enum AtomicNarrowOp {
-    Is(NarrowVal),
-    IsNot(NarrowVal),
+    Is(Expr),
+    IsNot(Expr),
     Truthy,
     Falsy,
-    Eq(NarrowVal),
-    NotEq(NarrowVal),
-    IsInstance(NarrowVal),
-    IsNotInstance(NarrowVal),
-    IsSubclass(NarrowVal),
-    IsNotSubclass(NarrowVal),
+    Eq(Expr),
+    NotEq(Expr),
+    IsInstance(Expr),
+    IsNotInstance(Expr),
+    IsSubclass(Expr),
+    IsNotSubclass(Expr),
     TypeGuard(Type, Arguments),
     NotTypeGuard(Type, Arguments),
     TypeIs(Type, Arguments),
     NotTypeIs(Type, Arguments),
     /// (func, args) for a function call that may narrow the type of its first argument.
-    Call(Box<NarrowVal>, Arguments),
-    NotCall(Box<NarrowVal>, Arguments),
+    Call(Box<Expr>, Arguments),
+    NotCall(Box<Expr>, Arguments),
 }
 
 #[derive(Clone, Debug)]
@@ -144,20 +130,16 @@ impl NarrowOps {
     }
 
     pub fn is(name: &Name, v: Expr, range: TextRange) -> Self {
-        Self(
-            smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::Is(NarrowVal::Expr(v))), range) },
-        )
+        Self(smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::Is(v)), range) })
     }
 
     pub fn eq(name: &Name, v: Expr, range: TextRange) -> Self {
-        Self(
-            smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::Eq(NarrowVal::Expr(v))), range) },
-        )
+        Self(smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::Eq(v)), range) })
     }
 
     pub fn isinstance(name: &Name, v: Expr, range: TextRange) -> Self {
         Self(
-            smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::IsInstance(NarrowVal::Expr(v))), range) },
+            smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::IsInstance(v)), range) },
         )
     }
 
@@ -226,10 +208,10 @@ impl NarrowOps {
                     .filter_map(|(cmp_op, right)| {
                         let range = right.range();
                         let op = match cmp_op {
-                            CmpOp::Is => AtomicNarrowOp::Is(NarrowVal::Expr(right.clone())),
-                            CmpOp::IsNot => AtomicNarrowOp::IsNot(NarrowVal::Expr(right.clone())),
-                            CmpOp::Eq => AtomicNarrowOp::Eq(NarrowVal::Expr(right.clone())),
-                            CmpOp::NotEq => AtomicNarrowOp::NotEq(NarrowVal::Expr(right.clone())),
+                            CmpOp::Is => AtomicNarrowOp::Is(right.clone()),
+                            CmpOp::IsNot => AtomicNarrowOp::IsNot(right.clone()),
+                            CmpOp::Eq => AtomicNarrowOp::Eq(right.clone()),
+                            CmpOp::NotEq => AtomicNarrowOp::NotEq(right.clone()),
                             _ => {
                                 return None;
                             }
@@ -292,10 +274,7 @@ impl NarrowOps {
                 for subject in expr_to_subjects(&posargs[0]) {
                     narrow_ops.and_atomic(
                         subject,
-                        AtomicNarrowOp::Call(
-                            Box::new(NarrowVal::Expr((**func).clone())),
-                            args.clone(),
-                        ),
+                        AtomicNarrowOp::Call(Box::new((**func).clone()), args.clone()),
                         *range,
                     );
                 }
