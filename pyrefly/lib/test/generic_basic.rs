@@ -479,7 +479,102 @@ T = TypeVar('T')  # E: `type[TypeVar(T, invariant)]` is not assignable to variab
 );
 
 testcase!(
-    test_typevar_default_is_typevar,
+    test_type_argument_error_default,
+    r#"
+from typing import Any, assert_type
+class C[T1, *Ts, T2]: pass
+C_Alias = C[int]  # E: Expected 3 type arguments for `C`, got 1
+assert_type(C[int], type[C[int, *tuple[Any, ...], Any]])  # E: Expected 3 type arguments for `C`, got 1
+
+AnyClassMethod = classmethod[Any]  # E: Expected 3 type arguments for `classmethod`, got 1
+assert_type(classmethod[Any], type[classmethod[Any, ..., Any]])  # E: Expected 3 type arguments for `classmethod`, got 1
+
+# No error if it's a TypeVarTuple w/ nothing after, because a TypeVarTuple can be empty
+class C2[T, *Ts]: pass
+C2_Alias = C2[int]
+assert_type(C2[int], type[C2[int, *tuple[Any, ...]]])
+"#,
+);
+
+testcase!(
+    test_generics,
+    r#"
+from typing import Literal
+class C[T]: ...
+def append[T](x: C[T], y: T):
+    pass
+v: C[int] = C()
+append(v, "test")  # E: Argument `Literal['test']` is not assignable to parameter `y` with type `int`
+"#,
+);
+
+testcase!(
+    test_generics_legacy_unqualified,
+    r#"
+from typing import TypeVar, Generic
+T = TypeVar("T")
+class C(Generic[T]): ...
+def append(x: C[T], y: T):
+    pass
+v: C[int] = C()
+append(v, "test")  # E: Argument `Literal['test']` is not assignable to parameter `y` with type `int`
+"#,
+);
+
+testcase!(
+    test_generics_legacy_qualified,
+    r#"
+import typing
+T = typing.TypeVar("T")
+class C(typing.Generic[T]): ...
+def append(x: C[T], y: T):
+    pass
+v: C[int] = C()
+append(v, "test")  # E: Argument `Literal['test']` is not assignable to parameter `y` with type `int`
+"#,
+);
+
+testcase!(
+    test_generic_default,
+    r#"
+from typing import assert_type
+class C[T1, T2 = int]:
+    pass
+def f9(c1: C[int, str], c2: C[str]):
+    assert_type(c1, C[int, str])
+    assert_type(c2, C[str, int])
+    "#,
+);
+
+testcase!(
+    test_generic_type,
+    r#"
+from typing import reveal_type
+class A: ...
+class B: ...
+class C[T]: ...
+class D[T = A]: ...
+def f[E](e: type[E]) -> E: ...
+reveal_type(f(A)) # E: revealed type: A
+reveal_type(f(B)) # E: revealed type: B
+reveal_type(f(C)) # E: revealed type: C[Unknown]
+reveal_type(f(D)) # E: revealed type: D[A]
+"#,
+);
+
+testcase!(
+    bug = "This test is a placeholder, we've commented out the check for missing type arguments because until we have configurable errors it causes too many problems.",
+    test_untype_with_missing_targs,
+    r#"
+class C[T]: pass
+
+x: C        # TODO: The generic class `C` is missing type arguments.
+y: C | int  # TODO: The generic class `C` is missing type arguments.
+    "#,
+);
+
+testcase!(
+    test_typevar_default_is_typevar_legacy,
     r#"
 from typing import Generic, TypeVar, assert_type
 
@@ -510,5 +605,32 @@ class A(Generic[T2]):  # E: Default of type parameter `T2` refers to out-of-scop
 
 def f(a: A):
     assert_type(a.x, Any)
+    "#,
+);
+
+testcase!(
+    test_typevar_default_is_typevar,
+    r#"
+from typing import assert_type, TypeVar
+
+class A[T1 = float, T2 = T1]: pass
+
+T = TypeVar('T')
+class B[S = T]: pass # E: out-of-scope type parameter `T`
+
+def f(a1: A[int], a2: A):
+    assert_type(a1, A[int, int])
+    assert_type(a2, A[float, float])
+    "#,
+);
+
+testcase!(
+    test_typevar_default_contains_nested_typevar,
+    r#"
+from typing import assert_type, TypeVar
+class A[T1 = float, T2 = list[T1]]: pass
+def f(a1: A[int], a2: A):
+    assert_type(a1, A[int, list[int]])
+    assert_type(a2, A[float, list[float]])
     "#,
 );
