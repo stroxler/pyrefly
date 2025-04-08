@@ -1302,3 +1302,14 @@ def foo(a: list[str] | Sequence[str]) -> None:
     assert_type({'a', 'b', *a}, set[str])
     "#,
 );
+
+testcase!(
+    test_nonint_slice,
+    r#"
+from typing import assert_type
+class A:
+    def __getitem__[T](self, x: T) -> T:
+        return x
+assert_type(A()["":"":""], slice[str, str, str])
+    "#,
+);

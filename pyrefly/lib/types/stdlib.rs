@@ -261,8 +261,12 @@ impl Stdlib {
         Self::primitive(&self.str)
     }
 
-    pub fn slice(&self, start_ty: Type, stop_ty: Type, step_ty: Type) -> ClassType {
-        Self::apply(&self.slice, vec![start_ty, stop_ty, step_ty])
+    pub fn slice(&self, targs: Vec<Type>) -> ClassType {
+        Self::apply(&self.slice, targs)
+    }
+
+    pub fn slice_class_object(&self) -> Class {
+        Self::unwrap(&self.slice).dupe()
     }
 
     pub fn base_exception(&self) -> &ClassType {

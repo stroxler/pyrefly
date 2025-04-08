@@ -1287,10 +1287,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let ty = self.expr_untype(x, TypeFormContext::TypeArgument, errors);
                 Type::Unpack(Box::new(ty))
             }
-            Expr::Slice(_) => {
-                // TODO(stroxler, yangdanny): slices are generic, we should not hard code to int.
-                let int = self.stdlib.int().clone().to_type();
-                self.stdlib.slice(int.clone(), int.clone(), int).to_type()
+            Expr::Slice(x) => {
+                let elt_exprs = [x.lower.as_ref(), x.upper.as_ref(), x.step.as_ref()];
+                let elts = elt_exprs
+                    .iter()
+                    .filter_map(|e| e.map(|e| self.expr_infer(e, errors)))
+                    .collect::<Vec<_>>();
+                let targs = self.check_and_create_targs(
+                    &Name::new_static("slice"),
+                    self.stdlib.slice_class_object().tparams(),
+                    elts,
+                    x.range(),
+                    errors,
+                );
+                self.stdlib.slice(targs.as_slice().to_vec()).to_type()
             }
             Expr::IpyEscapeCommand(x) => self.error(
                 errors,
