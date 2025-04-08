@@ -210,7 +210,7 @@ impl Stdlib {
     }
 
     pub fn object(&self) -> &ClassType {
-        Self::unwrap(&self.object)
+        Self::primitive(&self.object)
     }
 
     pub fn bool(&self) -> &ClassType {
