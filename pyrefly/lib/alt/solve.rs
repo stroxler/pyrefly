@@ -1478,8 +1478,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match binding {
             Binding::Forward(k) => self.get_idx(*k).arc_clone(),
             Binding::Narrow(k, op, range) => {
-                // TODO(stroxler): propagate attribute narrows here
-                TypeInfo::of_ty(self.narrow(self.get_idx(*k).ty(), op, *range, errors))
+                self.narrow(self.get_idx(*k).as_ref(), op, *range, errors)
             }
             Binding::Expr(ann, e) => match ann {
                 Some(k) => {

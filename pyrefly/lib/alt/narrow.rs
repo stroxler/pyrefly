@@ -24,6 +24,7 @@ use crate::types::callable::FunctionKind;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
+use crate::types::type_info::TypeInfo;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 use crate::util::prelude::SliceExt;
@@ -163,7 +164,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(distributed_op) =
             self.distribute_narrow_op_over_tuple(&AtomicNarrowOp::IsInstance, right, None, range)
         {
-            self.narrow(left, &distributed_op, range, errors)
+            self.narrow_type(left, &distributed_op, range, errors)
         } else if let Some(right) = self.unwrap_class_object_or_error(right, range, errors) {
             self.intersect(left, &right)
         } else {
@@ -181,7 +182,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(distributed_op) =
             self.distribute_narrow_op_over_tuple(&AtomicNarrowOp::IsInstance, &right, None, range)
         {
-            self.narrow(left, &distributed_op.negate(), range, errors)
+            self.narrow_type(left, &distributed_op.negate(), range, errors)
         } else if let Some(right) = self.unwrap_class_object_or_error(&right, range, errors) {
             self.subtract(left, &right)
         } else {
@@ -238,7 +239,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if let Some(distributed_op) =
                     self.distribute_narrow_op_over_tuple(&AtomicNarrowOp::IsSubclass, &right, None, v.range())
                 {
-                    self.narrow(ty, &distributed_op, range, errors)
+                    self.narrow_type(ty, &distributed_op, range, errors)
                 } else if let Some(left) = self.untype_opt(ty.clone(), v.range())
                     && let Some(right) =
                         self.unwrap_class_object_or_error(&right, v.range(), errors)
@@ -253,7 +254,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if let Some(distributed_op) =
                     self.distribute_narrow_op_over_tuple(&AtomicNarrowOp::IsSubclass, &right, None, v.range())
                 {
-                    self.narrow(ty, &distributed_op.negate(), range, errors)
+                    self.narrow_type(ty, &distributed_op.negate(), range, errors)
                 } else if let Some(left) = self.untype_opt(ty.clone(), v.range())
                     && let Some(right) =
                         self.unwrap_class_object_or_error(&right, v.range(), errors)
@@ -355,7 +356,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn narrow(
+    fn narrow_type(
         &self,
         ty: &Type,
         op: &NarrowOp,
@@ -371,16 +372,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             NarrowOp::And(ops) => {
                 let mut ops_iter = ops.iter();
                 if let Some(first_op) = ops_iter.next() {
-                    let mut ret = self.narrow(ty, first_op, range, errors);
+                    let mut ret = self.narrow_type(ty, first_op, range, errors);
                     for next_op in ops_iter {
-                        ret = self.narrow(&ret, next_op, range, errors);
+                        ret = self.narrow_type(&ret, next_op, range, errors);
                     }
                     ret
                 } else {
                     ty.clone()
                 }
             }
-            NarrowOp::Or(ops) => self.unions(ops.map(|op| self.narrow(ty, op, range, errors))),
+            NarrowOp::Or(ops) => self.unions(ops.map(|op| self.narrow_type(ty, op, range, errors))),
         }
+    }
+
+    pub fn narrow(
+        &self,
+        type_info: &TypeInfo,
+        op: &NarrowOp,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> TypeInfo {
+        // TODO(stroxler): Push this down to handle actual attribute narrowing.
+        TypeInfo::of_ty(self.narrow_type(type_info.ty(), op, range, errors))
     }
 }
