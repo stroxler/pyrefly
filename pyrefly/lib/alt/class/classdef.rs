@@ -264,6 +264,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Type::TypeVar(t) => Some(t.qname().id()),
                         Type::TypeVarTuple(t) => Some(t.qname().id()),
                         Type::ParamSpec(p) => Some(p.qname().id()),
+                        Type::Quantified(q) => Some(q.name()),
                         _ => None,
                     };
                     // Note that this search is O(nparams^2) in the worst case, but classes typically

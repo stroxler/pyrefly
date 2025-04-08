@@ -50,6 +50,7 @@ impl QuantifiedInfo {
             Some(Type::ParamSpec(p)) => {
                 Self::param_spec(p.qname().id().clone(), p.default().cloned()).as_gradual_type()
             }
+            Some(Type::Quantified(q)) => q.as_gradual_type(),
             Some(Type::Union(ts)) => unions(ts.map(|t| self.as_gradual_type_helper(Some(t)))),
             Some(d) => d.clone(),
             None => self.kind.empty_value(),

@@ -1313,3 +1313,19 @@ class A:
 assert_type(A()["":"":""], slice[str, str, str])
     "#,
 );
+
+testcase!(
+    test_typevar_default_is_typevar,
+    r#"
+from typing import assert_type, TypeVar
+
+class A[T1 = float, T2 = T1]: pass
+
+T = TypeVar('T')
+class B[S = T]: pass # E: out-of-scope type parameter `T`
+
+def f(a1: A[int], a2: A):
+    assert_type(a1, A[int, int])
+    assert_type(a2, A[float, float])
+    "#,
+);
