@@ -130,6 +130,60 @@ impl Config {
             }),
         }
     }
+
+    fn open_file_handles(&self) -> Vec<(Handle, Require)> {
+        self.open_files
+            .lock()
+            .keys()
+            .map(|x| {
+                (
+                    Handle::new(
+                        module_from_path(x, &self.search_path),
+                        ModulePath::memory(x.clone()),
+                        self.runtime_metadata.dupe(),
+                        self.loader.dupe(),
+                    ),
+                    Require::Everything,
+                )
+            })
+            .collect::<Vec<_>>()
+    }
+
+    fn compute_diagnostics(
+        &self,
+        state: &State,
+        handles: Vec<(Handle, Require)>,
+    ) -> SmallMap<PathBuf, Vec<Diagnostic>> {
+        let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
+        let open_files = self.open_files.lock();
+        for x in open_files.keys() {
+            diags.insert(x.as_path().to_owned(), Vec::new());
+        }
+        // TODO(connernilsen): replace with real error config from config file
+        for e in state
+            .transaction()
+            .readable()
+            .get_loads(handles.iter().map(|(handle, _)| handle))
+            .collect_errors(&ErrorConfigs::default())
+            .shown
+        {
+            if let Some(path) = to_real_path(e.path()) {
+                if open_files.contains_key(path) {
+                    diags.entry(path.to_owned()).or_default().push(Diagnostic {
+                        range: source_range_to_range(e.source_range()),
+                        severity: Some(lsp_types::DiagnosticSeverity::ERROR),
+                        source: Some("Pyrefly".to_owned()),
+                        message: e.msg().to_owned(),
+                        code: Some(lsp_types::NumberOrString::String(
+                            e.error_kind().to_name().to_owned(),
+                        )),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+        diags
+    }
 }
 
 pub fn run_lsp(
@@ -352,86 +406,65 @@ impl<'a> Server<'a> {
         (self.send)(Message::Response(x))
     }
 
-    fn publish_diagnostics(&self, uri: Url, diags: Vec<Diagnostic>, version: Option<i32>) {
+    fn publish_diagnostics_for_uri(&self, uri: Url, diags: Vec<Diagnostic>, version: Option<i32>) {
         self.send_notification(new_notification::<PublishDiagnostics>(
             PublishDiagnosticsParams::new(uri, diags, version),
         ));
     }
 
-    fn validate(&self, invalidate_disk: &[PathBuf]) -> anyhow::Result<()> {
+    fn publish_diagnostics(&self, diags: SmallMap<PathBuf, Vec<Diagnostic>>) {
+        for (path, diags) in diags {
+            let path = std::fs::canonicalize(&path).unwrap_or(path);
+            match Url::from_file_path(&path) {
+                Ok(uri) => self.publish_diagnostics_for_uri(uri, diags, None),
+                Err(_) => eprint!("Unable to convert path to uri: {path:?}"),
+            }
+        }
+    }
+
+    fn validate_in_memory(&self) -> anyhow::Result<()> {
+        let mut transaction = self
+            .state
+            .new_committable_transaction(Require::Exports, None);
+        let mut all_handles = Vec::new();
+        let mut config_with_handles = Vec::new();
+        for config in self.configs.values().chain(once(&self.default_config)) {
+            let handles = config.open_file_handles();
+            transaction.as_mut().invalidate_memory(
+                config.loader.dupe(),
+                &config.open_files.lock().keys().cloned().collect::<Vec<_>>(),
+            );
+            all_handles.append(&mut handles.clone());
+            config_with_handles.push((config, handles));
+        }
+        self.state
+            .run_with_committing_transaction(transaction, &all_handles);
+        for (config, handles) in config_with_handles {
+            self.publish_diagnostics(config.compute_diagnostics(&self.state, handles));
+        }
+        Ok(())
+    }
+
+    fn validate_with_disk_invalidation(&self, invalidate_disk: &[PathBuf]) -> anyhow::Result<()> {
+        let mut transaction = self
+            .state
+            .new_committable_transaction(Require::Exports, None);
+        transaction.as_mut().invalidate_disk(invalidate_disk);
+        self.state.run_with_committing_transaction(transaction, &[]);
         self.configs
             .values()
             .chain(once(&self.default_config))
             .for_each(|config| {
-                let handles = config
-                    .open_files
-                    .lock()
-                    .keys()
-                    .map(|x| {
-                        (
-                            Handle::new(
-                                module_from_path(x, &config.search_path),
-                                ModulePath::memory(x.clone()),
-                                config.runtime_metadata.dupe(),
-                                config.loader.dupe(),
-                            ),
-                            Require::Everything,
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                let mut transaction = self
-                    .state
-                    .new_committable_transaction(Require::Exports, None);
-                transaction.as_mut().invalidate_disk(invalidate_disk);
-                transaction.as_mut().invalidate_memory(
-                    config.loader.dupe(),
-                    &config.open_files.lock().keys().cloned().collect::<Vec<_>>(),
+                self.publish_diagnostics(
+                    config.compute_diagnostics(&self.state, config.open_file_handles()),
                 );
-                self.state
-                    .run_with_committing_transaction(transaction, &handles);
-                let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
-                let open_files = config.open_files.lock();
-                for x in open_files.keys() {
-                    diags.insert(x.as_path().to_owned(), Vec::new());
-                }
-                // TODO(connernilsen): replace with real error config from config file
-                for e in self
-                    .state
-                    .transaction()
-                    .readable()
-                    .get_loads(handles.iter().map(|(handle, _)| handle))
-                    .collect_errors(&ErrorConfigs::default())
-                    .shown
-                {
-                    if let Some(path) = to_real_path(e.path()) {
-                        if open_files.contains_key(path) {
-                            diags.entry(path.to_owned()).or_default().push(Diagnostic {
-                                range: source_range_to_range(e.source_range()),
-                                severity: Some(lsp_types::DiagnosticSeverity::ERROR),
-                                source: Some("Pyrefly".to_owned()),
-                                message: e.msg().to_owned(),
-                                code: Some(lsp_types::NumberOrString::String(
-                                    e.error_kind().to_name().to_owned(),
-                                )),
-                                ..Default::default()
-                            });
-                        }
-                    }
-                }
-                for (path, diags) in diags {
-                    let path = std::fs::canonicalize(&path).unwrap_or(path);
-                    match Url::from_file_path(&path) {
-                        Ok(uri) => self.publish_diagnostics(uri, diags, None),
-                        Err(_) => eprint!("Unable to convert path to uri: {path:?}"),
-                    }
-                }
             });
         Ok(())
     }
 
     fn did_save(&self, params: DidSaveTextDocumentParams) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.validate(&[uri])
+        self.validate_with_disk_invalidation(&[uri])
     }
 
     fn did_open(&self, params: DidOpenTextDocumentParams) -> anyhow::Result<()> {
@@ -443,7 +476,7 @@ impl<'a> Server<'a> {
                 Arc::new(params.text_document.text),
             ),
         );
-        self.validate(&[])
+        self.validate_in_memory()
     }
 
     fn did_change(&self, params: DidChangeTextDocumentParams) -> anyhow::Result<()> {
@@ -454,7 +487,7 @@ impl<'a> Server<'a> {
             .open_files
             .lock()
             .insert(uri, (params.text_document.version, Arc::new(change.text)));
-        self.validate(&[])
+        self.validate_in_memory()
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
@@ -463,7 +496,7 @@ impl<'a> Server<'a> {
             .open_files
             .lock()
             .shift_remove(&params.text_document.uri.to_file_path().unwrap());
-        self.publish_diagnostics(params.text_document.uri, Vec::new(), None);
+        self.publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
         Ok(())
     }
 
