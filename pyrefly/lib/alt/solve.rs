@@ -2166,7 +2166,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.solve_function_binding(*idx, &mut pred, class_meta.as_ref(), errors)
             }
             Binding::Import(m, name) => self
-                .get_from_module(*m, &KeyExport(name.clone()))
+                .get_from_module(*m, None, &KeyExport(name.clone()))
                 .arc_clone(),
             Binding::ClassDef(x, decorators) => match &self.get_idx(*x).0 {
                 None => Type::any_implicit(),

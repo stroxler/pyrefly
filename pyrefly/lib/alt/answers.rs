@@ -496,6 +496,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_from_module<K: Solve<Ans> + Keyed<EXPORTED = true>>(
         &self,
         module: ModuleName,
+        path: Option<&ModulePath>,
         k: &K,
     ) -> Arc<K::Answer>
     where
@@ -506,7 +507,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if module == self.module_info().name() {
             self.get(k)
         } else {
-            self.answers.get(module, None, k)
+            self.answers.get(module, path, k)
         }
     }
 
@@ -520,7 +521,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
         SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
     {
-        self.get_from_module(cls.module_name(), k)
+        self.get_from_module(cls.module_name(), Some(cls.module_info().path()), k)
     }
 
     pub fn type_order(&self) -> TypeOrder<Ans> {
