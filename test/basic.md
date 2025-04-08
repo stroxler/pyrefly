@@ -18,7 +18,7 @@ No files matched pattern `*/does_not_exist` (glob)
 
 ## We can typecheck two files with the same name
 
-```scrut
+```scrut {output_stream: stderr}
 $ echo "x: str = 12" > $TMPDIR/same_name.py && \
 > echo "x: str = True" > $TMPDIR/same_name.pyi && \
 > $PYREFLY check --python-version 3.13.0 $TMPDIR/same_name.py $TMPDIR/same_name.pyi --search-path $TMPDIR
@@ -30,7 +30,7 @@ ERROR */same_name.py*:1:10-* (glob)
 
 ## We don't report from nested files
 
-```scrut
+```scrut {output_stream: stderr}
 $ echo "x: str = 12" > $TMPDIR/hidden1.py && \
 > echo "import hidden1; y: int = hidden1.x" > $TMPDIR/hidden2.py && \
 > $PYREFLY check --python-version 3.13.0 $TMPDIR/hidden2.py --search-path=$TMPDIR
@@ -53,7 +53,7 @@ ERROR */shown*.py:1:* (glob)
 
 ## We can do our own globbing
 
-```scrut
+```scrut {output_stream: stderr}
 $ echo "x: str = 12" > $TMPDIR/glob1.py && \
 > echo "x: str = 12" > $TMPDIR/glob2.py && \
 > $PYREFLY check --python-version 3.13.0 "$TMPDIR/glob*.py" --search-path $TMPDIR
@@ -76,7 +76,7 @@ All found `project_includes` files were filtered by `project_excludes` patterns.
 
 ## Error on a non-existent search-path/site-package-path
 
-```scrut
+```scrut {output_stream: stderr}
 $ echo "" > $TMPDIR/empty.py && $PYREFLY check --python-version 3.13.0 $TMPDIR/empty.py \
 > --search-path $TMPDIR/abcd --site-package-path $TMPDIR/abcd
 *WARN Nonexistent `site_package_path` found:* (glob)

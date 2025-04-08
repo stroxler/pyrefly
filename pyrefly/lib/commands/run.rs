@@ -31,7 +31,7 @@ pub struct CommonGlobalArgs {
 
 impl CommonGlobalArgs {
     pub fn init(&self) {
-        init_tracing(self.verbose, false);
+        init_tracing(self.verbose, false, false);
         init_thread_pool(self.threads);
     }
 }

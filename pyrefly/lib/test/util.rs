@@ -360,7 +360,7 @@ impl Loader for TestEnv {
 }
 
 pub fn init_test() {
-    init_tracing(true, true);
+    init_tracing(true, true, true);
     // Enough threads to see parallelism bugs, but not too many to debug through.
     init_thread_pool(ThreadCount::NumThreads(NonZeroUsize::new(3).unwrap()));
 }

@@ -23,7 +23,7 @@ static INIT_TRACING_ONCE: Once = Once::new();
 
 /// Set up tracing so it prints to stderr, and can be used for output.
 /// Most things should use `info` and `debug` level for showing messages.
-pub fn init_tracing(verbose: bool, force_ansi: bool) {
+pub fn init_tracing(verbose: bool, force_ansi: bool, testing: bool) {
     INIT_TRACING_ONCE.call_once(|| {
         const ENV_VAR: &str = "PYREFLY_LOG";
         let mut env_filter = EnvFilter::from_env(ENV_VAR);
@@ -42,10 +42,17 @@ pub fn init_tracing(verbose: bool, force_ansi: bool) {
             .without_time()
             .with_writer(stderr)
             .with_ansi(force_ansi || stderr().is_terminal())
-            .with_target(false)
-            .with_test_writer()
-            .with_filter(env_filter);
+            .with_target(false);
 
-        tracing_subscriber::registry().with(layer).init();
+        if testing {
+            // The with_test_writer causes us to write to stdout, not stderr.
+            tracing_subscriber::registry()
+                .with(layer.with_test_writer().with_filter(env_filter))
+                .init();
+        } else {
+            tracing_subscriber::registry()
+                .with(layer.with_filter(env_filter))
+                .init();
+        }
     })
 }
