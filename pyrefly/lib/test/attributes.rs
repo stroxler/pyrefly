@@ -743,3 +743,25 @@ class C:
 assert_type(C.x, int)
     "#,
 );
+
+testcase!(
+    test_set_attribute_on_typevar_annotated_self,
+    r#"
+from typing import Self, TypeVar
+Self2 = TypeVar('Self2', bound='A')
+class A:
+    x: int
+    def f1(self: Self, x: int, y: float) -> Self:
+        self.x = x
+        self.x = y  # E: `float` is not assignable to attribute `x` with type `int`
+        return self
+    def f2(self: Self2, x: int, y: float) -> Self2:
+        self.x = x
+        self.x = y  # E: `float` is not assignable to attribute `x` with type `int`
+        return self
+    def f3[Self3: A](self: Self3, x: int, y: float) -> Self3:
+        self.x = x
+        self.x = y  # E: `float` is not assignable to attribute `x` with type `int`
+        return self
+    "#,
+);
