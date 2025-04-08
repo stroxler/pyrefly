@@ -128,6 +128,13 @@ impl PartialEq for ExtraConfigs {
     }
 }
 
+/// Values representing the environment of the Python interpreter.
+/// These values are `None` by default, so we can tell if a config
+/// overrode them, or if we should query a Python interpreter for
+/// any missing values. We can't query a Python interpreter
+/// on config parsing, since we also won't know if an executable
+/// other than the first available on the path should be used (i.e.
+/// should we always look at a venv/conda environment instead?)
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct PythonEnvironment {
     #[serde(default)]
@@ -244,6 +251,9 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
 }
 
 impl Default for PythonEnvironment {
+    /// This supplies Pyrefly's backup default values if we are unable to query
+    /// an interpreter or want to have a `PythonEnvironment` in testing.
+    /// Prefer to query an interpreter if possible.
     fn default() -> Self {
         Self::new(
             DEFAULT_PYTHON_PLATFORM.to_owned(),
@@ -279,6 +289,10 @@ pub struct ConfigFile {
     #[serde(default = "PythonEnvironment::get_default_interpreter")]
     pub python_interpreter: Option<PathBuf>,
 
+    /// Values representing the environment of the Python interpreter
+    /// (which platform, Python version, ...). When we parse, these values
+    /// are set to false so we know to query the `python_interpreter` before falling
+    /// back to Pyrefly's defaults.
     #[serde(flatten)]
     pub python_environment: PythonEnvironment,
 
@@ -366,6 +380,8 @@ impl ConfigFile {
         ErrorDisplayConfig::default()
     }
 
+    /// Configures values that must be updated *after* overwriting with CLI flag values,
+    /// which should probably be everything except for `PathBuf` or `Globs` types.
     pub fn configure(&mut self) {
         let env = &mut self.python_environment;
 
@@ -394,6 +410,11 @@ impl ConfigFile {
         };
     }
 
+    /// Rewrites any config values that must be updated *before* applying CLI flag values, namely
+    /// rewriting any `PathBuf`s and `Globs` to be relative to `config_root`.
+    /// We do this as a step separate from `configure()` because CLI args may override some of these
+    /// values, but CLI args will always be relative to CWD, whereas config values should be relative
+    /// to the config root.
     fn rewrite_with_path_to_config(&mut self, config_root: &Path) {
         // TODO(connernilsen): store root as part of config to make it easier to rewrite later on
         self.project_includes = self.project_includes.clone().from_root(config_root);
