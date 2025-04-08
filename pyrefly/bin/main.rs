@@ -255,7 +255,9 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             args,
         } => {
             if !files.is_empty() && config.is_some() {
-                anyhow::bail!("Can either supply `FILES...` OR `--config/-c`, not both.")
+                return Err(anyhow!(
+                    "Can either supply `FILES...` OR `--config/-c`, not both."
+                ));
             }
             if files.is_empty() {
                 run_check_on_project(watch, config, project_excludes, args, allow_forget).await

@@ -15,7 +15,6 @@ use std::sync::LazyLock;
 use std::sync::Mutex;
 
 use anyhow::anyhow;
-use anyhow::bail;
 use anyhow::Context;
 use itertools::Itertools;
 use path_absolutize::Absolutize;
@@ -512,7 +511,7 @@ impl ConfigFile {
 
         if error_on_extras && !config.extras.0.is_empty() {
             let extra_keys = config.extras.0.keys().join(", ");
-            bail!("Extra keys found in config: {extra_keys}");
+            return Err(anyhow!("Extra keys found in config: {extra_keys}"));
         }
 
         if let Some(config_root) = config_path.parent() {
