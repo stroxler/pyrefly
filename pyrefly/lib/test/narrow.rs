@@ -486,15 +486,15 @@ def f(x: str | int | None):
 );
 
 testcase!(
-    bug = "issubclass tuple logic does not appear to work correctly",
+    bug = "issubclass tuple narrowing is not yet supported",
     test_issubclass_tuple,
     r#"
 from typing import assert_type
 def f(x: type[int | str | bool]):
-    if issubclass(x, (str, int)):
-        assert_type(x, type[str] | type[int])  # E: assert_type(type[bool | int] | type[str], type[int] | type[str])
+    if issubclass(x, (str, int)):  # E: Expected class object, got tuple[type[str], type[int]]
+        assert_type(x, type[str] | type[int])  # E: assert_type(type[bool | int | str], type[int] | type[str])
     else:
-        assert_type(x, type[bool])  # E: assert_type(type[Never], type[bool])
+        assert_type(x, type[bool])  # E: assert_type(type[bool | int | str], type[bool])
     "#,
 );
 

@@ -539,10 +539,8 @@
   "protocols_runtime_checkable.py": [
     "Line 23: Expected 1 errors",
     "Line 55: Expected 1 errors",
-    "Line 61: Expected 1 errors",
     "Line 88: Expected 1 errors",
-    "Line 92: Expected 1 errors",
-    "Line 96: Expected 1 errors"
+    "Line 92: Expected 1 errors"
   ],
   "protocols_self.py": [
     "Line 32: Unexpected errors ['`One` is not assignable to variable `c` with type `Copyable`']",

@@ -236,11 +236,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AtomicNarrowOp::IsSubclass(v) => {
                 let right = self.narrow_val_infer(v, errors);
-                if let Some(distributed_op) =
-                    self.distribute_narrow_op_over_tuple(&AtomicNarrowOp::IsSubclass, &right, None, v.range())
-                {
-                    self.narrow_type(ty, &distributed_op, range, errors)
-                } else if let Some(left) = self.untype_opt(ty.clone(), v.range())
+                if let Some(left) = self.untype_opt(ty.clone(), v.range())
                     && let Some(right) =
                         self.unwrap_class_object_or_error(&right, v.range(), errors)
                 {
@@ -251,11 +247,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AtomicNarrowOp::IsNotSubclass(v) => {
                 let right = self.narrow_val_infer(v, errors);
-                if let Some(distributed_op) =
-                    self.distribute_narrow_op_over_tuple(&AtomicNarrowOp::IsSubclass, &right, None, v.range())
-                {
-                    self.narrow_type(ty, &distributed_op.negate(), range, errors)
-                } else if let Some(left) = self.untype_opt(ty.clone(), v.range())
+                if let Some(left) = self.untype_opt(ty.clone(), v.range())
                     && let Some(right) =
                         self.unwrap_class_object_or_error(&right, v.range(), errors)
                 {

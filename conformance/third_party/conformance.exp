@@ -9297,7 +9297,28 @@
       "stop_line": 81
     }
   ],
-  "protocols_runtime_checkable.py": [],
+  "protocols_runtime_checkable.py": [
+    {
+      "code": -2,
+      "column": 22,
+      "concise_description": "Expected class object, got tuple[type[NonDataProtocol], type[DataProtocol]]",
+      "description": "Expected class object, got tuple[type[NonDataProtocol], type[DataProtocol]]",
+      "line": 61,
+      "name": "invalid-argument",
+      "stop_column": 53,
+      "stop_line": 61
+    },
+    {
+      "code": -2,
+      "column": 31,
+      "concise_description": "Expected class object, got tuple[type[Proto3], type[NonDataProtocol]]",
+      "description": "Expected class object, got tuple[type[Proto3], type[NonDataProtocol]]",
+      "line": 96,
+      "name": "invalid-argument",
+      "stop_column": 56,
+      "stop_line": 96
+    }
+  ],
   "protocols_self.py": [
     {
       "code": -2,
