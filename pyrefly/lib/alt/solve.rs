@@ -961,10 +961,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorKind::InvalidTypeVar,
                     None,
-                    "A type parameter without a default cannot follow one with a default"
-                        .to_owned(),
+                    fixed_tparams.error,
                 );
-                fixed_tparams
+                fixed_tparams.tparams
             }
         }
     }

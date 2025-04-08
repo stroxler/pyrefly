@@ -110,6 +110,13 @@ impl TParam {
     }
 }
 
+/// TParams that have been fixed up after encountering an error
+#[derive(Debug)]
+pub struct FixedTParams {
+    pub tparams: TParams,
+    pub error: String,
+}
+
 /// Wraps a vector of type parameters. The constructor ensures that
 /// type parameters without defaults never follow ones with defaults.
 #[derive(
@@ -124,7 +131,7 @@ impl Display for TParams {
 }
 
 impl TParams {
-    pub fn new(info: Vec<TParamInfo>) -> Result<Self, Self> {
+    pub fn new(info: Vec<TParamInfo>) -> Result<Self, FixedTParams> {
         let mut error = false;
         let mut tparams: Vec<TParam> = Vec::with_capacity(info.len());
         for mut tparam in info {
@@ -143,7 +150,11 @@ impl TParams {
             });
         }
         if error {
-            Err(Self(tparams))
+            Err(FixedTParams {
+                tparams: Self(tparams),
+                error: "A type parameter without a default cannot follow one with a default"
+                    .to_owned(),
+            })
         } else {
             Ok(Self(tparams))
         }
