@@ -8,7 +8,6 @@
 //! Utilities for working with the `tracing` crate.
 
 use std::io::stderr;
-use std::io::stdout;
 use std::io::IsTerminal;
 use std::sync::Once;
 
@@ -42,7 +41,7 @@ pub fn init_tracing(verbose: bool, force_ansi: bool) {
             .with_file(false)
             .without_time()
             .with_writer(stderr)
-            .with_ansi(force_ansi || stdout().is_terminal())
+            .with_ansi(force_ansi || stderr().is_terminal())
             .with_target(false)
             .with_test_writer()
             .with_filter(env_filter);
