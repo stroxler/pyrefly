@@ -13,12 +13,8 @@ of 2025.
 
 ### GitHub developers
 
-`cd pyre2` then use the normal `cargo` commands (e.g. `cargo build`,
+`cd pyrefly` then use the normal `cargo` commands (e.g. `cargo build`,
 `cargo test`).
-
-Typeshed can be fetched from upstream into the codebase using the following
-command (assuming this is the current directory):
-`python scripts/fetch_typeshed.py -o pyrefly/third_party`
 
 ### Meta internal developers
 
