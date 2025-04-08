@@ -298,6 +298,7 @@ pub trait LookupAnswer: Sized {
     fn get<K: Solve<Self> + Keyed<EXPORTED = true>>(
         &self,
         module: ModuleName,
+        path: Option<&ModulePath>,
         k: &K,
     ) -> Arc<K::Answer>
     where
@@ -505,7 +506,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if module == self.module_info().name() {
             self.get(k)
         } else {
-            self.answers.get(module, k)
+            self.answers.get(module, None, k)
         }
     }
 

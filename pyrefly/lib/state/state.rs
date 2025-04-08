@@ -327,10 +327,19 @@ impl<'a> Transaction<'a> {
         &self.readable
     }
 
-    pub fn import_handle(&self, handle: &Handle, module: ModuleName) -> Result<Handle, FindError> {
+    pub fn import_handle(
+        &self,
+        handle: &Handle,
+        module: ModuleName,
+        path: Option<&ModulePath>,
+    ) -> Result<Handle, FindError> {
+        let path = match path {
+            Some(path) => path.dupe(),
+            None => self.get_cached_find_dependency(handle.loader(), module)?,
+        };
         Ok(Handle::new(
             module,
-            self.get_cached_find_dependency(handle.loader(), module)?,
+            path,
             handle.config().dupe(),
             handle.loader().dupe(),
         ))
@@ -1073,14 +1082,18 @@ pub struct TransactionHandle<'a> {
 }
 
 impl<'a> TransactionHandle<'a> {
-    fn get_module(&self, module: ModuleName) -> Result<ArcId<ModuleData>, FindError> {
+    fn get_module(
+        &self,
+        module: ModuleName,
+        path: Option<&ModulePath>,
+    ) -> Result<ArcId<ModuleData>, FindError> {
         if let Some(res) = self.module_data.deps.read().get(&module) {
             return Ok(self.transaction.get_module(res));
         }
 
         let handle = self
             .transaction
-            .import_handle(&self.module_data.handle, module)?;
+            .import_handle(&self.module_data.handle, module, path)?;
         let res = self.transaction.get_module(&handle);
         let mut write = self.module_data.deps.write();
         let did_insert = write.insert(module, handle).is_none();
@@ -1094,7 +1107,9 @@ impl<'a> TransactionHandle<'a> {
 
 impl<'a> LookupExport for TransactionHandle<'a> {
     fn get(&self, module: ModuleName) -> Result<Exports, FindError> {
-        Ok(self.transaction.lookup_export(&self.get_module(module)?))
+        Ok(self
+            .transaction
+            .lookup_export(&self.get_module(module, None)?))
     }
 }
 
@@ -1102,6 +1117,7 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
     fn get<K: Solve<Self> + Keyed<EXPORTED = true>>(
         &self,
         module: ModuleName,
+        path: Option<&ModulePath>,
         k: &K,
     ) -> Arc<K::Answer>
     where
@@ -1111,7 +1127,7 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
     {
         // The unwrap is safe because we must have said there were no exports,
         // so no one can be trying to get at them
-        let module_data = self.get_module(module).unwrap();
+        let module_data = self.get_module(module, path).unwrap();
         self.transaction.lookup_answer(module_data, k)
     }
 }

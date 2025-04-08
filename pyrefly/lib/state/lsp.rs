@@ -155,7 +155,7 @@ impl<'a> Transaction<'a> {
             ),
             Binding::Import(mut m, name) => {
                 while gas > 0 {
-                    let handle = self.import_handle(handle, m).ok()?;
+                    let handle = self.import_handle(handle, m, None).ok()?;
                     match self.get_exports(&handle).get(name) {
                         Some(ExportLocation::ThisModule(range)) => {
                             return Some((handle.clone(), *range));
@@ -168,7 +168,7 @@ impl<'a> Transaction<'a> {
                 None
             }
             Binding::Module(name, _, _) => Some((
-                self.import_handle(handle, *name).ok()?,
+                self.import_handle(handle, *name, None).ok()?,
                 TextRange::default(),
             )),
             Binding::CheckLegacyTypeParam(k, _) => {
@@ -203,7 +203,7 @@ impl<'a> Transaction<'a> {
             ));
         }
         if let Some(m) = self.import_at(handle, position) {
-            let handle = self.import_handle(handle, m).ok()?;
+            let handle = self.import_handle(handle, m, None).ok()?;
             return Some(TextRangeWithModuleInfo::new(
                 self.readable().get_module_info(&handle)?,
                 TextRange::default(),
