@@ -24,7 +24,8 @@ Compile it:
 ./scripts/start.sh
 ```
 
-This would automatically install all rust dependencies and start the server.
+This would automatically perform the wasm pack and start the server. Make sure to use `scripts/start.sh` instead of `yarn start`
+to avoid running into issues with a missing wasm file.
 
 To see the website, go to the following URI in your browser:
 
