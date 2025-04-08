@@ -5555,19 +5555,9 @@
     },
     {
       "code": -2,
-      "column": 1,
-      "concise_description": "assert_type(slice[str, TypeVar(StartT, default=int, invariant), int | None], slice[str, str, int | None]) failed",
-      "description": "assert_type(slice[str, TypeVar(StartT, default=int, invariant), int | None], slice[str, str, int | None]) failed",
-      "line": 25,
-      "name": "assert-type",
-      "stop_column": 55,
-      "stop_line": 25
-    },
-    {
-      "code": -2,
       "column": 13,
-      "concise_description": "Argument `Literal['']` is not assignable to parameter `b` with type `TypeVar(DefaultStrT, default=str, invariant)` in function `Foo.__init__`",
-      "description": "Argument `Literal['']` is not assignable to parameter `b` with type `TypeVar(DefaultStrT, default=str, invariant)` in function `Foo.__init__`",
+      "concise_description": "Argument `Literal['']` is not assignable to parameter `b` with type `int` in function `Foo.__init__`",
+      "description": "Argument `Literal['']` is not assignable to parameter `b` with type `int` in function `Foo.__init__`",
       "line": 36,
       "name": "bad-argument-type",
       "stop_column": 15,
@@ -5581,16 +5571,6 @@
       "line": 37,
       "name": "bad-argument-type",
       "stop_column": 12,
-      "stop_line": 37
-    },
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "Argument `Literal[1]` is not assignable to parameter `b` with type `TypeVar(DefaultStrT, default=str, invariant)` in function `Foo.__init__`",
-      "description": "Argument `Literal[1]` is not assignable to parameter `b` with type `TypeVar(DefaultStrT, default=str, invariant)` in function `Foo.__init__`",
-      "line": 37,
-      "name": "bad-argument-type",
-      "stop_column": 15,
       "stop_line": 37
     },
     {
@@ -7166,11 +7146,31 @@
     {
       "code": -2,
       "column": 12,
-      "concise_description": "Returned type `tuple[*tuple[Unknown, ...], Unknown]` is not assignable to declared return type `tuple[*TypeVarTuple[Ts], TypeVar[T]]`",
-      "description": "Returned type `tuple[*tuple[Unknown, ...], Unknown]` is not assignable to declared return type `tuple[*TypeVarTuple[Ts], TypeVar[T]]`",
+      "concise_description": "Returned type `tuple[*tuple[@_, ...], Unknown]` is not assignable to declared return type `tuple[*TypeVarTuple[Ts], TypeVar[T]]`",
+      "description": "Returned type `tuple[*tuple[@_, ...], Unknown]` is not assignable to declared return type `tuple[*TypeVarTuple[Ts], TypeVar[T]]`",
       "line": 56,
       "name": "bad-return",
       "stop_column": 30,
+      "stop_line": 56
+    },
+    {
+      "code": -2,
+      "column": 14,
+      "concise_description": "Cannot index into `tuple[TypeVar[T], *TypeVarTuple[Ts]]`\n  No matching overload found for function `tuple.__getitem__`, reporting errors for closest overload: `(SupportsIndex) -> Unknown`",
+      "description": "Cannot index into `tuple[TypeVar[T], *TypeVarTuple[Ts]]`\n  No matching overload found for function `tuple.__getitem__`, reporting errors for closest overload: `(SupportsIndex) -> Unknown`",
+      "line": 56,
+      "name": "no-matching-overload",
+      "stop_column": 21,
+      "stop_line": 56
+    },
+    {
+      "code": -2,
+      "column": 18,
+      "concise_description": "Argument `slice[Literal[1], Literal[1], Literal[1]]` is not assignable to parameter with type `SupportsIndex` in function `tuple.__getitem__`",
+      "description": "Argument `slice[Literal[1], Literal[1], Literal[1]]` is not assignable to parameter with type `SupportsIndex` in function `tuple.__getitem__`",
+      "line": 56,
+      "name": "bad-argument-type",
+      "stop_column": 20,
       "stop_line": 56
     }
   ],
@@ -8540,8 +8540,8 @@
     {
       "code": -2,
       "column": 15,
-      "concise_description": "Argument `slice[Literal[0], Literal[1], TypeVar(_StartT_co, default=Any, covariant) | TypeVar(_StopT_co, default=TypeVar(_StartT_co, default=Any, covariant), covariant)]` is not assignable to parameter `__i` with type `int` in function `Bytes.__getitem__`",
-      "description": "Argument `slice[Literal[0], Literal[1], TypeVar(_StartT_co, default=Any, covariant) | TypeVar(_StopT_co, default=TypeVar(_StartT_co, default=Any, covariant), covariant)]` is not assignable to parameter `__i` with type `int` in function `Bytes.__getitem__`",
+      "concise_description": "Argument `slice[Literal[0], Literal[1], Literal[0, 1]]` is not assignable to parameter `__i` with type `int` in function `Bytes.__getitem__`",
+      "description": "Argument `slice[Literal[0], Literal[1], Literal[0, 1]]` is not assignable to parameter `__i` with type `int` in function `Bytes.__getitem__`",
       "line": 38,
       "name": "bad-argument-type",
       "stop_column": 18,
