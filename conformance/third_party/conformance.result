@@ -312,10 +312,7 @@
   "generics_defaults_referential.py": [
     "Line 66: Unexpected errors ['Expected default `TypeVar(X1, bound=int, invariant)` of `Ok1` to be assignable to the upper bound of `float`']",
     "Line 67: Unexpected errors ['Expected default `TypeVar(X1, bound=int, invariant)` of `AlsoOk1` to be assignable to the upper bound of `int`']",
-    "Line 77: Unexpected errors ['Expected default `TypeVar(Y2, constraints=(int, str), invariant)` of `AlsoOk2` to be one of the following constraints: `int`, `str`, `bool`']",
-    "Line 94: Unexpected errors ['assert_type(type[Bar[Any, list[TypeVar(Z1, invariant)]]], type[Bar[Any, list[Any]]]) failed']",
-    "Line 95: Unexpected errors ['assert_type(type[Bar[int, list[TypeVar(Z1, invariant)]]], type[Bar[int, list[int]]]) failed']",
-    "Line 96: Unexpected errors ['assert_type(Bar[int, list[TypeVar(Z1, invariant)]], Bar[int, list[int]]) failed']"
+    "Line 77: Unexpected errors ['Expected default `TypeVar(Y2, constraints=(int, str), invariant)` of `AlsoOk2` to be one of the following constraints: `int`, `str`, `bool`']"
   ],
   "generics_defaults_specialization.py": [],
   "generics_paramspec_basic.py": [

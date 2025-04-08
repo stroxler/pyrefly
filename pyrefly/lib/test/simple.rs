@@ -1329,3 +1329,14 @@ def f(a1: A[int], a2: A):
     assert_type(a2, A[float, float])
     "#,
 );
+
+testcase!(
+    test_typevar_default_contains_nested_typevar,
+    r#"
+from typing import assert_type, TypeVar
+class A[T1 = float, T2 = list[T1]]: pass
+def f(a1: A[int], a2: A):
+    assert_type(a1, A[int, list[int]])
+    assert_type(a2, A[float, list[float]])
+    "#,
+);

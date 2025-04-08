@@ -17,11 +17,9 @@ use ruff_python_ast::name::Name;
 use crate::alt::solve::TypeFormContext;
 use crate::error::kind::ErrorKind;
 use crate::types::class::ClassType;
-use crate::types::simplify::unions;
 use crate::types::stdlib::Stdlib;
 use crate::types::type_var::Restriction;
 use crate::types::types::Type;
-use crate::util::prelude::SliceExt;
 use crate::util::uniques::Unique;
 use crate::util::uniques::UniqueFactory;
 
@@ -37,24 +35,34 @@ pub struct QuantifiedInfo {
 
 impl QuantifiedInfo {
     fn as_gradual_type_helper(&self, default: Option<&Type>) -> Type {
-        match default {
-            Some(Type::TypeVar(t)) => Self::type_var(
-                t.qname().id().clone(),
-                t.default().cloned(),
-                t.restriction().clone(),
-            )
-            .as_gradual_type(),
-            Some(Type::TypeVarTuple(t)) => {
-                Self::type_var_tuple(t.qname().id().clone(), t.default().cloned()).as_gradual_type()
-            }
-            Some(Type::ParamSpec(p)) => {
-                Self::param_spec(p.qname().id().clone(), p.default().cloned()).as_gradual_type()
-            }
-            Some(Type::Quantified(q)) => q.as_gradual_type(),
-            Some(Type::Union(ts)) => unions(ts.map(|t| self.as_gradual_type_helper(Some(t)))),
-            Some(d) => d.clone(),
-            None => self.kind.empty_value(),
-        }
+        default.map_or_else(
+            || self.kind.empty_value(),
+            |default| {
+                default.clone().transform(&mut |default| match default {
+                    Type::TypeVar(t) => {
+                        *default = Self::type_var(
+                            t.qname().id().clone(),
+                            t.default().cloned(),
+                            t.restriction().clone(),
+                        )
+                        .as_gradual_type();
+                    }
+                    Type::TypeVarTuple(t) => {
+                        *default =
+                            Self::type_var_tuple(t.qname().id().clone(), t.default().cloned())
+                                .as_gradual_type();
+                    }
+                    Type::ParamSpec(p) => {
+                        *default = Self::param_spec(p.qname().id().clone(), p.default().cloned())
+                            .as_gradual_type();
+                    }
+                    Type::Quantified(q) => {
+                        *default = q.as_gradual_type();
+                    }
+                    _ => {}
+                })
+            },
+        )
     }
 
     pub fn as_gradual_type(&self) -> Type {

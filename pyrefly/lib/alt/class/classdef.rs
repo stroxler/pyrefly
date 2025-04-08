@@ -118,6 +118,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let nargs = targs.len();
         let mut checked_targs = Vec::new();
         let mut targ_idx = 0;
+        let mut name_to_idx = SmallMap::new();
         for (param_idx, param) in tparams.iter().enumerate() {
             if param.quantified.is_type_var_tuple() && targs.get(targ_idx).is_some() {
                 let n_remaining_params = tparams.len() - param_idx - 1;
@@ -259,7 +260,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 targ_idx += 1;
             } else if let Some(default) = param.default() {
-                let resolved_default = self.distribute_over_union(default, |default| {
+                let resolved_default = default.clone().transform(&mut |default| {
                     let typevar_name = match default {
                         Type::TypeVar(t) => Some(t.qname().id()),
                         Type::TypeVarTuple(t) => Some(t.qname().id()),
@@ -267,23 +268,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Type::Quantified(q) => Some(q.name()),
                         _ => None,
                     };
-                    // Note that this search is O(nparams^2) in the worst case, but classes typically
-                    // have only a small number of type parameters.
                     if let Some(typevar_name) = typevar_name {
-                        for (i, prev_param) in tparams.iter().enumerate() {
-                            if i == param_idx {
-                                break;
-                            }
-                            if prev_param.name() == typevar_name {
-                                // The default of this TypeVar is the value of a previous TypeVar.
-                                return checked_targs[i].clone();
-                            }
+                        *default = if let Some(i) = name_to_idx.get(typevar_name) {
+                            // The default of this TypeVar contains the value of a previous TypeVar.
+                            let val: &Type = &checked_targs[*i];
+                            val.clone()
+                        } else {
+                            // The default refers to the value of a TypeVar that isn't in scope. We've
+                            // already logged an error in TParams::new(); return a sensible default.
+                            Type::any_implicit()
                         }
-                        // The default refers to the value of a TypeVar that isn't in scope. We've
-                        // already logged an error in TParams::new(); return a sensible default.
-                        Type::any_implicit()
-                    } else {
-                        default.clone()
                     }
                 });
                 checked_targs.push(resolved_default);
@@ -313,6 +307,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 checked_targs.extend(defaults);
                 break;
             }
+            name_to_idx.insert(param.name(), param_idx);
         }
         if targ_idx < nargs {
             self.error(

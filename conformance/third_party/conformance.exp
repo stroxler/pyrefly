@@ -5632,36 +5632,6 @@
       "name": "invalid-type-var",
       "stop_column": 65,
       "stop_line": 78
-    },
-    {
-      "code": -2,
-      "column": 1,
-      "concise_description": "assert_type(type[Bar[Any, list[TypeVar(Z1, invariant)]]], type[Bar[Any, list[Any]]]) failed",
-      "description": "assert_type(type[Bar[Any, list[TypeVar(Z1, invariant)]]], type[Bar[Any, list[Any]]]) failed",
-      "line": 94,
-      "name": "assert-type",
-      "stop_column": 44,
-      "stop_line": 94
-    },
-    {
-      "code": -2,
-      "column": 1,
-      "concise_description": "assert_type(type[Bar[int, list[TypeVar(Z1, invariant)]]], type[Bar[int, list[int]]]) failed",
-      "description": "assert_type(type[Bar[int, list[TypeVar(Z1, invariant)]]], type[Bar[int, list[int]]]) failed",
-      "line": 95,
-      "name": "assert-type",
-      "stop_column": 49,
-      "stop_line": 95
-    },
-    {
-      "code": -2,
-      "column": 1,
-      "concise_description": "assert_type(Bar[int, list[TypeVar(Z1, invariant)]], Bar[int, list[int]]) failed",
-      "description": "assert_type(Bar[int, list[TypeVar(Z1, invariant)]], Bar[int, list[int]]) failed",
-      "line": 96,
-      "name": "assert-type",
-      "stop_column": 50,
-      "stop_line": 96
     }
   ],
   "generics_defaults_specialization.py": [
