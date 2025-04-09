@@ -163,8 +163,8 @@ pub struct Flow {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlowStyle {
-    /// Am I a type-annotated assignment in a class body?
-    AnnotatedClassField { initial_value: Option<Expr> },
+    /// Am I an assignment in a class body?
+    ClassField { initial_value: Option<Expr> },
     /// Am I the result of an import (which needs merging).
     /// E.g. `import foo.bar` and `import foo.baz` need merging.
     /// The `ModuleName` will be the most recent entry.
@@ -210,10 +210,10 @@ pub struct FlowInfo {
 impl FlowInfo {
     pub fn as_initial_value(&self) -> ClassFieldInitialValue {
         match self.style.as_ref() {
-            Some(FlowStyle::AnnotatedClassField {
+            Some(FlowStyle::ClassField {
                 initial_value: Some(e),
             }) => ClassFieldInitialValue::Class(Some(e.clone())),
-            Some(FlowStyle::AnnotatedClassField {
+            Some(FlowStyle::ClassField {
                 initial_value: None,
             }) => ClassFieldInitialValue::Instance(None),
             // All other styles (e.g. function def, import) indicate we do have

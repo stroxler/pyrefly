@@ -719,10 +719,11 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: &ExprName,
         binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
+        style: Option<FlowStyle>,
     ) {
         let key = Key::Definition(ShortIdentifier::expr_name(name));
         let idx = self.table.types.0.insert(key);
-        let ann = self.bind_key(&name.id, idx, None);
+        let ann = self.bind_key(&name.id, idx, style);
         self.table.types.1.insert(idx, binding(ann));
     }
 

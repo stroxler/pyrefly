@@ -97,13 +97,17 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut kw.value);
             }
         }
-        self.bind_assign(name, |ann| {
-            Binding::TypeVar(
-                ann,
-                Identifier::new(name.id.clone(), name.range()),
-                Box::new(call.clone()),
-            )
-        })
+        self.bind_assign(
+            name,
+            |ann| {
+                Binding::TypeVar(
+                    ann,
+                    Identifier::new(name.id.clone(), name.range()),
+                    Box::new(call.clone()),
+                )
+            },
+            None,
+        )
     }
 
     fn ensure_type_var_tuple_and_param_spec_args(&mut self, call: &mut ExprCall) {
@@ -124,24 +128,32 @@ impl<'a> BindingsBuilder<'a> {
 
     fn assign_param_spec(&mut self, name: &ExprName, call: &mut ExprCall) {
         self.ensure_type_var_tuple_and_param_spec_args(call);
-        self.bind_assign(name, |ann| {
-            Binding::ParamSpec(
-                ann,
-                Identifier::new(name.id.clone(), name.range()),
-                Box::new(call.clone()),
-            )
-        })
+        self.bind_assign(
+            name,
+            |ann| {
+                Binding::ParamSpec(
+                    ann,
+                    Identifier::new(name.id.clone(), name.range()),
+                    Box::new(call.clone()),
+                )
+            },
+            None,
+        )
     }
 
     fn assign_type_var_tuple(&mut self, name: &ExprName, call: &mut ExprCall) {
         self.ensure_type_var_tuple_and_param_spec_args(call);
-        self.bind_assign(name, |ann| {
-            Binding::TypeVarTuple(
-                ann,
-                Identifier::new(name.id.clone(), name.range()),
-                Box::new(call.clone()),
-            )
-        })
+        self.bind_assign(
+            name,
+            |ann| {
+                Binding::TypeVarTuple(
+                    ann,
+                    Identifier::new(name.id.clone(), name.range()),
+                    Box::new(call.clone()),
+                )
+            },
+            None,
+        )
     }
 
     fn assign_enum(
@@ -317,7 +329,7 @@ impl<'a> BindingsBuilder<'a> {
                     && let Some((module, forward)) =
                         resolve_typeshed_alias(self.module_info.name(), &name.id, &x.value) =>
             {
-                self.bind_assign(name, |_| Binding::Import(module, forward))
+                self.bind_assign(name, |_| Binding::Import(module, forward), None)
             }
             Stmt::Assign(mut x) => {
                 if let [Expr::Name(name)] = x.targets.as_slice() {
@@ -402,13 +414,26 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         self.ensure_expr(&mut x.value);
                     }
-                    self.bind_assign(name, |k: Option<Idx<KeyAnnotation>>| {
-                        Binding::NameAssign(
-                            name.id.clone(),
-                            k.map(|k| (AnnotationStyle::Forwarded, k)),
-                            x.value,
-                        )
-                    });
+                    let in_class_body =
+                        matches!(self.scopes.current().kind, ScopeKind::ClassBody(_));
+                    let flow_style = if in_class_body {
+                        Some(FlowStyle::ClassField {
+                            initial_value: Some((*x.value).clone()),
+                        })
+                    } else {
+                        None
+                    };
+                    self.bind_assign(
+                        name,
+                        |k: Option<Idx<KeyAnnotation>>| {
+                            Binding::NameAssign(
+                                name.id.clone(),
+                                k.map(|k| (AnnotationStyle::Forwarded, k)),
+                                x.value,
+                            )
+                        },
+                        flow_style,
+                    );
                 } else {
                     let mut value = *x.value;
                     self.ensure_expr(&mut value);
@@ -463,7 +488,7 @@ impl<'a> BindingsBuilder<'a> {
                     let ann_key = self.table.insert(ann_key, ann_val);
                     let flow_style = if in_class_body {
                         let initial_value = x.value.as_deref().cloned();
-                        Some(FlowStyle::AnnotatedClassField { initial_value })
+                        Some(FlowStyle::ClassField { initial_value })
                     } else if x.value.is_some() {
                         None
                     } else {
