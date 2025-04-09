@@ -381,9 +381,13 @@ impl<'a> Server<'a> {
         {
             if let Some(folders) = initialize_params.clone().workspace_folders {
                 folders.iter().for_each(|x| {
+                    let file_path = x.uri.to_file_path().unwrap();
                     configs.insert(
-                        x.uri.to_file_path().unwrap(),
-                        Config::new(search_path.clone(), site_package_path.clone()),
+                        file_path.clone(),
+                        Config::new(
+                            once(file_path).chain(search_path.clone()).collect(),
+                            site_package_path.clone(),
+                        ),
                     );
                 });
             }

@@ -27,12 +27,13 @@ use crate::test::util::init_test;
 struct TestCase {
     test_messages: Vec<Message>,
     expected_responses: Vec<Response>,
+    search_path: Vec<PathBuf>,
 }
 fn run_test_lsp(test_case: TestCase) {
     init_test();
     let timeout = Duration::from_secs(25);
     let args = Args {
-        search_path: vec![get_test_files_root()],
+        search_path: test_case.search_path,
         site_package_path: Vec::new(),
     };
     let (writer_sender, writer_receiver) = bounded::<Message>(0);
@@ -215,10 +216,11 @@ fn test_initialize() {
     run_test_lsp(TestCase {
         test_messages: get_initialize_messages(None),
         expected_responses: get_initialize_responses(),
+        search_path: Vec::new(),
     });
 }
 
-fn test_go_to_def(workspace_folders: Option<Vec<(&str, Url)>>) {
+fn test_go_to_def(workspace_folders: Option<Vec<(&str, Url)>>, search_path: Vec<PathBuf>) {
     let mut test_messages = get_initialize_messages(workspace_folders);
     let mut expected_responses = get_initialize_responses();
     let root = get_test_files_root();
@@ -262,23 +264,27 @@ fn test_go_to_def(workspace_folders: Option<Vec<(&str, Url)>>) {
     run_test_lsp(TestCase {
         test_messages,
         expected_responses,
+        search_path,
     });
 }
 
 #[test]
 fn test_go_to_def_single_root() {
-    test_go_to_def(Some(vec![(
-        "test",
-        Url::from_file_path(get_test_files_root()).unwrap(),
-    )]));
+    test_go_to_def(
+        Some(vec![(
+            "test",
+            Url::from_file_path(get_test_files_root()).unwrap(),
+        )]),
+        Vec::new(), // should use search_path from workspace root
+    );
 }
 
 #[test]
 fn test_go_to_def_no_root() {
-    test_go_to_def(Some(vec![]));
+    test_go_to_def(Some(vec![]), vec![get_test_files_root()]);
 }
 
 #[test]
 fn test_go_to_def_no_folder_capability() {
-    test_go_to_def(None);
+    test_go_to_def(None, vec![get_test_files_root()]);
 }
