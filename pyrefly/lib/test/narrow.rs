@@ -792,3 +792,22 @@ def f(x: Any):
         assert_type(x, Any)
 "#,
 );
+
+testcase!(
+    test_unittest_assert,
+    r#"
+from typing import assert_type
+from unittest import TestCase
+def foo() -> int | None: ...
+class MyTest(TestCase):
+    def test_true(self) -> None:
+        x = foo()
+        self.assertTrue(x is not None)
+        assert_type(x, int)
+    
+    def test_false(self) -> None:
+        x = foo()
+        self.assertFalse(x is None)
+        assert_type(x, int)
+"#,
+);

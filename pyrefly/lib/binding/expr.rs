@@ -13,6 +13,7 @@ use ruff_python_ast::BoolOp;
 use ruff_python_ast::Comprehension;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprBoolOp;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprLambda;
@@ -30,6 +31,7 @@ use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::bindings::LookupError;
 use crate::binding::bindings::LookupKind;
 use crate::binding::narrow::NarrowOps;
+use crate::binding::scope::ClassBodyInner;
 use crate::binding::scope::Flow;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
@@ -42,6 +44,25 @@ use crate::ruff::ast::Ast;
 use crate::types::callable::unexpected_keyword;
 use crate::types::types::Type;
 use crate::util::visit::VisitMut;
+
+enum TestAssertion {
+    AssertTrue,
+    AssertFalse,
+}
+
+impl TestAssertion {
+    pub fn to_narrow_ops(&self, args: &[Expr]) -> Option<NarrowOps> {
+        match self {
+            Self::AssertTrue if let Some(arg0) = args.first() => {
+                Some(NarrowOps::from_expr(Some(arg0)))
+            }
+            Self::AssertFalse if let Some(arg0) = args.first() => {
+                Some(NarrowOps::from_expr(Some(arg0)).negate())
+            }
+            _ => None,
+        }
+    }
+}
 
 impl<'a> BindingsBuilder<'a> {
     /// Given a name appearing in an expression, create a `Usage` key for that
@@ -131,6 +152,45 @@ impl<'a> BindingsBuilder<'a> {
         self.ensure_expr_opt(orelse);
         let else_branch = mem::take(&mut self.scopes.current_mut().flow);
         self.scopes.current_mut().flow = self.merge_flow(vec![if_branch, else_branch], range);
+    }
+
+    fn enclosing_class_name(&self) -> Option<&Identifier> {
+        for scope in self.scopes.iter_rev() {
+            if let ScopeKind::ClassBody(ClassBodyInner { name, .. }) = &scope.kind {
+                return Some(name);
+            }
+        }
+        None
+    }
+
+    // We want to special-case `self.assertXXX()` methods in unit tests.
+    // The logic is intentionally syntax-based as we want to avoid checking whether the base type
+    // is `unittest.TestCase` on every single method invocation.
+    fn as_assert_in_test(&self, func: &Expr) -> Option<TestAssertion> {
+        if let Some(class_name) = self.enclosing_class_name() {
+            let class_name_str = class_name.as_str();
+            if !(class_name_str.contains("test") || class_name_str.contains("Test")) {
+                return None;
+            }
+            match func {
+                Expr::Attribute(ExprAttribute {
+                    value: box Expr::Name(base_name),
+                    attr,
+                    ..
+                }) if base_name.id.as_str() == "self" => {
+                    if attr.id.as_str() == "assertTrue" {
+                        Some(TestAssertion::AssertTrue)
+                    } else if attr.id.as_str() == "assertFalse" {
+                        Some(TestAssertion::AssertFalse)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }
+        } else {
+            None
+        }
     }
 
     /// Execute through the expr, ensuring every name has a binding.
@@ -292,6 +352,23 @@ impl<'a> BindingsBuilder<'a> {
                     Key::SuperInstance(*range),
                     Binding::SuperInstance(style, *range),
                 );
+                return;
+            }
+            Expr::Call(ExprCall {
+                range,
+                func,
+                arguments,
+            }) if let Some(test_assert) = self.as_assert_in_test(func)
+                && let Some(narrow_op) = test_assert.to_narrow_ops(&arguments.args) =>
+            {
+                self.ensure_expr(func);
+                for arg in arguments.args.iter_mut() {
+                    self.ensure_expr(arg);
+                }
+                for kw in arguments.keywords.iter_mut() {
+                    self.ensure_expr(&mut kw.value);
+                }
+                self.bind_narrow_ops(&narrow_op, *range);
                 return;
             }
             Expr::Name(x) => {

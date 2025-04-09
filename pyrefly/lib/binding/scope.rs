@@ -225,7 +225,7 @@ impl FlowInfo {
 
 #[derive(Clone, Debug)]
 pub struct ClassBodyInner {
-    name: Identifier,
+    pub name: Identifier,
     index: ClassIndex,
     pub instance_attributes_by_method: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
 }
