@@ -48,7 +48,7 @@ use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
 use crate::binding::table::TableKeyed;
-use crate::config::config::ErrorConfigs;
+use crate::config::error::ErrorConfigs;
 use crate::error::kind::ErrorKind;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;

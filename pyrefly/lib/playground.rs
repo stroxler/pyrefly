@@ -18,7 +18,7 @@ use ruff_source_file::SourceLocation;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 
-use crate::config::config::ErrorConfigs;
+use crate::config::error::ErrorConfigs;
 use crate::metadata::RuntimeMetadata;
 use crate::module::bundled::typeshed;
 use crate::module::bundled::BundledTypeshed;

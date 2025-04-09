@@ -11,7 +11,7 @@ use anyhow::anyhow;
 use dupe::Dupe;
 use ruff_text_size::TextRange;
 
-use crate::config::config::ErrorConfigs;
+use crate::config::error::ErrorConfigs;
 use crate::error::collector::CollectedErrors;
 use crate::error::collector::ErrorCollector;
 use crate::error::expectation::Expectation;

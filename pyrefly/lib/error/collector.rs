@@ -14,7 +14,7 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use vec1::vec1;
 
-use crate::config::config::ErrorConfig;
+use crate::config::error::ErrorConfig;
 use crate::error::context::ErrorContext;
 use crate::error::error::Error;
 use crate::error::kind::ErrorKind;
@@ -222,7 +222,7 @@ mod tests {
     use ruff_text_size::TextSize;
 
     use super::*;
-    use crate::config::config::ErrorDisplayConfig;
+    use crate::config::error::ErrorDisplayConfig;
     use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
     use crate::util::prelude::SliceExt;

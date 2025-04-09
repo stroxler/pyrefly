@@ -69,7 +69,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::clap_env;
 use crate::commands::util::module_from_path;
-use crate::config::config::ErrorConfigs;
+use crate::config::error::ErrorConfigs;
 use crate::metadata::RuntimeMetadata;
 use crate::module::bundled::typeshed;
 use crate::module::finder::find_module;
