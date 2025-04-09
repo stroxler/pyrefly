@@ -29,6 +29,7 @@ use tracing::warn;
 use which::which;
 
 use crate::config::error::ErrorDisplayConfig;
+use crate::config::util::ExtraConfigs;
 use crate::globs::Globs;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
@@ -37,31 +38,6 @@ use crate::module::wildcard::ModuleWildcard;
 
 static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonEnvironment>>>> =
     LazyLock::new(|| Mutex::new(SmallMap::new()));
-
-pub fn set_if_some<T: Clone>(config_field: &mut T, value: Option<&T>) {
-    if let Some(value) = value {
-        *config_field = value.clone();
-    }
-}
-
-pub fn set_option_if_some<T: Clone>(config_field: &mut Option<T>, value: Option<&T>) {
-    if value.is_some() {
-        *config_field = value.cloned();
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(transparent)]
-pub struct ExtraConfigs(Table);
-
-// `Value` types in `Table` might not be `Eq`, but we don't actually care about that w.r.t. `ConfigFile`
-impl Eq for ExtraConfigs {}
-
-impl PartialEq for ExtraConfigs {
-    fn eq(&self, _other: &Self) -> bool {
-        true
-    }
-}
 
 /// Values representing the environment of the Python interpreter.
 /// These values are `None` by default, so we can tell if a config
