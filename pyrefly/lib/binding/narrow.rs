@@ -52,12 +52,17 @@ pub enum AtomicNarrowOp {
 }
 
 #[derive(Clone, Debug)]
-#[expect(dead_code)]
 pub struct NarrowedAttribute(Box<Vec1<Name>>);
 
 impl NarrowedAttribute {
     pub fn new(chain: Vec1<Name>) -> Self {
         Self(Box::new(chain))
+    }
+
+    pub fn names(&self) -> &Vec1<Name> {
+        match self {
+            Self(box chain) => chain,
+        }
     }
 }
 

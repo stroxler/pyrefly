@@ -16,6 +16,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::callable::CallArg;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOp;
+use crate::binding::narrow::NarrowedAttribute;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::types::callable::FunctionKind;
@@ -328,6 +329,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    pub fn get_attribute_type(
+        &self,
+        _type_info: &TypeInfo,
+        _attr: &NarrowedAttribute,
+        _range: TextRange,
+        _errors: &ErrorCollector,
+    ) -> Type {
+        // TODO(stroxler): We need to implement real lookup logic here, and
+        // eventually we also need this block to catch and track unsound attempts
+        // at narrowing (e.g. trying to narrow an arbitrary descriptor).
+        Type::ClassType(self.stdlib.object().clone())
+    }
+
     pub fn narrow(
         &self,
         type_info: &TypeInfo,
@@ -341,9 +355,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .clone()
                     .with_ty(self.atomic_narrow(type_info.ty(), op, range, errors))
             }
-            NarrowOp::Atomic(Some(_), _) => {
-                // TODO(stroxler): Handle attribute narrowing, we ignore it for now.
-                type_info.clone()
+            NarrowOp::Atomic(Some(attr), op) => {
+                let ty = self.atomic_narrow(
+                    &self.get_attribute_type(type_info, attr, range, errors),
+                    op,
+                    range,
+                    errors,
+                );
+                type_info.with_narrow(attr.names(), ty)
             }
             NarrowOp::And(ops) => {
                 let mut ops_iter = ops.iter();

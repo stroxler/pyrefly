@@ -58,9 +58,12 @@ impl TypeInfo {
         }
     }
 
-    // TODO(stroxler): remove this directive once we have a production API
-    // to narrow, at the moment only test code uses this method.
-    #[allow(dead_code)]
+    pub fn with_narrow(&self, names: &Vec1<Name>, ty: Type) -> Self {
+        let mut type_info = self.clone();
+        type_info.add_narrow(names, ty);
+        type_info
+    }
+
     fn add_narrow(&mut self, names: &Vec1<Name>, ty: Type) {
         if let Some((name, more_names)) = names.split_first() {
             self.attrs.add_narrow(name.clone(), more_names, ty)
