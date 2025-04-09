@@ -43,6 +43,7 @@ use crate::module::finder::find_module;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
+use crate::module::wildcard::ModuleWildcard;
 use crate::report;
 use crate::run::CommandExitStatus;
 use crate::state::handle::Handle;
@@ -138,7 +139,7 @@ pub struct Args {
 struct LoaderInputs {
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
-    replace_imports_with_any: Vec<String>,
+    replace_imports_with_any: Vec<ModuleWildcard>,
 }
 
 #[derive(Debug, Clone)]
@@ -152,7 +153,7 @@ impl Loader for CheckLoader {
             .loader_inputs
             .replace_imports_with_any
             .iter()
-            .any(|i| module.as_str().starts_with(i))
+            .any(|p| p.matches(module))
         {
             Err(FindError::Ignored)
         } else if let Some(path) = find_module(module, &self.loader_inputs.search_path) {

@@ -34,6 +34,7 @@ use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::metadata::DEFAULT_PYTHON_PLATFORM;
 use crate::module::module_path::ModulePath;
+use crate::module::wildcard::ModuleWildcard;
 
 static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonEnvironment>>>> =
     LazyLock::new(|| Mutex::new(SmallMap::new()));
@@ -304,7 +305,7 @@ pub struct ConfigFile {
     /// String-prefix-matched names of modules from which import errors should be ignored
     /// and the module should always be replaced with `typing.Any`
     #[serde(default)]
-    pub replace_imports_with_any: Vec<String>,
+    pub replace_imports_with_any: Vec<ModuleWildcard>,
 
     /// Whether to ignore type errors in generated code. By default this is disabled.
     /// Generated code is defined as code that contains the marker string `@` immediately followed by `generated`.
@@ -599,7 +600,7 @@ mod tests {
                     (ErrorKind::BadReturn, false)
                 ])),
                 ignore_errors_in_generated_code: true,
-                replace_imports_with_any: vec!["fibonacci".to_owned()],
+                replace_imports_with_any: vec![ModuleWildcard::new("fibonacci").unwrap()],
             },
         );
     }

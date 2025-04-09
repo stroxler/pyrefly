@@ -39,7 +39,6 @@ impl ModuleWildcard {
         })
     }
 
-    #[expect(unused)]
     pub fn matches(&self, module_path: ModuleName) -> bool {
         self.pattern.is_match(module_path.as_str())
     }
