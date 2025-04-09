@@ -683,13 +683,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> TypeInfo {
         let res = match x {
             Expr::Name(x) => {
-                let ty = match x.id.as_str() {
-                    "" => Type::any_error(), // Must already have a parse error
+                match x.id.as_str() {
+                    "" => TypeInfo::of_ty(Type::any_error()), // Must already have a parse error
                     _ => self
                         .get(&Key::Usage(ShortIdentifier::expr_name(x)))
-                        .arc_clone_ty(),
-                };
-                TypeInfo::of_ty(ty)
+                        .arc_clone(),
+                }
             }
             Expr::Attribute(x) => {
                 let obj = self.expr_infer(&x.value, errors);
