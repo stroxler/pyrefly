@@ -125,8 +125,13 @@ impl Solver {
     ///
     /// In addition, if the type exceeds a large depth, it will be replaced with `Any`.
     pub fn expand(&self, mut t: Type) -> Type {
-        self.expand_with_limit(&mut t, TYPE_LIMIT, &Recurser::new());
+        self.expand_mut(&mut t);
         t
+    }
+
+    /// Like `expand`, but when you have a `&mut`.
+    pub fn expand_mut(&self, t: &mut Type) {
+        self.expand_with_limit(t, TYPE_LIMIT, &Recurser::new());
     }
 
     /// Expand, but if the resulting type will be greater than limit levels deep, return an `Any`.
