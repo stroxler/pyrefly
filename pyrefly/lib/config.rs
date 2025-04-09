@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::fmt;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
@@ -262,6 +263,21 @@ impl Default for PythonEnvironment {
             DEFAULT_PYTHON_PLATFORM.to_owned(),
             PythonVersion::default(),
             Vec::new(),
+        )
+    }
+}
+
+impl fmt::Display for PythonEnvironment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{{python_platform: {}, python_version: {}, site_package_path: [{}]}}",
+            self.python_platform(),
+            self.python_version(),
+            self.site_package_path()
+                .iter()
+                .map(|p| p.display())
+                .join(", ")
         )
     }
 }
@@ -547,6 +563,24 @@ impl ConfigFile {
             .tool
             .and_then(|c| c.pyrefly);
         Ok(maybe_config.unwrap_or_else(ConfigFile::default))
+    }
+}
+
+impl fmt::Display for ConfigFile {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{{project_includes: {}, project_excludes: {}, search_path: [{}], python_interpreter: {:?}, python_environment: {}, replace_imports_with_any: [{}]}}",
+            self.project_includes,
+            self.project_excludes,
+            self.search_path.iter().map(|p| p.display()).join(", "),
+            self.python_interpreter,
+            self.python_environment,
+            self.replace_imports_with_any
+                .iter()
+                .map(|p| p.as_str())
+                .join(", "),
+        )
     }
 }
 

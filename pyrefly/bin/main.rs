@@ -177,6 +177,7 @@ async fn run_check_on_project(
     } else {
         get_implicit_config_for_project(&|c| args.override_config(c))
     };
+    debug!("Config is: {}", config);
     let project_excludes =
         project_excludes.map_or_else(|| config.project_excludes.clone(), Globs::new);
     run_check(
@@ -213,6 +214,7 @@ fn get_implicit_config_for_file<'a>(
             log_err(err);
             ConfigFile::default()
         }));
+        debug!("Config for {} is: {}", config_path.display(), config);
         config_cache.insert(config_path, config.clone());
         config
     };
@@ -222,7 +224,14 @@ fn get_implicit_config_for_file<'a>(
                 log_err(err);
                 override_config(ConfigFile::default())
             },
-            get_implicit_config.clone(),
+            |config_path| {
+                debug!(
+                    "Config for {} found at {}",
+                    path.display(),
+                    config_path.display()
+                );
+                get_implicit_config.clone()(config_path)
+            },
         )
     }
 }

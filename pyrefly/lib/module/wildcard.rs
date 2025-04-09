@@ -42,6 +42,10 @@ impl ModuleWildcard {
     pub fn matches(&self, module_path: ModuleName) -> bool {
         self.pattern.is_match(module_path.as_str())
     }
+
+    pub fn as_str(&self) -> &str {
+        self.pattern.as_str()
+    }
 }
 
 impl PartialEq<ModuleWildcard> for ModuleWildcard {
