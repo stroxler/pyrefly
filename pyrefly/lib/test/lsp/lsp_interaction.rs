@@ -6,6 +6,7 @@
  */
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -100,7 +101,7 @@ fn run_test_lsp(test_case: TestCase) {
 
     // spawn thread to run the language server
     let lsp_thread: thread::JoinHandle<Result<(), std::io::Error>> = thread::spawn(move || {
-        run_lsp(&connection, || Ok(()), args)
+        run_lsp(Arc::new(connection), || Ok(()), args)
             .map(|_| ())
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
     });

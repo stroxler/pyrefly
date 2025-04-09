@@ -97,8 +97,8 @@ pub struct Args {
     pub(crate) site_package_path: Vec<PathBuf>,
 }
 
-struct Server<'a> {
-    send: &'a dyn Fn(Message),
+struct Server {
+    send: Arc<dyn Fn(Message) + Send + Sync + 'static>,
     #[expect(dead_code)] // we'll use it later on
     initialize_params: InitializeParams,
     state: State,
@@ -187,8 +187,8 @@ impl Config {
 }
 
 pub fn run_lsp(
-    connection: &Connection,
-    wait_on_connection: impl FnOnce() -> anyhow::Result<()>,
+    connection: Arc<Connection>,
+    wait_on_connection: impl FnOnce() -> anyhow::Result<()> + Send + 'static,
     args: Args,
 ) -> anyhow::Result<CommandExitStatus> {
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
@@ -216,8 +216,14 @@ pub fn run_lsp(
     };
     let search_path = args.search_path;
     let site_package_path = args.site_package_path;
-    let send = |msg| connection.sender.send(msg).unwrap();
-    let mut server = Server::new(&send, initialization_params, search_path, site_package_path);
+    let connection_for_send = connection.dupe();
+    let send = move |msg| connection_for_send.sender.send(msg).unwrap();
+    let mut server = Server::new(
+        Arc::new(send),
+        initialization_params,
+        search_path,
+        site_package_path,
+    );
     eprintln!("Reading messages");
     for msg in &connection.receiver {
         if matches!(&msg, Message::Request(req) if connection.handle_shutdown(req)?) {
@@ -243,7 +249,7 @@ impl Args {
 
         self.search_path.extend(extra_search_paths);
         run_lsp(
-            &connection,
+            Arc::new(connection),
             move || io_threads.join().map_err(anyhow::Error::from),
             self,
         )
@@ -289,7 +295,31 @@ fn to_real_path(path: &ModulePath) -> Option<&Path> {
     }
 }
 
-impl<'a> Server<'a> {
+fn publish_diagnostics_for_uri(
+    send: &Arc<dyn Fn(Message) + Send + Sync + 'static>,
+    uri: Url,
+    diags: Vec<Diagnostic>,
+    version: Option<i32>,
+) {
+    send(Message::Notification(
+        new_notification::<PublishDiagnostics>(PublishDiagnosticsParams::new(uri, diags, version)),
+    ));
+}
+
+fn publish_diagnostics(
+    send: Arc<dyn Fn(Message) + Send + Sync + 'static>,
+    diags: SmallMap<PathBuf, Vec<Diagnostic>>,
+) {
+    for (path, diags) in diags {
+        let path = std::fs::canonicalize(&path).unwrap_or(path);
+        match Url::from_file_path(&path) {
+            Ok(uri) => publish_diagnostics_for_uri(&send, uri, diags, None),
+            Err(_) => eprint!("Unable to convert path to uri: {path:?}"),
+        }
+    }
+}
+
+impl Server {
     fn process(&mut self, msg: Message) -> anyhow::Result<()> {
         match msg {
             Message::Request(x) => {
@@ -370,7 +400,7 @@ impl<'a> Server<'a> {
     }
 
     fn new(
-        send: &'a dyn Fn(Message),
+        send: Arc<dyn Fn(Message) + Send + Sync + 'static>,
         initialize_params: InitializeParams,
         search_path: Vec<PathBuf>,
         site_package_path: Vec<PathBuf>,
@@ -402,28 +432,16 @@ impl<'a> Server<'a> {
         }
     }
 
-    fn send_notification(&self, x: Notification) {
-        (self.send)(Message::Notification(x))
-    }
-
     fn send_response(&self, x: Response) {
         (self.send)(Message::Response(x))
     }
 
     fn publish_diagnostics_for_uri(&self, uri: Url, diags: Vec<Diagnostic>, version: Option<i32>) {
-        self.send_notification(new_notification::<PublishDiagnostics>(
-            PublishDiagnosticsParams::new(uri, diags, version),
-        ));
+        publish_diagnostics_for_uri(&self.send, uri, diags, version);
     }
 
     fn publish_diagnostics(&self, diags: SmallMap<PathBuf, Vec<Diagnostic>>) {
-        for (path, diags) in diags {
-            let path = std::fs::canonicalize(&path).unwrap_or(path);
-            match Url::from_file_path(&path) {
-                Ok(uri) => self.publish_diagnostics_for_uri(uri, diags, None),
-                Err(_) => eprint!("Unable to convert path to uri: {path:?}"),
-            }
-        }
+        publish_diagnostics(self.send.dupe(), diags);
     }
 
     fn validate_in_memory(&self) -> anyhow::Result<()> {
