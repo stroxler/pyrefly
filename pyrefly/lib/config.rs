@@ -430,7 +430,7 @@ impl ConfigFile {
                 but no Python interpreter could be found to query for values. Falling back to \
                 Pyrefly defaults for missing values."
             )
-        };
+        }
     }
 
     /// Rewrites any config values that must be updated *before* applying CLI flag values, namely

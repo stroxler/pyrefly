@@ -14,3 +14,4 @@ pub mod module_name;
 pub mod module_path;
 pub mod short_identifier;
 pub mod source_db;
+pub mod wildcard;
