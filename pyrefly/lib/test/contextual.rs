@@ -354,3 +354,36 @@ x: Foo[Literal[42]] = Foo(42)  # E: `Foo[int]` is not assignable to `Foo[Literal
 assert_type(x.get(), Literal[42])
 "#,
 );
+
+testcase!(
+    bug = "We need to use A.CONST's type annotation when inferring types for B.CONST and C.CONST",
+    test_override_classvar,
+    r#"
+from typing import ClassVar
+class A:
+    CONST: ClassVar[list[int | str]]
+class B(A):
+    CONST = [42] # E:
+    def f(self) -> list[int | str]:
+        return self.CONST # E:
+class C(B):
+    CONST = ["hello world"] # E:
+    "#,
+);
+
+testcase!(
+    bug = "We need to use A.x's type annotation when inferring types for B().x and C().x",
+    test_override_instance_var,
+    r#"
+class A:
+    x: list[int | str]
+class B(A):
+    def __init__(self):
+        self.x = [42] # E:
+    def f(self) -> list[int | str]:
+        return self.x # E:
+class C(B):
+    def __init__(self):
+        self.x = ["hello world"] # E:
+    "#,
+);
