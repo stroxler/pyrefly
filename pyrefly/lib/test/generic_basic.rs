@@ -653,13 +653,13 @@ def f(a: A[str]):  # E: Expected 4 type arguments for `A`, got 1
 
 // This isn't allowed because it's ambiguous how many type arguments the TypeVarTuple consumes.
 testcase!(
-    bug = "We should error on the class definitions. First reveal_type() output is questionable.",
+    bug = "First reveal_type() output is questionable.",
     test_typevar_with_default_after_typevartuple,
     r#"
 from typing import reveal_type
-class A[*Ts, T = int]:  # Expected: TypeVar `T` with a default cannot follow TypeVarTuple `Ts`
+class A[*Ts, T = int]:  # E: TypeVar `T` with a default cannot follow TypeVarTuple `Ts`
     pass
-class B[*Ts, T1, T2 = T1]:  # Expected: TypeVar `T2` with a default cannot follow TypeVarTuple `Ts`
+class B[*Ts, T1, T2 = T1]:  # E: TypeVar `T2` with a default cannot follow TypeVarTuple `Ts`
     pass
 # It doesn't matter too much how we fill in the type arguments, as long as it's plausible.
 reveal_type(B()) # E: B[tuple[Unknown, ...], Unknown, TypeVar[T2]]

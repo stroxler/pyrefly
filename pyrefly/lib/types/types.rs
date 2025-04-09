@@ -137,6 +137,7 @@ impl TParams {
         let mut errors = Vec::new();
         let mut tparams: Vec<TParam> = Vec::with_capacity(info.len());
         let mut seen = SmallSet::new();
+        let mut typevartuple = None;
         for tparam in info {
             if let Some(p) = tparams.last()
                 && p.quantified.default().is_some()
@@ -175,8 +176,20 @@ impl TParams {
                         out_of_scope_names.map(|n| format!("`{n}`")).join(", "),
                     ));
                 }
+                if tparam.quantified.is_type_var()
+                    && let Some(tvt) = &typevartuple
+                {
+                    errors.push(format!(
+                        "TypeVar `{}` with a default cannot follow TypeVarTuple `{}`",
+                        tparam.quantified.name(),
+                        tvt
+                    ))
+                }
             }
             seen.insert(tparam.quantified.name().clone());
+            if tparam.quantified.is_type_var_tuple() {
+                typevartuple = Some(tparam.quantified.name().clone());
+            }
             tparams.push(TParam {
                 quantified: tparam.quantified,
                 // Classes set the variance before getting here. For functions and aliases, the variance isn't meaningful;
