@@ -61,9 +61,14 @@ impl TypeInfo {
     // TODO(stroxler): remove this directive once we have a production API
     // to narrow, at the moment only test code uses this method.
     #[allow(dead_code)]
-    pub fn add_narrow(&mut self, names: Vec1<&Name>, ty: Type) {
-        let (name, more_names) = names.split_off_first();
-        self.attrs.add_narrow(name.clone(), &more_names, ty)
+    fn add_narrow(&mut self, names: &Vec1<Name>, ty: Type) {
+        if let Some((name, more_names)) = names.split_first() {
+            self.attrs.add_narrow(name.clone(), more_names, ty)
+        } else {
+            unreachable!(
+                "We know the Vec1 will split. But the safe API, split_off_first, is not ref-based."
+            )
+        }
     }
 
     pub fn ty(&self) -> &Type {
@@ -101,7 +106,7 @@ impl NarrowedAttrs {
         Self(None)
     }
 
-    fn add_narrow(&mut self, name: Name, more_names: &[&Name], ty: Type) {
+    fn add_narrow(&mut self, name: Name, more_names: &[Name], ty: Type) {
         if self.0.is_none() {
             self.0 = Some(Box::new(SmallMap::with_capacity(1)))
         }
@@ -117,7 +122,7 @@ impl NarrowedAttrs {
         }
     }
 
-    fn of_narrow(name: Name, more_names: &[&Name], ty: Type) -> Self {
+    fn of_narrow(name: Name, more_names: &[Name], ty: Type) -> Self {
         let mut attrs = SmallMap::with_capacity(1);
         attrs.insert(name.clone(), NarrowedAttr::new(more_names, ty));
         Self(Some(Box::new(attrs)))
@@ -218,7 +223,7 @@ enum NarrowedAttr {
 }
 
 impl NarrowedAttr {
-    fn new(names: &[&Name], ty: Type) -> Self {
+    fn new(names: &[Name], ty: Type) -> Self {
         match names {
             [] => Self::Leaf(ty),
             [name, more_names @ ..] => {
@@ -227,7 +232,7 @@ impl NarrowedAttr {
         }
     }
 
-    fn with_narrow(self, names: &[&Name], narrowed_ty: Type) -> Self {
+    fn with_narrow(self, names: &[Name], narrowed_ty: Type) -> Self {
         match names {
             [] => {
                 // We are setting a narrow at the current node (potentially overriding an existing narrow; it is
@@ -282,32 +287,32 @@ mod tests {
 
     #[test]
     fn test_type_info_one_level_only() {
-        let x = Name::new_static("x");
-        let y = Name::new_static("y");
+        let x = || Name::new_static("x");
+        let y = || Name::new_static("y");
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         assert_eq!(type_info.to_string(), "Foo");
-        type_info.add_narrow(Vec1::new(&x), fake_class_type("Bar"));
+        type_info.add_narrow(&Vec1::new(x()), fake_class_type("Bar"));
         assert_eq!(type_info.to_string(), "Foo (_.x: Bar)");
-        type_info.add_narrow(Vec1::new(&y), fake_class_type("Baz"));
+        type_info.add_narrow(&Vec1::new(y()), fake_class_type("Baz"));
         assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.y: Baz)");
     }
 
     #[test]
     fn test_type_info_adding_sub_attributes() {
-        let x = Name::new_static("x");
-        let y = Name::new_static("y");
-        let z = Name::new_static("z");
+        let x = || Name::new_static("x");
+        let y = || Name::new_static("y");
+        let z = || Name::new_static("z");
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
-        type_info.add_narrow(Vec1::new(&x), fake_class_type("Bar"));
-        type_info.add_narrow(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Baz"));
+        type_info.add_narrow(&Vec1::new(x()), fake_class_type("Bar"));
+        type_info.add_narrow(&Vec1::from_vec_push(vec![x()], y()), fake_class_type("Baz"));
         assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.x.y: Baz)");
-        type_info.add_narrow(Vec1::from_vec_push(vec![&x], &z), fake_class_type("Qux"));
+        type_info.add_narrow(&Vec1::from_vec_push(vec![x()], z()), fake_class_type("Qux"));
         assert_eq!(
             type_info.to_string(),
             "Foo (_.x: Bar, _.x.y: Baz, _.x.z: Qux)"
         );
         type_info.add_narrow(
-            Vec1::from_vec_push(vec![&x, &y], &x),
+            &Vec1::from_vec_push(vec![x(), y()], x()),
             fake_class_type("Foo"),
         );
         assert_eq!(
@@ -318,22 +323,22 @@ mod tests {
 
     #[test]
     fn test_type_info_creating_subtrees_and_narrowing_roots() {
-        let x = Name::new_static("x");
-        let y = Name::new_static("y");
-        let z = Name::new_static("z");
-        let w = Name::new_static("w");
+        let x = || Name::new_static("x");
+        let y = || Name::new_static("y");
+        let z = || Name::new_static("z");
+        let w = || Name::new_static("w");
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         type_info.add_narrow(
-            Vec1::from_vec_push(vec![&x, &y], &z),
+            &Vec1::from_vec_push(vec![x(), y()], z()),
             fake_class_type("Bar"),
         );
         assert_eq!(type_info.to_string(), "Foo (_.x.y.z: Bar)");
         type_info.add_narrow(
-            Vec1::from_vec_push(vec![&x, &y], &w),
+            &Vec1::from_vec_push(vec![x(), y()], w()),
             fake_class_type("Baz"),
         );
         assert_eq!(type_info.to_string(), "Foo (_.x.y.z: Bar, _.x.y.w: Baz)");
-        type_info.add_narrow(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux"));
+        type_info.add_narrow(&Vec1::from_vec_push(vec![x()], y()), fake_class_type("Qux"));
         assert_eq!(
             type_info.to_string(),
             "Foo (_.x.y: Qux, _.x.y.z: Bar, _.x.y.w: Baz)"
@@ -342,20 +347,23 @@ mod tests {
 
     #[test]
     fn test_type_info_overwiting_existing_narrows() {
-        let x = Name::new_static("x");
-        let y = Name::new_static("y");
-        let z = Name::new_static("z");
+        let x = || Name::new_static("x");
+        let y = || Name::new_static("y");
+        let z = || Name::new_static("z");
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         type_info.add_narrow(
-            Vec1::from_vec_push(vec![&x, &y], &z),
+            &Vec1::from_vec_push(vec![x(), y()], z()),
             fake_class_type("Bar"),
         );
-        type_info.add_narrow(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux"));
+        type_info.add_narrow(&Vec1::from_vec_push(vec![x()], y()), fake_class_type("Qux"));
         assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux, _.x.y.z: Bar)");
-        type_info.add_narrow(Vec1::from_vec_push(vec![&x], &y), fake_class_type("Qux1"));
+        type_info.add_narrow(
+            &Vec1::from_vec_push(vec![x()], y()),
+            fake_class_type("Qux1"),
+        );
         assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux1, _.x.y.z: Bar)");
         type_info.add_narrow(
-            Vec1::from_vec_push(vec![&x, &y], &z),
+            &Vec1::from_vec_push(vec![x(), y()], z()),
             fake_class_type("Bar1"),
         );
         assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux1, _.x.y.z: Bar1)");
