@@ -356,18 +356,17 @@ assert_type(x.get(), Literal[42])
 );
 
 testcase!(
-    bug = "We need to use A.CONST's type annotation when inferring types for B.CONST and C.CONST",
     test_override_classvar,
     r#"
 from typing import ClassVar
 class A:
     CONST: ClassVar[list[int | str]]
 class B(A):
-    CONST = [42] # E:
+    CONST = [42]
     def f(self) -> list[int | str]:
-        return self.CONST # E:
+        return self.CONST
 class C(B):
-    CONST = ["hello world"] # E:
+    CONST = ["hello world"]
     "#,
 );
 

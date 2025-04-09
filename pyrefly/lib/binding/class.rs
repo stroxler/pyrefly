@@ -169,13 +169,18 @@ impl<'a> BindingsBuilder<'a> {
             // A name with flow in the last_scope, but whose static is in a parent scope, is a reference to something that isn't a class field.
             // Can occur when we narrow a parent scopes variable, thus producing a fresh flow for it, but no static.
             if let Some(stat_info) = last_scope.stat.0.get_hashed(name) {
+                let initial_value = info.as_initial_value();
+                let value = match &initial_value {
+                    ClassFieldInitialValue::Class(Some(e)) => ExprOrBinding::Expr(e.clone()),
+                    _ => ExprOrBinding::Binding(Binding::Forward(info.key)),
+                };
                 let binding = BindingClassField {
                     class: definition_key,
                     name: name.into_key().clone(),
-                    value: ExprOrBinding::Binding(Binding::Forward(info.key)),
+                    value,
                     annotation: stat_info.annot,
                     range: stat_info.loc,
-                    initial_value: info.as_initial_value(),
+                    initial_value,
                     is_function_without_return_annotation,
                 };
                 fields.insert_hashed(
