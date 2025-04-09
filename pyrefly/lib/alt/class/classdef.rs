@@ -200,9 +200,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Instantiates a class or typed dictionary with fresh variables for its type parameters.
     pub fn instantiate_fresh(&self, cls: &Class) -> Type {
-        self.solver()
+        let vs = self
+            .solver()
             .fresh_quantified(cls.tparams(), self.instantiate(cls), self.uniques)
-            .1
+            .0;
+        self.type_of_instance(cls, TArgs::new(vs.map(|v| v.to_type())))
     }
 
     pub fn unwrap_class_object_silently(&self, ty: &Type) -> Option<Type> {
