@@ -977,15 +977,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Replace any solved recursive variables with their answers.
         // We call self.unions() to simplify cases like
         // v = @1 | int, @1 = int.
-        let type_info = self.binding_to_type_info(binding, errors);
-        // TODO(stroxler): We'll need a different pattern here to preserve attribute narrowing.
-        // Do we also need to *expand* the attribute narrowing types? I'm honestly not sure at this stage.
-        let ty = type_info.into_ty();
-        let ty = match self.solver().expand(ty) {
-            Type::Union(ts) => self.unions(ts),
-            t => t,
-        };
-        Arc::new(TypeInfo::of_ty(ty))
+        let mut type_info = self.binding_to_type_info(binding, errors);
+        type_info.visit_mut(&mut |ty| {
+            let cannonicalized = match self.solver().expand(ty.clone()) {
+                Type::Union(ts) => self.unions(ts),
+                t => t,
+            };
+            *ty = cannonicalized;
+        });
+        Arc::new(type_info)
     }
 
     pub fn solve_expectation(
