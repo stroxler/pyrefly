@@ -14,7 +14,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
-use crate::config::ErrorConfigs;
+use crate::config::config::ErrorConfigs;
 use crate::error::error::print_errors;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;

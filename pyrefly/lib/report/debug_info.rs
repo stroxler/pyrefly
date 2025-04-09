@@ -18,7 +18,7 @@ use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
 use crate::binding::table::TableKeyed;
-use crate::config::ErrorConfigs;
+use crate::config::config::ErrorConfigs;
 use crate::error::collector::ErrorCollector;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;

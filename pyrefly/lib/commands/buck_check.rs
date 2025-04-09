@@ -16,7 +16,7 @@ use serde::Deserialize;
 use tracing::info;
 
 use crate::clap_env;
-use crate::config::ErrorConfigs;
+use crate::config::config::ErrorConfigs;
 use crate::error::error::Error;
 use crate::error::legacy::LegacyErrors;
 use crate::metadata::PythonVersion;

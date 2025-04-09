@@ -24,7 +24,7 @@ use ruff_text_size::TextSize;
 use starlark_map::small_map::SmallMap;
 
 use crate::binding::binding::KeyExport;
-use crate::config::ErrorConfigs;
+use crate::config::config::ErrorConfigs;
 use crate::error::error::print_errors;
 use crate::metadata::RuntimeMetadata;
 use crate::module::bundled::typeshed;

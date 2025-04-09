@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::binding::binding::KeyClassMetadata;
-use crate::config::ErrorConfigs;
+use crate::config::config::ErrorConfigs;
 use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_class;

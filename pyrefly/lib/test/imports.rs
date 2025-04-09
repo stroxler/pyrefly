@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use crate::config::ErrorConfigs;
+use crate::config::config::ErrorConfigs;
 use crate::test::util::TestEnv;
 use crate::testcase;
 
