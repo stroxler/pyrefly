@@ -328,35 +328,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn narrow_type(
-        &self,
-        ty: &Type,
-        op: &NarrowOp,
-        range: TextRange,
-        errors: &ErrorCollector,
-    ) -> Type {
-        match op {
-            NarrowOp::Atomic(None, op) => self.atomic_narrow(ty, op, range, errors),
-            NarrowOp::Atomic(Some(_), _) => {
-                // TODO(stroxler): Handle attribute narrowing, we ignore it for now.
-                ty.clone()
-            }
-            NarrowOp::And(ops) => {
-                let mut ops_iter = ops.iter();
-                if let Some(first_op) = ops_iter.next() {
-                    let mut ret = self.narrow_type(ty, first_op, range, errors);
-                    for next_op in ops_iter {
-                        ret = self.narrow_type(&ret, next_op, range, errors);
-                    }
-                    ret
-                } else {
-                    ty.clone()
-                }
-            }
-            NarrowOp::Or(ops) => self.unions(ops.map(|op| self.narrow_type(ty, op, range, errors))),
-        }
-    }
-
     pub fn narrow(
         &self,
         type_info: &TypeInfo,
@@ -364,8 +335,38 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> TypeInfo {
-        // TODO(stroxler): Push this down to handle actual attribute narrowing.
-        TypeInfo::of_ty(self.narrow_type(type_info.ty(), op, range, errors))
+        match op {
+            NarrowOp::Atomic(None, op) => {
+                type_info
+                    .clone()
+                    .with_ty(self.atomic_narrow(type_info.ty(), op, range, errors))
+            }
+            NarrowOp::Atomic(Some(_), _) => {
+                // TODO(stroxler): Handle attribute narrowing, we ignore it for now.
+                type_info.clone()
+            }
+            NarrowOp::And(ops) => {
+                let mut ops_iter = ops.iter();
+                if let Some(first_op) = ops_iter.next() {
+                    let mut ret = self.narrow(type_info, first_op, range, errors);
+                    for next_op in ops_iter {
+                        ret = self.narrow(&ret, next_op, range, errors);
+                    }
+                    ret
+                } else {
+                    type_info.clone()
+                }
+            }
+            NarrowOp::Or(ops) => {
+                // TODO(stroxler): We cannot yet narrow attributes into a union type using `or`; all we do is preserve
+                // pre-existing narrows.
+                //
+                // Supporting `Or` can wait until we have a join operation on TypeInfo (which is also needed for Phi bindings).
+                let ty =
+                    self.unions(ops.map(|op| self.narrow(type_info, op, range, errors).into_ty()));
+                type_info.clone().with_ty(ty)
+            }
+        }
     }
 }
 
