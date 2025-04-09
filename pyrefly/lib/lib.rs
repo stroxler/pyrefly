@@ -28,7 +28,6 @@
 #![feature(const_type_name)]
 #![feature(if_let_guard)]
 #![feature(let_chains)]
-#![feature(once_wait)]
 
 mod alt;
 mod binding;
