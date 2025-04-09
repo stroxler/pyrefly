@@ -197,6 +197,14 @@ impl NarrowOps {
         self_op.or(other_op);
     }
 
+    pub fn from_single_narrow_op(left: &Expr, op: AtomicNarrowOp, range: TextRange) -> Self {
+        let mut narrow_ops = Self::new();
+        for subject in expr_to_subjects(left) {
+            narrow_ops.and_atomic(subject, op.clone(), range);
+        }
+        narrow_ops
+    }
+
     pub fn from_expr(test: Option<&Expr>) -> Self {
         match test {
             Some(Expr::Compare(ExprCompare {
@@ -275,23 +283,13 @@ impl NarrowOps {
             })) if !posargs.is_empty() => {
                 // This may be a function call that narrows the type of its first argument. Record
                 // it as a possible narrowing operation that we'll resolve in the answers phase.
-                let mut narrow_ops = Self::new();
-                for subject in expr_to_subjects(&posargs[0]) {
-                    narrow_ops.and_atomic(
-                        subject,
-                        AtomicNarrowOp::Call(Box::new((**func).clone()), args.clone()),
-                        *range,
-                    );
-                }
-                narrow_ops
+                Self::from_single_narrow_op(
+                    &posargs[0],
+                    AtomicNarrowOp::Call(Box::new((**func).clone()), args.clone()),
+                    *range,
+                )
             }
-            Some(e) => {
-                let mut narrow_ops = Self::new();
-                for subject in expr_to_subjects(e) {
-                    narrow_ops.and_atomic(subject, AtomicNarrowOp::Truthy, e.range());
-                }
-                narrow_ops
-            }
+            Some(e) => Self::from_single_narrow_op(e, AtomicNarrowOp::Truthy, e.range()),
             None => Self::new(),
         }
     }
