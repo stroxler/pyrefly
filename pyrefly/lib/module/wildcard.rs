@@ -34,7 +34,7 @@ pub struct ModuleWildcard {
 impl ModuleWildcard {
     pub fn new(value: &str) -> anyhow::Result<Self> {
         Ok(Self {
-            pattern: Regex::new(value)?,
+            pattern: rewrite_pattern_as_regex(value)?,
             origin: value.to_owned(),
         })
     }
@@ -91,5 +91,102 @@ impl Serialize for ModuleWildcard {
         S: serde::Serializer,
     {
         serializer.serialize_str(&self.origin)
+    }
+}
+
+/// Rewrites a module glob pattern into a regex. Uses the same logic
+/// as mypy to reduce issues when converting module path globs.
+fn rewrite_pattern_as_regex(original: &str) -> anyhow::Result<Regex> {
+    let mut pattern = "^".to_owned();
+    let mut split = original.split('.');
+
+    match split.next() {
+        Some("*") => pattern.push_str(".*"),
+        Some(comp) => pattern.push_str(&regex::escape(comp)),
+        None => return Err(anyhow::anyhow!("Cannot process an empty module glob")),
+    };
+    for comp in split {
+        if comp == "*" {
+            pattern.push_str(r"(\..*)?");
+        } else {
+            pattern.push_str(r"\.");
+            pattern.push_str(&regex::escape(comp));
+        }
+    }
+
+    pattern.push('$');
+    Regex::new(&pattern).map_err(|err| {
+        anyhow::anyhow!(
+            "Internal Error: invalid module glob pattern constructed: {} from {}, with error {}",
+            pattern,
+            original,
+            err,
+        )
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rewrite_pattern_as_regex() {
+        let pattern = rewrite_pattern_as_regex("path.to.my.file").unwrap();
+        assert_eq!(pattern.as_str(), r"^path\.to\.my\.file$");
+        assert!(pattern.is_match("path.to.my.file"));
+        assert!(!pattern.is_match(".path.to.my.file"));
+        assert!(!pattern.is_match("path.to.my.file."));
+        assert!(!pattern.is_match(".path.to.a.file"));
+
+        let pattern = rewrite_pattern_as_regex("path.to.my.file.*").unwrap();
+        assert_eq!(pattern.as_str(), r"^path\.to\.my\.file(\..*)?$");
+        assert!(pattern.is_match("path.to.my.file"));
+        assert!(pattern.is_match("path.to.my.file.s.submodule"));
+        assert!(pattern.is_match("path.to.my.file."));
+        assert!(!pattern.is_match("path.to.my.files"));
+
+        let pattern = rewrite_pattern_as_regex("path.to.*.file").unwrap();
+        assert_eq!(pattern.as_str(), r"^path\.to(\..*)?\.file$");
+        assert!(pattern.is_match("path.to.file"));
+        assert!(pattern.is_match("path.to.my.file"));
+        assert!(pattern.is_match("path.to.a.something.somewhere.file"));
+        assert!(!pattern.is_match("this.ends.with.file"));
+        assert!(!pattern.is_match("path.to"));
+        assert!(!pattern.is_match("path.to.files"));
+        assert!(!pattern.is_match("path.to.myfile"));
+        assert!(!pattern.is_match("path.to..myfile"));
+
+        let pattern = rewrite_pattern_as_regex("*.path.to.my.file").unwrap();
+        assert_eq!(pattern.as_str(), r"^.*\.path\.to\.my\.file$");
+        assert!(pattern.is_match("this.is.a.path.to.my.file"));
+        assert!(pattern.is_match("a.path.to.my.file"));
+        assert!(pattern.is_match(".path.to.my.file"));
+        assert!(!pattern.is_match("path.to.my.file"));
+        assert!(!pattern.is_match("apath.to.my.file"));
+
+        assert_eq!(
+            rewrite_pattern_as_regex("path.to.any*.file")
+                .unwrap()
+                .to_string(),
+            r"^path\.to\.any\*\.file$"
+        );
+        assert_eq!(
+            rewrite_pattern_as_regex("path.to.*any.file")
+                .unwrap()
+                .to_string(),
+            r"^path\.to\.\*any\.file$",
+        );
+        assert_eq!(
+            rewrite_pattern_as_regex("path.to.*any*.file")
+                .unwrap()
+                .to_string(),
+            r"^path\.to\.\*any\*\.file$"
+        );
+        assert_eq!(
+            rewrite_pattern_as_regex("path.to.so*me.file")
+                .unwrap()
+                .to_string(),
+            r"^path\.to\.so\*me\.file$"
+        );
     }
 }
