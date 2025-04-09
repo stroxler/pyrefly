@@ -8,6 +8,7 @@
 #![cfg(test)]
 
 mod assign;
+mod attribute_narrow;
 mod attributes;
 mod callable;
 mod calls;
