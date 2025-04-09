@@ -650,3 +650,49 @@ def f(a: A[str]):  # E: Expected 4 type arguments for `A`, got 1
     assert_type(a, A[str, int, Any, str])
     "#,
 );
+
+// This isn't allowed because it's ambiguous how many type arguments the TypeVarTuple consumes.
+testcase!(
+    bug = "We should error on the class definitions. First reveal_type() output is questionable.",
+    test_typevar_with_default_after_typevartuple,
+    r#"
+from typing import reveal_type
+class A[*Ts, T = int]:  # Expected: TypeVar `T` with a default cannot follow TypeVarTuple `Ts`
+    pass
+class B[*Ts, T1, T2 = T1]:  # Expected: TypeVar `T2` with a default cannot follow TypeVarTuple `Ts`
+    pass
+# It doesn't matter too much how we fill in the type arguments, as long as it's plausible.
+reveal_type(B()) # E: B[tuple[Unknown, ...], Unknown, TypeVar[T2]]
+reveal_type(B[int]()) # E: B[tuple[()], int, int]
+reveal_type(B[int, str]()) # E: B[tuple[()], int, str]
+reveal_type(B[int, str, float, bool, bytes]()) # E: B[tuple[int, str, float], bool, bytes]
+    "#,
+);
+
+testcase!(
+    bug = "False positive on the definition of A, wrong revealed types",
+    test_paramspec_with_default_after_typevartuple,
+    r#"
+from typing import Any, reveal_type
+class A[*Ts, **P1, **P2 = P1]: # E: ParamSpec is not allowed in this context
+    pass
+class B[*Ts, T, **P = [int, str]]:
+    pass
+reveal_type(A[[int, str]]()) # E: A[tuple[()], [int, str], Error]
+reveal_type(A[bool, [int, str]]()) # E: A[tuple[()], Ellipsis, [int, str]] # E: Expected a valid ParamSpec expression, got `bool`
+reveal_type(A[bool, bytes, [int, str]]()) # E: A[tuple[bool], Ellipsis, [int, str]] # E: Expected a valid ParamSpec expression, got `bytes`
+reveal_type(B[int, str, float]()) # E: B[tuple[int], str, Ellipsis] # E: Expected a valid ParamSpec expression, got `float`
+    "#,
+);
+
+testcase!(
+    bug = "We should accept a TypeVarTuple as a default of a TypeVarTuple",
+    test_typevartuple_default_is_typevartuple,
+    r#"
+from typing import TypeVarTuple, Unpack
+Ps = TypeVarTuple('Ps')
+Qs = TypeVarTuple('Qs', default=Unpack[Ps]) # E: Default for TypeVarTuple must be an unpacked tuple form or another TypeVarTuple
+class A[*Ps, *Qs = *Ps]: # E: cannot be more than one TypeVarTuple # E: Default for TypeVarTuple must be an unpacked tuple form or another TypeVarTuple
+    pass
+    "#,
+);
