@@ -23,6 +23,7 @@ use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingExpect;
+use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Initialized;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
@@ -537,7 +538,10 @@ impl<'a> BindingsBuilder<'a> {
                         self.ensure_expr(&mut v);
                         self.table.insert(
                             KeyExpect(v.range()),
-                            BindingExpect::CheckAssignExprToAttribute(Box::new((attr, v))),
+                            BindingExpect::CheckAssignToAttribute(Box::new((
+                                attr,
+                                ExprOrBinding::Expr(v),
+                            ))),
                         );
                     }
                 }

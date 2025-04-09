@@ -253,6 +253,12 @@ impl DisplayWith<ModuleInfo> for KeyExpect {
 }
 
 #[derive(Clone, Debug)]
+pub enum ExprOrBinding {
+    Expr(Expr),
+    Binding(Binding),
+}
+
+#[derive(Clone, Debug)]
 pub enum BindingExpect {
     /// An expression where we need to check for type errors, but don't need the result type.
     TypeCheckExpr(Box<Expr>),
@@ -263,11 +269,8 @@ pub enum BindingExpect {
     /// An expectation that the types are identical, with an associated name for error messages.
     Eq(Idx<KeyAnnotation>, Idx<KeyAnnotation>, Name),
     /// Verify that an attribute assignment or annotation is legal, given an expr for the
-    /// assignment (use this when an expr is available, to get bidirectional typing).
-    CheckAssignExprToAttribute(Box<(ExprAttribute, Expr)>),
-    /// Verify that an attribute assignment or annotation is legal, given a type for the
-    /// assignment (use this when no expr is available).
-    CheckAssignTypeToAttribute(Box<(ExprAttribute, Binding)>),
+    /// assignment (use the expr when available, to get bidirectional typing).
+    CheckAssignToAttribute(Box<(ExprAttribute, ExprOrBinding)>),
     /// `del` statement
     Delete(Box<Expr>),
 }
@@ -308,7 +311,7 @@ impl DisplayWith<Bindings> for BindingExpect {
                 ctx.display(*k2),
                 name
             ),
-            Self::CheckAssignExprToAttribute(box (attr, value)) => {
+            Self::CheckAssignToAttribute(box (attr, ExprOrBinding::Expr(value))) => {
                 write!(
                     f,
                     "check assign expr to attr {}.{} {}",
@@ -317,7 +320,7 @@ impl DisplayWith<Bindings> for BindingExpect {
                     m.display(value),
                 )
             }
-            Self::CheckAssignTypeToAttribute(box (attr, binding)) => {
+            Self::CheckAssignToAttribute(box (attr, ExprOrBinding::Binding(binding))) => {
                 write!(
                     f,
                     "check assign type to attr {}.{} ({})",

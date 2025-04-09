@@ -10,6 +10,7 @@ use ruff_text_size::TextRange;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingExpect;
+use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyExpect;
@@ -110,9 +111,9 @@ impl<'a> BindingsBuilder<'a> {
                     // expression itself.
                     self.table.insert(
                         KeyExpect(x.range),
-                        BindingExpect::CheckAssignExprToAttribute(Box::new((
+                        BindingExpect::CheckAssignToAttribute(Box::new((
                             x.clone(),
-                            value.clone(),
+                            ExprOrBinding::Expr(value.clone()),
                         ))),
                     );
                 } else {
@@ -120,9 +121,9 @@ impl<'a> BindingsBuilder<'a> {
                     // Note that contextual typing will not be used in this case.
                     self.table.insert(
                         KeyExpect(x.range),
-                        BindingExpect::CheckAssignTypeToAttribute(Box::new((
+                        BindingExpect::CheckAssignToAttribute(Box::new((
                             x.clone(),
-                            value_binding.clone(),
+                            ExprOrBinding::Binding(value_binding.clone()),
                         ))),
                     );
                 }
