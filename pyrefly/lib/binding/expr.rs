@@ -52,6 +52,8 @@ enum TestAssertion {
     AssertFalse,
     AssertIsNone,
     AssertIsNotNone,
+    AssertIsInstance,
+    AssertNotIsInstance,
 }
 
 impl TestAssertion {
@@ -78,6 +80,26 @@ impl TestAssertion {
                     AtomicNarrowOp::IsNot(Expr::NoneLiteral(ExprNoneLiteral {
                         range: TextRange::default(),
                     })),
+                    arg0.range(),
+                ))
+            }
+            Self::AssertIsInstance
+                if let Some(arg0) = args.first()
+                    && let Some(arg1) = args.get(1) =>
+            {
+                Some(NarrowOps::from_single_narrow_op(
+                    arg0,
+                    AtomicNarrowOp::IsInstance(arg1.clone()),
+                    arg0.range(),
+                ))
+            }
+            Self::AssertNotIsInstance
+                if let Some(arg0) = args.first()
+                    && let Some(arg1) = args.get(1) =>
+            {
+                Some(NarrowOps::from_single_narrow_op(
+                    arg0,
+                    AtomicNarrowOp::IsNotInstance(arg1.clone()),
                     arg0.range(),
                 ))
             }
@@ -208,6 +230,10 @@ impl<'a> BindingsBuilder<'a> {
                         Some(TestAssertion::AssertIsNone)
                     } else if attr.id.as_str() == "assertIsNotNone" {
                         Some(TestAssertion::AssertIsNotNone)
+                    } else if attr.id.as_str() == "assertIsInstance" {
+                        Some(TestAssertion::AssertIsInstance)
+                    } else if attr.id.as_str() == "assertNotIsInstance" {
+                        Some(TestAssertion::AssertNotIsInstance)
                     } else {
                         None
                     }

@@ -830,3 +830,22 @@ class MyTest(TestCase):
         assert_type(x, int)
 "#,
 );
+
+testcase!(
+    test_unittest_assert_isinstance,
+    r#"
+from typing import assert_type
+from unittest import TestCase
+def foo() -> int | None: ...
+class MyTest(TestCase):
+    def test_is_instance(self) -> None:
+        x = foo()
+        self.assertIsInstance(x, int)
+        assert_type(x, int)
+    
+    def test_is_not_instance(self) -> None:
+        x = foo()
+        self.assertNotIsInstance(x, int)
+        assert_type(x, None)
+"#,
+);
