@@ -42,6 +42,7 @@ use crate::binding::binding::BindingExport;
 use crate::binding::binding::BindingLegacyTypeParam;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
+use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
@@ -735,7 +736,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn bind_attr_if_self(
         &mut self,
         x: &ExprAttribute,
-        binding: Binding,
+        value: ExprOrBinding,
         annotation: Option<Idx<KeyAnnotation>>,
     ) -> bool {
         for scope in self.scopes.iter_rev_mut() {
@@ -746,7 +747,7 @@ impl<'a> BindingsBuilder<'a> {
                 if !method.instance_attributes.contains_key(&x.attr.id) {
                     method.instance_attributes.insert(
                         x.attr.id.clone(),
-                        InstanceAttribute(binding, annotation, x.attr.range()),
+                        InstanceAttribute(value, annotation, x.attr.range()),
                     );
                 }
                 return true;

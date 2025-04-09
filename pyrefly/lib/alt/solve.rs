@@ -967,18 +967,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Binding::Forward(fwd) = binding {
             return self.get_idx(*fwd);
         }
+        let mut type_info = self.binding_to_type_info(binding, errors);
+        type_info.visit_mut(&mut |ty| {
+            self.expand_type_mut(ty);
+        });
+        Arc::new(type_info)
+    }
 
+    fn expand_type_mut(&self, ty: &mut Type) {
         // Replace any solved recursive variables with their answers.
         // We call self.unions() to simplify cases like
         // v = @1 | int, @1 = int.
-        let mut type_info = self.binding_to_type_info(binding, errors);
-        type_info.visit_mut(&mut |ty| {
-            self.solver().expand_mut(ty);
-            if let Type::Union(tys) = ty {
-                *ty = self.unions(mem::take(tys));
-            }
-        });
-        Arc::new(type_info)
+        self.solver().expand_mut(ty);
+        if let Type::Union(tys) = ty {
+            *ty = self.unions(mem::take(tys));
+        }
     }
 
     pub fn solve_expectation(
@@ -1199,7 +1202,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let field = match &self.get_idx(field.class).0 {
             None => ClassField::recursive(),
             Some(class) => {
-                let value = self.solve_binding(&field.value, errors);
+                let value = match &field.value {
+                    ExprOrBinding::Expr(e) => {
+                        let mut ty = self.expr_infer(e, errors);
+                        self.expand_type_mut(&mut ty);
+                        Arc::new(TypeInfo::of_ty(ty))
+                    }
+                    ExprOrBinding::Binding(b) => self.solve_binding(b, errors),
+                };
                 let annotation = field.annotation.map(|a| self.get_idx(a));
                 self.calculate_class_field(
                     &field.name,

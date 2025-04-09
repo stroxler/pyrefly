@@ -22,8 +22,8 @@ use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;
 use vec1::Vec1;
 
-use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldInitialValue;
+use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
@@ -243,7 +243,11 @@ impl ClassBodyInner {
 /// Information about an instance attribute coming from a `self` assignment
 /// in a method.
 #[derive(Clone, Debug)]
-pub struct InstanceAttribute(pub Binding, pub Option<Idx<KeyAnnotation>>, pub TextRange);
+pub struct InstanceAttribute(
+    pub ExprOrBinding,
+    pub Option<Idx<KeyAnnotation>>,
+    pub TextRange,
+);
 
 #[derive(Clone, Debug)]
 pub struct MethodInner {

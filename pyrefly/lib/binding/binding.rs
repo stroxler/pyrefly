@@ -1120,7 +1120,7 @@ impl DisplayWith<Bindings> for BindingClass {
 pub struct BindingClassField {
     pub class: Idx<KeyClass>,
     pub name: Name,
-    pub value: Binding,
+    pub value: ExprOrBinding,
     pub annotation: Option<Idx<KeyAnnotation>>,
     pub range: TextRange,
     pub initial_value: ClassFieldInitialValue,
@@ -1129,7 +1129,11 @@ pub struct BindingClassField {
 
 impl DisplayWith<Bindings> for BindingClassField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
-        write!(f, "class field {}", self.value.display_with(ctx))
+        write!(f, "class field ")?;
+        match &self.value {
+            ExprOrBinding::Expr(e) => write!(f, "{}", ctx.module_info().display(e)),
+            ExprOrBinding::Binding(b) => write!(f, "{}", b.display_with(ctx)),
+        }
     }
 }
 

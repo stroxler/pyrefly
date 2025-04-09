@@ -519,11 +519,11 @@ impl<'a> BindingsBuilder<'a> {
                             None,
                         ),
                     );
-                    let value_binding = match &x.value {
-                        Some(v) => Binding::Expr(None, *v.clone()),
-                        None => Binding::Type(Type::any_implicit()),
+                    let value = match &x.value {
+                        Some(v) => ExprOrBinding::Expr(*v.clone()),
+                        None => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
                     };
-                    if !self.bind_attr_if_self(&attr, value_binding, Some(ann_key)) {
+                    if !self.bind_attr_if_self(&attr, value.clone(), Some(ann_key)) {
                         self.error(
                              x.range,
                              format!(
@@ -538,10 +538,7 @@ impl<'a> BindingsBuilder<'a> {
                         self.ensure_expr(&mut v);
                         self.table.insert(
                             KeyExpect(v.range()),
-                            BindingExpect::CheckAssignToAttribute(Box::new((
-                                attr,
-                                ExprOrBinding::Expr(v),
-                            ))),
+                            BindingExpect::CheckAssignToAttribute(Box::new((attr, value))),
                         );
                     }
                 }

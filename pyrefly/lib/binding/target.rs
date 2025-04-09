@@ -103,33 +103,22 @@ impl<'a> BindingsBuilder<'a> {
             Expr::Attribute(x) => {
                 // `make_binding` will give us a binding for inferring the value type, which we
                 // *might* use to compute the attribute type if there are no explicit annotations.
-                // Note that this binding uses non-contextual typing.
-                let value_binding = make_binding(None);
-                // Create a check binding to verify that the assignment is valid.
-                if let Some(value) = value {
-                    // If this is not an unpacked assignment, we can use contextual typing on the
-                    // expression itself.
-                    self.table.insert(
-                        KeyExpect(x.range),
-                        BindingExpect::CheckAssignToAttribute(Box::new((
-                            x.clone(),
-                            ExprOrBinding::Expr(value.clone()),
-                        ))),
-                    );
+                let attr_value = if let Some(value) = value {
+                    ExprOrBinding::Expr(value.clone())
                 } else {
-                    // Handle an unpacked assignment, where we don't have easy access to the expression.
-                    // Note that contextual typing will not be used in this case.
-                    self.table.insert(
-                        KeyExpect(x.range),
-                        BindingExpect::CheckAssignToAttribute(Box::new((
-                            x.clone(),
-                            ExprOrBinding::Binding(value_binding.clone()),
-                        ))),
-                    );
-                }
+                    ExprOrBinding::Binding(make_binding(None))
+                };
+                // Create a check binding to verify that the assignment is valid.
+                self.table.insert(
+                    KeyExpect(x.range),
+                    BindingExpect::CheckAssignToAttribute(Box::new((
+                        x.clone(),
+                        attr_value.clone(),
+                    ))),
+                );
                 // If this is a self-assignment, record it because we may use it to infer
                 // the existence of an instance-only attribute.
-                self.bind_attr_if_self(x, value_binding, None);
+                self.bind_attr_if_self(x, attr_value, None);
             }
             Expr::Subscript(x) => {
                 let binding = make_binding(None);

@@ -31,6 +31,7 @@ use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::ClassBinding;
 use crate::binding::binding::ClassFieldInitialValue;
+use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassField;
@@ -171,7 +172,7 @@ impl<'a> BindingsBuilder<'a> {
                 let binding = BindingClassField {
                     class: definition_key,
                     name: name.into_key().clone(),
-                    value: Binding::Forward(info.key),
+                    value: ExprOrBinding::Binding(Binding::Forward(info.key)),
                     annotation: stat_info.annot,
                     range: stat_info.loc,
                     initial_value: info.as_initial_value(),
@@ -367,9 +368,9 @@ impl<'a> BindingsBuilder<'a> {
             } else {
                 ClassFieldInitialValue::Instance(None)
             };
-            let value_binding = match member_value {
-                Some(value) => Binding::Expr(None, value),
-                None => Binding::Type(Type::any_implicit()),
+            let value = match member_value {
+                Some(value) => ExprOrBinding::Expr(value),
+                None => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
             };
             let annotation_binding = if let Some(annotation) = member_annotation {
                 let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(&Identifier::new(
@@ -397,7 +398,7 @@ impl<'a> BindingsBuilder<'a> {
                 BindingClassField {
                     class: definition_key,
                     name: member_name,
-                    value: value_binding,
+                    value,
                     annotation: annotation_binding,
                     range,
                     initial_value,
