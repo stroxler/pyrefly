@@ -66,8 +66,13 @@ const styles = stylex.create({
         '--subtitle-font-size': '3.5rem',
     },
     featureHero: {
-        padding: '7rem 0',
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center', // Center content vertically
         width: '100%',
+        height: '100%',
+        padding: '7rem 0',
         position: 'relative',
         overflow: 'hidden',
         background: 'var(--color-background)',

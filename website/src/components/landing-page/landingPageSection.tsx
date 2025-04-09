@@ -9,7 +9,6 @@
 
 import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
-import clsx from 'clsx';
 import typography from './typography';
 interface LandingPageSectionProps {
     title?: string;
@@ -37,7 +36,7 @@ export default function LandingPageSection({
             {...stylex.props(
                 styles.section,
                 isLastSection ? styles.lastSection : null,
-                { background: backgroundColor },
+                { background: backgroundColor }
             )}
         >
             {/* Rise decoration (for all except first section) */}
@@ -65,7 +64,7 @@ export default function LandingPageSection({
                             typography.h2,
                             hasBrownBackground
                                 ? { color: 'var(--color-text)' }
-                                : null,
+                                : null
                         )}
                     >
                         {title}
