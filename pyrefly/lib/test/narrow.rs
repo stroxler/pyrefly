@@ -811,3 +811,22 @@ class MyTest(TestCase):
         assert_type(x, int)
 "#,
 );
+
+testcase!(
+    test_unittest_assert_none,
+    r#"
+from typing import assert_type
+from unittest import TestCase
+def foo() -> int | None: ...
+class MyTest(TestCase):
+    def test_is_none(self) -> None:
+        x = foo()
+        self.assertIsNone(x)
+        assert_type(x, None)
+    
+    def test_is_not_none(self) -> None:
+        x = foo()
+        self.assertIsNotNone(x)
+        assert_type(x, int)
+"#,
+);

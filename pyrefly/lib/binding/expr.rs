@@ -17,6 +17,7 @@ use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprBoolOp;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprLambda;
+use ruff_python_ast::ExprNoneLiteral;
 use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
@@ -30,6 +31,7 @@ use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::bindings::LookupError;
 use crate::binding::bindings::LookupKind;
+use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::ClassBodyInner;
 use crate::binding::scope::Flow;
@@ -48,6 +50,8 @@ use crate::util::visit::VisitMut;
 enum TestAssertion {
     AssertTrue,
     AssertFalse,
+    AssertIsNone,
+    AssertIsNotNone,
 }
 
 impl TestAssertion {
@@ -58,6 +62,24 @@ impl TestAssertion {
             }
             Self::AssertFalse if let Some(arg0) = args.first() => {
                 Some(NarrowOps::from_expr(Some(arg0)).negate())
+            }
+            Self::AssertIsNone if let Some(arg0) = args.first() => {
+                Some(NarrowOps::from_single_narrow_op(
+                    arg0,
+                    AtomicNarrowOp::Is(Expr::NoneLiteral(ExprNoneLiteral {
+                        range: TextRange::default(),
+                    })),
+                    arg0.range(),
+                ))
+            }
+            Self::AssertIsNotNone if let Some(arg0) = args.first() => {
+                Some(NarrowOps::from_single_narrow_op(
+                    arg0,
+                    AtomicNarrowOp::IsNot(Expr::NoneLiteral(ExprNoneLiteral {
+                        range: TextRange::default(),
+                    })),
+                    arg0.range(),
+                ))
             }
             _ => None,
         }
@@ -182,6 +204,10 @@ impl<'a> BindingsBuilder<'a> {
                         Some(TestAssertion::AssertTrue)
                     } else if attr.id.as_str() == "assertFalse" {
                         Some(TestAssertion::AssertFalse)
+                    } else if attr.id.as_str() == "assertIsNone" {
+                        Some(TestAssertion::AssertIsNone)
+                    } else if attr.id.as_str() == "assertIsNotNone" {
+                        Some(TestAssertion::AssertIsNotNone)
                     } else {
                         None
                     }
