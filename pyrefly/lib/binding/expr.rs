@@ -221,23 +221,15 @@ impl<'a> BindingsBuilder<'a> {
                     value: box Expr::Name(base_name),
                     attr,
                     ..
-                }) if base_name.id.as_str() == "self" => {
-                    if attr.id.as_str() == "assertTrue" {
-                        Some(TestAssertion::AssertTrue)
-                    } else if attr.id.as_str() == "assertFalse" {
-                        Some(TestAssertion::AssertFalse)
-                    } else if attr.id.as_str() == "assertIsNone" {
-                        Some(TestAssertion::AssertIsNone)
-                    } else if attr.id.as_str() == "assertIsNotNone" {
-                        Some(TestAssertion::AssertIsNotNone)
-                    } else if attr.id.as_str() == "assertIsInstance" {
-                        Some(TestAssertion::AssertIsInstance)
-                    } else if attr.id.as_str() == "assertNotIsInstance" {
-                        Some(TestAssertion::AssertNotIsInstance)
-                    } else {
-                        None
-                    }
-                }
+                }) if base_name.id.as_str() == "self" => match attr.id.as_str() {
+                    "assertTrue" => Some(TestAssertion::AssertTrue),
+                    "assertFalse" => Some(TestAssertion::AssertFalse),
+                    "assertIsNone" => Some(TestAssertion::AssertIsNone),
+                    "assertIsNotNone" => Some(TestAssertion::AssertIsNotNone),
+                    "assertIsInstance" => Some(TestAssertion::AssertIsInstance),
+                    "assertNotIsInstance" => Some(TestAssertion::AssertNotIsInstance),
+                    _ => None,
+                },
                 _ => None,
             }
         } else {
