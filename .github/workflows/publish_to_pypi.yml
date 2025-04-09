@@ -39,7 +39,10 @@ jobs:
         with:
           fetch-depth: 0  # Get all history for all branches and tags
       - name: Get version
-        run: echo "PYREFLY_VERSION=$(sed -n -e 's/^VERSION = "\(.*\)"/\1/p' version.bzl)" >> $GITHUB_ENV
+        run: |
+          # setting to variable is necessary so sed failures will be red
+          VERSION=$(sed -n -e 's/^VERSION = "\(.*\)"/\1/p' version.bzl)
+          echo "PYREFLY_VERSION=$VERSION" >> $GITHUB_ENV
       - name: Tag commit
         run: git tag ${{ env.PYREFLY_VERSION }}
       - name: Push tag
