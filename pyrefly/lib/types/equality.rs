@@ -370,7 +370,7 @@ mod tests {
                     quantified: q,
                     variance: None,
                 }])
-                .unwrap(),
+                .tparams,
             )
         }
 

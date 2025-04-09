@@ -43,6 +43,7 @@ use crate::types::type_var::Variance;
 use crate::types::type_var_tuple::TypeVarTuple;
 use crate::types::typed_dict::TypedDict;
 use crate::util::display::commas_iter;
+use crate::util::prelude::SliceExt;
 use crate::util::uniques::Unique;
 use crate::util::uniques::UniqueFactory;
 use crate::util::visit::Visit;
@@ -110,11 +111,11 @@ impl TParam {
     }
 }
 
-/// TParams that contain an error
+/// TParams plus any validation errors
 #[derive(Debug)]
-pub struct TParamsWithError {
+pub struct ValidatedTParams {
     pub tparams: TParams,
-    pub error: String,
+    pub errors: Vec<String>,
 }
 
 /// Wraps a vector of type parameters. The constructor ensures that
@@ -131,8 +132,9 @@ impl Display for TParams {
 }
 
 impl TParams {
-    pub fn new(info: Vec<TParamInfo>) -> Result<Self, TParamsWithError> {
-        let mut error = None;
+    #[expect(clippy::new_ret_no_self)]
+    pub fn new(info: Vec<TParamInfo>) -> ValidatedTParams {
+        let mut errors = Vec::new();
         let mut tparams: Vec<TParam> = Vec::with_capacity(info.len());
         let mut seen = SmallSet::new();
         for tparam in info {
@@ -141,38 +143,37 @@ impl TParams {
             {
                 // Check for missing default
                 if tparam.quantified.default().is_none() {
-                    error = Some(format!(
+                    errors.push(format!(
                         "Type parameter `{}` without a default cannot follow type parameter `{}` with a default",
                         tparam.quantified.name(),
                         p.name()
                     ));
                 }
             }
-            if error.is_none()
-                && let Some(default) = tparam.quantified.default()
-            {
-                let mut typevar_names = Vec::new();
-                default.universe(&mut |t| match t {
-                    Type::TypeVar(t) => {
-                        typevar_names.push(t.qname().id().clone());
+            if let Some(default) = tparam.quantified.default() {
+                let mut out_of_scope_names = Vec::new();
+                default.universe(&mut |t| {
+                    let name = match t {
+                        Type::TypeVar(t) => t.qname().id(),
+                        Type::TypeVarTuple(t) => t.qname().id(),
+                        Type::ParamSpec(p) => p.qname().id(),
+                        _ => return,
+                    };
+                    if !seen.contains(name) {
+                        out_of_scope_names.push(name);
                     }
-                    Type::TypeVarTuple(t) => {
-                        typevar_names.push(t.qname().id().clone());
-                    }
-                    Type::ParamSpec(p) => {
-                        typevar_names.push(p.qname().id().clone());
-                    }
-                    _ => {}
                 });
-                for typevar_name in typevar_names {
-                    if !seen.contains(&typevar_name) {
-                        error = Some(format!(
-                            "Default of type parameter `{}` refers to out-of-scope type parameter `{}`",
-                            tparam.quantified.name(),
-                            typevar_name
-                        ));
-                        break;
-                    }
+                if !out_of_scope_names.is_empty() {
+                    errors.push(format!(
+                        "Default of type parameter `{}` refers to out-of-scope type parameter{} {}",
+                        tparam.quantified.name(),
+                        if out_of_scope_names.len() != 1 {
+                            "s"
+                        } else {
+                            ""
+                        },
+                        out_of_scope_names.map(|n| format!("`{n}`")).join(", "),
+                    ));
                 }
             }
             seen.insert(tparam.quantified.name().clone());
@@ -183,13 +184,9 @@ impl TParams {
                 variance: tparam.variance.unwrap_or(Variance::Invariant),
             });
         }
-        if let Some(error) = error {
-            Err(TParamsWithError {
-                tparams: Self(tparams),
-                error,
-            })
-        } else {
-            Ok(Self(tparams))
+        ValidatedTParams {
+            tparams: Self(tparams),
+            errors,
         }
     }
 

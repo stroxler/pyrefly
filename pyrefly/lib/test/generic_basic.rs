@@ -599,9 +599,13 @@ from typing import Any, Generic, TypeVar, assert_type
 
 T1 = TypeVar('T1')
 T2 = TypeVar('T2', default=T1)
+T3 = TypeVar('T3', default=T1 | T2)
 
 class A(Generic[T2]):  # E: Default of type parameter `T2` refers to out-of-scope type parameter `T1`
     x: T2
+
+class B(Generic[T3]):  # E: Default of type parameter `T3` refers to out-of-scope type parameters `T1`, `T2`
+    pass
 
 def f(a: A):
     assert_type(a.x, Any)

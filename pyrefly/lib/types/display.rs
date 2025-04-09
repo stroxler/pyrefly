@@ -385,7 +385,7 @@ pub mod tests {
             ClassIndex(0),
             Identifier::new(Name::new(name), TextRange::empty(TextSize::new(range))),
             mi,
-            TParams::new(tparams).unwrap(),
+            TParams::new(tparams).tparams,
             SmallMap::new(),
         )
     }

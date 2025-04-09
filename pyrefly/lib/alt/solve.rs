@@ -954,19 +954,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         info: Vec<TParamInfo>,
         errors: &ErrorCollector,
     ) -> TParams {
-        match TParams::new(info) {
-            Ok(validated_tparams) => validated_tparams,
-            Err(fixed_tparams) => {
-                self.error(
-                    errors,
-                    range,
-                    ErrorKind::InvalidTypeVar,
-                    None,
-                    fixed_tparams.error,
-                );
-                fixed_tparams.tparams
-            }
+        let validated_tparams = TParams::new(info);
+        for error in validated_tparams.errors {
+            self.error(errors, range, ErrorKind::InvalidTypeVar, None, error);
         }
+        validated_tparams.tparams
     }
 
     pub fn solve_binding(&self, binding: &Binding, errors: &ErrorCollector) -> Arc<TypeInfo> {
