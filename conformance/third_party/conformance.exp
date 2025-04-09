@@ -9050,12 +9050,12 @@
   "protocols_explicit.py": [
     {
       "code": -2,
-      "column": 14,
-      "concise_description": "Class member `Point.rgb` overrides parent class `RGB` in an inconsistent manner",
-      "description": "Class member `Point.rgb` overrides parent class `RGB` in an inconsistent manner",
+      "column": 20,
+      "concise_description": "`tuple[int, int, str]` is not assignable to attribute `rgb` with type `tuple[int, int, int]`",
+      "description": "`tuple[int, int, str]` is not assignable to attribute `rgb` with type `tuple[int, int, int]`",
       "line": 56,
-      "name": "bad-override",
-      "stop_column": 17,
+      "name": "bad-assignment",
+      "stop_column": 36,
       "stop_line": 56
     },
     {

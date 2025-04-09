@@ -27,10 +27,13 @@ use crate::alt::attr::DescriptorBase;
 use crate::alt::attr::NoAccessReason;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::binding::binding::ClassFieldInitialValue;
+use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::dunder;
 use crate::error::collector::ErrorCollector;
+use crate::error::context::TypeCheckContext;
+use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
 use crate::error::style::ErrorStyle;
 use crate::types::annotation::Annotation;
@@ -447,7 +450,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn calculate_class_field(
         &self,
         name: &Name,
-        value_ty: &Type,
+        value: &ExprOrBinding,
         annotation: Option<&Annotation>,
         initial_value: &ClassFieldInitialValue,
         class: &Class,
@@ -455,6 +458,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> ClassField {
+        let value_ty = match value {
+            ExprOrBinding::Expr(e) => {
+                let inherited_annot = if annotation.is_some() {
+                    None
+                } else {
+                    self.get_metadata_for_class(class)
+                        .ancestors(self.stdlib)
+                        .find_map(|parent| {
+                            let parent_field = self
+                                .get_field_from_current_class_only(parent.class_object(), name)
+                                .map(Arc::unwrap_or_clone)?;
+                            let ClassField(ClassFieldInner::Simple { annotation, .. }) =
+                                parent_field;
+                            annotation
+                        })
+                };
+                let mut ty = if let Some(annot) = inherited_annot {
+                    let ctx: &dyn Fn() -> TypeCheckContext =
+                        &|| TypeCheckContext::of_kind(TypeCheckKind::Attribute(name.clone()));
+                    let hint = Some((annot.get_type(), ctx));
+                    self.expr(e, hint, errors)
+                } else {
+                    self.expr_infer(e, errors)
+                };
+                self.expand_type_mut(&mut ty);
+                ty
+            }
+            ExprOrBinding::Binding(b) => {
+                Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty()
+            }
+        };
         let metadata = self.get_metadata_for_class(class);
         let initialization = self.get_class_field_initialization(&metadata, initial_value);
 

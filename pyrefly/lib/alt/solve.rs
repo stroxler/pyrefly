@@ -974,7 +974,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Arc::new(type_info)
     }
 
-    fn expand_type_mut(&self, ty: &mut Type) {
+    pub fn expand_type_mut(&self, ty: &mut Type) {
         // Replace any solved recursive variables with their answers.
         // We call self.unions() to simplify cases like
         // v = @1 | int, @1 = int.
@@ -1202,18 +1202,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let field = match &self.get_idx(field.class).0 {
             None => ClassField::recursive(),
             Some(class) => {
-                let value = match &field.value {
-                    ExprOrBinding::Expr(e) => {
-                        let mut ty = self.expr_infer(e, errors);
-                        self.expand_type_mut(&mut ty);
-                        Arc::new(TypeInfo::of_ty(ty))
-                    }
-                    ExprOrBinding::Binding(b) => self.solve_binding(b, errors),
-                };
                 let annotation = field.annotation.map(|a| self.get_idx(a));
                 self.calculate_class_field(
                     &field.name,
-                    value.ty(),
+                    &field.value,
                     annotation.as_deref().map(|annot| &annot.annotation),
                     &field.initial_value,
                     class,

@@ -372,18 +372,17 @@ class C(B):
 );
 
 testcase!(
-    bug = "We need to use A.x's type annotation when inferring types for B().x and C().x",
     test_override_instance_var,
     r#"
 class A:
     x: list[int | str]
 class B(A):
     def __init__(self):
-        self.x = [42] # E:
+        self.x = [42]
     def f(self) -> list[int | str]:
-        return self.x # E:
+        return self.x
 class C(B):
     def __init__(self):
-        self.x = ["hello world"] # E:
+        self.x = ["hello world"]
     "#,
 );

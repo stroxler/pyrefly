@@ -155,7 +155,7 @@ class A:
 
 class B(A):
     def __init__(self) -> None:
-        self.x = 0 # E: Class member `B.x` overrides parent class `A` in an inconsistent manner
+        self.x = 0 # E: `Literal[0]` is not assignable to attribute `x` with type `str`
  "#,
 );
 
