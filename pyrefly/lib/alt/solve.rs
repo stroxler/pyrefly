@@ -6,6 +6,7 @@
  */
 
 use std::iter;
+use std::mem;
 use std::sync::Arc;
 
 use dupe::Dupe;
@@ -979,11 +980,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // v = @1 | int, @1 = int.
         let mut type_info = self.binding_to_type_info(binding, errors);
         type_info.visit_mut(&mut |ty| {
-            let cannonicalized = match self.solver().expand(ty.clone()) {
-                Type::Union(ts) => self.unions(ts),
-                t => t,
-            };
-            *ty = cannonicalized;
+            self.solver().expand_mut(ty);
+            if let Type::Union(tys) = ty {
+                *ty = self.unions(mem::take(tys));
+            }
         });
         Arc::new(type_info)
     }
