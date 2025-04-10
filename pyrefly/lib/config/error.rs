@@ -53,16 +53,10 @@ impl ErrorConfig {
 /// Internal detail: the `ErrorConfig` in `default_config` is an `ErrorConfig::default()`,
 /// which is used in the `ErrorConfigs::get()` function when no config is found, so that we can
 /// return a reference without dropping the original immediately after.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct ErrorConfigs {
     overrides: HashMap<ModulePath, ErrorConfig>,
     default_config: ErrorConfig,
-}
-
-impl Default for ErrorConfigs {
-    fn default() -> Self {
-        Self::new(HashMap::new())
-    }
 }
 
 impl ErrorConfigs {
