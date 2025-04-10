@@ -7,7 +7,8 @@
     },
     "jsx": "react-jsx",
     "esModuleInterop": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "noEmit": true
   },
   "include": ["src/**/*", "libs/**/*", "docusaurus.config.ts", "jest.config.ts", "__mocks__/**/*"],
   "exclude": ["node_modules", "build"]
