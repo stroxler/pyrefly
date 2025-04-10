@@ -180,8 +180,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
-    ) -> Type {
-        self.attr_infer_for_type(base.ty(), attr_name, range, errors, context)
+    ) -> TypeInfo {
+        // TODO(stroxler) Make this handle attribute narrows.
+        TypeInfo::of_ty(self.attr_infer_for_type(base.ty(), attr_name, range, errors, context))
     }
 
     /// When interpreted as static types (as opposed to when accounting for runtime
@@ -708,16 +709,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Expr::Attribute(x) => {
                 let base = self.expr_infer_type_info(&x.value, errors);
-                let ty = match (base.ty(), x.attr.id.as_str()) {
+                match (base.ty(), x.attr.id.as_str()) {
                     (Type::Literal(Lit::Enum(box (_, member, _))), "_name_" | "name") => {
-                        Type::Literal(Lit::String(member.as_str().into()))
+                        TypeInfo::of_ty(Type::Literal(Lit::String(member.as_str().into())))
                     }
                     (Type::Literal(Lit::Enum(box (_, _, raw_type))), "_value_" | "value") => {
-                        raw_type.clone()
+                        TypeInfo::of_ty(raw_type.clone())
                     }
                     _ => self.attr_infer(&base, &x.attr.id, x.range, errors, None),
-                };
-                TypeInfo::of_ty(ty)
+                }
             }
             Expr::Named(x) => self.expr_infer_type_info_with_hint(&x.value, hint, errors),
             // All other expressions operate at the `Type` level only, so we avoid the overhead of

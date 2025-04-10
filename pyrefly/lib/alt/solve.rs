@@ -1569,13 +1569,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: check against duplicate keys (optional)
                 let binding = self.get_idx(*key);
                 let context = || ErrorContext::MatchPositional(binding.ty().clone());
-                let match_args = self.attr_infer(
-                    &binding,
-                    &dunder::MATCH_ARGS,
-                    *range,
-                    errors,
-                    Some(&context),
-                );
+                let match_args = self
+                    .attr_infer(
+                        &binding,
+                        &dunder::MATCH_ARGS,
+                        *range,
+                        errors,
+                        Some(&context),
+                    )
+                    .into_ty();
                 match match_args {
                     Type::Tuple(Tuple::Concrete(ts)) => {
                         if *idx < ts.len() {
@@ -1587,6 +1589,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     errors,
                                     Some(&context),
                                 )
+                                .into_ty()
                             } else {
                                 self.error(
                                     errors,
@@ -1627,6 +1630,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: check against duplicate keys (optional)
                 let binding = self.get_idx(*key);
                 self.attr_infer(&binding, &attr.id, attr.range, errors, None)
+                    .into_ty()
             }
             Binding::NameAssign(name, annot_key, expr) => {
                 let (has_type_alias_qualifier, ty) = match annot_key.as_ref() {
