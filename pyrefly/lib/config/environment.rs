@@ -98,15 +98,15 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
 
         let deserialized: PythonEnvironment = serde_json::from_str(&stdout)?;
 
-        deserialized.python_platform.as_ref().ok_or(anyhow!(
-            "Expected `python_platform` from Python interpreter query to be non-empty"
-        ))?;
-        deserialized.python_version.as_ref().ok_or(anyhow!(
-            "Expected `python_version` from Python interpreter query to be non-empty"
-        ))?;
-        deserialized.site_package_path.as_ref().ok_or(anyhow!(
-            "Expected `site_package_path` from Python interpreter query to be non-empty"
-        ))?;
+        deserialized.python_platform.as_ref().ok_or_else(|| {
+            anyhow!("Expected `python_platform` from Python interpreter query to be non-empty")
+        })?;
+        deserialized.python_version.as_ref().ok_or_else(|| {
+            anyhow!("Expected `python_version` from Python interpreter query to be non-empty")
+        })?;
+        deserialized.site_package_path.as_ref().ok_or_else(|| {
+            anyhow!("Expected `site_package_path` from Python interpreter query to be non-empty")
+        })?;
 
         Ok(deserialized)
     }
