@@ -872,15 +872,15 @@ impl Type {
         })
     }
 
-    pub fn for_each_quantified(&self, f: &mut impl FnMut(Quantified)) {
+    pub fn for_each_quantified<'a>(&'a self, f: &mut impl FnMut(&'a Quantified)) {
         self.universe(&mut |x| {
             if let Type::Quantified(x) = x {
-                f(x.clone());
+                f(x);
             }
         })
     }
 
-    pub fn collect_quantifieds(&self, acc: &mut SmallSet<Quantified>) {
+    pub fn collect_quantifieds<'a>(&'a self, acc: &mut SmallSet<&'a Quantified>) {
         self.for_each_quantified(&mut |q| {
             acc.insert(q);
         });

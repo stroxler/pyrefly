@@ -750,6 +750,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             }
                         })
                         .collect();
+                    drop(qs);
                     ty.subst(&gradual_fallbacks)
                 }
                 _ => ty,
