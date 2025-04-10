@@ -106,6 +106,27 @@ def f(n: N):
     assert isinstance(n.args[0], N)
     t1 = n.args[0].type # E:  Object of class `NoneType` has no attribute `type` # E: Object of class `tuple` has no attribute `type`
     reveal_type(t1) # E: revealed type: Error
+"#,
+);
 
+testcase!(
+    bug = "Type narrowing for subclass attributes is not applied",
+    test_attribute_access_after_narrowing_in_subclass,
+    r#"
+from typing import assert_type
+from unittest import TestCase
+
+class A:
+    def __init__(self) -> None:
+        self.id = 5
+
+class B:
+    def __init__(self, a : A | None) -> None:
+        self.a = a
+
+b = B(A())
+if b.a is not None:
+    x = b.a
+    assert_type(x, A)  # E: assert_type(A | None, A) failed
 "#,
 );
