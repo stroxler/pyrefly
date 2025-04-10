@@ -917,3 +917,17 @@ def f(cond: bool):
     assert_type(n, Literal[1] | int)
 "#,
 );
+
+testcase!(
+    bug = "There should not be any errors",
+    test_augassign_in_loop,
+    r#"
+def f(args, cond):
+    n = 0
+    for arg in args:
+        if cond:
+            # Note: the error says something like "not supported between `@3250` and `Literal[1]`
+            # The variable number changes between runs
+            n += 1 # E: `+=` is not supported # E: `+=` is not supported
+    "#,
+);

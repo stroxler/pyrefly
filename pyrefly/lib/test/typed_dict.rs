@@ -430,3 +430,15 @@ X = typing.TypedDict('X', {'x': int})
 assert_type(X, type[X])
     "#,
 );
+
+testcase!(
+    bug = "Wrong return type from get(), also weird @_ in error message",
+    test_get,
+    r#"
+from typing import TypedDict
+UserType1 = TypedDict("UserType1", {"name": str, "age": int}, total=False)
+user1: UserType1 = {"name": "Bob", "age": 40}
+name: str = user1.get("name", "n/a")  # E: `object | @_` is not assignable to `str`
+
+    "#,
+);
