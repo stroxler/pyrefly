@@ -54,6 +54,21 @@ def f(foo: Foo):
 );
 
 testcase!(
+    bug = "We do not yet handle attribute narrows in attribute reads at all",
+    test_attribute_read_simple,
+    r#"
+from typing import assert_type
+class Foo:
+    x: Foo
+class Bar(Foo):
+    pass
+def f(foo: Foo):
+    if isinstance(foo.x, Bar):
+        assert_type(foo.x, Foo)  # Should be Bar
+"#,
+);
+
+testcase!(
     bug = "PyTorch TODO: implement attribute narrowing",
     test_attr_refine,
     r#"
