@@ -8,5 +8,6 @@
 pub mod config;
 pub mod environment;
 pub mod error;
+pub mod finder;
 pub mod pyright;
 pub mod util;
