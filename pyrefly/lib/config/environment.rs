@@ -6,6 +6,7 @@
  */
 
 use std::fmt;
+use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -162,7 +163,7 @@ impl Default for PythonEnvironment {
     }
 }
 
-impl fmt::Display for PythonEnvironment {
+impl Display for PythonEnvironment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

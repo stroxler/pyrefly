@@ -7,6 +7,7 @@
 
 use std::ffi::OsStr;
 use std::fmt;
+use std::fmt::Display;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
@@ -314,7 +315,7 @@ impl ConfigFile {
     }
 }
 
-impl fmt::Display for ConfigFile {
+impl Display for ConfigFile {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

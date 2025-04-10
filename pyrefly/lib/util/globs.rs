@@ -8,6 +8,7 @@
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::fmt;
+use std::fmt::Display;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
@@ -178,7 +179,7 @@ impl Globs {
     }
 }
 
-impl fmt::Display for Globs {
+impl Display for Globs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[{}]", self.0.iter().map(|p| p.display()).join(", "))
     }
