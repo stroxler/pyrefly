@@ -27,6 +27,12 @@ pub struct WithHash<K> {
     key: K,
 }
 
+impl<K: Default + Hash> Default for WithHash<K> {
+    fn default() -> Self {
+        Self::new(K::default())
+    }
+}
+
 // We deliberately know that this is a hash and value, so our Eq/Hash are fine
 #[allow(clippy::derived_hash_with_manual_eq)]
 impl<K> Hash for WithHash<K> {
