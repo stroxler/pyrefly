@@ -31,7 +31,6 @@ use crate::error::kind::ErrorKind;
 use crate::error::style::ErrorStyle;
 use crate::graph::index::Idx;
 use crate::types::literal::Lit;
-use crate::types::types::AnyStyle;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -271,7 +270,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         errors,
                                         &context,
                                     );
-                                    if matches!(ret, Type::Any(AnyStyle::Error)) {
+                                    if ret.is_error() {
                                         self.stdlib.bool().clone().to_type()
                                     } else {
                                         ret

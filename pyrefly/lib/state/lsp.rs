@@ -292,7 +292,7 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn inlay_hints(&self, handle: &Handle) -> Option<Vec<(TextSize, String)>> {
-        let is_interesting_type = |x: &Type| x != &Type::any_error();
+        let is_interesting_type = |x: &Type| !x.is_error();
         let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
 
         let bindings = self.readable().get_bindings(handle)?;

@@ -743,6 +743,10 @@ impl Type {
         matches!(self, Type::Any(_))
     }
 
+    pub fn is_error(&self) -> bool {
+        matches!(self, Type::Any(AnyStyle::Error))
+    }
+
     pub fn is_kind_type_var_tuple(&self) -> bool {
         match self {
             Type::TypeVarTuple(_) => true,

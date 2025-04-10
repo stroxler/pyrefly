@@ -1366,7 +1366,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         restriction: &Restriction,
         errors: &ErrorCollector,
     ) -> Type {
-        if *default == Type::any_error() {
+        if default.is_error() {
             return default.clone();
         }
         match restriction {

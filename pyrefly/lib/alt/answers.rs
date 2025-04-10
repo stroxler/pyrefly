@@ -49,7 +49,6 @@ use crate::types::equality::TypeEq;
 use crate::types::equality::TypeEqCtx;
 use crate::types::stdlib::Stdlib;
 use crate::types::type_info::TypeInfo;
-use crate::types::types::AnyStyle;
 use crate::types::types::NeverStyle;
 use crate::types::types::Type;
 use crate::types::types::Var;
@@ -658,9 +657,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         tcc: &dyn Fn() -> TypeCheckContext,
     ) -> bool {
-        if matches!(got, Type::Any(AnyStyle::Error))
-            || self.solver().is_subset_eq(got, want, self.type_order())
-        {
+        if got.is_error() || self.solver().is_subset_eq(got, want, self.type_order()) {
             true
         } else {
             self.solver().error(want, got, errors, loc, tcc);
