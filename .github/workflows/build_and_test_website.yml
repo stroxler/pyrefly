@@ -35,6 +35,9 @@ jobs:
       - name: Build
         working-directory: ./website
         run: cargo version && chmod +x scripts/build.sh && scripts/build.sh
+      - name: Typecheck
+        working-directory: ./website
+        run: yarn tsc --noEmit
       - name: Test
         working-directory: ./website
         run: yarn test
