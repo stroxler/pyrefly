@@ -90,7 +90,12 @@ impl Class {
     }
 
     pub fn tparams_as_targs(&self) -> TArgs {
-        TArgs::new(self.tparams().quantified().map(|q| q.to_type()).collect())
+        TArgs::new(
+            self.tparams()
+                .quantified()
+                .map(|q| q.clone().to_type())
+                .collect(),
+        )
     }
 
     /// Gets this Class as a ClassType with its tparams as the arguments. For non-TypedDict
@@ -391,7 +396,13 @@ impl ClassType {
     pub fn substitution(&self) -> Substitution {
         let tparams = self.tparams();
         let targs = self.1.as_slice();
-        Substitution(tparams.quantified().zip(targs.iter().cloned()).collect())
+        Substitution(
+            tparams
+                .quantified()
+                .cloned()
+                .zip(targs.iter().cloned())
+                .collect(),
+        )
     }
 
     pub fn name(&self) -> &Name {

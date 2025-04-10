@@ -1133,6 +1133,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             let param_map = forall
                                 .tparams
                                 .quantified()
+                                .cloned()
                                 .zip(targs.as_slice().iter().cloned())
                                 .collect::<SmallMap<_, _>>();
                             forall.body.as_type().subst(&param_map)

@@ -215,8 +215,8 @@ impl TParams {
         self.0.iter()
     }
 
-    pub fn quantified(&self) -> impl ExactSizeIterator<Item = Quantified> + '_ {
-        self.0.iter().map(|x| x.quantified.clone())
+    pub fn quantified(&self) -> impl ExactSizeIterator<Item = &Quantified> + '_ {
+        self.0.iter().map(|x| &x.quantified)
     }
 }
 

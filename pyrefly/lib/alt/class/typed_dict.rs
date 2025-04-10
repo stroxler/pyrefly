@@ -124,6 +124,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Substitution::new(
             tparams
                 .quantified()
+                .cloned()
                 .zip(targs.as_slice().iter().cloned())
                 .collect(),
         )
