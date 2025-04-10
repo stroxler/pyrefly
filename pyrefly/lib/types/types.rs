@@ -846,14 +846,20 @@ impl Type {
         }
     }
 
-    pub fn subst(self, mp: &SmallMap<Quantified, Type>) -> Self {
-        self.transform(&mut |ty| {
-            if let Type::Quantified(x) = &ty {
+    pub fn subst(mut self, mp: &SmallMap<Quantified, Type>) -> Self {
+        // We are looking up Quantified in a map, and Quantified may contain a Quantified within it.
+        // Therefore, to make sure we still get matches, work top-down (not using `transform`).
+        fn f(ty: &mut Type, mp: &SmallMap<Quantified, Type>) {
+            if let Type::Quantified(x) = ty {
                 if let Some(w) = mp.get(x) {
                     *ty = w.clone();
                 }
+            } else {
+                ty.recurse_mut(&mut |x| f(x, mp));
             }
-        })
+        }
+        f(&mut self, mp);
+        self
     }
 
     pub fn subst_self_special_form_mut(&mut self, self_type: &Type) {
