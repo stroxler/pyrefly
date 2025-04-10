@@ -28,14 +28,14 @@ use crate::util::prelude::VecExt;
 pub struct Globs(Vec<PathBuf>);
 
 impl Globs {
+    /// Create a new `Globs` from the given patterns. If you want them to be relative
+    /// to a root, please use `Globs::new_with_root()` instead.
     pub fn new(patterns: Vec<String>) -> Self {
-        //! Create a new `Globs` from the given patterns. If you want them to be relative
-        //! to a root, please use `Globs::new_with_root()` instead.
         Self(patterns.into_map(PathBuf::from))
     }
 
+    /// Create a new `Globs`, rewriting all patterns to be relative to `root`.
     pub fn new_with_root(root: &Path, patterns: Vec<String>) -> Self {
-        //! Create a new `Globs`, rewriting all patterns to be relative to `root`.
         if root == Path::new("") || root == Path::new(".") {
             return Self::new(patterns);
         }
