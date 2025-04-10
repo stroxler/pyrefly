@@ -9,6 +9,7 @@
 
 use std::cmp;
 use std::collections::BinaryHeap;
+use std::mem;
 
 use crate::util::lock::Condvar;
 use crate::util::lock::Mutex;
@@ -123,13 +124,28 @@ impl<K: Ord, V> TaskHeap<K, V> {
     /// can safely call `push_fifo` or `push_lifo` on this `TaskHeap`.
     #[allow(dead_code)]
     pub fn work(&self, mut f: impl FnMut(K, V)) {
+        // Create a guard struct to ensure we cleanup even on panic
+        struct Unwind<'a, K, V>(&'a TaskHeap<K, V>);
+
+        impl<'a, K, V> Drop for Unwind<'a, K, V> {
+            fn drop(&mut self) {
+                let mut lock = self.0.inner.lock();
+                lock.active_workers -= 1;
+                if lock.active_workers == 0 && lock.heap.is_empty() {
+                    self.0.condition.notify_all();
+                }
+            }
+        }
+
         let mut lock = self.inner.lock();
         loop {
             match lock.heap.pop() {
                 Some(item) => {
                     lock.active_workers += 1;
                     drop(lock);
+                    let unwind = Unwind(self);
                     f(item.priority.0, item.value);
+                    mem::forget(unwind);
                     lock = self.inner.lock();
                     lock.active_workers -= 1;
                 }
@@ -278,5 +294,56 @@ mod tests {
         });
         let executed = executed.into_inner();
         assert_ne!(executed[0], executed[1]); // Both threads did something
+    }
+
+    #[test]
+    #[should_panic] // If it fails to panic, it will hang forever
+    fn test_panic_one() {
+        let heap = TaskHeap::new();
+        heap.push_fifo(1, ());
+        let threads =
+            ThreadPool::with_thread_count(ThreadCount::NumThreads(NonZero::new(1).unwrap()));
+        threads.spawn_many(|| heap.work(|_, _| panic!()));
+    }
+
+    #[test]
+    #[should_panic] // If it fails to panic, it will hang forever
+    fn test_panic_first() {
+        let heap = TaskHeap::new();
+        heap.push_fifo(1, ());
+        heap.push_fifo(2, ());
+        let threads =
+            ThreadPool::with_thread_count(ThreadCount::NumThreads(NonZero::new(2).unwrap()));
+        threads.spawn_many(|| {
+            heap.work(|k, _| {
+                // Ensure the panic happens first, while both are active.
+                if k == 1 {
+                    wait();
+                    wait();
+                } else {
+                    wait();
+                    panic!()
+                }
+            })
+        });
+    }
+
+    #[test]
+    #[should_panic] // If it fails to panic, it will hang forever
+    fn test_panic_second() {
+        let heap = TaskHeap::new();
+        heap.push_fifo(1, ());
+        heap.push_fifo(2, ());
+        let threads =
+            ThreadPool::with_thread_count(ThreadCount::NumThreads(NonZero::new(2).unwrap()));
+        threads.spawn_many(|| {
+            heap.work(|k, _| {
+                // Ensure the panic happens second, while the first is sleeping.
+                if k == 2 {
+                    wait();
+                    panic!()
+                }
+            })
+        });
     }
 }
