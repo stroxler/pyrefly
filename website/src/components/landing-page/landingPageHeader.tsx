@@ -15,9 +15,13 @@ import typography from './typography';
 export default function LandingPageHeader(): React.ReactElement {
     return (
         <header {...stylex.props(styles.featureHero)}>
-            <h1 {...stylex.props(styles.title, typography.h1)}>
-                pyrefly<span>.</span>
-            </h1>
+            <section {...stylex.props(styles.logoContainer)}>
+                <img
+                    src="/img/Pyrefly-Brandmark-Invert.svg"
+                    alt="Pyrefly Logo"
+                    {...stylex.props(styles.logo)}
+                />
+            </section>
             <p {...stylex.props(styles.subtitle, typography.h3)}>
                 <span>A faster Python type checker written in Rust</span>
             </p>
@@ -65,6 +69,16 @@ const styles = stylex.create({
         '--title-font-size': '7rem',
         '--subtitle-font-size': '3.5rem',
     },
+    logoContainer: {
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: '0.5rem'
+    },
+    logo: {
+        height: '100px',
+    },
+
     featureHero: {
         flex: 1,
         display: 'flex',
@@ -82,58 +96,9 @@ const styles = stylex.create({
         marginRight: 'auto',
         lineHeight: 1.1,
     },
-    title: {
-        textAlign: 'center',
-        marginBottom: '4rem',
-        marginTop: '3rem',
-        '@media screen and (max-width: 346px)': {
-            fontSize: '3.5rem',
-        },
-        '@media screen and (max-width: 404px)': {
-            fontSize: '3.8rem',
-        },
-        '@media screen and (max-width: 460px)': {
-            fontSize: '4rem',
-        },
-        '@media screen and (max-width: 518px)': {
-            fontSize: '4.5rem',
-        },
-        '@media screen and (max-width: 548px)': {
-            fontSize: '5.5rem',
-        },
-        '@media screen and (max-width: 576px)': {
-            fontSize: 'calc(6rem)',
-            maxWidth: '100%',
-        },
-        '@media screen and (max-width: 768px)': {
-            fontSize: 'var(--title-font-size)',
-        },
-    },
     subtitle: {
         textAlign: 'center',
         marginBottom: '1rem',
-        '@media screen and (max-width: 346px)': {
-            fontSize: '1.5rem',
-        },
-        '@media screen and (max-width: 404px)': {
-            fontSize: '1.8rem',
-        },
-        '@media screen and (max-width: 460px)': {
-            fontSize: '1.9rem',
-        },
-        '@media screen and (max-width: 518px)': {
-            fontSize: '2rem',
-        },
-        '@media screen and (max-width: 548px)': {
-            fontSize: '2.5rem',
-        },
-        '@media screen and (max-width: 576px)': {
-            fontSize: 'calc(3rem)',
-            maxWidth: '100%',
-        },
-        '@media screen and (max-width: 768px)': {
-            fontSize: 'var(--subtitle-font-size)',
-        },
     },
     link: {
         color: 'var(--color-primary)',

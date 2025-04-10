@@ -18,6 +18,7 @@ const typography = stylex.create({
     p: { fontSize: '1rem' },
     small: { fontSize: '0.833rem' },
     italic: { fontStyle: 'italic' },
+    bold: { fontWeight: 500 },
 });
 
 export default typography;

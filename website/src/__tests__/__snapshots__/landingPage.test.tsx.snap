@@ -11,12 +11,12 @@ exports[`Home page renders external site correctly 1`] = `
     </div>
     <div>
       <header>
-        <h1>
-          pyrefly
-          <span>
-            .
-          </span>
-        </h1>
+        <section>
+          <img
+            alt="Pyrefly Logo"
+            src="/img/Pyrefly-Brandmark-Invert.svg"
+          />
+        </section>
         <p>
           <span>
             A faster Python type checker written in Rust
@@ -84,12 +84,12 @@ exports[`Home page renders internal site correctly 1`] = `
     </div>
     <div>
       <header>
-        <h1>
-          pyrefly
-          <span>
-            .
-          </span>
-        </h1>
+        <section>
+          <img
+            alt="Pyrefly Logo"
+            src="/img/Pyrefly-Brandmark-Invert.svg"
+          />
+        </section>
         <p>
           <span>
             A faster Python type checker written in Rust

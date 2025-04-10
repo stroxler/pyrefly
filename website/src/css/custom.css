@@ -15,125 +15,205 @@
 
 /* You can override the default Infima variables here. */
 
-:root {
-    --ifm-navbar-height: 3.5rem;
-    --ifm-navbar-padding-vertical: 0;
+font-face {
+  font-family: 'Maison Neue';
+  src: url('/fonts/MaisonNeue-LightItalic.woff2') format('woff2'),
+    url('/fonts/MaisonNeue-LightItalic.woff') format('woff'),
+    url('/fonts/MaisonNeue-LightItalic.ttf') format('truetype');
+  font-weight: 300;
+  font-style: italic;
+}
 
-    /* color palette */
-    --color-background: #384048;
-    --color-primary: #fe9801;
-    --color-secondary: #ff7701;
-    --color-accent: #ff4300;
-    --color-text: #efefef;
-    --dark-yellow: #e59c24;
-    --light-grey: #7f8790;
+@font-face {
+  font-family: 'Maison Neue';
+  src: url('/fonts/MaisonNeue-Light.woff2') format('woff2'),
+    url('/fonts/MaisonNeue-Light.woff') format('woff'),
+    url('/fonts/MaisonNeue-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Maison Neue';
+  src: url('/fonts/MaisonNeue-Book.woff2') format('woff2'),
+    url('/fonts/MaisonNeue-Book.woff') format('woff'),
+    url('/fonts/MaisonNeue-Book.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Maison Neue';
+  src: url('/fonts/MaisonNeue-BookItalic.woff2') format('woff2'),
+    url('/fonts/MaisonNeue-BookItalic.woff') format('woff'),
+    url('/fonts/MaisonNeue-BookItalic.ttf') format('truetype');
+  font-weight: normal;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Maison Neue Mono';
+  src: url('/fonts/MaisonNeue-Mono.woff2') format('woff2'),
+    url('/fonts/MaisonNeue-Mono.woff') format('woff'),
+    url('/fonts/MaisonNeue-Mono.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Maison Neue Mono';
+  src: url('/fonts/MaisonNeue-MonoItalic.woff2') format('woff2'),
+    url('/fonts/MaisonNeue-MonoItalic.woff') format('woff'),
+    url('/fonts/MaisonNeue-MonoItalic.ttf') format('truetype');
+  font-weight: normal;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: 'Maison Neue';
+  src: url('/fonts/MaisonNeue-BoldItalic.woff2') format('woff2'),
+    url('/fonts/MaisonNeue-BoldItalic.woff') format('woff'),
+    url('/fonts/MaisonNeue-BoldItalic.ttf') format('truetype');
+  font-weight: bold;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Maison Neue';
+  src: url('/fonts/MaisonNeue-Medium.woff2') format('woff2'),
+    url('/fonts/MaisonNeue-Medium.woff') format('woff'),
+    url('/fonts/MaisonNeue-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+:root {
+  --ifm-navbar-padding-vertical: 0;
+  /* color palette */
+  --color-background: #384048;
+  --color-primary: #fe9801;
+  --color-secondary: #ff7701;
+  --color-accent: #ff4300;
+  --color-text: #efefef;
+  --dark-yellow: #e59c24;
+  --light-grey: #7f8790;
+  --ifm-navbar-padding-vertical: 0;
+  --ifm-font-family-base: 'Maison Neue';
+
+  --ifm-heading-font-weight: 'bold';
 }
 
 .docusaurus-highlight-code-line {
-    background-color: rgb(72, 77, 91);
-    display: block;
-    margin: 0 calc(-1 * var(--ifm-pre-padding));
-    padding: 0 var(--ifm-pre-padding);
+  background-color: rgb(72, 77, 91);
+  display: block;
+  margin: 0 calc(-1 * var(--ifm-pre-padding));
+  padding: 0 var(--ifm-pre-padding);
 }
 
 .navbar {
-    background-color: #2d343a;
+  background-color: #2d343a;
 }
 
 .navbar .navbar__link,
 .navbar .navbar__toggle,
 .navbar .menu__link,
 .navbar .navbar-sidebar__back {
-    color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .navbar__brand,
 .navbar__logo {
-    height: 100%;
+  height: 100%;
 }
 
 .navbar .navbar__icon {
-    padding: 0px;
-    padding-right: 1rem;
+  padding: 0px;
+  padding-right: 1rem;
 }
+
 .navbar .navbar__icon:hover {
-    opacity: 0.8;
+  opacity: 0.8;
 }
+
 .navbar .navbar__icon:active {
-    opacity: 0.7;
+  opacity: 0.7;
 }
+
 .navbar .navbar__icon:before {
-    content: '';
-    display: flex;
-    height: 20px;
-    width: 21px;
-    background-color: rgba(255, 255, 255, 0.7);
+  content: '';
+  display: flex;
+  height: 20px;
+  width: 21px;
+  background-color: rgba(255, 255, 255, 0.7);
 }
 
 .navbar .stackoverflow__link:before {
-    background: url(/img/icon-stackoverflow.svg);
-    background-repeat: no-repeat;
+  background: url(/img/icon-stackoverflow.svg);
+  background-repeat: no-repeat;
 }
+
 .navbar .github__link:before {
-    background: url(/img/icon-github.svg);
-    background-repeat: no-repeat;
+  background: url(/img/icon-github.svg);
+  background-repeat: no-repeat;
 }
 
 .navbar-sidebar {
-    background-color: #2d343a;
+  background-color: #2d343a;
 }
 
 .navbar-sidebar .navbar__icon {
-    padding: var(--ifm-menu-link-padding-vertical)
-        var(--ifm-menu-link-padding-horizontal);
+  padding: var(--ifm-menu-link-padding-vertical) var(--ifm-menu-link-padding-horizontal);
 }
+
 .navbar-sidebar .navbar__icon:hover {
-    opacity: 1;
+  opacity: 1;
 }
+
 .navbar-sidebar .navbar__icon:active {
-    opacity: 1;
+  opacity: 1;
 }
 
 .navbar__title {
-    color: white;
+  color: white;
 }
 
 .rounded {
-    border-radius: 0.25rem;
+  border-radius: 0.25rem;
 }
 
 .version {
-    padding: 3px 5px;
-    font-size: 12px;
-    border-radius: 6px;
-    display: inline-block;
-    vertical-align: middle;
+  padding: 3px 5px;
+  font-size: 12px;
+  border-radius: 6px;
+  display: inline-block;
+  vertical-align: middle;
 }
+
 .version.added {
-    background: var(--flow-green);
-    color: white;
+  background: var(--flow-green);
+  color: white;
 }
+
 .version.removed {
-    background: var(--flow-red);
-    color: white;
+  background: var(--flow-red);
+  color: white;
 }
 
 .gh-btn {
-    position: relative;
-    vertical-align: middle;
+  position: relative;
+  vertical-align: middle;
 }
 
 @media (min-width: 1680px) {
-    .docusaurus-mermaid-container {
-        /* Make mermaid graphs use up all the width available so that they are legible. */
-        margin-left: calc(
-            -50vw + var(--doc-sidebar-width) + var(--ifm-container-width-xl) / 2
-        );
-        margin-right: calc(-50vw + var(--ifm-container-width-xl) / 2);
-        max-width: initial !important;
-    }
+  .docusaurus-mermaid-container {
+    /* Make mermaid graphs use up all the width available so that they are legible. */
+    margin-left: calc(-50vw + var(--doc-sidebar-width) + var(--ifm-container-width-xl) / 2);
+    margin-right: calc(-50vw + var(--ifm-container-width-xl) / 2);
+    max-width: initial !important;
+  }
 }
 
 .footer--dark {
-    background-color: #2d343a;
+  background-color: #2d343a;
 }

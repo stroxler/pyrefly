@@ -21,7 +21,7 @@ export default function WhyPyreflyGridItem({
 }: WhyPyreflyGridItemProps): React.ReactElement {
     return (
         <div {...stylex.props(styles.whyPyreflyCard)}>
-            <h3 {...stylex.props(typography.h4)}>{title}</h3>
+            <h3 {...stylex.props(typography.h5, typography.bold)}>{title}</h3>
             <p {...stylex.props(styles.contentText, typography.p)}>{content}</p>
         </div>
     );

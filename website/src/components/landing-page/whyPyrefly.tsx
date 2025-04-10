@@ -51,7 +51,7 @@ const styles = stylex.create({
     whyPyreflyGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '2rem',
+        gap: '1rem',
         '@media (max-width: 800px)': {
             gridTemplateColumns: 'repeat(2, 1fr)',
         },

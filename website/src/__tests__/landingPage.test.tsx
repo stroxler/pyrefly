@@ -20,12 +20,12 @@ describe('Home page', () => {
 
         // Verify that the new sections are present
         const whyPyreFlySection = document.getElementById(
-            'why-pyrefly-section',
+            'why-pyrefly-section'
         );
         expect(whyPyreFlySection).toBeInTheDocument();
 
         const performanceComparisonSection = document.getElementById(
-            'performance-comparison-section',
+            'performance-comparison-section'
         );
         expect(performanceComparisonSection).toBeInTheDocument();
 
@@ -45,12 +45,12 @@ describe('Home page', () => {
 
         // Verify that the new sections are not present
         const whyPyreFlySection = document.getElementById(
-            'why-pyrefly-section',
+            'why-pyrefly-section'
         );
         expect(whyPyreFlySection).not.toBeInTheDocument();
 
         const performanceComparisonSection = document.getElementById(
-            'performance-comparison-section',
+            'performance-comparison-section'
         );
         expect(performanceComparisonSection).not.toBeInTheDocument();
 
@@ -65,7 +65,7 @@ describe('Home page', () => {
     function expectHeaderAndTitleIsCorrect(container: HTMLElement) {
         // Verify that title is set correctly
         expect(document.title).toBe(
-            'Pyrefly: A Static Type Checker for Python',
+            'Pyrefly: A Static Type Checker for Python'
         );
 
         // Verify that fireflies are present
@@ -75,22 +75,26 @@ describe('Home page', () => {
         // Verify that header is correct
         const header = container.querySelector('header');
         expect(header).toBeInTheDocument();
-        const title = header?.querySelector('h1');
-        expect(title).toBeInTheDocument();
-        expect(title?.textContent).toBe('pyrefly.');
+
+        // Verify that the logo image is present
+        const logoImg = header?.querySelector(
+            'img[src="/img/Pyrefly-Brandmark-Invert.svg"]'
+        );
+        expect(logoImg).toBeInTheDocument();
+        expect(logoImg?.getAttribute('alt')).toBe('Pyrefly Logo');
 
         // verify subtitle is correct
         const subtitle = container.querySelector('header p');
         expect(subtitle).toBeInTheDocument();
         const subtitleText = subtitle?.textContent?.trim();
         expect(subtitleText).toBe(
-            'A faster Python type checker written in Rust',
+            'A faster Python type checker written in Rust'
         );
 
         const comingSoonLink = header?.querySelector('a');
         expect(comingSoonLink).toBeInTheDocument();
         expect(comingSoonLink?.getAttribute('href')).toBe(
-            'https://github.com/facebook/pyrefly/milestone/1',
+            'https://github.com/facebook/pyrefly/milestone/1'
         );
     }
 });
