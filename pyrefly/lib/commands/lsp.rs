@@ -87,6 +87,7 @@ use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::util::lock::Mutex;
+use crate::util::lock::RwLock;
 use crate::util::prelude::VecExt;
 
 #[derive(Debug, Parser, Clone)]
@@ -102,7 +103,7 @@ struct Server {
     #[expect(dead_code)] // we'll use it later on
     initialize_params: InitializeParams,
     state: State,
-    configs: SmallMap<PathBuf, Config>,
+    configs: Arc<RwLock<SmallMap<PathBuf, Config>>>,
     default_config: Config,
     canceled_requests: HashSet<RequestId>,
 }
@@ -391,12 +392,17 @@ impl Server {
 
     /// Finds a config for a file path: longest config which is a prefix of the file wins
     /// TODO(connernilsen): replace with real config logic
-    fn get_config(&self, uri: PathBuf) -> &Config {
-        self.configs
+    fn get_config_with<F, R>(&self, uri: PathBuf, f: F) -> R
+    where
+        F: FnOnce(&Config) -> R,
+    {
+        f(self
+            .configs
+            .read()
             .iter()
             .filter(|(key, _)| uri.starts_with(key))
             .max_by(|(key1, _), (key2, _)| key2.ancestors().count().cmp(&key1.ancestors().count()))
-            .map_or(&self.default_config, |(_, config)| config)
+            .map_or(&self.default_config, |(_, config)| config))
     }
 
     fn new(
@@ -426,7 +432,7 @@ impl Server {
             send,
             initialize_params,
             state: State::new(),
-            configs,
+            configs: Arc::new(RwLock::new(configs)),
             default_config: Config::new(search_path.clone(), site_package_path.clone()),
             canceled_requests: HashSet::new(),
         }
@@ -450,15 +456,19 @@ impl Server {
             .new_committable_transaction(Require::Exports, None);
         let mut all_handles = Vec::new();
         let mut config_with_handles = Vec::new();
-        for config in self.configs.values().chain(once(&self.default_config)) {
-            let handles = config.open_file_handles();
-            transaction.as_mut().invalidate_memory(
-                config.loader.dupe(),
-                &config.open_files.lock().keys().cloned().collect::<Vec<_>>(),
-            );
-            all_handles.append(&mut handles.clone());
-            config_with_handles.push((config, handles));
-        }
+        let configs = self.configs.read();
+        configs
+            .values()
+            .chain(once(&self.default_config))
+            .for_each(|config| {
+                let handles = config.open_file_handles();
+                transaction.as_mut().invalidate_memory(
+                    config.loader.dupe(),
+                    &config.open_files.lock().keys().cloned().collect::<Vec<_>>(),
+                );
+                all_handles.append(&mut handles.clone());
+                config_with_handles.push((config, handles));
+            });
         self.state
             .run_with_committing_transaction(transaction, &all_handles);
         for (config, handles) in config_with_handles {
@@ -474,6 +484,7 @@ impl Server {
         transaction.as_mut().invalidate_disk(invalidate_disk);
         self.state.run_with_committing_transaction(transaction, &[]);
         self.configs
+            .read()
             .values()
             .chain(once(&self.default_config))
             .for_each(|config| {
@@ -491,13 +502,15 @@ impl Server {
 
     fn did_open(&self, params: DidOpenTextDocumentParams) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.get_config(uri.clone()).open_files.lock().insert(
-            uri,
-            (
-                params.text_document.version,
-                Arc::new(params.text_document.text),
-            ),
-        );
+        self.get_config_with(uri.clone(), |config| {
+            config.open_files.lock().insert(
+                uri,
+                (
+                    params.text_document.version,
+                    Arc::new(params.text_document.text),
+                ),
+            );
+        });
         self.validate_in_memory()
     }
 
@@ -505,38 +518,43 @@ impl Server {
         // We asked for Sync full, so can just grab all the text from params
         let change = params.content_changes.into_iter().next().unwrap();
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.get_config(uri.clone())
-            .open_files
-            .lock()
-            .insert(uri, (params.text_document.version, Arc::new(change.text)));
+        self.get_config_with(uri.clone(), |config| {
+            config
+                .open_files
+                .lock()
+                .insert(uri, (params.text_document.version, Arc::new(change.text)));
+        });
         self.validate_in_memory()
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.get_config(uri.clone())
-            .open_files
-            .lock()
-            .shift_remove(&params.text_document.uri.to_file_path().unwrap());
+        self.get_config_with(uri.clone(), |config| {
+            config
+                .open_files
+                .lock()
+                .shift_remove(&params.text_document.uri.to_file_path().unwrap());
+        });
         self.publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
         Ok(())
     }
 
     fn make_handle(&self, uri: &Url) -> Handle {
         let path = uri.to_file_path().unwrap();
-        let config = self.get_config(path.clone());
-        let module = module_from_path(&path, &config.search_path);
-        let module_path = if config.open_files.lock().contains_key(&path) {
-            ModulePath::memory(path)
-        } else {
-            ModulePath::filesystem(path)
-        };
-        Handle::new(
-            module,
-            module_path,
-            config.runtime_metadata.dupe(),
-            config.loader.dupe(),
-        )
+        self.get_config_with(path.clone(), |config| {
+            let module = module_from_path(&path, &config.search_path);
+            let module_path = if config.open_files.lock().contains_key(&path) {
+                ModulePath::memory(path)
+            } else {
+                ModulePath::filesystem(path)
+            };
+            Handle::new(
+                module,
+                module_path,
+                config.runtime_metadata.dupe(),
+                config.loader.dupe(),
+            )
+        })
     }
 
     fn goto_definition(&self, params: GotoDefinitionParams) -> Option<GotoDefinitionResponse> {
