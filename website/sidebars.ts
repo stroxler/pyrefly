@@ -21,11 +21,36 @@ const docsSidebar = [
     // TODO (T217317240): Go through internal only docs and release the ones that should be public to public
     ...fbInternalOnly([
         {
-            type: 'category' as const,
-            label: 'Internal Docs',
-            items: ['fb/getting-started', 'fb/install', 'fb/error-kinds'],
+            type: 'doc' as const,
+            id: 'fb/getting-started',
+            label: '[Internal Only] Getting Started',
+        },
+        {
+            type: 'doc' as const,
+            id: 'fb/installation',
+            label: '[Internal Only] Installation',
         },
     ]),
+    {
+        type: 'doc' as const,
+        id: 'configuration',
+        label: 'Configuration',
+    },
+    {
+        type: 'doc' as const,
+        id: 'learn-python-typing',
+        label: 'Learn Python Typing',
+    },
+    {
+        type: 'doc' as const,
+        id: 'error-kinds',
+        label: 'Error Kinds',
+    },
+    {
+        type: 'doc' as const,
+        id: 'import-resolution',
+        label: 'Import Resolution',
+    },
 ];
 
 const sidebars: SidebarsConfig = {

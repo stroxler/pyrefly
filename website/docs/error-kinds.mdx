@@ -1,0 +1,320 @@
+---
+title: Error Kinds
+
+description: for Pyrefly error kinds
+custom_edit_url: https://www.internalfb.com/intern/diffusion/FBS/browsefile/master/fbcode/tools/pyre/pyre2/website/docs/fb/error-kinds.md
+---
+
+# Error Kinds
+
+An _error kind_ categorizes an error by the part of the typing specification
+that an error is related to. Every error has exactly one kind.
+
+The main use of error kinds is as short names ("slugs") that can be used in
+error suppression comments.
+
+placeholder for error kinds
+
+## annotation-mismatch
+
+This error indicates a mismatch between multiple annotations for a single
+variable. This is relatively uncommon, but it can happen in if-statements:
+
+```python
+if some_cond:
+    x: int = 1
+else:
+    x: str = "two" # Inconsistent type annotations for x: str, int [annotation-mismatch]
+```
+
+It can be helpful to annotate the variable before branch, especially if there is
+a useful default value for it. For example:
+
+```python
+x: str = "default"
+if some_cond:
+  x = "actual value"
+```
+
+## assert-type
+
+An `assert-type` error is raised when a `typing.assert_type()` call fails.
+
+This error kind should never be suppressed, since that rather defeats the point
+of of `typing.assert_type()`.
+
+## async-error
+
+`async-error` is reported when attempting to `await` on something that is not
+awaitable. This may indicate that a function should have been marked `async` but
+wasn't.
+
+```python
+def some_func() -> None:
+  ...
+
+await some_func() # Expression is not awaitable [async-error]
+```
+
+This will also arise if the context manager used in an `async with` statement
+has `__aenter__` and `__aexit__` methods that are not marked `async`.
+
+The fix is to use an `async` function in the `await`. This may mean making the
+function `async` or finding an existing `async` function to use instead.
+
+## bad-argument-count
+
+This error arises when a function is called with the wrong number of arguments.
+
+```python
+def takes_three(one: int, two: int, three: int) -> complex:
+  ...
+
+take_three(3, 2)  # Expected 1 more positional argument [bad-argument-count]
+```
+
+Note that `missing-argument` will be raised if pyrefly can identify that
+specific arguments are missing. As such, this error is more likely to appear
+when too many args are supplied, rather than too few.
+
+This example shows both kinds of errors:
+
+```python
+from typing import Callable
+def apply(f: Callable[[int, int], int]) -> int:
+    return f(1)  # Expected 1 more positional argument [bad-argument-count]
+apply() # Missing argument `f` in function `apply` [missing-argument]
+```
+
+## bad-argument-type
+
+This error indicates that the function was called with an argument of the wrong
+type.
+
+```python
+def example(x: int) -> None:
+  ...
+example("one")  # Argument `Literal['two']` is not assignable to parameter `x` with type `int` in function `example` [bad-argument-type]
+```
+
+This can also happen with `*args` and `**kwargs`:
+
+```python
+def bad_args(*args: int) -> None:
+  ...
+
+bad_args(1, "two")  # Argument `Literal['two']` is not assignable to parameter with type `int` in function `bad_args` [bad-argument-type]
+```
+
+```python
+def bad_kwargs(**kwargs: int) -> None:
+  ...
+
+bad_args(x=1, y="two")  # Keyword argument `y` with type `Literal['two']` is not assignable to kwargs type `int` in function `bad_kwargs` [bad-argument-type]
+```
+
+## bad-assignment
+
+The most common cause of this error is attempting to assign a value that conflicts with the variable's type annotation.
+
+```python
+x: str = 1 # `Literal[1]` is not assignable to `str` [bad-assignment]
+```
+
+However, it can occur in several other situations.
+
+Here, `x` is marked as `Final`, so assigning a new value to it is an error.
+
+```python
+from typing import Final
+x: Final = 1
+x = 2 # `x` is marked final [bad-assignment]
+```
+
+In another case, attempting to annotate an assignment to an instance attribute raises this error.
+
+```python
+class A:
+    x: int
+a = A()
+a.x: int = 2  # Type cannot be declared in assignment to non-self attribute `a.x` [bad-assignment]
+```
+
+## bad-class-definition
+
+This error indicates that there is something wrong with the class definition.
+It tends to be a bit rarer, since most issues would be tagged with other error kinds, such as
+`annotation-mismatch` or one of the function errors.
+inheritance has its own complexities, so it has its own error kind called `invalid-inheritance`.
+
+One place you may see it is dynamic class generation:
+
+```python
+from enum import Enum
+Ex = Enum("Ex", [("Red", 1), ("Blue", 2), ("Red", 3)])  # Duplicate field `Red` [bad-class-definition]
+```
+
+However, it is best practice to use the class syntax if possible, which doesn't treat duplicate names as an error.
+
+## bad-function-definition
+
+Like `bad-class-definition`, this error kind is uncommon because other error kinds are used for more specific issues.
+For example, argument order is enforced by the parser, so `def f(x: int = 1, y: str)` is a `parse-error`.
+
+## bad-keyword-argument
+
+Attempting to call a function with an incorrect keyword argument. e.g. f(x=1,
+x=2), or perhaps f(y=1) (where `f` has no parameter `y`).
+
+## bad-override
+
+A subclass field or method incorrectly overrides a field/method of a parent
+class.
+
+## bad-return
+
+Attempting to return a value that does not match the function's return type. Can
+also arise when returning values from generators.
+
+## bad-specialization
+
+Attempting to specialize a generic class with incorrect type arguments. e.g.
+`type[int, str]` is an error because `type` accepts only 1 type arg.
+
+## bad-unpacking
+
+An error caused by unpacking. e.g. attempting to unpack an iterable into the
+wrong number of variables.
+
+## match-error
+
+An error caused by a bad match statement. e.g. Writing a Foo(x, y, z) pattern
+when Foo only matches on (x, y).
+
+## missing-attribute
+
+Attempting to access an attribute that does not exist.
+
+## import-error
+
+An error related to the import machinery. e.g. failed to import a module.
+
+## index-error
+
+Attempting to access a container with an incorrect index. This only occurs when
+pyre can statically verify that the index is incorrect.
+
+## internal-error
+
+Internal Pyre error.
+
+## invalid-annotation
+
+Attempting to write an annotation that is invalid for some reason.
+
+## invalid-argument
+
+Passing an argument that is invalid for reasons besides type.
+
+## invalid-inheritance
+
+An error caused by incorrect inheritance in a class or type definition. e.g. a
+metaclass that is not a subclass of `type`.
+
+## invalid-literal
+
+Attempting to use a value that is not a valid kind of Literal.
+
+## invalid-overload
+
+An error caused by incorrect usage of the @overload decorator. e.g. not defining
+multiple variants for an overloaded function.
+
+## invalid-param-spec
+
+An error related to ParamSpec definition or usage.
+
+## invalid-super-call
+
+Attempting to call `super()` in a way that is not allowed. e.g. calling
+`super(Y, x)` on an object `x` that does not match the class `Y`.
+
+## invalid-type-var
+
+An error caused by incorrect usage or definition of a TypeVar.
+
+## invalid-type-var-tuple
+
+An error caused by incorrect usage or definition of a TypeVarTuple.
+
+## invalid-yield
+
+Attempting to use `yield` in a way that is not allowed. e.g. `yield from` with
+something that's not an iterable.
+
+## missing-argument
+
+An error caused by calling a function without all the required arguments. Should
+be used when we can name the specific arguments that are missing.
+
+## missing-module-attribute
+
+Accessing an attribute that does not exist on a module.
+
+## no-access
+
+The attribute exists but does not support this access pattern.
+
+## no-matching-overload
+
+Attempting to call an overloaded function, but none of the signatures match.
+
+## not-a-type
+
+Attempting to use something that isn't a type where a type is expected. This is
+a very general error and should be used sparingly.
+
+## not-callable
+
+Attempting to call a value that is not a callable.
+
+## not-iterable
+
+Attempting to use a non-iterable value as an iterable.
+
+## parse-error
+
+An error related to parsing or syntax.
+
+## read-only
+
+The attribute exists but cannot be modified.
+
+## reveal-type
+
+Raised by a call to `reveal_type()`.
+
+## type-alias-error
+
+An error related to type alias usage or definition.
+
+## typed-dict-key-error
+
+An error related to TypedDict keys. e.g. attempting to access a TypedDict with a
+key that does not exist.
+
+## unexpected-keyword
+
+An error caused by a keyword argument used in the wrong place.
+
+## unknown-name
+
+Attempting to use a name that is not defined.
+
+## unsupported-operand
+
+Attempting to apply an operator to arguments that do not support it.
+
+## unsupported
+
+Attempting to use a feature that is not yet supported.

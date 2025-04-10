@@ -19,8 +19,8 @@ function getNavBarItems() {
         // TODO (T217317240) remove this check when we are ready to publish docs to public
         process.env.INTERNAL_STATIC_DOCS === '1'
             ? {
-                to: 'en/docs/fb/',
-                activeBasePath: 'en/docs/fb',
+                to: 'en/docs/',
+                activeBasePath: 'en/docs',
                 label: 'Docs',
                 position: 'left' as const,
             }
