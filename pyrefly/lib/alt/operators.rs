@@ -220,27 +220,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     self.for_display(right.clone()),
                                 )
                             };
-                            let compare_by_method = |ty, method, arg, errs| {
-                                self.call_method(
-                                    ty,
-                                    &method,
-                                    x.range,
-                                    &[arg],
-                                    &[],
-                                    errs,
-                                    Some(&context),
-                                )
-                            };
-                            let comparison_error = || {
-                                self.error(
-                                    errors,
-                                    x.range,
-                                    ErrorKind::UnsupportedOperand,
-                                    None,
-                                    context().format(),
-                                );
-                                self.stdlib.bool().clone().to_type()
-                            };
                             match op {
                                 CmpOp::Eq | CmpOp::NotEq | CmpOp::Is | CmpOp::IsNot => {
                                     // We assume these comparisons never error. Technically, `__eq__` and
@@ -250,16 +229,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 }
                                 CmpOp::In | CmpOp::NotIn => {
                                     // `x in y` desugars to `y.__contains__(x)`
-                                    if let Some(ret) = compare_by_method(
+                                    if let Some(ret) = self.call_method(
                                         right,
-                                        dunder::CONTAINS,
-                                        CallArg::Type(left, x.left.range()),
+                                        &dunder::CONTAINS,
+                                        x.range,
+                                        &[CallArg::Type(left, x.left.range())],
+                                        &[],
                                         errors,
+                                        Some(&context),
                                     ) {
                                         // Comparison method called.
                                         ret
                                     } else {
-                                        comparison_error()
+                                        self.error(
+                                            errors,
+                                            x.range,
+                                            ErrorKind::UnsupportedOperand,
+                                            None,
+                                            context().format(),
+                                        );
+                                        self.stdlib.bool().clone().to_type()
                                     }
                                 }
                                 _ => {
