@@ -220,10 +220,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 )
                             };
                             match op {
-                                CmpOp::Eq | CmpOp::NotEq | CmpOp::Is | CmpOp::IsNot => {
-                                    // We assume these comparisons never error. Technically, `__eq__` and
-                                    // `__ne__` can be overridden, but we generally bake in the assumption
-                                    // that `==` and `!=` check equality as typically defined in Python.
+                                CmpOp::Is | CmpOp::IsNot => {
+                                    // These comparisons never error.
                                     self.stdlib.bool().clone().to_type()
                                 }
                                 CmpOp::In | CmpOp::NotIn => {

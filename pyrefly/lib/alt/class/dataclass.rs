@@ -177,21 +177,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
     ) -> SmallMap<Name, ClassSynthesizedField> {
-        let self_ = cls.self_param();
-        let other = Param::Pos(
-            Name::new_static("other"),
-            self.instantiate(cls),
-            Required::Required,
-        );
-        let ret = Type::ClassType(self.stdlib.bool().clone());
-        let callable = Callable::list(ParamList::new(vec![self_, other]), ret);
+        let make_signature = |other_type| {
+            let other = Param::Pos(Name::new_static("other"), other_type, Required::Required);
+            Callable::list(
+                ParamList::new(vec![cls.self_param(), other]),
+                self.stdlib.bool().clone().to_type(),
+            )
+        };
+        let callable = make_signature(self.instantiate(cls));
+        let callable_eq = make_signature(self.stdlib.object().clone().to_type());
         dunder::RICH_CMPS
             .iter()
             .map(|name| {
                 (
                     name.clone(),
                     ClassSynthesizedField::new(Type::Function(Box::new(Function {
-                        signature: callable.clone(),
+                        signature: if *name == dunder::EQ || *name == dunder::NE {
+                            callable_eq.clone()
+                        } else {
+                            callable.clone()
+                        },
                         metadata: FuncMetadata::def(
                             self.module_info().name(),
                             cls.name().clone(),

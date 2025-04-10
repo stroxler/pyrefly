@@ -395,3 +395,14 @@ a = A()
 a += B()  # E: `B` is not assignable to parameter `other` with type `Never` in function `A.__iadd__`
     "#,
 );
+
+testcase!(
+    test_custom_eq,
+    r#"
+from typing import assert_type
+class A:
+    def __eq__(self, other) -> int:
+        return 1
+assert_type(A() == 42, int)
+    "#,
+);
