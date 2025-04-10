@@ -24,7 +24,7 @@ use crate::util::listing::FileList;
 use crate::util::prelude::SliceExt;
 use crate::util::prelude::VecExt;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize, Default)]
 pub struct Globs(Vec<PathBuf>);
 
 impl Globs {
