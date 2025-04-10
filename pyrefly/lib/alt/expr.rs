@@ -163,9 +163,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Type {
-        self.distribute_over_union(obj, |obj| {
-            self.type_of_attr_get(obj, attr_name, range, errors, context, "Expr::attr_infer")
-        })
+        self.type_of_attr_get(obj, attr_name, range, errors, context, "Expr::attr_infer")
     }
 
     /// When interpreted as static types (as opposed to when accounting for runtime
