@@ -65,6 +65,7 @@ use lsp_types::Url;
 use ruff_source_file::SourceLocation;
 use ruff_text_size::TextSize;
 use serde::de::DeserializeOwned;
+use starlark_map::small_map::Iter;
 use starlark_map::small_map::SmallMap;
 
 use crate::clap_env;
@@ -106,6 +107,8 @@ struct Server {
     configs: Arc<RwLock<SmallMap<PathBuf, Config>>>,
     default_config: Config,
     canceled_requests: HashSet<RequestId>,
+    search_path: Vec<PathBuf>,
+    site_package_path: Vec<PathBuf>,
 }
 
 /// Temporary "configuration": this is all that is necessary to run an LSP at a given root.
@@ -391,18 +394,24 @@ impl Server {
     }
 
     /// Finds a config for a file path: longest config which is a prefix of the file wins
+    fn get_config<'a>(
+        &self,
+        configs: Iter<'a, PathBuf, Config>,
+        default: &'a Config,
+        uri: &Path,
+    ) -> &'a Config {
+        configs
+            .filter(|(key, _)| uri.starts_with(key))
+            .max_by(|(key1, _), (key2, _)| key2.ancestors().count().cmp(&key1.ancestors().count()))
+            .map_or(default, |(_, config)| config)
+    }
+
     /// TODO(connernilsen): replace with real config logic
     fn get_config_with<F, R>(&self, uri: PathBuf, f: F) -> R
     where
         F: FnOnce(&Config) -> R,
     {
-        f(self
-            .configs
-            .read()
-            .iter()
-            .filter(|(key, _)| uri.starts_with(key))
-            .max_by(|(key1, _), (key2, _)| key2.ancestors().count().cmp(&key1.ancestors().count()))
-            .map_or(&self.default_config, |(_, config)| config))
+        f(self.get_config(self.configs.read().iter(), &self.default_config, &uri))
     }
 
     fn new(
@@ -411,31 +420,31 @@ impl Server {
         search_path: Vec<PathBuf>,
         site_package_path: Vec<PathBuf>,
     ) -> Self {
-        let mut configs = SmallMap::new();
-        if let Some(capability) = initialize_params.clone().capabilities.workspace
+        let folders = if let Some(capability) = initialize_params.clone().capabilities.workspace
             && let Some(true) = capability.workspace_folders
+            && let Some(folders) = initialize_params.clone().workspace_folders
         {
-            if let Some(folders) = initialize_params.clone().workspace_folders {
-                folders.iter().for_each(|x| {
-                    let file_path = x.uri.to_file_path().unwrap();
-                    configs.insert(
-                        file_path.clone(),
-                        Config::new(
-                            once(file_path).chain(search_path.clone()).collect(),
-                            site_package_path.clone(),
-                        ),
-                    );
-                });
-            }
-        }
-        Self {
+            folders
+                .iter()
+                .map(|x| x.uri.to_file_path().unwrap())
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let mut s = Self {
             send,
             initialize_params,
             state: State::new(),
-            configs: Arc::new(RwLock::new(configs)),
+            configs: Arc::new(RwLock::new(SmallMap::new())),
             default_config: Config::new(search_path.clone(), site_package_path.clone()),
             canceled_requests: HashSet::new(),
-        }
+            search_path,
+            site_package_path,
+        };
+        s.configure(folders);
+
+        s
     }
 
     fn send_response(&self, x: Response) {
@@ -537,6 +546,24 @@ impl Server {
         });
         self.publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
         Ok(())
+    }
+
+    /// Configure the server with a new set of workspace folders
+    fn configure(&mut self, config_paths: Vec<PathBuf>) {
+        let mut new_configs = SmallMap::new();
+        config_paths.iter().for_each(|x| {
+            new_configs.insert(
+                x.clone(),
+                Config::new(
+                    [x.clone()]
+                        .into_iter()
+                        .chain(self.search_path.clone())
+                        .collect(),
+                    self.site_package_path.clone(),
+                ),
+            );
+        });
+        self.configs = Arc::new(RwLock::new(new_configs));
     }
 
     fn make_handle(&self, uri: &Url) -> Handle {
