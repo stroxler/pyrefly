@@ -379,3 +379,19 @@ a = A() + B()  # E: `B` is not assignable to parameter `other` with type `Never`
 assert_type(a, A)
     "#,
 );
+
+// We try __iadd__ and some fallback dunders. When all fail, the least confusing option is to use __iadd__.
+testcase!(
+    test_iadd_error,
+    r#"
+from typing import Never, assert_type
+class A:
+    def __iadd__(self, other: Never):
+        pass
+class B:
+    def __radd__(self, other: Never) -> "B":
+        return self
+a = A()
+a += B()  # E: `B` is not assignable to parameter `other` with type `Never` in function `A.__iadd__`
+    "#,
+);

@@ -928,6 +928,6 @@ def f(args, cond):
         if cond:
             # Note: the error says something like "not supported between `@3250` and `Literal[1]`
             # The variable number changes between runs
-            n += 1 # E: `+=` is not supported # E: `+=` is not supported
+            n += 1 # E: `+=` is not supported
     "#,
 );
