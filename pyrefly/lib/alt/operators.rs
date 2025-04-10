@@ -68,7 +68,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: &dyn Fn() -> ErrorContext,
     ) -> Type {
-        let mut last_call = None;
+        let mut first_call = None;
         for (dunder, target, arg) in calls {
             let method_type_dunder = self.type_of_attr_get_if_found(
                 target,
@@ -92,10 +92,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
             if dunder_errors.is_empty() {
                 return ret;
+            } else if first_call.is_none() {
+                first_call = Some((dunder_errors, ret));
             }
-            last_call = Some((dunder_errors, ret));
         }
-        if let Some((dunder_errors, ret)) = last_call {
+        if let Some((dunder_errors, ret)) = first_call {
             errors.extend(dunder_errors);
             ret
         } else {

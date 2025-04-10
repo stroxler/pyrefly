@@ -363,3 +363,19 @@ class B:
 A() + B()  # E: Cannot find `__add__` or `__radd__`
     "#,
 );
+
+// Both __add__ and __radd__ are tried, but it's less confusing to use __add__ when both fail.
+testcase!(
+    test_binop_error,
+    r#"
+from typing import Never, assert_type
+class A:
+    def __add__(self, other: Never) -> "A":
+        return self
+class B:
+    def __radd__(self, other: Never) -> "B":
+        return self
+a = A() + B()  # E: `B` is not assignable to parameter `other` with type `Never` in function `A.__add__`
+assert_type(a, A)
+    "#,
+);
