@@ -3541,7 +3541,7 @@
   "dataclasses_order.py": [
     {
       "code": -2,
-      "column": 12,
+      "column": 4,
       "concise_description": "`<` is not supported between `DC1` and `DC2`\n  Argument `DC2` is not assignable to parameter `other` with type `DC1` in function `DC1.__lt__`",
       "description": "`<` is not supported between `DC1` and `DC2`\n  Argument `DC2` is not assignable to parameter `other` with type `DC1` in function `DC1.__lt__`",
       "line": 50,
@@ -3708,10 +3708,10 @@
     {
       "code": -2,
       "column": 6,
-      "concise_description": "`<` is not supported between `Customer1` and `Customer1`",
-      "description": "`<` is not supported between `Customer1` and `Customer1`",
+      "concise_description": "`<` is not supported between `Customer1` and `Customer1`\n  Cannot find `__lt__` or `__gt__`",
+      "description": "`<` is not supported between `Customer1` and `Customer1`\n  Cannot find `__lt__` or `__gt__`",
       "line": 72,
-      "name": "unsupported-operand",
+      "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 72
     },
@@ -3768,10 +3768,10 @@
     {
       "code": -2,
       "column": 6,
-      "concise_description": "`<` is not supported between `Customer2` and `Customer2`",
-      "description": "`<` is not supported between `Customer2` and `Customer2`",
+      "concise_description": "`<` is not supported between `Customer2` and `Customer2`\n  Cannot find `__lt__` or `__gt__`",
+      "description": "`<` is not supported between `Customer2` and `Customer2`\n  Cannot find `__lt__` or `__gt__`",
       "line": 78,
-      "name": "unsupported-operand",
+      "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 78
     },
@@ -4064,10 +4064,10 @@
     {
       "code": -2,
       "column": 6,
-      "concise_description": "`<` is not supported between `Customer1` and `Customer1`",
-      "description": "`<` is not supported between `Customer1` and `Customer1`",
+      "concise_description": "`<` is not supported between `Customer1` and `Customer1`\n  Cannot find `__lt__` or `__gt__`",
+      "description": "`<` is not supported between `Customer1` and `Customer1`\n  Cannot find `__lt__` or `__gt__`",
       "line": 61,
-      "name": "unsupported-operand",
+      "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 61
     },
@@ -4134,10 +4134,10 @@
     {
       "code": -2,
       "column": 6,
-      "concise_description": "`<` is not supported between `Customer2` and `Customer2`",
-      "description": "`<` is not supported between `Customer2` and `Customer2`",
+      "concise_description": "`<` is not supported between `Customer2` and `Customer2`\n  Cannot find `__lt__` or `__gt__`",
+      "description": "`<` is not supported between `Customer2` and `Customer2`\n  Cannot find `__lt__` or `__gt__`",
       "line": 73,
-      "name": "unsupported-operand",
+      "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 73
     },
@@ -4226,10 +4226,10 @@
     {
       "code": -2,
       "column": 6,
-      "concise_description": "`<` is not supported between `Customer1` and `Customer1`",
-      "description": "`<` is not supported between `Customer1` and `Customer1`",
+      "concise_description": "`<` is not supported between `Customer1` and `Customer1`\n  Cannot find `__lt__` or `__gt__`",
+      "description": "`<` is not supported between `Customer1` and `Customer1`\n  Cannot find `__lt__` or `__gt__`",
       "line": 73,
-      "name": "unsupported-operand",
+      "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 73
     },
@@ -4266,10 +4266,10 @@
     {
       "code": -2,
       "column": 6,
-      "concise_description": "`<` is not supported between `Customer2` and `Customer2`",
-      "description": "`<` is not supported between `Customer2` and `Customer2`",
+      "concise_description": "`<` is not supported between `Customer2` and `Customer2`\n  Cannot find `__lt__` or `__gt__`",
+      "description": "`<` is not supported between `Customer2` and `Customer2`\n  Cannot find `__lt__` or `__gt__`",
       "line": 79,
-      "name": "unsupported-operand",
+      "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 79
     },

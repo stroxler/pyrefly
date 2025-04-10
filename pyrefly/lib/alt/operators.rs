@@ -31,6 +31,7 @@ use crate::error::kind::ErrorKind;
 use crate::error::style::ErrorStyle;
 use crate::graph::index::Idx;
 use crate::types::literal::Lit;
+use crate::types::types::AnyStyle;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -210,7 +211,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             comparisons
                 .map(|(op, comparator)| {
                     let right = self.expr_infer(comparator, errors);
-                    let right_range = comparator.range();
                     self.distribute_over_union(&left, |left| {
                         self.distribute_over_union(&right, |right| {
                             let context = || {
@@ -263,48 +263,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     }
                                 }
                                 _ => {
-                                    let errs = ErrorCollector::new(
-                                        self.module_info().dupe(),
-                                        ErrorStyle::Delayed,
-                                    );
-                                    let fallback_errs = ErrorCollector::new(
-                                        self.module_info().dupe(),
-                                        ErrorStyle::Delayed,
-                                    );
-                                    if let Some(magic_method) = dunder::rich_comparison_dunder(*op)
-                                        && let Some(ret) = compare_by_method(
+                                    // We've handled the other cases above, so we know we have a rich comparison op.
+                                    let calls_to_try = [
+                                        (
+                                            &dunder::rich_comparison_dunder(*op).unwrap(),
                                             left,
-                                            magic_method,
-                                            CallArg::Type(right, right_range),
-                                            &errs,
-                                        )
-                                        && errs.is_empty()
-                                    {
-                                        // Comparison method successfully called.
-                                        ret
-                                    } else if let Some(magic_method) =
-                                        dunder::rich_comparison_fallback(*op)
-                                        && let Some(ret) = compare_by_method(
                                             right,
-                                            magic_method,
-                                            CallArg::Type(left, x.left.range()),
-                                            &fallback_errs,
-                                        )
-                                        && fallback_errs.is_empty()
-                                    {
-                                        // Fallback comparison method successfully called.
-                                        ret
-                                    } else if !errs.is_empty() {
-                                        // Report errors from calling the comparison method on the LHS.
-                                        errors.extend(errs);
-                                        self.stdlib.bool().clone().to_type()
-                                    } else if !fallback_errs.is_empty() {
-                                        // Report errors from calling the comparison method on the RHS.
-                                        errors.extend(fallback_errs);
+                                        ),
+                                        (
+                                            &dunder::rich_comparison_fallback(*op).unwrap(),
+                                            right,
+                                            left,
+                                        ),
+                                    ];
+                                    let ret = self.try_binop_calls(
+                                        &calls_to_try,
+                                        x.range,
+                                        errors,
+                                        &context,
+                                    );
+                                    if matches!(ret, Type::Any(AnyStyle::Error)) {
                                         self.stdlib.bool().clone().to_type()
                                     } else {
-                                        // We couldn't find a comparison method.
-                                        comparison_error()
+                                        ret
                                     }
                                 }
                             }
