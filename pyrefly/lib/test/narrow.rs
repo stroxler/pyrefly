@@ -777,6 +777,24 @@ def f(x: Any):
 );
 
 testcase!(
+    bug = "TODO(stroxler): We are binding narrows too early and miss errors in missing attributes that get narrowed.",
+    test_listcomp_if_control_flow,
+    r#"
+class C: pass
+class D(C): pass
+def accepts_d(x: D) -> None: pass
+def f(x: list[C], z: C):
+    # if statement control flow works as expected, we get an error.
+    if accepts_d(z) and isinstance(z, D):  # E: Argument `C` is not assignable to parameter `x` with type `D`
+        pass
+    # But here we don't get an error, it appears the narrowed binding is applied too early.
+    [y for y in x if (accepts_d(y) and isinstance(y, D))]
+    # Here we get an error, but will disappear once we support reading attribute narrows.
+    [None for y in x if C.error]  # E: Class `C` has no class attribute `error`
+    "#,
+);
+
+testcase!(
     test_unittest_assert,
     r#"
 from typing import assert_type

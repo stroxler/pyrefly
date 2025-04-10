@@ -353,7 +353,7 @@ testcase!(
 class C:
     pass
 def f(x):
-    [None for y in x if C.error]  # E: Class `C` has no class attribute `error`
+    [None for y in x if "5" + 5]  # E: `+` is not supported between `Literal['5']` and `Literal[5]`
     "#,
 );
 
