@@ -117,8 +117,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn binop_infer(&self, x: &ExprBinOp, errors: &ErrorCollector) -> Type {
         let binop_call = |op: Operator, lhs: &Type, rhs: &Type, range: TextRange| -> Type {
-            let context =
-                || ErrorContext::BinaryOp(op.as_str().to_owned(), lhs.clone(), rhs.clone());
+            let context = || {
+                ErrorContext::BinaryOp(
+                    op.as_str().to_owned(),
+                    self.for_display(lhs.clone()),
+                    self.for_display(rhs.clone()),
+                )
+            };
             // Reflected operator implementation: This deviates from the runtime semantics by calling the reflected dunder if the regular dunder call errors.
             // At runtime, the reflected dunder is called only if the regular dunder method doesn't exist or if it returns NotImplemented.
             // This deviation is necessary, given that the typeshed stubs don't record when NotImplemented is returned
@@ -155,8 +160,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         let binop_call = |op: Operator, lhs: &Type, rhs: &Type, range: TextRange| -> Type {
-            let context =
-                || ErrorContext::InplaceBinaryOp(op.as_str().to_owned(), lhs.clone(), rhs.clone());
+            let context = || {
+                ErrorContext::InplaceBinaryOp(
+                    op.as_str().to_owned(),
+                    self.for_display(lhs.clone()),
+                    self.for_display(rhs.clone()),
+                )
+            };
             let calls_to_try = [
                 (&Name::new_static(op.in_place_dunder()), lhs, rhs),
                 (&Name::new_static(op.dunder()), lhs, rhs),
@@ -207,8 +217,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             let context = || {
                                 ErrorContext::BinaryOp(
                                     op.as_str().to_owned(),
-                                    left.clone(),
-                                    right.clone(),
+                                    self.for_display(left.clone()),
+                                    self.for_display(right.clone()),
                                 )
                             };
                             let compare_by_method = |ty, method, arg, errs| {
@@ -309,7 +319,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn unop_infer(&self, x: &ExprUnaryOp, errors: &ErrorCollector) -> Type {
         let t = self.expr_infer(&x.operand, errors);
         let unop = |t: &Type, f: &dyn Fn(&Lit) -> Option<Type>, method: &Name| {
-            let context = || ErrorContext::UnaryOp(x.op.as_str().to_owned(), t.clone());
+            let context =
+                || ErrorContext::UnaryOp(x.op.as_str().to_owned(), self.for_display(t.clone()));
             match t {
                 Type::Literal(lit) if let Some(ret) = f(lit) => ret,
                 Type::ClassType(_) => {

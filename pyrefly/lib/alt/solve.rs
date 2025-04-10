@@ -496,7 +496,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .flat_map(|t| self.iterate(t, range, errors))
                 .collect(),
             _ => {
-                let context = || ErrorContext::Iteration(iterable.clone());
+                let context = || ErrorContext::Iteration(self.for_display(iterable.clone()));
                 let ty = self
                     .unwrap_iterable(iterable)
                     .or_else(|| {
@@ -539,7 +539,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.async_iterate(&self.solver().force_var(*v), range, errors)
             }
             _ => {
-                let context = || ErrorContext::AsyncIteration(iterable.clone());
+                let context = || ErrorContext::AsyncIteration(self.for_display(iterable.clone()));
                 let ty = self.unwrap_async_iterable(iterable).unwrap_or_else(|| {
                     self.error(
                         errors,
@@ -882,7 +882,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         self.distribute_over_union(context_manager_type, |context_manager_type| {
-            let context = || ErrorContext::BadContextManager(context_manager_type.clone());
+            let context =
+                || ErrorContext::BadContextManager(self.for_display(context_manager_type.clone()));
             let enter_type =
                 self.context_value_enter(context_manager_type, kind, range, errors, Some(&context));
             let exit_type =
@@ -894,7 +895,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
                 &|| TypeCheckContext {
                     kind: TypeCheckKind::MagicMethodReturn(
-                        context_manager_type.clone(),
+                        self.for_display(context_manager_type.clone()),
                         kind.context_exit_dunder(),
                     ),
                     context: Some(context()),
@@ -1051,7 +1052,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 &[],
                                 &[],
                                 errors,
-                                Some(&|| ErrorContext::DelItem(base.clone())),
+                                Some(&|| ErrorContext::DelItem(self.for_display(base.clone()))),
                             );
                         }
                     }
@@ -1568,7 +1569,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: check that value matches class
                 // TODO: check against duplicate keys (optional)
                 let binding = self.get_idx(*key);
-                let context = || ErrorContext::MatchPositional(binding.ty().clone());
+                let context =
+                    || ErrorContext::MatchPositional(self.for_display(binding.ty().clone()));
                 let match_args = self
                     .attr_infer(
                         &binding,
@@ -2004,7 +2006,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     };
                     TypeCheckContext::of_kind(TypeCheckKind::IterationVariableMismatch(
                         name.unwrap_or_else(|| Name::new_static("_")),
-                        annot_type.unwrap_or_else(Type::any_implicit),
+                        self.for_display(annot_type.unwrap_or_else(Type::any_implicit)),
                     ))
                 };
                 let iterables = if is_async.is_async() {
@@ -2110,7 +2112,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ],
                         &[],
                         errors,
-                        Some(&|| ErrorContext::SetItem(base.clone())),
+                        Some(&|| ErrorContext::SetItem(self.for_display(base.clone()))),
                     ),
                 }
             }

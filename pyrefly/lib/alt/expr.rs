@@ -1008,7 +1008,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         x.range,
                         ErrorKind::AsyncError,
                         None,
-                        ErrorContext::Await(awaiting_ty).format(),
+                        ErrorContext::Await(self.for_display(awaiting_ty)).format(),
                     ),
                 }
             }
@@ -1215,7 +1215,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 &xs[0],
                                 x.range,
                                 errors,
-                                Some(&|| ErrorContext::Index(fun.clone())),
+                                Some(&|| ErrorContext::Index(self.for_display(fun.clone()))),
                             ),
                         Type::Tuple(_) if xs.len() == 1 => self.call_method_or_error(
                             &fun,
@@ -1224,7 +1224,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             &[CallArg::Expr(&x.slice)],
                             &[],
                             errors,
-                            Some(&|| ErrorContext::Index(fun.clone())),
+                            Some(&|| ErrorContext::Index(self.for_display(fun.clone()))),
                         ),
                         Type::Any(style) => style.propagate(),
                         Type::LiteralString | Type::Literal(Lit::String(_)) if xs.len() <= 3 => {
@@ -1239,7 +1239,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 &x.slice,
                                 x.range,
                                 errors,
-                                Some(&|| ErrorContext::Index(fun.clone())),
+                                Some(&|| ErrorContext::Index(self.for_display(fun.clone()))),
                             )
                         }
                         Type::ClassType(_) => self.call_method_or_error(
@@ -1249,7 +1249,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             &[CallArg::Expr(&x.slice)],
                             &[],
                             errors,
-                            Some(&|| ErrorContext::Index(fun.clone())),
+                            Some(&|| ErrorContext::Index(self.for_display(fun.clone()))),
                         ),
                         Type::TypedDict(typed_dict) => {
                             let key_ty = self.expr_infer(&x.slice, errors);
