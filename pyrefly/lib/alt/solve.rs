@@ -1434,9 +1434,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             QuantifiedKind::TypeVarTuple => {
-                if default.is_kind_type_var_tuple() {
-                    default.clone()
-                } else if let Type::Unpack(box inner @ Type::Tuple(_)) = default {
+                if let Type::Unpack(box inner) = default
+                    && (matches!(inner, Type::Tuple(_)) || inner.is_kind_type_var_tuple())
+                {
                     inner.clone()
                 } else {
                     self.error(

@@ -685,13 +685,14 @@ reveal_type(B[int, str, float]()) # E: B[tuple[int], str, Ellipsis] # E: Expecte
 );
 
 testcase!(
-    bug = "We should accept a TypeVarTuple as a default of a TypeVarTuple",
     test_typevartuple_default_is_typevartuple,
     r#"
 from typing import TypeVarTuple, Unpack
 Ps = TypeVarTuple('Ps')
-Qs = TypeVarTuple('Qs', default=Unpack[Ps]) # E: Default for TypeVarTuple must be an unpacked tuple form or another TypeVarTuple
-class A[*Ps, *Qs = *Ps]: # E: cannot be more than one TypeVarTuple # E: Default for TypeVarTuple must be an unpacked tuple form or another TypeVarTuple
+Qs = TypeVarTuple('Qs', default=Unpack[Ps])
+# This error is expected. What we're testing is that the unpacked TypeVarTuple default is accepted
+# without any additional error.
+class A[*Ps, *Qs = *Ps]: # E: cannot be more than one TypeVarTuple
     pass
     "#,
 );
