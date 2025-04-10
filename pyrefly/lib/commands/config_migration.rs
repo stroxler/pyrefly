@@ -16,15 +16,12 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use serde::Deserialize;
 use tracing::info;
 
-use crate::globs::Globs;
-use crate::metadata::PythonPlatform;
+use crate::config::pyright::PyrightConfig;
 use crate::run::CommandExitStatus;
 use crate::util::fs_anyhow;
 use crate::ConfigFile;
-use crate::PythonVersion;
 
 #[derive(Clone, Debug, Parser)]
 pub struct Args {
@@ -41,7 +38,7 @@ impl Args {
         if self.input_path.file_name() == Some("pyrightconfig.json".as_ref()) {
             info!("Detected pyright config file");
             let pyr = serde_json::from_str::<PyrightConfig>(&raw_file)?;
-            let config = convert_pyright_config(pyr);
+            let config = pyr.convert();
             let serialized = toml::to_string_pretty(&config)?;
             info!("Conversion finished");
             if let Some(output_path) = &self.output_path {
@@ -60,114 +57,9 @@ impl Args {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
-struct PyrightConfig {
-    #[serde(rename = "include")]
-    project_includes: Option<Globs>,
-    #[serde(rename = "exclude")]
-    project_excludes: Option<Globs>,
-    #[serde(rename = "extraPaths")]
-    search_path: Option<Vec<PathBuf>>,
-    #[serde(rename = "pythonPlatform")]
-    python_platform: Option<String>,
-    #[serde(rename = "pythonVersion")]
-    python_version: Option<PythonVersion>,
-}
-
-fn convert_pyright_config(pyr: PyrightConfig) -> ConfigFile {
-    let mut cfg = ConfigFile::default();
-    if let Some(includes) = pyr.project_includes {
-        cfg.project_includes = includes;
-    }
-    if let Some(excludes) = pyr.project_excludes {
-        cfg.project_excludes = excludes;
-    }
-    if let Some(search_path) = pyr.search_path {
-        cfg.search_path = search_path;
-    }
-    if let Some(platform) = pyr.python_platform {
-        cfg.python_environment.python_platform = Some(PythonPlatform::new(&platform));
-    }
-    if pyr.python_version.is_some() {
-        cfg.python_environment.python_version = pyr.python_version;
-    }
-    cfg
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_convert_pyright_config() -> anyhow::Result<()> {
-        let raw_file = r#"
-            {
-                "include": [
-                    "src/**/*.py",
-                    "test/**/*.py"
-                ],
-                "exclude": [
-                    "src/excluded/**/*.py"
-                ],
-                "extraPaths": [
-                    "src/extra"
-                ],
-                "pythonPlatform": "Linux",
-                "pythonVersion": "3.10"
-            }
-            "#;
-        let pyr = serde_json::from_str::<PyrightConfig>(raw_file)?;
-        let config = convert_pyright_config(pyr);
-        assert_eq!(
-            config,
-            ConfigFile {
-                project_includes: Globs::new(vec![
-                    "src/**/*.py".to_owned(),
-                    "test/**/*.py".to_owned()
-                ]),
-                project_excludes: Globs::new(vec!["src/excluded/**/*.py".to_owned()]),
-                search_path: vec![PathBuf::from("src/extra")],
-                python_environment: crate::PythonEnvironment {
-                    python_platform: Some(PythonPlatform::linux()),
-                    python_version: Some(PythonVersion::new(3, 10, 0)),
-                    site_package_path: None
-                },
-                ..Default::default()
-            }
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_convert_pyright_config_with_missing_fields() -> anyhow::Result<()> {
-        let raw_file = r#"
-            {
-                "include": [
-                    "src/**/*.py",
-                    "test/**/*.py"
-                ],
-                "pythonVersion": "3.11"
-            }
-            "#;
-        let pyr = serde_json::from_str::<PyrightConfig>(raw_file)?;
-        let config = convert_pyright_config(pyr);
-        assert_eq!(
-            config,
-            ConfigFile {
-                project_includes: Globs::new(vec![
-                    "src/**/*.py".to_owned(),
-                    "test/**/*.py".to_owned()
-                ]),
-                python_environment: crate::PythonEnvironment {
-                    python_version: Some(PythonVersion::new(3, 11, 0)),
-                    python_platform: None,
-                    site_package_path: None
-                },
-                ..Default::default()
-            }
-        );
-        Ok(())
-    }
 
     #[test]
     fn test_run_pyright() -> anyhow::Result<()> {
