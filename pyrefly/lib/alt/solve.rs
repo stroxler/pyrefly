@@ -2661,7 +2661,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if quantified.is_param_spec()
                 && !matches!(
                     type_form_context,
-                    TypeFormContext::TypeArgument | TypeFormContext::GenericBase
+                    TypeFormContext::TypeArgument
+                        | TypeFormContext::GenericBase
+                        | TypeFormContext::ParamSpecDefault
                 )
             {
                 return self.error(

@@ -669,18 +669,17 @@ reveal_type(B[int, str, float, bool, bytes]()) # E: B[tuple[int, str, float], bo
 );
 
 testcase!(
-    bug = "False positive on the definition of A, wrong revealed types",
     test_paramspec_with_default_after_typevartuple,
     r#"
 from typing import Any, reveal_type
-class A[*Ts, **P1, **P2 = P1]: # E: ParamSpec is not allowed in this context
+class A[*Ts, **P1, **P2 = P1]:
     pass
 class B[*Ts, T, **P = [int, str]]:
     pass
-reveal_type(A[[int, str]]()) # E: A[tuple[()], [int, str], Error]
-reveal_type(A[bool, [int, str]]()) # E: A[tuple[()], Ellipsis, [int, str]] # E: Expected a valid ParamSpec expression, got `bool`
-reveal_type(A[bool, bytes, [int, str]]()) # E: A[tuple[bool], Ellipsis, [int, str]] # E: Expected a valid ParamSpec expression, got `bytes`
-reveal_type(B[int, str, float]()) # E: B[tuple[int], str, Ellipsis] # E: Expected a valid ParamSpec expression, got `float`
+reveal_type(A[[int, str]]()) # E: A[tuple[()], [int, str], [int, str]]
+reveal_type(A[bool, [int, str]]()) # E: A[tuple[bool], [int, str], [int, str]]
+reveal_type(A[bool, bytes, [int, str]]()) # E: A[tuple[bool, bytes], [int, str], [int, str]]
+reveal_type(B[int, str, float]()) # E: B[tuple[int, str], float, [int, str]]
     "#,
 );
 

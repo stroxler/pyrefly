@@ -44,8 +44,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Get next type argument
                 match param.quantified.kind() {
                     QuantifiedKind::TypeVarTuple => {
-                        let args_to_consume = self
-                            .num_typevartuple_args_to_consume(param_idx, nparams, targ_idx, nargs);
+                        // We know that ParamSpec params must be matched by ParamSpec args, so chop off both params and args
+                        // at the next ParamSpec when computing how many args the TypeVarTuple should consume.
+                        let paramspec_param_idx =
+                            self.peek_next_paramspec_param(param_idx + 1, tparams);
+                        let paramspec_arg_idx = self.peek_next_paramspec_arg(targ_idx, &targs);
+                        let nparams_for_tvt = paramspec_param_idx.unwrap_or(nparams);
+                        let nargs_for_tvt = paramspec_arg_idx.unwrap_or(nargs);
+                        let args_to_consume = self.num_typevartuple_args_to_consume(
+                            param_idx,
+                            nparams_for_tvt,
+                            targ_idx,
+                            nargs_for_tvt,
+                        );
                         let new_targ_idx = targ_idx + args_to_consume;
                         checked_targs.push(self.create_next_typevartuple_arg(
                             &targs[targ_idx..new_targ_idx],
@@ -101,6 +112,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
         }
         TArgs::new(checked_targs)
+    }
+
+    fn peek_next_paramspec_param(&self, start_idx: usize, tparams: &TParams) -> Option<usize> {
+        for (i, param) in tparams.iter().enumerate().skip(start_idx) {
+            if param.quantified.is_param_spec() {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    fn peek_next_paramspec_arg(&self, start_idx: usize, args: &[Type]) -> Option<usize> {
+        for (i, arg) in args.iter().enumerate().skip(start_idx) {
+            if arg.is_kind_param_spec() {
+                return Some(i);
+            }
+        }
+        None
     }
 
     fn num_typevartuple_args_to_consume(
