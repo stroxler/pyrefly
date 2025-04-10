@@ -858,7 +858,9 @@ impl Type {
                 ty.recurse_mut(&mut |x| f(x, mp));
             }
         }
-        f(&mut self, mp);
+        if !mp.is_empty() {
+            f(&mut self, mp);
+        }
         self
     }
 

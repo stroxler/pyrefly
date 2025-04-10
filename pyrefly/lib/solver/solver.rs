@@ -301,6 +301,10 @@ impl Solver {
         t: Type,
         uniques: &UniqueFactory,
     ) -> (Vec<Var>, Type) {
+        if params.is_empty() {
+            return (Vec::new(), t);
+        }
+
         let vs: Vec<Var> = params.iter().map(|_| Var::new(uniques)).collect();
         let t = t.subst(
             &params
