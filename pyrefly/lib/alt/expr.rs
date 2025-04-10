@@ -155,15 +155,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn attr_infer(
+    pub fn attr_infer_for_type(
         &self,
-        obj: &Type,
+        base: &Type,
         attr_name: &Name,
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Type {
-        self.type_of_attr_get(obj, attr_name, range, errors, context, "Expr::attr_infer")
+        self.type_of_attr_get(
+            base,
+            attr_name,
+            range,
+            errors,
+            context,
+            "Expr::attr_infer_for_type",
+        )
+    }
+
+    pub fn attr_infer(
+        &self,
+        base: &TypeInfo,
+        attr_name: &Name,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) -> Type {
+        self.attr_infer_for_type(base.ty(), attr_name, range, errors, context)
     }
 
     /// When interpreted as static types (as opposed to when accounting for runtime
@@ -689,15 +707,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Expr::Attribute(x) => {
-                let obj = self.expr_infer(&x.value, errors);
-                let ty = match (&obj, x.attr.id.as_str()) {
+                let base = self.expr_infer_type_info(&x.value, errors);
+                let ty = match (base.ty(), x.attr.id.as_str()) {
                     (Type::Literal(Lit::Enum(box (_, member, _))), "_name_" | "name") => {
                         Type::Literal(Lit::String(member.as_str().into()))
                     }
                     (Type::Literal(Lit::Enum(box (_, _, raw_type))), "_value_" | "value") => {
                         raw_type.clone()
                     }
-                    _ => self.attr_infer(&obj, &x.attr.id, x.range, errors, None),
+                    _ => self.attr_infer(&base, &x.attr.id, x.range, errors, None),
                 };
                 TypeInfo::of_ty(ty)
             }

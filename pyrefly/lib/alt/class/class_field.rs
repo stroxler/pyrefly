@@ -632,11 +632,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::ClassType(c) => {
                 if c.class_object().contains(&dunder::GET) {
                     descriptor_getter =
-                        Some(self.attr_infer(&ty, &dunder::GET, range, errors, None));
+                        Some(self.attr_infer_for_type(&ty, &dunder::GET, range, errors, None));
                 }
                 if c.class_object().contains(&dunder::SET) {
                     descriptor_setter =
-                        Some(self.attr_infer(&ty, &dunder::SET, range, errors, None));
+                        Some(self.attr_infer_for_type(&ty, &dunder::SET, range, errors, None));
                 }
             }
             _ => {}

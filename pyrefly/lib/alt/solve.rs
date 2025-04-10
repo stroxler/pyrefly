@@ -1570,7 +1570,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let binding = self.get_idx(*key);
                 let context = || ErrorContext::MatchPositional(binding.ty().clone());
                 let match_args = self.attr_infer(
-                    binding.ty(),
+                    &binding,
                     &dunder::MATCH_ARGS,
                     *range,
                     errors,
@@ -1581,7 +1581,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         if *idx < ts.len() {
                             if let Some(Type::Literal(Lit::String(box attr_name))) = ts.get(*idx) {
                                 self.attr_infer(
-                                    binding.ty(),
+                                    &binding,
                                     &Name::new(attr_name),
                                     *range,
                                     errors,
@@ -1626,7 +1626,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: check that value matches class
                 // TODO: check against duplicate keys (optional)
                 let binding = self.get_idx(*key);
-                self.attr_infer(binding.ty(), &attr.id, attr.range, errors, None)
+                self.attr_infer(&binding, &attr.id, attr.range, errors, None)
             }
             Binding::NameAssign(name, annot_key, expr) => {
                 let (has_type_alias_qualifier, ty) = match annot_key.as_ref() {
