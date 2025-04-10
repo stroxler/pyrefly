@@ -40,12 +40,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
         context: &dyn Fn() -> ErrorContext,
-        op: Operator,
+        opname: &Name,
         call_arg_type: &Type,
     ) -> Type {
         let callable = self.as_call_target_or_error(
             method_type,
-            CallStyle::BinaryOp(op),
+            CallStyle::Method(opname),
             range,
             errors,
             Some(context),
@@ -62,7 +62,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn try_binop_calls(
         &self,
-        op: Operator,
         calls: &[(&Name, &Type, &Type)],
         range: TextRange,
         errors: &ErrorCollector,
@@ -87,7 +86,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 &dunder_errors,
                 &context,
-                op,
+                dunder,
                 arg,
             );
             if dunder_errors.is_empty() {
@@ -131,7 +130,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 (&Name::new_static(op.dunder()), lhs, rhs),
                 (&Name::new_static(op.reflected_dunder()), rhs, lhs),
             ];
-            self.try_binop_calls(op, &calls_to_try, range, errors, &context)
+            self.try_binop_calls(&calls_to_try, range, errors, &context)
         };
         let lhs = self.expr_infer(&x.left, errors);
         let rhs = self.expr_infer(&x.right, errors);
@@ -172,7 +171,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 (&Name::new_static(op.dunder()), lhs, rhs),
                 (&Name::new_static(op.reflected_dunder()), rhs, lhs),
             ];
-            self.try_binop_calls(op, &calls_to_try, range, errors, &context)
+            self.try_binop_calls(&calls_to_try, range, errors, &context)
         };
         let base = self.expr_infer(&x.target, errors);
         let rhs = self.expr_infer(&x.value, errors);

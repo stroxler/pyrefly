@@ -8,7 +8,6 @@
 use dupe::Dupe;
 use ruff_python_ast::name::Name;
 use ruff_python_ast::Keyword;
-use ruff_python_ast::Operator;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
@@ -41,7 +40,6 @@ use crate::types::types::Var;
 use crate::util::visit::VisitMut;
 pub enum CallStyle<'a> {
     Method(&'a Name),
-    BinaryOp(Operator),
     FreeForm,
 }
 
@@ -217,9 +215,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let expect_message = match call_style {
                     CallStyle::Method(method) => {
                         format!("Expected `{}` to be a callable", method)
-                    }
-                    CallStyle::BinaryOp(op) => {
-                        format!("Expected `{}` to be a callable", op.dunder())
                     }
                     CallStyle::FreeForm => "Expected a callable".to_owned(),
                 };
