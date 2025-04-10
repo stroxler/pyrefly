@@ -721,13 +721,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        let mut qs = SmallSet::new();
-        ty.collect_quantifieds(&mut qs);
         if let Some(method_field) =
             self.get_non_synthesized_field_from_current_class_only(class, method_name)
         {
             match &method_field.raw_type() {
                 Type::Forall(box Forall { tparams, .. }) => {
+                    let mut qs = SmallSet::new();
+                    ty.collect_quantifieds(&mut qs);
                     let gradual_fallbacks: SmallMap<_, _> = tparams
                         .iter()
                         .filter_map(|param| {
