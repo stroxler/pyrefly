@@ -129,7 +129,7 @@ async fn run_check(
     args: pyrefly::run::CheckArgs,
     watch: bool,
     files_to_check: FilteredGlobs,
-    config_finder: &impl Fn(&Path) -> ConfigFile,
+    config_finder: impl Fn(&Path) -> ConfigFile,
     allow_forget: bool,
 ) -> anyhow::Result<CommandExitStatus> {
     if watch {
@@ -146,7 +146,7 @@ async fn run_check(
 }
 
 fn get_implicit_config_for_project(
-    override_config: &impl Fn(ConfigFile) -> ConfigFile,
+    override_config: impl Fn(ConfigFile) -> ConfigFile,
 ) -> ConfigFile {
     fn get_config_path() -> anyhow::Result<ConfigFile> {
         let current_dir = std::env::current_dir().context("cannot identify current dir")?;
@@ -175,7 +175,7 @@ async fn run_check_on_project(
         );
         args.override_config(get_open_source_config(&explicit_config_path)?)
     } else {
-        get_implicit_config_for_project(&|c| args.override_config(c))
+        get_implicit_config_for_project(|c| args.override_config(c))
     };
     debug!("Config is: {}", config);
     let project_excludes =
@@ -184,7 +184,7 @@ async fn run_check_on_project(
         args,
         watch,
         FilteredGlobs::new(config.project_includes.clone(), project_excludes),
-        &|_| config.clone(),
+        |_| config.clone(),
         allow_forget,
     )
     .await

@@ -218,14 +218,14 @@ struct Handles {
 }
 
 impl Handles {
-    fn new(files: Vec<PathBuf>, config_finder: &impl Fn(&Path) -> ConfigFile) -> Self {
+    fn new(files: Vec<PathBuf>, config_finder: impl Fn(&Path) -> ConfigFile) -> Self {
         let mut handles = Self {
             loader_factory: SmallMap::new(),
             path_data: HashMap::new(),
             module_to_error_config: HashMap::new(),
         };
         for file in files {
-            handles.register_file(file, config_finder);
+            handles.register_file(file, &config_finder);
         }
         handles
     }
@@ -233,7 +233,7 @@ impl Handles {
     fn register_file(
         &mut self,
         path: PathBuf,
-        config_finder: &impl Fn(&Path) -> ConfigFile,
+        config_finder: impl Fn(&Path) -> ConfigFile,
     ) -> &(ModuleName, RuntimeMetadata, LoaderId) {
         let config = config_finder(&path);
         self.module_to_error_config.insert(
@@ -294,10 +294,10 @@ impl Handles {
         &mut self,
         created_files: impl Iterator<Item = &'a PathBuf>,
         removed_files: impl Iterator<Item = &'a PathBuf>,
-        config_finder: &impl Fn(&Path) -> ConfigFile,
+        config_finder: impl Fn(&Path) -> ConfigFile,
     ) {
         for file in created_files {
-            self.register_file(file.to_path_buf(), config_finder);
+            self.register_file(file.to_path_buf(), &config_finder);
         }
         for file in removed_files {
             self.path_data.remove(file);
@@ -332,7 +332,7 @@ impl Args {
     pub fn run_once(
         self,
         files_to_check: impl FileList,
-        config_finder: &impl Fn(&Path) -> ConfigFile,
+        config_finder: impl Fn(&Path) -> ConfigFile,
         allow_forget: bool,
     ) -> anyhow::Result<CommandExitStatus> {
         let expanded_file_list = files_to_check.files()?;
@@ -356,7 +356,7 @@ impl Args {
         self,
         mut watcher: impl Watcher,
         files_to_check: impl FileList,
-        config_finder: &impl Fn(&Path) -> ConfigFile,
+        config_finder: impl Fn(&Path) -> ConfigFile,
     ) -> anyhow::Result<()> {
         // TODO: We currently make 1 unrealistic assumptions, which should be fixed in the future:
         // - Config search is stable across incremental runs.
