@@ -58,6 +58,22 @@ impl TypeInfo {
         }
     }
 
+    #[expect(dead_code)]
+    pub fn at_name(&self, name: &Name, fallback: impl Fn() -> Type) -> Self {
+        match self.attrs.get(name) {
+            None => TypeInfo::of_ty(fallback()),
+            Some(NarrowedAttr::Leaf(ty)) => Self::of_ty(ty.clone()),
+            Some(NarrowedAttr::WithoutRoot(attrs)) => Self {
+                ty: fallback(),
+                attrs: attrs.clone(),
+            },
+            Some(NarrowedAttr::WithRoot(ty, attrs)) => Self {
+                ty: ty.clone(),
+                attrs: attrs.clone(),
+            },
+        }
+    }
+
     pub fn with_narrow(&self, names: &Vec1<Name>, ty: Type) -> Self {
         let mut type_info = self.clone();
         type_info.add_narrow(names, ty);
@@ -122,6 +138,13 @@ impl NarrowedAttrs {
                 };
                 attrs.insert(name, attr);
             }
+        }
+    }
+
+    fn get(&self, name: &Name) -> Option<&NarrowedAttr> {
+        match &self.0 {
+            None => None,
+            Some(box attrs) => attrs.get(name),
         }
     }
 
