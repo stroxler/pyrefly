@@ -22,8 +22,8 @@ use tracing::error;
 #[cfg(not(target_arch = "wasm32"))]
 use which::which;
 
+use crate::metadata::PythonPlatform;
 use crate::metadata::RuntimeMetadata;
-use crate::metadata::DEFAULT_PYTHON_PLATFORM;
 use crate::PythonVersion;
 
 static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonEnvironment>>>> =
@@ -39,7 +39,7 @@ static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonE
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct PythonEnvironment {
     #[serde(default)]
-    pub python_platform: Option<String>,
+    pub python_platform: Option<PythonPlatform>,
 
     #[serde(default)]
     pub python_version: Option<PythonVersion>,
@@ -52,7 +52,7 @@ impl PythonEnvironment {
     const DEFAULT_INTERPRETERS: &[&str] = &["python3", "python"];
 
     pub fn new(
-        python_platform: String,
+        python_platform: PythonPlatform,
         python_version: PythonVersion,
         site_package_path: Vec<PathBuf>,
     ) -> Self {
@@ -122,10 +122,8 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         None
     }
 
-    pub fn python_platform(&self) -> &str {
-        self.python_platform
-            .as_deref()
-            .unwrap_or(DEFAULT_PYTHON_PLATFORM)
+    pub fn python_platform(&self) -> PythonPlatform {
+        self.python_platform.clone().unwrap_or_default()
     }
 
     pub fn python_version(&self) -> PythonVersion {
@@ -157,7 +155,7 @@ impl Default for PythonEnvironment {
     /// Prefer to query an interpreter if possible.
     fn default() -> Self {
         Self::new(
-            DEFAULT_PYTHON_PLATFORM.to_owned(),
+            PythonPlatform::default(),
             PythonVersion::default(),
             Vec::new(),
         )

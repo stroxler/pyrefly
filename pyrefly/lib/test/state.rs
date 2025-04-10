@@ -16,6 +16,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::config::error::ErrorConfigs;
 use crate::error::error::print_errors;
+use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::module::module_name::ModuleName;
@@ -35,8 +36,8 @@ use crate::util::prelude::SliceExt;
 
 #[test]
 fn test_multiple_config() {
-    let linux = RuntimeMetadata::new(PythonVersion::default(), "linux".to_owned());
-    let windows = RuntimeMetadata::new(PythonVersion::default(), "windows".to_owned());
+    let linux = RuntimeMetadata::new(PythonVersion::default(), PythonPlatform::linux());
+    let windows = RuntimeMetadata::new(PythonVersion::default(), PythonPlatform::windows());
 
     const LIB: &str = r#"
 import sys

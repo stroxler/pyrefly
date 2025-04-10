@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use itertools::Itertools;
+use parse_display::Display;
 use regex::Match;
 use regex::Regex;
 use ruff_python_ast::Arguments;
@@ -33,8 +34,6 @@ use serde::Serialize;
 use crate::ruff::ast::Ast;
 use crate::util::prelude::SliceExt;
 use crate::util::with_hash::WithHash;
-
-pub static DEFAULT_PYTHON_PLATFORM: &str = "linux";
 
 #[derive(Debug, Clone, Copy, Dupe, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PythonVersion {
@@ -155,23 +154,64 @@ impl PythonVersion {
     }
 }
 
-#[derive(Clone, Dupe, Debug, PartialEq, Eq, Hash)]
-pub struct RuntimeMetadata(Arc<WithHash<RuntimeMetadataInner>>);
+/// The platform on which Python is running, e.g. "linux", "darwin", "win32".
+/// See <https://stackoverflow.com/questions/446209/possible-values-from-sys-platform> for examples.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Display)]
+pub struct PythonPlatform(String);
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct RuntimeMetadataInner {
-    version: PythonVersion,
-    platform: String,
-}
+impl FromStr for PythonPlatform {
+    type Err = !;
 
-impl Default for RuntimeMetadata {
-    fn default() -> Self {
-        Self::new(PythonVersion::default(), DEFAULT_PYTHON_PLATFORM.to_owned())
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::new(s))
     }
 }
 
+impl Default for PythonPlatform {
+    fn default() -> Self {
+        PythonPlatform::linux()
+    }
+}
+
+impl PythonPlatform {
+    pub fn new(platform: &str) -> Self {
+        // Try and normalise common names, particularly those that Pyright allows
+        match platform {
+            "Linux" | "linux" => Self::linux(),
+            "Darwin" | "darwin" | "mac" | "macos" => Self::mac(),
+            "Windows" | "windows" | "win32" | "Win32" => Self::windows(),
+            _ => Self(platform.to_owned()),
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn linux() -> Self {
+        Self("linux".to_owned())
+    }
+
+    pub fn windows() -> Self {
+        Self("win32".to_owned())
+    }
+
+    pub fn mac() -> Self {
+        Self("darwin".to_owned())
+    }
+}
+
+#[derive(Clone, Dupe, Debug, PartialEq, Eq, Hash, Default)]
+pub struct RuntimeMetadata(Arc<WithHash<RuntimeMetadataInner>>);
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+struct RuntimeMetadataInner {
+    version: PythonVersion,
+    platform: PythonPlatform,
+}
+
 impl RuntimeMetadata {
-    pub fn new(version: PythonVersion, platform: String) -> Self {
+    pub fn new(version: PythonVersion, platform: PythonPlatform) -> Self {
         Self(Arc::new(WithHash::new(RuntimeMetadataInner {
             version,
             platform,
@@ -252,7 +292,7 @@ impl RuntimeMetadata {
                 attr,
                 ..
             }) if &name.id == "sys" => match attr.as_str() {
-                "platform" => Some(Value::String(self.0.platform.clone())),
+                "platform" => Some(Value::String(self.0.platform.as_str().to_owned())),
                 "version_info" => Some(Value::Tuple(vec![
                     Value::Int(self.0.version.major as i64),
                     Value::Int(self.0.version.minor as i64),

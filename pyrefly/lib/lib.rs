@@ -28,6 +28,7 @@
 #![feature(const_type_name)]
 #![feature(if_let_guard)]
 #![feature(let_chains)]
+#![feature(never_type)]
 
 mod alt;
 mod binding;
@@ -53,6 +54,7 @@ mod util;
 pub use crate::commands::run;
 pub use crate::config::config::ConfigFile;
 pub use crate::config::environment::PythonEnvironment;
+pub use crate::metadata::PythonPlatform;
 pub use crate::metadata::PythonVersion;
 pub use crate::util::args::clap_env;
 pub use crate::util::args::get_args_expanded;

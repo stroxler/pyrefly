@@ -19,6 +19,7 @@ use crate::clap_env;
 use crate::config::error::ErrorConfigs;
 use crate::error::error::Error;
 use crate::error::legacy::LegacyErrors;
+use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::module::module_path::ModulePath;
@@ -105,7 +106,7 @@ impl Args {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         let input_file = read_input_file(self.input_path.as_path())?;
         let python_version = PythonVersion::from_str(&input_file.py_version)?;
-        let config = RuntimeMetadata::new(python_version, "linux".to_owned());
+        let config = RuntimeMetadata::new(python_version, PythonPlatform::linux());
         let sourcedb = BuckSourceDatabase::from_manifest_files(
             input_file.sources.as_slice(),
             input_file.dependencies.as_slice(),

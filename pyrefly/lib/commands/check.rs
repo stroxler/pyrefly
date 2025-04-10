@@ -36,6 +36,7 @@ use crate::error::error::print_errors;
 use crate::error::error::Error;
 use crate::error::legacy::LegacyErrors;
 use crate::error::summarise::print_error_summary;
+use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::module::bundled::typeshed;
@@ -86,7 +87,7 @@ pub struct Args {
     #[clap(long, env = clap_env("PYTHON_VERSION"))]
     python_version: Option<PythonVersion>,
     #[clap(long, env = clap_env("PLATFORM"))]
-    python_platform: Option<String>,
+    python_platform: Option<PythonPlatform>,
     #[clap(long, env = clap_env("SITE_PACKAGE_PATH"))]
     site_package_path: Option<Vec<PathBuf>>,
     /// The Python executable that will be queried for Python version, platform, or site package path info

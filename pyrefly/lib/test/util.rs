@@ -26,6 +26,7 @@ use starlark_map::small_map::SmallMap;
 use crate::binding::binding::KeyExport;
 use crate::config::error::ErrorConfigs;
 use crate::error::error::print_errors;
+use crate::metadata::PythonPlatform;
 use crate::metadata::RuntimeMetadata;
 use crate::module::bundled::typeshed;
 use crate::module::module_name::ModuleName;
@@ -142,7 +143,7 @@ impl TestEnv {
     }
 
     pub fn metadata(&self) -> RuntimeMetadata {
-        RuntimeMetadata::new(self.version, "linux".to_owned())
+        RuntimeMetadata::new(self.version, PythonPlatform::linux())
     }
 
     pub fn to_state(self) -> (State, impl Fn(&str) -> Handle) {

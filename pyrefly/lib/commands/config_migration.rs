@@ -20,6 +20,7 @@ use serde::Deserialize;
 use tracing::info;
 
 use crate::globs::Globs;
+use crate::metadata::PythonPlatform;
 use crate::run::CommandExitStatus;
 use crate::util::fs_anyhow;
 use crate::ConfigFile;
@@ -85,12 +86,7 @@ fn convert_pyright_config(pyr: PyrightConfig) -> ConfigFile {
         cfg.search_path = search_path;
     }
     if let Some(platform) = pyr.python_platform {
-        let platform = match platform.as_str() {
-            "Windows" => "windows",
-            "Darwin" => "darwin",
-            _ => "linux",
-        };
-        cfg.python_environment.python_platform = Some(platform.to_owned());
+        cfg.python_environment.python_platform = Some(PythonPlatform::new(&platform));
     }
     if pyr.python_version.is_some() {
         cfg.python_environment.python_version = pyr.python_version;
@@ -132,7 +128,7 @@ mod tests {
                 project_excludes: Globs::new(vec!["src/excluded/**/*.py".to_owned()]),
                 search_path: vec![PathBuf::from("src/extra")],
                 python_environment: crate::PythonEnvironment {
-                    python_platform: Some("linux".to_owned()),
+                    python_platform: Some(PythonPlatform::linux()),
                     python_version: Some(PythonVersion::new(3, 10, 0)),
                     site_package_path: None
                 },

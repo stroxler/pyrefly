@@ -24,6 +24,7 @@ use tracing::warn;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::util::ExtraConfigs;
 use crate::globs::Globs;
+use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::module::wildcard::ModuleWildcard;
@@ -151,7 +152,7 @@ impl ConfigFile {
         self.python_environment.python_version()
     }
 
-    pub fn python_platform(&self) -> &str {
+    pub fn python_platform(&self) -> PythonPlatform {
         self.python_environment.python_platform()
     }
 
@@ -370,7 +371,7 @@ mod tests {
                 skip_untyped_functions: false,
                 search_path: vec![PathBuf::from("../..")],
                 python_environment: PythonEnvironment::new(
-                    "darwin".to_owned(),
+                    PythonPlatform::mac(),
                     PythonVersion::new(1, 2, 3),
                     vec![PathBuf::from("venv/lib/python1.2.3/site-packages")],
                 ),
@@ -423,7 +424,7 @@ mod tests {
                     "./implementation".to_owned()
                 ]),
                 python_environment: PythonEnvironment {
-                    python_platform: Some("darwin".to_owned()),
+                    python_platform: Some(PythonPlatform::mac()),
                     python_version: Some(PythonVersion::new(1, 2, 3)),
                     site_package_path: None,
                 },
