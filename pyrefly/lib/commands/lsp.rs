@@ -103,9 +103,9 @@ struct Server {
     send: Arc<dyn Fn(Message) + Send + Sync + 'static>,
     #[expect(dead_code)] // we'll use it later on
     initialize_params: InitializeParams,
-    state: State,
+    state: Arc<State>,
     configs: Arc<RwLock<SmallMap<PathBuf, Config>>>,
-    default_config: Config,
+    default_config: Arc<Config>,
     canceled_requests: HashSet<RequestId>,
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
@@ -435,9 +435,9 @@ impl Server {
         let mut s = Self {
             send,
             initialize_params,
-            state: State::new(),
+            state: Arc::new(State::new()),
             configs: Arc::new(RwLock::new(SmallMap::new())),
-            default_config: Config::new(search_path.clone(), site_package_path.clone()),
+            default_config: Arc::new(Config::new(search_path.clone(), site_package_path.clone())),
             canceled_requests: HashSet::new(),
             search_path,
             site_package_path,
@@ -468,7 +468,7 @@ impl Server {
         let configs = self.configs.read();
         configs
             .values()
-            .chain(once(&self.default_config))
+            .chain(once(self.default_config.as_ref()))
             .for_each(|config| {
                 let handles = config.open_file_handles();
                 transaction.as_mut().invalidate_memory(
@@ -486,27 +486,28 @@ impl Server {
         Ok(())
     }
 
-    fn validate_with_disk_invalidation(&self, invalidate_disk: &[PathBuf]) -> anyhow::Result<()> {
-        let mut transaction = self
-            .state
-            .new_committable_transaction(Require::Exports, None);
-        transaction.as_mut().invalidate_disk(invalidate_disk);
-        self.state.run_with_committing_transaction(transaction, &[]);
-        self.configs
-            .read()
-            .values()
-            .chain(once(&self.default_config))
-            .for_each(|config| {
-                self.publish_diagnostics(
-                    config.compute_diagnostics(&self.state, config.open_file_handles()),
+    fn validate_with_disk_invalidation(&self, invalidate_disk: Vec<PathBuf>) -> anyhow::Result<()> {
+        let state = self.state.dupe();
+        let send = self.send.dupe();
+        let default_config = self.default_config.dupe();
+        let configs = self.configs.dupe();
+        std::thread::spawn(move || {
+            let mut transaction = state.new_committable_transaction(Require::Exports, None);
+            transaction.as_mut().invalidate_disk(&invalidate_disk);
+            state.run_with_committing_transaction(transaction, &[]);
+            for config in configs.read().values().chain(once(default_config.as_ref())) {
+                publish_diagnostics(
+                    send.dupe(),
+                    config.compute_diagnostics(&state, config.open_file_handles()),
                 );
-            });
+            }
+        });
         Ok(())
     }
 
     fn did_save(&self, params: DidSaveTextDocumentParams) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.validate_with_disk_invalidation(&[uri])
+        self.validate_with_disk_invalidation(vec![uri])
     }
 
     fn did_open(&self, params: DidOpenTextDocumentParams) -> anyhow::Result<()> {
