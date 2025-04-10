@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::process::ExitCode;
+
 use clap::Parser;
 
 use crate::clap_env;
@@ -37,6 +39,7 @@ impl CommonGlobalArgs {
 }
 
 /// Exit status of a command, if the run is completed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CommandExitStatus {
     /// The command completed without an issue.
     Success,
@@ -45,4 +48,15 @@ pub enum CommandExitStatus {
     /// An error occurred in the environment or the underlying infrastructure,
     /// which prevents the command from completing.
     InfraError,
+}
+
+impl CommandExitStatus {
+    pub fn to_exit_code(self) -> ExitCode {
+        match self {
+            CommandExitStatus::Success => ExitCode::SUCCESS,
+            CommandExitStatus::UserError => ExitCode::FAILURE,
+            // Exit code 2 is reserved for Meta-internal usages
+            CommandExitStatus::InfraError => ExitCode::from(3),
+        }
+    }
 }

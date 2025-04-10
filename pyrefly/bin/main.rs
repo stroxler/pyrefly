@@ -98,15 +98,6 @@ fn exit_on_panic() {
     }));
 }
 
-fn to_exit_code(status: CommandExitStatus) -> ExitCode {
-    match status {
-        CommandExitStatus::Success => ExitCode::SUCCESS,
-        CommandExitStatus::UserError => ExitCode::FAILURE,
-        // Exit code 2 is reserved for Meta-internal usages
-        CommandExitStatus::InfraError => ExitCode::from(3),
-    }
-}
-
 async fn run_check(
     args: pyrefly::run::CheckArgs,
     watch: bool,
@@ -218,7 +209,7 @@ async fn run() -> anyhow::Result<ExitCode> {
             let _ = run_command(args.command.clone(), false).await;
         }
     } else {
-        run_command(args.command, true).await.map(to_exit_code)
+        Ok(run_command(args.command, true).await?.to_exit_code())
     }
 }
 
