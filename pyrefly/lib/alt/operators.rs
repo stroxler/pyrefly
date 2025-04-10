@@ -60,86 +60,72 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
+    fn try_binop_calls(
+        &self,
+        op: Operator,
+        calls: &[(&Name, &Type, &Type)],
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: &dyn Fn() -> ErrorContext,
+    ) -> Type {
+        let mut last_call = None;
+        for (dunder, target, arg) in calls {
+            let method_type_dunder = self.type_of_attr_get_if_found(
+                target,
+                dunder,
+                range,
+                errors,
+                Some(&context),
+                "Expr::binop_infer",
+            );
+            let Some(method_type_dunder) = method_type_dunder else {
+                continue;
+            };
+            let dunder_errors = ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Delayed);
+            let ret = self.callable_dunder_helper(
+                method_type_dunder,
+                range,
+                &dunder_errors,
+                &context,
+                op,
+                arg,
+            );
+            if dunder_errors.is_empty() {
+                return ret;
+            }
+            last_call = Some((dunder_errors, ret));
+        }
+        if let Some((dunder_errors, ret)) = last_call {
+            errors.extend(dunder_errors);
+            ret
+        } else {
+            let dunders = calls
+                .iter()
+                .map(|(dunder, _, _)| format!("`{}`", dunder))
+                .collect::<Vec<_>>()
+                .join(" or ");
+            self.error(
+                errors,
+                range,
+                ErrorKind::MissingAttribute,
+                Some(&context),
+                format!("Cannot find {dunders}"),
+            )
+        }
+    }
+
     pub fn binop_infer(&self, x: &ExprBinOp, errors: &ErrorCollector) -> Type {
         let binop_call = |op: Operator, lhs: &Type, rhs: &Type, range: TextRange| -> Type {
             let context =
                 || ErrorContext::BinaryOp(op.as_str().to_owned(), lhs.clone(), rhs.clone());
-
-            let method_type_dunder = self.type_of_attr_get_if_found(
-                lhs,
-                &Name::new_static(op.dunder()),
-                range,
-                errors,
-                Some(&context),
-                "Expr::binop_infer",
-            );
-
-            let method_type_reflected = self.type_of_attr_get_if_found(
-                rhs,
-                &Name::new_static(op.reflected_dunder()),
-                range,
-                errors,
-                Some(&context),
-                "Expr::binop_infer",
-            );
-
             // Reflected operator implementation: This deviates from the runtime semantics by calling the reflected dunder if the regular dunder call errors.
             // At runtime, the reflected dunder is called only if the regular dunder method doesn't exist or if it returns NotImplemented.
             // This deviation is necessary, given that the typeshed stubs don't record when NotImplemented is returned
-            match (method_type_dunder, method_type_reflected) {
-                (Some(method_type_dunder), Some(method_type_reflected)) => {
-                    let bin_op_new_errors_dunder =
-                        ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Delayed);
-
-                    let ret = self.callable_dunder_helper(
-                        method_type_dunder,
-                        range,
-                        &bin_op_new_errors_dunder,
-                        &context,
-                        op,
-                        rhs,
-                    );
-                    if bin_op_new_errors_dunder.is_empty() {
-                        ret
-                    } else {
-                        self.callable_dunder_helper(
-                            method_type_reflected,
-                            range,
-                            errors,
-                            &context,
-                            op,
-                            lhs,
-                        )
-                    }
-                }
-                (Some(method_type_dunder), None) => self.callable_dunder_helper(
-                    method_type_dunder,
-                    range,
-                    errors,
-                    &context,
-                    op,
-                    rhs,
-                ),
-                (None, Some(method_type_reflected)) => self.callable_dunder_helper(
-                    method_type_reflected,
-                    range,
-                    errors,
-                    &context,
-                    op,
-                    lhs,
-                ),
-                (None, None) => self.error(
-                    errors,
-                    x.range(),
-                    ErrorKind::MissingAttribute,
-                    Some(&context),
-                    format!(
-                        "Missing attribute {} or {}",
-                        op.dunder(),
-                        op.reflected_dunder()
-                    ),
-                ),
-            }
+            let calls_to_try = [
+                (&Name::new_static(op.dunder()), lhs, rhs),
+                (&Name::new_static(op.reflected_dunder()), rhs, lhs),
+            ];
+            self.try_binop_calls(op, &calls_to_try, range, errors, &context)
         };
         let lhs = self.expr_infer(&x.left, errors);
         let rhs = self.expr_infer(&x.right, errors);

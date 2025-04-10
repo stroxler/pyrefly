@@ -5221,16 +5221,6 @@
     },
     {
       "code": -2,
-      "column": 12,
-      "concise_description": "`+` is not supported between `TypeVar[AnyStr]` and `TypeVar[AnyStr]`\n  TODO: Expr::binop_infer attribute base undefined for type: TypeVar[AnyStr] (trying to access __radd__)",
-      "description": "`+` is not supported between `TypeVar[AnyStr]` and `TypeVar[AnyStr]`\n  TODO: Expr::binop_infer attribute base undefined for type: TypeVar[AnyStr] (trying to access __radd__)",
-      "line": 34,
-      "name": "internal-error",
-      "stop_column": 17,
-      "stop_line": 34
-    },
-    {
-      "code": -2,
       "column": 15,
       "concise_description": "Argument `bytes` is not assignable to parameter `y` with type `str` in function `concat`",
       "description": "Argument `bytes` is not assignable to parameter `y` with type `str` in function `concat`",

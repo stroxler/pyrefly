@@ -352,3 +352,14 @@ class A:
 assert_type(A() < A(), Literal[1])
     "#,
 );
+
+testcase!(
+    test_missing_binop_attr,
+    r#"
+class A:
+    pass
+class B:
+    pass
+A() + B()  # E: Cannot find `__add__` or `__radd__`
+    "#,
+);
