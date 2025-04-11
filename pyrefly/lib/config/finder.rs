@@ -11,7 +11,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use anyhow::anyhow;
 use dupe::Dupe;
 use path_absolutize::Absolutize;
 use starlark_map::small_map::SmallMap;
@@ -86,12 +85,13 @@ impl<T: Dupe + Display> ConfigFinder<T> {
 
     /// Get the config file associated with a directory.
     pub fn directory(&self, dir: &Path) -> T {
-        match get_implicit_config_path_from(dir) {
-            Ok(config_path) => {
+        match first_match(dir, &ConfigFile::CONFIG_FILE_NAMES) {
+            Some(config_path) => {
+                let config_path = config_path.to_path_buf();
                 info!("Using config found at {}", config_path.display());
                 self.get(&config_path)
             }
-            Err(_) => self.default.dupe(),
+            None => self.default.dupe(),
         }
     }
 
@@ -103,16 +103,5 @@ impl<T: Dupe + Display> ConfigFinder<T> {
             Some(parent) => self.directory(parent),
             None => self.default.dupe(),
         }
-    }
-}
-
-fn get_implicit_config_path_from(path: &Path) -> anyhow::Result<PathBuf> {
-    if let Some(search_result) = first_match(path, &ConfigFile::CONFIG_FILE_NAMES) {
-        Ok(search_result.to_path_buf())
-    } else {
-        Err(anyhow!(
-            "Cannot locate a config file using upward-searching heuristics from `{}`",
-            path.display()
-        ))
     }
 }
