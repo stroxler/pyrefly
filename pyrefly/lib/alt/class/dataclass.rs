@@ -14,6 +14,7 @@ use starlark_map::small_set::SmallSet;
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::class::class_field::ClassField;
+use crate::alt::class::class_field::DataclassMember;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
@@ -101,20 +102,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut kw_only = false;
         fields
             .iter()
-            .filter_map(|name| {
-                // Even though we know the class member exists, it can be None if the class has an invalid MRO.
-                let member = self.get_class_member(cls, name)?;
-                let field = &*member.value;
-                // A field with type KW_ONLY is a sentinel value that indicates that the remaining
-                // fields should be keyword-only params in the generated `__init__`.
-                if field.is_dataclass_kwonly_marker() {
+            .filter_map(|name| match self.get_dataclass_member(cls, name, kw_only) {
+                DataclassMember::KwOnlyMarker => {
                     kw_only = true;
                     None
-                } else {
-                    field
-                        .dataclass_flags_of(kw_only)
-                        .map(|flags| (name.clone(), field.clone(), flags))
                 }
+                DataclassMember::NotAField => None,
+                DataclassMember::Field(field, keywords) => Some((name.clone(), field, keywords)),
             })
             .collect()
     }

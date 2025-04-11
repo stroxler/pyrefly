@@ -292,7 +292,7 @@ impl ClassField {
         }
     }
 
-    pub fn is_dataclass_kwonly_marker(&self) -> bool {
+    fn is_dataclass_kwonly_marker(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => {
                 matches!(ty, Type::ClassType(cls) if cls.class_object().has_qname("dataclasses", "KW_ONLY"))
@@ -331,18 +331,9 @@ impl ClassField {
         }
     }
 
-    pub fn dataclass_flags_of(&self, kw_only: bool) -> Option<BoolKeywords> {
+    fn dataclass_flags_of(&self, kw_only: bool) -> BoolKeywords {
         match &self.0 {
-            ClassFieldInner::Simple {
-                initialization,
-                annotation,
-                ..
-            } => {
-                if let Some(annot) = annotation
-                    && annot.qualifiers.contains(&Qualifier::ClassVar)
-                {
-                    return None; // Class variables are not dataclass fields
-                }
+            ClassFieldInner::Simple { initialization, .. } => {
                 let mut flags = match initialization {
                     ClassFieldInitialization::Class(Some(field_flags)) => field_flags.clone(),
                     ClassFieldInitialization::Class(None) => {
@@ -355,7 +346,7 @@ impl ClassField {
                 if kw_only {
                     flags.set(DataclassKeywords::KW_ONLY.0, true);
                 }
-                Some(flags)
+                flags
             }
         }
     }
@@ -444,6 +435,16 @@ impl<T> WithDefiningClass<T> {
     pub(in crate::alt::class) fn defined_on(&self, module: &str, cls: &str) -> bool {
         self.defining_class.has_qname(module, cls)
     }
+}
+
+/// The result of processing a raw dataclass member (any annotated assignment in its body).
+pub enum DataclassMember {
+    /// A dataclass field
+    Field(ClassField, BoolKeywords),
+    /// A pseudo-field annotated with KW_ONLY
+    KwOnlyMarker,
+    /// Anything else
+    NotAField,
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -709,6 +710,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ClassFieldInitialization::Class(None)
                 }
             }
+        }
+    }
+
+    pub fn get_dataclass_member(&self, cls: &Class, name: &Name, kw_only: bool) -> DataclassMember {
+        // Even though we check that the class member exists before calling this function,
+        // it can be None if the class has an invalid MRO.
+        let Some(member) = self.get_class_member(cls, name) else {
+            return DataclassMember::NotAField;
+        };
+        let field = &*member.value;
+        // A field with type KW_ONLY is a sentinel value that indicates that the remaining
+        // fields should be keyword-only params in the generated `__init__`.
+        if field.is_dataclass_kwonly_marker() {
+            DataclassMember::KwOnlyMarker
+        } else if field.is_class_var() {
+            DataclassMember::NotAField // Class variables are not dataclass fields
+        } else {
+            DataclassMember::Field(field.clone(), field.dataclass_flags_of(kw_only))
         }
     }
 
