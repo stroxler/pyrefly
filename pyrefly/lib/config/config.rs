@@ -172,30 +172,17 @@ impl ConfigFile {
     /// Configures values that must be updated *after* overwriting with CLI flag values,
     /// which should probably be everything except for `PathBuf` or `Globs` types.
     pub fn configure(&mut self) {
-        let env = &mut self.python_environment;
-
-        let env_has_empty = env.python_version.is_none()
-            || env.python_platform.is_none()
-            || env.site_package_path.is_none();
-
-        if env_has_empty && let Some(interpreter) = &self.python_interpreter {
-            let system_env = PythonEnvironment::get_interpreter_env(interpreter);
-
-            if env.python_version.is_none() {
-                env.python_version = system_env.python_version;
-            }
-            if env.python_platform.is_none() {
-                env.python_platform = system_env.python_platform;
-            }
-            if env.site_package_path.is_none() {
-                env.site_package_path = system_env.site_package_path;
-            }
-        } else if env_has_empty {
-            warn!(
-                "Python environment (version, platform, or site_package_path) has value unset, \
+        if self.python_environment.any_empty() {
+            if let Some(interpreter) = &self.python_interpreter {
+                let system_env = PythonEnvironment::get_interpreter_env(interpreter);
+                self.python_environment.override_empty(system_env);
+            } else {
+                warn!(
+                    "Python environment (version, platform, or site_package_path) has value unset, \
                 but no Python interpreter could be found to query for values. Falling back to \
                 Pyrefly defaults for missing values."
-            )
+                )
+            }
         }
     }
 

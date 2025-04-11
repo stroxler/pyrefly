@@ -64,6 +64,24 @@ impl PythonEnvironment {
         }
     }
 
+    pub fn any_empty(&self) -> bool {
+        self.python_platform.is_none()
+            || self.python_version.is_none()
+            || self.site_package_path.is_none()
+    }
+
+    pub fn override_empty(&mut self, other: Self) {
+        if self.python_platform.is_none() {
+            self.python_platform = other.python_platform;
+        }
+        if self.python_version.is_none() {
+            self.python_version = other.python_version;
+        }
+        if self.site_package_path.is_none() {
+            self.site_package_path = other.site_package_path;
+        }
+    }
+
     fn get_env_from_interpreter(interpreter: &Path) -> anyhow::Result<PythonEnvironment> {
         let script = "\
 import json, site, sys
