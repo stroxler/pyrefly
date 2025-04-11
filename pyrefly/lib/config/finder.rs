@@ -6,8 +6,10 @@
  */
 
 use std::fmt::Display;
+use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use anyhow::anyhow;
 use anyhow::Context as _;
@@ -22,31 +24,65 @@ use crate::util::fs_upward_search::first_match;
 use crate::util::lock::RwLock;
 
 pub struct ConfigFinder<T> {
-    loader: Box<dyn Fn(Option<&Path>) -> T>,
-    cache: RwLock<SmallMap<Option<PathBuf>, T>>,
+    default: LazyLock<T, Box<dyn FnOnce() -> T + 'static>>,
+    load: Box<dyn Fn(&Path) -> anyhow::Result<T>>,
+    state: RwLock<ConfigFinderState<T>>,
+}
+
+struct ConfigFinderState<T> {
+    /// A cache mapping the path of a configuration file to the result.
+    cache: SmallMap<PathBuf, T>,
+    /// The errors that have occurred when loading.
+    errors: Vec<anyhow::Error>,
+}
+
+impl<T> Default for ConfigFinderState<T> {
+    fn default() -> Self {
+        Self {
+            cache: SmallMap::new(),
+            errors: Vec::new(),
+        }
+    }
 }
 
 impl<T: Dupe + Display> ConfigFinder<T> {
-    /// Create a new ConfigFinder with the given loader function.
-    /// The loader function should return either the default config (`None`) or
-    /// the config file at the given path (`Some(path)`).
-    pub fn new(loader: impl Fn(Option<&Path>) -> T + 'static) -> Self {
+    /// Create a new ConfigFinder a way to produce a default, and to load a given file.
+    pub fn new(
+        default: impl FnOnce() -> T + 'static,
+        load: impl Fn(&Path) -> anyhow::Result<T> + 'static,
+    ) -> Self {
         Self {
-            loader: Box::new(loader),
-            cache: RwLock::new(SmallMap::new()),
+            default: LazyLock::new(Box::new(default)),
+            load: Box::new(load),
+            state: RwLock::new(ConfigFinderState::default()),
         }
     }
 
-    fn get(&self, path: Option<PathBuf>) -> T {
-        if let Some(config) = self.cache.read().get(&path) {
+    /// Collect all the current errors that have been produced, and clear them.
+    pub fn errors(&self) -> Vec<anyhow::Error> {
+        mem::take(&mut self.state.write().errors)
+    }
+
+    fn get(&self, path: &Path) -> T {
+        if let Some(config) = self.state.read().cache.get(path) {
             return config.dupe();
         }
-        let config = (self.loader)(path.as_deref());
-        if let Some(config_path) = &path {
-            debug!("Config for {} is: {}", config_path.display(), config);
+        match (self.load)(path) {
+            Ok(config) => {
+                debug!("Config for {} is: {}", path.display(), config);
+                // If there was a race condition, make sure we use whoever wrote first
+                self.state
+                    .write()
+                    .cache
+                    .entry(path.to_owned())
+                    .or_insert(config)
+                    .dupe()
+            }
+            Err(err) => {
+                self.state.write().errors.push(err);
+                self.default.dupe()
+            }
         }
-        // If there was a race condition, make sure we use whoever wrote first
-        self.cache.write().entry(path).or_insert(config).dupe()
     }
 
     /// Get the config file associated with a directory.
@@ -54,15 +90,15 @@ impl<T: Dupe + Display> ConfigFinder<T> {
         match get_implicit_config_path_from(dir) {
             Ok(config_path) => {
                 info!("Using config found at {}", config_path.display());
-                self.get(Some(config_path))
+                self.get(&config_path)
             }
-            Err(_) => self.get(None),
+            Err(_) => self.default.dupe(),
         }
     }
 
     /// Get the config file given an explicit config file path.
     pub fn config_file(&self, config_path: &Path) -> T {
-        self.get(Some(config_path.to_owned()))
+        self.get(config_path)
     }
 
     /// Get the config file given a Python file.
@@ -83,11 +119,11 @@ impl<T: Dupe + Display> ConfigFinder<T> {
                     path.display(),
                     config_path.display()
                 );
-                self.get(Some(config_path))
+                self.config_file(&config_path)
             }
             Err(err) => {
                 debug!("{err}. Default configuration will be used as fallback.");
-                self.get(None)
+                self.default.dupe()
             }
         }
     }

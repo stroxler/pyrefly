@@ -120,15 +120,18 @@ async fn run_check(
 }
 
 fn config_finder(args: pyrefly::run::CheckArgs) -> ConfigFinder<Arc<ConfigFile>> {
-    ConfigFinder::new(move |c| match c {
-        None => Arc::new(args.override_config(ConfigFile::default())),
-        Some(config_path) => Arc::new(args.override_config(
-            ConfigFile::from_file(config_path, true).unwrap_or_else(|err| {
-                debug!("{err}. Default configuration will be used as fallback.");
-                ConfigFile::default()
-            }),
-        )),
-    })
+    let args = Arc::new(args);
+    let args2 = args.dupe();
+    let default = move || Arc::new(args.override_config(ConfigFile::default()));
+    // The Box is a bit annoying here, but otherwise I can't persuade it that the `&Path` has a good enough lifetime.
+    let load: Box<dyn Fn(&Path) -> anyhow::Result<Arc<ConfigFile>>> =
+        Box::new(move |config_path| {
+            Ok(Arc::new(args2.override_config(ConfigFile::from_file(
+                config_path,
+                true,
+            )?)))
+        });
+    ConfigFinder::new(default, load)
 }
 
 async fn run_check_on_project(
