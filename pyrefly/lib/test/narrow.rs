@@ -789,8 +789,8 @@ def f(x: list[C], z: C):
         pass
     # But here we don't get an error, it appears the narrowed binding is applied too early.
     [y for y in x if (accepts_d(y) and isinstance(y, D))]
-    # Here we get an error, but will disappear once we support reading attribute narrows.
-    [None for y in x if C.error]  # E: Class `C` has no class attribute `error`
+    # Here we don't get an error, for the same reason - we narrow too early, hiding the no-such-attribute error.
+    [None for y in x if C.error]
     "#,
 );
 

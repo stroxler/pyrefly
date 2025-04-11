@@ -54,7 +54,6 @@ def f(foo: Foo):
 );
 
 testcase!(
-    bug = "We do not yet handle attribute narrows in attribute reads at all",
     test_attribute_read_simple,
     r#"
 from typing import assert_type
@@ -64,7 +63,11 @@ class Bar(Foo):
     pass
 def f(foo: Foo):
     if isinstance(foo.x, Bar):
-        assert_type(foo.x, Foo)  # Should be Bar
+        assert_type(foo.x, Bar)
+    if isinstance(foo.x.x, Bar):
+        assert_type(foo.x, Foo)
+        assert_type(foo.x.x, Bar)
+        assert_type(foo.x.x.x, Foo)
 "#,
 );
 
@@ -110,7 +113,7 @@ def f(n: N):
 );
 
 testcase!(
-    bug = "Type narrowing for subclass attributes is not applied",
+    bug = "Attribute narrows currently always start from object, we need the actual type",
     test_attribute_access_after_narrowing_in_subclass,
     r#"
 from typing import assert_type
@@ -127,6 +130,6 @@ class B:
 b = B(A())
 if b.a is not None:
     x = b.a
-    assert_type(x, A)  # E: assert_type(A | None, A) failed
+    assert_type(x, A)  # E: assert_type(object, A)
 "#,
 );

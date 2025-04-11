@@ -58,7 +58,6 @@ impl TypeInfo {
         }
     }
 
-    #[expect(dead_code)]
     pub fn at_name(&self, name: &Name, fallback: impl Fn() -> Type) -> Self {
         match self.attrs.get(name) {
             None => TypeInfo::of_ty(fallback()),

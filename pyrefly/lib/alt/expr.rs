@@ -181,8 +181,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> TypeInfo {
-        // TODO(stroxler) Make this handle attribute narrows.
-        TypeInfo::of_ty(self.attr_infer_for_type(base.ty(), attr_name, range, errors, context))
+        TypeInfo::at_name(base, attr_name, || {
+            self.attr_infer_for_type(base.ty(), attr_name, range, errors, context)
+        })
     }
 
     /// When interpreted as static types (as opposed to when accounting for runtime
