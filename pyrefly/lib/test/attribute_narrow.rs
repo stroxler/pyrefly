@@ -72,6 +72,26 @@ def f(foo: Foo):
 );
 
 testcase!(
+    bug = "Attribute narrows currently always start from object, we need the actual type",
+    test_attribute_narrow_type_algebra_for_correct_narrows,
+    r#"
+from typing import assert_type
+class Foo:
+    x: Foo | None
+def f(foo: Foo):
+    if foo.x is not None:
+        assert_type(foo.x, Foo)  # E: assert_type(object, Foo)
+    if foo.x is not None and foo.x.x is not None:  # E: Object of class `object` has no attribute `x`
+        assert_type(foo.x, Foo)  # E: assert_type(object, Foo)
+        assert_type(foo.x.x, Foo)  # E: assert_type(object, Foo)
+    if foo.x is not None and foo.x.x is not None and foo.x.x.x is None:  # E: Object of class `object` has no attribute `x`  # E: Object of class `object` has no attribute `x`
+        assert_type(foo.x, Foo)  # E: assert_type(object, Foo)
+        assert_type(foo.x.x, Foo)  # E: assert_type(object, Foo)
+        assert_type(foo.x.x.x, None)
+"#,
+);
+
+testcase!(
     bug = "PyTorch TODO: implement attribute narrowing",
     test_attr_refine,
     r#"
