@@ -328,3 +328,18 @@ def f(x: P):
 f(C())
     "#,
 );
+
+testcase!(
+    test_call_protocol_with_other_attr,
+    r#"
+from typing import Protocol, assert_type
+class P(Protocol):
+    x: int
+    def __call__(self, x: int) -> str: ...
+def decorate(func) -> P: ...
+@decorate
+def f():
+    pass
+assert_type(f.x, int)
+    "#,
+);

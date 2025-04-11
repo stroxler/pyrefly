@@ -31,6 +31,7 @@ use crate::export::exports::LookupExport;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::types::callable::FuncMetadata;
+use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
 use crate::types::callable::Param;
 use crate::types::callable::Required;
@@ -41,6 +42,7 @@ use crate::types::quantified::Quantified;
 use crate::types::tuple::Tuple;
 use crate::types::type_var::Restriction;
 use crate::types::types::AnyStyle;
+use crate::types::types::Overload;
 use crate::types::types::SuperObj;
 use crate::types::types::Type;
 
@@ -1126,9 +1128,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )),
             Type::Never(_) => Some(AttributeBase::Never),
             _ if ty.is_property_getter() => Some(AttributeBase::Property(ty)),
-            Type::Callable(_) | Type::Function(_) | Type::Overload(_) => Some(
-                AttributeBase::ClassInstance(self.stdlib.function_type().clone()),
-            ),
+            Type::Callable(_) => Some(AttributeBase::ClassInstance(
+                self.stdlib.function_type().clone(),
+            )),
+            Type::Function(box Function {
+                signature: _,
+                metadata,
+            })
+            | Type::Overload(Overload {
+                signatures: _,
+                metadata: box metadata,
+            }) => Some(AttributeBase::ClassInstance(
+                if let FunctionKind::CallableInstance(cls) = metadata.kind {
+                    *cls
+                } else {
+                    self.stdlib.function_type().clone()
+                },
+            )),
             Type::BoundMethod(_) => Some(AttributeBase::ClassInstance(
                 self.stdlib.method_type().clone(),
             )),

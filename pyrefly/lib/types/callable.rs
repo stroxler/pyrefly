@@ -17,7 +17,9 @@ use ruff_python_ast::Identifier;
 use ruff_python_ast::Keyword;
 use starlark_map::ordered_map::OrderedMap;
 
+use crate::dunder;
 use crate::module::module_name::ModuleName;
+use crate::types::class::ClassType;
 use crate::types::literal::Lit;
 use crate::types::types::Type;
 use crate::util::display::commas_iter;
@@ -233,6 +235,8 @@ pub enum FunctionKind {
     Final,
     PropertySetter(Box<FuncId>),
     Def(Box<FuncId>),
+    /// A callable class instance. The function has the signature of the class's `__call__` method.
+    CallableInstance(Box<ClassType>),
 }
 
 /// A map from keywords to boolean values. Useful for storing sets of keyword arguments for various
@@ -533,6 +537,11 @@ impl FunctionKind {
                 module: ModuleName::typing(),
                 cls: None,
                 func: Name::new_static("reveal_type"),
+            },
+            Self::CallableInstance(cls) => FuncId {
+                module: cls.qname().module_name(),
+                cls: Some(cls.name().clone()),
+                func: dunder::CALL,
             },
             Self::PropertySetter(func_id) | Self::Def(func_id) => (**func_id).clone(),
         }

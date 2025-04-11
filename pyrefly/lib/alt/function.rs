@@ -45,6 +45,7 @@ use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Required;
 use crate::types::class::ClassKind;
+use crate::types::class::ClassType;
 use crate::types::types::CalleeKind;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
@@ -420,6 +421,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     signature: c,
                     metadata: metadata.clone(),
                 })),
+                // Callback protocol. We convert it to a function so we can add function metadata.
+                Type::ClassType(cls) => {
+                    let call_attr = self.instance_to_method(&cls).and_then(|call_attr| {
+                        if let Type::BoundMethod(m) = call_attr {
+                            let func = m.as_bound_function();
+                            Some(func.to_unbound_callable().unwrap_or(func))
+                        } else {
+                            None
+                        }
+                    });
+                    if let Some(mut call_attr) = call_attr {
+                        call_attr.transform_func_metadata(|m| {
+                            *m = FuncMetadata {
+                                kind: FunctionKind::CallableInstance(Box::new(cls.clone())),
+                                flags: metadata.flags.clone(),
+                            };
+                        });
+                        call_attr
+                    } else {
+                        cls.to_type()
+                    }
+                }
                 t => t,
             }
         }
@@ -428,6 +451,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ty,
             metadata,
         })
+    }
+
+    /// If instances of this class are callable - that is, have a `__call__` method - return the method.
+    pub fn instance_to_method(&self, cls: &ClassType) -> Option<Type> {
+        self.get_instance_attribute(cls, &dunder::CALL)
+            .and_then(|attr| self.resolve_as_instance_method(attr))
     }
 
     // Given the index to a function binding, return the previous function binding, if any.

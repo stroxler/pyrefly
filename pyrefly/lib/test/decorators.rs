@@ -238,7 +238,6 @@ assert_type(C().f(0), int)
 );
 
 testcase!(
-    bug = "Wrong asserted type",
     test_property_decorated_to_callback_protocol,
     r#"
 from typing import assert_type, Protocol, Callable
@@ -256,12 +255,11 @@ class Foo:
         return 42
 
 def test(x: Foo) -> None:
-    assert_type(x.p, int)  # E: P[[self: Self], int]
+    assert_type(x.p, int)
     "#,
 );
 
 testcase!(
-    bug = "Doesn't bind method",
     test_method_decorated_to_callback_protocol,
     r#"
 from typing import assert_type, Protocol, Callable
@@ -278,6 +276,6 @@ class Foo:
         return 42
 
 def test(x: Foo) -> None:
-    assert_type(x.p(), int)  # E: Missing argument `self`
+    assert_type(x.p(), int)
     "#,
 );
