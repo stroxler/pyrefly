@@ -253,28 +253,34 @@ impl ConfigFile {
     }
 
     pub fn from_file(config_path: &Path, error_on_extras: bool) -> anyhow::Result<ConfigFile> {
-        let config_path = config_path
-            .absolutize()
-            .with_context(|| format!("Path `{}` cannot be absolutized", config_path.display()))?
-            .into_owned();
-        let config_str = fs_anyhow::read_to_string(&config_path)?;
-        let mut config = if config_path.file_name() == Some(OsStr::new(&Self::PYPROJECT_FILE_NAME))
-        {
-            Self::parse_pyproject_toml(&config_str)
-        } else {
-            Self::parse_config(&config_str)
-        }?;
+        fn f(config_path: &Path, error_on_extras: bool) -> anyhow::Result<ConfigFile> {
+            let config_path = config_path
+                .absolutize()
+                .with_context(|| format!("Path `{}` cannot be absolutized", config_path.display()))?
+                .into_owned();
+            let config_str = fs_anyhow::read_to_string(&config_path)?;
+            let mut config =
+                if config_path.file_name() == Some(OsStr::new(ConfigFile::PYPROJECT_FILE_NAME)) {
+                    ConfigFile::parse_pyproject_toml(&config_str)
+                } else {
+                    ConfigFile::parse_config(&config_str)
+                }?;
 
-        if error_on_extras && !config.extras.0.is_empty() {
-            let extra_keys = config.extras.0.keys().join(", ");
-            return Err(anyhow!("Extra keys found in config: {extra_keys}"));
+            if error_on_extras && !config.extras.0.is_empty() {
+                let extra_keys = config.extras.0.keys().join(", ");
+                return Err(anyhow!("Extra keys found in config: {extra_keys}"));
+            }
+
+            if let Some(config_root) = config_path.parent() {
+                config.rewrite_with_path_to_config(config_root);
+            }
+
+            Ok(config)
         }
-
-        if let Some(config_root) = config_path.parent() {
-            config.rewrite_with_path_to_config(config_root);
-        }
-
-        Ok(config)
+        f(config_path, error_on_extras).map_err(|err| {
+            let file_str = config_path.display();
+            anyhow!("Failed to parse configuration at {file_str}: {err}")
+        })
     }
 
     fn parse_config(config_str: &str) -> anyhow::Result<ConfigFile> {

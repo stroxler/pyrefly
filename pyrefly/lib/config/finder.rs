@@ -22,10 +22,7 @@ use crate::util::fs_upward_search::first_match;
 use crate::util::lock::RwLock;
 
 pub fn get_open_source_config(file: &Path) -> anyhow::Result<ConfigFile> {
-    ConfigFile::from_file(file, true).map_err(|err| {
-        let file_str = file.display();
-        anyhow!("Failed to parse configuration at {file_str}: {err}")
-    })
+    ConfigFile::from_file(file, true)
 }
 
 fn get_implicit_config_path_from(path: &Path) -> anyhow::Result<PathBuf> {
