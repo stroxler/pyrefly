@@ -8,7 +8,6 @@
 use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
-use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -29,6 +28,7 @@ use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::module::wildcard::ModuleWildcard;
+use crate::util::fs_anyhow;
 use crate::PythonEnvironment;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
@@ -257,7 +257,7 @@ impl ConfigFile {
             .absolutize()
             .with_context(|| format!("Path `{}` cannot be absolutized", config_path.display()))?
             .into_owned();
-        let config_str = fs::read_to_string(&config_path)?;
+        let config_str = fs_anyhow::read_to_string(&config_path)?;
         let mut config = if config_path.file_name() == Some(OsStr::new(&Self::PYPROJECT_FILE_NAME))
         {
             Self::parse_pyproject_toml(&config_str)
