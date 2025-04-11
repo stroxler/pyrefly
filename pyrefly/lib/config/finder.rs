@@ -21,10 +21,6 @@ use crate::config::config::ConfigFile;
 use crate::util::fs_upward_search::first_match;
 use crate::util::lock::RwLock;
 
-pub fn get_open_source_config(file: &Path) -> anyhow::Result<ConfigFile> {
-    ConfigFile::from_file(file, true)
-}
-
 fn get_implicit_config_path_from(path: &Path) -> anyhow::Result<PathBuf> {
     if let Some(search_result) = first_match(path, &ConfigFile::CONFIG_FILE_NAMES) {
         Ok(search_result.to_path_buf())
@@ -41,7 +37,7 @@ pub fn get_implicit_config_for_project() -> ConfigFile {
         let current_dir = std::env::current_dir().context("cannot identify current dir")?;
         let config_path = get_implicit_config_path_from(&current_dir)?;
         info!("Using config found at {}", config_path.display());
-        get_open_source_config(&config_path)
+        ConfigFile::from_file(&config_path, true)
     }
     get_config_path().unwrap_or_else(|err| {
         debug!("{err}. Default configuration will be used as fallback.");
@@ -71,10 +67,12 @@ pub fn get_implicit_config_for_file(
         if let Some(config) = config_cache.read().get(&config_path) {
             return config.clone();
         }
-        let config = override_config(get_open_source_config(&config_path).unwrap_or_else(|err| {
-            log_err(err);
-            ConfigFile::default()
-        }));
+        let config = override_config(ConfigFile::from_file(&config_path, true).unwrap_or_else(
+            |err| {
+                log_err(err);
+                ConfigFile::default()
+            },
+        ));
         debug!("Config for {} is: {}", config_path.display(), config);
         // If there was a race condition, make sure we use whoever wrote first
         config_cache

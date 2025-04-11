@@ -18,7 +18,6 @@ use path_absolutize::Absolutize;
 use pyrefly::clap_env;
 use pyrefly::finder::get_implicit_config_for_file;
 use pyrefly::finder::get_implicit_config_for_project;
-use pyrefly::finder::get_open_source_config;
 use pyrefly::get_args_expanded;
 use pyrefly::globs::FilteredGlobs;
 use pyrefly::globs::Globs;
@@ -130,7 +129,7 @@ async fn run_check_on_project(
             "Using config file explicitly provided at `{}`",
             explicit_config_path.display()
         );
-        args.override_config(get_open_source_config(&explicit_config_path)?)
+        args.override_config(ConfigFile::from_file(&explicit_config_path, true)?)
     } else {
         args.override_config(get_implicit_config_for_project())
     };
