@@ -236,3 +236,48 @@ class C:
 assert_type(C().f(0), int)
     "#,
 );
+
+testcase!(
+    bug = "Wrong asserted type",
+    test_property_decorated_to_callback_protocol,
+    r#"
+from typing import assert_type, Protocol, Callable
+
+class P[**TParams, TReturn](Protocol):
+    def __call__(self, *args: TParams.args, **kwargs: TParams.kwargs) -> TReturn: ...
+
+def f[**TParams, TReturn](func: Callable[TParams, TReturn]) -> P[TParams, TReturn]:
+    ...
+
+class Foo:
+    @property
+    @f
+    def p(self) -> int:
+        return 42
+
+def test(x: Foo) -> None:
+    assert_type(x.p, int)  # E: P[[self: Self], int]
+    "#,
+);
+
+testcase!(
+    bug = "Doesn't bind method",
+    test_method_decorated_to_callback_protocol,
+    r#"
+from typing import assert_type, Protocol, Callable
+
+class P[**TParams, TReturn](Protocol):
+    def __call__(self, *args: TParams.args, **kwargs: TParams.kwargs) -> TReturn: ...
+
+def f[**TParams, TReturn](func: Callable[TParams, TReturn]) -> P[TParams, TReturn]:
+    ...
+
+class Foo:
+    @f
+    def p(self) -> int:
+        return 42
+
+def test(x: Foo) -> None:
+    assert_type(x.p(), int)  # E: Missing argument `self`
+    "#,
+);
