@@ -15,6 +15,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use clap::Parser;
 use clap::Subcommand;
+use dupe::Dupe;
 use path_absolutize::Absolutize;
 use pyrefly::clap_env;
 use pyrefly::finder::get_implicit_config_for_project;
@@ -102,7 +103,7 @@ async fn run_check(
     args: pyrefly::run::CheckArgs,
     watch: bool,
     files_to_check: FilteredGlobs,
-    config_finder: impl Fn(&Path) -> ConfigFile,
+    config_finder: impl Fn(&Path) -> Arc<ConfigFile>,
     allow_forget: bool,
 ) -> anyhow::Result<CommandExitStatus> {
     if watch {
@@ -130,9 +131,9 @@ async fn run_check_on_project(
             "Using config file explicitly provided at `{}`",
             explicit_config_path.display()
         );
-        args.override_config(ConfigFile::from_file(&explicit_config_path, true)?)
+        Arc::new(args.override_config(ConfigFile::from_file(&explicit_config_path, true)?))
     } else {
-        args.override_config(get_implicit_config_for_project())
+        Arc::new(args.override_config(get_implicit_config_for_project()))
     };
     debug!("Config is: {}", config);
     let project_excludes =
@@ -141,7 +142,7 @@ async fn run_check_on_project(
         args,
         watch,
         FilteredGlobs::new(config.project_includes.clone(), project_excludes),
-        |_| config.clone(),
+        |_| config.dupe(),
         allow_forget,
     )
     .await
@@ -171,7 +172,7 @@ async fn run_check_on_files(
         args,
         watch,
         FilteredGlobs::new(files_to_check, project_excludes),
-        move |x| (*config_finder.python_file(x)).clone(),
+        move |x| config_finder.python_file(x),
         allow_forget,
     )
     .await

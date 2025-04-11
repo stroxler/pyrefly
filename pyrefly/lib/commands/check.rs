@@ -12,6 +12,7 @@ use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -218,7 +219,7 @@ struct Handles {
 }
 
 impl Handles {
-    fn new(files: Vec<PathBuf>, config_finder: impl Fn(&Path) -> ConfigFile) -> Self {
+    fn new(files: Vec<PathBuf>, config_finder: impl Fn(&Path) -> Arc<ConfigFile>) -> Self {
         let mut handles = Self {
             loader_factory: SmallMap::new(),
             path_data: HashMap::new(),
@@ -233,7 +234,7 @@ impl Handles {
     fn register_file(
         &mut self,
         path: PathBuf,
-        config_finder: impl Fn(&Path) -> ConfigFile,
+        config_finder: impl Fn(&Path) -> Arc<ConfigFile>,
     ) -> &(ModuleName, RuntimeMetadata, LoaderId) {
         let config = config_finder(&path);
         self.module_to_error_config.insert(
@@ -294,7 +295,7 @@ impl Handles {
         &mut self,
         created_files: impl Iterator<Item = &'a PathBuf>,
         removed_files: impl Iterator<Item = &'a PathBuf>,
-        config_finder: impl Fn(&Path) -> ConfigFile,
+        config_finder: impl Fn(&Path) -> Arc<ConfigFile>,
     ) {
         for file in created_files {
             self.register_file(file.to_path_buf(), &config_finder);
@@ -332,7 +333,7 @@ impl Args {
     pub fn run_once(
         self,
         files_to_check: impl FileList,
-        config_finder: impl Fn(&Path) -> ConfigFile,
+        config_finder: impl Fn(&Path) -> Arc<ConfigFile>,
         allow_forget: bool,
     ) -> anyhow::Result<CommandExitStatus> {
         let expanded_file_list = files_to_check.files()?;
@@ -356,7 +357,7 @@ impl Args {
         self,
         mut watcher: impl Watcher,
         files_to_check: impl FileList,
-        config_finder: impl Fn(&Path) -> ConfigFile,
+        config_finder: impl Fn(&Path) -> Arc<ConfigFile>,
     ) -> anyhow::Result<()> {
         // TODO: We currently make 1 unrealistic assumptions, which should be fixed in the future:
         // - Config search is stable across incremental runs.
