@@ -431,6 +431,23 @@ C(x=1)  # E: Unexpected keyword argument `x`
 );
 
 testcase!(
+    bug = "x should not be a dataclass field in D",
+    test_inherit_classvar,
+    r#"
+from typing import ClassVar
+from dataclasses import dataclass
+@dataclass
+class C:
+    x: ClassVar[int]
+@dataclass
+class D(C):
+    x = 0
+D()  # OK
+D(x=1)  # Expected: Unexpected keyword argument `x`
+    "#,
+);
+
+testcase!(
     test_hashable,
     r#"
 from typing import Hashable
