@@ -23,17 +23,39 @@ enum SuppressionKind {
 #[derive(Debug, Clone, Default)]
 pub struct Ignore {
     ignores: SmallMap<OneIndexed, Vec<SuppressionKind>>,
+    ignore_all: bool,
 }
 
 impl Ignore {
     pub fn new(code: &str) -> Self {
-        let mut ignores = SmallMap::new();
+        let mut ignore_all = false;
+
+        // process top level comments
+        for line_str in code.lines() {
+            // Skip blank lines
+            if line_str.trim().is_empty() {
+                continue;
+            }
+            // If the line is a comment, check if it's exactly "# pyrefly: ignore-all-errors"
+            if !line_str.starts_with("#") {
+                break;
+            } else if line_str.trim() == "# pyrefly: ignore-all-errors" {
+                ignore_all = true;
+                break; // We found the top-level ignore comment, no need to check further
+            }
+        }
+
+        // process line level comments
+        let mut ignores: SmallMap<OneIndexed, Vec<SuppressionKind>> = SmallMap::new();
         for (line, line_str) in code.lines().enumerate() {
             if let Some(kind) = Self::get_suppression_kind(line_str) {
                 ignores.insert(OneIndexed::from_zero_indexed(line), [kind].to_vec());
             }
         }
-        Self { ignores }
+        Self {
+            ignores,
+            ignore_all,
+        }
     }
 
     fn get_suppression_kind(line: &str) -> Option<SuppressionKind> {
@@ -50,12 +72,16 @@ impl Ignore {
     }
 
     pub fn is_ignored(&self, range: &SourceRange, msg: &str) -> bool {
-        // for now, we ignore the msg
-        let _unused = msg;
-        // We allow an ignore the line before the range, or on any line within the range.
-        // We convert to/from zero-indexed because OneIndexed does not implement Step.
-        (range.start.row.to_zero_indexed().saturating_sub(1)..=range.end.row.to_zero_indexed())
-            .any(|x| self.ignores.contains_key(&OneIndexed::from_zero_indexed(x)))
+        if self.ignore_all {
+            true
+        } else {
+            // for now, we ignore the msg
+            let _unused = msg;
+            // We allow an ignore the line before the range, or on any line within the range.
+            // We convert to/from zero-indexed because OneIndexed does not implement Step.
+            (range.start.row.to_zero_indexed().saturating_sub(1)..=range.end.row.to_zero_indexed())
+                .any(|x| self.ignores.contains_key(&OneIndexed::from_zero_indexed(x)))
+        }
     }
 }
 

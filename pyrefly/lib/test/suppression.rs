@@ -17,12 +17,11 @@ def foo() -> str:
 );
 
 testcase!(
-    bug = "Should silence all errors",
     test_pyrefly_top_level_ignore,
     r#"
 # pyrefly: ignore-all-errors
 3 + "3"
-3 + "3" # E: 
+3 + "3"
 "#,
 );
 
@@ -39,8 +38,8 @@ testcase!(
     bug = "Should not silence any errors because this is a top level flag",
     test_pyrefly_top_level_ignore_wrong_own_line,
     r#"
-3 + "3" # E: 
+3 + "3" # E:
 # pyrefly: ignore-all-errors
-3 + "3" 
+3 + "3"
 "#,
 );
