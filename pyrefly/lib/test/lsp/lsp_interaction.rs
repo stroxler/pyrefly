@@ -37,66 +37,72 @@ fn run_test_lsp(test_case: TestCase) {
         search_path: test_case.search_path,
         site_package_path: Vec::new(),
     };
-    let (writer_sender, writer_receiver) = bounded::<Message>(0);
-    let (reader_sender, reader_receiver) = bounded::<Message>(0);
+    // language_client_sender is used to send messages to the language client
+    // language_client_receiver sees messages sent to the language client
+    let (language_client_sender, language_client_receiver) = bounded::<Message>(0);
+    // language_server_sender is used to send messages to the language server
+    // language_server_receiver sees messages sent to the language server
+    let (language_server_sender, language_server_receiver) = bounded::<Message>(0);
 
-    // spawn thread to handle writes from language server to client
-    let writer_thread: thread::JoinHandle<Result<(), std::io::Error>> = thread::spawn(move || {
-        let mut responses = test_case.expected_responses.clone();
+    // this thread receives messages from the language server and validates responses
+    let language_server_receiver_thread: thread::JoinHandle<Result<(), std::io::Error>> =
+        thread::spawn(move || {
+            let mut responses = test_case.expected_responses.clone();
 
-        loop {
-            if responses.is_empty() {
-                break;
+            loop {
+                if responses.is_empty() {
+                    break;
+                }
+
+                match language_client_receiver.recv_timeout(timeout) {
+                    Ok(msg) => {
+                        match msg {
+                            Message::Response(response) => {
+                                let expected_response = responses.remove(0);
+                                assert_eq!(
+                                    (response.id, &response.result, &response.error.is_none()),
+                                    (
+                                        expected_response.id,
+                                        &expected_response.result,
+                                        &expected_response.error.is_none()
+                                    ),
+                                    "Response mismatch"
+                                );
+                            }
+                            Message::Notification(notification) => {
+                                eprintln!("Received notification: {:?}", notification);
+                            }
+                            Message::Request(_) => {
+                                panic!("Unexpected message {:?}", msg);
+                            }
+                        };
+                    }
+                    Err(RecvTimeoutError::Timeout) => {
+                        panic!("Timeout waiting for response. Expected ${:?}.", responses,);
+                    }
+                    Err(RecvTimeoutError::Disconnected) => {
+                        panic!("Channel disconnected. Expected ${:?}.", responses);
+                    }
+                }
             }
 
-            match writer_receiver.recv_timeout(timeout) {
-                Ok(msg) => {
-                    match msg {
-                        Message::Response(response) => {
-                            let expected_response = responses.remove(0);
-                            assert_eq!(
-                                (response.id, &response.result, &response.error.is_none()),
-                                (
-                                    expected_response.id,
-                                    &expected_response.result,
-                                    &expected_response.error.is_none()
-                                ),
-                                "Response mismatch"
-                            );
-                        }
-                        Message::Notification(notification) => {
-                            eprintln!("Received notification: {:?}", notification);
-                        }
-                        Message::Request(_) => {
-                            panic!("Unexpected message {:?}", msg);
-                        }
-                    };
-                }
-                Err(RecvTimeoutError::Timeout) => {
-                    panic!("Timeout waiting for response. Expected ${:?}.", responses,);
-                }
-                Err(RecvTimeoutError::Disconnected) => {
-                    panic!("Channel disconnected. Expected ${:?}.", responses);
-                }
-            }
-        }
-
-        Ok(())
-    });
-
-    // spawn thread to handle reads of messages from client to language server
-    let reader_thread: thread::JoinHandle<Result<(), std::io::Error>> = thread::spawn(move || {
-        test_case.test_messages.iter().for_each(|msg| {
-            if let Err(err) = reader_sender.send_timeout(msg.clone(), timeout) {
-                panic!("Failed to send message to language server: {:?}", err);
-            }
+            Ok(())
         });
-        Ok(())
-    });
+
+    // this thread sends messages to the language server (from test case)
+    let language_server_sender_thread: thread::JoinHandle<Result<(), std::io::Error>> =
+        thread::spawn(move || {
+            test_case.test_messages.iter().for_each(|msg| {
+                if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout) {
+                    panic!("Failed to send message to language server: {:?}", err);
+                }
+            });
+            Ok(())
+        });
 
     let connection = Connection {
-        sender: writer_sender,
-        receiver: reader_receiver,
+        sender: language_client_sender,
+        receiver: language_server_receiver,
     };
 
     // spawn thread to run the language server
@@ -107,8 +113,14 @@ fn run_test_lsp(test_case: TestCase) {
     });
 
     let threads = vec![
-        ("reader", reader_thread),
-        ("writer", writer_thread),
+        (
+            "language_server_sender_thread",
+            language_server_sender_thread,
+        ),
+        (
+            "language_server_receiver_thread",
+            language_server_receiver_thread,
+        ),
         ("lsp", lsp_thread),
     ];
 
