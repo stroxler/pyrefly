@@ -19,6 +19,7 @@ use tracing::info;
 
 use crate::config::config::ConfigFile;
 use crate::util::fs_upward_search::first_match;
+use crate::util::lock::RwLock;
 
 pub fn get_open_source_config(file: &Path) -> anyhow::Result<ConfigFile> {
     ConfigFile::from_file(file, true).map_err(|err| {
@@ -54,7 +55,7 @@ pub fn get_implicit_config_for_project() -> ConfigFile {
 pub fn get_implicit_config_for_file(
     override_config: impl Fn(ConfigFile) -> ConfigFile,
 ) -> impl Fn(&Path) -> ConfigFile {
-    let mut config_cache: SmallMap<PathBuf, ConfigFile> = SmallMap::new();
+    let config_cache = RwLock::new(SmallMap::<PathBuf, ConfigFile>::new());
     fn get_implicit_config_path(path: &Path) -> anyhow::Result<PathBuf> {
         let parent_dir = path
             .parent()
@@ -70,7 +71,7 @@ pub fn get_implicit_config_for_file(
     let override_config = Arc::new(override_config);
     let override_config2 = override_config.dupe();
     let get_implicit_config = move |config_path: PathBuf| -> ConfigFile {
-        if let Some(config) = config_cache.get(&config_path) {
+        if let Some(config) = config_cache.read().get(&config_path) {
             return config.clone();
         }
         let config = override_config(get_open_source_config(&config_path).unwrap_or_else(|err| {
@@ -78,8 +79,12 @@ pub fn get_implicit_config_for_file(
             ConfigFile::default()
         }));
         debug!("Config for {} is: {}", config_path.display(), config);
-        config_cache.insert(config_path, config.clone());
-        config
+        // If there was a race condition, make sure we use whoever wrote first
+        config_cache
+            .write()
+            .entry(config_path)
+            .or_insert(config)
+            .clone()
     };
     move |path| match get_implicit_config_path(path) {
         Ok(config_path) => {
@@ -88,7 +93,7 @@ pub fn get_implicit_config_for_file(
                 path.display(),
                 config_path.display()
             );
-            get_implicit_config.clone()(config_path)
+            get_implicit_config(config_path)
         }
         Err(err) => {
             log_err(err);
