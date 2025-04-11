@@ -103,7 +103,6 @@
   ],
   "callables_annotation.py": [
     "Line 56: Expected 1 errors",
-    "Line 155: Unexpected errors ['`Proto3` is not assignable to `Proto4[Ellipsis]`']",
     "Line 156: Unexpected errors ['`Proto4[Ellipsis]` is not assignable to `Proto3`']",
     "Line 157: Unexpected errors ['`Proto7` is not assignable to `Proto6`']"
   ],
@@ -112,10 +111,7 @@
     "Line 122: Expected 1 errors"
   ],
   "callables_protocol.py": [],
-  "callables_subtyping.py": [
-    "Line 213: Unexpected errors ['`ProtocolWithP[ParamSpec[P]]` is not assignable to `(ParamSpec(ParamSpec[P])) -> None`']",
-    "Line 214: Unexpected errors ['`(ParamSpec(ParamSpec[P])) -> None` is not assignable to `ProtocolWithP[ParamSpec[P]]`']"
-  ],
+  "callables_subtyping.py": [],
   "classes_classvar.py": [],
   "classes_override.py": [
     "Lines 56, 64, 65: Expected error (tag 'method4')"

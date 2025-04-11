@@ -1676,16 +1676,6 @@
     },
     {
       "code": -2,
-      "column": 24,
-      "concise_description": "`Proto3` is not assignable to `Proto4[Ellipsis]`",
-      "description": "`Proto3` is not assignable to `Proto4[Ellipsis]`",
-      "line": 155,
-      "name": "bad-assignment",
-      "stop_column": 26,
-      "stop_line": 155
-    },
-    {
-      "code": -2,
       "column": 20,
       "concise_description": "`Proto4[Ellipsis]` is not assignable to `Proto3`",
       "description": "`Proto4[Ellipsis]` is not assignable to `Proto3`",
@@ -2359,26 +2349,6 @@
       "name": "bad-assignment",
       "stop_column": 32,
       "stop_line": 197
-    },
-    {
-      "code": -2,
-      "column": 29,
-      "concise_description": "`ProtocolWithP[ParamSpec[P]]` is not assignable to `(ParamSpec(ParamSpec[P])) -> None`",
-      "description": "`ProtocolWithP[ParamSpec[P]]` is not assignable to `(ParamSpec(ParamSpec[P])) -> None`",
-      "line": 213,
-      "name": "bad-assignment",
-      "stop_column": 34,
-      "stop_line": 213
-    },
-    {
-      "code": -2,
-      "column": 28,
-      "concise_description": "`(ParamSpec(ParamSpec[P])) -> None` is not assignable to `ProtocolWithP[ParamSpec[P]]`",
-      "description": "`(ParamSpec(ParamSpec[P])) -> None` is not assignable to `ProtocolWithP[ParamSpec[P]]`",
-      "line": 214,
-      "name": "bad-assignment",
-      "stop_column": 30,
-      "stop_line": 214
     },
     {
       "code": -2,

@@ -367,6 +367,14 @@ impl Callable {
                 params: Params::List(params),
                 ret,
             } if !params.is_empty() => Some(Self::list(params.tail(), ret.clone())),
+            Self {
+                params: Params::ParamSpec(ts, p),
+                ret,
+            } if !ts.is_empty() => Some(Self::concatenate(
+                ts.iter().skip(1).cloned().collect(),
+                p.clone(),
+                ret.clone(),
+            )),
             _ => None,
         }
     }
