@@ -38,7 +38,6 @@ use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::module::Module;
 use crate::types::quantified::Quantified;
-use crate::types::stdlib::Stdlib;
 use crate::types::tuple::Tuple;
 use crate::types::type_var::Restriction;
 use crate::types::types::AnyStyle;
@@ -962,7 +961,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // This function is intended as a low-level building block
     // Unions or intersections should be handled by callers
     fn lookup_attr_no_union(&self, base: &Type, attr_name: &Name) -> LookupResult {
-        match self.as_attribute_base_no_union(base.clone(), self.stdlib) {
+        match self.as_attribute_base_no_union(base.clone()) {
             None => {
                 LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone()))
             }
@@ -1055,7 +1054,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     // This function is intended as a low-level building block
     // Unions or intersections should be handled by callers
-    fn as_attribute_base_no_union(&self, ty: Type, stdlib: &Stdlib) -> Option<AttributeBase> {
+    fn as_attribute_base_no_union(&self, ty: Type) -> Option<AttributeBase> {
         match ty {
             Type::ClassType(class_type) => Some(AttributeBase::ClassInstance(class_type)),
             Type::ClassDef(cls) => Some(AttributeBase::ClassObject(cls)),
@@ -1063,18 +1062,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::SelfType(class_type)) => {
                 Some(AttributeBase::ClassObject(class_type.class_object().dupe()))
             }
-            Type::TypedDict(_) => Some(AttributeBase::ClassInstance(stdlib.mapping(
-                stdlib.str().clone().to_type(),
-                stdlib.object().clone().to_type(),
+            Type::TypedDict(_) => Some(AttributeBase::ClassInstance(self.stdlib.mapping(
+                self.stdlib.str().clone().to_type(),
+                self.stdlib.object().clone().to_type(),
             ))),
             Type::Tuple(Tuple::Unbounded(box element)) => {
-                Some(AttributeBase::ClassInstance(stdlib.tuple(element)))
+                Some(AttributeBase::ClassInstance(self.stdlib.tuple(element)))
             }
             Type::Tuple(Tuple::Concrete(elements)) => {
                 Some(AttributeBase::ClassInstance(if elements.is_empty() {
-                    stdlib.tuple(Type::Any(AnyStyle::Implicit))
+                    self.stdlib.tuple(Type::Any(AnyStyle::Implicit))
                 } else {
-                    stdlib.tuple(self.unions(elements))
+                    self.stdlib.tuple(self.unions(elements))
                 }))
             }
             Type::Tuple(Tuple::Unpacked(box (
@@ -1086,67 +1085,71 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 elements.push(middle);
                 elements.extend(suffix);
                 Some(AttributeBase::ClassInstance(
-                    stdlib.tuple(self.unions(elements)),
+                    self.stdlib.tuple(self.unions(elements)),
                 ))
             }
             // TODO(yangdanny): the middle part is AttributeBase::Quantified
             // but we can only return one attribute base
             Type::Tuple(Tuple::Unpacked(_)) => Some(AttributeBase::ClassInstance(
-                stdlib.tuple(Type::any_implicit()),
+                self.stdlib.tuple(Type::any_implicit()),
             )),
-            Type::LiteralString => Some(AttributeBase::ClassInstance(stdlib.str().clone())),
+            Type::LiteralString => Some(AttributeBase::ClassInstance(self.stdlib.str().clone())),
             Type::Literal(lit) => Some(AttributeBase::ClassInstance(
-                lit.general_class_type(stdlib).clone(),
+                lit.general_class_type(self.stdlib).clone(),
             )),
             Type::TypeGuard(_) | Type::TypeIs(_) => {
-                Some(AttributeBase::ClassInstance(stdlib.bool().clone()))
+                Some(AttributeBase::ClassInstance(self.stdlib.bool().clone()))
             }
             Type::Any(style) => Some(AttributeBase::Any(style)),
-            Type::TypeAlias(ta) => self.as_attribute_base_no_union(ta.as_value(stdlib), stdlib),
+            Type::TypeAlias(ta) => self.as_attribute_base_no_union(ta.as_value(self.stdlib)),
             Type::Type(box Type::ClassType(class)) => {
                 Some(AttributeBase::ClassObject(class.class_object().dupe()))
             }
             Type::Type(box Type::Quantified(q)) => Some(AttributeBase::Quantified(q)),
             Type::Type(box Type::Any(style)) => Some(AttributeBase::TypeAny(style)),
             Type::Module(module) => Some(AttributeBase::Module(module)),
-            Type::TypeVar(_) => Some(AttributeBase::ClassInstance(stdlib.type_var().clone())),
-            Type::ParamSpec(_) => Some(AttributeBase::ClassInstance(stdlib.param_spec().clone())),
+            Type::TypeVar(_) => Some(AttributeBase::ClassInstance(self.stdlib.type_var().clone())),
+            Type::ParamSpec(_) => Some(AttributeBase::ClassInstance(
+                self.stdlib.param_spec().clone(),
+            )),
             Type::TypeVarTuple(_) => Some(AttributeBase::ClassInstance(
-                stdlib.type_var_tuple().clone(),
+                self.stdlib.type_var_tuple().clone(),
             )),
             Type::Args(_) => Some(AttributeBase::ClassInstance(
-                stdlib.param_spec_args().clone(),
+                self.stdlib.param_spec_args().clone(),
             )),
             Type::Kwargs(_) => Some(AttributeBase::ClassInstance(
-                stdlib.param_spec_kwargs().clone(),
+                self.stdlib.param_spec_kwargs().clone(),
             )),
-            Type::None => Some(AttributeBase::ClassInstance(stdlib.none_type().clone())),
+            Type::None => Some(AttributeBase::ClassInstance(
+                self.stdlib.none_type().clone(),
+            )),
             Type::Never(_) => Some(AttributeBase::Never),
             _ if ty.is_property_getter() => Some(AttributeBase::Property(ty)),
-            Type::Callable(_) | Type::Function(_) | Type::Overload(_) => {
-                Some(AttributeBase::ClassInstance(stdlib.function_type().clone()))
-            }
-            Type::BoundMethod(_) => {
-                Some(AttributeBase::ClassInstance(stdlib.method_type().clone()))
-            }
-            Type::Ellipsis => Some(AttributeBase::ClassInstance(
-                stdlib.ellipsis_type()?.clone(),
+            Type::Callable(_) | Type::Function(_) | Type::Overload(_) => Some(
+                AttributeBase::ClassInstance(self.stdlib.function_type().clone()),
+            ),
+            Type::BoundMethod(_) => Some(AttributeBase::ClassInstance(
+                self.stdlib.method_type().clone(),
             )),
-            Type::Forall(forall) => self.as_attribute_base_no_union(forall.body.as_type(), stdlib),
+            Type::Ellipsis => Some(AttributeBase::ClassInstance(
+                self.stdlib.ellipsis_type()?.clone(),
+            )),
+            Type::Forall(forall) => self.as_attribute_base_no_union(forall.body.as_type()),
             Type::Var(v) => {
                 if let Some(_guard) = self.recurser.recurse(v) {
-                    self.as_attribute_base_no_union(self.solver().force_var(v), stdlib)
+                    self.as_attribute_base_no_union(self.solver().force_var(v))
                 } else {
                     None
                 }
             }
             Type::SuperInstance(box (cls, obj)) => Some(AttributeBase::SuperInstance(cls, obj)),
             Type::Quantified(q) if q.is_type_var() => match q.restriction() {
-                Restriction::Bound(bound) => self.as_attribute_base_no_union(bound.clone(), stdlib),
+                Restriction::Bound(bound) => self.as_attribute_base_no_union(bound.clone()),
                 // TODO: handle constraints
                 Restriction::Constraints(_) => None,
                 Restriction::Unrestricted => {
-                    Some(AttributeBase::ClassInstance(stdlib.object().clone()))
+                    Some(AttributeBase::ClassInstance(self.stdlib.object().clone()))
                 }
             },
             // TODO: check to see which ones should have class representations
@@ -1215,7 +1218,7 @@ impl<'a, Ans: LookupAnswer + LookupExport> AnswersSolver<'a, Ans> {
     pub fn completions(&self, base: Type, include_types: bool) -> Vec<AttrInfo> {
         let mut res = Vec::new();
         // TODO: expose attributes shared across all union members
-        if let Some(base) = self.as_attribute_base_no_union(base, self.stdlib) {
+        if let Some(base) = self.as_attribute_base_no_union(base) {
             match &base {
                 AttributeBase::ClassInstance(class) => self.completions_class_type(class, &mut res),
                 AttributeBase::SuperInstance(class, _) => {
