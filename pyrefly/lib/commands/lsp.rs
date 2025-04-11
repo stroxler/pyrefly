@@ -106,7 +106,6 @@ struct Server {
     state: Arc<State>,
     configs: Arc<RwLock<SmallMap<PathBuf, Config>>>,
     default_config: Arc<Config>,
-    canceled_requests: HashSet<RequestId>,
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
 }
@@ -222,18 +221,19 @@ pub fn run_lsp(
     let site_package_path = args.site_package_path;
     let connection_for_send = connection.dupe();
     let send = move |msg| connection_for_send.sender.send(msg).unwrap();
-    let mut server = Server::new(
+    let server = Server::new(
         Arc::new(send),
         initialization_params,
         search_path,
         site_package_path,
     );
     eprintln!("Reading messages");
+    let mut canceled_requests = HashSet::new();
     for msg in &connection.receiver {
         if matches!(&msg, Message::Request(req) if connection.handle_shutdown(req)?) {
             break;
         }
-        server.process(msg)?;
+        server.process(&mut canceled_requests, msg)?;
     }
     wait_on_connection()?;
 
@@ -324,10 +324,14 @@ fn publish_diagnostics(
 }
 
 impl Server {
-    fn process(&mut self, msg: Message) -> anyhow::Result<()> {
+    fn process(
+        &self,
+        canceled_requests: &mut HashSet<RequestId>,
+        msg: Message,
+    ) -> anyhow::Result<()> {
         match msg {
             Message::Request(x) => {
-                if self.canceled_requests.remove(&x.id) {
+                if canceled_requests.remove(&x.id) {
                     let message = format!("Request {} is canceled", x.id);
                     eprintln!("{message}");
                     self.send_response(Response::new_err(
@@ -383,7 +387,7 @@ impl Server {
                         NumberOrString::Number(i) => RequestId::from(i),
                         NumberOrString::String(s) => RequestId::from(s),
                     };
-                    self.canceled_requests.insert(id);
+                    canceled_requests.insert(id);
                     Ok(())
                 } else {
                     eprintln!("Unhandled notification: {x:?}");
@@ -438,7 +442,6 @@ impl Server {
             state: Arc::new(State::new()),
             configs: Arc::new(RwLock::new(SmallMap::new())),
             default_config: Arc::new(Config::new(search_path.clone(), site_package_path.clone())),
-            canceled_requests: HashSet::new(),
             search_path,
             site_package_path,
         };
