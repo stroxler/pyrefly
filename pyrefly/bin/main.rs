@@ -10,6 +10,7 @@ use std::env::args_os;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use clap::Parser;
@@ -158,19 +159,19 @@ async fn run_check_on_files(
     let files_to_check = files_to_check.from_root(PathBuf::new().absolutize()?.as_ref());
     let args2 = args.clone();
     let config_finder = ConfigFinder::new(move |c| match c {
-        None => args2.override_config(ConfigFile::default()),
-        Some(config_path) => args2.override_config(
+        None => Arc::new(args2.override_config(ConfigFile::default())),
+        Some(config_path) => Arc::new(args2.override_config(
             ConfigFile::from_file(config_path, true).unwrap_or_else(|err| {
                 debug!("{err}. Default configuration will be used as fallback.");
                 ConfigFile::default()
             }),
-        ),
+        )),
     });
     run_check(
         args,
         watch,
         FilteredGlobs::new(files_to_check, project_excludes),
-        move |x| config_finder.python_file(x),
+        move |x| (*config_finder.python_file(x)).clone(),
         allow_forget,
     )
     .await

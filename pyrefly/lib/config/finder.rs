@@ -11,6 +11,7 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use anyhow::Context as _;
+use dupe::Dupe;
 use path_absolutize::Absolutize;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
@@ -25,7 +26,7 @@ pub struct ConfigFinder<T> {
     cache: RwLock<SmallMap<PathBuf, T>>,
 }
 
-impl<T: Clone + Display> ConfigFinder<T> {
+impl<T: Dupe + Display> ConfigFinder<T> {
     /// Create a new ConfigFinder with the given loader function.
     /// The loader function should return either the default config (`None`) or
     /// the config file at the given path (`Some(path)`).
@@ -39,7 +40,7 @@ impl<T: Clone + Display> ConfigFinder<T> {
     /// Get the config file given an explicit config file path.
     pub fn config_file(&self, config_path: &Path) -> T {
         if let Some(config) = self.cache.read().get(config_path) {
-            return config.clone();
+            return config.dupe();
         }
         let config = (self.loader)(Some(config_path));
         debug!("Config for {} is: {}", config_path.display(), config);
@@ -48,7 +49,7 @@ impl<T: Clone + Display> ConfigFinder<T> {
             .write()
             .entry(config_path.to_owned())
             .or_insert(config)
-            .clone()
+            .dupe()
     }
 
     /// Get the config file given a Python file.
