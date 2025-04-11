@@ -68,12 +68,13 @@ impl<T: Dupe + Display> ConfigFinder<T> {
     /// Get the config file given a Python file.
     pub fn python_file(&self, path: &Path) -> T {
         fn get_implicit_config_path(path: &Path) -> anyhow::Result<PathBuf> {
-            let parent_dir = path
-                .parent()
-                .with_context(|| format!("Path `{}` has no parent directory", path.display()))?
+            let absolute = path
                 .absolutize()
                 .with_context(|| format!("Path `{}` cannot be absolutized", path.display()))?;
-            get_implicit_config_path_from(parent_dir.as_ref())
+            let parent = absolute
+                .parent()
+                .with_context(|| format!("Path `{}` has no parent directory", path.display()))?;
+            get_implicit_config_path_from(parent)
         }
         match get_implicit_config_path(path) {
             Ok(config_path) => {
