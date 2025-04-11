@@ -77,20 +77,18 @@ pub fn get_implicit_config_for_file<'a>(
         config_cache.insert(config_path, config.clone());
         config
     };
-    move |path| {
-        get_implicit_config_path(path).map_or_else(
-            |err| {
-                log_err(err);
-                override_config(ConfigFile::default())
-            },
-            |config_path| {
-                debug!(
-                    "Config for {} found at {}",
-                    path.display(),
-                    config_path.display()
-                );
-                get_implicit_config.clone()(config_path)
-            },
-        )
+    move |path| match get_implicit_config_path(path) {
+        Ok(config_path) => {
+            debug!(
+                "Config for {} found at {}",
+                path.display(),
+                config_path.display()
+            );
+            get_implicit_config.clone()(config_path)
+        }
+        Err(err) => {
+            log_err(err);
+            override_config(ConfigFile::default())
+        }
     }
 }
