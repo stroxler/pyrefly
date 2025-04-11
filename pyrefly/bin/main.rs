@@ -132,7 +132,7 @@ async fn run_check_on_project(
         );
         args.override_config(get_open_source_config(&explicit_config_path)?)
     } else {
-        get_implicit_config_for_project(|c| args.override_config(c))
+        args.override_config(get_implicit_config_for_project())
     };
     debug!("Config is: {}", config);
     let project_excludes =

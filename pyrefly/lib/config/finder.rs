@@ -36,20 +36,17 @@ fn get_implicit_config_path_from(path: &Path) -> anyhow::Result<PathBuf> {
     }
 }
 
-pub fn get_implicit_config_for_project(
-    override_config: impl Fn(ConfigFile) -> ConfigFile,
-) -> ConfigFile {
+pub fn get_implicit_config_for_project() -> ConfigFile {
     fn get_config_path() -> anyhow::Result<ConfigFile> {
         let current_dir = std::env::current_dir().context("cannot identify current dir")?;
         let config_path = get_implicit_config_path_from(&current_dir)?;
         info!("Using config found at {}", config_path.display());
         get_open_source_config(&config_path)
     }
-    let config = get_config_path().unwrap_or_else(|err| {
+    get_config_path().unwrap_or_else(|err| {
         debug!("{err}. Default configuration will be used as fallback.");
         ConfigFile::default()
-    });
-    override_config(config)
+    })
 }
 
 pub fn get_implicit_config_for_file<'a>(
