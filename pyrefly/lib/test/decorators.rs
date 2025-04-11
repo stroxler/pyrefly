@@ -279,3 +279,20 @@ def test(x: Foo) -> None:
     assert_type(x.p(), int)
     "#,
 );
+
+testcase!(
+    test_method_decorated_to_callable_instance,
+    r#"
+class A:
+    def __call__(self):
+        pass
+def decorate(f) -> A:
+    return A()
+@decorate
+def f():
+    pass
+def g(a: A):
+    pass
+g(f)
+    "#,
+);

@@ -1139,7 +1139,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 signatures: _,
                 metadata: box metadata,
             }) => Some(AttributeBase::ClassInstance(
-                if let FunctionKind::CallableInstance(cls) = metadata.kind {
+                if let FunctionKind::CallbackProtocol(cls) = metadata.kind {
                     *cls
                 } else {
                     self.stdlib.function_type().clone()

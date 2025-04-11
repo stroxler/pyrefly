@@ -422,7 +422,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     metadata: metadata.clone(),
                 })),
                 // Callback protocol. We convert it to a function so we can add function metadata.
-                Type::ClassType(cls) => {
+                Type::ClassType(cls)
+                    if self
+                        .get_metadata_for_class(cls.class_object())
+                        .is_protocol() =>
+                {
                     let call_attr = self.instance_to_method(&cls).and_then(|call_attr| {
                         if let Type::BoundMethod(m) = call_attr {
                             let func = m.as_bound_function();
@@ -434,7 +438,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if let Some(mut call_attr) = call_attr {
                         call_attr.transform_func_metadata(|m| {
                             *m = FuncMetadata {
-                                kind: FunctionKind::CallableInstance(Box::new(cls.clone())),
+                                kind: FunctionKind::CallbackProtocol(Box::new(cls.clone())),
                                 flags: metadata.flags.clone(),
                             };
                         });

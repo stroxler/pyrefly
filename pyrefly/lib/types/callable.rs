@@ -235,8 +235,8 @@ pub enum FunctionKind {
     Final,
     PropertySetter(Box<FuncId>),
     Def(Box<FuncId>),
-    /// A callable class instance. The function has the signature of the class's `__call__` method.
-    CallableInstance(Box<ClassType>),
+    /// Instance of a protocol with a `__call__` method. The function has the `__call__` signature.
+    CallbackProtocol(Box<ClassType>),
 }
 
 /// A map from keywords to boolean values. Useful for storing sets of keyword arguments for various
@@ -538,7 +538,7 @@ impl FunctionKind {
                 cls: None,
                 func: Name::new_static("reveal_type"),
             },
-            Self::CallableInstance(cls) => FuncId {
+            Self::CallbackProtocol(cls) => FuncId {
                 module: cls.qname().module_name(),
                 cls: Some(cls.name().clone()),
                 func: dunder::CALL,
