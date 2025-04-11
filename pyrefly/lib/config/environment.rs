@@ -11,7 +11,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::LazyLock;
-use std::sync::Mutex;
 
 use anyhow::anyhow;
 use anyhow::Context;
@@ -25,6 +24,7 @@ use which::which;
 
 use crate::metadata::PythonPlatform;
 use crate::metadata::RuntimeMetadata;
+use crate::util::lock::Mutex;
 use crate::PythonVersion;
 
 static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonEnvironment>>>> =
@@ -136,8 +136,7 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
     }
 
     pub fn get_interpreter_env(interpreter: &Path) -> PythonEnvironment {
-        LazyLock::force(&INTERPRETER_ENV_REGISTRY)
-            .lock().unwrap()
+        INTERPRETER_ENV_REGISTRY.lock()
         .entry(interpreter.to_path_buf()).or_insert_with(move || {
             Self::get_env_from_interpreter(interpreter).inspect_err(|e| {
                 error!("Failed to query interpreter, falling back to default Python environment settings\n{}", e);
