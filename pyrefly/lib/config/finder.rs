@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -19,16 +20,16 @@ use crate::config::config::ConfigFile;
 use crate::util::fs_upward_search::first_match;
 use crate::util::lock::RwLock;
 
-pub struct ConfigFinder {
-    loader: Box<dyn Fn(Option<&Path>) -> ConfigFile>,
-    cache: RwLock<SmallMap<PathBuf, ConfigFile>>,
+pub struct ConfigFinder<T> {
+    loader: Box<dyn Fn(Option<&Path>) -> T>,
+    cache: RwLock<SmallMap<PathBuf, T>>,
 }
 
-impl ConfigFinder {
+impl<T: Clone + Display> ConfigFinder<T> {
     /// Create a new ConfigFinder with the given loader function.
     /// The loader function should return either the default config (`None`) or
     /// the config file at the given path (`Some(path)`).
-    pub fn new(loader: impl Fn(Option<&Path>) -> ConfigFile + 'static) -> Self {
+    pub fn new(loader: impl Fn(Option<&Path>) -> T + 'static) -> Self {
         Self {
             loader: Box::new(loader),
             cache: RwLock::new(SmallMap::new()),
@@ -36,7 +37,7 @@ impl ConfigFinder {
     }
 
     /// Get the config file given an explicit config file path.
-    pub fn config_file(&self, config_path: &Path) -> ConfigFile {
+    pub fn config_file(&self, config_path: &Path) -> T {
         if let Some(config) = self.cache.read().get(config_path) {
             return config.clone();
         }
@@ -51,7 +52,7 @@ impl ConfigFinder {
     }
 
     /// Get the config file given a Python file.
-    pub fn python_file(&self, path: &Path) -> ConfigFile {
+    pub fn python_file(&self, path: &Path) -> T {
         fn get_implicit_config_path(path: &Path) -> anyhow::Result<PathBuf> {
             let parent_dir = path
                 .parent()
