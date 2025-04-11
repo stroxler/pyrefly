@@ -58,6 +58,13 @@ impl TypeInfo {
         }
     }
 
+    pub fn type_at_name(&self, name: &Name) -> Option<&Type> {
+        match self.attrs.get(name) {
+            None | Some(NarrowedAttr::WithoutRoot(..)) => None,
+            Some(NarrowedAttr::Leaf(ty)) | Some(NarrowedAttr::WithRoot(ty, _)) => Some(ty),
+        }
+    }
+
     pub fn at_name(&self, name: &Name, fallback: impl Fn() -> Type) -> Self {
         match self.attrs.get(name) {
             None => TypeInfo::of_ty(fallback()),

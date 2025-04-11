@@ -57,6 +57,31 @@ enum LookupResult {
     InternalError(InternalError),
 }
 
+/// The result of a read for narrowing purposes. We track whether we are narrowing
+/// a property or descriptor that might not be idempotent, and if so we also
+/// indicate when this came through a union (so that error messages can be clearer).
+#[derive(Debug)]
+pub enum Narrowable {
+    Simple(Type),
+    PropertyOrDescriptor(Type),
+    UnionPropertyOrDescriptor(Type),
+}
+
+impl Narrowable {
+    fn of_no_union(no_union: NarrowableNoUnion) -> Self {
+        match no_union {
+            NarrowableNoUnion::Simple(ty) => Narrowable::Simple(ty),
+            NarrowableNoUnion::PropertyOrDescriptor(ty) => Narrowable::PropertyOrDescriptor(ty),
+        }
+    }
+}
+
+#[derive(Debug)]
+enum NarrowableNoUnion {
+    Simple(Type),
+    PropertyOrDescriptor(Type),
+}
+
 /// The result of looking up an attribute. We can analyze get and set actions
 /// on an attribute, each of which can be allowed with some type or disallowed.
 #[derive(Debug)]
@@ -1177,6 +1202,93 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | Type::Concatenate(_, _)
             | Type::ParamSpecValue(_)
             | Type::Quantified(_) => None,
+        }
+    }
+
+    /// Compute the get (i.e. read) type information of an attribute for narrowing.
+    /// - If the attribute is a descriptor that cannot be narrowed, return `PropertyOrDescriptor({read_type})`,
+    ///   where the `read_type` is the type of a fetch (which can be narrowed under the unchecked
+    ///   assumption that the descriptor return type is consistent).
+    /// - If the base type is a union and at least one case has a descriptor that cannot be narrowed,
+    ///   return UnionPropertyOrDescriptor({read_type}), which will allow us to make error messages
+    ///   clearer for this case.
+    /// - If the attribute is soundly narrowable (up to data races, which we do not currently attempt
+    ///   to model) - which is true for normal attributes and may eventually for known-to-be-sound
+    ///   built-in descriptors, return `Simple({read_type})`
+    /// - If the attribute comes from `__getattr__`, treat it as soundly narrowable. This is unsound but
+    ///   pragmatic, because `__getattr__` stubs are often used to indicate gradual typing.
+    /// - If the attribute cannot be found or read return `Simple(ClassType({object}))`. There will
+    ///   still be a type error on the narrow, but we should treat it as a valid narrow starting
+    ///   from `object` in downstream code.
+    pub fn narrowable_for_attr(
+        &self,
+        base: &Type,
+        attr_name: &Name,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Narrowable {
+        match base {
+            Type::Union(base_tys) => {
+                let mut has_property_or_descriptor = false;
+                let ty = self.unions(
+                    base_tys
+                        .iter()
+                        .map(|base_ty| {
+                            match self
+                                .narrowable_for_attr_no_union(base_ty, attr_name, range, errors)
+                            {
+                                NarrowableNoUnion::Simple(ty) => ty,
+                                NarrowableNoUnion::PropertyOrDescriptor(ty) => {
+                                    has_property_or_descriptor = true;
+                                    ty
+                                }
+                            }
+                        })
+                        .collect(),
+                );
+                if has_property_or_descriptor {
+                    Narrowable::UnionPropertyOrDescriptor(ty)
+                } else {
+                    Narrowable::Simple(ty)
+                }
+            }
+            _ => Narrowable::of_no_union(
+                self.narrowable_for_attr_no_union(base, attr_name, range, errors),
+            ),
+        }
+    }
+
+    fn narrowable_for_attr_no_union(
+        &self,
+        base: &Type,
+        attr_name: &Name,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> NarrowableNoUnion {
+        let fall_back_to_object_narrowable =
+            || NarrowableNoUnion::Simple(Type::ClassType(self.stdlib.object().clone()));
+        match self.lookup_attr_no_union(base, attr_name) {
+            LookupResult::InternalError(..) | LookupResult::NotFound(..) => {
+                fall_back_to_object_narrowable()
+            }
+            LookupResult::Found(attr) => {
+                let is_property_or_descriptor = match &attr.inner {
+                    AttributeInner::Simple(..)
+                    | AttributeInner::NoAccess(..)
+                    | AttributeInner::GetAttr(..) => false,
+                    AttributeInner::Property(..) | AttributeInner::Descriptor(..) => true,
+                };
+                match self.resolve_get_access(attr, range, errors, None) {
+                    Err(..) => fall_back_to_object_narrowable(),
+                    Ok(ty) => {
+                        if is_property_or_descriptor {
+                            NarrowableNoUnion::PropertyOrDescriptor(ty)
+                        } else {
+                            NarrowableNoUnion::Simple(ty)
+                        }
+                    }
+                }
+            }
         }
     }
 }

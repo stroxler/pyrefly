@@ -72,7 +72,6 @@ def f(foo: Foo):
 );
 
 testcase!(
-    bug = "Attribute narrows currently always start from object, we need the actual type",
     test_attribute_narrow_type_algebra_for_correct_narrows,
     r#"
 from typing import assert_type
@@ -80,14 +79,39 @@ class Foo:
     x: Foo | None
 def f(foo: Foo):
     if foo.x is not None:
-        assert_type(foo.x, Foo)  # E: assert_type(object, Foo)
-    if foo.x is not None and foo.x.x is not None:  # E: Object of class `object` has no attribute `x`
-        assert_type(foo.x, Foo)  # E: assert_type(object, Foo)
-        assert_type(foo.x.x, Foo)  # E: assert_type(object, Foo)
-    if foo.x is not None and foo.x.x is not None and foo.x.x.x is None:  # E: Object of class `object` has no attribute `x`  # E: Object of class `object` has no attribute `x`
-        assert_type(foo.x, Foo)  # E: assert_type(object, Foo)
-        assert_type(foo.x.x, Foo)  # E: assert_type(object, Foo)
+        assert_type(foo.x, Foo)
+    if foo.x is not None and foo.x.x is not None:
+        assert_type(foo.x, Foo)
+        assert_type(foo.x.x, Foo)
+    if foo.x is not None and foo.x.x is not None and foo.x.x.x is None:
+        assert_type(foo.x, Foo)
+        assert_type(foo.x.x, Foo)
         assert_type(foo.x.x.x, None)
+"#,
+);
+
+// The expected behavior when narrowing an invalid attribute chain is to produce
+// type errors at the narrow site, but apply the narrowing downstream
+// (motivation: being noisy downstream could be quite frustrating for gradually
+// typed code)
+testcase!(
+    test_invalid_narrows_on_bad_attribute_access,
+    r#"
+from typing import assert_type, Any
+class Foo:
+    x: Foo | None
+def f(foo: Foo):
+    if foo.x is not None:
+        assert_type(foo.x, Foo)
+    if foo.x.x is not None:  # E: Object of class `NoneType` has no attribute `x`
+        assert_type(foo.x, Foo | None)
+        # Why `Foo | object`? Because the lookup on `None` fails, and we fall back to `object`
+        # in that branch of the union.
+        assert_type(foo.x.x, Foo | object)
+    if isinstance(foo.x.y, Foo) and foo.x.y.x is not None:  # E: Object of class `Foo` has no attribute `y`  # E: Object of class `NoneType` has no attribute `y`
+        assert_type(foo.x, Foo | None)
+        assert_type(foo.x.y, Foo)
+        assert_type(foo.x.y.x, Foo)
 "#,
 );
 
@@ -133,7 +157,6 @@ def f(n: N):
 );
 
 testcase!(
-    bug = "Attribute narrows currently always start from object, we need the actual type",
     test_attribute_access_after_narrowing_in_subclass,
     r#"
 from typing import assert_type
@@ -150,6 +173,6 @@ class B:
 b = B(A())
 if b.a is not None:
     x = b.a
-    assert_type(x, A)  # E: assert_type(object, A)
+    assert_type(x, A)
 "#,
 );

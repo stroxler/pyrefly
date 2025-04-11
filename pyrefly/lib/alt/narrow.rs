@@ -13,12 +13,14 @@ use ruff_text_size::TextRange;
 
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
+use crate::alt::attr::Narrowable;
 use crate::alt::callable::CallArg;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOp;
 use crate::binding::narrow::NarrowedAttribute;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
+use crate::error::style::ErrorStyle;
 use crate::types::callable::FunctionKind;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
@@ -331,15 +333,53 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn get_attribute_type(
         &self,
-        _type_info: &TypeInfo,
-        _attr: &NarrowedAttribute,
-        _range: TextRange,
-        _errors: &ErrorCollector,
+        base: &TypeInfo,
+        attr: &NarrowedAttribute,
+        range: TextRange,
+        errors: &ErrorCollector,
     ) -> Type {
-        // TODO(stroxler): We need to implement real lookup logic here, and
-        // eventually we also need this block to catch and track unsound attempts
-        // at narrowing (e.g. trying to narrow an arbitrary descriptor).
-        Type::ClassType(self.stdlib.object().clone())
+        // We don't want to throw any attribute access errors when narrowing - the same code is traversed
+        // separately for type checking, and there might be error context then we don't have here.
+        let ignore_errors = ErrorCollector::new(errors.module_info().clone(), ErrorStyle::Never);
+        let NarrowedAttribute(box names) = attr.clone();
+        let (first_name, remaining_names) = names.split_off_first();
+        match self.narrowable_for_attr_chain(
+            base,
+            &first_name,
+            &remaining_names,
+            range,
+            &ignore_errors,
+        ) {
+            Narrowable::Simple(ty) => ty,
+            Narrowable::PropertyOrDescriptor(ty) => {
+                // TODO(stroxler): Implement plumbing to warn on downstream reads.
+                ty
+            }
+            Narrowable::UnionPropertyOrDescriptor(ty) => {
+                // TODO(stroxler): Implement plumbing to warn on downstream reads.
+                ty
+            }
+        }
+    }
+
+    fn narrowable_for_attr_chain(
+        &self,
+        base: &TypeInfo,
+        first_name: &Name,
+        remaining_names: &[Name],
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Narrowable {
+        match remaining_names.split_first() {
+            None => match base.type_at_name(first_name) {
+                Some(ty) => Narrowable::Simple(ty.clone()),
+                None => self.narrowable_for_attr(base.ty(), first_name, range, errors),
+            },
+            Some((next_name, remaining_names)) => {
+                let base = self.attr_infer(base, first_name, range, errors, None);
+                self.narrowable_for_attr_chain(&base, next_name, remaining_names, range, errors)
+            }
+        }
     }
 
     pub fn narrow(
