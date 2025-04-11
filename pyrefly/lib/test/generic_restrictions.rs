@@ -188,3 +188,45 @@ assert_type(C.meth, Callable[[C[int]], C[int]])  # E: assert_type(Any, (C[int]) 
 assert_type(C.attr, int)  # E: assert_type(Any, int) failed  # E: Instance-only attribute `attr` of class `C` is not visible on the class
  "#,
 );
+
+testcase!(
+    bug = "Should succeed with no errors",
+    test_union_bound_attr_get,
+    r#"
+from typing import assert_type
+class A:
+    x: int
+class B:
+    x: str
+def f[T: A | B](x: T) -> T:
+    assert_type(x.x, int | str) # E: assert_type # E: attribute base undefined
+    return x
+    "#,
+);
+
+testcase!(
+    bug = "Should succeed with no errors",
+    test_constraints_attr_get,
+    r#"
+from typing import assert_type
+class A:
+    x: int
+class B:
+    x: str
+def f[T: (A, B)](x: T) -> T:
+    assert_type(x.x, int | str) # E: assert_type # E: attribute base undefined
+    return x
+    "#,
+);
+
+testcase!(
+    bug = "x.__doc__ access should succeed, x.nonsense gives bad error message",
+    test_unrestricted_attr_get,
+    r#"
+from typing import assert_type
+def f[T](x: T) -> T:
+    assert_type(x.__doc__, str | None) # E: assert_type # E: attribute base undefined
+    x.nonsense # E: attribute base undefined
+    return x
+    "#,
+);
