@@ -12,7 +12,6 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use anyhow::anyhow;
-use anyhow::Context as _;
 use dupe::Dupe;
 use path_absolutize::Absolutize;
 use starlark_map::small_map::SmallMap;
@@ -96,35 +95,13 @@ impl<T: Dupe + Display> ConfigFinder<T> {
         }
     }
 
-    /// Get the config file given an explicit config file path.
-    pub fn config_file(&self, config_path: &Path) -> T {
-        self.get(config_path)
-    }
-
     /// Get the config file given a Python file.
     pub fn python_file(&self, path: &Path) -> T {
-        fn get_implicit_config_path(path: &Path) -> anyhow::Result<PathBuf> {
-            let absolute = path
-                .absolutize()
-                .with_context(|| format!("Path `{}` cannot be absolutized", path.display()))?;
-            let parent = absolute
-                .parent()
-                .with_context(|| format!("Path `{}` has no parent directory", path.display()))?;
-            get_implicit_config_path_from(parent)
-        }
-        match get_implicit_config_path(path) {
-            Ok(config_path) => {
-                debug!(
-                    "Config for {} found at {}",
-                    path.display(),
-                    config_path.display()
-                );
-                self.config_file(&config_path)
-            }
-            Err(err) => {
-                debug!("{err}. Default configuration will be used as fallback.");
-                self.default.dupe()
-            }
+        let absolute = path.absolutize().ok();
+        let parent = absolute.as_ref().and_then(|x| x.parent());
+        match parent {
+            Some(parent) => self.directory(parent),
+            None => self.default.dupe(),
         }
     }
 }
