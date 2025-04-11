@@ -11,13 +11,14 @@ import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import Firefly from './firefly';
 import typography from './typography';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 export default function LandingPageHeader(): React.ReactElement {
     return (
         <header {...stylex.props(styles.featureHero)}>
             <section {...stylex.props(styles.logoContainer)}>
                 <img
-                    src="/img/Pyrefly-Brandmark-Invert.svg"
+                    src={useBaseUrl('img/Pyrefly-Brandmark-Invert.svg')}
                     alt="Pyrefly Logo"
                     {...stylex.props(styles.logo)}
                 />
@@ -73,7 +74,7 @@ const styles = stylex.create({
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: '0.5rem'
+        marginBottom: '0.5rem',
     },
     logo: {
         height: '100px',

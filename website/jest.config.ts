@@ -21,9 +21,12 @@ const config: Config.InitialOptions = {
     // The transform configuration
     transform: {
         '^.+\\.(js|jsx)$': 'babel-jest',
-        '^.+\\.(ts|tsx)$': ['ts-jest', {
-            tsconfig: 'tsconfig.json',
-        }]
+        '^.+\\.(ts|tsx)$': [
+            'ts-jest',
+            {
+                tsconfig: 'tsconfig.json',
+            },
+        ],
     },
     // Setup files for TypeScript tests
     preset: 'ts-jest',
@@ -31,17 +34,22 @@ const config: Config.InitialOptions = {
     roots: ['<rootDir>'],
     modulePaths: [compilerOptions.baseUrl], // <-- This will be set to 'baseUrl' value
     moduleNameMapper: {
-        ...pathsToModuleNameMapper(compilerOptions.paths, { prefix: '<rootDir>/' }),
+        ...pathsToModuleNameMapper(compilerOptions.paths, {
+            prefix: '<rootDir>/',
+        }),
         '@theme/Layout': '<rootDir>/__mocks__/themeMock.ts',
         '\\.(css|less|sass|scss)$': '<rootDir>/__mocks__/stylexMock.ts',
         '@stylexjs/stylex': '<rootDir>/__mocks__/stylexMock.ts',
-        '@docusaurus/useDocusaurusContext': '<rootDir>/__mocks__/docusaurusContextMock.ts',
+        '@docusaurus/useDocusaurusContext':
+            '<rootDir>/__mocks__/docusaurusContextMock.ts',
         '@docusaurus/BrowserOnly': '<rootDir>/__mocks__/browserOnlyMock.ts',
+        '@docusaurus/useBaseUrl':
+            '<rootDir>/__mocks__/@docusaurus/useBaseUrl.ts',
         '@monaco-editor/react': '<rootDir>/__mocks__/monacoEditorMock.ts',
         './pyrefly_wasm': '<rootDir>/__mocks__/pyreflyWasmMock.ts',
         './configured-monaco': '<rootDir>/__mocks__/configuredMonacoMock.ts',
         'lz-string': '<rootDir>/__mocks__/lzStringMock.ts',
-        'monaco-editor': '<rootDir>/__mocks__/monaco-editor.ts'
+        'monaco-editor': '<rootDir>/__mocks__/monaco-editor.ts',
     },
     setupFilesAfterEnv: ['@testing-library/jest-dom'],
 };
