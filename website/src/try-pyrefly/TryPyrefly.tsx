@@ -110,13 +110,13 @@ export default function TryPyrefly({
         const value = model.getValue();
 
         setAutoCompleteFunction(model, (l: number, c: number) =>
-            pyreService.autoComplete(l, c),
+            pyreService.autoComplete(l, c)
         );
         setGetDefFunction(model, (l: number, c: number) =>
-            pyreService.gotoDefinition(l, c),
+            pyreService.gotoDefinition(l, c)
         );
         setHoverFunctionForMonaco(model, (l: number, c: number) =>
-            pyreService.queryType(l, c),
+            pyreService.queryType(l, c)
         );
         setInlayHintFunctionForMonaco(model, () => pyreService.inlayHint());
 
@@ -128,7 +128,7 @@ export default function TryPyrefly({
             monaco.editor.setModelMarkers(
                 model,
                 'default',
-                mapPyreflyErrorsToMarkerData(errors),
+                mapPyreflyErrorsToMarkerData(errors)
             );
             setInternalError('');
             setErrors(errors);
@@ -145,7 +145,7 @@ export default function TryPyrefly({
 
         if (isCodeSnippet) {
             setEditorHeightforCodeSnippet(
-                Math.max(50, editor.getContentHeight()),
+                Math.max(50, editor.getContentHeight())
             );
         }
         editorRef.current = editor;
@@ -155,7 +155,7 @@ export default function TryPyrefly({
         startLineNumber: number,
         startColumn: number,
         endLineNumber: number,
-        endColumn: number,
+        endColumn: number
     ) => {
         const editor = editorRef.current;
         if (editor === null) {
@@ -184,14 +184,14 @@ export default function TryPyrefly({
                     codeSample,
                     forceRecheck,
                     onEditorMount,
-                    editorHeightforCodeSnippet,
+                    editorHeightforCodeSnippet
                 )}
                 {!isCodeSnippet && (
                     <button
                         id="share-url-button"
                         className={clsx(
                             styles.shareButton,
-                            isCopied && styles.shareButtonCopied,
+                            isCopied && styles.shareButtonCopied
                         )}
                         onClick={() => copyToClipboard(setIsCopied)}
                         aria-label="share URL button"
@@ -236,7 +236,7 @@ function getCodeFromURL(): string | null {
 }
 
 function fetchCurMonacoModelAndTriggerUpdate(
-    fileName: string,
+    fileName: string
 ): editor.ITextModel | null {
     const model = monaco.editor
         .getModels()
@@ -270,7 +270,7 @@ function getPyreflyEditor(
     codeSample: string,
     forceRecheck: () => void,
     onEditorMount: (editor: editor.IStandaloneCodeEditor) => void,
-    editorHeightforCodeSnippet: number | null,
+    editorHeightforCodeSnippet: number | null
 ): React.ReactElement {
     if (isCodeSnippet) {
         return (
@@ -298,7 +298,7 @@ function getPyreflyEditor(
         // This doesn't seem to work with the monaco editor currently.
         const screenHeight = window.innerHeight;
         const navbarElement = document.querySelector(
-            '.navbar',
+            '.navbar'
         ) as HTMLElement | null; // Replace with your navbar selector
         const navbarHeight = navbarElement?.offsetHeight || 0;
 
@@ -334,7 +334,7 @@ function getPyreflyEditor(
  * Maps PyreflyErrorMessage array to Monaco editor IMarkerData array
  */
 function mapPyreflyErrorsToMarkerData(
-    errors: ReadonlyArray<PyreflyErrorMessage>,
+    errors: ReadonlyArray<PyreflyErrorMessage>
 ): editor.IMarkerData[] {
     return errors.map((error) => ({
         startLineNumber: error.startLineNumber,

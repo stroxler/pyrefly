@@ -25,7 +25,7 @@ export type GoToDefFromError = (
     startLineNumber: number,
     startColumn: number,
     endLineNumber: number,
-    endColumn: number,
+    endColumn: number
 ) => void;
 
 interface ErrorMessageProps {
@@ -93,7 +93,7 @@ export default function TryPyreflyResults({
                     <li
                         className={clsx(
                             styles.tab,
-                            activeToolbarTab === 'errors' && styles.selectedTab,
+                            activeToolbarTab === 'errors' && styles.selectedTab
                         )}
                     >
                         Errors

@@ -17,7 +17,7 @@ describe('Try Pyrefly Component', () => {
     test('render sandbox correctly', async () => {
         const container = await act(async () => {
             const { container } = render(
-                <TryPyrefly sampleFilename={PLAYGROUND_FILE_NAME} />,
+                <TryPyrefly sampleFilename={PLAYGROUND_FILE_NAME} />
             );
 
             await Promise.resolve(); // Let any promises from timers resolve
@@ -28,7 +28,7 @@ describe('Try Pyrefly Component', () => {
             container,
             PLAYGROUND_FILE_NAME,
             DEFAULT_PYTHON_PROGRAM,
-            false,
+            false
         );
 
         // Run test with --update-snapshot to update the snapshot if the test is failing after
@@ -45,7 +45,7 @@ describe('Try Pyrefly Component', () => {
                     sampleFilename={fileName}
                     isCodeSnippet={true}
                     codeSample={programContent}
-                />,
+                />
             );
 
             await Promise.resolve(); // Let any promises from timers resolve
@@ -56,7 +56,7 @@ describe('Try Pyrefly Component', () => {
             container,
             fileName,
             programContent,
-            true,
+            true
         );
 
         // Run test with --update-snapshot to update the snapshot if the test is failing after
@@ -68,20 +68,20 @@ describe('Try Pyrefly Component', () => {
         container: HTMLElement,
         fileName: string,
         programContent: string,
-        isCodeSnippet: boolean,
+        isCodeSnippet: boolean
     ) {
         const tryEditorElement = container.querySelector('#tryPyrefly-editor');
         expect(tryEditorElement).toBeInTheDocument();
 
         // Verify that the code editor container is a child of tryPyrefly-editor
         const codeEditorContainer = tryEditorElement?.querySelector(
-            '#tryPyrefly-code-editor-container',
+            '#tryPyrefly-code-editor-container'
         );
         expect(codeEditorContainer).toBeInTheDocument();
 
         // Verify that the results container is a child of tryPyrefly-editor
         const resultsContainer = tryEditorElement?.querySelector(
-            '#tryPyrefly-results-container',
+            '#tryPyrefly-results-container'
         );
         if (isCodeSnippet) {
             expect(resultsContainer).not.toBeInTheDocument();
@@ -96,7 +96,7 @@ describe('Try Pyrefly Component', () => {
 
         // Verify that the editor has the correct path
         expect(monacoEditor.textContent).toContain(
-            `Monaco Editor (Path: ${fileName})`,
+            `Monaco Editor (Path: ${fileName})`
         );
 
         // Verify that the editor textarea is rendered

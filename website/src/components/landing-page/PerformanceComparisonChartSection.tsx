@@ -16,7 +16,7 @@ import { Project, type ProjectValue } from './PerformanceComparisonTypes';
 
 export default function PerformanceComparisonChartSection(): React.ReactElement {
     const [selectedProject, setSelectedProject] = useState<ProjectValue>(
-        Project.PYTORCH,
+        Project.PYTORCH
     );
 
     return (

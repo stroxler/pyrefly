@@ -57,7 +57,7 @@ const MonacoEditor = jest.fn((props: EditorProps) => {
             React.createElement(
                 'div',
                 { key: 'editor-header' },
-                `Monaco Editor (Path: ${editorPath})`,
+                `Monaco Editor (Path: ${editorPath})`
             ),
             React.createElement('textarea', {
                 id: 'editor-textarea',
@@ -66,7 +66,7 @@ const MonacoEditor = jest.fn((props: EditorProps) => {
                 readOnly: true,
                 style: { width: '100%', height: '200px' },
             }),
-        ],
+        ]
     );
 });
 

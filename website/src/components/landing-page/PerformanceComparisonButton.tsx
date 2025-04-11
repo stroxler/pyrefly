@@ -27,7 +27,7 @@ export default function PerformanceComparisonButton({
             {...stylex.props(
                 styles.button,
                 typography.p,
-                selectedProject === project && styles.buttonActive,
+                selectedProject === project && styles.buttonActive
             )}
             onClick={() => setSelectedProject(project)}
         >

@@ -47,7 +47,7 @@ export default function PerformanceComparisonChart({
                 <div
                     {...stylex.props(
                         styles.barContainer,
-                        index !== data.length - 1 ? { marginBottom: 20 } : null,
+                        index !== data.length - 1 ? { marginBottom: 20 } : null
                     )}
                     key={index}
                 >

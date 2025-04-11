@@ -134,13 +134,13 @@ const monaco = {
             startLineNumber: number,
             startColumn: number,
             endLineNumber: number,
-            endColumn: number,
+            endColumn: number
         ) => ({
             startLineNumber,
             startColumn,
             endLineNumber,
             endColumn,
-        }),
+        })
     ),
     Position: jest.fn((lineNumber: number, column: number) => ({
         lineNumber,

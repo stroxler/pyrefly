@@ -22,7 +22,7 @@ type InlayHintFunction = () => InlayHint[];
 
 const defaultAutoCompleteFunctionForMonaco: AutoCompleteFunction = (
     _line: number,
-    _column: number,
+    _column: number
 ): CompletionItem[] => {
     throw 'not implemented';
 };
@@ -34,14 +34,14 @@ const autoCompleteFunctionsForMonaco = new Map<
 
 function setAutoCompleteFunction(
     model: monaco.editor.ITextModel,
-    f: AutoCompleteFunction,
+    f: AutoCompleteFunction
 ): void {
     autoCompleteFunctionsForMonaco.set(model, f);
 }
 
 const defaultGetDefFunctionForMonaco: GetDefFunction = (
     _l: number,
-    _c: number,
+    _c: number
 ): Range | null => null;
 const getDefFunctionsForMonaco = new Map<
     monaco.editor.ITextModel,
@@ -50,14 +50,14 @@ const getDefFunctionsForMonaco = new Map<
 
 function setGetDefFunction(
     model: monaco.editor.ITextModel,
-    f: GetDefFunction,
+    f: GetDefFunction
 ): void {
     getDefFunctionsForMonaco.set(model, f);
 }
 
 const defaultHoverFunctionForMonaco: HoverFunction = (
     _l: number,
-    _c: number,
+    _c: number
 ): Hover | null => null;
 const hoverFunctionsForMonaco = new Map<
     monaco.editor.ITextModel,
@@ -66,7 +66,7 @@ const hoverFunctionsForMonaco = new Map<
 
 function setHoverFunctionForMonaco(
     model: monaco.editor.ITextModel,
-    f: HoverFunction,
+    f: HoverFunction
 ): void {
     hoverFunctionsForMonaco.set(model, f);
 }
@@ -80,7 +80,7 @@ const inlayHintFunctionsForMonaco = new Map<
 
 function setInlayHintFunctionForMonaco(
     model: monaco.editor.ITextModel,
-    f: InlayHintFunction,
+    f: InlayHintFunction
 ): void {
     inlayHintFunctionsForMonaco.set(model, f);
 }

@@ -49,7 +49,7 @@ const monaco = {
  */
 function setAutoCompleteFunction(
     _model: MockEditorModel,
-    _autoCompleteFunction: (line: number, column: number) => any,
+    _autoCompleteFunction: (line: number, column: number) => any
 ): void {}
 
 /**
@@ -59,7 +59,7 @@ function setAutoCompleteFunction(
  */
 function setGetDefFunction(
     _model: MockEditorModel,
-    _getDefFunction: (line: number, column: number) => any,
+    _getDefFunction: (line: number, column: number) => any
 ): void {}
 
 /**
@@ -69,7 +69,7 @@ function setGetDefFunction(
  */
 function setHoverFunctionForMonaco(
     _model: MockEditorModel,
-    _hoverFunction: (line: number, column: number) => any,
+    _hoverFunction: (line: number, column: number) => any
 ): void {}
 
 /**
@@ -79,7 +79,7 @@ function setHoverFunctionForMonaco(
  */
 function setInlayHintFunctionForMonaco(
     _model: MockEditorModel,
-    _inlayHintFunction: () => any,
+    _inlayHintFunction: () => any
 ): void {}
 
 module.exports = {
