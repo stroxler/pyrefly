@@ -220,13 +220,12 @@ def f[T: (A, B)](x: T) -> T:
 );
 
 testcase!(
-    bug = "x.__doc__ access should succeed, x.nonsense gives bad error message",
     test_unrestricted_attr_get,
     r#"
 from typing import assert_type
 def f[T](x: T) -> T:
-    assert_type(x.__doc__, str | None) # E: assert_type # E: attribute base undefined
-    x.nonsense # E: attribute base undefined
+    assert_type(x.__doc__, str | None)
+    x.nonsense # E: `object` has no attribute `nonsense`
     return x
     "#,
 );

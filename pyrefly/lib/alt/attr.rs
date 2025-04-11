@@ -1144,7 +1144,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Quantified(q) if q.is_type_var() => match q.restriction() {
                 Restriction::Bound(bound) => self.as_attribute_base_no_union(bound.clone(), stdlib),
                 // TODO: handle constraints
-                Restriction::Constraints(_) | Restriction::Unrestricted => None,
+                Restriction::Constraints(_) => None,
+                Restriction::Unrestricted => {
+                    Some(AttributeBase::ClassInstance(stdlib.object().clone()))
+                }
             },
             // TODO: check to see which ones should have class representations
             Type::Union(_)
