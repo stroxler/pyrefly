@@ -16,8 +16,8 @@ use clap::Parser;
 use clap::Subcommand;
 use path_absolutize::Absolutize;
 use pyrefly::clap_env;
-use pyrefly::finder::get_implicit_config_for_file;
 use pyrefly::finder::get_implicit_config_for_project;
+use pyrefly::finder::ConfigFinder;
 use pyrefly::get_args_expanded;
 use pyrefly::globs::FilteredGlobs;
 use pyrefly::globs::Globs;
@@ -156,11 +156,13 @@ async fn run_check_on_files(
     let project_excludes =
         project_excludes.map_or_else(ConfigFile::default_project_excludes, Globs::new);
     let files_to_check = files_to_check.from_root(PathBuf::new().absolutize()?.as_ref());
+    let args2 = args.clone();
+    let config_finder = ConfigFinder::new(move |c| args2.override_config(c));
     run_check(
-        args.clone(),
+        args,
         watch,
         FilteredGlobs::new(files_to_check, project_excludes),
-        &get_implicit_config_for_file(&|c| args.override_config(c)),
+        move |x| config_finder.python_file(x),
         allow_forget,
     )
     .await

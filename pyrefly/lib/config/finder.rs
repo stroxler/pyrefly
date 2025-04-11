@@ -7,11 +7,9 @@
 
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use anyhow::anyhow;
 use anyhow::Context as _;
-use dupe::Dupe;
 use path_absolutize::Absolutize;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
@@ -20,6 +18,66 @@ use tracing::info;
 use crate::config::config::ConfigFile;
 use crate::util::fs_upward_search::first_match;
 use crate::util::lock::RwLock;
+
+pub struct ConfigFinder {
+    override_config: Box<dyn Fn(ConfigFile) -> ConfigFile>,
+    cache: RwLock<SmallMap<PathBuf, ConfigFile>>,
+}
+
+impl ConfigFinder {
+    pub fn new(override_config: impl Fn(ConfigFile) -> ConfigFile + 'static) -> Self {
+        Self {
+            override_config: Box::new(override_config),
+            cache: RwLock::new(SmallMap::new()),
+        }
+    }
+
+    /// Get the config file given an explicit config file path.
+    pub fn config_file(&self, config_path: &Path) -> ConfigFile {
+        if let Some(config) = self.cache.read().get(config_path) {
+            return config.clone();
+        }
+        let config = (self.override_config)(
+            ConfigFile::from_file(config_path, true).unwrap_or_else(|err| {
+                debug!("{err}. Default configuration will be used as fallback.");
+                ConfigFile::default()
+            }),
+        );
+        debug!("Config for {} is: {}", config_path.display(), config);
+        // If there was a race condition, make sure we use whoever wrote first
+        self.cache
+            .write()
+            .entry(config_path.to_owned())
+            .or_insert(config)
+            .clone()
+    }
+
+    /// Get the config file given a Python file.
+    pub fn python_file(&self, path: &Path) -> ConfigFile {
+        fn get_implicit_config_path(path: &Path) -> anyhow::Result<PathBuf> {
+            let parent_dir = path
+                .parent()
+                .with_context(|| format!("Path `{}` has no parent directory", path.display()))?
+                .absolutize()
+                .with_context(|| format!("Path `{}` cannot be absolutized", path.display()))?;
+            get_implicit_config_path_from(parent_dir.as_ref())
+        }
+        match get_implicit_config_path(path) {
+            Ok(config_path) => {
+                debug!(
+                    "Config for {} found at {}",
+                    path.display(),
+                    config_path.display()
+                );
+                self.config_file(&config_path)
+            }
+            Err(err) => {
+                debug!("{err}. Default configuration will be used as fallback.");
+                (self.override_config)(ConfigFile::default())
+            }
+        }
+    }
+}
 
 fn get_implicit_config_path_from(path: &Path) -> anyhow::Result<PathBuf> {
     if let Some(search_result) = first_match(path, &ConfigFile::CONFIG_FILE_NAMES) {
@@ -43,56 +101,4 @@ pub fn get_implicit_config_for_project() -> ConfigFile {
         debug!("{err}. Default configuration will be used as fallback.");
         ConfigFile::default()
     })
-}
-
-pub fn get_implicit_config_for_file(
-    override_config: impl Fn(ConfigFile) -> ConfigFile,
-) -> impl Fn(&Path) -> ConfigFile {
-    let config_cache = RwLock::new(SmallMap::<PathBuf, ConfigFile>::new());
-    fn get_implicit_config_path(path: &Path) -> anyhow::Result<PathBuf> {
-        let parent_dir = path
-            .parent()
-            .with_context(|| format!("Path `{}` has no parent directory", path.display()))?
-            .absolutize()
-            .with_context(|| format!("Path `{}` cannot be absolutized", path.display()))?;
-        get_implicit_config_path_from(parent_dir.as_ref())
-    }
-    let log_err = |err| {
-        debug!("{err}. Default configuration will be used as fallback.");
-    };
-
-    let override_config = Arc::new(override_config);
-    let override_config2 = override_config.dupe();
-    let get_implicit_config = move |config_path: PathBuf| -> ConfigFile {
-        if let Some(config) = config_cache.read().get(&config_path) {
-            return config.clone();
-        }
-        let config = override_config(ConfigFile::from_file(&config_path, true).unwrap_or_else(
-            |err| {
-                log_err(err);
-                ConfigFile::default()
-            },
-        ));
-        debug!("Config for {} is: {}", config_path.display(), config);
-        // If there was a race condition, make sure we use whoever wrote first
-        config_cache
-            .write()
-            .entry(config_path)
-            .or_insert(config)
-            .clone()
-    };
-    move |path| match get_implicit_config_path(path) {
-        Ok(config_path) => {
-            debug!(
-                "Config for {} found at {}",
-                path.display(),
-                config_path.display()
-            );
-            get_implicit_config(config_path)
-        }
-        Err(err) => {
-            log_err(err);
-            override_config2(ConfigFile::default())
-        }
-    }
 }
