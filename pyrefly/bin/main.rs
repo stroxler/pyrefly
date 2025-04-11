@@ -157,7 +157,15 @@ async fn run_check_on_files(
         project_excludes.map_or_else(ConfigFile::default_project_excludes, Globs::new);
     let files_to_check = files_to_check.from_root(PathBuf::new().absolutize()?.as_ref());
     let args2 = args.clone();
-    let config_finder = ConfigFinder::new(move |c| args2.override_config(c));
+    let config_finder = ConfigFinder::new(move |c| match c {
+        None => args2.override_config(ConfigFile::default()),
+        Some(config_path) => args2.override_config(
+            ConfigFile::from_file(config_path, true).unwrap_or_else(|err| {
+                debug!("{err}. Default configuration will be used as fallback.");
+                ConfigFile::default()
+            }),
+        ),
+    });
     run_check(
         args,
         watch,

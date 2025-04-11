@@ -20,14 +20,17 @@ use crate::util::fs_upward_search::first_match;
 use crate::util::lock::RwLock;
 
 pub struct ConfigFinder {
-    override_config: Box<dyn Fn(ConfigFile) -> ConfigFile>,
+    loader: Box<dyn Fn(Option<&Path>) -> ConfigFile>,
     cache: RwLock<SmallMap<PathBuf, ConfigFile>>,
 }
 
 impl ConfigFinder {
-    pub fn new(override_config: impl Fn(ConfigFile) -> ConfigFile + 'static) -> Self {
+    /// Create a new ConfigFinder with the given loader function.
+    /// The loader function should return either the default config (`None`) or
+    /// the config file at the given path (`Some(path)`).
+    pub fn new(loader: impl Fn(Option<&Path>) -> ConfigFile + 'static) -> Self {
         Self {
-            override_config: Box::new(override_config),
+            loader: Box::new(loader),
             cache: RwLock::new(SmallMap::new()),
         }
     }
@@ -37,12 +40,7 @@ impl ConfigFinder {
         if let Some(config) = self.cache.read().get(config_path) {
             return config.clone();
         }
-        let config = (self.override_config)(
-            ConfigFile::from_file(config_path, true).unwrap_or_else(|err| {
-                debug!("{err}. Default configuration will be used as fallback.");
-                ConfigFile::default()
-            }),
-        );
+        let config = (self.loader)(Some(config_path));
         debug!("Config for {} is: {}", config_path.display(), config);
         // If there was a race condition, make sure we use whoever wrote first
         self.cache
@@ -73,7 +71,7 @@ impl ConfigFinder {
             }
             Err(err) => {
                 debug!("{err}. Default configuration will be used as fallback.");
-                (self.override_config)(ConfigFile::default())
+                (self.loader)(None)
             }
         }
     }
