@@ -13,12 +13,12 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use anyhow::Context as _;
 use clap::Parser;
 use clap::Subcommand;
 use dupe::Dupe;
 use path_absolutize::Absolutize;
 use pyrefly::clap_env;
-use pyrefly::finder::get_implicit_config_for_project;
 use pyrefly::finder::ConfigFinder;
 use pyrefly::get_args_expanded;
 use pyrefly::globs::FilteredGlobs;
@@ -119,6 +119,18 @@ async fn run_check(
     }
 }
 
+fn config_finder(args: pyrefly::run::CheckArgs) -> ConfigFinder<Arc<ConfigFile>> {
+    ConfigFinder::new(move |c| match c {
+        None => Arc::new(args.override_config(ConfigFile::default())),
+        Some(config_path) => Arc::new(args.override_config(
+            ConfigFile::from_file(config_path, true).unwrap_or_else(|err| {
+                debug!("{err}. Default configuration will be used as fallback.");
+                ConfigFile::default()
+            }),
+        )),
+    })
+}
+
 async fn run_check_on_project(
     watch: bool,
     config: Option<PathBuf>,
@@ -126,15 +138,22 @@ async fn run_check_on_project(
     args: pyrefly::run::CheckArgs,
     allow_forget: bool,
 ) -> anyhow::Result<CommandExitStatus> {
-    let config = if let Some(explicit_config_path) = config {
-        info!(
-            "Using config file explicitly provided at `{}`",
-            explicit_config_path.display()
-        );
-        Arc::new(args.override_config(ConfigFile::from_file(&explicit_config_path, true)?))
-    } else {
-        Arc::new(args.override_config(get_implicit_config_for_project()))
+    let config_finder = config_finder(args.clone());
+    let config = match config {
+        Some(explicit) => {
+            info!(
+                "Using config file explicitly provided at `{}`",
+                explicit.display()
+            );
+            // We deliberately don't use the cached object, since we want errors in an explicit config to be fatal
+            Arc::new(args.override_config(ConfigFile::from_file(&explicit, true)?))
+        }
+        None => {
+            let current_dir = std::env::current_dir().context("cannot identify current dir")?;
+            config_finder.directory(&current_dir)
+        }
     };
+
     debug!("Config is: {}", config);
     let project_excludes =
         project_excludes.map_or_else(|| config.project_excludes.clone(), Globs::new);
@@ -158,16 +177,7 @@ async fn run_check_on_files(
     let project_excludes =
         project_excludes.map_or_else(ConfigFile::default_project_excludes, Globs::new);
     let files_to_check = files_to_check.from_root(PathBuf::new().absolutize()?.as_ref());
-    let args2 = args.clone();
-    let config_finder = ConfigFinder::new(move |c| match c {
-        None => Arc::new(args2.override_config(ConfigFile::default())),
-        Some(config_path) => Arc::new(args2.override_config(
-            ConfigFile::from_file(config_path, true).unwrap_or_else(|err| {
-                debug!("{err}. Default configuration will be used as fallback.");
-                ConfigFile::default()
-            }),
-        )),
-    });
+    let config_finder = config_finder(args.clone());
     run_check(
         args,
         watch,

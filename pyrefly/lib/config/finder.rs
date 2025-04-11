@@ -49,6 +49,17 @@ impl<T: Dupe + Display> ConfigFinder<T> {
         self.cache.write().entry(path).or_insert(config).dupe()
     }
 
+    /// Get the config file associated with a directory.
+    pub fn directory(&self, dir: &Path) -> T {
+        match get_implicit_config_path_from(dir) {
+            Ok(config_path) => {
+                info!("Using config found at {}", config_path.display());
+                self.get(Some(config_path))
+            }
+            Err(_) => self.get(None),
+        }
+    }
+
     /// Get the config file given an explicit config file path.
     pub fn config_file(&self, config_path: &Path) -> T {
         self.get(Some(config_path.to_owned()))
@@ -90,17 +101,4 @@ fn get_implicit_config_path_from(path: &Path) -> anyhow::Result<PathBuf> {
             path.display()
         ))
     }
-}
-
-pub fn get_implicit_config_for_project() -> ConfigFile {
-    fn get_config_path() -> anyhow::Result<ConfigFile> {
-        let current_dir = std::env::current_dir().context("cannot identify current dir")?;
-        let config_path = get_implicit_config_path_from(&current_dir)?;
-        info!("Using config found at {}", config_path.display());
-        ConfigFile::from_file(&config_path, true)
-    }
-    get_config_path().unwrap_or_else(|err| {
-        debug!("{err}. Default configuration will be used as fallback.");
-        ConfigFile::default()
-    })
 }
