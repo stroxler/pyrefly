@@ -73,16 +73,6 @@
     },
     {
       "code": -2,
-      "column": 26,
-      "concise_description": "Could not parse type string: , got Expected an expression at byte range 2504..2504",
-      "description": "Could not parse type string: , got Expected an expression at byte range 2504..2504",
-      "line": 79,
-      "name": "parse-error",
-      "stop_column": 28,
-      "stop_line": 79
-    },
-    {
-      "code": -2,
       "column": 21,
       "concise_description": "list literal cannot be used in annotations",
       "description": "list literal cannot be used in annotations",
@@ -711,16 +701,6 @@
     },
     {
       "code": -2,
-      "column": 27,
-      "concise_description": "Could not parse type string: , got Expected an expression at byte range 791..791",
-      "description": "Could not parse type string: , got Expected an expression at byte range 791..791",
-      "line": 37,
-      "name": "parse-error",
-      "stop_column": 29,
-      "stop_line": 37
-    },
-    {
-      "code": -2,
       "column": 22,
       "concise_description": "list literal cannot be used in annotations",
       "description": "list literal cannot be used in annotations",
@@ -1044,16 +1024,6 @@
       "line": 41,
       "name": "invalid-annotation",
       "stop_column": 49,
-      "stop_line": 41
-    },
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "Could not parse type string: , got Expected an expression at byte range 998..998",
-      "description": "Could not parse type string: , got Expected an expression at byte range 998..998",
-      "line": 41,
-      "name": "parse-error",
-      "stop_column": 16,
       "stop_line": 41
     },
     {
@@ -1400,16 +1370,6 @@
       "line": 88,
       "name": "invalid-annotation",
       "stop_column": 49,
-      "stop_line": 88
-    },
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "Could not parse type string: , got Expected an expression at byte range 2016..2016",
-      "description": "Could not parse type string: , got Expected an expression at byte range 2016..2016",
-      "line": 88,
-      "name": "parse-error",
-      "stop_column": 16,
       "stop_line": 88
     },
     {

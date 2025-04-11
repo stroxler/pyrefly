@@ -248,3 +248,16 @@ class B(A):
         super().f(B())
     "#,
 );
+
+// This is beyond what we support. We don't care what errors are generated as long as we don't crash.
+testcase!(
+    test_super_in_base_classes,
+    r#"
+import types
+class Alias(types.GenericAlias):
+    def __mro_entries__(self, bases: tuple[type, ...]) -> tuple[type]:
+        class C(*super().__mro_entries__(bases)): # E: # E:
+            pass
+        return (C,)
+    "#,
+);

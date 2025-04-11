@@ -529,6 +529,10 @@ impl<'a> BindingsBuilder<'a> {
             },
             // Bind the lambda so we don't crash on undefined parameter names.
             Expr::Lambda(_) => self.ensure_expr(x),
+            // Bind the call so we generate all expected bindings. See
+            // test::class_super::test_super_in_base_classes for an example of a SuperInstance
+            // binding that we crash looking for if we don't do this.
+            Expr::Call(_) => self.ensure_expr(x),
             _ => x.recurse_mut(&mut |x| self.ensure_type(x, tparams_builder)),
         }
     }
