@@ -464,16 +464,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let inherited_annot = if annotation.is_some() {
                     None
                 } else {
-                    self.get_metadata_for_class(class)
-                        .ancestors(self.stdlib)
-                        .find_map(|parent| {
-                            let parent_field = self
-                                .get_field_from_current_class_only(parent.class_object(), name)
-                                .map(Arc::unwrap_or_clone)?;
-                            let ClassField(ClassFieldInner::Simple { annotation, .. }) =
-                                parent_field;
-                            annotation
-                        })
+                    self.get_inherited_annotation(class, name)
                 };
                 let mut ty = if let Some(annot) = inherited_annot {
                     let ctx: &dyn Fn() -> TypeCheckContext =
@@ -664,6 +655,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         class_field
     }
 
+    fn get_inherited_annotation(&self, class: &Class, name: &Name) -> Option<Annotation> {
+        self.get_metadata_for_class(class)
+            .ancestors(self.stdlib)
+            .find_map(|parent| {
+                let parent_field = self
+                    .get_field_from_current_class_only(parent.class_object(), name)
+                    .map(Arc::unwrap_or_clone)?;
+                let ClassField(ClassFieldInner::Simple { annotation, .. }) = parent_field;
+                annotation
+            })
+    }
+
     fn get_class_field_initialization(
         &self,
         metadata: &ClassMetadata,
@@ -724,7 +727,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // fields should be keyword-only params in the generated `__init__`.
         if field.is_dataclass_kwonly_marker() {
             DataclassMember::KwOnlyMarker
-        } else if field.is_class_var() {
+        } else if field.is_class_var()
+            || (!field.has_explicit_annotation()
+                && self
+                    .get_inherited_annotation(cls, name)
+                    .is_some_and(|annot| annot.has_qualifier(&Qualifier::ClassVar)))
+        {
             DataclassMember::NotAField // Class variables are not dataclass fields
         } else {
             DataclassMember::Field(field.clone(), field.dataclass_flags_of(kw_only))
