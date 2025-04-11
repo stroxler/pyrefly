@@ -7,9 +7,11 @@
 
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use anyhow::Context as _;
+use dupe::Dupe;
 use path_absolutize::Absolutize;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
@@ -49,9 +51,9 @@ pub fn get_implicit_config_for_project() -> ConfigFile {
     })
 }
 
-pub fn get_implicit_config_for_file<'a>(
-    override_config: &'a impl Fn(ConfigFile) -> ConfigFile,
-) -> impl Fn(&Path) -> ConfigFile + 'a {
+pub fn get_implicit_config_for_file(
+    override_config: impl Fn(ConfigFile) -> ConfigFile,
+) -> impl Fn(&Path) -> ConfigFile {
     let mut config_cache: SmallMap<PathBuf, ConfigFile> = SmallMap::new();
     fn get_implicit_config_path(path: &Path) -> anyhow::Result<PathBuf> {
         let parent_dir = path
@@ -65,6 +67,8 @@ pub fn get_implicit_config_for_file<'a>(
         debug!("{err}. Default configuration will be used as fallback.");
     };
 
+    let override_config = Arc::new(override_config);
+    let override_config2 = override_config.dupe();
     let get_implicit_config = move |config_path: PathBuf| -> ConfigFile {
         if let Some(config) = config_cache.get(&config_path) {
             return config.clone();
@@ -88,7 +92,7 @@ pub fn get_implicit_config_for_file<'a>(
         }
         Err(err) => {
             log_err(err);
-            override_config(ConfigFile::default())
+            override_config2(ConfigFile::default())
         }
     }
 }
