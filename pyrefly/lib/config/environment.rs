@@ -145,7 +145,7 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
     }
 
     pub fn get_runtime_metadata(&self) -> RuntimeMetadata {
-        RuntimeMetadata::new(self.python_version(), self.python_platform().to_owned())
+        RuntimeMetadata::new(self.python_version(), self.python_platform())
     }
 }
 
