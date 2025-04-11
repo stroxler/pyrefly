@@ -23,7 +23,7 @@ use crate::util::lock::RwLock;
 
 pub struct ConfigFinder<T> {
     loader: Box<dyn Fn(Option<&Path>) -> T>,
-    cache: RwLock<SmallMap<PathBuf, T>>,
+    cache: RwLock<SmallMap<Option<PathBuf>, T>>,
 }
 
 impl<T: Dupe + Display> ConfigFinder<T> {
@@ -37,19 +37,21 @@ impl<T: Dupe + Display> ConfigFinder<T> {
         }
     }
 
-    /// Get the config file given an explicit config file path.
-    pub fn config_file(&self, config_path: &Path) -> T {
-        if let Some(config) = self.cache.read().get(config_path) {
+    fn get(&self, path: Option<PathBuf>) -> T {
+        if let Some(config) = self.cache.read().get(&path) {
             return config.dupe();
         }
-        let config = (self.loader)(Some(config_path));
-        debug!("Config for {} is: {}", config_path.display(), config);
+        let config = (self.loader)(path.as_deref());
+        if let Some(config_path) = &path {
+            debug!("Config for {} is: {}", config_path.display(), config);
+        }
         // If there was a race condition, make sure we use whoever wrote first
-        self.cache
-            .write()
-            .entry(config_path.to_owned())
-            .or_insert(config)
-            .dupe()
+        self.cache.write().entry(path).or_insert(config).dupe()
+    }
+
+    /// Get the config file given an explicit config file path.
+    pub fn config_file(&self, config_path: &Path) -> T {
+        self.get(Some(config_path.to_owned()))
     }
 
     /// Get the config file given a Python file.
@@ -69,11 +71,11 @@ impl<T: Dupe + Display> ConfigFinder<T> {
                     path.display(),
                     config_path.display()
                 );
-                self.config_file(&config_path)
+                self.get(Some(config_path))
             }
             Err(err) => {
                 debug!("{err}. Default configuration will be used as fallback.");
-                (self.loader)(None)
+                self.get(None)
             }
         }
     }
