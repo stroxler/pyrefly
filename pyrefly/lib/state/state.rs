@@ -905,6 +905,10 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    pub fn run(&mut self, handles: &[(Handle, Require)]) {
+        self.run_internal(handles, self.readable.require);
+    }
+
     pub fn ad_hoc_solve<R: Sized, F: FnOnce(AnswersSolver<TransactionHandle>) -> R>(
         &self,
         handle: &Handle,
@@ -1210,7 +1214,8 @@ impl State {
         require: Require,
         subscriber: Option<Box<dyn Subscriber>>,
     ) -> Transaction<'a> {
-        let readable = self.read_state();
+        let readable = self.state.read();
+        let now = readable.now;
         let stdlib = readable.stdlib.clone();
         Transaction {
             threads: &self.threads,
@@ -1219,7 +1224,7 @@ impl State {
             stdlib,
             updated_modules: Default::default(),
             additional_loaders: Default::default(),
-            now: self.read_state().now,
+            now,
             require: RequireDefault::new(require),
             todo: Default::default(),
             changed: Default::default(),
@@ -1262,10 +1267,6 @@ impl State {
         }
     }
 
-    pub fn read_state<'a>(&'a self) -> RwLockReadGuard<'a, ReadableState> {
-        self.state.read()
-    }
-
     pub fn commit_transaction(&self, changes: TransactionChanges) {
         let mut state = self.state.write();
         let TransactionChanges {
@@ -1296,9 +1297,7 @@ impl State {
         subscriber: Option<Box<dyn Subscriber>>,
     ) {
         let mut transaction = self.new_committable_transaction(new_require, subscriber);
-        transaction
-            .transaction
-            .run_internal(handles, self.read_state().require);
+        transaction.transaction.run(handles);
         self.commit_transaction(transaction.into_changes());
     }
 
@@ -1307,9 +1306,7 @@ impl State {
         mut transaction: CommittingTransaction<'_>,
         handles: &[(Handle, Require)],
     ) {
-        transaction
-            .transaction
-            .run_internal(handles, self.read_state().require);
+        transaction.transaction.run(handles);
         self.commit_transaction(transaction.into_changes());
     }
 }
