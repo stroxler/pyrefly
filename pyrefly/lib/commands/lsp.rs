@@ -87,6 +87,7 @@ use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
+use crate::state::state::Transaction;
 use crate::util::lock::Mutex;
 use crate::util::lock::RwLock;
 use crate::util::prelude::VecExt;
@@ -344,25 +345,31 @@ impl Server {
                 eprintln!("Handling non-canceled request ({})", x.id);
                 if let Some(params) = as_request::<GotoDefinition>(&x) {
                     let default_response = GotoDefinitionResponse::Array(Vec::new());
+                    let transaction = self.state.transaction();
                     self.send_response(new_response(
                         x.id,
-                        Ok(self.goto_definition(params).unwrap_or(default_response)),
+                        Ok(self
+                            .goto_definition(&transaction, params)
+                            .unwrap_or(default_response)),
                     ));
                 } else if let Some(params) = as_request::<Completion>(&x) {
-                    self.send_response(new_response(x.id, self.completion(params)));
+                    let transaction = self.state.transaction();
+                    self.send_response(new_response(x.id, self.completion(&transaction, params)));
                 } else if let Some(params) = as_request::<HoverRequest>(&x) {
                     let default_response = Hover {
                         contents: HoverContents::Array(Vec::new()),
                         range: None,
                     };
+                    let transaction = self.state.transaction();
                     self.send_response(new_response(
                         x.id,
-                        Ok(self.hover(params).unwrap_or(default_response)),
+                        Ok(self.hover(&transaction, params).unwrap_or(default_response)),
                     ));
                 } else if let Some(params) = as_request::<InlayHintRequest>(&x) {
+                    let transaction = self.state.transaction();
                     self.send_response(new_response(
                         x.id,
-                        Ok(self.inlay_hints(params).unwrap_or_default()),
+                        Ok(self.inlay_hints(&transaction, params).unwrap_or_default()),
                     ))
                 } else {
                     eprintln!("Unhandled request: {x:?}");
@@ -588,8 +595,11 @@ impl Server {
         })
     }
 
-    fn goto_definition(&self, params: GotoDefinitionParams) -> Option<GotoDefinitionResponse> {
-        let transaction = self.state.transaction();
+    fn goto_definition(
+        &self,
+        transaction: &Transaction<'_>,
+        params: GotoDefinitionParams,
+    ) -> Option<GotoDefinitionResponse> {
         let handle = self.make_handle(&params.text_document_position_params.text_document.uri);
         let info = transaction.readable().get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
@@ -605,8 +615,11 @@ impl Server {
         }))
     }
 
-    fn completion(&self, params: CompletionParams) -> anyhow::Result<CompletionResponse> {
-        let transaction = self.state.transaction();
+    fn completion(
+        &self,
+        transaction: &Transaction<'_>,
+        params: CompletionParams,
+    ) -> anyhow::Result<CompletionResponse> {
         let handle = self.make_handle(&params.text_document_position.text_document.uri);
         let items = transaction
             .readable()
@@ -624,9 +637,8 @@ impl Server {
         }))
     }
 
-    fn hover(&self, params: HoverParams) -> Option<Hover> {
+    fn hover(&self, transaction: &Transaction<'_>, params: HoverParams) -> Option<Hover> {
         let handle = self.make_handle(&params.text_document_position_params.text_document.uri);
-        let transaction = self.state.transaction();
         let info = transaction.readable().get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
         let t = transaction.hover(&handle, range)?;
@@ -644,9 +656,12 @@ impl Server {
         })
     }
 
-    fn inlay_hints(&self, params: InlayHintParams) -> Option<Vec<InlayHint>> {
+    fn inlay_hints(
+        &self,
+        transaction: &Transaction<'_>,
+        params: InlayHintParams,
+    ) -> Option<Vec<InlayHint>> {
         let handle = self.make_handle(&params.text_document.uri);
-        let transaction = self.state.transaction();
         let info = transaction.readable().get_module_info(&handle)?;
         let t = transaction.inlay_hints(&handle)?;
         Some(t.into_map(|x| {
