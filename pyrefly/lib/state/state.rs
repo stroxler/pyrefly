@@ -1245,6 +1245,23 @@ impl State {
         }
     }
 
+    #[expect(dead_code)]
+    pub fn try_new_committable_transaction<'a>(
+        &'a self,
+        require: Require,
+        subscriber: Option<Box<dyn Subscriber>>,
+    ) -> Option<CommittingTransaction<'a>> {
+        if let Some(committing_transaction_guard) = self.committing_transaction_lock.try_lock() {
+            let transaction = self.new_transaction(require, subscriber);
+            Some(CommittingTransaction {
+                transaction,
+                committing_transaction_guard,
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn read_state<'a>(&'a self) -> RwLockReadGuard<'a, ReadableState> {
         self.state.read()
     }

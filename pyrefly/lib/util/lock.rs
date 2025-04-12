@@ -28,6 +28,10 @@ impl<T> Mutex<T> {
         self.0.lock().unwrap()
     }
 
+    pub fn try_lock(&self) -> Option<sync::MutexGuard<'_, T>> {
+        self.0.try_lock().ok()
+    }
+
     pub fn into_inner(self) -> T {
         self.0.into_inner().unwrap()
     }
