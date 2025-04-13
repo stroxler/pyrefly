@@ -6,6 +6,7 @@
  */
 
 use ruff_python_ast::Expr;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
 use crate::binding::binding::Binding;
@@ -18,6 +19,7 @@ use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::scope::FlowStyle;
+use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 
 impl<'a> BindingsBuilder<'a> {
@@ -91,11 +93,12 @@ impl<'a> BindingsBuilder<'a> {
     /// because for an unpack target there is no annotation for the entire RHS.
     /// As a result, for all cases except attributes we wind up ignoring type errors
     /// when the target is an unpacking pattern.
-    pub fn bind_target(
+    pub fn bind_target_controlling_errors(
         &mut self,
         target: &Expr,
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
         value: Option<&Expr>,
+        add_error: bool,
     ) {
         match target {
             Expr::Name(name) => self.bind_assign(name, make_binding, FlowStyle::None),
@@ -132,7 +135,34 @@ impl<'a> BindingsBuilder<'a> {
             Expr::List(lst) => {
                 self.bind_unpacking(&lst.elts, make_binding, lst.range);
             }
-            _ => self.todo("unrecognized assignment target", target),
+            Expr::Starred(x) => {
+                if add_error {
+                    self.error(
+                        x.range,
+                        "Starred assignment target must be in a list or tuple".to_owned(),
+                        ErrorKind::InvalidSyntax,
+                    )
+                };
+                self.bind_target_controlling_errors(&x.value, make_binding, value, add_error);
+            }
+            _ => {
+                if add_error {
+                    self.error(
+                        target.range(),
+                        "Invalid assignment target".to_owned(),
+                        ErrorKind::InvalidSyntax,
+                    )
+                }
+            }
         }
+    }
+
+    pub fn bind_target(
+        &mut self,
+        target: &Expr,
+        make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
+        value: Option<&Expr>,
+    ) {
+        self.bind_target_controlling_errors(target, make_binding, value, true)
     }
 }

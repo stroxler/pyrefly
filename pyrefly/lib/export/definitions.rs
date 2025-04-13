@@ -351,9 +351,9 @@ impl<'a> DefinitionsBuilder<'a> {
                         Some(ShortIdentifier::expr_name(x)),
                     );
                 }
-                _ => {}
+                _ => self.expr_lvalue(&x.target),
             },
-            Stmt::TypeAlias(x) => self.expr_lvalue(&x.name),
+            Stmt::TypeAlias(x) if matches!(&*x.name, Expr::Name(_)) => self.expr_lvalue(&x.name),
             Stmt::FunctionDef(x) => {
                 self.add_identifier(&x.name, DefinitionStyle::Local);
                 return; // don't recurse because a separate scope

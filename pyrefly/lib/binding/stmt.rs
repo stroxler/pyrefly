@@ -14,6 +14,7 @@ use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtAssign;
 use ruff_python_ast::StmtImportFrom;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -567,7 +568,32 @@ impl<'a> BindingsBuilder<'a> {
                         );
                     }
                 }
-                _ => self.todo("Bindings::stmt AnnAssign", &x),
+                Expr::Subscript(_) => {
+                    self.todo("Bindings::stmt AnnAssign", &x);
+                }
+                target => {
+                    self.error(
+                        x.annotation.range(),
+                        "Invalid annotated assignment target".to_owned(),
+                        ErrorKind::InvalidSyntax,
+                    );
+                    // Try and continue as much as we can, by throwing away the type or just binding to error
+                    match x.value {
+                        Some(value) => self.stmt(Stmt::Assign(StmtAssign {
+                            range: x.range,
+                            targets: vec![target],
+                            value,
+                        })),
+                        None => {
+                            self.bind_target_controlling_errors(
+                                &target,
+                                &|_| Binding::Type(Type::any_error()),
+                                None,
+                                false,
+                            );
+                        }
+                    }
+                }
             },
             Stmt::TypeAlias(mut x) => {
                 if let Expr::Name(name) = *x.name {
@@ -586,7 +612,11 @@ impl<'a> BindingsBuilder<'a> {
                         FlowStyle::None,
                     );
                 } else {
-                    self.todo("Bindings::stmt TypeAlias", &x);
+                    self.error(
+                        x.range,
+                        "Invalid assignment target".to_owned(),
+                        ErrorKind::InvalidSyntax,
+                    );
                 }
             }
             Stmt::For(mut x) => {

@@ -106,6 +106,9 @@ pub enum ErrorKind {
     /// Attempting to call `super()` in a way that is not allowed.
     /// e.g. calling `super(Y, x)` on an object `x` that does not match the class `Y`.
     InvalidSuperCall,
+    /// Incorrect Python syntax, construct is not allowed in this position.
+    /// In many cases a syntax error will also be reported.
+    InvalidSyntax,
     /// An error caused by incorrect usage or definition of a TypeVar.
     InvalidTypeVar,
     /// An error caused by incorrect usage or definition of a TypeVarTuple.
