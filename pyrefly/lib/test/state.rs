@@ -349,29 +349,30 @@ fn test_interface_consistent(code: &str) {
 }
 
 #[test]
-fn test_interfaces() {
+fn test_interfaces_simple() {
     test_interface_consistent("x: int = 1\ndef f(y: bool) -> list[str]: return []");
 
     // Important to have a class with a field, as those also have positions
     test_interface_consistent("class X: y: int");
+}
 
-    // These should not change, but do because the quality algorithm doesn't deal
-    // well with Forall.
+#[test]
+fn test_interfaces_generic() {
+    // Requires dealing with Forall.
     test_interface_consistent("def f[X](x: X) -> X: ...");
-
-    // These should not change, but do because the quality algorithm doesn't deal
-    // well with Forall.
     test_interface_consistent(
         "
 from typing import TypeVar, Generic
 T = TypeVar('T')
 class C(Generic[T]): pass",
     );
-
-    // Another failing example
     test_interface_consistent("class C[T]: x: T");
+}
 
-    // Another failing example
+#[test]
+fn test_interfaces_counterexamples() {
+    // These all failed at one point or another.
+
     test_interface_consistent(
         "
 from typing import TypeVar, Generic
