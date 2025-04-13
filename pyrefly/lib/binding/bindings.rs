@@ -517,11 +517,7 @@ impl<'a> BindingsBuilder<'a> {
                     let idx = self
                         .table
                         .insert(key, Binding::Import(builtins_module, name.clone()));
-                    self.bind_key(
-                        name,
-                        idx,
-                        Some(FlowStyle::Import(builtins_module, name.clone())),
-                    );
+                    self.bind_key(name, idx, FlowStyle::Import(builtins_module, name.clone()));
                 }
             }
             Err(FindError::NotFound(err)) => {
@@ -707,7 +703,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: &Identifier,
         binding: Binding,
-        style: Option<FlowStyle>,
+        style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let idx = self
             .table
@@ -719,7 +715,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: &ExprName,
         binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
-        style: Option<FlowStyle>,
+        style: FlowStyle,
     ) {
         let key = Key::Definition(ShortIdentifier::expr_name(name));
         let idx = self.table.types.0.insert(key);
@@ -762,7 +758,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: &Name,
         key: Idx<Key>,
-        style: Option<FlowStyle>,
+        style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let name = Hashed::new(name);
         self.scopes.update_flow_info_hashed(name, key, style);
@@ -841,7 +837,7 @@ impl<'a> BindingsBuilder<'a> {
                     bound: bound.cloned(),
                     constraints,
                 })),
-                None,
+                FlowStyle::None,
             );
         }
     }
@@ -869,7 +865,8 @@ impl<'a> BindingsBuilder<'a> {
                     Key::Narrow(name.into_key().clone(), *op_range, use_range),
                     Binding::Narrow(name_key, Box::new(op.clone()), use_range),
                 );
-                self.scopes.update_flow_info_hashed(name, binding_key, None);
+                self.scopes
+                    .update_flow_info_hashed(name, binding_key, FlowStyle::None);
             }
         }
     }
@@ -884,7 +881,7 @@ impl<'a> BindingsBuilder<'a> {
             .current_mut()
             .stat
             .add(name.id.clone(), name.range, None);
-        self.bind_key(&name.id, bind_key, None);
+        self.bind_key(&name.id, bind_key, FlowStyle::None);
     }
 
     pub fn bind_function_param(
@@ -920,7 +917,7 @@ impl<'a> BindingsBuilder<'a> {
             .current_mut()
             .stat
             .add(name.id.clone(), name.range, Some(annot));
-        self.bind_key(&name.id, key, None);
+        self.bind_key(&name.id, key, FlowStyle::None);
     }
 
     /// Helper for loops, inserts a phi key for every name in the given flow.
@@ -969,35 +966,35 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn merge_flow_style(&mut self, styles: Vec<Option<FlowStyle>>) -> Option<FlowStyle> {
+    fn merge_flow_style(&mut self, styles: Vec<FlowStyle>) -> FlowStyle {
         let mut it = styles.into_iter();
-        let mut merged = it.next()?;
+        let mut merged = it.next().unwrap_or(FlowStyle::None);
         for x in it {
             match (&merged, x) {
                 // If they're identical, keep it
                 (l, r) if l == &r => {}
                 // Uninitialized takes precedence over Unbound
-                (Some(FlowStyle::Uninitialized), Some(FlowStyle::Unbound)) => {}
-                (Some(FlowStyle::Unbound), Some(FlowStyle::Uninitialized)) => {
-                    merged = Some(FlowStyle::Uninitialized);
+                (FlowStyle::Uninitialized, FlowStyle::Unbound) => {}
+                (FlowStyle::Unbound, FlowStyle::Uninitialized) => {
+                    merged = FlowStyle::Uninitialized;
                 }
                 // Unbound and bound branches merge into PossiblyUnbound
                 // Uninitialized and bound branches merge into PossiblyUninitialized
-                (Some(FlowStyle::Unbound), _) => {
-                    return Some(FlowStyle::PossiblyUnbound);
+                (FlowStyle::Unbound, _) => {
+                    return FlowStyle::PossiblyUnbound;
                 }
-                (Some(FlowStyle::Uninitialized), _) => {
-                    return Some(FlowStyle::PossiblyUninitialized);
+                (FlowStyle::Uninitialized, _) => {
+                    return FlowStyle::PossiblyUninitialized;
                 }
-                (_, Some(FlowStyle::PossiblyUnbound | FlowStyle::Unbound)) => {
-                    return Some(FlowStyle::PossiblyUnbound);
+                (_, FlowStyle::PossiblyUnbound | FlowStyle::Unbound) => {
+                    return FlowStyle::PossiblyUnbound;
                 }
-                (_, Some(FlowStyle::PossiblyUninitialized | FlowStyle::Uninitialized)) => {
-                    return Some(FlowStyle::PossiblyUninitialized);
+                (_, FlowStyle::PossiblyUninitialized | FlowStyle::Uninitialized) => {
+                    return FlowStyle::PossiblyUninitialized;
                 }
                 // Unclear how to merge, default to None
                 _ => {
-                    merged = None;
+                    merged = FlowStyle::None;
                 }
             }
         }
@@ -1027,12 +1024,12 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         // Collect all the information that we care about from all branches
-        let mut names: SmallMap<Name, (Idx<Key>, SmallSet<Idx<Key>>, Vec<Option<FlowStyle>>)> =
+        let mut names: SmallMap<Name, (Idx<Key>, SmallSet<Idx<Key>>, Vec<FlowStyle>)> =
             SmallMap::with_capacity(visible_branches.first().map_or(0, |x| x.info.len()));
         let visible_branches_len = visible_branches.len();
         for flow in visible_branches {
             for (name, info) in flow.info.into_iter_hashed() {
-                let f = |v: &mut (Idx<Key>, SmallSet<Idx<Key>>, Vec<Option<FlowStyle>>)| {
+                let f = |v: &mut (Idx<Key>, SmallSet<Idx<Key>>, Vec<FlowStyle>)| {
                     if info.key != v.0 {
                         // Optimization: instead of x = phi(x, ...), we can skip the x.
                         // Avoids a recursive solving step later.
@@ -1166,7 +1163,7 @@ impl LegacyTParamBuilder {
                     // tparams, and we only want to do that once (which we do in
                     // the binding created by `forward_lookup`).
                     Binding::CheckLegacyTypeParam(*idx, None),
-                    None,
+                    FlowStyle::None,
                 );
             }
         }

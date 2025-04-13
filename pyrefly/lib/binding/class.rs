@@ -73,7 +73,7 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_definition(
                 &x.name,
                 Binding::Type(Type::type_form(Type::any_explicit())),
-                None,
+                FlowStyle::None,
             );
             return;
         }
@@ -161,7 +161,7 @@ impl<'a> BindingsBuilder<'a> {
         let mut fields = SmallMap::with_capacity(last_scope.stat.0.len());
         for (name, info) in last_scope.flow.info.iter_hashed() {
             let is_function_without_return_annotation =
-                if let Some(FlowStyle::FunctionDef(_, has_return_annotation)) = info.style {
+                if let FlowStyle::FunctionDef(_, has_return_annotation) = info.style {
                     !has_return_annotation
                 } else {
                     false
@@ -231,7 +231,7 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_definition(
             &x.name,
             Binding::ClassDef(definition_key, decorators.into_boxed_slice()),
-            None,
+            FlowStyle::None,
         );
         fields.reserve(0); // Attempt to shrink to capacity
         self.table.insert_idx(
@@ -414,7 +414,7 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_definition(
             &class_name,
             Binding::ClassDef(definition_key, Box::new([])),
-            None,
+            FlowStyle::None,
         );
         self.table.insert(
             class_key,

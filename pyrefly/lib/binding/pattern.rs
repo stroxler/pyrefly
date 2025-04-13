@@ -22,6 +22,7 @@ use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::narrow::NarrowOps;
+use crate::binding::scope::FlowStyle;
 use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 use crate::ruff::ast::Ast;
@@ -55,7 +56,7 @@ impl<'a> BindingsBuilder<'a> {
                 // If there's no name for this pattern, refine the variable being matched
                 // If there is a new name, refine that instead
                 let new_subject_name = if let Some(name) = &p.name {
-                    self.bind_definition(name, Binding::Forward(key), None);
+                    self.bind_definition(name, Binding::Forward(key), FlowStyle::None);
                     Some(&name.id)
                 } else {
                     subject_name
@@ -78,7 +79,7 @@ impl<'a> BindingsBuilder<'a> {
                                 self.bind_definition(
                                     name,
                                     Binding::UnpackedValue(key, p.range, position),
-                                    None,
+                                    FlowStyle::None,
                                 );
                             }
                             unbounded = true;
@@ -121,7 +122,7 @@ impl<'a> BindingsBuilder<'a> {
                         narrow_ops.and_all(self.bind_pattern(None, pattern, mapping_key))
                     });
                 if let Some(rest) = x.rest {
-                    self.bind_definition(&rest, Binding::Forward(key), None);
+                    self.bind_definition(&rest, Binding::Forward(key), FlowStyle::None);
                 }
                 narrow_ops
             }

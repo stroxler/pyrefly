@@ -163,6 +163,8 @@ pub struct Flow {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlowStyle {
+    /// Not one of the styles below.
+    None,
     /// Am I an assignment in a class body?
     ClassField { initial_value: Option<Expr> },
     /// Am I the result of an import (which needs merging).
@@ -205,18 +207,18 @@ impl FlowStyle {
 #[derive(Debug, Clone)]
 pub struct FlowInfo {
     pub key: Idx<Key>,
-    pub style: Option<FlowStyle>,
+    pub style: FlowStyle,
 }
 
 impl FlowInfo {
     pub fn as_initial_value(&self) -> ClassFieldInitialValue {
-        match self.style.as_ref() {
-            Some(FlowStyle::ClassField {
+        match &self.style {
+            FlowStyle::ClassField {
                 initial_value: Some(e),
-            }) => ClassFieldInitialValue::Class(Some(e.clone())),
-            Some(FlowStyle::ClassField {
+            } => ClassFieldInitialValue::Class(Some(e.clone())),
+            FlowStyle::ClassField {
                 initial_value: None,
-            }) => ClassFieldInitialValue::Instance(None),
+            } => ClassFieldInitialValue::Instance(None),
             // All other styles (e.g. function def, import) indicate we do have
             // a value, but it is not coming from a simple style.
             _ => ClassFieldInitialValue::Class(None),
@@ -467,7 +469,7 @@ impl Scopes {
         self.scopes.iter_mut().map(|node| &mut node.scope).rev()
     }
 
-    pub fn update_flow_info(&mut self, name: &Name, key: Idx<Key>, style: Option<FlowStyle>) {
+    pub fn update_flow_info(&mut self, name: &Name, key: Idx<Key>, style: FlowStyle) {
         self.update_flow_info_hashed(Hashed::new(name), key, style);
     }
 
@@ -475,7 +477,7 @@ impl Scopes {
         &mut self,
         name: Hashed<&Name>,
         key: Idx<Key>,
-        style: Option<FlowStyle>,
+        style: FlowStyle,
     ) {
         self.current_mut()
             .flow
@@ -493,16 +495,18 @@ impl Scopes {
         None
     }
 
-    pub fn get_flow_style(&self, name: &Name) -> Option<&FlowStyle> {
-        self.get_flow_info(name)
-            .and_then(|info| info.style.as_ref())
+    pub fn get_flow_style(&self, name: &Name) -> &FlowStyle {
+        match self.get_flow_info(name) {
+            Some(flow) => &flow.style,
+            None => &FlowStyle::None,
+        }
     }
 
     pub fn get_special_entry<'a>(&'a self, name: &Name) -> Option<SpecialEntry<'a>> {
         let flow = self.get_flow_info(name)?;
         let entry = match &flow.style {
-            Some(FlowStyle::Import(m, name)) => SpecialEntry::ImportName(m.dupe(), name),
-            Some(FlowStyle::MergeableImport(m) | FlowStyle::ImportAs(m)) => {
+            FlowStyle::Import(m, name) => SpecialEntry::ImportName(m.dupe(), name),
+            FlowStyle::MergeableImport(m) | FlowStyle::ImportAs(m) => {
                 SpecialEntry::ImportModule(m.dupe())
             }
             _ => SpecialEntry::Local,

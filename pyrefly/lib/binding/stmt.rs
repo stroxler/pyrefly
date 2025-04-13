@@ -53,7 +53,7 @@ impl<'a> BindingsBuilder<'a> {
             if &x.name != "*" {
                 let asname = x.asname.as_ref().unwrap_or(&x.name);
                 // We pass None as imported_from, since we are really faking up a local error definition
-                self.bind_definition(asname, Binding::Type(Type::any_error()), None);
+                self.bind_definition(asname, Binding::Type(Type::any_error()), FlowStyle::None);
             }
         }
     }
@@ -106,7 +106,7 @@ impl<'a> BindingsBuilder<'a> {
                     Box::new(call.clone()),
                 )
             },
-            None,
+            FlowStyle::None,
         )
     }
 
@@ -137,7 +137,7 @@ impl<'a> BindingsBuilder<'a> {
                     Box::new(call.clone()),
                 )
             },
-            None,
+            FlowStyle::None,
         )
     }
 
@@ -152,7 +152,7 @@ impl<'a> BindingsBuilder<'a> {
                     Box::new(call.clone()),
                 )
             },
-            None,
+            FlowStyle::None,
         )
     }
 
@@ -320,7 +320,7 @@ impl<'a> BindingsBuilder<'a> {
                         let key = Key::Usage(ShortIdentifier::expr_name(name));
                         let idx = self.table.types.0.insert(key);
                         self.scopes
-                            .update_flow_info(&name.id, idx, Some(FlowStyle::Unbound));
+                            .update_flow_info(&name.id, idx, FlowStyle::Unbound);
                     }
                 }
             }
@@ -329,7 +329,7 @@ impl<'a> BindingsBuilder<'a> {
                     && let Some((module, forward)) =
                         resolve_typeshed_alias(self.module_info.name(), &name.id, &x.value) =>
             {
-                self.bind_assign(name, |_| Binding::Import(module, forward), None)
+                self.bind_assign(name, |_| Binding::Import(module, forward), FlowStyle::None)
             }
             Stmt::Assign(mut x) => {
                 if let [Expr::Name(name)] = x.targets.as_slice() {
@@ -417,11 +417,11 @@ impl<'a> BindingsBuilder<'a> {
                     let in_class_body =
                         matches!(self.scopes.current().kind, ScopeKind::ClassBody(_));
                     let flow_style = if in_class_body {
-                        Some(FlowStyle::ClassField {
+                        FlowStyle::ClassField {
                             initial_value: Some((*x.value).clone()),
-                        })
+                        }
                     } else {
-                        None
+                        FlowStyle::None
                     };
                     self.bind_assign(
                         name,
@@ -488,11 +488,11 @@ impl<'a> BindingsBuilder<'a> {
                     let ann_key = self.table.insert(ann_key, ann_val);
                     let flow_style = if in_class_body {
                         let initial_value = x.value.as_deref().cloned();
-                        Some(FlowStyle::ClassField { initial_value })
+                        FlowStyle::ClassField { initial_value }
                     } else if x.value.is_some() {
-                        None
+                        FlowStyle::None
                     } else {
-                        Some(FlowStyle::Uninitialized)
+                        FlowStyle::Uninitialized
                     };
                     let binding_value = if let Some(value) = x.value {
                         // Treat a name as initialized, but skip actually checking the value, if we are assigning `...` in a stub.
@@ -580,7 +580,11 @@ impl<'a> BindingsBuilder<'a> {
                         x.type_params.map(|x| *x),
                         x.value,
                     );
-                    self.bind_definition(&Ast::expr_name_identifier(name), binding, None);
+                    self.bind_definition(
+                        &Ast::expr_name_identifier(name),
+                        binding,
+                        FlowStyle::None,
+                    );
                 } else {
                     self.todo("Bindings::stmt TypeAlias", &x);
                 }
@@ -726,7 +730,7 @@ impl<'a> BindingsBuilder<'a> {
                         self.bind_definition(
                             &name,
                             Binding::ExceptionHandler(type_, x.is_star),
-                            None,
+                            FlowStyle::None,
                         );
                     } else if let Some(mut type_) = h.type_ {
                         self.ensure_expr(&mut type_);
@@ -771,7 +775,7 @@ impl<'a> BindingsBuilder<'a> {
                             self.bind_definition(
                                 &asname,
                                 Binding::Module(m, m.components(), None),
-                                Some(FlowStyle::ImportAs(m)),
+                                FlowStyle::ImportAs(m),
                             );
                         }
                         None => {
@@ -779,10 +783,7 @@ impl<'a> BindingsBuilder<'a> {
                             let flow_info = self.scopes.current().flow.info.get(&first);
                             let module_key = match flow_info {
                                 Some(flow_info)
-                                    if matches!(
-                                        flow_info.style,
-                                        Some(FlowStyle::MergeableImport(_))
-                                    ) =>
+                                    if matches!(flow_info.style, FlowStyle::MergeableImport(_)) =>
                                 {
                                     Some(flow_info.key)
                                 }
@@ -792,7 +793,7 @@ impl<'a> BindingsBuilder<'a> {
                                 Key::Import(first.clone(), x.name.range),
                                 Binding::Module(m, vec![first.clone()], module_key),
                             );
-                            self.bind_key(&first, key, Some(FlowStyle::MergeableImport(m)));
+                            self.bind_key(&first, key, FlowStyle::MergeableImport(m));
                         }
                     }
                 }
@@ -824,7 +825,7 @@ impl<'a> BindingsBuilder<'a> {
                                         self.bind_key(
                                             name.key(),
                                             key,
-                                            Some(FlowStyle::Import(m, name.into_key().clone())),
+                                            FlowStyle::Import(m, name.into_key().clone()),
                                         );
                                     }
                                 } else {
@@ -864,7 +865,7 @@ impl<'a> BindingsBuilder<'a> {
                                     self.bind_definition(
                                         &asname,
                                         val,
-                                        Some(FlowStyle::Import(m, x.name.id)),
+                                        FlowStyle::Import(m, x.name.id),
                                     );
                                 }
                             }

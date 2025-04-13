@@ -17,6 +17,7 @@ use crate::binding::binding::KeyExpect;
 use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
+use crate::binding::scope::FlowStyle;
 use crate::graph::index::Idx;
 
 impl<'a> BindingsBuilder<'a> {
@@ -97,7 +98,7 @@ impl<'a> BindingsBuilder<'a> {
         value: Option<&Expr>,
     ) {
         match target {
-            Expr::Name(name) => self.bind_assign(name, make_binding, None),
+            Expr::Name(name) => self.bind_assign(name, make_binding, FlowStyle::None),
             Expr::Attribute(x) => {
                 // `make_binding` will give us a binding for inferring the value type, which we
                 // *might* use to compute the attribute type if there are no explicit annotations.

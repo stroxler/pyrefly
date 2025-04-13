@@ -138,7 +138,7 @@ impl<'a> BindingsBuilder<'a> {
                     if let Some(error_message) = self
                         .scopes
                         .get_flow_style(&name.id)
-                        .and_then(|style| style.uninitialized_error_message(name))
+                        .uninitialized_error_message(name)
                     {
                         self.error(name.range, error_message, ErrorKind::UnboundName);
                     }
