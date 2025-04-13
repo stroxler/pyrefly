@@ -90,10 +90,8 @@ pub enum TypeCheckKind {
     TypeGuardReturn,
     /// Function call argument against parameter type.
     CallArgument(Option<Name>, Option<FuncId>),
-    /// Function call argument against *arg parameter type.
-    CallVarArgs(Option<Name>, Option<FuncId>),
-    /// Unpacked argument against *args type.
-    CallUnpackVarArgs(Option<Name>, Option<FuncId>),
+    /// Function call argument against *arg parameter type. The bool indicates whether the argument is unpacked.
+    CallVarArgs(bool, Option<Name>, Option<FuncId>),
     /// Keyword argument against parameter or **kwargs type, as (argument name, parameter name, function name).
     CallKwArgs(Option<Name>, Option<Name>, Option<FuncId>),
     /// Unpacked keyword argument against named parameter.
@@ -148,7 +146,6 @@ impl TypeCheckKind {
             Self::TypeGuardReturn => ErrorKind::BadReturn,
             Self::CallArgument(..) => ErrorKind::BadArgumentType,
             Self::CallVarArgs(..) => ErrorKind::BadArgumentType,
-            Self::CallUnpackVarArgs(..) => ErrorKind::BadArgumentType,
             Self::CallKwArgs(..) => ErrorKind::BadArgumentType,
             Self::CallUnpackKwArg(..) => ErrorKind::BadArgumentType,
             Self::FunctionParameterDefault(..) => ErrorKind::BadFunctionDefinition,

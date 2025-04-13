@@ -144,7 +144,7 @@ impl CallArgPreEval<'_> {
     ) {
         let tcc = &|| TypeCheckContext {
             kind: if vararg {
-                TypeCheckKind::CallVarArgs(param_name.cloned(), callable_name.cloned())
+                TypeCheckKind::CallVarArgs(false, param_name.cloned(), callable_name.cloned())
             } else {
                 TypeCheckKind::CallArgument(param_name.cloned(), callable_name.cloned())
             },
@@ -443,7 +443,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 arg_errors,
                 &|| TypeCheckContext {
-                    kind: TypeCheckKind::CallUnpackVarArgs(
+                    kind: TypeCheckKind::CallVarArgs(
+                        true,
                         unpacked_name.clone(),
                         callable_name.clone(),
                     ),

@@ -108,31 +108,23 @@ impl TypeCheckKind {
                     function_suffix(func_id.as_ref(), current_module),
                 )
             }
-            Self::CallVarArgs(param, func_id) => {
+            Self::CallVarArgs(arg_is_unpacked, param, func_id) => {
+                let arg_desc = if *arg_is_unpacked {
+                    "Unpacked argument"
+                } else {
+                    "Argument"
+                };
                 let param_desc = match param {
-                    Some(name) => format!(" `*{name}`"),
-                    None => "".to_owned(),
+                    Some(name) => format!("parameter `*{name}` with type"),
+                    None => "varargs type".to_owned(),
                 };
                 format!(
-                    "Argument `{}` is not assignable to varargs parameter{} with type `{}`{}",
+                    "{} `{}` is not assignable to {} `{}`{}",
+                    arg_desc,
                     ctx.display(got),
                     param_desc,
                     ctx.display(want),
                     function_suffix(func_id.as_ref(), current_module),
-                )
-            }
-            Self::CallUnpackVarArgs(name, func_id) => {
-                let name = if let Some(name) = name {
-                    format!(" `*{name}`")
-                } else {
-                    "".to_owned()
-                };
-                format!(
-                    "Unpacked argument `{}` is not assignable to varargs parameter{} with type `{}`{}",
-                    ctx.display(got),
-                    name,
-                    ctx.display(want),
-                    function_suffix(func_id.as_ref(), current_module)
                 )
             }
             Self::CallKwArgs(arg, param, func_id) => {
