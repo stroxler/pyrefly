@@ -531,10 +531,6 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn todo(&mut self, msg: &str, x: impl Ranged + Debug) {
-        self.errors.todo(msg, x);
-    }
-
     pub fn as_special_export(&self, e: &Expr) -> Option<SpecialExport> {
         SpecialExport::as_special_export(self, e)
     }

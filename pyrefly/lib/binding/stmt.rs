@@ -568,10 +568,9 @@ impl<'a> BindingsBuilder<'a> {
                         );
                     }
                 }
-                Expr::Subscript(_) => {
-                    self.todo("Bindings::stmt AnnAssign", &x);
-                }
                 target => {
+                    // Note that for Expr::Subscript Python won't fail at runtime,
+                    // but Mypy and Pyright both error here, so let's do the same.
                     self.error(
                         x.annotation.range(),
                         "Invalid annotated assignment target".to_owned(),

@@ -614,3 +614,22 @@ assert_type(d1, str)
 assert_type(e, list[str])
 "#,
 );
+
+testcase!(
+    test_assign_annotated_subscript,
+    r#"
+xs: list[int] = [1, 2, 3]
+xs[0]: int = 3 # E: Invalid annotated assignment target
+xs[1]: str = 3 # E: Invalid annotated assignment target
+xs[2]: str = "test" # E: Invalid annotated assignment target # E: Argument `Literal['test']` is not assignable # E: Item assignment is not supported on
+"#,
+);
+
+testcase!(
+    bug = "Should only produce one error, not the item assignment is not supported one",
+    test_assign_subscript_wrong_type,
+    r#"
+xs: list[int] = [1, 2, 3]
+xs[1] = "test" # E: Argument `Literal['test']` is not assignable to parameter # E: Item assignment is not supported on
+"#,
+);
