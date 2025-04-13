@@ -19,7 +19,7 @@ use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
 use crate::binding::table::TableKeyed;
 use crate::module::module_name::ModuleName;
-use crate::state::state::ReadableState;
+use crate::state::state::Transaction;
 use crate::table;
 use crate::table_for_each;
 
@@ -59,7 +59,7 @@ impl ReportKey {
 }
 
 /// Report on how many there are of each binding, and how much memory they take up, per module.
-pub fn binding_memory(state: &ReadableState) -> String {
+pub fn binding_memory(transaction: &Transaction) -> String {
     #[allow(clippy::trivially_copy_pass_by_ref)] // required to match the macro signature
     fn f<K: Keyed>(
         _: &PhantomData<K>,
@@ -79,8 +79,8 @@ pub fn binding_memory(state: &ReadableState) -> String {
 
     let mut report = SmallMap::new();
     let phantom_table = PhantomTable::default();
-    for handle in state.handles() {
-        let bindings = state.get_bindings(&handle).unwrap();
+    for handle in transaction.readable().handles() {
+        let bindings = transaction.get_bindings(&handle).unwrap();
         table_for_each!(&phantom_table, |v| f(
             v,
             handle.module(),

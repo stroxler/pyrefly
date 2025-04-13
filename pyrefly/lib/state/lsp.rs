@@ -32,19 +32,18 @@ use crate::util::visit::Visit;
 
 impl<'a> Transaction<'a> {
     fn get_type(&self, handle: &Handle, key: &Key) -> Option<Type> {
-        let readable = self.readable();
-        let idx = readable.get_bindings(handle)?.key_to_idx(key);
-        let ans = readable.get_answers(handle)?;
+        let idx = self.get_bindings(handle)?.key_to_idx(key);
+        let ans = self.get_answers(handle)?;
         Some(ans.for_display(ans.get_idx(idx)?.arc_clone_ty()))
     }
 
     fn get_type_trace(&self, handle: &Handle, range: TextRange) -> Option<Type> {
-        let ans = self.readable().get_answers(handle)?;
+        let ans = self.get_answers(handle)?;
         Some(ans.for_display(ans.get_type_trace(range)?.arc_clone()))
     }
 
     fn identifier_at(&self, handle: &Handle, position: TextSize) -> Option<Identifier> {
-        let mod_module = self.readable().get_ast(handle)?;
+        let mod_module = self.get_ast(handle)?;
         fn f(x: &Expr, find: TextSize, res: &mut Option<Identifier>) {
             if let Expr::Name(x) = x
                 && x.range.contains_inclusive(find)
@@ -60,7 +59,7 @@ impl<'a> Transaction<'a> {
     }
 
     fn import_at(&self, handle: &Handle, position: TextSize) -> Option<ModuleName> {
-        let module = self.readable().get_ast(handle)?;
+        let module = self.get_ast(handle)?;
         for (module, text_range) in Ast::imports(&module, handle.module(), handle.path().is_init())
         {
             if text_range.contains_inclusive(position) {
@@ -71,14 +70,13 @@ impl<'a> Transaction<'a> {
     }
 
     fn definition_at(&self, handle: &Handle, position: TextSize) -> Option<Key> {
-        self.readable()
-            .get_bindings(handle)?
+        self.get_bindings(handle)?
             .definition_at_position(position)
             .cloned()
     }
 
     fn attribute_at(&self, handle: &Handle, position: TextSize) -> Option<ExprAttribute> {
-        let mod_module = self.readable().get_ast(handle)?;
+        let mod_module = self.get_ast(handle)?;
         fn f(x: &Expr, find: TextSize, res: &mut Option<ExprAttribute>) {
             if let Expr::Attribute(x) = x
                 && x.attr.range.contains_inclusive(find)
@@ -98,7 +96,7 @@ impl<'a> Transaction<'a> {
             return self.get_type(handle, &key);
         }
         if let Some(id) = self.identifier_at(handle, position) {
-            if self.readable().get_bindings(handle)?.is_valid_usage(&id) {
+            if self.get_bindings(handle)?.is_valid_usage(&id) {
                 return self.get_type(handle, &Key::Usage(ShortIdentifier::new(&id)));
             } else {
                 return None;
@@ -120,7 +118,7 @@ impl<'a> Transaction<'a> {
         key: &Key,
         gas: isize,
     ) -> Option<(Handle, TextRange)> {
-        let bindings = self.readable().get_bindings(handle)?;
+        let bindings = self.get_bindings(handle)?;
         let idx = bindings.key_to_idx(key);
         let res = self.binding_to_definition(handle, bindings.get(idx), gas);
         if res.is_none()
@@ -146,7 +144,7 @@ impl<'a> Transaction<'a> {
             return None;
         }
         gas -= 1;
-        let bindings = self.readable().get_bindings(handle)?;
+        let bindings = self.get_bindings(handle)?;
         match binding {
             Binding::Forward(k) => self.key_to_definition(handle, bindings.idx_to_key(*k), gas),
             Binding::Phi(ks, _) if !ks.is_empty() => {
@@ -186,31 +184,30 @@ impl<'a> Transaction<'a> {
         if let Some(key) = self.definition_at(handle, position) {
             let (handle, range) = self.key_to_definition(handle, &key, 20)?;
             return Some(TextRangeWithModuleInfo::new(
-                self.readable().get_module_info(&handle)?,
+                self.get_module_info(&handle)?,
                 range,
             ));
         }
         if let Some(id) = self.identifier_at(handle, position) {
-            if !self.readable().get_bindings(handle)?.is_valid_usage(&id) {
+            if !self.get_bindings(handle)?.is_valid_usage(&id) {
                 return None;
             }
             let (handle, range) =
                 self.key_to_definition(handle, &Key::Usage(ShortIdentifier::new(&id)), 20)?;
             return Some(TextRangeWithModuleInfo::new(
-                self.readable().get_module_info(&handle)?,
+                self.get_module_info(&handle)?,
                 range,
             ));
         }
         if let Some(m) = self.import_at(handle, position) {
             let handle = self.import_handle(handle, m, None).ok()?;
             return Some(TextRangeWithModuleInfo::new(
-                self.readable().get_module_info(&handle)?,
+                self.get_module_info(&handle)?,
                 TextRange::default(),
             ));
         }
         let attribute = self.attribute_at(handle, position)?;
         let base_type = self
-            .readable()
             .get_answers(handle)?
             .get_type_trace(attribute.value.range())?;
         self.ad_hoc_solve(handle, |solver| {
@@ -250,10 +247,9 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
     ) -> Option<Vec<CompletionItem>> {
-        let readable = self.readable();
         if self.identifier_at(handle, position).is_some() {
-            let bindings = readable.get_bindings(handle)?;
-            let module_info = readable.get_module_info(handle)?;
+            let bindings = self.get_bindings(handle)?;
+            let module_info = self.get_module_info(handle)?;
             let names = bindings
                 .available_definitions(position)
                 .into_iter()
@@ -275,7 +271,7 @@ impl<'a> Transaction<'a> {
             return Some(names);
         }
         let attribute = self.attribute_at(handle, position)?;
-        let base_type = readable
+        let base_type = self
             .get_answers(handle)?
             .get_type_trace(attribute.value.range())?;
         self.ad_hoc_solve(handle, |solver| {
@@ -294,7 +290,7 @@ impl<'a> Transaction<'a> {
         let is_interesting_type = |x: &Type| !x.is_error();
         let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
 
-        let bindings = self.readable().get_bindings(handle)?;
+        let bindings = self.get_bindings(handle)?;
         let mut res = Vec::new();
         for idx in bindings.keys::<Key>() {
             match bindings.idx_to_key(idx) {

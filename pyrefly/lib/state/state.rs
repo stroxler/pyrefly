@@ -191,50 +191,6 @@ impl ReadableState {
         self.modules.keys().cloned().collect()
     }
 
-    pub fn get_bindings(&self, handle: &Handle) -> Option<Bindings> {
-        self.modules
-            .get(handle)?
-            .state
-            .steps
-            .answers
-            .as_ref()
-            .map(|x| x.0.dupe())
-    }
-
-    pub fn get_answers(&self, handle: &Handle) -> Option<Arc<Answers>> {
-        self.modules
-            .get(handle)?
-            .state
-            .steps
-            .answers
-            .as_ref()
-            .map(|x| x.1.dupe())
-    }
-
-    pub fn get_load(&self, handle: &Handle) -> Option<Arc<Load>> {
-        self.modules.get(handle)?.state.steps.load.dupe()
-    }
-
-    pub fn get_loads<'a>(&self, handles: impl IntoIterator<Item = &'a Handle>) -> Loads {
-        Loads::new(handles.into_iter().filter_map(|handle| {
-            self.modules
-                .get(handle)?
-                .state
-                .steps
-                .load
-                .as_ref()
-                .map(|x| x.dupe())
-        }))
-    }
-
-    pub fn get_module_info(&self, handle: &Handle) -> Option<ModuleInfo> {
-        self.get_load(handle).map(|x| x.module_info.dupe())
-    }
-
-    pub fn get_ast(&self, handle: &Handle) -> Option<Arc<ruff_python_ast::ModModule>> {
-        self.modules.get(handle)?.state.steps.ast.dupe()
-    }
-
     #[allow(dead_code)]
     pub fn get_solutions(&self, handle: &Handle) -> Option<Arc<Solutions>> {
         Some(
@@ -415,6 +371,50 @@ impl<'a> Transaction<'a> {
 
     pub fn readable(&self) -> &ReadableState {
         &self.readable
+    }
+
+    pub fn get_bindings(&self, handle: &Handle) -> Option<Bindings> {
+        self.get_module(handle)
+            .state
+            .read()
+            .steps
+            .answers
+            .as_ref()
+            .map(|x| x.0.dupe())
+    }
+
+    pub fn get_answers(&self, handle: &Handle) -> Option<Arc<Answers>> {
+        self.get_module(handle)
+            .state
+            .read()
+            .steps
+            .answers
+            .as_ref()
+            .map(|x| x.1.dupe())
+    }
+
+    pub fn get_ast(&self, handle: &Handle) -> Option<Arc<ruff_python_ast::ModModule>> {
+        self.get_module(handle).state.read().steps.ast.dupe()
+    }
+
+    pub fn get_load(&self, handle: &Handle) -> Option<Arc<Load>> {
+        self.get_module(handle).state.read().steps.load.dupe()
+    }
+
+    pub fn get_loads<'b>(&self, handles: impl IntoIterator<Item = &'a Handle>) -> Loads {
+        Loads::new(handles.into_iter().filter_map(|handle| {
+            self.get_module(handle)
+                .state
+                .read()
+                .steps
+                .load
+                .as_ref()
+                .map(|x| x.dupe())
+        }))
+    }
+
+    pub fn get_module_info(&self, handle: &Handle) -> Option<ModuleInfo> {
+        self.get_load(handle).map(|x| x.module_info.dupe())
     }
 
     pub fn import_handle(

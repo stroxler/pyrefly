@@ -168,7 +168,6 @@ impl TestEnv {
         print_errors(
             &state
                 .transaction()
-                .readable()
                 .get_loads(handles.iter())
                 .collect_errors(&ErrorConfigs::default())
                 .shown,
@@ -270,7 +269,6 @@ pub fn mk_multi_file_state(
         assert_eq!(
             state
                 .transaction()
-                .readable()
                 .get_loads(handles.values())
                 .collect_errors(&ErrorConfigs::default())
                 .shown
@@ -391,7 +389,6 @@ pub fn testcase_for_macro(
         let (state, handle) = env.clone().to_state();
         state
             .transaction()
-            .readable()
             .get_loads([&handle("main")])
             .check_against_expectations(&ErrorConfigs::default())?;
         if start.elapsed().as_secs() <= limit {

@@ -166,7 +166,6 @@ impl Config {
         // TODO(connernilsen): replace with real error config from config file
         for e in state
             .transaction()
-            .readable()
             .get_loads(handles.iter().map(|(handle, _)| handle))
             .collect_errors(&ErrorConfigs::default())
             .shown
@@ -601,7 +600,7 @@ impl Server {
         params: GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
         let handle = self.make_handle(&params.text_document_position_params.text_document.uri);
-        let info = transaction.readable().get_module_info(&handle)?;
+        let info = transaction.get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
         let TextRangeWithModuleInfo {
             module_info: definition_module_info,
@@ -622,7 +621,6 @@ impl Server {
     ) -> anyhow::Result<CompletionResponse> {
         let handle = self.make_handle(&params.text_document_position.text_document.uri);
         let items = transaction
-            .readable()
             .get_module_info(&handle)
             .map(|info| {
                 transaction.completion(
@@ -639,7 +637,7 @@ impl Server {
 
     fn hover(&self, transaction: &Transaction<'_>, params: HoverParams) -> Option<Hover> {
         let handle = self.make_handle(&params.text_document_position_params.text_document.uri);
-        let info = transaction.readable().get_module_info(&handle)?;
+        let info = transaction.get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
         let t = transaction.hover(&handle, range)?;
         Some(Hover {
@@ -662,7 +660,7 @@ impl Server {
         params: InlayHintParams,
     ) -> Option<Vec<InlayHint>> {
         let handle = self.make_handle(&params.text_document.uri);
-        let info = transaction.readable().get_module_info(&handle)?;
+        let info = transaction.get_module_info(&handle)?;
         let t = transaction.inlay_hints(&handle)?;
         Some(t.into_map(|x| {
             let position = text_size_to_position(&info, x.0);

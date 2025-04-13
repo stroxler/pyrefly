@@ -473,11 +473,10 @@ impl Args {
         let transaction = state.transaction();
         let readable_state = transaction.readable();
         let loads = if self.check_all {
-            readable_state.get_loads(readable_state.handles().iter())
+            transaction.get_loads(readable_state.handles().iter())
         } else {
             state
                 .transaction()
-                .readable()
                 .get_loads(handles.iter().map(|(handle, _)| handle))
         };
         let computing = start.elapsed();
@@ -522,7 +521,7 @@ impl Args {
         if let Some(path) = &self.report_binding_memory {
             fs_anyhow::write(
                 path,
-                report::binding_memory::binding_memory(readable_state).as_bytes(),
+                report::binding_memory::binding_memory(&transaction).as_bytes(),
             )?;
         }
         if let Some(path) = &self.report_trace {

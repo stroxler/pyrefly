@@ -31,9 +31,8 @@ struct ModuleOutput {
 }
 
 fn trace_module(transaction: &Transaction, handle: &Handle) -> Option<ModuleOutput> {
-    let readable = transaction.readable();
-    let info = readable.get_module_info(handle)?;
-    let ast = readable.get_ast(handle)?;
+    let info = transaction.get_module_info(handle)?;
+    let ast = transaction.get_ast(handle)?;
 
     let mut types = SmallMap::new();
     let mut definitions = SmallMap::new();

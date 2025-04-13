@@ -42,7 +42,6 @@ fn assert_no_errors(handle: &Handle, state: &State) {
     assert_eq!(
         state
             .transaction()
-            .readable()
             .get_loads([handle])
             .collect_errors(&ErrorConfigs::default())
             .shown
@@ -55,7 +54,6 @@ fn assert_no_errors(handle: &Handle, state: &State) {
 fn assert_has_error(handle: &Handle, state: &State, error_msg: &str, assertion_msg: &str) {
     state
         .transaction()
-        .readable()
         .get_loads([handle])
         .collect_errors(&ErrorConfigs::default())
         .shown

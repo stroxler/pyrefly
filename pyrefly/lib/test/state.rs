@@ -74,7 +74,6 @@ else:
     state.run(&handles, Require::Exports, None);
     state
         .transaction()
-        .readable()
         .get_loads(handles.iter().map(|(handle, _)| handle))
         .check_against_expectations(&ErrorConfigs::default())
         .unwrap();
@@ -133,7 +132,7 @@ fn test_multiple_path() {
         Require::Exports,
         None,
     );
-    let loads = state.transaction().readable().get_loads(handles.iter());
+    let loads = state.transaction().get_loads(handles.iter());
     print_errors(&loads.collect_errors(&ErrorConfigs::default()).shown);
     loads
         .check_against_expectations(&ErrorConfigs::default())
@@ -221,11 +220,7 @@ impl Incremental {
             transaction,
             &handles.map(|x| (x.dupe(), Require::Everything)),
         );
-        let loads = self
-            .state
-            .transaction()
-            .readable()
-            .get_loads(handles.iter());
+        let loads = self.state.transaction().get_loads(handles.iter());
         print_errors(&loads.collect_errors(&ErrorConfigs::default()).shown);
         loads
             .check_against_expectations(&ErrorConfigs::default())
@@ -418,38 +413,24 @@ fn test_change_require() {
     assert_eq!(
         state
             .transaction()
-            .readable()
             .get_loads([&handle])
             .collect_errors(&ErrorConfigs::default())
             .shown
             .len(),
         0
     );
-    assert!(
-        state
-            .transaction()
-            .readable()
-            .get_bindings(&handle)
-            .is_none()
-    );
+    assert!(state.transaction().get_bindings(&handle).is_none());
     state.run(&[(handle.dupe(), Require::Errors)], Require::Exports, None);
     assert_eq!(
         state
             .transaction()
-            .readable()
             .get_loads([&handle])
             .collect_errors(&ErrorConfigs::default())
             .shown
             .len(),
         1
     );
-    assert!(
-        state
-            .transaction()
-            .readable()
-            .get_bindings(&handle)
-            .is_none()
-    );
+    assert!(state.transaction().get_bindings(&handle).is_none());
     state.run(
         &[(handle.dupe(), Require::Everything)],
         Require::Exports,
@@ -458,18 +439,11 @@ fn test_change_require() {
     assert_eq!(
         state
             .transaction()
-            .readable()
             .get_loads([&handle])
             .collect_errors(&ErrorConfigs::default())
             .shown
             .len(),
         1
     );
-    assert!(
-        state
-            .transaction()
-            .readable()
-            .get_bindings(&handle)
-            .is_some()
-    );
+    assert!(state.transaction().get_bindings(&handle).is_some());
 }

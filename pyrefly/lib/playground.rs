@@ -245,7 +245,6 @@ impl LanguageServiceState {
     pub fn get_errors(&self) -> Vec<Diagnostic> {
         self.state
             .transaction()
-            .readable()
             .get_loads([&self.handle])
             .collect_errors(&ErrorConfigs::default())
             .shown
@@ -267,12 +266,11 @@ impl LanguageServiceState {
 
     pub fn query_type(&mut self, line: i32, column: i32) -> Option<TypeQueryResult> {
         let handle = self.handle.dupe();
-        self.state
-            .transaction()
-            .readable()
+        let transaction = self.state.transaction();
+        transaction
             .get_module_info(&handle)
             .map(|info| info.to_text_size((line - 1) as u32, (column - 1) as u32))
-            .and_then(|position| self.state.transaction().hover(&handle, position))
+            .and_then(|position| transaction.hover(&handle, position))
             .map(|t| t.to_string())
             .map(|result| TypeQueryResult {
                 contents: vec![TypeQueryContent {
@@ -284,12 +282,11 @@ impl LanguageServiceState {
 
     pub fn goto_definition(&mut self, line: i32, column: i32) -> Option<Range> {
         let handle = self.handle.dupe();
-        self.state
-            .transaction()
-            .readable()
+        let transaction = self.state.transaction();
+        transaction
             .get_module_info(&handle)
             .map(|info| info.to_text_size((line - 1) as u32, (column - 1) as u32))
-            .and_then(|position| self.state.transaction().goto_definition(&handle, position))
+            .and_then(|position| transaction.goto_definition(&handle, position))
             .map(|range_with_mod_info| {
                 Range::new(
                     range_with_mod_info
@@ -301,13 +298,12 @@ impl LanguageServiceState {
 
     pub fn autocomplete(&mut self, line: i32, column: i32) -> Vec<AutoCompletionItem> {
         let handle = self.handle.dupe();
-        self.state
-            .transaction()
-            .readable()
+        let transaction = self.state.transaction();
+        transaction
             .get_module_info(&handle)
             .map(|info| info.to_text_size((line - 1) as u32, (column - 1) as u32))
             .map_or(Vec::new(), |position| {
-                self.state.transaction().completion(&handle, position)
+                transaction.completion(&handle, position)
             })
             .into_iter()
             .map(
@@ -331,7 +327,6 @@ impl LanguageServiceState {
         let handle = self.handle.dupe();
         let transaction = self.state.transaction();
         transaction
-            .readable()
             .get_module_info(&handle)
             .zip(transaction.inlay_hints(&handle))
             .map(|(info, hints)| {
