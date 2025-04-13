@@ -153,6 +153,13 @@ impl TypeCheckKind {
                     function_suffix(func_id.as_ref(), current_module),
                 )
             }
+            Self::CallUnpackKwArg(param, func_id) => format!(
+                "Unpacked keyword argument `{}` is not assignable to parameter `{}` with type `{}`{}",
+                ctx.display(got),
+                param,
+                ctx.display(want),
+                function_suffix(func_id.as_ref(), current_module),
+            ),
             Self::FunctionParameterDefault(param) => format!(
                 "Default `{}` is not assignable to parameter `{}` with type `{}`",
                 ctx.display(got),

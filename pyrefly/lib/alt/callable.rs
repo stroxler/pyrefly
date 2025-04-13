@@ -691,11 +691,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 for (ty, range) in &splat_kwargs {
                     self.check_type(want, ty, *range, call_errors, &|| TypeCheckContext {
-                        kind: TypeCheckKind::CallKwArgs(
-                            None,
-                            Some(name.clone()),
-                            callable_name.clone(),
-                        ),
+                        kind: TypeCheckKind::CallUnpackKwArg(name.clone(), callable_name.clone()),
                         context: context.map(|ctx| ctx()),
                     });
                 }

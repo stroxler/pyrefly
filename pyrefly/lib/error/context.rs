@@ -96,6 +96,8 @@ pub enum TypeCheckKind {
     CallUnpackVarArgs(Option<Name>, Option<FuncId>),
     /// Keyword argument against parameter or **kwargs type, as (argument name, parameter name, function name).
     CallKwArgs(Option<Name>, Option<Name>, Option<FuncId>),
+    /// Unpacked keyword argument against named parameter.
+    CallUnpackKwArg(Name, Option<FuncId>),
     /// Check of a parameter's default value against its type annotation.
     FunctionParameterDefault(Name),
     /// Check against type of a TypedDict key.
@@ -148,6 +150,7 @@ impl TypeCheckKind {
             Self::CallVarArgs(..) => ErrorKind::BadArgumentType,
             Self::CallUnpackVarArgs(..) => ErrorKind::BadArgumentType,
             Self::CallKwArgs(..) => ErrorKind::BadArgumentType,
+            Self::CallUnpackKwArg(..) => ErrorKind::BadArgumentType,
             Self::FunctionParameterDefault(..) => ErrorKind::BadFunctionDefinition,
             Self::TypedDictKey(..) => ErrorKind::TypedDictKeyError,
             Self::TypedDictUnpacking => ErrorKind::BadUnpacking,
