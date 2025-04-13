@@ -81,7 +81,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         | Param::Pos(_, _, Required::Optional)
                         | Param::KwOnly(_, _, Required::Optional)
                         | Param::VarArg(_, _)
-                        | Param::Kwargs(_),
+                        | Param::Kwargs(_, _),
                     ),
                     None,
                 ) => return true,
@@ -213,7 +213,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         return false;
                     }
                 }
-                (Some(_), Some(Param::KwOnly(_, _, _) | Param::Kwargs(_))) => {
+                (Some(_), Some(Param::KwOnly(_, _, _) | Param::Kwargs(_, _))) => {
                     break;
                 }
                 _ => return false,
@@ -226,7 +226,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 Param::KwOnly(name, ty, required) | Param::Pos(name, ty, required) => {
                     l_keywords.insert(name.clone(), (ty.clone(), *required));
                 }
-                Param::Kwargs(ty) => l_kwargs = Some(ty.clone()),
+                Param::Kwargs(_, ty) => l_kwargs = Some(ty.clone()),
                 _ => (),
             }
         }
@@ -237,7 +237,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 Param::KwOnly(name, ty, required) => {
                     u_keywords.insert(name.clone(), (ty.clone(), *required));
                 }
-                Param::Kwargs(ty) => u_kwargs = Some(ty.clone()),
+                Param::Kwargs(_, ty) => u_kwargs = Some(ty.clone()),
                 _ => (),
             }
         }

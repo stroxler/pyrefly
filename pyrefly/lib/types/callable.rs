@@ -109,7 +109,7 @@ impl ParamList {
     pub fn everything() -> ParamList {
         ParamList(vec![
             Param::VarArg(None, Type::any_implicit()),
-            Param::Kwargs(Type::any_implicit()),
+            Param::Kwargs(None, Type::any_implicit()),
         ])
     }
 }
@@ -134,7 +134,7 @@ pub enum Param {
     Pos(Name, Type, Required),
     VarArg(Option<Name>, Type),
     KwOnly(Name, Type, Required),
-    Kwargs(Type),
+    Kwargs(Option<Name>, Type),
 }
 
 #[derive(
@@ -434,7 +434,8 @@ impl Param {
             Param::VarArg(Some(name), ty) => write!(f, "*{}: {}", name, wrap(ty)),
             Param::VarArg(None, ty) => write!(f, "*{}", wrap(ty)),
             Param::KwOnly(name, ty, _required) => write!(f, "{}: {}", name, wrap(ty)),
-            Param::Kwargs(ty) => write!(f, "**{}", wrap(ty)),
+            Param::Kwargs(Some(name), ty) => write!(f, "**{}: {}", name, wrap(ty)),
+            Param::Kwargs(None, ty) => write!(f, "**{}", wrap(ty)),
         }
     }
 
@@ -454,7 +455,7 @@ impl Param {
             | Param::Pos(_, ty, _)
             | Param::VarArg(_, ty)
             | Param::KwOnly(_, ty, _)
-            | Param::Kwargs(ty) => ty.subst_self_type_mut(replacement),
+            | Param::Kwargs(_, ty) => ty.subst_self_type_mut(replacement),
         }
     }
 }

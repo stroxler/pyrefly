@@ -138,7 +138,7 @@
     "Line 67: Expected 1 errors",
     "Line 184: Expected 1 errors",
     "Line 195: Expected 1 errors",
-    "Line 62: Unexpected errors ['Argument `type[Class3]` is not assignable to parameter `cb` with type `(*args: Unknown, **Unknown) -> Self@Class3` in function `accepts_callable`']",
+    "Line 62: Unexpected errors ['Argument `type[Class3]` is not assignable to parameter `cb` with type `(*args: Unknown, **kwargs: Unknown) -> Self@Class3` in function `accepts_callable`']",
     "Line 64: Unexpected errors ['assert_type(Self, Class3) failed']",
     "Line 164: Unexpected errors ['assert_type(Class7[Any], Class7[int]) failed']",
     "Line 165: Unexpected errors ['assert_type(Class7[Any], Class7[str]) failed', \"Argument `Literal['']` is not assignable to parameter `x` with type `int`\"]",

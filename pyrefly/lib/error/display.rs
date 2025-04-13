@@ -141,7 +141,7 @@ impl TypeCheckKind {
                     None => "Unpacked keyword argument".to_owned(),
                 };
                 let param_desc = match param {
-                    Some(param) => format!("parameter `{param}` with type"),
+                    Some(param) => format!("parameter `**{param}` with type"),
                     None => "kwargs type".to_owned(),
                 };
                 format!(

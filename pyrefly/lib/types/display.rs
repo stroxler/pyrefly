@@ -533,6 +533,17 @@ pub mod tests {
     }
 
     #[test]
+    fn test_display_args_kwargs_callable() {
+        let args = Param::VarArg(Some(Name::new_static("my_args")), Type::any_implicit());
+        let kwargs = Param::Kwargs(Some(Name::new_static("my_kwargs")), Type::any_implicit());
+        let callable = Callable::list(ParamList::new(vec![args, kwargs]), Type::None);
+        assert_eq!(
+            Type::Callable(Box::new(callable)).to_string(),
+            "(*my_args: Unknown, **my_kwargs: Unknown) -> None"
+        );
+    }
+
+    #[test]
     fn test_display_generic_typeddict() {
         let cls = fake_class("C", "test", 0, Vec::new());
         let t = Type::None;

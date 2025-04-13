@@ -319,7 +319,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if let Type::Kwargs(q) = &ty {
                 paramspec_kwargs = Some(q.clone());
             }
-            Param::Kwargs(ty)
+            Param::Kwargs(Some(x.name.id().clone()), ty)
         }));
         let ret = self
             .get(&Key::ReturnType(ShortIdentifier::new(&def.name)))
@@ -359,7 +359,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             params = params
                 .into_iter()
                 .map(|p| match p {
-                    Param::Kwargs(Type::Kwargs(_)) => Param::Kwargs(Type::any_error()),
+                    Param::Kwargs(name, Type::Kwargs(_)) => Param::Kwargs(name, Type::any_error()),
                     Param::VarArg(name, Type::Args(_)) => Param::VarArg(name, Type::any_error()),
                     _ => p,
                 })
@@ -368,7 +368,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             params = params
                 .into_iter()
                 .filter_map(|p| match p {
-                    Param::Kwargs(Type::Kwargs(_)) | Param::VarArg(_, Type::Args(_)) => None,
+                    Param::Kwargs(_, Type::Kwargs(_)) | Param::VarArg(_, Type::Args(_)) => None,
                     _ => Some(p),
                 })
                 .collect();

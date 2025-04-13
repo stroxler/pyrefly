@@ -294,7 +294,7 @@ testcase!(
     test_kwargs,
     r#"
 def test(**kwargs: int): ...
-test(x=1, y="foo", z=2) # E: Keyword argument `y` with type `Literal['foo']` is not assignable to kwargs type `int` in function `test`
+test(x=1, y="foo", z=2) # E: Keyword argument `y` with type `Literal['foo']` is not assignable to parameter `**kwargs` with type `int` in function `test`
 "#,
 );
 
@@ -494,7 +494,7 @@ def f(**kwargs: int): ...
 def g(**kwargs: str): ...
 def test(kwargs: dict[str, int]):
     f(**kwargs) # OK
-    g(**kwargs) # E: Unpacked keyword argument `int` is not assignable to kwargs type `str` in function `g`
+    g(**kwargs) # E: Unpacked keyword argument `int` is not assignable to parameter `**kwargs` with type `str` in function `g`
 "#,
 );
 
@@ -590,9 +590,9 @@ class P2(Protocol):
     def __call__(self, *, v1: int) -> None: ...
 class P3(Protocol):
     def __call__(self, *, v1: int, v2: str, v4: str) -> None: ...
-x: P1 = func1  # E: `(**Unpack[TypedDict[TD]]) -> None` is not assignable to `P1`
-y: P2 = func1  # E: `(**Unpack[TypedDict[TD]]) -> None` is not assignable to `P2`
-z: P3 = func1  # E: `(**Unpack[TypedDict[TD]]) -> None` is not assignable to `P3`
+x: P1 = func1  # E: `(**kwargs: Unpack[TypedDict[TD]]) -> None` is not assignable to `P1`
+y: P2 = func1  # E: `(**kwargs: Unpack[TypedDict[TD]]) -> None` is not assignable to `P2`
+z: P3 = func1  # E: `(**kwargs: Unpack[TypedDict[TD]]) -> None` is not assignable to `P3`
 "#,
 );
 

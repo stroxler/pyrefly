@@ -505,7 +505,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Param::Pos(name, ty, required) | Param::KwOnly(name, ty, required) => {
                     kwparams.insert(name.clone(), (ty, required == Required::Required));
                 }
-                Param::Kwargs(Type::Unpack(box Type::TypedDict(typed_dict))) => {
+                Param::Kwargs(_, Type::Unpack(box Type::TypedDict(typed_dict))) => {
                     let i = kwargs_typed_dict_fields_vec.push(self.typed_dict_fields(&typed_dict));
                     kwargs_typed_dict_fields_vec[i]
                         .iter()
@@ -514,8 +514,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         });
                     kwargs_is_unpack = true;
                 }
-                Param::Kwargs(ty) => {
-                    kwargs = Some(ty);
+                Param::Kwargs(name, ty) => {
+                    kwargs = Some((name, ty));
                 }
             }
         }
@@ -540,7 +540,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.typed_dict_fields(&typed_dict)
                             .iter()
                             .for_each(|(name, field)| {
-                                let mut hint = kwargs.clone();
+                                let mut hint = kwargs.as_ref().map(|(_, ty)| ty.clone());
                                 if let Some(ty) = seen_names.get(name) {
                                     error(
                                         call_errors,
@@ -592,7 +592,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     &self.stdlib.str().clone().to_type(),
                                     self.type_order(),
                                 ) {
-                                    kwargs.iter().for_each(|want| {
+                                    if let Some((name, want)) = kwargs.as_ref() {
                                         self.check_type(
                                             want,
                                             &value,
@@ -601,13 +601,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             &|| TypeCheckContext {
                                                 kind: TypeCheckKind::CallKwArgs(
                                                     None,
-                                                    None,
+                                                    name.clone(),
                                                     callable_name.clone(),
                                                 ),
                                                 context: context.map(|ctx| ctx()),
                                             },
                                         );
-                                    });
+                                    };
                                     splat_kwargs.push((value, kw.range));
                                 } else {
                                     error(
@@ -636,7 +636,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 Some(id) => {
-                    let mut hint = kwargs.clone();
+                    let mut hint = kwargs.as_ref().map(|(_, ty)| ty.clone());
                     let mut has_matching_param = false;
                     if let Some(ty) = seen_names.get(&id.id) {
                         error(
@@ -665,7 +665,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         } else {
                             TypeCheckKind::CallKwArgs(
                                 Some(id.id.clone()),
-                                None,
+                                kwargs.as_ref().and_then(|(name, _)| name.clone()),
                                 callable_name.clone(),
                             )
                         },
