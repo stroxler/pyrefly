@@ -920,6 +920,22 @@ def f(cond: bool):
 
 testcase!(
     bug = "There should not be any errors",
+    test_loop_test_and_increment_return,
+    r#"
+from typing import assert_type, Literal
+
+def f(cond: bool):
+    n = 1
+    while cond:
+        n += 1
+    return n
+
+assert_type(f(True), Literal[1] | int) # E: assert_type(Literal[1] | Any, Literal[1] | int)
+"#,
+);
+
+testcase!(
+    bug = "There should not be any errors",
     test_augassign_in_loop,
     r#"
 def f(args, cond):
