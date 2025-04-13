@@ -295,6 +295,61 @@ pub struct TransactionChanges<'a> {
     committing_transaction_guard: MutexGuard<'a, ()>,
 }
 
+/// `TransactionSavedState` contains most of the information in `RunningTransaction`, but it doesn't lock
+/// the read of `State`.
+/// It is used to store uncommitted transaction state in between transaction runs.
+pub struct TransactionSavedState<'a> {
+    threads: &'a ThreadPool,
+    uniques: &'a UniqueFactory,
+    readable: &'a RwLock<ReadableState>,
+    stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
+    updated_modules: LockedMap<Handle, ArcId<ModuleData>>,
+    additional_loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
+    require: RequireDefault,
+    now: Epoch,
+    todo: TaskHeap<Step, ArcId<ModuleData>>,
+    changed: Mutex<Vec<ArcId<ModuleData>>>,
+    /// Handles which are dirty
+    dirty: Mutex<SmallSet<ArcId<ModuleData>>>,
+    subscriber: Option<Box<dyn Subscriber>>,
+}
+
+impl<'a> TransactionSavedState<'a> {
+    #[expect(dead_code)]
+    pub fn into_running(self) -> Transaction<'a> {
+        let Self {
+            threads,
+            uniques,
+            readable,
+            stdlib,
+            updated_modules,
+            additional_loaders,
+            now,
+            require,
+            todo,
+            changed,
+            dirty,
+            subscriber,
+        } = self;
+        let locked_readable = readable.read();
+        Transaction {
+            threads,
+            uniques,
+            readable_ref: readable,
+            readable: locked_readable,
+            stdlib,
+            updated_modules,
+            additional_loaders,
+            now,
+            require,
+            todo,
+            changed,
+            dirty,
+            subscriber,
+        }
+    }
+}
+
 /// `Transaction` is a collection of state that's only relevant during a type checking job.
 /// Most importantly, it holds `updated_modules`, which contains module information that are copied
 /// over from main state, potentially with updates as a result of recheck.
@@ -303,6 +358,7 @@ pub struct TransactionChanges<'a> {
 pub struct Transaction<'a> {
     threads: &'a ThreadPool,
     uniques: &'a UniqueFactory,
+    readable_ref: &'a RwLock<ReadableState>,
     readable: RwLockReadGuard<'a, ReadableState>,
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleData>>,
@@ -323,6 +379,40 @@ pub struct Transaction<'a> {
 }
 
 impl<'a> Transaction<'a> {
+    #[expect(dead_code)]
+    pub fn into_saved_state(self) -> TransactionSavedState<'a> {
+        let Self {
+            threads,
+            uniques,
+            readable_ref,
+            readable,
+            stdlib,
+            updated_modules,
+            additional_loaders,
+            now,
+            require,
+            todo,
+            changed,
+            dirty,
+            subscriber,
+        } = self;
+        drop(readable);
+        TransactionSavedState {
+            threads,
+            uniques,
+            readable: readable_ref,
+            stdlib,
+            updated_modules,
+            additional_loaders,
+            require,
+            now,
+            todo,
+            changed,
+            dirty,
+            subscriber,
+        }
+    }
+
     pub fn readable(&self) -> &ReadableState {
         &self.readable
     }
@@ -1220,6 +1310,7 @@ impl State {
         Transaction {
             threads: &self.threads,
             uniques: &self.uniques,
+            readable_ref: &self.state,
             readable,
             stdlib,
             updated_modules: Default::default(),
