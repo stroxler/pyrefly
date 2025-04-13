@@ -145,14 +145,13 @@ impl<'a> Transaction<'a> {
         if gas <= 0 {
             return None;
         }
+        gas -= 1;
         let bindings = self.readable().get_bindings(handle)?;
         match binding {
-            Binding::Forward(k) => self.key_to_definition(handle, bindings.idx_to_key(*k), gas - 1),
-            Binding::Phi(ks, _) if !ks.is_empty() => self.key_to_definition(
-                handle,
-                bindings.idx_to_key(*ks.iter().next().unwrap()),
-                gas - 1,
-            ),
+            Binding::Forward(k) => self.key_to_definition(handle, bindings.idx_to_key(*k), gas),
+            Binding::Phi(ks, _) if !ks.is_empty() => {
+                self.key_to_definition(handle, bindings.idx_to_key(*ks.iter().next().unwrap()), gas)
+            }
             Binding::Import(mut m, name) => {
                 while gas > 0 {
                     let handle = self.import_handle(handle, m, None).ok()?;
@@ -173,7 +172,7 @@ impl<'a> Transaction<'a> {
             )),
             Binding::CheckLegacyTypeParam(k, _) => {
                 let binding = bindings.get(*k);
-                self.key_to_definition(handle, bindings.idx_to_key(binding.0), gas - 1)
+                self.key_to_definition(handle, bindings.idx_to_key(binding.0), gas)
             }
             _ => None,
         }
