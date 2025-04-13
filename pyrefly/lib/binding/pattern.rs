@@ -77,11 +77,7 @@ impl<'a> BindingsBuilder<'a> {
                                 let position = UnpackedPosition::Slice(idx, num_patterns - idx - 1);
                                 self.bind_definition(
                                     name,
-                                    Binding::UnpackedValue(
-                                        Box::new(Binding::Forward(key)),
-                                        p.range,
-                                        position,
-                                    ),
+                                    Binding::UnpackedValue(key, p.range, position),
                                     None,
                                 );
                             }
@@ -95,11 +91,7 @@ impl<'a> BindingsBuilder<'a> {
                             };
                             let key = self.table.insert(
                                 Key::Anon(x.range()),
-                                Binding::UnpackedValue(
-                                    Box::new(Binding::Forward(key)),
-                                    x.range(),
-                                    position,
-                                ),
+                                Binding::UnpackedValue(key, x.range(), position),
                             );
                             narrow_ops.and_all(self.bind_pattern(None, x, key));
                         }
@@ -112,7 +104,7 @@ impl<'a> BindingsBuilder<'a> {
                 };
                 self.table.insert(
                     KeyExpect(x.range),
-                    BindingExpect::UnpackedLength(Box::new(Binding::Forward(key)), x.range, expect),
+                    BindingExpect::UnpackedLength(key, x.range, expect),
                 );
                 narrow_ops
             }

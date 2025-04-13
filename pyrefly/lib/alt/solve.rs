@@ -1068,8 +1068,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             },
             BindingExpect::UnpackedLength(b, range, expect) => {
-                let iterable_ty = self.binding_to_type(b, errors);
-                let iterables = self.iterate(&iterable_ty, *range, errors);
+                let iterable_ty = self.get_idx(*b);
+                let iterables = self.iterate(iterable_ty.ty(), *range, errors);
                 for iterable in iterables {
                     match iterable {
                         Iterable::OfType(_) => {}
@@ -2117,7 +2117,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::UnpackedValue(b, range, pos) => {
-                let iterables = self.iterate(&self.binding_to_type(b, errors), *range, errors);
+                let iterables = self.iterate(self.get_idx(*b).ty(), *range, errors);
                 let mut values = Vec::new();
                 for iterable in iterables {
                     values.push(match iterable {

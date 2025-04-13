@@ -26,6 +26,9 @@ impl<'a> BindingsBuilder<'a> {
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
         range: TextRange,
     ) {
+        // We are going to use this binding many times, so compute it once.
+        let key = self.table.insert(Key::Unpack(range), make_binding(None));
+
         // An unpacking has zero or one splats (starred expressions).
         let mut splat = false;
         for (i, e) in elts.iter().enumerate() {
@@ -35,11 +38,7 @@ impl<'a> BindingsBuilder<'a> {
                     // Counts how many elements are after the splat.
                     let j = elts.len() - i - 1;
                     let make_nested_binding = |_: Option<Idx<KeyAnnotation>>| {
-                        Binding::UnpackedValue(
-                            Box::new(make_binding(None)),
-                            range,
-                            UnpackedPosition::Slice(i, j),
-                        )
+                        Binding::UnpackedValue(key, range, UnpackedPosition::Slice(i, j))
                     };
                     self.bind_target(&e.value, &make_nested_binding, None);
                 }
@@ -51,9 +50,8 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         UnpackedPosition::Index(i)
                     };
-                    let make_nested_binding = |_: Option<Idx<KeyAnnotation>>| {
-                        Binding::UnpackedValue(Box::new(make_binding(None)), range, idx)
-                    };
+                    let make_nested_binding =
+                        |_: Option<Idx<KeyAnnotation>>| Binding::UnpackedValue(key, range, idx);
                     self.bind_target(e, &make_nested_binding, None);
                 }
             }
@@ -65,7 +63,7 @@ impl<'a> BindingsBuilder<'a> {
         };
         self.table.insert(
             KeyExpect(range),
-            BindingExpect::UnpackedLength(Box::new(make_binding(None)), range, expect),
+            BindingExpect::UnpackedLength(key, range, expect),
         );
     }
 

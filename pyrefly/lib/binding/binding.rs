@@ -186,6 +186,8 @@ pub enum Key {
     Anywhere(Name, TextRange),
     /// Result of a super() call
     SuperInstance(TextRange),
+    /// The intermediate used in an unpacking assignment.
+    Unpack(TextRange),
 }
 
 impl Ranged for Key {
@@ -204,6 +206,7 @@ impl Ranged for Key {
             Self::Narrow(_, r, _) => *r,
             Self::Anywhere(_, r) => *r,
             Self::SuperInstance(r) => *r,
+            Self::Unpack(r) => *r,
         }
     }
 }
@@ -226,6 +229,7 @@ impl DisplayWith<ModuleInfo> for Key {
                 write!(f, "return implicit {} {:?}", ctx.display(x), x.range())
             }
             Self::SuperInstance(r) => write!(f, "super {r:?}"),
+            Self::Unpack(r) => write!(f, "unpack {r:?}"),
         }
     }
 }
@@ -263,7 +267,7 @@ pub enum BindingExpect {
     /// An expression where we need to check for type errors, but don't need the result type.
     TypeCheckExpr(Box<Expr>),
     /// The expected number of values in an unpacked iterable expression.
-    UnpackedLength(Box<Binding>, TextRange, SizeExpectation),
+    UnpackedLength(Idx<Key>, TextRange, SizeExpectation),
     /// An exception and its cause from a raise statement.
     CheckRaisedException(RaisedException),
     /// An expectation that the types are identical, with an associated name for error messages.
@@ -294,7 +298,7 @@ impl DisplayWith<Bindings> for BindingExpect {
                     f,
                     "expect length {} for {} {:?}",
                     expectation,
-                    x.display_with(ctx),
+                    ctx.display(*x),
                     range
                 )
             }
@@ -713,7 +717,7 @@ pub enum Binding {
     ContextValue(Option<Idx<KeyAnnotation>>, Idx<Key>, TextRange, IsAsync),
     /// A value at a specific position in an unpacked iterable expression.
     /// Example: UnpackedValue(('a', 'b')), 1) represents 'b'.
-    UnpackedValue(Box<Binding>, TextRange, UnpackedPosition),
+    UnpackedValue(Idx<Key>, TextRange, UnpackedPosition),
     /// A subscript expression and the value assigned to it
     SubscriptValue(Box<Binding>, ExprSubscript),
     /// A type where we have an annotation, but also a type we computed.
@@ -881,7 +885,7 @@ impl DisplayWith<Bindings> for Binding {
                         format!("{}:{}", i, end)
                     }
                 };
-                write!(f, "unpack {} {:?} @ {}", x.display_with(ctx), range, pos)
+                write!(f, "unpack {} {:?} @ {}", ctx.display(*x), range, pos)
             }
             Self::Function(x, _pred, _class) => write!(f, "{}", ctx.display(*x)),
             Self::Import(m, n) => write!(f, "import {m}.{n}"),
