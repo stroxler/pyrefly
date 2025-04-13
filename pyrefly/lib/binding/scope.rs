@@ -190,7 +190,8 @@ pub enum FlowStyle {
 }
 
 impl FlowStyle {
-    pub fn error_message(&self, name: &Identifier) -> Option<String> {
+    /// Produce an error message for an uninitialized or unbound variable.
+    pub fn uninitialized_error_message(&self, name: &Identifier) -> Option<String> {
         match self {
             Self::Unbound => Some(format!("`{name}` is unbound")),
             Self::Uninitialized => Some(format!("`{name}` is uninitialized")),
