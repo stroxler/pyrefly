@@ -91,7 +91,7 @@ import typing
 #        ^
 "#;
     let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
-    // todo(kylei): The result should be `Module[typing]`
+    // TODO(kylei): The result should be `Module[typing]`
     assert_eq!(
         r#"
 # main.py
