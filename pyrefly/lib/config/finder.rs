@@ -193,6 +193,7 @@ mod tests {
         }
 
         let asked = mem::take(&mut *loaded.lock());
+        let asked = asked.map(|x| x.replace('\\', "/"));
         let asked = asked.map(|x| x.as_str());
         assert_eq!(asked, expect);
     }
