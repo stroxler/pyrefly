@@ -955,3 +955,36 @@ def f(args, cond):
             n += 1
 "#,
 );
+
+testcase!(
+    bug = "Should not infer Any",
+    test_nested_loops_return,
+    r#"
+from typing import assert_type, Literal
+
+def f(cond1: bool, cond2: bool):
+    n = 0
+    while cond1:
+        while cond2:
+            n += 1
+    return n
+
+assert_type(f(True, True), Literal[0] | int) # E: assert_type(Literal[0] | Any, Literal[0] | int) failed
+"#,
+);
+
+testcase!(
+    test_augassign_in_loop_return,
+    r#"
+from typing import assert_type, Literal
+
+def f(args, cond):
+    n = 0
+    for arg in args:
+        if cond:
+            n += 1
+    return n
+
+assert_type(f([1, 2, 3], True), Literal[0] | int)
+"#,
+);
