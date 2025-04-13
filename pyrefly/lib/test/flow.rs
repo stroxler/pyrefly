@@ -935,25 +935,23 @@ assert_type(f(True), Literal[1] | int) # E: assert_type(Literal[1] | Any, Litera
 );
 
 testcase!(
-    bug = "There should not be any errors",
     test_nested_loops,
     r#"
 def f(cond1: bool, cond2: bool):
     n = 0
     while cond1:
         while cond2:
-            n += 1 # E: `+=` is not supported between `Literal[0] | @_` and `Literal[1]`
+            n += 1
 "#,
 );
 
 testcase!(
-    bug = "There should not be any errors",
     test_augassign_in_loop,
     r#"
 def f(args, cond):
     n = 0
     for arg in args:
         if cond:
-            n += 1 # E: `+=` is not supported between `Literal[0] | Unknown` and `Literal[1]`
-    "#,
+            n += 1
+"#,
 );

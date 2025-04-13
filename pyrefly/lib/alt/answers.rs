@@ -682,6 +682,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::Union(tys)) => {
                 tys.iter().for_each(|ty| f(&Type::type_form(ty.clone())))
             }
+            Type::Var(v) if let Some(_guard) = self.recurser.recurse(*v) => {
+                self.map_over_union(&self.solver().force_var(*v), f)
+            }
             _ => f(ty),
         }
     }
