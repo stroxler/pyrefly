@@ -399,7 +399,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                     x => {
-                        self.todo(errors, "expr_infer, Callable type", x);
+                        self.error(
+                            errors,
+                            x.range(),
+                            ErrorKind::InvalidSyntax,
+                            None,
+                            "Invalid Callable type".to_owned(),
+                        );
                         Type::type_form(Type::callable_ellipsis(Type::any_error()))
                     }
                 }

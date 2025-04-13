@@ -10,7 +10,6 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use dupe::Dupe;
-use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use vec1::vec1;
 
@@ -187,27 +186,6 @@ impl ErrorCollector {
             shown,
             suppressed,
             disabled,
-        }
-    }
-
-    pub fn todo(&self, msg: &str, v: impl Ranged + Debug) {
-        let s = format!("{v:?}");
-        if s == format!("{:?}", v.range()) {
-            // The v is just a range, so don't add the constructor
-            self.add(
-                v.range(),
-                format!("TODO: {msg}"),
-                ErrorKind::Unsupported,
-                None,
-            );
-        } else {
-            let prefix = s.split_once(' ').map_or(s.as_str(), |x| x.0);
-            self.add(
-                v.range(),
-                format!("TODO: {prefix} - {msg}"),
-                ErrorKind::Unsupported,
-                None,
-            );
         }
     }
 }

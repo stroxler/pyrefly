@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
@@ -695,11 +694,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn union(&self, x: Type, y: Type) -> Type {
         self.unions(vec![x, y])
-    }
-
-    pub fn todo(&self, errors: &ErrorCollector, msg: &str, x: impl Ranged + Debug) -> Type {
-        errors.todo(msg, x);
-        Type::any_error()
     }
 
     pub fn error(
