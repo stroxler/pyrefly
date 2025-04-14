@@ -55,6 +55,7 @@ fn run_test_lsp(test_case: TestCase) {
                 }
                 match language_client_receiver.recv_timeout(timeout) {
                     Ok(msg) => {
+                        eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
                         match msg {
                             Message::Response(_) => {
                                 assert_eq!(
@@ -90,6 +91,7 @@ fn run_test_lsp(test_case: TestCase) {
                 .messages_from_language_client
                 .iter()
                 .for_each(|msg| {
+                    eprintln!("client--->server {}", serde_json::to_string(&msg).unwrap());
                     if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout) {
                         panic!("Failed to send message to language server: {:?}", err);
                     }
