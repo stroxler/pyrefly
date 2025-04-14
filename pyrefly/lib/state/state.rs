@@ -58,6 +58,7 @@ use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::report::debug_info::DebugInfo;
+use crate::report::glean::schema::Glean;
 use crate::state::dirty::Dirty;
 use crate::state::epoch::Epoch;
 use crate::state::epoch::Epochs;
@@ -218,6 +219,16 @@ impl ReadableState {
         DebugInfo::new(
             &owned.map(|x| (&x.0.module_info, &x.0.errors, &x.1.0, &*x.2)),
             error_configs,
+        )
+    }
+
+    pub fn glean(&self, handle: &Handle) -> Glean {
+        let steps = &self.modules.get(handle).unwrap().state.steps;
+        Glean::new(
+            &steps.load.as_ref().unwrap().module_info,
+            steps.ast.as_deref().unwrap(),
+            &steps.answers.as_ref().unwrap().0,
+            steps.solutions.as_deref().unwrap(),
         )
     }
 

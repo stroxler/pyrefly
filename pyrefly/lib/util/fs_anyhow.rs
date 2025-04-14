@@ -26,3 +26,8 @@ pub fn write(path: &Path, contents: &[u8]) -> Result<(), anyhow::Error> {
 pub fn read_dir(path: &Path) -> anyhow::Result<ReadDir> {
     fs::read_dir(path).with_context(|| format!("When reading directory `{}`", path.display()))
 }
+
+pub fn create_dir_all(path: &Path) -> anyhow::Result<()> {
+    fs::create_dir_all(path)
+        .with_context(|| format!("When creating directory `{}`", path.display()))
+}

@@ -105,6 +105,9 @@ pub struct Args {
     /// Process each module individually to figure out how long each step takes.
     #[clap(long, env = clap_env("REPORT_TIMINGS"))]
     report_timings: Option<PathBuf>,
+    /// Generate a Glean-compatible JSON file for each module
+    #[clap(long, env = clap_env("REPORT_GLEAN"))]
+    report_glean: Option<PathBuf>,
     /// Count the number of each error kind. Prints the top N errors, sorted by count, or all errors if N is not specified.
     #[clap(
         long,
@@ -436,7 +439,8 @@ impl Args {
     fn get_required_levels(&self) -> RequireLevels {
         let retain = self.report_binding_memory.is_some()
             || self.debug_info.is_some()
-            || self.report_trace.is_some();
+            || self.report_trace.is_some()
+            || self.report_glean.is_some();
         RequireLevels {
             specified: if retain {
                 Require::Everything
@@ -517,6 +521,16 @@ impl Args {
                 output = format!("var data = {output}");
             }
             fs_anyhow::write(debug_info, output.as_bytes())?;
+        }
+        if let Some(glean) = &self.report_glean {
+            fs_anyhow::create_dir_all(glean)?;
+            for (handle, _) in handles {
+                let output = serde_json::to_string_pretty(&readable_state.glean(handle))?;
+                fs_anyhow::write(
+                    &glean.join(format!("{}.json", handle.module())),
+                    output.as_bytes(),
+                )?;
+            }
         }
         if let Some(path) = &self.report_binding_memory {
             fs_anyhow::write(

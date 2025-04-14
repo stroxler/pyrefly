@@ -5,7 +5,5 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-pub mod binding_memory;
-pub mod debug_info;
-pub mod glean;
-pub mod trace;
+pub mod convert;
+pub mod schema;
