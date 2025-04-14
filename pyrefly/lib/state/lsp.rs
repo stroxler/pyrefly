@@ -27,8 +27,11 @@ use crate::state::handle::Handle;
 use crate::state::state::Transaction;
 use crate::types::module::Module;
 use crate::types::types::Type;
+use crate::util::gas::Gas;
 use crate::util::prelude::VecExt;
 use crate::util::visit::Visit;
+
+const INITIAL_GAS: Gas = Gas::new(20);
 
 impl<'a> Transaction<'a> {
     fn get_type(&self, handle: &Handle, key: &Key) -> Option<Type> {
@@ -116,7 +119,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         key: &Key,
-        gas: isize,
+        gas: Gas,
     ) -> Option<(Handle, TextRange)> {
         let bindings = self.get_bindings(handle)?;
         let idx = bindings.key_to_idx(key);
@@ -138,12 +141,11 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         binding: &Binding,
-        mut gas: isize,
+        mut gas: Gas,
     ) -> Option<(Handle, TextRange)> {
-        if gas <= 0 {
+        if gas.stop() {
             return None;
         }
-        gas -= 1;
         let bindings = self.get_bindings(handle)?;
         match binding {
             Binding::Forward(k) => self.key_to_definition(handle, bindings.idx_to_key(*k), gas),
@@ -151,7 +153,7 @@ impl<'a> Transaction<'a> {
                 self.key_to_definition(handle, bindings.idx_to_key(*ks.iter().next().unwrap()), gas)
             }
             Binding::Import(mut m, name) => {
-                while gas > 0 {
+                while !gas.stop() {
                     let handle = self.import_handle(handle, m, None).ok()?;
                     match self.get_exports(&handle).get(name) {
                         Some(ExportLocation::ThisModule(range)) => {
@@ -160,7 +162,6 @@ impl<'a> Transaction<'a> {
                         Some(ExportLocation::OtherModule(module)) => m = *module,
                         None => return None,
                     }
-                    gas -= 1;
                 }
                 None
             }
@@ -182,7 +183,7 @@ impl<'a> Transaction<'a> {
         position: TextSize,
     ) -> Option<TextRangeWithModuleInfo> {
         if let Some(key) = self.definition_at(handle, position) {
-            let (handle, range) = self.key_to_definition(handle, &key, 20)?;
+            let (handle, range) = self.key_to_definition(handle, &key, INITIAL_GAS)?;
             return Some(TextRangeWithModuleInfo::new(
                 self.get_module_info(&handle)?,
                 range,
@@ -192,8 +193,11 @@ impl<'a> Transaction<'a> {
             if !self.get_bindings(handle)?.is_valid_usage(&id) {
                 return None;
             }
-            let (handle, range) =
-                self.key_to_definition(handle, &Key::Usage(ShortIdentifier::new(&id)), 20)?;
+            let (handle, range) = self.key_to_definition(
+                handle,
+                &Key::Usage(ShortIdentifier::new(&id)),
+                INITIAL_GAS,
+            )?;
             return Some(TextRangeWithModuleInfo::new(
                 self.get_module_info(&handle)?,
                 range,

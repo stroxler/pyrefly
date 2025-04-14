@@ -30,6 +30,7 @@ use crate::types::simplify::unions;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::Var;
+use crate::util::gas::Gas;
 use crate::util::lock::RwLock;
 use crate::util::recurser::Recurser;
 use crate::util::uniques::UniqueFactory;
@@ -41,6 +42,8 @@ use crate::util::visit::VisitMut;
 /// The easiest debugging technique is to look at the `Solutions` and see if there is a `Var(Unique`
 /// in the output. The usual cause is that we failed to visit all the necessary `Type` fields.
 const VAR_LEAK: &str = "Internal error: a variable has leaked from one module to another.";
+
+const INITIAL_GAS: Gas = Gas::new(25);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Variable {
@@ -397,7 +400,7 @@ impl Solver {
                 solver: self,
                 type_order,
                 union: true,
-                gas: 25,
+                gas: INITIAL_GAS,
                 recursive_assumptions: SmallSet::new(),
             }
             .is_subset_eq(&branches[0], b);
@@ -499,7 +502,7 @@ impl Solver {
             solver: self,
             type_order,
             union: false,
-            gas: 25,
+            gas: INITIAL_GAS,
             recursive_assumptions: SmallSet::new(),
         }
         .is_subset_eq(got, want)
@@ -513,7 +516,7 @@ pub struct Subset<'a, Ans: LookupAnswer> {
     pub type_order: TypeOrder<'a, Ans>,
     // True if we are doing a union, false if we are actually checking for subset.
     union: bool,
-    gas: usize,
+    gas: Gas,
     /// Recursive assumptions of pairs of types that is_subset_eq returns true for.
     /// Used for structural typechecking of protocols.
     pub recursive_assumptions: SmallSet<(Type, Type)>,
@@ -529,13 +532,12 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     }
 
     pub fn is_subset_eq(&mut self, got: &Type, want: &Type) -> bool {
-        if self.gas == 0 {
+        if self.gas.stop() {
             // We really have no idea. Just give up for now.
             return false;
         }
-        self.gas -= 1;
         let res = self.is_subset_eq_var(got, want);
-        self.gas += 1;
+        self.gas.restore();
         res
     }
 

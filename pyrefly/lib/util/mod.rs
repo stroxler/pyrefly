@@ -14,6 +14,7 @@ pub mod display;
 pub mod exclusive_lock;
 pub mod forgetter;
 pub mod fs_anyhow;
+pub mod gas;
 pub mod globs;
 pub mod listing;
 pub mod lock;
