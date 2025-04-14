@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use core::panic;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
@@ -44,6 +45,9 @@ fn run_test_lsp(test_case: TestCase) {
     // language_server_receiver sees messages sent to the language server
     let (language_server_sender, language_server_receiver) = bounded::<Message>(0);
 
+    // This channel is used to communicate "did a response arrive" between the threads
+    let (response_received_sender, response_received_receiver) = bounded::<RequestId>(0);
+
     // this thread receives messages from the language server and validates responses
     let language_server_receiver_thread: thread::JoinHandle<Result<(), std::io::Error>> =
         thread::spawn(move || {
@@ -63,8 +67,15 @@ fn run_test_lsp(test_case: TestCase) {
                                 "Response mismatch"
                             );
                         };
-                        match msg {
-                            Message::Response(_) => assert(),
+                        match &msg {
+                            Message::Response(Response {
+                                id,
+                                result: _,
+                                error: _,
+                            }) => {
+                                assert();
+                                response_received_sender.send(id.clone()).unwrap();
+                            }
                             Message::Notification(notification) => {
                                 eprintln!("Received notification: {:?}", notification);
                             }
@@ -101,11 +112,18 @@ fn run_test_lsp(test_case: TestCase) {
                     };
                     match &msg {
                         Message::Request(Request {
-                            id: _,
+                            id,
                             method: _,
                             params: _,
                         }) => {
                             send();
+                            if let Ok(response) = response_received_receiver.recv_timeout(timeout)
+                                && response == *id
+                            {
+                                // continue
+                            } else {
+                                panic!("Did not receive response for request {:?}", id);
+                            }
                         }
                         Message::Notification(_) => send(),
                         // Language client responses need to ensure the request was sent first
