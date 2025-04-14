@@ -282,7 +282,6 @@ pub struct TransactionSavedState<'a> {
 }
 
 impl<'a> TransactionSavedState<'a> {
-    #[expect(dead_code)]
     pub fn into_running(self) -> Transaction<'a> {
         let Self {
             threads,
@@ -346,7 +345,6 @@ pub struct Transaction<'a> {
 }
 
 impl<'a> Transaction<'a> {
-    #[expect(dead_code)]
     pub fn into_saved_state(self) -> TransactionSavedState<'a> {
         let Self {
             threads,
@@ -1352,7 +1350,6 @@ impl State {
         }
     }
 
-    #[expect(dead_code)]
     pub fn try_new_committable_transaction<'a>(
         &'a self,
         require: Require,

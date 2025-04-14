@@ -86,8 +86,10 @@ use crate::state::loader::FindError;
 use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
+use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::state::Transaction;
+use crate::state::state::TransactionSavedState;
 use crate::util::lock::Mutex;
 use crate::util::lock::RwLock;
 use crate::util::prelude::VecExt;
@@ -98,6 +100,56 @@ pub struct Args {
     pub(crate) search_path: Vec<PathBuf>,
     #[clap(long = "site-package-path", env = clap_env("SITE_PACKAGE_PATH"))]
     pub(crate) site_package_path: Vec<PathBuf>,
+}
+
+/// `IDETransactionManager` aims to always produce a transaction that contains the up-to-date
+#[derive(Default)]
+struct IDETransactionManager<'a> {
+    /// Invariant:
+    /// If it's None, then the main `State` already contains up-to-date checked content
+    /// of all in-memory files.
+    /// Otherwise, it will contains up-to-date checked content of all in-memory files.
+    saved_state: Option<TransactionSavedState<'a>>,
+}
+
+impl<'a> IDETransactionManager<'a> {
+    /// Produce a possibly committable transaction in order to recheck in-memory files.
+    fn get_possibly_committable_transaction(
+        &mut self,
+        state: &'a State,
+    ) -> Result<CommittingTransaction<'a>, Transaction<'a>> {
+        // If there is no ongoing recheck due to on-disk changes, we should prefer to commit
+        // the in-memory changes into the main state.
+        if let Some(transaction) = state.try_new_committable_transaction(Require::Exports, None) {
+            // If we can commit in-memory changes, then there is no point of holding the
+            // non-commitable transaction with a possibly outdated view of the `ReadableState`
+            // so we can destory the saved state.
+            self.saved_state = None;
+            Ok(transaction)
+        } else {
+            // If there is an ongoing recheck, trying to get a committable transaction will block
+            // until the recheck is finished. This is bad for perceived perf. Therefore, we will
+            // temporarily use a non-commitable transaction to hold the information that's necessary
+            // to power IDE services.
+            Err(self.transaction(state))
+        }
+    }
+
+    /// The `Transaction` will always contain the handles of all open files with the latest content.
+    fn transaction(&mut self, state: &'a State) -> Transaction<'a> {
+        let mut saved_state = None;
+        std::mem::swap(&mut self.saved_state, &mut saved_state);
+        if let Some(saved_state) = saved_state {
+            saved_state.into_running()
+        } else {
+            state.transaction()
+        }
+    }
+
+    /// This function should be called once we finished using transaction for an LSP request.
+    fn save(&mut self, transaction: Transaction<'a>) {
+        self.saved_state = Some(transaction.into_saved_state())
+    }
 }
 
 struct Server {
@@ -228,12 +280,13 @@ pub fn run_lsp(
         site_package_path,
     );
     eprintln!("Reading messages");
+    let mut ide_transaction_manager = IDETransactionManager::default();
     let mut canceled_requests = HashSet::new();
     for msg in &connection.receiver {
         if matches!(&msg, Message::Request(req) if connection.handle_shutdown(req)?) {
             break;
         }
-        server.process(&mut canceled_requests, msg)?;
+        server.process(&mut ide_transaction_manager, &mut canceled_requests, msg)?;
     }
     wait_on_connection()?;
 
@@ -324,8 +377,9 @@ fn publish_diagnostics(
 }
 
 impl Server {
-    fn process(
-        &self,
+    fn process<'a>(
+        &'a self,
+        ide_transaction_manager: &mut IDETransactionManager<'a>,
         canceled_requests: &mut HashSet<RequestId>,
         msg: Message,
     ) -> anyhow::Result<()> {
@@ -344,32 +398,36 @@ impl Server {
                 eprintln!("Handling non-canceled request ({})", x.id);
                 if let Some(params) = as_request::<GotoDefinition>(&x) {
                     let default_response = GotoDefinitionResponse::Array(Vec::new());
-                    let transaction = self.state.transaction();
+                    let transaction = ide_transaction_manager.transaction(&self.state);
                     self.send_response(new_response(
                         x.id,
                         Ok(self
                             .goto_definition(&transaction, params)
                             .unwrap_or(default_response)),
                     ));
+                    ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<Completion>(&x) {
-                    let transaction = self.state.transaction();
+                    let transaction = ide_transaction_manager.transaction(&self.state);
                     self.send_response(new_response(x.id, self.completion(&transaction, params)));
+                    ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<HoverRequest>(&x) {
                     let default_response = Hover {
                         contents: HoverContents::Array(Vec::new()),
                         range: None,
                     };
-                    let transaction = self.state.transaction();
+                    let transaction = ide_transaction_manager.transaction(&self.state);
                     self.send_response(new_response(
                         x.id,
                         Ok(self.hover(&transaction, params).unwrap_or(default_response)),
                     ));
+                    ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<InlayHintRequest>(&x) {
-                    let transaction = self.state.transaction();
+                    let transaction = ide_transaction_manager.transaction(&self.state);
                     self.send_response(new_response(
                         x.id,
                         Ok(self.inlay_hints(&transaction, params).unwrap_or_default()),
-                    ))
+                    ));
+                    ide_transaction_manager.save(transaction);
                 } else {
                     eprintln!("Unhandled request: {x:?}");
                 }
@@ -381,9 +439,9 @@ impl Server {
             }
             Message::Notification(x) => {
                 if let Some(params) = as_notification::<DidOpenTextDocument>(&x) {
-                    self.did_open(params)
+                    self.did_open(ide_transaction_manager, params)
                 } else if let Some(params) = as_notification::<DidChangeTextDocument>(&x) {
-                    self.did_change(params)
+                    self.did_change(ide_transaction_manager, params)
                 } else if let Some(params) = as_notification::<DidCloseTextDocument>(&x) {
                     self.did_close(params)
                 } else if let Some(params) = as_notification::<DidSaveTextDocument>(&x) {
@@ -468,10 +526,16 @@ impl Server {
         publish_diagnostics(self.send.dupe(), diags);
     }
 
-    fn validate_in_memory(&self) -> anyhow::Result<()> {
-        let mut transaction = self
-            .state
-            .new_committable_transaction(Require::Exports, None);
+    fn validate_in_memory<'a>(
+        &'a self,
+        ide_transaction_manager: &mut IDETransactionManager<'a>,
+    ) -> anyhow::Result<()> {
+        let mut possibly_committable_transaction =
+            ide_transaction_manager.get_possibly_committable_transaction(&self.state);
+        let transaction = match &mut possibly_committable_transaction {
+            Ok(transaction) => transaction.as_mut(),
+            Err(transaction) => transaction,
+        };
         let mut all_handles = Vec::new();
         let mut config_with_handles = Vec::new();
         let configs = self.configs.read();
@@ -480,17 +544,24 @@ impl Server {
             .chain(once(self.default_config.as_ref()))
             .for_each(|config| {
                 let handles = config.open_file_handles();
-                transaction.as_mut().invalidate_memory(
+                transaction.invalidate_memory(
                     config.loader.dupe(),
                     &config.open_files.lock().keys().cloned().collect::<Vec<_>>(),
                 );
                 all_handles.append(&mut handles.clone());
                 config_with_handles.push((config, handles));
             });
-        self.state
-            .run_with_committing_transaction(transaction, &all_handles);
-        for (config, handles) in config_with_handles {
-            self.publish_diagnostics(config.compute_diagnostics(&self.state, handles));
+        transaction.run(&all_handles);
+        match possibly_committable_transaction {
+            Ok(transaction) => {
+                self.state.commit_transaction(transaction.into_changes());
+                for (config, handles) in config_with_handles {
+                    self.publish_diagnostics(config.compute_diagnostics(&self.state, handles));
+                }
+            }
+            Err(transaction) => {
+                ide_transaction_manager.save(transaction);
+            }
         }
         Ok(())
     }
@@ -519,7 +590,11 @@ impl Server {
         self.validate_with_disk_invalidation(vec![uri])
     }
 
-    fn did_open(&self, params: DidOpenTextDocumentParams) -> anyhow::Result<()> {
+    fn did_open<'a>(
+        &'a self,
+        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        params: DidOpenTextDocumentParams,
+    ) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
         self.get_config_with(uri.clone(), |config| {
             config.open_files.lock().insert(
@@ -530,10 +605,14 @@ impl Server {
                 ),
             );
         });
-        self.validate_in_memory()
+        self.validate_in_memory(ide_transaction_manager)
     }
 
-    fn did_change(&self, params: DidChangeTextDocumentParams) -> anyhow::Result<()> {
+    fn did_change<'a>(
+        &'a self,
+        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        params: DidChangeTextDocumentParams,
+    ) -> anyhow::Result<()> {
         // We asked for Sync full, so can just grab all the text from params
         let change = params.content_changes.into_iter().next().unwrap();
         let uri = params.text_document.uri.to_file_path().unwrap();
@@ -543,7 +622,7 @@ impl Server {
                 .lock()
                 .insert(uri, (params.text_document.version, Arc::new(change.text)));
         });
-        self.validate_in_memory()
+        self.validate_in_memory(ide_transaction_manager)
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
