@@ -12,7 +12,6 @@ use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -37,6 +36,7 @@ use crate::error::error::print_errors;
 use crate::error::error::Error;
 use crate::error::legacy::LegacyErrors;
 use crate::error::summarise::print_error_summary;
+use crate::finder::ConfigFinder;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
@@ -222,14 +222,14 @@ struct Handles {
 }
 
 impl Handles {
-    fn new(files: Vec<PathBuf>, config_finder: impl Fn(&Path) -> Arc<ConfigFile>) -> Self {
+    fn new(files: Vec<PathBuf>, config_finder: &ConfigFinder) -> Self {
         let mut handles = Self {
             loader_factory: SmallMap::new(),
             path_data: HashMap::new(),
             module_to_error_config: HashMap::new(),
         };
         for file in files {
-            handles.register_file(file, &config_finder);
+            handles.register_file(file, config_finder);
         }
         handles
     }
@@ -237,9 +237,9 @@ impl Handles {
     fn register_file(
         &mut self,
         path: PathBuf,
-        config_finder: impl Fn(&Path) -> Arc<ConfigFile>,
+        config_finder: &ConfigFinder,
     ) -> &(ModuleName, RuntimeMetadata, LoaderId) {
-        let config = config_finder(&path);
+        let config = config_finder.python_file(&path);
         self.module_to_error_config.insert(
             ModulePath::filesystem(path.clone()),
             ErrorConfig::new(
@@ -298,10 +298,10 @@ impl Handles {
         &mut self,
         created_files: impl Iterator<Item = &'a PathBuf>,
         removed_files: impl Iterator<Item = &'a PathBuf>,
-        config_finder: impl Fn(&Path) -> Arc<ConfigFile>,
+        config_finder: &ConfigFinder,
     ) {
         for file in created_files {
-            self.register_file(file.to_path_buf(), &config_finder);
+            self.register_file(file.to_path_buf(), config_finder);
         }
         for file in removed_files {
             self.path_data.remove(file);
@@ -336,7 +336,7 @@ impl Args {
     pub fn run_once(
         self,
         files_to_check: impl FileList,
-        config_finder: impl Fn(&Path) -> Arc<ConfigFile>,
+        config_finder: ConfigFinder,
         mut allow_forget: bool,
     ) -> anyhow::Result<CommandExitStatus> {
         let expanded_file_list = files_to_check.files()?;
@@ -350,7 +350,7 @@ impl Args {
             allow_forget = false;
         }
         let mut holder = Forgetter::new(State::new(), allow_forget);
-        let handles = Handles::new(expanded_file_list, config_finder);
+        let handles = Handles::new(expanded_file_list, &config_finder);
         let require_levels = self.get_required_levels();
         self.run_inner(
             holder.as_mut(),
@@ -365,7 +365,7 @@ impl Args {
         self,
         mut watcher: impl Watcher,
         files_to_check: impl FileList,
-        config_finder: impl Fn(&Path) -> Arc<ConfigFile>,
+        config_finder: ConfigFinder,
     ) -> anyhow::Result<()> {
         // TODO: We currently make 1 unrealistic assumptions, which should be fixed in the future:
         // - Config search is stable across incremental runs.

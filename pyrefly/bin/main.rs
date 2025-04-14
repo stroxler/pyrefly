@@ -103,7 +103,7 @@ async fn run_check(
     args: pyrefly::run::CheckArgs,
     watch: bool,
     files_to_check: FilteredGlobs,
-    config_finder: impl Fn(&Path) -> Arc<ConfigFile>,
+    config_finder: ConfigFinder,
     allow_forget: bool,
 ) -> anyhow::Result<CommandExitStatus> {
     if watch {
@@ -166,7 +166,7 @@ async fn run_check_on_project(
         args,
         watch,
         FilteredGlobs::new(config.project_includes.clone(), project_excludes),
-        |path| config_finder.python_file(path),
+        config_finder,
         allow_forget,
     )
     .await
@@ -187,7 +187,7 @@ async fn run_check_on_files(
         args,
         watch,
         FilteredGlobs::new(files_to_check, project_excludes),
-        move |x| config_finder.python_file(x),
+        config_finder,
         allow_forget,
     )
     .await
