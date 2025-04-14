@@ -37,7 +37,7 @@ use crate::types::types::OverloadType;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::Var;
-use crate::util::visit::VisitMut;
+
 pub enum CallStyle<'a> {
     Method(&'a Name),
     FreeForm,
@@ -607,13 +607,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // We're guaranteed to have at least one overload.
         let closest_overload = closest_overload.unwrap();
         let fewest_errors = fewest_errors.unwrap();
-        let mut signature = match self_arg {
+        let signature = match self_arg {
             Some(_) => closest_overload
                 .drop_first_param()
                 .unwrap_or(closest_overload),
             None => closest_overload,
         };
-        signature.recurse_mut(&mut |x| *x = self.solver().for_display((*x).clone()));
+        let signature = self
+            .solver()
+            .for_display(Type::Callable(Box::new(signature)));
         self.error(
             errors,
             range,
