@@ -224,7 +224,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     x.range(),
                     ErrorKind::InvalidLiteral,
                     None,
-                    format!("Expected literal True or False, got {ty}"),
+                    format!(
+                        "Expected literal True or False, got {}",
+                        self.for_display(ty)
+                    ),
                 );
                 false
             }
@@ -685,7 +688,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         x.range(),
                         ErrorKind::NotIterable,
                         None,
-                        format!("Expected an iterable, got {}", unpacked_ty),
+                        format!(
+                            "Expected an iterable, got {}",
+                            self.for_display(unpacked_ty)
+                        ),
                     )
                 }
             }
@@ -833,7 +839,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             x.range(),
                                             ErrorKind::NotIterable,
                                             None,
-                                            format!("Expected an iterable, got {}", ty),
+                                            format!(
+                                                "Expected an iterable, got {}",
+                                                self.for_display(ty)
+                                            ),
                                         );
                                         encountered_invalid_star = true;
                                     }
@@ -946,7 +955,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         x.value.range(),
                                         ErrorKind::InvalidArgument,
                                         None,
-                                        format!("Expected a mapping, got {}", ty),
+                                        format!("Expected a mapping, got {}", self.for_display(ty)),
                                     );
                                 }
                             }

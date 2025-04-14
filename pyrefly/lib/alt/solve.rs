@@ -573,15 +573,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &Type::Union(expected_types),
             self.type_order(),
         ) {
-            self.error(errors,
-                 range,
-                 ErrorKind::InvalidInheritance,
-                 None,
-                 format!(
-                     "Expression `{}` has type `{actual_type}` which does not derive from BaseException",
-                     self.module_info().display(x)
-                 ),
-             );
+            self.error(
+                errors,
+                range,
+                ErrorKind::InvalidInheritance,
+                None,
+                format!(
+                    "Expression `{}` has type `{}` which does not derive from BaseException",
+                    self.module_info().display(x),
+                    self.for_display(actual_type),
+                ),
+            );
         }
     }
 
@@ -1269,14 +1271,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             let lookup_cls = self.get_super_lookup_class(cls, obj_cls);
                             lookup_cls.map_or_else (
                                 || {
+                                    let cls_type = self.for_display(cls_type.clone());
                                     self.error(
                                         errors,
                                         range,
                                         ErrorKind::InvalidSuperCall,
                                         None,
                                         format!(
-                                            "Illegal `super({}, {})` call: `{}` is not an instance or subclass of `{}`",
-                                            cls_type, obj_cls, obj_cls, cls_type
+                                            "Illegal `super({cls_type}, {obj_cls})` call: `{obj_cls}` is not an instance or subclass of `{cls_type}`"
                                         ),
                                     )
                                 },

@@ -131,7 +131,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidArgument,
                 None,
-                format!("Expected class object, got {}", ty),
+                format!(
+                    "Expected class object, got {}",
+                    self.for_display(ty.clone())
+                ),
             );
         }
         unwrapped

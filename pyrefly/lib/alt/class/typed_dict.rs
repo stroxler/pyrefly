@@ -84,7 +84,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         key.range(),
                         ErrorKind::TypedDictKeyError,
                         None,
-                        format!("Expected string literal key, got `{}`", key_type),
+                        format!(
+                            "Expected string literal key, got `{}`",
+                            self.for_display(key_type)
+                        ),
                     );
                 }
             }

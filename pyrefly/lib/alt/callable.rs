@@ -811,7 +811,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             range,
                             ErrorKind::InvalidParamSpec,
                             context,
-                            format!("Unexpected ParamSpec type: `{p}`"),
+                            format!("Unexpected ParamSpec type: `{}`", self.for_display(p)),
                         );
                     }
                 }

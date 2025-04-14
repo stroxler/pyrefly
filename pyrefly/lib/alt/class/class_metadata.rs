@@ -624,8 +624,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     format!(
                         "Class `{}` has metaclass `{}` which is not a subclass of metaclass `{}` from base class `{}`",
                         cls.name(),
-                        metaclass_type,
-                        base_metaclass_type,
+                        self.for_display(metaclass_type.clone()),
+                        self.for_display(base_metaclass_type),
                         base_name,
                     ),
                 );
@@ -656,7 +656,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         format!(
                             "Metaclass of `{}` has type `{}` which is not a subclass of `type`",
                             cls.name(),
-                            Type::ClassType(meta),
+                            self.for_display(Type::ClassType(meta)),
                         ),
                     );
                     None
@@ -671,7 +671,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     format!(
                         "Metaclass of `{}` has type `{}` that is not a simple class type",
                         cls.name(),
-                        ty,
+                        self.for_display(ty),
                     ),
                 );
                 None

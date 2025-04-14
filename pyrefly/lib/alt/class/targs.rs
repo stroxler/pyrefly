@@ -231,7 +231,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidParamSpec,
                 None,
-                format!("Expected a valid ParamSpec expression, got `{arg}`"),
+                format!(
+                    "Expected a valid ParamSpec expression, got `{}`",
+                    self.for_display(arg.clone())
+                ),
             );
             Type::Ellipsis
         }
