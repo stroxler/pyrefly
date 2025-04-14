@@ -9,6 +9,9 @@
 
 use serde::Serialize;
 
+/// The Schema ID for Python as specified by Glean
+pub const PYTHON_SCHEMA_ID: &str = "54195d609c9195d2bc09d8fa05050bf7";
+
 /// Represents a Glean JSON file containing Python indexer data
 #[derive(Debug, Clone, Serialize)]
 pub struct Glean {
