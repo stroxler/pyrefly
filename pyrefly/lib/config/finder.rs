@@ -9,6 +9,7 @@ use std::fmt::Debug;
 use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::LazyLock;
 
 use dupe::Dupe;
@@ -19,7 +20,7 @@ use starlark_map::small_map::SmallMap;
 use crate::config::config::ConfigFile;
 use crate::util::lock::RwLock;
 
-pub struct ConfigFinder<T> {
+pub struct ConfigFinder<T = Arc<ConfigFile>> {
     default: LazyLock<T, Box<dyn FnOnce() -> T + 'static>>,
     load: Box<dyn Fn(&Path) -> anyhow::Result<T>>,
     state: RwLock<ConfigFinderState<T>>,

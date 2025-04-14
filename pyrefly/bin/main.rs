@@ -119,7 +119,7 @@ async fn run_check(
     }
 }
 
-fn config_finder(args: pyrefly::run::CheckArgs) -> ConfigFinder<Arc<ConfigFile>> {
+fn config_finder(args: pyrefly::run::CheckArgs) -> ConfigFinder {
     let args = Arc::new(args);
     let args2 = args.dupe();
     let default = move || Arc::new(args.override_config(ConfigFile::default()));
