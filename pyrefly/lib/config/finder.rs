@@ -21,6 +21,7 @@ use crate::config::config::ConfigFile;
 use crate::util::lock::RwLock;
 
 pub struct ConfigFinder<T = Arc<ConfigFile>> {
+    custom: Box<dyn Fn(&Path) -> anyhow::Result<Option<T>> + 'static>,
     default: LazyLock<T, Box<dyn FnOnce() -> T + 'static>>,
     load: Box<dyn Fn(&Path) -> anyhow::Result<T>>,
     state: RwLock<ConfigFinderState<T>>,
@@ -50,11 +51,38 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
         default: impl FnOnce() -> T + 'static,
         load: impl Fn(&Path) -> anyhow::Result<T> + 'static,
     ) -> Self {
+        Self::new_custom(|_| Ok(None), default, load)
+    }
+
+    /// Create a new ConfigFinder, but with a custom way to produce a result from a Python file.
+    /// If the custom function fails to produce a config, then the other methods will be used.
+    pub fn new_custom(
+        custom: impl Fn(&Path) -> anyhow::Result<Option<T>> + 'static,
+        default: impl FnOnce() -> T + 'static,
+        load: impl Fn(&Path) -> anyhow::Result<T> + 'static,
+    ) -> Self {
         Self {
+            custom: Box::new(custom),
             default: LazyLock::new(Box::new(default)),
             load: Box::new(load),
             state: RwLock::new(ConfigFinderState::default()),
         }
+    }
+
+    /// Create a new ConfigFinder that always returns the same constant.
+    pub fn new_constant(constant: T) -> Self
+    where
+        T: 'static,
+    {
+        let c1 = constant.dupe();
+        let c2 = constant.dupe();
+        let c3 = constant;
+
+        Self::new_custom(
+            move |_| Ok(Some(c1.dupe())),
+            move || c2.dupe(),
+            move |_| Ok(c3.dupe()),
+        )
     }
 
     /// Collect all the current errors that have been produced, and clear them.
@@ -140,6 +168,14 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
 
     /// Get the config file given a Python file.
     pub fn python_file(&self, path: &Path) -> T {
+        match (self.custom)(path) {
+            Ok(Some(x)) => return x,
+            Ok(None) => {}
+            Err(e) => {
+                self.state.write().errors.push(e);
+            }
+        }
+
         let absolute = path.absolutize().ok();
         let parent = absolute.as_ref().and_then(|x| x.parent());
         match parent {

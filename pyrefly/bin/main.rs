@@ -141,7 +141,6 @@ async fn run_check_on_project(
     args: pyrefly::run::CheckArgs,
     allow_forget: bool,
 ) -> anyhow::Result<CommandExitStatus> {
-    let config_finder = config_finder(args.clone());
     let config = match config {
         Some(explicit) => {
             info!(
@@ -153,9 +152,12 @@ async fn run_check_on_project(
         }
         None => {
             let current_dir = std::env::current_dir().context("cannot identify current dir")?;
+            let config_finder = config_finder(args.clone());
             config_finder.directory(&current_dir)
         }
     };
+    // We want our config_finder to never actually
+    let config_finder = ConfigFinder::new_constant(config.dupe());
 
     debug!("Config is: {}", config);
     let project_excludes =
@@ -164,7 +166,7 @@ async fn run_check_on_project(
         args,
         watch,
         FilteredGlobs::new(config.project_includes.clone(), project_excludes),
-        |_| config.dupe(),
+        |path| config_finder.python_file(path),
         allow_forget,
     )
     .await
