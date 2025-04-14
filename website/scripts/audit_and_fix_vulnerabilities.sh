@@ -14,7 +14,7 @@ cd -- "$(dirname -- "$0")/.."
 
 echo "Running yarn audit to check for vulnerabilities..."
 # Store the initial audit results
-AUDIT_RESULT=$(yarn audit --json 2>&1)
+AUDIT_RESULT=$(yarn audit --json || true 2>&1)
 echo "$AUDIT_RESULT" | grep -v "^{" || true
 
 # Check if there are vulnerabilities
@@ -23,16 +23,16 @@ if echo "$AUDIT_RESULT" | grep -q "\"type\":\"auditSummary\""; then
 
   # Try yarn audit fix first (the most direct way to fix vulnerabilities)
   echo "Running yarn audit fix..."
-  yarn audit fix
+  yarn audit fix || true
 
   # Run yarn upgrade for all dependencies to get latest compatible versions
   echo "Upgrading all dependencies to their latest compatible versions..."
-  yarn upgrade
+  yarn upgrade || true
 
   # For stubborn vulnerabilities, we might need to force resolution
   # Create or update resolutions in package.json for remaining vulnerabilities
   echo "Checking for remaining vulnerabilities..."
-  REMAINING=$(yarn audit --json 2>&1)
+  REMAINING=$(yarn audit --json || true 2>&1)
 
   if echo "$REMAINING" | grep -q "\"type\":\"auditSummary\""; then
     echo "Some vulnerabilities remain. You may need to manually update dependencies or add resolutions."
