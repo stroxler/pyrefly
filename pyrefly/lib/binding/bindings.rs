@@ -707,7 +707,7 @@ impl<'a> BindingsBuilder<'a> {
         let idx = self
             .table
             .insert(Key::Definition(ShortIdentifier::new(name)), binding);
-        self.bind_key(&name.id, idx, style)
+        self.bind_key(&name.id, idx, style).0
     }
 
     pub fn bind_assign(
@@ -718,8 +718,12 @@ impl<'a> BindingsBuilder<'a> {
     ) {
         let key = Key::Definition(ShortIdentifier::expr_name(name));
         let idx = self.table.types.0.insert(key);
-        let ann = self.bind_key(&name.id, idx, style);
-        self.table.types.1.insert(idx, binding(ann));
+        let (ann, default) = self.bind_key(&name.id, idx, style);
+        let mut binding = binding(ann);
+        if let Some(default) = default {
+            binding = Binding::Default(default, Box::new(binding));
+        }
+        self.table.types.1.insert(idx, binding);
     }
 
     /// In methods, we track assignments to `self` attribute targets so that we can
@@ -752,15 +756,18 @@ impl<'a> BindingsBuilder<'a> {
         false
     }
 
-    /// Return the annotation that should be used at the moment, if one was provided.
+    /// Return a pair of:
+    /// 1. The annotation that should be used at the moment, if one was provided.
+    /// 2. The default that should be used if you are in a loop.
     pub fn bind_key(
         &mut self,
         name: &Name,
         key: Idx<Key>,
         style: FlowStyle,
-    ) -> Option<Idx<KeyAnnotation>> {
+    ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
         let name = Hashed::new(name);
-        self.scopes
+        let default = self
+            .scopes
             .update_flow_info_hashed(self.loop_depth, name, key, style);
         let info = self
             .scopes
@@ -778,7 +785,7 @@ impl<'a> BindingsBuilder<'a> {
                 .1
                 .insert(key);
         }
-        info.annot
+        (info.annot, default)
     }
 
     pub fn type_params(&mut self, x: &mut TypeParams) {

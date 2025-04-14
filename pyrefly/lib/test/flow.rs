@@ -919,7 +919,6 @@ def f(cond: bool):
 );
 
 testcase!(
-    bug = "There should not be any errors",
     test_loop_test_and_increment_return,
     r#"
 from typing import assert_type, Literal
@@ -930,7 +929,7 @@ def f(cond: bool):
         n += 1
     return n
 
-assert_type(f(True), Literal[1] | int) # E: assert_type(Literal[1] | Any, Literal[1] | int)
+assert_type(f(True), Literal[1] | int)
 "#,
 );
 
@@ -957,7 +956,6 @@ def f(args, cond):
 );
 
 testcase!(
-    bug = "Should not infer Any",
     test_nested_loops_return,
     r#"
 from typing import assert_type, Literal
@@ -969,7 +967,7 @@ def f(cond1: bool, cond2: bool):
             n += 1
     return n
 
-assert_type(f(True, True), Literal[0] | int) # E: assert_type(Literal[0] | Any, Literal[0] | int) failed
+assert_type(f(True, True), Literal[0] | int)
 "#,
 );
 

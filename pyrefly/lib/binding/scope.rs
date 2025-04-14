@@ -476,23 +476,25 @@ impl Scopes {
         self.scopes.iter_mut().map(|node| &mut node.scope).rev()
     }
 
+    /// Return the default to use, if inside a loop.
     pub fn update_flow_info(
         &mut self,
         loop_depth: u32,
         name: &Name,
         key: Idx<Key>,
         style: FlowStyle,
-    ) {
-        self.update_flow_info_hashed(loop_depth, Hashed::new(name), key, style);
+    ) -> Option<Idx<Key>> {
+        self.update_flow_info_hashed(loop_depth, Hashed::new(name), key, style)
     }
 
+    /// Return the default to use, if inside a loop.
     pub fn update_flow_info_hashed(
         &mut self,
         loop_depth: u32,
         name: Hashed<&Name>,
         key: Idx<Key>,
         style: FlowStyle,
-    ) {
+    ) -> Option<Idx<Key>> {
         match self.current_mut().flow.info.entry_hashed(name.cloned()) {
             Entry::Vacant(e) => {
                 e.insert(FlowInfo {
@@ -500,17 +502,20 @@ impl Scopes {
                     default: key,
                     style,
                 });
+                None
             }
             Entry::Occupied(mut e) => {
+                let default = if loop_depth != 0 {
+                    Some(e.get().default)
+                } else {
+                    None
+                };
                 *e.get_mut() = FlowInfo {
                     key,
-                    default: if loop_depth == 0 {
-                        key
-                    } else {
-                        e.get().default
-                    },
+                    default: default.unwrap_or(key),
                     style,
                 };
+                default
             }
         }
     }
