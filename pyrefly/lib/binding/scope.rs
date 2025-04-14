@@ -17,6 +17,7 @@ use ruff_python_ast::Stmt;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
+use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;
@@ -206,7 +207,13 @@ impl FlowStyle {
 
 #[derive(Debug, Clone)]
 pub struct FlowInfo {
+    /// The key to use if you need the value of this name.
     pub key: Idx<Key>,
+    /// The default value to use if you are inside a loop and need to default a Var.
+    /// Only set if you are outside a loop, OR it has never been set before.
+    /// Only used if you are inside a loop.
+    pub default: Idx<Key>,
+    /// The style of this binding.
     pub style: FlowStyle,
 }
 
@@ -469,20 +476,43 @@ impl Scopes {
         self.scopes.iter_mut().map(|node| &mut node.scope).rev()
     }
 
-    pub fn update_flow_info(&mut self, name: &Name, key: Idx<Key>, style: FlowStyle) {
-        self.update_flow_info_hashed(Hashed::new(name), key, style);
+    pub fn update_flow_info(
+        &mut self,
+        loop_depth: u32,
+        name: &Name,
+        key: Idx<Key>,
+        style: FlowStyle,
+    ) {
+        self.update_flow_info_hashed(loop_depth, Hashed::new(name), key, style);
     }
 
     pub fn update_flow_info_hashed(
         &mut self,
+        loop_depth: u32,
         name: Hashed<&Name>,
         key: Idx<Key>,
         style: FlowStyle,
     ) {
-        self.current_mut()
-            .flow
-            .info
-            .insert_hashed(name.cloned(), FlowInfo { key, style });
+        match self.current_mut().flow.info.entry_hashed(name.cloned()) {
+            Entry::Vacant(e) => {
+                e.insert(FlowInfo {
+                    key,
+                    default: key,
+                    style,
+                });
+            }
+            Entry::Occupied(mut e) => {
+                *e.get_mut() = FlowInfo {
+                    key,
+                    default: if loop_depth == 0 {
+                        key
+                    } else {
+                        e.get().default
+                    },
+                    style,
+                };
+            }
+        }
     }
 
     fn get_flow_info(&self, name: &Name) -> Option<&FlowInfo> {

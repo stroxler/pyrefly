@@ -797,26 +797,6 @@ pub enum Binding {
     SuperInstance(SuperStyle, TextRange),
 }
 
-impl Binding {
-    /// Helper function that turns trivial Phi nodes into a forward.
-    pub fn phi(xs: SmallSet<Idx<Key>>) -> Self {
-        if xs.len() == 1 {
-            Self::Forward(xs.into_iter().next().unwrap())
-        } else {
-            Self::Phi(xs)
-        }
-    }
-
-    /// Like `phi`, uses the first element as the default.
-    pub fn phi_first_default(xs: SmallSet<Idx<Key>>) -> Self {
-        match xs.len() {
-            0 => Self::Phi(SmallSet::new()),
-            1 => Self::Forward(xs.into_iter().next().unwrap()),
-            _ => Self::Default(*xs.iter().next().unwrap(), Box::new(Self::Phi(xs))),
-        }
-    }
-}
-
 impl DisplayWith<Bindings> for Binding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         let m = ctx.module_info();

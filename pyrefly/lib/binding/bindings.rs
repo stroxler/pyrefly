@@ -133,6 +133,7 @@ pub struct BindingsBuilder<'a> {
     pub lookup: &'a dyn LookupExport,
     pub config: &'a RuntimeMetadata,
     pub class_count: u32,
+    pub loop_depth: u32,
     errors: &'a ErrorCollector,
     solver: &'a Solver,
     uniques: &'a UniqueFactory,
@@ -302,6 +303,7 @@ impl Bindings {
             errors,
             solver,
             uniques,
+            loop_depth: 0,
             class_count: 0,
             scopes: Scopes::module(module_scope_range, enable_trace),
             functions: Vec1::new(FuncInfo::default()),
@@ -341,6 +343,7 @@ impl Bindings {
                 None,
             );
         }
+        assert_eq!(builder.loop_depth, 0);
         let scope_trace = builder.scopes.finish();
         let last_scope = scope_trace.toplevel_scope();
         let exported = exports.exports(lookup);
@@ -757,7 +760,8 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let name = Hashed::new(name);
-        self.scopes.update_flow_info_hashed(name, key, style);
+        self.scopes
+            .update_flow_info_hashed(self.loop_depth, name, key, style);
         let info = self
             .scopes
             .current()
@@ -861,8 +865,12 @@ impl<'a> BindingsBuilder<'a> {
                     Key::Narrow(name.into_key().clone(), *op_range, use_range),
                     Binding::Narrow(name_key, Box::new(op.clone()), use_range),
                 );
-                self.scopes
-                    .update_flow_info_hashed(name, binding_key, FlowStyle::None);
+                self.scopes.update_flow_info_hashed(
+                    self.loop_depth,
+                    name,
+                    binding_key,
+                    FlowStyle::None,
+                );
             }
         }
     }
@@ -926,6 +934,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn setup_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps) {
+        self.loop_depth += 1;
         let base = mem::take(&mut self.scopes.current_mut().flow);
         // To account for possible assignments to existing names in a loop, we
         // speculatively insert phi keys upfront.
@@ -938,6 +947,8 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn teardown_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps, orelse: Vec<Stmt>) {
+        assert!(self.loop_depth > 0);
+        self.loop_depth -= 1;
         let done = self.scopes.current_mut().loops.pop().unwrap();
         let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) =
             done.0.into_iter().partition_map(|(exit, flow)| match exit {
@@ -1020,18 +1031,18 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         // Collect all the information that we care about from all branches
-        let mut names: SmallMap<Name, (Idx<Key>, SmallSet<Idx<Key>>, Vec<FlowStyle>)> =
+        let mut names: SmallMap<Name, (Idx<Key>, Idx<Key>, SmallSet<Idx<Key>>, Vec<FlowStyle>)> =
             SmallMap::with_capacity(visible_branches.first().map_or(0, |x| x.info.len()));
         let visible_branches_len = visible_branches.len();
         for flow in visible_branches {
             for (name, info) in flow.info.into_iter_hashed() {
-                let f = |v: &mut (Idx<Key>, SmallSet<Idx<Key>>, Vec<FlowStyle>)| {
+                let f = |v: &mut (Idx<Key>, Idx<Key>, SmallSet<Idx<Key>>, Vec<FlowStyle>)| {
                     if info.key != v.0 {
                         // Optimization: instead of x = phi(x, ...), we can skip the x.
                         // Avoids a recursive solving step later.
-                        v.1.insert(info.key);
+                        v.2.insert(info.key);
                     }
-                    v.2.push(info.style);
+                    v.3.push(info.style);
                 };
 
                 match names.entry_hashed(name) {
@@ -1040,6 +1051,7 @@ impl<'a> BindingsBuilder<'a> {
                         let key = self.table.types.0.insert(Key::Phi(e.key().clone(), range));
                         f(e.insert((
                             key,
+                            info.default,
                             SmallSet::new(),
                             Vec::with_capacity(visible_branches_len),
                         )));
@@ -1049,17 +1061,36 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         let mut res = SmallMap::with_capacity(names.len());
-        for (name, (key, values, styles)) in names.into_iter_hashed() {
+        for (name, (key, default, values, styles)) in names.into_iter_hashed() {
             let style = self.merge_flow_style(styles);
             self.table.insert_idx(
                 key,
-                if is_loop {
-                    Binding::phi_first_default(values)
-                } else {
-                    Binding::phi(values)
+                match () {
+                    _ if values.len() == 1 => Binding::Forward(values.into_iter().next().unwrap()),
+                    _ if is_loop => Binding::Default(default, Box::new(Binding::Phi(values))),
+                    _ => Binding::Phi(values),
                 },
             );
-            res.insert_hashed(name, FlowInfo { key, style });
+            match res.entry_hashed(name) {
+                Entry::Vacant(e) => {
+                    e.insert(FlowInfo {
+                        key,
+                        default: key,
+                        style,
+                    });
+                }
+                Entry::Occupied(mut e) => {
+                    *e.get_mut() = FlowInfo {
+                        key,
+                        default: if self.loop_depth == 0 {
+                            key
+                        } else {
+                            e.get().default
+                        },
+                        style,
+                    };
+                }
+            }
         }
         Flow {
             info: res,

@@ -320,8 +320,12 @@ impl<'a> BindingsBuilder<'a> {
                     if let Expr::Name(name) = target {
                         let key = Key::Usage(ShortIdentifier::expr_name(name));
                         let idx = self.table.types.0.insert(key);
-                        self.scopes
-                            .update_flow_info(&name.id, idx, FlowStyle::Unbound);
+                        self.scopes.update_flow_info(
+                            self.loop_depth,
+                            &name.id,
+                            idx,
+                            FlowStyle::Unbound,
+                        );
                     }
                 }
             }
