@@ -26,8 +26,8 @@ use crate::commands::lsp::Args;
 use crate::test::util::init_test;
 
 struct TestCase {
-    test_messages: Vec<Message>,
-    expected_responses: Vec<Response>,
+    messages_from_language_client: Vec<Message>,
+    expected_messages_from_language_server: Vec<Message>,
     search_path: Vec<PathBuf>,
 }
 fn run_test_lsp(test_case: TestCase) {
@@ -47,25 +47,19 @@ fn run_test_lsp(test_case: TestCase) {
     // this thread receives messages from the language server and validates responses
     let language_server_receiver_thread: thread::JoinHandle<Result<(), std::io::Error>> =
         thread::spawn(move || {
-            let mut responses = test_case.expected_responses.clone();
+            let mut responses = test_case.expected_messages_from_language_server.clone();
 
             loop {
                 if responses.is_empty() {
                     break;
                 }
-
                 match language_client_receiver.recv_timeout(timeout) {
                     Ok(msg) => {
                         match msg {
-                            Message::Response(response) => {
-                                let expected_response = responses.remove(0);
+                            Message::Response(_) => {
                                 assert_eq!(
-                                    (response.id, &response.result, &response.error.is_none()),
-                                    (
-                                        expected_response.id,
-                                        &expected_response.result,
-                                        &expected_response.error.is_none()
-                                    ),
+                                    serde_json::to_string(&msg).unwrap(),
+                                    serde_json::to_string(&responses.remove(0)).unwrap(),
                                     "Response mismatch"
                                 );
                             }
@@ -92,11 +86,14 @@ fn run_test_lsp(test_case: TestCase) {
     // this thread sends messages to the language server (from test case)
     let language_server_sender_thread: thread::JoinHandle<Result<(), std::io::Error>> =
         thread::spawn(move || {
-            test_case.test_messages.iter().for_each(|msg| {
-                if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout) {
-                    panic!("Failed to send message to language server: {:?}", err);
-                }
-            });
+            test_case
+                .messages_from_language_client
+                .iter()
+                .for_each(|msg| {
+                    if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout) {
+                        panic!("Failed to send message to language server: {:?}", err);
+                    }
+                });
             Ok(())
         });
 
@@ -186,8 +183,8 @@ fn get_initialize_messages(
     ]
 }
 
-fn get_initialize_responses() -> std::vec::Vec<lsp_server::Response> {
-    vec![Response {
+fn get_initialize_responses() -> Vec<Message> {
+    vec![Message::Response(Response {
         id: RequestId::from(1),
         result: Some(serde_json::json!({
             "capabilities": {
@@ -200,7 +197,7 @@ fn get_initialize_responses() -> std::vec::Vec<lsp_server::Response> {
         }
         )),
         error: None,
-    }]
+    })]
 }
 
 fn build_did_open_notification(path: PathBuf) -> lsp_server::Notification {
@@ -227,8 +224,8 @@ fn get_test_files_root() -> PathBuf {
 #[test]
 fn test_initialize() {
     run_test_lsp(TestCase {
-        test_messages: get_initialize_messages(None),
-        expected_responses: get_initialize_responses(),
+        messages_from_language_client: get_initialize_messages(None),
+        expected_messages_from_language_server: get_initialize_responses(),
         search_path: Vec::new(),
     });
 }
@@ -256,7 +253,7 @@ fn test_go_to_def(workspace_folders: Option<Vec<(&str, Url)>>, search_path: Vec<
         }),
     }));
 
-    expected_responses.push(Response {
+    expected_responses.push(Message::Response(Response {
         id: RequestId::from(2),
         result: Some(serde_json::json!({
             "uri": Url::from_file_path(root.join("bar.py")).unwrap().to_string(),
@@ -272,11 +269,11 @@ fn test_go_to_def(workspace_folders: Option<Vec<(&str, Url)>>, search_path: Vec<
             }
         })),
         error: None,
-    });
+    }));
 
     run_test_lsp(TestCase {
-        test_messages,
-        expected_responses,
+        messages_from_language_client: test_messages,
+        expected_messages_from_language_server: expected_responses,
         search_path,
     });
 }
