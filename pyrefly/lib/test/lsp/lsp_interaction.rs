@@ -56,14 +56,15 @@ fn run_test_lsp(test_case: TestCase) {
                 match language_client_receiver.recv_timeout(timeout) {
                     Ok(msg) => {
                         eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
+                        let mut assert = || {
+                            assert_eq!(
+                                serde_json::to_string(&msg).unwrap(),
+                                serde_json::to_string(&responses.remove(0)).unwrap(),
+                                "Response mismatch"
+                            );
+                        };
                         match msg {
-                            Message::Response(_) => {
-                                assert_eq!(
-                                    serde_json::to_string(&msg).unwrap(),
-                                    serde_json::to_string(&responses.remove(0)).unwrap(),
-                                    "Response mismatch"
-                                );
-                            }
+                            Message::Response(_) => assert(),
                             Message::Notification(notification) => {
                                 eprintln!("Received notification: {:?}", notification);
                             }
@@ -92,8 +93,27 @@ fn run_test_lsp(test_case: TestCase) {
                 .iter()
                 .for_each(|msg| {
                     eprintln!("client--->server {}", serde_json::to_string(&msg).unwrap());
-                    if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout) {
-                        panic!("Failed to send message to language server: {:?}", err);
+                    let send = || {
+                        if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout)
+                        {
+                            panic!("Failed to send message to language server: {:?}", err);
+                        }
+                    };
+                    match &msg {
+                        Message::Request(Request {
+                            id: _,
+                            method: _,
+                            params: _,
+                        }) => {
+                            send();
+                        }
+                        Message::Notification(_) => send(),
+                        // Language client responses need to ensure the request was sent first
+                        Message::Response(Response {
+                            id: _,
+                            result: _,
+                            error: _,
+                        }) => send(),
                     }
                 });
             Ok(())
