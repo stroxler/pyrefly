@@ -5,9 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::hash::DefaultHasher;
-use std::hash::Hasher;
-
 use ruff_python_ast::ModModule;
 use serde::Serialize;
 use serde_json::Value;
@@ -22,10 +19,8 @@ fn json(x: impl Serialize) -> Value {
 }
 
 fn hash(x: &[u8]) -> String {
-    // TODO: Use whatever hash algorithm Glean uses
-    let mut hasher = DefaultHasher::new();
-    hasher.write(x);
-    hasher.finish().to_string()
+    // Glean uses blake3
+    blake3::hash(x).to_string()
 }
 
 impl Glean {

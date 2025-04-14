@@ -21,6 +21,7 @@ anyhow = "1.0.95"
 append-only-vec = "0.1.2"
 argfile = "0.1.6"
 async-trait = "0.1.86"
+blake3 = { version = "=1.5.2", features = ["mmap", "rayon", "traits-preview"] }
 clap = { version = "4.5.30", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 const-str = "0.4.3"
 convert_case = "0.6"
