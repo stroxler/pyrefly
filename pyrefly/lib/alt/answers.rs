@@ -588,7 +588,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn create_recursive(&self, binding: &Binding) -> Var {
-        let t = if let Binding::Phi(_, Some(default)) = binding {
+        let t = if let Binding::Default(default, _) = binding {
             self.get_calculation(*default)
                 .get()
                 .map(|t| t.arc_clone_ty().promote_literals(self.stdlib))

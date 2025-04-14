@@ -751,8 +751,10 @@ pub enum Binding {
     /// A forward reference to another binding.
     Forward(Idx<Key>),
     /// A phi node, representing the union of several alternative keys.
-    /// Optionally contain a value to default if you end up being recursive.
-    Phi(SmallSet<Idx<Key>>, Option<Idx<Key>>),
+    Phi(SmallSet<Idx<Key>>),
+    /// Used if the binding ends up being recursive, instead of defaulting to `Any`, should
+    /// default to the given type.
+    Default(Idx<Key>, Box<Binding>),
     /// A narrowed type.
     Narrow(Idx<Key>, Box<NarrowOp>, TextRange),
     /// An import of a module.
@@ -801,17 +803,16 @@ impl Binding {
         if xs.len() == 1 {
             Self::Forward(xs.into_iter().next().unwrap())
         } else {
-            Self::Phi(xs, None)
+            Self::Phi(xs)
         }
     }
 
     /// Like `phi`, uses the first element as the default.
     pub fn phi_first_default(xs: SmallSet<Idx<Key>>) -> Self {
-        if xs.len() == 1 {
-            Self::Forward(xs.into_iter().next().unwrap())
-        } else {
-            let default = xs.iter().next().copied();
-            Self::Phi(xs, default)
+        match xs.len() {
+            0 => Self::Phi(SmallSet::new()),
+            1 => Self::Forward(xs.into_iter().next().unwrap()),
+            _ => Self::Default(*xs.iter().next().unwrap(), Box::new(Self::Phi(xs))),
         }
     }
 }
@@ -915,7 +916,7 @@ impl DisplayWith<Bindings> for Binding {
                     }
                 )
             }
-            Self::Phi(xs, default) => {
+            Self::Phi(xs) => {
                 write!(f, "phi(")?;
                 for (i, x) in xs.iter().enumerate() {
                     if i != 0 {
@@ -923,11 +924,10 @@ impl DisplayWith<Bindings> for Binding {
                     }
                     write!(f, "{}", ctx.display(*x))?;
                 }
-                write!(f, ")")?;
-                if let Some(x) = default {
-                    write!(f, " default {}", ctx.display(*x))?;
-                }
-                Ok(())
+                write!(f, ")")
+            }
+            Self::Default(k, x) => {
+                write!(f, "default({}): {}", ctx.display(*k), x.display_with(ctx))
             }
             Self::Narrow(k, op, _) => {
                 write!(f, "narrow({}, {op:?})", ctx.display(*k))

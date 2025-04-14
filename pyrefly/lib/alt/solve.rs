@@ -67,7 +67,6 @@ use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
 use crate::error::style::ErrorStyle;
-use crate::graph::index::Idx;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::types::annotation::Annotation;
@@ -1501,6 +1500,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     TypeInfo::of_ty(self.expr(e, None, errors))
                 }
             },
+            Binding::Default(default, binding) => {
+                // We force the default first so that if we hit a recursive case it is already available
+                self.get_idx(*default);
+                self.binding_to_type_info(binding, errors)
+            }
             _ => {
                 // All other Bindings model `Type` level operations where we do not
                 // propagate any attribute narrows.
@@ -1512,31 +1516,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn binding_to_type(&self, binding: &Binding, errors: &ErrorCollector) -> Type {
         match binding {
-            Binding::Forward(..) | Binding::Expr(..) | Binding::Narrow(..) => {
+            Binding::Forward(..)
+            | Binding::Default(..)
+            | Binding::Expr(..)
+            | Binding::Narrow(..) => {
                 // These forms require propagating attribute narrowing information, so they
                 // are handled in `binding_to_type_info`
                 self.binding_to_type_info(binding, errors).into_ty()
             }
-            Binding::Phi(ks, default) => {
-                // We force the default first so that if we hit a recursive case it is already available
-                let default_val = default.map(|x| self.get_idx(x));
-
-                let get_idx = |k: Idx<Key>| {
-                    if Some(k) == *default {
-                        // Just optimise looking up Idx twice
-                        default_val.dupe().unwrap()
-                    } else {
-                        self.get_idx(k)
-                    }
-                };
-
+            Binding::Phi(ks) => {
                 if ks.len() == 1 {
-                    get_idx(*ks.first().unwrap()).arc_clone_ty()
+                    self.get_idx(*ks.first().unwrap()).arc_clone_ty()
                 } else {
                     let ts = ks
                         .iter()
                         .filter_map(|k| {
-                            let t: Arc<TypeInfo> = get_idx(*k);
+                            let t: Arc<TypeInfo> = self.get_idx(*k);
                             // Filter out all `@overload`-decorated types except the one that
                             // accumulates all signatures into a Type::Overload.
                             if matches!(t.ty(), Type::Overload(_)) || !t.ty().is_overload() {

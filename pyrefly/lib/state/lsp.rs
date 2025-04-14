@@ -149,7 +149,8 @@ impl<'a> Transaction<'a> {
         let bindings = self.get_bindings(handle)?;
         match binding {
             Binding::Forward(k) => self.key_to_definition(handle, bindings.idx_to_key(*k), gas),
-            Binding::Phi(ks, _) if !ks.is_empty() => {
+            Binding::Default(_, m) => self.binding_to_definition(handle, m, gas),
+            Binding::Phi(ks) if !ks.is_empty() => {
                 self.key_to_definition(handle, bindings.idx_to_key(*ks.iter().next().unwrap()), gas)
             }
             Binding::Import(mut m, name) => {
