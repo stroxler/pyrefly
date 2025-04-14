@@ -45,8 +45,12 @@ fn run_test_lsp(test_case: TestCase) {
     // language_server_receiver sees messages sent to the language server
     let (language_server_sender, language_server_receiver) = bounded::<Message>(0);
 
-    // This channel is used to communicate "did a response arrive" between the threads
-    let (response_received_sender, response_received_receiver) = bounded::<RequestId>(0);
+    // was there a response after a client -> server request
+    let (server_response_received_sender, server_response_received_receiver) =
+        bounded::<RequestId>(0);
+    // was there a response after a server -> client request
+    let (client_request_received_sender, client_request_received_receiver) =
+        bounded::<RequestId>(0);
 
     // this thread receives messages from the language server and validates responses
     let language_server_receiver_thread: thread::JoinHandle<Result<(), std::io::Error>> =
@@ -74,13 +78,18 @@ fn run_test_lsp(test_case: TestCase) {
                                 error: _,
                             }) => {
                                 assert();
-                                response_received_sender.send(id.clone()).unwrap();
+                                server_response_received_sender.send(id.clone()).unwrap();
                             }
                             Message::Notification(notification) => {
                                 eprintln!("Received notification: {:?}", notification);
                             }
-                            Message::Request(_) => {
-                                panic!("Unexpected message {:?}", msg);
+                            Message::Request(Request {
+                                id,
+                                method: _,
+                                params: _,
+                            }) => {
+                                assert();
+                                client_request_received_sender.send(id.clone()).unwrap();
                             }
                         };
                     }
@@ -117,7 +126,8 @@ fn run_test_lsp(test_case: TestCase) {
                             params: _,
                         }) => {
                             send();
-                            if let Ok(response) = response_received_receiver.recv_timeout(timeout)
+                            if let Ok(response) =
+                                server_response_received_receiver.recv_timeout(timeout)
                                 && response == *id
                             {
                                 // continue
@@ -128,10 +138,19 @@ fn run_test_lsp(test_case: TestCase) {
                         Message::Notification(_) => send(),
                         // Language client responses need to ensure the request was sent first
                         Message::Response(Response {
-                            id: _,
+                            id,
                             result: _,
                             error: _,
-                        }) => send(),
+                        }) => {
+                            if let Ok(response) =
+                                client_request_received_receiver.recv_timeout(timeout)
+                                && response == *id
+                            {
+                                send();
+                            } else {
+                                panic!("Did not receive request for intended response {:?}", &msg);
+                            }
+                        }
                     }
                 });
             Ok(())
