@@ -1865,16 +1865,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::ReturnImplicit(x) => {
-                // Would context have caught something.
-                fn context_catch(x: &Type) -> bool {
+                // Would context have caught something:
+                // https://typing.python.org/en/latest/spec/exceptions.html#context-managers.
+                let context_catch = |x: &Type| -> bool {
                     match x {
-                        Type::Union(xs) => xs.iter().any(context_catch),
-                        Type::Any(_) => false, // This is what Pyright does
                         Type::Literal(Lit::Bool(b)) => *b,
-                        Type::None => false,
-                        _ => true, // Most types have something truthy within them
+                        Type::ClassType(cls) => cls == self.stdlib.bool(),
+                        _ => false, // Default to assuming exceptions are not suppressed
                     }
-                }
+                };
 
                 // TODO: This is a bit of a hack. We want to implement Pyright's behavior where
                 // stub functions allow any annotation, but we also infer a `Never` return type
