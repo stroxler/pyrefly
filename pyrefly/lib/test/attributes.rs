@@ -751,3 +751,22 @@ def f(a: A):
     assert_type(a.x, Any)
     "#,
 );
+
+testcase!(
+    test_union_base_class,
+    r#"
+from typing import Any, assert_type
+class A:
+    x: int
+class B:
+    x: str
+try:
+    C = A
+except:
+    C = B
+class D(C): # E: Invalid base class: `A | B`
+    pass
+def f(d: D):
+    assert_type(d.x, Any)
+    "#,
+);

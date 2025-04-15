@@ -261,7 +261,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             has_base_any = true;
                             None
                         }
-                        _ => None,
+                        Some((t, range)) => {
+                            self.error(
+                                errors, range, ErrorKind::InvalidInheritance, None,
+                                format!("Invalid base class: `{}`", self.for_display(t)));
+                            has_base_any = true;
+                            None
+                        }
+                        None => None,
                     }
                 }
             })

@@ -6264,6 +6264,16 @@
       "name": "bad-argument-type",
       "stop_column": 24,
       "stop_line": 63
+    },
+    {
+      "code": -2,
+      "column": 12,
+      "concise_description": "Invalid base class: `Self`",
+      "description": "Invalid base class: `Self`",
+      "line": 103,
+      "name": "invalid-inheritance",
+      "stop_column": 16,
+      "stop_line": 103
     }
   ],
   "generics_syntax_compatibility.py": [
