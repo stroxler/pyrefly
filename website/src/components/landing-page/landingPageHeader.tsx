@@ -35,14 +35,14 @@ export default function LandingPageHeader(): React.ReactElement {
                     Github{' '}
                 </a>
                 <a
-                    href="https://pyrefly.org/try/"
+                    href={useBaseUrl('try/')}
                     {...stylex.props(styles.button, typography.p)}
                 >
                     {' '}
                     Demo{' '}
                 </a>
                 <a
-                    href="https://pyrefly.org/en/docs/learn-python-typing/"
+                    href={useBaseUrl('en/docs/learn-python-typing/')}
                     {...stylex.props(styles.button, typography.p)}
                 >
                     {' '}

@@ -31,14 +31,14 @@ exports[`Home page renders external site correctly 1`] = `
              
           </a>
           <a
-            href="https://pyrefly.org/try/"
+            href="/try/"
           >
              
             Demo
              
           </a>
           <a
-            href="https://pyrefly.org/en/docs/learn-python-typing/"
+            href="/en/docs/learn-python-typing/"
           >
              
             Docs
@@ -104,14 +104,14 @@ exports[`Home page renders internal site correctly 1`] = `
              
           </a>
           <a
-            href="https://pyrefly.org/try/"
+            href="/try/"
           >
              
             Demo
              
           </a>
           <a
-            href="https://pyrefly.org/en/docs/learn-python-typing/"
+            href="/en/docs/learn-python-typing/"
           >
              
             Docs
