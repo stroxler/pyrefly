@@ -481,6 +481,16 @@ def f(x: str | int | None):
 );
 
 testcase!(
+    test_isinstance_type,
+    r#"
+from typing import assert_type
+def f(x: object, y: type[str]) -> None:
+    if isinstance(x, y):
+        assert_type(x, str)
+    "#,
+);
+
+testcase!(
     bug = "issubclass union narrowing is not yet supported",
     test_issubclass_union,
     r#"
