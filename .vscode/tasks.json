@@ -68,6 +68,15 @@
           // https://code.visualstudio.com/docs/editor/tasks#_why-do-i-get-command-not-found-when-running-a-task
           "args": ["-c", "-l"]
         }
+      },
+      "windows": {
+        "options": {
+          "shell": {
+            // Leaving "args" blank does not override default option - a value is necessary
+            // https://code.visualstudio.com/docs/debugtest/tasks#_custom-tasks
+            "args": ["-NonInteractive"]
+          }
+        }
       }
     },
     {
