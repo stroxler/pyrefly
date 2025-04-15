@@ -58,7 +58,7 @@
     },
     {
       "type": "shell",
-      "command": "cargo build --release --all-features --target-dir lsp/bin --manifest-path pyrefly/Cargo.toml",
+      "command": "cargo build --release --all-features --target-dir ../lsp/bin",
       "group": "build",
       "isBackground": true,
       "label": "cargo: build pyrefly for extension",
@@ -67,7 +67,8 @@
           // -l (login shell) necessary on some machines to find cargo
           // https://code.visualstudio.com/docs/editor/tasks#_why-do-i-get-command-not-found-when-running-a-task
           "args": ["-c", "-l"]
-        }
+        },
+        "cwd": "${workspaceFolder}/pyrefly"
       },
       "windows": {
         "options": {
