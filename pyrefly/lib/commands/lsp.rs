@@ -187,11 +187,15 @@ struct Config {
 }
 
 impl Config {
-    fn new(search_path: Vec<PathBuf>, site_package_path: Vec<PathBuf>) -> Self {
+    fn new(
+        search_path: Vec<PathBuf>,
+        site_package_path: Vec<PathBuf>,
+        runtime_metadata: RuntimeMetadata,
+    ) -> Self {
         let open_files = Arc::new(Mutex::new(SmallMap::new()));
         Self {
             open_files: open_files.clone(),
-            runtime_metadata: RuntimeMetadata::default(),
+            runtime_metadata,
             search_path: search_path.clone(),
             loader: LoaderId::new(LspLoader {
                 open_files,
@@ -529,7 +533,11 @@ impl Server {
             initialize_params,
             state: Arc::new(State::new()),
             configs: Arc::new(RwLock::new(SmallMap::new())),
-            default_config: Arc::new(Config::new(search_path.clone(), site_package_path.clone())),
+            default_config: Arc::new(Config::new(
+                search_path.clone(),
+                site_package_path.clone(),
+                RuntimeMetadata::default(),
+            )),
             search_path,
             site_package_path,
             outgoing_request_id: Arc::new(AtomicI32::new(1)),
@@ -693,6 +701,7 @@ impl Server {
                         .chain(self.search_path.clone())
                         .collect(),
                     self.site_package_path.clone(),
+                    RuntimeMetadata::default(),
                 ),
             );
             self.request_settings_for_config(&Url::from_file_path(x).unwrap());
