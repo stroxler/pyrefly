@@ -57,6 +57,7 @@ use lsp_types::TextDocumentSyncKind;
 use lsp_types::TextEdit;
 use lsp_types::Url;
 use lsp_types::notification::Cancel;
+use lsp_types::notification::DidChangeConfiguration;
 use lsp_types::notification::DidChangeTextDocument;
 use lsp_types::notification::DidCloseTextDocument;
 use lsp_types::notification::DidOpenTextDocument;
@@ -472,6 +473,9 @@ impl Server {
                     };
                     canceled_requests.insert(id);
                     Ok(())
+                } else if as_notification::<DidChangeConfiguration>(&x).is_some() {
+                    self.change_configuration();
+                    Ok(())
                 } else {
                     eprintln!("Unhandled notification: {x:?}");
                     Ok(())
@@ -797,6 +801,12 @@ impl Server {
                 data: None,
             }
         }))
+    }
+
+    fn change_configuration(&self) {
+        self.configs.read().iter().for_each(|(scope_uri, _)| {
+            self.request_settings_for_config(&Url::from_file_path(scope_uri).unwrap())
+        });
     }
 
     fn request_settings_for_config(&self, scope_uri: &Url) {

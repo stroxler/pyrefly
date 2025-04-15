@@ -22,6 +22,8 @@ use lsp_server::Response;
 use lsp_types::ConfigurationItem;
 use lsp_types::ConfigurationParams;
 use lsp_types::Url;
+use lsp_types::notification::DidChangeConfiguration;
+use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
 use lsp_types::request::WorkspaceConfiguration;
 use pretty_assertions::assert_eq;
@@ -397,4 +399,51 @@ fn test_go_to_def_no_root() {
 #[test]
 fn test_go_to_def_no_folder_capability() {
     test_go_to_def(None, vec![get_test_files_root()]);
+}
+
+#[test]
+fn test_did_change_configuration() {
+    let scope_uri = Url::from_file_path(get_test_files_root()).unwrap();
+    let mut messages_from_language_client =
+        get_initialize_messages(Some(vec![("test", scope_uri.clone())]), true);
+    messages_from_language_client.push(Message::Notification(Notification {
+        method: DidChangeConfiguration::METHOD.to_owned(),
+        params: serde_json::json!({"settings": {}}),
+    }));
+    messages_from_language_client.push(Message::Response(Response {
+        id: RequestId::from(1),
+        result: Some(serde_json::json!([{}])),
+        error: None,
+    }));
+    messages_from_language_client.push(Message::Response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!([{}])),
+        error: None,
+    }));
+    let mut expected_messages_from_language_server = get_initialize_responses();
+    expected_messages_from_language_server.push(Message::Request(Request {
+        id: RequestId::from(1),
+        method: WorkspaceConfiguration::METHOD.to_owned(),
+        params: serde_json::json!(ConfigurationParams {
+            items: Vec::from([ConfigurationItem {
+                scope_uri: Some(scope_uri.clone()),
+                section: Some("python".to_owned()),
+            }]),
+        }),
+    }));
+    expected_messages_from_language_server.push(Message::Request(Request {
+        id: RequestId::from(2),
+        method: WorkspaceConfiguration::METHOD.to_owned(),
+        params: serde_json::json!(ConfigurationParams {
+            items: Vec::from([ConfigurationItem {
+                scope_uri: Some(scope_uri),
+                section: Some("python".to_owned()),
+            }]),
+        }),
+    }));
+    run_test_lsp(TestCase {
+        messages_from_language_client,
+        expected_messages_from_language_server,
+        search_path: Vec::new(),
+    });
 }
