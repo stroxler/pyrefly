@@ -74,51 +74,56 @@ impl BaseClass {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    pub fn check_new_type_base(
+    fn new_type_base(
         &self,
-        base_type_and_range: &Option<(Type, TextRange)>,
+        base_type_and_range: Option<(Type, TextRange)>,
         fallback_range: TextRange,
         errors: &ErrorCollector,
-    ) {
+    ) -> Option<(ClassType, Arc<ClassMetadata>)> {
         match base_type_and_range {
             // TODO: raise an error for generic classes and other forbidden types such as hashable
-            Some((t @ Type::ClassType(c), range)) => {
+            Some((Type::ClassType(c), range)) => {
                 let base_cls = c.class_object();
                 let base_class_metadata = self.get_metadata_for_class(base_cls);
                 if base_class_metadata.is_protocol() {
                     self.error(
                         errors,
-                        *range,
+                        range,
                         ErrorKind::InvalidArgument,
                         None,
                         "Second argument to NewType cannot be a protocol".to_owned(),
                     );
                 }
-                if t.any(|ty| {
-                    matches!(
-                        ty,
-                        Type::TypeVar(_) | Type::TypeVarTuple(_) | Type::ParamSpec(_)
-                    )
+                if c.targs().as_slice().iter().any(|ty| {
+                    ty.any(|ty| {
+                        matches!(
+                            ty,
+                            Type::TypeVar(_) | Type::TypeVarTuple(_) | Type::ParamSpec(_)
+                        )
+                    })
                 }) {
                     self.error(
                         errors,
-                        *range,
+                        range,
                         ErrorKind::InvalidArgument,
                         None,
                         "Second argument to NewType cannot be an unbound generic".to_owned(),
                     );
                 }
+                let metadata = self.get_metadata_for_class(c.class_object());
+                Some((c, metadata))
             }
             Some((_, range)) => {
                 self.error(
                     errors,
-                    *range,
+                    range,
                     ErrorKind::InvalidArgument,
                     None,
                     "Second argument to NewType is invalid".to_owned(),
                 );
+                None
             }
-            _ => {
+            None => {
                 self.error(
                     errors,
                     fallback_range,
@@ -126,6 +131,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None,
                     "Second argument to NewType is invalid".to_owned(),
                 );
+                None
             }
         }
     }
@@ -171,91 +177,92 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     _ => None,
                 };
                 if is_new_type {
-                    self.check_new_type_base(&base_type_and_range, cls.range(), errors);
-                }
-                match base_type_and_range {
-                    Some((Type::ClassType(c), range)) => {
-                        let base_cls = c.class_object();
-                        let base_class_metadata = self.get_metadata_for_class(base_cls);
-                        if base_class_metadata.has_base_any() {
-                            has_base_any = true;
-                        }
-                        if base_class_metadata.is_typed_dict() {
-                            is_typed_dict = true;
-                        }
-                        if base_class_metadata.is_final() {
-                            self.error(errors,
-                                range,
-                                ErrorKind::InvalidInheritance,
-                                None,
-                                format!("Cannot extend final class `{}`", base_cls.name()),
-                            );
-                        }
-                       if base_class_metadata.is_new_type() && !is_new_type {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorKind::InvalidInheritance,
-                                None,
-                                "Subclassing a NewType not allowed".to_owned(),
-                            );
-                        }
-                        if base_cls.has_qname("typing", "NamedTuple")
-                        {
-                            if named_tuple_metadata.is_none() {
-                                named_tuple_metadata = Some(NamedTupleMetadata {
-                                    elements: self.get_named_tuple_elements(cls)
-                                })
+                    self.new_type_base(base_type_and_range, cls.range(), errors)
+                } else {
+                    match base_type_and_range {
+                        Some((Type::ClassType(c), range)) => {
+                            let base_cls = c.class_object();
+                            let base_class_metadata = self.get_metadata_for_class(base_cls);
+                            if base_class_metadata.has_base_any() {
+                                has_base_any = true;
                             }
-                        } else if let Some(base_named_tuple) = base_class_metadata.named_tuple_metadata() {
-                            if named_tuple_metadata.is_none() {
-                                named_tuple_metadata = Some(base_named_tuple.clone());
+                            if base_class_metadata.is_typed_dict() {
+                                is_typed_dict = true;
                             }
-                        }
-                        if let Some(proto) = &mut protocol_metadata {
-                            if let Some(base_proto) = base_class_metadata.protocol_metadata() {
-                                proto.members.extend(base_proto.members.iter().cloned());
-                            } else {
+                            if base_class_metadata.is_final() {
                                 self.error(errors,
                                     range,
                                     ErrorKind::InvalidInheritance,
                                     None,
-                                    "If `Protocol` is included as a base class, all other bases must be protocols".to_owned(),
+                                    format!("Cannot extend final class `{}`", base_cls.name()),
                                 );
                             }
+                           if base_class_metadata.is_new_type() {
+                                self.error(
+                                    errors,
+                                    range,
+                                    ErrorKind::InvalidInheritance,
+                                    None,
+                                    "Subclassing a NewType not allowed".to_owned(),
+                                );
+                            }
+                            if base_cls.has_qname("typing", "NamedTuple")
+                            {
+                                if named_tuple_metadata.is_none() {
+                                    named_tuple_metadata = Some(NamedTupleMetadata {
+                                        elements: self.get_named_tuple_elements(cls)
+                                    })
+                                }
+                            } else if let Some(base_named_tuple) = base_class_metadata.named_tuple_metadata() {
+                                if named_tuple_metadata.is_none() {
+                                    named_tuple_metadata = Some(base_named_tuple.clone());
+                                }
+                            }
+                            if let Some(proto) = &mut protocol_metadata {
+                                if let Some(base_proto) = base_class_metadata.protocol_metadata() {
+                                    proto.members.extend(base_proto.members.iter().cloned());
+                                } else {
+                                    self.error(errors,
+                                        range,
+                                        ErrorKind::InvalidInheritance,
+                                        None,
+                                        "If `Protocol` is included as a base class, all other bases must be protocols".to_owned(),
+                                    );
+                                }
+                            }
+                            if dataclass_metadata.is_none() && let Some(base_dataclass) = base_class_metadata.dataclass_metadata() {
+                                // If we inherit from a dataclass, inherit its metadata. Note that if this class is
+                                // itself decorated with @dataclass, we'll compute new metadata and overwrite this.
+                                dataclass_metadata = Some(base_dataclass.inherit());
+                            }
+                            Some((c, base_class_metadata))
                         }
-                        if dataclass_metadata.is_none() && let Some(base_dataclass) = base_class_metadata.dataclass_metadata() {
-                            // If we inherit from a dataclass, inherit its metadata. Note that if this class is
-                            // itself decorated with @dataclass, we'll compute new metadata and overwrite this.
-                            dataclass_metadata = Some(base_dataclass.inherit());
+                        Some((Type::Tuple(Tuple::Concrete(ts)), _)) => {
+                            let class_ty = self.stdlib.tuple(self.unions(ts));
+                            let metadata = self.get_metadata_for_class(class_ty.class_object());
+                            Some((class_ty, metadata))
                         }
-                        Some((c, base_class_metadata))
+                        Some((Type::Tuple(Tuple::Unbounded(t)), _)) => {
+                            let class_ty = self.stdlib.tuple(*t);
+                            let metadata = self.get_metadata_for_class(class_ty.class_object());
+                            Some((class_ty, metadata))
+                        }
+                        Some((Type::TypedDict(typed_dict), _)) => {
+                            is_typed_dict = true;
+                            let class_object = typed_dict.class_object();
+                            let class_metadata = self.get_metadata_for_class(class_object);
+                            Some((
+                                typed_dict.as_class_type(),
+                                class_metadata,
+                            ))
+                        }
+                        // todo zeina: Ideally, we can directly add this class to the list of base classes. Revisit this when fixing the "Any" representation.  
+                        Some((Type::Any(_), _)) => {
+                            has_base_any = true;
+                            None
+                        }
+                        _ => None,
                     }
-                    Some((Type::Tuple(Tuple::Concrete(ts)), _)) => {
-                        let class_ty = self.stdlib.tuple(self.unions(ts));
-                        let metadata = self.get_metadata_for_class(class_ty.class_object());
-                        Some((class_ty, metadata))
-                    }
-                    Some((Type::Tuple(Tuple::Unbounded(t)), _)) => {
-                        let class_ty = self.stdlib.tuple(*t);
-                        let metadata = self.get_metadata_for_class(class_ty.class_object());
-                        Some((class_ty, metadata))
-                    }
-                    Some((Type::TypedDict(typed_dict), _)) => {
-                        is_typed_dict = true;
-                        let class_object = typed_dict.class_object();
-                        let class_metadata = self.get_metadata_for_class(class_object);
-                        Some((
-                            typed_dict.as_class_type(),
-                            class_metadata,
-                        ))
-                    }
-                    // todo zeina: Ideally, we can directly add this class to the list of base classes. Revisit this when fixing the "Any" representation.  
-                    Some((Type::Any(_), _)) => {
-                        has_base_any = true;
-                        None
-                    }
-                    _ => None,
                 }
             })
             .collect::<Vec<_>>();
