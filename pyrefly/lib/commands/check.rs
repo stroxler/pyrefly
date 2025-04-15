@@ -337,18 +337,13 @@ impl Args {
         self,
         files_to_check: impl FileList,
         config_finder: ConfigFinder,
-        mut allow_forget: bool,
+        allow_forget: bool,
     ) -> anyhow::Result<CommandExitStatus> {
         let expanded_file_list = files_to_check.files()?;
         if expanded_file_list.is_empty() {
             return Ok(CommandExitStatus::Success);
         }
 
-        if true {
-            // TODO: allow_forget leaks memory, which is good, since we execute faster.
-            //       But after moving directory, the leak detector gets upset. We should turn that off.
-            allow_forget = false;
-        }
         let mut holder = Forgetter::new(State::new(), allow_forget);
         let handles = Handles::new(expanded_file_list, &config_finder);
         let require_levels = self.get_required_levels();
