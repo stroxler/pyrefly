@@ -708,6 +708,7 @@ impl Server {
                     SmallMap::new(),
                 ),
             );
+            // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
             self.request_settings_for_config(&Url::from_file_path(x).unwrap());
         });
         self.configs = Arc::new(RwLock::new(new_configs));
