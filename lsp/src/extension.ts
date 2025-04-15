@@ -12,6 +12,7 @@ import {
     ConfigurationItem,
     ConfigurationParams,
     ConfigurationRequest,
+    DidChangeConfigurationNotification,
     LanguageClient,
     LanguageClientOptions,
     LSPAny,
@@ -43,20 +44,21 @@ function requireSetting<T>(path: string): T {
    * - This function will add pythonPath: '/usr/bin/python3' from the Python extension to the configuration
    * - {setting: 'value', pythonPath: '/usr/bin/python3'} is returned
    *
+   * @param pythonExtension the python extension API
    * @param configurationItems the sections within the workspace
    * @param configuration the configuration returned by vscode in response to a workspace/configuration request (usually what's in settings.json)
    * corresponding to the sections described in configurationItems
    */
  async function overridePythonPath(
+    pythonExtension: PythonExtension,
     configurationItems: ConfigurationItem[],
     configuration: (object | null)[],
   ): Promise<(object | null)[]> {
-    const api = await PythonExtension.api();
     const getPythonPathForConfigurationItem = async (index: number) => {
       if (configurationItems.length <= index || configurationItems[index].section !== 'python') {
         return undefined;
       }
-      return await api.environments.getActiveEnvironmentPath(vscode.Uri.file(configurationItems[index]?.scopeUri)).path;
+      return await pythonExtension.environments.getActiveEnvironmentPath(vscode.Uri.file(configurationItems[index]?.scopeUri)).path;
     };
     const newResult = await Promise.all(configuration.map(async (item, index) => {
       const pythonPath = await getPythonPathForConfigurationItem(index);
@@ -69,7 +71,7 @@ function requireSetting<T>(path: string): T {
     return newResult;
   }
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
     const path: string = requireSetting("pyrefly.lspPath");
     const args: [string] = requireSetting("pyrefly.lspArguments");
 
@@ -80,6 +82,8 @@ export function activate(context: ExtensionContext) {
         // process.platform returns win32 on any windows CPU architecture
         process.platform === 'win32' ? 'pyrefly.exe' : 'pyrefly'
     );
+
+    let pythonExtension = await PythonExtension.api();
 
     // Otherwise to spawn the server
     let serverOptions: ServerOptions = { command: path === '' ? bundledPyreflyPath.fsPath : path, args: args };
@@ -101,7 +105,7 @@ export function activate(context: ExtensionContext) {
                     if (result instanceof ResponseError) {
                       return result;
                     }
-                    const newResult = await overridePythonPath(params.items, result as (object | null)[]);
+                    const newResult = await overridePythonPath(pythonExtension, params.items, result as (object | null)[]);
                     return newResult;
                   },
             }
@@ -118,6 +122,12 @@ export function activate(context: ExtensionContext) {
 
     // Start the client. This will also launch the server
     client.start();
+
+    context.subscriptions.push(
+        pythonExtension.environments.onDidChangeEnvironments(() => {
+          client.sendNotification(DidChangeConfigurationNotification.type, {settings: {}});
+        })
+    );
 
     context.subscriptions.push(
         vscode.commands.registerCommand('pyrefly.restartClient', async () => {
