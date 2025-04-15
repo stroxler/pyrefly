@@ -267,3 +267,20 @@ def f(x: Any) -> int:
     return 1
 "#,
 );
+
+testcase!(
+    bug = "TODO(pybind11): There should be no errors",
+    test_with_contextmanager,
+    r#"
+import contextlib
+from typing import Iterator
+
+@contextlib.contextmanager
+def f() -> Iterator[str]:
+    return iter([""])
+
+def g() -> bool: # E: missing an explicit `return`
+    with f():
+        return True
+    "#,
+);

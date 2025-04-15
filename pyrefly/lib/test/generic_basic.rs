@@ -695,3 +695,17 @@ class A[*Ps, *Qs = *Ps]: # E: cannot be more than one TypeVarTuple
     pass
     "#,
 );
+
+testcase!(
+    bug = "TODO(pybind11): There should be no errors",
+    test_pass_along_typevar,
+    r#"
+from typing import TypeVar
+T = TypeVar('T', bound='A')
+class A:
+    def f(self: T) -> T:
+        return self
+    def g(self: T) -> T:
+        return self.f() # E: `A` is not assignable to declared return type `TypeVar[T]`
+    "#,
+);
