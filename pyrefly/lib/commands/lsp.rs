@@ -178,6 +178,7 @@ struct Server {
 
 /// Temporary "configuration": this is all that is necessary to run an LSP at a given root.
 /// TODO(connernilsel): replace with real config logic
+#[derive(Debug)]
 struct Config {
     open_files: Arc<Mutex<SmallMap<PathBuf, (i32, Arc<String>)>>>,
     runtime_metadata: RuntimeMetadata,
