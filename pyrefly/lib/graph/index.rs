@@ -11,8 +11,8 @@ use std::marker::PhantomData;
 use std::num::NonZeroU32;
 
 use dupe::Dupe;
-use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;
+use starlark_map::small_set::SmallSet;
 
 #[derive(Clone, Debug)]
 pub struct Index<K> {

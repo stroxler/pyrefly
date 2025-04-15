@@ -11,8 +11,8 @@ use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::anyhow;
 use anyhow::Context;
+use anyhow::anyhow;
 use itertools::Itertools;
 use path_absolutize::Absolutize;
 use serde::Deserialize;
@@ -21,6 +21,7 @@ use toml::Table;
 use tracing::debug;
 use tracing::warn;
 
+use crate::PythonEnvironment;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::util::ExtraConfigs;
 use crate::globs::Globs;
@@ -29,7 +30,6 @@ use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::module::wildcard::ModuleWildcard;
 use crate::util::fs_anyhow;
-use crate::PythonEnvironment;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct ConfigFile {

@@ -5,17 +5,17 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
 use quote::quote_spanned;
-use quote::ToTokens;
-use syn::parse_macro_input;
-use syn::spanned::Spanned;
 use syn::Data;
 use syn::DeriveInput;
 use syn::Fields;
 use syn::GenericParam;
 use syn::Generics;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
 
 pub(crate) fn derive_type_eq(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

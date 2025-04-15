@@ -18,10 +18,10 @@ use std::path::PathBuf;
 use clap::Parser;
 use tracing::info;
 
+use crate::ConfigFile;
 use crate::config::pyright::PyrightConfig;
 use crate::run::CommandExitStatus;
 use crate::util::fs_anyhow;
-use crate::ConfigFile;
 
 #[derive(Clone, Debug, Parser)]
 pub struct Args {

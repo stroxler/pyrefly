@@ -10,9 +10,9 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use regex::Regex;
-use serde::de::Visitor;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::de::Visitor;
 
 use crate::module::module_name::ModuleName;
 

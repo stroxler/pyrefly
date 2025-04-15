@@ -23,6 +23,7 @@ use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use starlark_map::small_map::SmallMap;
 
+use crate::PythonVersion;
 use crate::binding::binding::KeyExport;
 use crate::config::error::ErrorConfigs;
 use crate::error::error::print_errors;
@@ -41,10 +42,9 @@ use crate::state::subscriber::TestSubscriber;
 use crate::types::class::Class;
 use crate::types::types::Type;
 use crate::util::prelude::SliceExt;
-use crate::util::thread_pool::init_thread_pool;
 use crate::util::thread_pool::ThreadCount;
+use crate::util::thread_pool::init_thread_pool;
 use crate::util::trace::init_tracing;
-use crate::PythonVersion;
 
 #[macro_export]
 macro_rules! testcase {

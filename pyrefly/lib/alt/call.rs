@@ -6,8 +6,8 @@
  */
 
 use dupe::Dupe;
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Keyword;
+use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;

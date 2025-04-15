@@ -7,8 +7,8 @@
 
 use std::sync::Arc;
 
-use ruff_python_ast::name::Name;
 use ruff_python_ast::DictItem;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;

@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use crossbeam_channel::bounded;
 use crossbeam_channel::RecvTimeoutError;
+use crossbeam_channel::bounded;
 use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_server::Notification;
@@ -22,8 +22,8 @@ use lsp_server::Response;
 use lsp_types::Url;
 use pretty_assertions::assert_eq;
 
-use crate::commands::lsp::run_lsp;
 use crate::commands::lsp::Args;
+use crate::commands::lsp::run_lsp;
 use crate::test::util::init_test;
 
 struct TestCase {

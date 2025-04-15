@@ -7,12 +7,12 @@
 
 use std::cmp::Ordering;
 
-use itertools::izip;
 use itertools::EitherOrBoth;
 use itertools::Itertools;
+use itertools::izip;
 use ruff_python_ast::name::Name;
-use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
+use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
 use crate::dunder;

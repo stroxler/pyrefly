@@ -15,8 +15,8 @@ use parse_display::FromStr;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Expr;
+use ruff_python_ast::name::Name;
 
 use crate::types::annotation::Qualifier;
 use crate::types::types::NeverStyle;

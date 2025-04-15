@@ -10,10 +10,10 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use itertools::Either;
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::StmtFunctionDef;
+use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use vec1::Vec1;
 

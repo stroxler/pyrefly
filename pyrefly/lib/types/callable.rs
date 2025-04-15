@@ -12,9 +12,9 @@ use std::fmt::Display;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Keyword;
+use ruff_python_ast::name::Name;
 use starlark_map::ordered_map::OrderedMap;
 
 use crate::dunder;

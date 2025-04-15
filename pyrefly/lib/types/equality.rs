@@ -11,12 +11,12 @@ use std::sync::Arc;
 use dupe::Dupe;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
+use starlark_map::Hashed;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::ordered_set::OrderedSet;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
-use starlark_map::Hashed;
 use vec1::Vec1;
 
 use crate::module::module_name::ModuleName;

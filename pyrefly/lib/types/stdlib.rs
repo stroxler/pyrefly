@@ -8,12 +8,12 @@
 use dupe::Dupe;
 use ruff_python_ast::name::Name;
 
+use crate::PythonVersion;
 use crate::module::module_name::ModuleName;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::class::TArgs;
 use crate::types::types::Type;
-use crate::PythonVersion;
 
 #[derive(Debug, Clone)]
 struct StdlibError {

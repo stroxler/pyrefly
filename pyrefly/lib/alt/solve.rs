@@ -11,10 +11,10 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use itertools::Either;
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Expr;
 use ruff_python_ast::TypeParam;
 use ruff_python_ast::TypeParams;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::ordered_set::OrderedSet;

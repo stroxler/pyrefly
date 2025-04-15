@@ -11,8 +11,8 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;

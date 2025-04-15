@@ -29,8 +29,8 @@ use crate::state::require::Require;
 use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::subscriber::TestSubscriber;
-use crate::test::util::init_test;
 use crate::test::util::TestEnv;
+use crate::test::util::init_test;
 use crate::util::lock::Mutex;
 use crate::util::prelude::SliceExt;
 

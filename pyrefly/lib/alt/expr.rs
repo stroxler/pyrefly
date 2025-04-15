@@ -6,7 +6,6 @@
  */
 
 use dupe::Dupe;
-use ruff_python_ast::name::Name;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::Comprehension;
 use ruff_python_ast::Expr;
@@ -16,6 +15,7 @@ use ruff_python_ast::ExprStarred;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::Number;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;

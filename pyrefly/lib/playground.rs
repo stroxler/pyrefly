@@ -20,8 +20,8 @@ use starlark_map::small_map::SmallMap;
 
 use crate::config::error::ErrorConfigs;
 use crate::metadata::RuntimeMetadata;
-use crate::module::bundled::typeshed;
 use crate::module::bundled::BundledTypeshed;
+use crate::module::bundled::typeshed;
 use crate::module::module_info::SourceRange;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;

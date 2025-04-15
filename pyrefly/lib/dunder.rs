@@ -5,8 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use ruff_python_ast::name::Name;
 use ruff_python_ast::CmpOp;
+use ruff_python_ast::name::Name;
 
 pub const AENTER: Name = Name::new_static("__aenter__");
 pub const AEXIT: Name = Name::new_static("__aexit__");

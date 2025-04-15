@@ -14,8 +14,8 @@ use std::sync::Arc;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use ruff_text_size::TextRange;
-use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
+use starlark_map::small_map::SmallMap;
 
 use crate::alt::traits::Solve;
 use crate::alt::traits::SolveRecursive;

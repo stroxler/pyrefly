@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use ruff_python_ast::visitor::source_order::walk_stmt;
-use ruff_python_ast::visitor::source_order::SourceOrderVisitor;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprFString;
@@ -15,6 +13,8 @@ use ruff_python_ast::FStringPart;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Pattern;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::visitor::source_order::SourceOrderVisitor;
+use ruff_python_ast::visitor::source_order::walk_stmt;
 
 use crate::util::visit::Visit;
 use crate::util::visit::VisitMut;

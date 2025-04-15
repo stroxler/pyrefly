@@ -8,10 +8,10 @@
 use std::sync::Arc;
 
 use dupe::Dupe;
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::StmtClassDef;
+use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 

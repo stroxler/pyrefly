@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::CmpOp;
@@ -17,6 +16,7 @@ use ruff_python_ast::ExprCompare;
 use ruff_python_ast::ExprNamed;
 use ruff_python_ast::ExprUnaryOp;
 use ruff_python_ast::UnaryOp;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;

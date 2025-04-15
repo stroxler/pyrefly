@@ -27,9 +27,9 @@ use crate::types::types::BoundMethod;
 use crate::types::types::NeverStyle;
 use crate::types::types::SuperObj;
 use crate::types::types::Type;
+use crate::util::display::Fmt;
 use crate::util::display::append;
 use crate::util::display::commas_iter;
-use crate::util::display::Fmt;
 
 /// Information about the classes we have seen.
 /// Set to None to indicate we have seen different values, or Some if they are all the same.

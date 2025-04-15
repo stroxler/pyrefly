@@ -12,12 +12,14 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use anyhow::Context as _;
+use anyhow::anyhow;
 use clap::Parser;
 use clap::Subcommand;
 use dupe::Dupe;
 use path_absolutize::Absolutize;
+use pyrefly::ConfigFile;
+use pyrefly::NotifyWatcher;
 use pyrefly::clap_env;
 use pyrefly::finder::ConfigFinder;
 use pyrefly::get_args_expanded;
@@ -29,8 +31,6 @@ use pyrefly::run::CommandExitStatus;
 use pyrefly::run::CommonGlobalArgs;
 use pyrefly::run::ConfigMigrationArgs;
 use pyrefly::run::LspArgs;
-use pyrefly::ConfigFile;
-use pyrefly::NotifyWatcher;
 use tracing::debug;
 use tracing::info;
 

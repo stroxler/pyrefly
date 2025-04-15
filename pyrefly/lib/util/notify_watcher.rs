@@ -8,17 +8,17 @@
 #![allow(dead_code)] // A library, so need a complete API
 
 use std::path::Path;
-use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
+use std::sync::mpsc::channel;
 use std::time::Duration;
 use std::time::Instant;
 
 use async_trait::async_trait;
-use notify::recommended_watcher;
 use notify::Event;
 use notify::RecommendedWatcher;
 use notify::RecursiveMode;
 use notify::Watcher as _;
+use notify::recommended_watcher;
 
 use crate::util::watcher::Watcher;
 

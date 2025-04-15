@@ -10,8 +10,8 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::anyhow;
 use anyhow::Context as _;
+use anyhow::anyhow;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
 use vec1::Vec1;

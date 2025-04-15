@@ -6,9 +6,9 @@
  */
 
 use dupe::Dupe;
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
+use ruff_python_ast::name::Name;
 
 use crate::module::module_name::ModuleName;
 

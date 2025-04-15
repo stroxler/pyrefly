@@ -26,10 +26,10 @@ use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtIf;
 use ruff_python_ast::UnaryOp;
-use serde::de;
-use serde::de::Visitor;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::de;
+use serde::de::Visitor;
 
 use crate::ruff::ast::Ast;
 use crate::util::prelude::SliceExt;

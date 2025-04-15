@@ -12,8 +12,8 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::LazyLock;
 
-use anyhow::anyhow;
 use anyhow::Context;
+use anyhow::anyhow;
 use itertools::Itertools;
 use serde::Deserialize;
 use serde::Serialize;
@@ -22,10 +22,10 @@ use tracing::error;
 #[cfg(not(target_arch = "wasm32"))]
 use which::which;
 
+use crate::PythonVersion;
 use crate::metadata::PythonPlatform;
 use crate::metadata::RuntimeMetadata;
 use crate::util::lock::Mutex;
-use crate::PythonVersion;
 
 static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonEnvironment>>>> =
     LazyLock::new(|| Mutex::new(SmallMap::new()));

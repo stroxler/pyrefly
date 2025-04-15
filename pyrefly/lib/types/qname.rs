@@ -12,8 +12,8 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Identifier;
+use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 

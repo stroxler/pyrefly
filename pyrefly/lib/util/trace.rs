@@ -7,15 +7,15 @@
 
 //! Utilities for working with the `tracing` crate.
 
-use std::io::stderr;
 use std::io::IsTerminal;
+use std::io::stderr;
 use std::sync::Once;
 
+use tracing_subscriber::Layer;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::Layer;
 
 /// If we create tracing twice, the library panics. Avoid that.
 /// Mostly happens when we run tests.

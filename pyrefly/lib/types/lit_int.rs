@@ -11,8 +11,8 @@ use std::fmt::Display;
 use std::ops::Neg;
 
 use num_bigint::BigInt;
-use num_traits::cast::ToPrimitive;
 use num_traits::Num;
+use num_traits::cast::ToPrimitive;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use ruff_python_ast::Int;

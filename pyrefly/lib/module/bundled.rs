@@ -10,8 +10,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
-use anyhow::anyhow;
 use anyhow::Context as _;
+use anyhow::anyhow;
 use starlark_map::small_map::SmallMap;
 use tar::Archive;
 use zstd::stream::read::Decoder;

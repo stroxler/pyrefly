@@ -9,8 +9,8 @@ use std::iter;
 
 use dupe::Dupe;
 use itertools::Either;
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Expr;
+use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
 

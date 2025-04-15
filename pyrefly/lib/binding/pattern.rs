@@ -7,11 +7,11 @@
 
 use std::mem;
 
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Pattern;
 use ruff_python_ast::PatternKeyword;
 use ruff_python_ast::StmtMatch;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 
 use crate::binding::binding::Binding;

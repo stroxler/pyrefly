@@ -9,8 +9,8 @@
 //! But there are a few nuances where it is a bit different, e.g. `Dict()` doesn't create a dictionary.
 //! See <https://github.com/python/typeshed/pull/13589> for details.
 
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Expr;
+use ruff_python_ast::name::Name;
 
 use crate::module::module_name::ModuleName;
 

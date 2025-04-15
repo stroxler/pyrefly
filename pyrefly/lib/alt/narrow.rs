@@ -5,9 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use ruff_python_ast::name::Name;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 

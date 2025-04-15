@@ -6,7 +6,6 @@
  */
 
 use dupe::Dupe;
-use ruff_python_ast::name::Name;
 use ruff_python_ast::CmpOp;
 use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprCompare;
@@ -14,6 +13,7 @@ use ruff_python_ast::ExprUnaryOp;
 use ruff_python_ast::Operator;
 use ruff_python_ast::StmtAugAssign;
 use ruff_python_ast::UnaryOp;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
