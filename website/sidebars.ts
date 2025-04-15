@@ -22,6 +22,7 @@ const docsSidebar = [
     {
         type: 'category' as const,
         label: 'Introduction',
+        description: "Never used a type system before or just new to Pyrefly? Start here!",
         items: [...fbInternalOnly(['fb/getting-started',  'fb/installation']), 'configuration'],
       },
     {

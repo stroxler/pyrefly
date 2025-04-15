@@ -14,13 +14,15 @@ interface SidebarItem {
     label: string;
     id?: string;
     items?: string[];
+    description?: string;
 }
 
 interface DocsCategory {
-    docId: string;
+    docId?: string;
     href: string;
     label: string;
     type: string;
+    description?: string,
 }
 
 const docsCategories: DocsCategory[] = docsSidebar.map((item: SidebarItem) => {
@@ -28,7 +30,11 @@ const docsCategories: DocsCategory[] = docsSidebar.map((item: SidebarItem) => {
     const id = item.type === 'doc' ? item.id! : item.items![0];
     let href = `/en/docs/${id}`;
     if (href.endsWith('/index')) href = href.substring(0, href.length - 6);
-    return { type: 'link', docId: id, href, label };
+
+    if (item.type === 'category' && item.description !== undefined) {
+        return { type: 'link', href, label, description: item.description };
+    }
+    return { type: 'link', docId: id, href, label};
 });
 
 export default docsCategories;
