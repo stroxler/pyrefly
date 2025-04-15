@@ -191,8 +191,9 @@ impl Config {
         search_path: Vec<PathBuf>,
         site_package_path: Vec<PathBuf>,
         runtime_metadata: RuntimeMetadata,
+        open_files: SmallMap<PathBuf, (i32, Arc<String>)>,
     ) -> Self {
-        let open_files = Arc::new(Mutex::new(SmallMap::new()));
+        let open_files = Arc::new(Mutex::new(open_files));
         Self {
             open_files: open_files.clone(),
             runtime_metadata,
@@ -537,6 +538,7 @@ impl Server {
                 search_path.clone(),
                 site_package_path.clone(),
                 RuntimeMetadata::default(),
+                SmallMap::new(),
             )),
             search_path,
             site_package_path,
@@ -702,6 +704,7 @@ impl Server {
                         .collect(),
                     self.site_package_path.clone(),
                     RuntimeMetadata::default(),
+                    SmallMap::new(),
                 ),
             );
             self.request_settings_for_config(&Url::from_file_path(x).unwrap());
