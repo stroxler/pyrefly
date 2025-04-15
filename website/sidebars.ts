@@ -23,13 +23,27 @@ const docsSidebar = [
         type: 'category' as const,
         label: 'Introduction',
         description: "Never used a type system before or just new to Pyrefly? Start here!",
-        items: [...fbInternalOnly(['fb/getting-started',  'fb/installation']), 'configuration'],
+        items: [...fbInternalOnly(['fb/getting-started',  'fb/installation']), 'configuration', ...fbInternalOnly(['fb/migrating-to-pyrefly'])],
       },
     {
         type: 'doc' as const,
         id: 'learn-python-typing',
         label: 'Learn Python Typing',
     },
+    ...fbInternalOnly(
+        [
+            {
+                type: 'doc' as const,
+                id: 'fb/FAQ',
+                label: 'FAQ',
+            },
+            {
+                type: 'doc' as const,
+                id: 'fb/IDE',
+                label: 'IDE',
+            },
+        ]
+    ),
     {
         type: 'doc' as const,
         id: 'error-kinds',
