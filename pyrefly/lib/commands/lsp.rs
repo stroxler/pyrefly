@@ -285,7 +285,7 @@ pub fn run_lsp(
         if matches!(&msg, Message::Request(req) if connection.handle_shutdown(req)?) {
             break;
         }
-        server.process(&mut ide_transaction_manager, &mut canceled_requests, msg)?;
+        server.process_lsp_message(&mut ide_transaction_manager, &mut canceled_requests, msg)?;
     }
     wait_on_connection()?;
 
@@ -376,7 +376,7 @@ fn publish_diagnostics(
 }
 
 impl Server {
-    fn process<'a>(
+    fn process_lsp_message<'a>(
         &'a self,
         ide_transaction_manager: &mut IDETransactionManager<'a>,
         canceled_requests: &mut HashSet<RequestId>,
