@@ -103,6 +103,7 @@ pub struct Args {
 }
 
 /// `IDETransactionManager` aims to always produce a transaction that contains the up-to-date
+/// in-memory contents.
 #[derive(Default)]
 struct IDETransactionManager<'a> {
     /// Invariant:
@@ -131,12 +132,17 @@ impl<'a> IDETransactionManager<'a> {
             // until the recheck is finished. This is bad for perceived perf. Therefore, we will
             // temporarily use a non-commitable transaction to hold the information that's necessary
             // to power IDE services.
-            Err(self.transaction(state))
+            Err(self.non_commitable_transaction(state))
         }
     }
 
+    /// Produce a `Transaction` to power readonly IDE services.
+    /// This transaction will never be able to be committed.
+    /// After using it, the state should be saved by caling the `save` method.
+    ///
     /// The `Transaction` will always contain the handles of all open files with the latest content.
-    fn transaction(&mut self, state: &'a State) -> Transaction<'a> {
+    /// It might be created fresh from state, or reused from previously saved state.
+    fn non_commitable_transaction(&mut self, state: &'a State) -> Transaction<'a> {
         let mut saved_state = None;
         std::mem::swap(&mut self.saved_state, &mut saved_state);
         if let Some(saved_state) = saved_state {
@@ -397,7 +403,8 @@ impl Server {
                 eprintln!("Handling non-canceled request ({})", x.id);
                 if let Some(params) = as_request::<GotoDefinition>(&x) {
                     let default_response = GotoDefinitionResponse::Array(Vec::new());
-                    let transaction = ide_transaction_manager.transaction(&self.state);
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(
                         x.id,
                         Ok(self
@@ -406,7 +413,8 @@ impl Server {
                     ));
                     ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<Completion>(&x) {
-                    let transaction = ide_transaction_manager.transaction(&self.state);
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(x.id, self.completion(&transaction, params)));
                     ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<HoverRequest>(&x) {
@@ -414,14 +422,16 @@ impl Server {
                         contents: HoverContents::Array(Vec::new()),
                         range: None,
                     };
-                    let transaction = ide_transaction_manager.transaction(&self.state);
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(
                         x.id,
                         Ok(self.hover(&transaction, params).unwrap_or(default_response)),
                     ));
                     ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<InlayHintRequest>(&x) {
-                    let transaction = ide_transaction_manager.transaction(&self.state);
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(
                         x.id,
                         Ok(self.inlay_hints(&transaction, params).unwrap_or_default()),
