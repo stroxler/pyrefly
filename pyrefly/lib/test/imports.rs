@@ -65,6 +65,16 @@ assert_type(y, X)
 );
 
 testcase!(
+    test_imports_star_dunder,
+    TestEnv::one("foo", "def __derp__() -> int: ..."),
+    r#"
+from typing import assert_type
+from foo import *
+assert_type(__derp__(), int)
+"#,
+);
+
+testcase!(
     test_imports_module_single,
     env_class_x(),
     r#"

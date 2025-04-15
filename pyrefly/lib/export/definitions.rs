@@ -124,6 +124,10 @@ struct DefinitionsBuilder<'a> {
     inner: Definitions,
 }
 
+fn is_private_name(name: &Name) -> bool {
+    name.starts_with('_') && !name.starts_with("__")
+}
+
 impl Definitions {
     pub fn new(
         x: &[Stmt],
@@ -157,7 +161,7 @@ impl Definitions {
             }
         }
         for (name, def) in self.definitions.iter() {
-            if !name.starts_with('_')
+            if !is_private_name(name)
                 && (style == ModuleStyle::Executable
                     || matches!(
                         def.style,
