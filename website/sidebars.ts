@@ -19,23 +19,11 @@ import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 
 const docsSidebar = [
     // TODO (T221099224):Release getting started and installation doc pages to public
-    ...fbInternalOnly([
-        {
-            type: 'doc' as const,
-            id: 'fb/getting-started',
-            label: '[Internal Only] Getting Started',
-        },
-        {
-            type: 'doc' as const,
-            id: 'fb/installation',
-            label: '[Internal Only] Installation',
-        },
-    ]),
     {
-        type: 'doc' as const,
-        id: 'configuration',
-        label: 'Configuration',
-    },
+        type: 'category' as const,
+        label: 'Introduction',
+        items: [...fbInternalOnly(['fb/getting-started',  'fb/installation']), 'configuration'],
+      },
     {
         type: 'doc' as const,
         id: 'learn-python-typing',
