@@ -19,7 +19,11 @@ use lsp_server::Notification;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
+use lsp_types::ConfigurationItem;
+use lsp_types::ConfigurationParams;
 use lsp_types::Url;
+use lsp_types::request::Request as _;
+use lsp_types::request::WorkspaceConfiguration;
 use pretty_assertions::assert_eq;
 
 use crate::commands::lsp::Args;
@@ -112,8 +116,8 @@ fn run_test_lsp(test_case: TestCase) {
                 .messages_from_language_client
                 .iter()
                 .for_each(|msg| {
-                    eprintln!("client--->server {}", serde_json::to_string(&msg).unwrap());
                     let send = || {
+                        eprintln!("client--->server {}", serde_json::to_string(&msg).unwrap());
                         if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout)
                         {
                             panic!("Failed to send message to language server: {:?}", err);
@@ -192,7 +196,10 @@ fn run_test_lsp(test_case: TestCase) {
     }
 }
 
-fn get_initialize_params(workspace_folders: Option<Vec<(&str, Url)>>) -> serde_json::Value {
+fn get_initialize_params(
+    workspace_folders: Option<Vec<(&str, Url)>>,
+    configuration: bool,
+) -> serde_json::Value {
     let mut params = serde_json::json!({
         "rootPath": "/",
         "processId": std::process::id(),
@@ -222,18 +229,22 @@ fn get_initialize_params(workspace_folders: Option<Vec<(&str, Url)>>) -> serde_j
                 .collect::<Vec<_>>()
         );
     }
+    if configuration {
+        params["capabilities"]["workspace"]["configuration"] = serde_json::json!(true);
+    }
 
     params
 }
 
 fn get_initialize_messages(
     workspace_folders: Option<Vec<(&str, Url)>>,
+    configuration: bool,
 ) -> std::vec::Vec<lsp_server::Message> {
     vec![
         Message::from(Request {
             id: RequestId::from(1),
             method: "initialize".to_owned(),
-            params: get_initialize_params(workspace_folders),
+            params: get_initialize_params(workspace_folders, configuration),
         }),
         Message::from(Notification {
             method: "initialized".to_owned(),
@@ -283,14 +294,44 @@ fn get_test_files_root() -> PathBuf {
 #[test]
 fn test_initialize() {
     run_test_lsp(TestCase {
-        messages_from_language_client: get_initialize_messages(None),
+        messages_from_language_client: get_initialize_messages(None, false),
         expected_messages_from_language_server: get_initialize_responses(),
         search_path: Vec::new(),
     });
 }
 
+#[test]
+fn test_initialize_with_python_path() {
+    let scope_uri = Url::from_file_path(get_test_files_root()).unwrap();
+    let python_path = "/path/to/python/interpreter";
+    let id = RequestId::from(1);
+    let mut messages_from_language_client =
+        get_initialize_messages(Some(vec![("test", scope_uri.clone())]), true);
+    messages_from_language_client.push(Message::Response(Response {
+        id: id.clone(),
+        result: Some(serde_json::json!([{"pythonPath": python_path}])),
+        error: None,
+    }));
+    let mut expected_messages_from_language_server = get_initialize_responses();
+    expected_messages_from_language_server.push(Message::Request(Request {
+        id,
+        method: WorkspaceConfiguration::METHOD.to_owned(),
+        params: serde_json::json!(ConfigurationParams {
+            items: Vec::from([ConfigurationItem {
+                scope_uri: Some(scope_uri),
+                section: Some("python".to_owned()),
+            }]),
+        }),
+    }));
+    run_test_lsp(TestCase {
+        messages_from_language_client,
+        expected_messages_from_language_server,
+        search_path: Vec::new(),
+    });
+}
+
 fn test_go_to_def(workspace_folders: Option<Vec<(&str, Url)>>, search_path: Vec<PathBuf>) {
-    let mut test_messages = get_initialize_messages(workspace_folders);
+    let mut test_messages = get_initialize_messages(workspace_folders, false);
     let mut expected_responses = get_initialize_responses();
     let root = get_test_files_root();
 

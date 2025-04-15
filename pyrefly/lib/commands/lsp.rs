@@ -10,6 +10,8 @@ use std::iter::once;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicI32;
+use std::sync::atomic::Ordering;
 
 use clap::Parser;
 use dupe::Dupe;
@@ -25,6 +27,8 @@ use lsp_types::CompletionList;
 use lsp_types::CompletionOptions;
 use lsp_types::CompletionParams;
 use lsp_types::CompletionResponse;
+use lsp_types::ConfigurationItem;
+use lsp_types::ConfigurationParams;
 use lsp_types::Diagnostic;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidCloseTextDocumentParams;
@@ -62,6 +66,7 @@ use lsp_types::request::Completion;
 use lsp_types::request::GotoDefinition;
 use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
+use lsp_types::request::WorkspaceConfiguration;
 use ruff_source_file::SourceLocation;
 use ruff_text_size::TextSize;
 use serde::de::DeserializeOwned;
@@ -160,13 +165,14 @@ impl<'a> IDETransactionManager<'a> {
 
 struct Server {
     send: Arc<dyn Fn(Message) + Send + Sync + 'static>,
-    #[expect(dead_code)] // we'll use it later on
     initialize_params: InitializeParams,
     state: Arc<State>,
     configs: Arc<RwLock<SmallMap<PathBuf, Config>>>,
     default_config: Arc<Config>,
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
+    outgoing_request_id: Arc<AtomicI32>,
+    outgoing_requests: Mutex<SmallMap<RequestId, Request>>,
 }
 
 /// Temporary "configuration": this is all that is necessary to run an LSP at a given root.
@@ -443,8 +449,12 @@ impl Server {
                 Ok(())
             }
             Message::Response(x) => {
-                eprintln!("Unhandled response: {x:?}");
-                Ok(())
+                if let Some(request) = self.outgoing_requests.lock().shift_remove(&x.id) {
+                    self.handle_response(ide_transaction_manager, &request, &x)
+                } else {
+                    eprintln!("Response for unknown request: {x:?}");
+                    Ok(())
+                }
             }
             Message::Notification(x) => {
                 if let Some(params) = as_notification::<DidOpenTextDocument>(&x) {
@@ -517,6 +527,8 @@ impl Server {
             default_config: Arc::new(Config::new(search_path.clone(), site_package_path.clone())),
             search_path,
             site_package_path,
+            outgoing_request_id: Arc::new(AtomicI32::new(1)),
+            outgoing_requests: Mutex::new(SmallMap::new()),
         };
         s.configure(folders);
 
@@ -525,6 +537,20 @@ impl Server {
 
     fn send_response(&self, x: Response) {
         (self.send)(Message::Response(x))
+    }
+
+    fn send_request<T>(&self, params: T::Params)
+    where
+        T: lsp_types::request::Request,
+    {
+        let id = RequestId::from(self.outgoing_request_id.fetch_add(1, Ordering::SeqCst));
+        let request = Request {
+            id: id.clone(),
+            method: T::METHOD.to_owned(),
+            params: serde_json::to_value(params).unwrap(),
+        };
+        (self.send)(Message::Request(request.clone()));
+        self.outgoing_requests.lock().insert(id, request);
     }
 
     fn publish_diagnostics_for_uri(&self, uri: Url, diags: Vec<Diagnostic>, version: Option<i32>) {
@@ -664,6 +690,7 @@ impl Server {
                     self.site_package_path.clone(),
                 ),
             );
+            self.request_settings_for_config(&Url::from_file_path(x).unwrap());
         });
         self.configs = Arc::new(RwLock::new(new_configs));
     }
@@ -771,6 +798,55 @@ impl Server {
             }
         }))
     }
+
+    fn request_settings_for_config(&self, scope_uri: &Url) {
+        if let Some(workspace) = &self.initialize_params.capabilities.workspace
+            && workspace.configuration == Some(true)
+        {
+            self.send_request::<WorkspaceConfiguration>(ConfigurationParams {
+                items: Vec::from([ConfigurationItem {
+                    scope_uri: Some(scope_uri.clone()),
+                    section: Some("python".to_owned()),
+                }]),
+            });
+        }
+    }
+
+    fn handle_response<'a>(
+        &'a self,
+        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        request: &Request,
+        response: &Response,
+    ) -> anyhow::Result<()> {
+        if let Some((request, response)) =
+            as_request_response_pair::<WorkspaceConfiguration>(request, response)
+        {
+            let mut modified = false;
+            for (i, id) in request.items.iter().enumerate() {
+                if let Some(scope_uri) = &id.scope_uri {
+                    match response.get(i) {
+                        Some(serde_json::Value::Object(map))
+                            if let Some(serde_json::Value::String(python_path)) =
+                                map.get("pythonPath") =>
+                        {
+                            self.update_pythonpath(&mut modified, scope_uri, python_path);
+                        }
+                        _ => {
+                            // Received a response without a pythonPath
+                        }
+                    };
+                }
+            }
+            if modified {
+                return self.validate_in_memory(ide_transaction_manager);
+            }
+        }
+        Ok(())
+    }
+
+    fn update_pythonpath(&self, _modified: &mut bool, _scope_uri: &Url, _python_path: &str) {
+        // todo(kylei): implement this
+    }
 }
 
 fn source_range_to_range(x: &SourceRange) -> lsp_types::Range {
@@ -829,6 +905,27 @@ where
     } else {
         None
     }
+}
+
+fn as_request_response_pair<T>(
+    request: &Request,
+    response: &Response,
+) -> Option<(T::Params, T::Result)>
+where
+    T: lsp_types::request::Request,
+    T::Params: DeserializeOwned,
+{
+    if response.id != request.id {
+        return None;
+    }
+    let params = as_request::<T>(request)?;
+    let result = serde_json::from_value(response.result.clone()?).unwrap_or_else(|err| {
+        panic!(
+            "Invalid response\n  method: {}\n response:{:?}\n, response error:{:?}\n, error: {}\n",
+            request.method, response.result, response.error, err
+        )
+    });
+    Some((params, result))
 }
 
 /// Create a new `Notification` object with the correct name from the given params.
