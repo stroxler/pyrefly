@@ -215,10 +215,7 @@ const config: Config = {
             {
                 docs: {
                     routeBasePath: 'en/docs',
-                    sidebarPath:
-                        process.env.INTERNAL_STATIC_DOCS === '1'
-                            ? require.resolve('./sidebars.ts')
-                            : false, // TODO (T217317240): add back sidebar when we are ready to publish docs
+                    sidebarPath: require.resolve('./sidebars.ts'),
                     editUrl: fbContent({
                         internal:
                             'https://www.internalfb.com/code/fbsource/fbcode/pyrefly/website/',
