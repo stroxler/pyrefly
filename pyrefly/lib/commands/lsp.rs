@@ -74,6 +74,7 @@ use serde::de::DeserializeOwned;
 use starlark_map::small_map::Iter;
 use starlark_map::small_map::SmallMap;
 
+use crate::PythonEnvironment;
 use crate::clap_env;
 use crate::commands::util::module_from_path;
 use crate::config::error::ErrorConfigs;
@@ -867,8 +868,25 @@ impl Server {
         Ok(())
     }
 
-    fn update_pythonpath(&self, _modified: &mut bool, _scope_uri: &Url, _python_path: &str) {
-        // todo(kylei): implement this
+    fn update_pythonpath(&self, modified: &mut bool, scope_uri: &Url, python_path: &str) {
+        let mut configs = self.configs.write();
+        let config_path = scope_uri.to_file_path().unwrap();
+        // Currently uses the default interpreter if the pythonPath is invalid
+        let env = PythonEnvironment::get_interpreter_env(&PathBuf::from(python_path));
+        // TODO(kylei): warn if interpreter could not be found
+        if let Some(site_package_path) = env.clone().site_package_path
+            && let Some(config) = configs.get(&config_path)
+        {
+            *modified = true;
+            let search_path = config.search_path.clone();
+            let new_config = Config::new(
+                search_path,
+                site_package_path,
+                env.get_runtime_metadata(),
+                config.open_files.lock().clone(),
+            );
+            configs.insert(config_path, new_config);
+        }
     }
 }
 
