@@ -1,6 +1,7 @@
 {
     "name": "pyrefly",
     "description": "A Python language server, powered by pyrefly",
+    "icon": "images/pyrefly-symbol.png",
     "extensionKind": [
         "workspace"
     ],
