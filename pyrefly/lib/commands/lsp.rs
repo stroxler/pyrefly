@@ -207,7 +207,7 @@ impl Config {
 
     fn compute_diagnostics(
         &self,
-        state: &State,
+        transaction: &Transaction,
         handles: Vec<(Handle, Require)>,
     ) -> SmallMap<PathBuf, Vec<Diagnostic>> {
         let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
@@ -216,8 +216,7 @@ impl Config {
             diags.insert(x.as_path().to_owned(), Vec::new());
         }
         // TODO(connernilsen): replace with real error config from config file
-        for e in state
-            .transaction()
+        for e in transaction
             .get_loads(handles.iter().map(|(handle, _)| handle))
             .collect_errors(&ErrorConfigs::default())
             .shown
@@ -555,8 +554,11 @@ impl Server {
         match possibly_committable_transaction {
             Ok(transaction) => {
                 self.state.commit_transaction(transaction.into_changes());
+                // In the case where we can commit transactions, `State` already has latest updates.
+                // Therefore, we can compute errors from transactions freshly created from `State``.
+                let transaction = self.state.transaction();
                 for (config, handles) in config_with_handles {
-                    self.publish_diagnostics(config.compute_diagnostics(&self.state, handles));
+                    self.publish_diagnostics(config.compute_diagnostics(&transaction, handles));
                 }
             }
             Err(transaction) => {
@@ -575,10 +577,11 @@ impl Server {
             let mut transaction = state.new_committable_transaction(Require::Exports, None);
             transaction.as_mut().invalidate_disk(&invalidate_disk);
             state.run_with_committing_transaction(transaction, &[]);
+            let transaction = state.transaction();
             for config in configs.read().values().chain(once(default_config.as_ref())) {
                 publish_diagnostics(
                     send.dupe(),
-                    config.compute_diagnostics(&state, config.open_file_handles()),
+                    config.compute_diagnostics(&transaction, config.open_file_handles()),
                 );
             }
         });
