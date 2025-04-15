@@ -986,3 +986,23 @@ def f(args, cond):
 assert_type(f([1, 2, 3], True), Literal[0] | int)
 "#,
 );
+
+testcase!(
+    bug = "This should have no errors, and has two on one line",
+    test_loops_and_ifs_galore,
+    r#"
+from typing import assert_type, Literal
+
+def f(cond1: bool, cond2: bool, cond3: bool, cond4: bool):
+    i = 0
+    while cond1:
+        if cond2:
+            if cond3:
+                pass
+            if cond4:
+                i += 1 # E: `+=` is not supported between `Literal[0] | Unknown` and `Literal[1]` # E: `+=` is not supported between `Literal[0] | Unknown` and `Literal[1]`
+    return i
+
+assert_type(f(True, True, True, True), Literal[0] | int) # E: assert_type(Literal[0] | Any, Literal[0] | int) failed
+"#,
+);
