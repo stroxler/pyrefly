@@ -1000,9 +1000,9 @@ def f(cond1: bool, cond2: bool, cond3: bool, cond4: bool):
             if cond3:
                 pass
             if cond4:
-                i += 1 # E: `+=` is not supported between `Literal[0] | Unknown` and `Literal[1]` # E: `+=` is not supported between `Literal[0] | Unknown` and `Literal[1]`
+                i += 1 # E: `+=` is not supported between `Literal[0] | int` and `Literal[1]` # E: `+=` is not supported between `Literal[0] | int` and `Literal[1]`
     return i
 
-assert_type(f(True, True, True, True), Literal[0] | int) # E: assert_type(Literal[0] | Any, Literal[0] | int) failed
+assert_type(f(True, True, True, True), Literal[0] | int)
 "#,
 );

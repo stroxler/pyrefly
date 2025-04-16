@@ -1082,7 +1082,7 @@ impl<'a> BindingsBuilder<'a> {
                 name,
                 FlowInfo {
                     key,
-                    default: key,
+                    default: if self.loop_depth > 0 { default } else { key },
                     style,
                 },
             );
