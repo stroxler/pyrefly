@@ -6,7 +6,6 @@
  */
 
 use std::ffi::OsStr;
-use std::ffi::OsString;
 use std::fmt;
 use std::fmt::Display;
 use std::path::Component;
@@ -45,22 +44,7 @@ impl Glob {
     }
 
     fn contains_asterisk(part: &OsStr) -> bool {
-        let asterisk = OsString::from("*");
-        let asterisk = asterisk.as_encoded_bytes();
-        let bytes = part.as_encoded_bytes();
-
-        if bytes == asterisk {
-            return true;
-        } else if asterisk.len() > bytes.len() {
-            return false;
-        }
-
-        for i in 0..=bytes.len() - asterisk.len() {
-            if *asterisk == bytes[i..i + asterisk.len()] {
-                return true;
-            }
-        }
-        false
+        part.as_encoded_bytes().contains(&b'*')
     }
 
     fn pattern_relative_to_root(root: &Path, pattern: &Path) -> PathBuf {
@@ -299,6 +283,7 @@ impl FileList for FilteredGlobs {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
     use std::path::PathBuf;
 
     use super::*;
