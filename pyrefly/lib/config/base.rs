@@ -36,3 +36,21 @@ pub struct ConfigBase {
     #[serde(default, flatten)]
     pub extras: ExtraConfigs,
 }
+
+impl ConfigBase {
+    pub fn get_errors(base: &Self) -> Option<&ErrorDisplayConfig> {
+        base.errors.as_ref()
+    }
+
+    pub fn get_replace_imports_with_any(base: &Self) -> Option<&[ModuleWildcard]> {
+        base.replace_imports_with_any.as_deref()
+    }
+
+    pub fn get_skip_untyped_functions(base: &Self) -> Option<&bool> {
+        base.skip_untyped_functions.as_ref()
+    }
+
+    pub fn get_ignore_errors_in_generated_code(base: &Self) -> Option<&bool> {
+        base.ignore_errors_in_generated_code.as_ref()
+    }
+}
