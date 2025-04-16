@@ -209,7 +209,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match ty {
             Type::ClassDef(c) => Some(self.promote_silently(c)),
             Type::TypeAlias(ta) => self.unwrap_class_object_silently(&ta.as_value(self.stdlib)),
-            Type::ClassType(_) => Some(ty.clone()),
             Type::Type(box ty @ Type::ClassType(class_type)) if class_type.targs().is_empty() => {
                 Some(ty.clone())
             }

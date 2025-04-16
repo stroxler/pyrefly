@@ -427,11 +427,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 }
 
-fn as_decomposed_tuple_or_union(ty: &Type) -> Option<&[Type]> {
+fn as_decomposed_tuple_or_union(ty: &Type) -> Option<Vec<Type>> {
     if let Type::Tuple(Tuple::Concrete(ts)) = ty {
-        Some(ts)
+        Some(ts.clone())
     } else if let Type::Type(box Type::Union(ts)) = ty {
-        Some(ts)
+        Some(ts.map(|t| Type::type_form(t.clone())))
     } else {
         None
     }
