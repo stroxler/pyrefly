@@ -290,3 +290,23 @@ def f(foo: Foo):
         reveal_type(foo)  # E: revealed type: Foo (_.x.x: Bar | Baz)
 "#,
 );
+
+testcase!(
+    test_propagate_through_no_op_control_flow,
+    r#"
+from typing import assert_type, Callable
+class Foo:
+    x: Foo
+class Bar(Foo):
+    pass
+def f(foo: Foo, condition: Callable[[], bool]):
+    if isinstance(foo.x, Bar):
+        assert_type(foo.x, Bar)
+        if condition():
+            assert_type(foo.x, Bar)
+        assert_type(foo.x, Bar)
+        while condition():
+            assert_type(foo.x, Bar)
+        assert_type(foo.x, Bar)
+"#,
+);
