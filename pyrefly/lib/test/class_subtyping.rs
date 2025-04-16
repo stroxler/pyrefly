@@ -166,6 +166,15 @@ def f(a: AChild, b: BChild):
 );
 
 testcase!(
+    test_extends_type,
+    r#"
+class A(type): pass
+def test(a: A):
+    x: type[int] = a
+"#,
+);
+
+testcase!(
     test_subclass_generic_missing_targs,
     r#"
 from typing import Any, assert_type

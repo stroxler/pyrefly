@@ -118,7 +118,7 @@ from enum import Enum
 class E(Enum):
     X = 1
     Y = 2
-for e in E:  # E: Argument `EnumMeta` is not assignable to parameter `self` with type `type[@_]` # E: Argument `int` is not assignable to parameter `name` with type `str`
+for e in E:  # E: Type `type[E]` is not iterable
     assert_type(e, E)  # E: assert_type(Any, E)
     "#,
 );
@@ -224,6 +224,17 @@ class E[T](Enum):  # E: Enums may not be generic
 # Even though a generic enum is an error, we still want to handle it gracefully.
 assert_type(E.X, Literal[E.X])
     "#,
+);
+
+testcase!(
+    test_enum_dunder_members,
+    r#"
+from enum import Enum, EnumMeta
+class MyEnum(Enum):
+    X = 1
+    Y = "FOO"
+MyEnum.__members__
+"#,
 );
 
 testcase!(

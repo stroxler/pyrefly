@@ -911,9 +911,20 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 | Type::BoundMethod(_)
                 | Type::Callable(_)
                 | Type::Function(_),
-            ) if *class == self.type_order.stdlib().builtins_type().clone() => {
-                // Unparameterized `type` is equivalent to `type[Any]`
-                true
+            ) => {
+                if class == self.type_order.stdlib().builtins_type() {
+                    // Unparameterized `type` is equivalent to `type[Any]`
+                    true
+                } else if let Some(got_as_type) = self.type_order.as_superclass(
+                    class,
+                    self.type_order.stdlib().builtins_type().class_object(),
+                ) && got_as_type.targs().is_empty()
+                {
+                    // The class extends unparameterized `type`
+                    true
+                } else {
+                    false
+                }
             }
             (Type::TypeGuard(l), Type::TypeGuard(u)) => {
                 // TypeGuard is covariant
