@@ -19,12 +19,10 @@ use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOp;
 use crate::binding::narrow::NarrowedAttribute;
 use crate::error::collector::ErrorCollector;
-use crate::error::kind::ErrorKind;
 use crate::error::style::ErrorStyle;
 use crate::types::callable::FunctionKind;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
-use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
@@ -118,58 +116,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn unwrap_class_object_or_error(
-        &self,
-        ty: &Type,
-        range: TextRange,
-        errors: &ErrorCollector,
-    ) -> Option<Type> {
-        let unwrapped = self.unwrap_class_object_silently(ty);
-        if unwrapped.is_none() && !ty.is_any() {
-            self.error(
-                errors,
-                range,
-                ErrorKind::InvalidArgument,
-                None,
-                format!(
-                    "Expected class object, got {}",
-                    self.for_display(ty.clone())
-                ),
-            );
-        }
-        unwrapped
-    }
-
-    fn narrow_isinstance(
-        &self,
-        left: &Type,
-        right: &Type,
-        range: TextRange,
-        errors: &ErrorCollector,
-    ) -> Type {
-        if let Some(ts) = as_decomposed_tuple_or_union(right) {
-            self.unions(
-                ts.iter()
-                    .map(|t| self.narrow_isinstance(left, t, range, errors))
-                    .collect(),
-            )
-        } else if let Some(right) = self.unwrap_class_object_or_error(right, range, errors) {
+    fn narrow_isinstance(&self, left: &Type, right: &Type) -> Type {
+        if let Some(ts) = right.as_decomposed_tuple_or_union() {
+            self.unions(ts.iter().map(|t| self.narrow_isinstance(left, t)).collect())
+        } else if let Some(right) = self.unwrap_class_object_silently(right) {
             self.intersect(left, &right)
         } else {
             left.clone()
         }
     }
 
-    fn narrow_is_not_instance(
-        &self,
-        left: &Type,
-        right: &Type,
-        range: TextRange,
-        errors: &ErrorCollector,
-    ) -> Type {
-        if let Some(ts) = as_decomposed_tuple_or_union(right) {
-            self.intersects(&ts.map(|t| self.narrow_is_not_instance(left, t, range, errors)))
-        } else if let Some(right) = self.unwrap_class_object_or_error(right, range, errors) {
+    fn narrow_is_not_instance(&self, left: &Type, right: &Type) -> Type {
+        if let Some(ts) = right.as_decomposed_tuple_or_union() {
+            self.intersects(&ts.map(|t| self.narrow_is_not_instance(left, t)))
+        } else if let Some(right) = self.unwrap_class_object_silently(right) {
             self.subtract(left, &right)
         } else {
             left.clone()
@@ -214,17 +174,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AtomicNarrowOp::IsInstance(v) => {
                 let right = self.expr_infer(v, errors);
-                self.narrow_isinstance(ty, &right, v.range(), errors)
+                self.narrow_isinstance(ty, &right)
             }
             AtomicNarrowOp::IsNotInstance(v) => {
                 let right = self.expr_infer(v, errors);
-                self.narrow_is_not_instance(ty, &right, v.range(), errors)
+                self.narrow_is_not_instance(ty, &right)
             }
             AtomicNarrowOp::IsSubclass(v) => {
                 let right = self.expr_infer(v, errors);
                 if let Some(left) = self.untype_opt(ty.clone(), v.range())
                     && let Some(right) =
-                        self.unwrap_class_object_or_error(&right, v.range(), errors)
+                        self.unwrap_class_object_silently(&right)
                 {
                     Type::type_form(self.intersect(&left, &right))
                 } else {
@@ -235,7 +195,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let right = self.expr_infer(v, errors);
                 if let Some(left) = self.untype_opt(ty.clone(), v.range())
                     && let Some(right) =
-                        self.unwrap_class_object_or_error(&right, v.range(), errors)
+                        self.unwrap_class_object_silently(&right)
                 {
                     Type::type_form(self.subtract(&left, &right))
                 } else {
@@ -424,15 +384,5 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &|tys| self.unions(tys),
             ),
         }
-    }
-}
-
-fn as_decomposed_tuple_or_union(ty: &Type) -> Option<Vec<Type>> {
-    if let Type::Tuple(Tuple::Concrete(ts)) = ty {
-        Some(ts.clone())
-    } else if let Type::Type(box Type::Union(ts)) = ty {
-        Some(ts.map(|t| Type::type_form(t.clone())))
-    } else {
-        None
     }
 }

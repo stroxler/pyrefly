@@ -623,23 +623,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.expr_infer_type_info_with_hint(x, None, errors)
     }
 
-    pub fn check_isinstance(&self, ty_fun: &Type, x: &ExprCall, errors: &ErrorCollector) {
-        if let Some(CalleeKind::Function(FunctionKind::IsInstance)) = ty_fun.callee_kind() {
-            if x.arguments.args.len() == 2 {
-                let is_instance_class_type = self.expr_infer(&x.arguments.args[1], errors);
-                if let Type::ClassDef(cls) = is_instance_class_type {
-                    let metadata = self.get_metadata_for_class(&cls);
-                    if metadata.is_new_type() {
-                        self.error(
-                            errors,
-                            x.range,
-                            ErrorKind::InvalidArgument,
-                            None,
-                            format!("NewType `{}` not allowed in isinstance", cls.name()),
-                        );
-                    }
-                }
+    fn check_type_is_class_object(&self, ty: Type, range: TextRange, errors: &ErrorCollector) {
+        if let Some(ts) = ty.as_decomposed_tuple_or_union() {
+            for t in ts {
+                self.check_type_is_class_object(t, range, errors);
             }
+        } else if let Type::ClassDef(cls) = &ty {
+            let metadata = self.get_metadata_for_class(cls);
+            if metadata.is_new_type() {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::InvalidArgument,
+                    None,
+                    format!("NewType `{}` not allowed in isinstance", cls.name()),
+                );
+            }
+        } else if !ty.is_any() && self.unwrap_class_object_silently(&ty).is_none() {
+            self.error(
+                errors,
+                range,
+                ErrorKind::InvalidArgument,
+                None,
+                format!("Expected class object, got `{}`", self.for_display(ty)),
+            );
+        }
+    }
+
+    fn check_second_arg_is_class_object(&self, x: &ExprCall, errors: &ErrorCollector) {
+        if x.arguments.args.len() == 2 {
+            let isinstance_class_type = self.expr_infer(&x.arguments.args[1], errors);
+            self.check_type_is_class_object(isinstance_class_type, x.range, errors);
         }
     }
 
@@ -1079,7 +1093,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 errors,
                             ),
                         _ => {
-                            self.check_isinstance(&ty_fun, x, errors);
+                            if matches!(
+                                ty_fun.callee_kind(),
+                                Some(CalleeKind::Function(
+                                    FunctionKind::IsInstance | FunctionKind::IsSubclass
+                                ))
+                            ) {
+                                self.check_second_arg_is_class_object(x, errors);
+                            }
                             let args = x.arguments.args.map(|arg| match arg {
                                 Expr::Starred(x) => CallArg::Star(&x.value, x.range),
                                 _ => CallArg::Expr(arg),

@@ -511,7 +511,7 @@ testcase!(
     r#"
 from typing import assert_type
 def f(x: type[int | str | bool]):
-    if issubclass(x, str | int):  # E: Expected class object, got type[int | str]
+    if issubclass(x, str | int):
         assert_type(x, type[str] | type[int])  # E: assert_type(type[bool | int | str], type[int] | type[str])
     else:
         assert_type(x, type[bool])  # E: assert_type(type[bool | int | str], type[bool])
@@ -524,7 +524,7 @@ testcase!(
     r#"
 from typing import assert_type
 def f(x: type[int | str | bool]):
-    if issubclass(x, (str, int)):  # E: Expected class object, got tuple[type[str], type[int]]
+    if issubclass(x, (str, int)):
         assert_type(x, type[str] | type[int])  # E: assert_type(type[bool | int | str], type[int] | type[str])
     else:
         assert_type(x, type[bool])  # E: assert_type(type[bool | int | str], type[bool])
@@ -784,7 +784,7 @@ testcase!(
     r#"
 from typing import Any
 def f(x: int | str):
-    if isinstance(x, Any): # E: Expected class object, got type[Any]
+    if isinstance(x, Any): # E: Expected class object, got `type[Any]`
         pass
     "#,
 );
@@ -874,4 +874,15 @@ class MyTest(TestCase):
         self.assertNotIsInstance(x, int)
         assert_type(x, None)
 "#,
+);
+
+// Make sure we catch illegal arguments to isinstance and issubclass even when we aren't narrowing.
+testcase!(
+    test_validate_class_object_no_narrow,
+    r#"
+def f(x):
+    return isinstance(x, list[int])  # E: Expected class object
+def g(x):
+    return issubclass(x, list[int])  # E: Expected class object
+    "#,
 );

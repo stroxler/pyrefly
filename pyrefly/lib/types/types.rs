@@ -1149,6 +1149,16 @@ impl Type {
             _ => None,
         }
     }
+
+    pub fn as_decomposed_tuple_or_union(&self) -> Option<Vec<Type>> {
+        if let Type::Tuple(Tuple::Concrete(ts)) = self {
+            Some(ts.clone())
+        } else if let Type::Type(box Type::Union(ts)) = self {
+            Some(ts.map(|t| Type::type_form(t.clone())))
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
