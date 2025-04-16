@@ -165,8 +165,17 @@ impl<'a> IDETransactionManager<'a> {
     }
 }
 
+/// Events that must be handled by the server as soon as possible.
+/// The server will clear the queue of such event after processing each LSP message.
+enum ImmediatelyHandledEvent {
+    /// Notify the server that recheck finishes, so server can revalidate all in-memory content
+    /// based on the latest `State`.
+    RecheckFinished,
+}
+
 struct Server {
     send: Arc<dyn Fn(Message) + Send + Sync + 'static>,
+    immediately_handled_events: Arc<Mutex<Vec<ImmediatelyHandledEvent>>>,
     initialize_params: InitializeParams,
     state: Arc<State>,
     configs: Arc<RwLock<SmallMap<PathBuf, Config>>>,
@@ -306,6 +315,14 @@ pub fn run_lsp(
             break;
         }
         server.process_lsp_message(&mut ide_transaction_manager, &mut canceled_requests, msg)?;
+        let mut immediately_handled_events = Vec::new();
+        std::mem::swap(
+            &mut immediately_handled_events,
+            server.immediately_handled_events.lock().as_mut(),
+        );
+        for msg in immediately_handled_events {
+            server.process_immediately_handled_event(&mut ide_transaction_manager, msg)?;
+        }
     }
     wait_on_connection()?;
 
@@ -396,6 +413,19 @@ fn publish_diagnostics(
 }
 
 impl Server {
+    fn process_immediately_handled_event<'a>(
+        &'a self,
+        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        msg: ImmediatelyHandledEvent,
+    ) -> anyhow::Result<()> {
+        match msg {
+            ImmediatelyHandledEvent::RecheckFinished => {
+                self.validate_in_memory(ide_transaction_manager)?;
+            }
+        }
+        Ok(())
+    }
+
     fn process_lsp_message<'a>(
         &'a self,
         ide_transaction_manager: &mut IDETransactionManager<'a>,
@@ -532,6 +562,7 @@ impl Server {
 
         let mut s = Self {
             send,
+            immediately_handled_events: Default::default(),
             initialize_params,
             state: Arc::new(State::new()),
             configs: Arc::new(RwLock::new(SmallMap::new())),
@@ -614,6 +645,13 @@ impl Server {
                 }
             }
             Err(transaction) => {
+                // In the case where transaction cannot be committed because there is an ongoing
+                // recheck, we still want to update the diagnostics. In this case, we compute them
+                // from the transactions that won't be committed. It will still contain all the
+                // up-to-date in-memory content, but can have stale main `State` content.
+                for (config, handles) in config_with_handles {
+                    self.publish_diagnostics(config.compute_diagnostics(&transaction, handles));
+                }
                 ide_transaction_manager.save(transaction);
             }
         }
@@ -622,20 +660,17 @@ impl Server {
 
     fn validate_with_disk_invalidation(&self, invalidate_disk: Vec<PathBuf>) -> anyhow::Result<()> {
         let state = self.state.dupe();
-        let send = self.send.dupe();
-        let default_config = self.default_config.dupe();
-        let configs = self.configs.dupe();
+        let immediately_handled_events = self.immediately_handled_events.dupe();
         std::thread::spawn(move || {
             let mut transaction = state.new_committable_transaction(Require::Exports, None);
             transaction.as_mut().invalidate_disk(&invalidate_disk);
             state.run_with_committing_transaction(transaction, &[]);
-            let transaction = state.transaction();
-            for config in configs.read().values().chain(once(default_config.as_ref())) {
-                publish_diagnostics(
-                    send.dupe(),
-                    config.compute_diagnostics(&transaction, config.open_file_handles()),
-                );
-            }
+            // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
+            // the main event loop of the server. As a result, the server can do a revalidation of
+            // all the in-memory files based on the fresh main State as soon as possible.
+            immediately_handled_events
+                .lock()
+                .push(ImmediatelyHandledEvent::RecheckFinished);
         });
         Ok(())
     }
