@@ -415,6 +415,15 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_narrow_ops(&narrow_op, *range);
                 return;
             }
+            Expr::Call(ExprCall {
+                range: _,
+                func,
+                arguments: _,
+            }) if self.as_special_export(func) == Some(SpecialExport::Exit) => {
+                // Control flow doesn't proceed after sys.exit()
+                self.scopes.current_mut().flow.no_next = true;
+                false
+            }
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
                 let binding = self.forward_lookup(&name);

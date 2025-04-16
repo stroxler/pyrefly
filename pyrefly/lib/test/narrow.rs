@@ -223,6 +223,22 @@ def f(x: str | None):
         assert_type(x, str)
     else:
         assert_type(x, None)
+    if not x:
+        assert_type(x, str | None)
+    else:
+        assert_type(x, str)
+    "#,
+);
+
+testcase!(
+    test_exit,
+    r#"
+from typing import assert_type
+import sys
+def f(x: str | None):
+    if not x:
+        sys.exit(1)
+    assert_type(x, str)
     "#,
 );
 
