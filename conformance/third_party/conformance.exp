@@ -8345,36 +8345,6 @@
   "narrowing_typeguard.py": [
     {
       "code": -2,
-      "column": 16,
-      "concise_description": "Expected class object, got `type[TypeVar[T]]`",
-      "description": "Expected class object, got `type[TypeVar[T]]`",
-      "line": 28,
-      "name": "invalid-argument",
-      "stop_column": 35,
-      "stop_line": 28
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Expected class object, got `type`",
-      "description": "Expected class object, got `type`",
-      "line": 52,
-      "name": "invalid-argument",
-      "stop_column": 43,
-      "stop_line": 52
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Expected class object, got `type`",
-      "description": "Expected class object, got `type`",
-      "line": 55,
-      "name": "invalid-argument",
-      "stop_column": 43,
-      "stop_line": 55
-    },
-    {
-      "code": -2,
       "column": 20,
       "concise_description": "Argument `(val: object) -> TypeGuard[int]` is not assignable to parameter `f` with type `(object) -> str` in function `takes_callable_str`",
       "description": "Argument `(val: object) -> TypeGuard[int]` is not assignable to parameter `f` with type `(object) -> str` in function `takes_callable_str`",
@@ -8395,26 +8365,6 @@
     }
   ],
   "narrowing_typeis.py": [
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Expected class object, got `type`",
-      "description": "Expected class object, got `type`",
-      "line": 56,
-      "name": "invalid-argument",
-      "stop_column": 43,
-      "stop_line": 56
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Expected class object, got `type`",
-      "description": "Expected class object, got `type`",
-      "line": 59,
-      "name": "invalid-argument",
-      "stop_column": 43,
-      "stop_line": 59
-    },
     {
       "code": -2,
       "column": 20,

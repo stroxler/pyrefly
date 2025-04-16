@@ -212,7 +212,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Note that for the purposes of type narrowing, we always unwrap Type::Type(Type::ClassType),
             // but it's not always a valid argument to isinstance/issubclass. expr_infer separately checks
             // whether the argument is valid.
-            Type::Type(box ty @ Type::ClassType(_)) => Some(ty.clone()),
+            Type::Type(box ty @ (Type::ClassType(_) | Type::Quantified(_))) => Some(ty.clone()),
+            Type::ClassType(cls) if cls.class_object().has_qname("builtins", "type") => {
+                Some(Type::any_implicit())
+            }
+            Type::Any(_) => Some(ty.clone()),
             _ => None,
         }
     }

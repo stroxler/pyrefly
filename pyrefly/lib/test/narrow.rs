@@ -908,3 +908,24 @@ def g(x):
     return issubclass(x, list[int])  # E: Expected class object
     "#,
 );
+
+testcase!(
+    test_isinstance_type_typevar,
+    r#"
+from typing import assert_type
+def f[T](x, y: type[T]) -> T:
+    if isinstance(x, y):
+        return x
+    raise ValueError()
+    "#,
+);
+
+testcase!(
+    test_isinstance_type_self,
+    r#"
+from typing import Self, TypeGuard
+class A:
+    def f(self, x) -> TypeGuard[Self]:
+        return isinstance(x, type(self))
+    "#,
+);

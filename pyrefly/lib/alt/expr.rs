@@ -661,7 +661,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.for_display(ty)
                 ),
             );
-        } else if !ty.is_any() && self.unwrap_class_object_silently(&ty).is_none() {
+        } else if self.unwrap_class_object_silently(&ty).is_none() {
             self.error(
                 errors,
                 range,

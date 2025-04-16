@@ -455,18 +455,13 @@
   "namedtuples_usage.py": [],
   "narrowing_typeguard.py": [
     "Line 102: Expected 1 errors",
-    "Line 107: Expected 1 errors",
-    "Line 28: Unexpected errors ['Expected class object, got `type[TypeVar[T]]`']",
-    "Line 52: Unexpected errors ['Expected class object, got `type`']",
-    "Line 55: Unexpected errors ['Expected class object, got `type`']"
+    "Line 107: Expected 1 errors"
   ],
   "narrowing_typeis.py": [
     "Line 105: Expected 1 errors",
     "Line 110: Expected 1 errors",
     "Line 195: Expected 1 errors",
-    "Line 199: Expected 1 errors",
-    "Line 56: Unexpected errors ['Expected class object, got `type`']",
-    "Line 59: Unexpected errors ['Expected class object, got `type`']"
+    "Line 199: Expected 1 errors"
   ],
   "overloads_basic.py": [],
   "overloads_consistency.py": [
