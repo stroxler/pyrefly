@@ -46,7 +46,9 @@ const config: Config.InitialOptions = {
         '@docusaurus/useBaseUrl':
             '<rootDir>/__mocks__/@docusaurus/useBaseUrl.ts',
         '@monaco-editor/react': '<rootDir>/__mocks__/monacoEditorMock.ts',
-        './pyrefly_wasm': '<rootDir>/__mocks__/pyreflyWasmMock.ts',
+        // Mock pyrefly_wasm for all files except pyrefly_wasm.test.ts
+        '((?!pyrefly_wasm\\.test\\.ts).)*\\/pyrefly_wasm$':
+            '<rootDir>/__mocks__/pyreflyWasmMock.ts',
         './configured-monaco': '<rootDir>/__mocks__/configuredMonacoMock.ts',
         'lz-string': '<rootDir>/__mocks__/lzStringMock.ts',
         'monaco-editor': '<rootDir>/__mocks__/monaco-editor.ts',

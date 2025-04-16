@@ -35,7 +35,7 @@ reveal_type(test(42))
 `.trimStart();
 
 // Import type for Pyrefly State
-interface PyreflyState {
+export interface PyreflyState {
     updateSource: (source: string) => void;
     getErrors: () => ReadonlyArray<PyreflyErrorMessage>;
     autoComplete: (line: number, column: number) => any;
