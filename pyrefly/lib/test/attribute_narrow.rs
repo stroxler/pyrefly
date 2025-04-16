@@ -178,7 +178,7 @@ if b.a is not None:
 );
 
 testcase!(
-    test_or_narrowing,
+    test_or_narrowing_one_level,
     r#"
 from typing import reveal_type
 class Foo:
@@ -190,5 +190,103 @@ class Baz(Foo):
 def f(foo: Foo):
     if isinstance(foo.x, Bar) or isinstance(foo.x, Baz):
         reveal_type(foo)  # E: revealed type: Foo (_.x: Bar | Baz)
+"#,
+);
+
+testcase!(
+    test_or_narrowing_with_top_level,
+    r#"
+from typing import reveal_type
+class Foo:
+    x: Foo
+class Bar(Foo):
+    pass
+class Baz(Foo):
+    pass
+def f(foo: object):
+    if (
+        (isinstance(foo, Bar) and isinstance(foo.x.x, Bar))
+        or (isinstance(foo, Bar) and isinstance(foo.x.x, Baz))
+    ):
+        reveal_type(foo)  # E: revealed type: Bar (_.x.x: Bar | Baz)
+"#,
+);
+
+testcase!(
+    test_or_joins_subtrees,
+    r#"
+from typing import reveal_type
+class Foo:
+    x: Foo
+    y: Foo
+class Bar(Foo):
+    pass
+class Baz(Foo):
+    pass
+def f(foo: Foo):
+    if (
+        (isinstance(foo.x.x, Bar) and isinstance(foo.x.y, Bar))
+        or (isinstance(foo.x.x, Bar) and isinstance(foo.x.y, Baz))
+    ):
+        reveal_type(foo)  # E: revealed type: Foo (_.x.x: Bar, _.x.y: Bar | Baz)
+"#,
+);
+
+testcase!(
+    test_or_multiple_levels,
+    r#"
+from typing import reveal_type
+class Foo:
+    x: Foo
+class Bar(Foo):
+    pass
+class Baz(Foo):
+    pass
+def f(foo: Foo):
+    if (
+        (isinstance(foo.x, Bar) and isinstance(foo.x.x, Bar))
+        or (isinstance(foo.x, Bar) and isinstance(foo.x.x, Baz))
+    ):
+        reveal_type(foo)  # E: revealed type: Foo (_.x: Bar, _.x.x: Bar | Baz)
+"#,
+);
+
+testcase!(
+    test_or_join_drops_subtree,
+    r#"
+from typing import reveal_type
+class Foo:
+    x: Foo
+    y: Foo
+class Bar(Foo):
+    pass
+class Baz(Foo):
+    pass
+def f(foo: Foo):
+    if (
+        (isinstance(foo.x, Bar) and isinstance(foo.x.x, Bar))
+        or (isinstance(foo.x, Baz) and isinstance(foo.x.y, Bar))
+    ):
+        reveal_type(foo)  # E: revealed type: Foo (_.x: Bar | Baz)
+"#,
+);
+
+testcase!(
+    test_or_join_drops_root,
+    r#"
+from typing import reveal_type
+class Foo:
+    x: Foo
+    y: Foo
+class Bar(Foo):
+    pass
+class Baz(Foo):
+    pass
+def f(foo: Foo):
+    if (
+        (isinstance(foo.x, Bar) and isinstance(foo.x.x, Bar))
+        or isinstance(foo.x.x, Baz)
+    ):
+        reveal_type(foo)  # E: revealed type: Foo (_.x.x: Bar | Baz)
 "#,
 );
