@@ -209,9 +209,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match ty {
             Type::ClassDef(c) => Some(self.promote_silently(c)),
             Type::TypeAlias(ta) => self.unwrap_class_object_silently(&ta.as_value(self.stdlib)),
-            Type::Type(box ty @ Type::ClassType(class_type)) if class_type.targs().is_empty() => {
-                Some(ty.clone())
-            }
+            // Note that for the purposes of type narrowing, we always unwrap Type::Type(Type::ClassType),
+            // but it's not always a valid argument to isinstance/issubclass. expr_infer separately checks
+            // whether the argument is valid.
+            Type::Type(box ty @ Type::ClassType(_)) => Some(ty.clone()),
             _ => None,
         }
     }

@@ -548,7 +548,29 @@ testcase!(
 from typing import assert_type
 def f(x: int | list[int]):
     if isinstance(x, list[int]):  # E: Expected class object
-        assert_type(x, int | list[int])
+        # Either `int | list[int]` or `list[int]` is acceptable for the narrowed type.
+        assert_type(x, list[int])
+    "#,
+);
+
+testcase!(
+    test_isinstance_parameterized_type,
+    r#"
+from typing import assert_type
+def f(x: int | list[int], y: type[list[int]]):
+    # Note that a literal `list[int]` as the second argument is illegal, but this is ok because
+    # `y` may be a class object at runtime.
+    if isinstance(x, y):
+        assert_type(x, list[int])
+    "#,
+);
+
+testcase!(
+    bug = "We mistakenly think y[0] is a parameterized type because of the square brackets",
+    test_isinstance_subscript_bug,
+    r#"
+def f(x, y: list[type[list[int]]]):
+    return isinstance(x, y[0])  # E: Expected class object
     "#,
 );
 

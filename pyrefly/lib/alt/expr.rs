@@ -623,10 +623,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.expr_infer_type_info_with_hint(x, None, errors)
     }
 
-    fn check_type_is_class_object(&self, ty: Type, range: TextRange, errors: &ErrorCollector) {
+    fn check_type_is_class_object(
+        &self,
+        ty: Type,
+        contains_subscript: bool,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
         if let Some(ts) = ty.as_decomposed_tuple_or_union() {
             for t in ts {
-                self.check_type_is_class_object(t, range, errors);
+                self.check_type_is_class_object(t, contains_subscript, range, errors);
             }
         } else if let Type::ClassDef(cls) = &ty {
             let metadata = self.get_metadata_for_class(cls);
@@ -639,6 +645,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     format!("NewType `{}` not allowed in isinstance", cls.name()),
                 );
             }
+        } else if contains_subscript
+            && matches!(&ty, Type::Type(box Type::ClassType(cls)) if !cls.targs().is_empty())
+        {
+            // If the raw expression contains something that structurally looks like `A[T]` and
+            // part of the expression resolves to a parameterized class type, then we likely have a
+            // literal parameterized type, which is a runtime exception.
+            self.error(
+                errors,
+                range,
+                ErrorKind::InvalidArgument,
+                None,
+                format!(
+                    "Expected class object, got parameterized generic type: `{}`",
+                    self.for_display(ty)
+                ),
+            );
         } else if !ty.is_any() && self.unwrap_class_object_silently(&ty).is_none() {
             self.error(
                 errors,
@@ -652,8 +674,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn check_second_arg_is_class_object(&self, x: &ExprCall, errors: &ErrorCollector) {
         if x.arguments.args.len() == 2 {
-            let isinstance_class_type = self.expr_infer(&x.arguments.args[1], errors);
-            self.check_type_is_class_object(isinstance_class_type, x.range, errors);
+            let arg_expr = &x.arguments.args[1];
+            let isinstance_class_type = self.expr_infer(arg_expr, errors);
+            let mut contains_subscript = false;
+            arg_expr.visit(&mut |e| {
+                if matches!(e, Expr::Subscript(_)) {
+                    contains_subscript = true;
+                }
+            });
+            self.check_type_is_class_object(
+                isinstance_class_type,
+                contains_subscript,
+                x.range,
+                errors,
+            );
         }
     }
 
