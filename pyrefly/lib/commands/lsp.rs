@@ -194,6 +194,7 @@ struct Config {
     runtime_metadata: RuntimeMetadata,
     search_path: Vec<PathBuf>,
     loader: LoaderId,
+    disable_language_services: bool,
 }
 
 impl Config {
@@ -213,6 +214,7 @@ impl Config {
                 search_path,
                 site_package_path,
             }),
+            disable_language_services: false,
         }
     }
 
@@ -772,7 +774,13 @@ impl Server {
         transaction: &Transaction<'_>,
         params: GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
-        let handle = self.make_handle(&params.text_document_position_params.text_document.uri);
+        let uri = &params.text_document_position_params.text_document.uri;
+        if self.get_config_with(uri.to_file_path().unwrap(), |config| {
+            config.disable_language_services
+        }) {
+            return None;
+        }
+        let handle = self.make_handle(uri);
         let info = transaction.get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
         let TextRangeWithModuleInfo {
@@ -792,7 +800,16 @@ impl Server {
         transaction: &Transaction<'_>,
         params: CompletionParams,
     ) -> anyhow::Result<CompletionResponse> {
-        let handle = self.make_handle(&params.text_document_position.text_document.uri);
+        let uri = &params.text_document_position.text_document.uri;
+        if self.get_config_with(uri.to_file_path().unwrap(), |config| {
+            config.disable_language_services
+        }) {
+            return Ok(CompletionResponse::List(CompletionList {
+                is_incomplete: false,
+                items: Vec::new(),
+            }));
+        }
+        let handle = self.make_handle(uri);
         let items = transaction
             .get_module_info(&handle)
             .map(|info| {
@@ -809,7 +826,13 @@ impl Server {
     }
 
     fn hover(&self, transaction: &Transaction<'_>, params: HoverParams) -> Option<Hover> {
-        let handle = self.make_handle(&params.text_document_position_params.text_document.uri);
+        let uri = &params.text_document_position_params.text_document.uri;
+        if self.get_config_with(uri.to_file_path().unwrap(), |config| {
+            config.disable_language_services
+        }) {
+            return None;
+        }
+        let handle = self.make_handle(uri);
         let info = transaction.get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
         let t = transaction.hover(&handle, range)?;
@@ -832,7 +855,13 @@ impl Server {
         transaction: &Transaction<'_>,
         params: InlayHintParams,
     ) -> Option<Vec<InlayHint>> {
-        let handle = self.make_handle(&params.text_document.uri);
+        let uri = &params.text_document.uri;
+        if self.get_config_with(uri.to_file_path().unwrap(), |config| {
+            config.disable_language_services
+        }) {
+            return None;
+        }
+        let handle = self.make_handle(uri);
         let info = transaction.get_module_info(&handle)?;
         let t = transaction.inlay_hints(&handle)?;
         Some(t.into_map(|x| {
@@ -885,14 +914,25 @@ impl Server {
             for (i, id) in request.items.iter().enumerate() {
                 if let Some(scope_uri) = &id.scope_uri {
                     match response.get(i) {
-                        Some(serde_json::Value::Object(map))
+                        Some(serde_json::Value::Object(map)) => {
                             if let Some(serde_json::Value::String(python_path)) =
-                                map.get("pythonPath") =>
-                        {
-                            self.update_pythonpath(&mut modified, scope_uri, python_path);
+                                map.get("pythonPath")
+                            {
+                                self.update_pythonpath(&mut modified, scope_uri, python_path);
+                            }
+                            if let Some(serde_json::Value::Object(pyrefly_settings)) =
+                                map.get("pyrefly")
+                                && let Some(serde_json::Value::Bool(disable_language_services)) =
+                                    pyrefly_settings.get("disableLanguageServices")
+                            {
+                                self.update_disable_language_services(
+                                    scope_uri,
+                                    *disable_language_services,
+                                );
+                            }
                         }
                         _ => {
-                            // Received a response without a pythonPath
+                            // Non-map value or no configuration returned for request
                         }
                     };
                 }
@@ -902,6 +942,14 @@ impl Server {
             }
         }
         Ok(())
+    }
+
+    fn update_disable_language_services(&self, scope_uri: &Url, disable_language_services: bool) {
+        let mut configs = self.configs.write();
+        let config_path = scope_uri.to_file_path().unwrap();
+        if let Some(config) = configs.get_mut(&config_path) {
+            config.disable_language_services = disable_language_services;
+        }
     }
 
     fn update_pythonpath(&self, modified: &mut bool, scope_uri: &Url, python_path: &str) {
