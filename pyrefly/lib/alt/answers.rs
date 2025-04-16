@@ -48,13 +48,11 @@ use crate::types::equality::TypeEq;
 use crate::types::equality::TypeEqCtx;
 use crate::types::stdlib::Stdlib;
 use crate::types::type_info::TypeInfo;
-use crate::types::types::NeverStyle;
 use crate::types::types::Type;
 use crate::types::types::Var;
 use crate::util::display::DisplayWith;
 use crate::util::display::DisplayWithCtx;
 use crate::util::lock::Mutex;
-use crate::util::prelude::SliceExt;
 use crate::util::recurser::Recurser;
 use crate::util::uniques::UniqueFactory;
 use crate::util::visit::VisitMut;
@@ -665,17 +663,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn distribute_over_union(&self, ty: &Type, mut f: impl FnMut(&Type) -> Type) -> Type {
-        match ty {
-            Type::Never(_) => Type::Never(NeverStyle::Never),
-            Type::Union(tys) => self.unions(tys.map(f)),
-            Type::Type(box Type::Union(tys)) => {
-                self.unions(tys.map(|ty| f(&Type::type_form(ty.clone()))))
-            }
-            Type::Var(v) if let Some(_guard) = self.recurser.recurse(*v) => {
-                self.distribute_over_union(&self.solver().force_var(*v), f)
-            }
-            _ => f(ty),
-        }
+        let mut res = Vec::new();
+        self.map_over_union(ty, |ty| {
+            res.push(f(ty));
+        });
+        self.unions(res)
     }
 
     pub fn map_over_union(&self, ty: &Type, mut f: impl FnMut(&Type)) {
