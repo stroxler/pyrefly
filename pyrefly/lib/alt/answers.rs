@@ -680,6 +680,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn map_over_union(&self, ty: &Type, mut f: impl FnMut(&Type)) {
         match ty {
+            Type::Never(_) => (),
             Type::Union(tys) => tys.iter().for_each(f),
             Type::Type(box Type::Union(tys)) => {
                 tys.iter().for_each(|ty| f(&Type::type_form(ty.clone())))
