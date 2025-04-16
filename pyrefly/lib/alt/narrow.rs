@@ -419,15 +419,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     type_info.clone()
                 }
             }
-            NarrowOp::Or(ops) => {
-                // TODO(stroxler): We cannot yet narrow attributes into a union type using `or`; all we do is preserve
-                // pre-existing narrows.
-                //
-                // Supporting `Or` can wait until we have a join operation on TypeInfo (which is also needed for Phi bindings).
-                let ty =
-                    self.unions(ops.map(|op| self.narrow(type_info, op, range, errors).into_ty()));
-                type_info.clone().with_ty(ty)
-            }
+            NarrowOp::Or(ops) => TypeInfo::join(
+                ops.map(|op| self.narrow(type_info, op, range, errors)),
+                &|tys| self.unions(tys),
+            ),
         }
     }
 }

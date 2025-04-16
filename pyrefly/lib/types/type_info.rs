@@ -86,6 +86,13 @@ impl TypeInfo {
         type_info
     }
 
+    pub fn join(branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
+        // TODO(stroxle): implement a proper join here that does not drop attriubtes
+        TypeInfo::of_ty(union_types(
+            branches.into_iter().map(|type_info| type_info.ty).collect(),
+        ))
+    }
+
     fn add_narrow(&mut self, names: &Vec1<Name>, ty: Type) {
         if let Some((name, more_names)) = names.split_first() {
             self.attrs.add_narrow(name.clone(), more_names, ty)
