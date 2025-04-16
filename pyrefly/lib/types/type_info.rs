@@ -86,6 +86,10 @@ impl TypeInfo {
         type_info
     }
 
+    /// Join two `TypeInfo`s together:
+    /// - We'll take the union of the top-level types
+    /// - At attribute chains where all branches narrow, take a union of the narrowed types.
+    /// - Drop narrowing for attribute chains where at least one branch does not narrow
     pub fn join(branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
         let (tys, attrs) = branches
             .into_iter()
@@ -172,9 +176,18 @@ impl NarrowedAttrs {
 
     fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
         let n = branches.len();
+        if n == 0 {
+            // Exit early on empty branches - the split_off call is only legal
+            // if the vec has at least one element.
+            return Self::new();
+        }
         let mut tail = branches.split_off(1);
         match branches.into_iter().next() {
-            None => Self::new(),
+            None => {
+                // Not actually reachable since we exit early for n == 0, but needed for type
+                // safety (and if split_off behaved differently it would be reachable)
+                Self::new()
+            }
             Some(first) => match first.0 {
                 None => Self::new(),
                 Some(box attrs) => {
@@ -490,5 +503,17 @@ mod tests {
             fake_class_type("Bar1"),
         );
         assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux1, _.x.y.z: Bar1)");
+    }
+
+    #[test]
+    fn test_type_info_empty_join() {
+        let type_info = TypeInfo::join(Vec::new(), &|ts| {
+            if ts.is_empty() {
+                fake_class_type("Never")
+            } else {
+                fake_class_type("FakeUnionType")
+            }
+        });
+        assert_eq!(type_info.to_string(), "Never");
     }
 }
