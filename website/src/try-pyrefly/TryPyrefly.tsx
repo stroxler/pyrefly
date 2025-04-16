@@ -44,17 +44,25 @@ interface PyreflyState {
     inlayHint: () => any;
 }
 
-const pyreflyWasmUninitializedPromise =
-    typeof window !== 'undefined'
-        ? import('./pyrefly_wasm')
-        : new Promise<any>((_resolve) => {});
+// Lazy initialization function that will only be called when needed
+export async function initializePyreflyWasm(): Promise<any> {
+    const pyreflyWasmUninitializedPromise =
+        typeof window !== 'undefined'
+            ? import('./pyrefly_wasm')
+            : new Promise<any>((_resolve) => {});
 
-const pyreflyWasmInitializedPromise = pyreflyWasmUninitializedPromise
-    .then(async (mod) => {
+    try {
+        const mod = await pyreflyWasmUninitializedPromise;
         await mod.default();
-        return mod;
-    })
-    .catch((e) => console.log(e));
+        return await mod;
+    } catch (e) {
+        console.log(e);
+        throw e;
+    }
+}
+
+// This will be used in the component
+let pyreflyWasmInitializedPromise: Promise<any> | null = null;
 
 interface TryPyreflyProps {
     sampleFilename: string;
@@ -81,6 +89,11 @@ export default function TryPyrefly({
     // Only run for initial render, and not on subsequent updates
     useEffect(() => {
         setLoading(true);
+        // Initialize the WebAssembly module only when the component is mounted
+        if (!pyreflyWasmInitializedPromise) {
+            pyreflyWasmInitializedPromise = initializePyreflyWasm();
+        }
+
         pyreflyWasmInitializedPromise
             .then((pyrefly) => {
                 setPyreService(new pyrefly.State());
