@@ -671,17 +671,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn map_over_union(&self, ty: &Type, mut f: impl FnMut(&Type)) {
-        match ty {
-            Type::Never(_) => (),
-            Type::Union(tys) => tys.iter().for_each(f),
-            Type::Type(box Type::Union(tys)) => {
-                tys.iter().for_each(|ty| f(&Type::type_form(ty.clone())))
+        fn recurse<Ans: LookupAnswer>(
+            me: &AnswersSolver<Ans>,
+            ty: &Type,
+            f: &mut impl FnMut(&Type),
+            in_type: bool,
+        ) {
+            match ty {
+                Type::Never(_) if !in_type => (),
+                Type::Union(tys) => tys.iter().for_each(|ty| recurse(me, ty, f, in_type)),
+                Type::Type(box Type::Union(tys)) if !in_type => {
+                    tys.iter().for_each(|ty| recurse(me, ty, f, true))
+                }
+                Type::Var(v) if let Some(_guard) = me.recurser.recurse(*v) => {
+                    recurse(me, &me.solver().force_var(*v), f, in_type)
+                }
+                _ if in_type => f(&Type::Type(Box::new(ty.clone()))),
+                _ => f(ty),
             }
-            Type::Var(v) if let Some(_guard) = self.recurser.recurse(*v) => {
-                self.map_over_union(&self.solver().force_var(*v), f)
-            }
-            _ => f(ty),
         }
+        recurse(self, ty, &mut f, false)
     }
 
     pub fn unions(&self, xs: Vec<Type>) -> Type {
