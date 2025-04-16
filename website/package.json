@@ -10,6 +10,7 @@
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
+    "build-wasm-for-test": "./scripts/build_wasm_for_test.sh",
     "test": "jest",
     "format": "prettier --write 'src/**/*.{js,ts,tsx,jsx,json,css,md}'"
   },

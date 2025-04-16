@@ -25,3 +25,4 @@ yarn-error.log*
 
 # wasm
 pyrefly_wasm_bg.wasm
+pyrefly_wasm_bg_for_testing.wasm
