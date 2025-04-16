@@ -1078,26 +1078,14 @@ impl<'a> BindingsBuilder<'a> {
                     _ => Binding::Phi(values),
                 },
             );
-            match res.entry_hashed(name) {
-                Entry::Vacant(e) => {
-                    e.insert(FlowInfo {
-                        key,
-                        default: key,
-                        style,
-                    });
-                }
-                Entry::Occupied(mut e) => {
-                    *e.get_mut() = FlowInfo {
-                        key,
-                        default: if self.loop_depth == 0 {
-                            key
-                        } else {
-                            e.get().default
-                        },
-                        style,
-                    };
-                }
-            }
+            res.insert_hashed(
+                name,
+                FlowInfo {
+                    key,
+                    default: key,
+                    style,
+                },
+            );
         }
         Flow {
             info: res,
