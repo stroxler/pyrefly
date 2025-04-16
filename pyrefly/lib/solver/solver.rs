@@ -388,11 +388,14 @@ impl Solver {
     /// Union a list of types together. In the process may cause some variables to be forced.
     pub fn unions<Ans: LookupAnswer>(
         &self,
-        branches: Vec<Type>,
+        mut branches: Vec<Type>,
         type_order: TypeOrder<Ans>,
     ) -> Type {
         if branches.is_empty() {
             return Type::never();
+        }
+        if branches.len() == 1 {
+            return branches.pop().unwrap();
         }
         for b in &branches[1..] {
             // Do the is_subset_eq only to force free variables

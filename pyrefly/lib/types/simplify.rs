@@ -8,9 +8,12 @@
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 
-pub fn unions(xs: Vec<Type>) -> Type {
+pub fn unions(mut xs: Vec<Type>) -> Type {
     if xs.is_empty() {
         return Type::never();
+    }
+    if xs.len() == 1 {
+        return xs.pop().unwrap();
     }
     fn flatten(xs: Vec<Type>, res: &mut Vec<Type>) {
         for x in xs {
