@@ -1477,6 +1477,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::Narrow(k, op, range) => {
                 self.narrow(self.get_idx(*k).as_ref(), op, *range, errors)
             }
+            Binding::Phi(ks) => {
+                let ty = if ks.len() == 1 {
+                    self.get_idx(*ks.first().unwrap()).arc_clone_ty()
+                } else {
+                    let ts = ks
+                        .iter()
+                        .filter_map(|k| {
+                            let t: Arc<TypeInfo> = self.get_idx(*k);
+                            // Filter out all `@overload`-decorated types except the one that
+                            // accumulates all signatures into a Type::Overload.
+                            if matches!(t.ty(), Type::Overload(_)) || !t.ty().is_overload() {
+                                Some(t.arc_clone_ty())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                    self.unions(ts)
+                };
+                TypeInfo::of_ty(ty)
+            }
             Binding::Expr(ann, e) => match ann {
                 Some(k) => {
                     let annot = self.get_idx(*k);
@@ -1521,30 +1542,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::Forward(..)
             | Binding::Default(..)
             | Binding::Expr(..)
+            | Binding::Phi(..)
             | Binding::Narrow(..) => {
                 // These forms require propagating attribute narrowing information, so they
                 // are handled in `binding_to_type_info`
                 self.binding_to_type_info(binding, errors).into_ty()
-            }
-            Binding::Phi(ks) => {
-                if ks.len() == 1 {
-                    self.get_idx(*ks.first().unwrap()).arc_clone_ty()
-                } else {
-                    let ts = ks
-                        .iter()
-                        .filter_map(|k| {
-                            let t: Arc<TypeInfo> = self.get_idx(*k);
-                            // Filter out all `@overload`-decorated types except the one that
-                            // accumulates all signatures into a Type::Overload.
-                            if matches!(t.ty(), Type::Overload(_)) || !t.ty().is_overload() {
-                                Some(t.arc_clone_ty())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<_>>();
-                    self.unions(ts)
-                }
             }
             Binding::PatternMatchMapping(mapping_key, binding_key) => {
                 // TODO: check that value is a mapping
