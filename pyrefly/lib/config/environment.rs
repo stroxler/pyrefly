@@ -46,6 +46,11 @@ pub struct PythonEnvironment {
 
     #[serde(default)]
     pub site_package_path: Option<Vec<PathBuf>>,
+
+    /// Is the `site_package_path` here one we got from
+    /// querying an interpreter?
+    #[serde(skip, default)]
+    pub site_package_path_from_interpreter: bool,
 }
 
 impl PythonEnvironment {
@@ -60,6 +65,7 @@ impl PythonEnvironment {
             python_platform: Some(python_platform),
             python_version: Some(python_version),
             site_package_path: Some(site_package_path),
+            site_package_path_from_interpreter: false,
         }
     }
 
@@ -78,6 +84,7 @@ impl PythonEnvironment {
         }
         if self.site_package_path.is_none() {
             self.site_package_path = other.site_package_path;
+            self.site_package_path_from_interpreter = other.site_package_path_from_interpreter;
         }
     }
 
@@ -114,7 +121,7 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
             ));
         }
 
-        let deserialized: PythonEnvironment = serde_json::from_str(&stdout)?;
+        let mut deserialized: PythonEnvironment = serde_json::from_str(&stdout)?;
 
         deserialized.python_platform.as_ref().ok_or_else(|| {
             anyhow!("Expected `python_platform` from Python interpreter query to be non-empty")
@@ -125,6 +132,8 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         deserialized.site_package_path.as_ref().ok_or_else(|| {
             anyhow!("Expected `site_package_path` from Python interpreter query to be non-empty")
         })?;
+
+        deserialized.site_package_path_from_interpreter = true;
 
         Ok(deserialized)
     }
@@ -155,11 +164,12 @@ impl Default for PythonEnvironment {
     /// an interpreter or want to have a `PythonEnvironment` in testing.
     /// Prefer to query an interpreter if possible.
     fn default() -> Self {
-        Self::new(
-            PythonPlatform::default(),
-            PythonVersion::default(),
-            Vec::new(),
-        )
+        Self {
+            python_platform: Some(PythonPlatform::default()),
+            python_version: Some(PythonVersion::default()),
+            site_package_path: Some(Vec::new()),
+            site_package_path_from_interpreter: false,
+        }
     }
 }
 
@@ -167,7 +177,7 @@ impl Display for PythonEnvironment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{{python_platform: {}, python_version: {}, site_package_path: [{}]}}",
+            "{{python_platform: {}, python_version: {}, site_package_path: [{}], site_package_path_from_interpreter: {}}}",
             self.python_platform
                 .as_ref()
                 .map_or_else(|| "None".to_owned(), |platform| platform.to_string()),
@@ -176,7 +186,8 @@ impl Display for PythonEnvironment {
             self.site_package_path.as_ref().map_or_else(
                 || "".to_owned(),
                 |path| path.iter().map(|p| p.display()).join(", ")
-            )
+            ),
+            self.site_package_path_from_interpreter,
         )
     }
 }

@@ -113,6 +113,7 @@ impl ConfigFile {
                 python_platform: None,
                 python_version: None,
                 site_package_path: None,
+                site_package_path_from_interpreter: false,
             },
             root: Default::default(),
             sub_configs: Default::default(),
@@ -280,13 +281,15 @@ impl ConfigFile {
             };
             warn!("Nonexistent `{field}` found: {}", p.display());
         }
-        self.python_environment
-            .site_package_path
-            .as_ref()
-            .inspect(|p| {
-                p.iter()
-                    .for_each(|p| warn_on_invalid(p, "site_package_path"))
-            });
+        if !self.python_environment.site_package_path_from_interpreter {
+            self.python_environment
+                .site_package_path
+                .as_ref()
+                .inspect(|p| {
+                    p.iter()
+                        .for_each(|p| warn_on_invalid(p, "site_package_path"))
+                });
+        }
         self.search_path
             .iter()
             .for_each(|p| warn_on_invalid(p, "search_path"));
@@ -508,6 +511,7 @@ mod tests {
                     python_platform: Some(PythonPlatform::mac()),
                     python_version: Some(PythonVersion::new(1, 2, 3)),
                     site_package_path: None,
+                    site_package_path_from_interpreter: false,
                 },
                 ..ConfigFile::default_no_path_rewrite()
             }
@@ -540,6 +544,8 @@ mod tests {
                     python_version: Some(PythonVersion::new(1, 2, 3)),
                     python_platform: None,
                     site_package_path: None,
+                    // this won't be set until after `configure()`
+                    site_package_path_from_interpreter: false,
                 },
                 ..ConfigFile::default_no_path_rewrite()
             }
@@ -686,5 +692,25 @@ mod tests {
                 "Value for {k} is None after ConfigFile::configure()"
             );
         });
+    }
+
+    #[test]
+    fn test_site_package_path_default_after_configure() {
+        let mut config = ConfigFile::parse_config("").unwrap();
+        assert!(!config.python_environment.site_package_path_from_interpreter);
+
+        if config.python_interpreter.is_none() {
+            // we don't really need to test anything else here if the interpreter isn't
+            // available, since the rest of the test only makes sense with it present
+            return;
+        }
+
+        config.configure();
+        assert!(config.python_environment.site_package_path_from_interpreter);
+
+        config = ConfigFile::parse_config("site_package_path = []").unwrap();
+        assert!(!config.python_environment.site_package_path_from_interpreter);
+        config.configure();
+        assert!(!config.python_environment.site_package_path_from_interpreter);
     }
 }

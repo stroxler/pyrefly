@@ -86,7 +86,8 @@ mod tests {
                 python_environment: crate::PythonEnvironment {
                     python_platform: Some(PythonPlatform::linux()),
                     python_version: Some(PythonVersion::new(3, 10, 0)),
-                    site_package_path: None
+                    site_package_path: None,
+                    site_package_path_from_interpreter: false,
                 },
                 ..Default::default()
             }
@@ -117,7 +118,8 @@ mod tests {
                 python_environment: crate::PythonEnvironment {
                     python_version: Some(PythonVersion::new(3, 11, 0)),
                     python_platform: None,
-                    site_package_path: None
+                    site_package_path: None,
+                    site_package_path_from_interpreter: false,
                 },
                 ..Default::default()
             }
