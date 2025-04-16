@@ -1478,25 +1478,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.narrow(self.get_idx(*k).as_ref(), op, *range, errors)
             }
             Binding::Phi(ks) => {
-                let ty = if ks.len() == 1 {
-                    self.get_idx(*ks.first().unwrap()).arc_clone_ty()
+                if ks.len() == 1 {
+                    self.get_idx(*ks.first().unwrap()).arc_clone()
                 } else {
-                    let ts = ks
+                    let type_infos = ks
                         .iter()
                         .filter_map(|k| {
                             let t: Arc<TypeInfo> = self.get_idx(*k);
                             // Filter out all `@overload`-decorated types except the one that
                             // accumulates all signatures into a Type::Overload.
                             if matches!(t.ty(), Type::Overload(_)) || !t.ty().is_overload() {
-                                Some(t.arc_clone_ty())
+                                Some(t.arc_clone())
                             } else {
                                 None
                             }
                         })
                         .collect::<Vec<_>>();
-                    self.unions(ts)
-                };
-                TypeInfo::of_ty(ty)
+                    TypeInfo::join(type_infos, &|ts| self.unions(ts))
+                }
             }
             Binding::Expr(ann, e) => match ann {
                 Some(k) => {
