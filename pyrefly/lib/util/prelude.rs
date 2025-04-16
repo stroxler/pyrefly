@@ -39,7 +39,7 @@ pub trait SliceExt {
     /// A shorthand for `iter().map(f).collect::<Vec<_>>()`. For example:
     ///
     /// ```ignore
-    /// use td_util::prelude::*;
+    /// use util::prelude::*;
     /// assert_eq!([1, 2, 3][..].map(|x| x * x), vec![1, 4, 9]);
     /// assert_eq!(vec![1, 2, 3].map(|x| x * x), vec![1, 4, 9]);
     /// ```
@@ -54,7 +54,7 @@ pub trait SliceExt {
     /// A shorthand for `iter().map(f).collect::<Result<Vec<_>, _>>()`. For example:
     ///
     /// ```ignore
-    /// use td_util::prelude::*;
+    /// use util::prelude::*;
     /// assert_eq!(
     ///     [1, 2, 3].try_map(|x| Ok(x * x)),
     ///     Ok::<_, bool>(vec![1, 4, 9])
@@ -97,7 +97,7 @@ pub trait VecExt {
     /// A shorthand for `into_iter().map(f).collect::<Vec<_>>()`. For example:
     ///
     /// ```ignore
-    /// use td_util::prelude::*;
+    /// use util::prelude::*;
     /// assert_eq!(vec![1, 2, 3].into_map(|x| x * x), vec![1, 4, 9]);
     /// ```
     fn into_map<B, F>(self, f: F) -> Vec<B>
@@ -107,7 +107,7 @@ pub trait VecExt {
     /// A shorthand for `into_iter().map(f).collect::<Result<Vec<_>, _>>()`. For example:
     ///
     /// ```ignore
-    /// use td_util::prelude::*;
+    /// use util::prelude::*;
     /// assert_eq!(
     ///     vec![1, 2, 3].into_try_map(|x| Ok(x * x)),
     ///     Ok::<_, bool>(vec![1, 4, 9])
