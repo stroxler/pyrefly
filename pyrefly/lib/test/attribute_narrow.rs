@@ -310,3 +310,48 @@ def f(foo: Foo, condition: Callable[[], bool]):
         assert_type(foo.x, Bar)
 "#,
 );
+
+testcase!(
+    bug = "Pyrefly currently drops narrows on Phi nodes",
+    test_propagate_through_futher_narrowing_control_flow,
+    r#"
+from typing import assert_type, Callable
+class Foo:
+    x: Foo
+class Bar(Foo):
+    pass
+class Baz(Bar):
+    pass
+def f(foo: Foo, condition: Callable[[], bool]):
+    if isinstance(foo.x, Bar):
+        assert_type(foo.x, Bar)
+        if isinstance(foo.x, Baz):
+            assert_type(foo.x, Baz)
+        assert_type(foo.x, Bar)  # E: assert_type(Foo, Bar)
+        while condition():
+            assert isinstance(foo.x, Baz)
+            assert_type(foo.x, Baz)
+        assert_type(foo.x, Bar)  # E: assert_type(Foo, Bar)
+"#,
+);
+
+testcase!(
+    bug = "Pyrefly currently drops narrows on Phi nodes",
+    test_join_on_branching_control_flow,
+    r#"
+from typing import assert_type, Callable
+class Foo:
+    x: Foo
+class Bar(Foo):
+    pass
+class Baz(Foo):
+    pass
+def f(foo: Foo):
+    if isinstance(foo.x, Bar):
+        assert_type(foo.x, Bar)
+    else:
+        assert isinstance(foo.x, Baz)
+        assert_type(foo.x, Baz)
+    assert_type(foo.x, Bar | Baz)  # E: assert_type(Foo, Bar | Baz)
+"#,
+);
