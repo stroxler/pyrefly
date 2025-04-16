@@ -1050,7 +1050,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 &base,
                                 &dunder::DELITEM,
                                 x.range,
-                                &[],
+                                &[CallArg::Type(&slice_ty, x.slice.range())],
                                 &[],
                                 errors,
                                 Some(&|| ErrorContext::DelItem(self.for_display(base.clone()))),

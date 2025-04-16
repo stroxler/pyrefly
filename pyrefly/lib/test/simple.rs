@@ -93,6 +93,14 @@ class D(C): ...  # OK
 );
 
 testcase!(
+    test_delitem,
+    r#"
+x = {"name": "John"}
+del x["name"]
+"#,
+);
+
+testcase!(
     test_class_method,
     r#"
 from typing import assert_type
