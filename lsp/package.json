@@ -61,6 +61,11 @@
                     ],
                     "description": "Additional arguments that should be passed to the binary at pyrefly.lspPath"
                 },
+                "python.pyrefly.disableLanguageServices": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "If true, pyrefly will only provide typechecking in the IDE. It will not provide other IDE services like completions, hover, definition, etc."
+                },
                 "pyrefly.trace.server": {
                     "type": "string",
                     "description": "Set to 'verbose' to enable LSP trace in the console",

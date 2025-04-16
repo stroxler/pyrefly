@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { ExtensionContext } from 'vscode';
+import { ExtensionContext, workspace } from 'vscode';
 import * as vscode from 'vscode';
 import {
     CancellationToken,
@@ -128,6 +128,13 @@ export async function activate(context: ExtensionContext) {
           client.sendNotification(DidChangeConfigurationNotification.type, {settings: {}});
         })
     );
+
+    context.subscriptions.push(
+      workspace.onDidChangeConfiguration(event => {
+        if (event.affectsConfiguration("python.pyrefly")) {
+          client.sendNotification(DidChangeConfigurationNotification.type, {settings: {}});
+        }
+      }));
 
     context.subscriptions.push(
         vscode.commands.registerCommand('pyrefly.restartClient', async () => {
