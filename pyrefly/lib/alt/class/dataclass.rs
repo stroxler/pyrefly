@@ -158,7 +158,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if field_flags.is_set(&DataclassKeywords::KW_ONLY) {
                         None
                     } else {
-                        Some(Type::Literal(Lit::String(name.as_str().into())))
+                        Some(Type::Literal(Lit::Str(name.as_str().into())))
                     }
                 })
                 .collect()

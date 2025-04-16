@@ -88,7 +88,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         types.push(Lit::Int(LitInt::new(0)).to_type());
                     } else if i != last_index && t == self.stdlib.str().clone().to_type() && !target
                     {
-                        types.push(Lit::String(String::new().into_boxed_str()).to_type());
+                        types.push(Lit::Str(String::new().into_boxed_str()).to_type());
                     } else {
                         types.push(t);
                     }
@@ -718,7 +718,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let base = self.expr_infer_type_info(&x.value, errors);
                 match (base.ty(), x.attr.id.as_str()) {
                     (Type::Literal(Lit::Enum(box (_, member, _))), "_name_" | "name") => {
-                        TypeInfo::of_ty(Type::Literal(Lit::String(member.as_str().into())))
+                        TypeInfo::of_ty(Type::Literal(Lit::Str(member.as_str().into())))
                     }
                     (Type::Literal(Lit::Enum(box (_, _, raw_type))), "_value_" | "value") => {
                         TypeInfo::of_ty(raw_type.clone())
@@ -1231,7 +1231,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Some(&|| ErrorContext::Index(self.for_display(fun.clone()))),
                         ),
                         Type::Any(style) => style.propagate(),
-                        Type::LiteralString | Type::Literal(Lit::String(_)) if xs.len() <= 3 => {
+                        Type::LiteralString | Type::Literal(Lit::Str(_)) if xs.len() <= 3 => {
                             // We could have a more precise type here, but this matches Pyright.
                             self.stdlib.str().clone().to_type()
                         }
@@ -1258,7 +1258,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Type::TypedDict(typed_dict) => {
                             let key_ty = self.expr_infer(&x.slice, errors);
                             self.distribute_over_union(&key_ty, |ty| match ty {
-                                Type::Literal(Lit::String(field_name)) => {
+                                Type::Literal(Lit::Str(field_name)) => {
                                     if let Some(field) =
                                         self.typed_dict_field(&typed_dict, &Name::new(field_name))
                                     {

@@ -34,7 +34,7 @@ assert_words!(Lit, 3);
     Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
 )]
 pub enum Lit {
-    String(Box<str>),
+    Str(Box<str>),
     Int(LitInt),
     Bool(bool),
     Bytes(Box<[u8]>),
@@ -46,7 +46,7 @@ pub enum Lit {
 impl Display for Lit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Lit::String(x) => write!(f, "'{x}'"),
+            Lit::Str(x) => write!(f, "'{x}'"),
             Lit::Int(x) => write!(f, "{x}"),
             Lit::Bool(x) => {
                 let s = if *x { "True" } else { "False" };
@@ -101,7 +101,7 @@ impl Lit {
     }
 
     pub fn from_string_literal(x: &ExprStringLiteral) -> Self {
-        Lit::String(x.value.to_str().into())
+        Lit::Str(x.value.to_str().into())
     }
 
     pub fn from_bytes_literal(x: &ExprBytesLiteral) -> Self {
@@ -123,7 +123,7 @@ impl Lit {
                 }
             }
         }
-        Some(Lit::String(collected_literals.join("").into_boxed_str()))
+        Some(Lit::Str(collected_literals.join("").into_boxed_str()))
     }
 
     pub fn from_int(x: &Int) -> Self {
@@ -143,7 +143,7 @@ impl Lit {
     /// For example, `1` is converted to `int`, and `"foo"` is converted to `str`.
     pub fn general_class_type<'a>(&'a self, stdlib: &'a Stdlib) -> &'a ClassType {
         match self {
-            Lit::String(_) => stdlib.str(),
+            Lit::Str(_) => stdlib.str(),
             Lit::Int(_) => stdlib.int(),
             Lit::Bool(_) => stdlib.bool(),
             Lit::Bytes(_) => stdlib.bytes(),
@@ -152,6 +152,6 @@ impl Lit {
     }
 
     pub fn is_string(&self) -> bool {
-        matches!(self, Lit::String(_))
+        matches!(self, Lit::Str(_))
     }
 }

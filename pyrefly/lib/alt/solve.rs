@@ -1014,7 +1014,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let base = self.expr_infer(&x.value, errors);
                     let slice_ty = self.expr_infer(&x.slice, errors);
                     match (&base, &slice_ty) {
-                        (Type::TypedDict(typed_dict), Type::Literal(Lit::String(field_name))) => {
+                        (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
                             if let Some(field) =
                                 self.typed_dict_field(typed_dict, &Name::new(field_name))
                             {
@@ -1580,7 +1580,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 match match_args {
                     Type::Tuple(Tuple::Concrete(ts)) => {
                         if *idx < ts.len() {
-                            if let Some(Type::Literal(Lit::String(box attr_name))) = ts.get(*idx) {
+                            if let Some(Type::Literal(Lit::Str(box attr_name))) = ts.get(*idx) {
                                 self.attr_infer(
                                     &binding,
                                     &Name::new(attr_name),
@@ -2052,7 +2052,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let slice_ty = self.expr_infer(&x.slice, errors);
                 let value_ty = self.binding_to_type(b, errors);
                 match (&base, &slice_ty) {
-                    (Type::TypedDict(typed_dict), Type::Literal(Lit::String(field_name))) => {
+                    (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
                         if let Some(field) =
                             self.typed_dict_field(typed_dict, &Name::new(field_name))
                         {

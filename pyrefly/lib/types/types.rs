@@ -1130,7 +1130,7 @@ impl Type {
             Type::Literal(Lit::Bool(x)) => Some(*x),
             Type::Literal(Lit::Int(x)) => Some(x.as_bool()),
             Type::Literal(Lit::Bytes(x)) => Some(!x.is_empty()),
-            Type::Literal(Lit::String(x)) => Some(!x.is_empty()),
+            Type::Literal(Lit::Str(x)) => Some(!x.is_empty()),
             Type::None => Some(false),
             Type::Tuple(Tuple::Concrete(elements)) => Some(!elements.is_empty()),
             Type::Union(options) => {

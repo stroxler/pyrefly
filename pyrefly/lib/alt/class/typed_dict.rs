@@ -52,7 +52,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         dict_items.iter().for_each(|x| match &x.key {
             Some(key) => {
                 let key_type = self.expr_infer(key, errors);
-                if let Type::Literal(Lit::String(name)) = key_type {
+                if let Type::Literal(Lit::Str(name)) = key_type {
                     let key_name = Name::new(name);
                     if let Some(field) = fields.get(&key_name) {
                         self.expr(
