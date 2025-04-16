@@ -297,7 +297,7 @@ testcase!(
 from typing import assert_type, Literal
 def f() -> str | None: ...
 x = f()
-while x is None:  # E: EXPECTED None <: Literal[42] | str
+while x is None:  # E: EXPECTED str | None <: Literal[42] | str
     if f():
         x = 42
         break
@@ -306,16 +306,15 @@ assert_type(x, Literal[42] | str)
 );
 
 testcase!(
-    bug = "At narrowing-time it's still a Var instead of a bool",
     test_while_narrow,
     r#"
 from typing import assert_type, Literal, reveal_type
 def test(x: bool, z: bool):
     while x:
-        assert_type(x, bool)  # should be Literal[True]
+        assert_type(x, Literal[True])
     while y := z:
-        assert_type(y, bool)  # should be Literal[True]
-        assert_type(z, bool)  # should be Literal[True]
+        assert_type(y, Literal[True])
+        assert_type(z, Literal[True])
     "#,
 );
 testcase!(
