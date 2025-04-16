@@ -178,7 +178,6 @@ if b.a is not None:
 );
 
 testcase!(
-    bug = "We cannot support or until we have a TypeInfo join",
     test_or_narrowing,
     r#"
 from typing import reveal_type
@@ -190,6 +189,6 @@ class Baz(Foo):
     pass
 def f(foo: Foo):
     if isinstance(foo.x, Bar) or isinstance(foo.x, Baz):
-        reveal_type(foo)  # E: revealed type: Foo
+        reveal_type(foo)  # E: revealed type: Foo (_.x: Bar | Baz)
 "#,
 );

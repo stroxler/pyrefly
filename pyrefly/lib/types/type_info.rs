@@ -87,10 +87,13 @@ impl TypeInfo {
     }
 
     pub fn join(branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
-        // TODO(stroxle): implement a proper join here that does not drop attriubtes
-        TypeInfo::of_ty(union_types(
-            branches.into_iter().map(|type_info| type_info.ty).collect(),
-        ))
+        let (tys, attrs) = branches
+            .into_iter()
+            .map(|TypeInfo { ty, attrs }| (ty, attrs))
+            .unzip();
+        let ty = union_types(tys);
+        let attrs = NarrowedAttrs::join(attrs, union_types);
+        Self { ty, attrs }
     }
 
     fn add_narrow(&mut self, names: &Vec1<Name>, ty: Type) {
@@ -165,6 +168,48 @@ impl NarrowedAttrs {
         let mut attrs = SmallMap::with_capacity(1);
         attrs.insert(name.clone(), NarrowedAttr::new(more_names, ty));
         Self(Some(Box::new(attrs)))
+    }
+
+    fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
+        let n = branches.len();
+        let mut tail = branches.split_off(1);
+        match branches.into_iter().next() {
+            None => Self::new(),
+            Some(first) => match first.0 {
+                None => Self::new(),
+                Some(box attrs) => {
+                    let attrs: SmallMap<_, _> = attrs
+                        .into_iter()
+                        .filter_map(|(name, attr)| {
+                            let mut attr_vec = vec![attr];
+                            attr_vec.extend(
+                                tail.iter_mut()
+                                    .filter_map(|attrs| attrs.shift_remove(&name)),
+                            );
+                            // If any map lacked this name, we just drop it. Only join if all maps have it.
+                            if attr_vec.len() == n {
+                                NarrowedAttr::join(attr_vec, union_types)
+                                    .map(move |attr| (name, attr))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    if attrs.is_empty() {
+                        Self::new()
+                    } else {
+                        Self(Some(Box::new(attrs)))
+                    }
+                }
+            },
+        }
+    }
+
+    fn shift_remove(&mut self, name: &Name) -> Option<NarrowedAttr> {
+        match &mut self.0 {
+            None => None,
+            Some(box attrs) => attrs.shift_remove(name),
+        }
     }
 
     fn fmt_with_prefix(&self, prefix: &mut Vec<String>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -301,6 +346,45 @@ impl NarrowedAttr {
                     }
                 }
             }
+        }
+    }
+
+    fn join(branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Option<Self> {
+        fn monadic_push_option<T>(acc: &mut Option<Vec<T>>, item: Option<T>) {
+            match item {
+                None => *acc = None,
+                Some(item) => {
+                    if let Some(acc) = acc {
+                        acc.push(item)
+                    }
+                }
+            };
+        }
+        let mut ty_branches = Some(Vec::with_capacity(branches.len()));
+        let mut attrs_branches = Some(Vec::with_capacity(branches.len()));
+        for attr in branches {
+            let (ty, attrs) = match attr {
+                // TODO(stroxler) It might be worth making NarrowedAttr a tuple to start
+                // with; the more descriptive types don't seem to benefit us much in practice.
+                Self::WithRoot(ty, attrs) => (Some(ty), Some(attrs)),
+                Self::Leaf(ty) => (Some(ty), None),
+                Self::WithoutRoot(attrs) => (None, Some(attrs)),
+            };
+            monadic_push_option(&mut ty_branches, ty);
+            monadic_push_option(&mut attrs_branches, attrs);
+            if let (None, None) = (&ty_branches, &attrs_branches) {
+                // Not needed for correctness, but saves some work.
+                return None;
+            }
+        }
+        let ty = ty_branches.map(union_types);
+        let attrs =
+            attrs_branches.map(|attrs_branches| NarrowedAttrs::join(attrs_branches, union_types));
+        match (ty, attrs) {
+            (None, None | Some(NarrowedAttrs(None))) => None,
+            (Some(ty), None | Some(NarrowedAttrs(None))) => Some(Self::Leaf(ty)),
+            (Some(ty), Some(attrs)) => Some(Self::WithRoot(ty, attrs)),
+            (None, Some(attrs)) => Some(Self::WithoutRoot(attrs)),
         }
     }
 }
