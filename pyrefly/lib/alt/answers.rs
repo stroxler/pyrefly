@@ -227,6 +227,11 @@ impl Solutions {
         where
             SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
         {
+            if !K::EXPORTED {
+                assert_eq!(x.len(), 0, "Expect no non-exported keys in Solutions");
+                return None;
+            }
+
             let y = y.0.get::<K>();
             if y.len() > x.len() {
                 for (k, v) in y {
