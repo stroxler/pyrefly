@@ -23,7 +23,7 @@ use crate::types::types::Type;
 use crate::util::visit::Visit;
 use crate::util::visit::VisitMut;
 
-assert_bytes!(TypeInfo, 64);
+assert_bytes!(TypeInfo, 40);
 
 /// The `TypeInfo` datatype represents type information associated with a
 /// name or expression in a control flow context.
@@ -44,7 +44,7 @@ assert_bytes!(TypeInfo, 64);
 #[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut, TypeEq)]
 pub struct TypeInfo {
     ty: Type,
-    attrs: Option<NarrowedAttrs>,
+    attrs: Option<Box<NarrowedAttrs>>,
 }
 
 impl TypeInfo {
@@ -72,11 +72,11 @@ impl TypeInfo {
             Some(NarrowedAttr::Leaf(ty)) => Self::of_ty(ty.clone()),
             Some(NarrowedAttr::WithoutRoot(attrs)) => Self {
                 ty: fallback(),
-                attrs: Some(attrs.clone()),
+                attrs: Some(Box::new(attrs.clone())),
             },
             Some(NarrowedAttr::WithRoot(ty, attrs)) => Self {
                 ty: ty.clone(),
-                attrs: Some(attrs.clone()),
+                attrs: Some(Box::new(attrs.clone())),
             },
         }
     }
@@ -92,13 +92,16 @@ impl TypeInfo {
     /// - At attribute chains where all branches narrow, take a union of the narrowed types.
     /// - Drop narrowing for attribute chains where at least one branch does not narrow
     pub fn join(branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
-        let (tys, attrs): (Vec<Type>, Vec<Option<NarrowedAttrs>>) = branches
-            .into_iter()
-            .map(|TypeInfo { ty, attrs }| (ty, attrs))
+        let (tys, attrs): (Vec<Type>, Vec<Option<&NarrowedAttrs>>) = branches
+            .iter()
+            .map(|TypeInfo { ty, attrs }| (ty.clone(), attrs.as_ref().map(|a| a.as_ref())))
             .unzip();
         let ty = union_types(tys);
         let attrs = NarrowedAttrs::join(attrs.into_iter().flatten().collect(), union_types);
-        Self { ty, attrs }
+        Self {
+            ty,
+            attrs: attrs.map(Box::new),
+        }
     }
 
     fn add_narrow(&mut self, names: &Vec1<Name>, ty: Type) {
@@ -106,7 +109,11 @@ impl TypeInfo {
             if let Some(attrs) = &mut self.attrs {
                 attrs.add_narrow(name.clone(), more_names, ty);
             } else {
-                self.attrs = Some(NarrowedAttrs::of_narrow(name.clone(), more_names, ty));
+                self.attrs = Some(Box::new(NarrowedAttrs::of_narrow(
+                    name.clone(),
+                    more_names,
+                    ty,
+                )));
             }
         } else {
             unreachable!(
@@ -132,7 +139,11 @@ impl TypeInfo {
     }
 
     fn get_at_name(&self, name: &Name) -> Option<&NarrowedAttr> {
-        self.attrs.as_ref().and_then(|attrs| attrs.get(name))
+        if let Some(box attrs) = &self.attrs {
+            attrs.get(name)
+        } else {
+            None
+        }
     }
 }
 
@@ -172,13 +183,12 @@ impl NarrowedAttrs {
         Self(attrs)
     }
 
-    fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Option<Self> {
+    fn join(mut branches: Vec<&Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Option<Self> {
         match branches.len() {
             0 => None,
-            1 => Some(branches.pop().unwrap()),
+            1 => Some(branches.pop().unwrap().clone()),
             n => {
-                let mut first = Self(SmallMap::new());
-                mem::swap(&mut branches[0], &mut first);
+                let first = branches[0].clone();
                 let tail = &branches[1..];
                 let attrs: SmallMap<_, _> = first
                     .0
@@ -372,8 +382,9 @@ impl NarrowedAttr {
             }
         }
         let ty = ty_branches.map(union_types);
-        let attrs = attrs_branches
-            .and_then(|attrs_branches| NarrowedAttrs::join(attrs_branches, union_types));
+        let attrs = attrs_branches.and_then(|attrs_branches| {
+            NarrowedAttrs::join(attrs_branches.iter().collect(), union_types)
+        });
         match (ty, attrs) {
             (None, None) => None,
             (Some(ty), None) => Some(Self::Leaf(ty)),
