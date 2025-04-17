@@ -182,14 +182,16 @@ impl NarrowedAttrs {
                 let attrs: SmallMap<_, _> = attrs
                     .into_iter()
                     .filter_map(|(name, attr)| {
-                        let mut attr_vec = vec![attr];
-                        attr_vec.extend(
+                        let mut attr_branches = Vec::with_capacity(n);
+                        attr_branches.push(attr);
+                        attr_branches.extend(
                             tail.iter_mut()
-                                .filter_map(|attrs| attrs.shift_remove(&name)),
+                                .filter_map(|attrs| attrs.get(&name).cloned()),
                         );
                         // If any map lacked this name, we just drop it. Only join if all maps have it.
-                        if attr_vec.len() == n {
-                            NarrowedAttr::join(attr_vec, union_types).map(move |attr| (name, attr))
+                        if attr_branches.len() == n {
+                            NarrowedAttr::join(attr_branches, union_types)
+                                .map(move |attr| (name, attr))
                         } else {
                             None
                         }
@@ -202,10 +204,6 @@ impl NarrowedAttrs {
                 }
             }
         }
-    }
-
-    fn shift_remove(&mut self, name: &Name) -> Option<NarrowedAttr> {
-        self.0.shift_remove(name)
     }
 
     fn fmt_with_prefix(&self, prefix: &mut Vec<String>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
