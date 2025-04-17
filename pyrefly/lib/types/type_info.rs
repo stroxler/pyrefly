@@ -91,16 +91,22 @@ impl TypeInfo {
     /// - We'll take the union of the top-level types
     /// - At attribute chains where all branches narrow, take a union of the narrowed types.
     /// - Drop narrowing for attribute chains where at least one branch does not narrow
-    pub fn join(branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
-        let (tys, attrs): (Vec<Type>, Vec<Option<&NarrowedAttrs>>) = branches
-            .iter()
-            .map(|TypeInfo { ty, attrs }| (ty.clone(), attrs.as_ref().map(|a| a.as_ref())))
-            .unzip();
-        let ty = union_types(tys);
-        let attrs = NarrowedAttrs::join(attrs.into_iter().flatten().collect(), union_types);
-        Self {
-            ty,
-            attrs: attrs.map(Box::new),
+    pub fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
+        match branches.len() {
+            0 => Self::of_ty(Type::never()),
+            1 => branches.pop().unwrap(),
+            _ => {
+                let (tys, attrs): (Vec<Type>, Vec<Option<&NarrowedAttrs>>) = branches
+                    .iter()
+                    .map(|TypeInfo { ty, attrs }| (ty.clone(), attrs.as_ref().map(|a| a.as_ref())))
+                    .unzip();
+                let ty = union_types(tys);
+                let attrs = NarrowedAttrs::join(attrs.into_iter().flatten().collect(), union_types);
+                Self {
+                    ty,
+                    attrs: attrs.map(Box::new),
+                }
+            }
         }
     }
 
