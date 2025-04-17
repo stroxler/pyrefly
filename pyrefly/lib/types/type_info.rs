@@ -355,8 +355,6 @@ impl NarrowedAttr {
         let mut attrs_branches = Some(Vec::with_capacity(branches.len()));
         for attr in branches {
             let (ty, attrs) = match attr {
-                // TODO(stroxler) It might be worth making NarrowedAttr a tuple to start
-                // with; the more descriptive types don't seem to benefit us much in practice.
                 Self::WithRoot(ty, attrs) => (Some(ty), Some(attrs)),
                 Self::Leaf(ty) => (Some(ty), None),
                 Self::WithoutRoot(attrs) => (None, Some(attrs)),
