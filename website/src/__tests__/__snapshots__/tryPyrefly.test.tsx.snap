@@ -40,14 +40,18 @@ reveal_type(test(42))
 
         </textarea>
       </div>
-      <button
-        aria-label="share URL button"
-        id="share-url-button"
-      >
-        <span>
-          📋 Share URL
-        </span>
-      </button>
+      <div>
+         
+        <button
+          aria-label="share URL button"
+          id="share-url-button"
+        >
+          <span>
+            📋 Share URL
+          </span>
+        </button>
+          
+      </div>
     </div>
     <div
       id="tryPyrefly-results-container"

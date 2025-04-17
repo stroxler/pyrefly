@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import MonacoEditorButton from './MonacoEditorButton';
 import Editor from '@monaco-editor/react';
 import * as LZString from 'lz-string';
 import * as stylex from '@stylexjs/stylex';
@@ -83,7 +84,6 @@ export default function TryPyrefly({
     const [editorHeightforCodeSnippet, setEditorHeightforCodeSnippet] =
         useState<number | null>(null);
     const [model, setModel] = useState<editor.ITextModel | null>(null);
-    const [isCopied, setIsCopied] = useState(false);
 
     // Only run for initial render, and not on subsequent updates
     useEffect(() => {
@@ -198,21 +198,16 @@ export default function TryPyrefly({
                     onEditorMount,
                     editorHeightforCodeSnippet
                 )}
-                {!isCodeSnippet && (
-                    <button
-                        id="share-url-button"
-                        {...stylex.props(
-                            styles.shareButtonBase,
-                            isCopied ? styles.shareButtonCopied : styles.shareButtonDefault
-                        )}
-                        onClick={() => copyToClipboard(setIsCopied)}
-                        aria-label="share URL button"
-                    >
-                        <span {...stylex.props(styles.shareButtonText)}>
-                            {isCopied ? '✓ URL Copied!' : '📋 Share URL'}
-                        </span>
-                    </button>
-                )}
+                {!isCodeSnippet && <div {...stylex.props(styles.buttonContainer)}> <MonacoEditorButton
+                            id="share-url-button"
+                            onClick={() => {
+                                const currentURL = window.location.href;
+                                return navigator.clipboard.writeText(currentURL);
+                            }}
+                            defaultLabel="📋 Share URL"
+                            successLabel="✓ URL Copied!"
+                            ariaLabel="share URL button"
+                        />  </div>}
             </div>
             {!isCodeSnippet && (
                 <TryPyreflyResults
@@ -232,13 +227,6 @@ function updateURL(code: string): void {
     window.history.replaceState({}, '', newURL);
 }
 
-function copyToClipboard(setIsCopied: (copied: boolean) => void): void {
-    const currentURL = window.location.href;
-    navigator.clipboard.writeText(currentURL).then(() => {
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
-    });
-}
 
 function getCodeFromURL(): string | null {
     if (typeof window === 'undefined') return null;
@@ -358,12 +346,6 @@ function mapPyreflyErrorsToMarkerData(
     }));
 }
 
-// Define keyframes for animations
-const copySuccessKeyframes = stylex.keyframes({
-    '0%': { transform: 'scale(1)' },
-    '50%': { transform: 'scale(1.1)' },
-    '100%': { transform: 'scale(1)' },
-});
 
 // Styles for TryPyrefly component
 const styles = stylex.create({
@@ -380,65 +362,20 @@ const styles = stylex.create({
         background: '#fff',
         height: '100%',
     },
-    // Common share button styles
-    shareButtonBase: {
+    buttonContainer: {
         position: 'absolute',
         display: 'flex',
-        alignItems: 'center',
-        borderRadius: '24px',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
+        flexDirection: 'row-reverse', // Buttons start from right and go left
         zIndex: 1000,
-        backdropFilter: 'blur(4px)',
-        height: '40px',
         // Mobile styles (max-width: 768px)
         '@media (max-width: 768px)': {
             bottom: '16px',
             right: '16px',
-            padding: '8px 16px',
-            fontSize: '13px',
         },
         // Desktop styles (min-width: 769px)
         '@media (min-width: 769px)': {
             top: '20px',
             right: '20px',
-            padding: '12px 20px',
-            fontSize: '14px',
-        },
-    },
-    // Default state (not copied)
-    shareButtonDefault: {
-        background: 'rgba(255, 255, 255, 0.95)',
-        border: '1px solid #ddd',
-        color: 'inherit',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-        '@media (min-width: 769px)': {
-            ':hover': {
-                background: 'rgba(255, 255, 255, 1)',
-                transform: 'translateY(-1px)',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-            },
-        },
-    },
-    shareButtonText: {
-        transition: 'opacity 0.2s ease, display 0s 0.2s',
-    },
-    // Copied state
-    shareButtonCopied: {
-        background: 'rgba(76, 175, 80, 0.95)',
-        color: 'white',
-        border: '1px solid #43a047',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-        animationName: copySuccessKeyframes,
-        animationDuration: '0.3s',
-        animationTimingFunction: 'ease',
-        '@media (min-width: 769px)': {
-            ':hover': {
-                background: 'rgba(67, 160, 71, 1)',
-                color: 'white',
-                transform: 'translateY(-1px)',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-            },
         },
     },
 });
