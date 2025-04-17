@@ -433,12 +433,56 @@ assert_type(X, type[X])
 
 testcase!(
     bug = "Wrong return type from get()",
-    test_get,
+    test_assign_get_result,
     r#"
 from typing import TypedDict
 UserType1 = TypedDict("UserType1", {"name": str, "age": int}, total=False)
 user1: UserType1 = {"name": "Bob", "age": 40}
 name: str = user1.get("name", "n/a")  # E: `object` is not assignable to `str`
+    "#,
+);
 
+testcase!(
+    bug = "get() with a literal string key should return the type of the corresponding TypedDict field",
+    test_get,
+    r#"
+from typing import Any, Literal, TypedDict, assert_type
+class C(TypedDict):
+    x: int
+    y: str
+def f(c: C, k1: str, k2: int):
+    assert_type(c.get("x"), int)  # E: object | None
+    assert_type(c.get(k1), object | None)
+    assert_type(c.get(k1, 0), object)
+    c.get(k2)  # E: No matching overload  # E: `int` is not assignable to parameter with type `str`
+    "#,
+);
+
+// Clearing a TypedDict is not allowed, since doing so would remove keys it's expected to have.
+testcase!(
+    test_clear,
+    r#"
+from typing import TypedDict
+class C(TypedDict):
+    x: int
+def f(c: C):
+    c.clear()  # E: no attribute `clear`
+    "#,
+);
+
+testcase!(
+    bug = "Updating a TypedDict with a dict with the wrong keys or non-literal keys should not be allowed",
+    test_update,
+    r#"
+from typing import TypedDict
+class C(TypedDict):
+    x: int
+    y: int
+def f(c1: C, c2: C, c3: dict[str, int]):
+    c1.update(c2)
+    c1.update(c3)  # Should be an error
+    c1.update({"x": 1, "y": 1})
+    c1.update({"x": 1})
+    c1.update({"z": 1})  # Should be an error
     "#,
 );
