@@ -171,7 +171,8 @@ impl NarrowedAttrs {
             0 => None,
             1 => Some(branches.pop().unwrap()),
             n => {
-                let first = branches[0].clone();
+                let mut first = Self(SmallMap::new());
+                mem::swap(&mut branches[0], &mut first);
                 let tail = &branches[1..];
                 let attrs: SmallMap<_, _> = first
                     .0
