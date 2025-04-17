@@ -11,9 +11,10 @@ use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 
-use crate::alt::answers::Solutions;
-use crate::alt::answers::SolutionsEntry;
-use crate::binding::binding::Keyed;
+use crate::alt::answers::AnswerEntry;
+use crate::alt::answers::AnswerTable;
+use crate::alt::answers::Answers;
+use crate::alt::traits::SolveRecursive;
 use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
@@ -54,25 +55,29 @@ struct Error {
 
 impl DebugInfo {
     pub fn new(
-        modules: &[(&ModuleInfo, &ErrorCollector, &Bindings, &Solutions)],
+        modules: &[(&ModuleInfo, &ErrorCollector, &Bindings, &Answers)],
         error_configs: &ErrorConfigs,
     ) -> Self {
-        fn f<K: Keyed>(
-            t: &SolutionsEntry<K>,
+        fn f<K: SolveRecursive>(
+            t: &AnswerEntry<K>,
             module_info: &ModuleInfo,
             bindings: &Bindings,
             res: &mut Vec<Binding>,
         ) where
             BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
+            AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
         {
-            for (key, val) in t {
-                let idx = bindings.key_to_idx(key);
+            for (idx, val) in t.iter() {
+                let key = bindings.idx_to_key(idx);
                 res.push(Binding {
                     kind: type_name_of_val(key).rsplit_once(':').unwrap().1.to_owned(),
                     key: module_info.display(key).to_string(),
                     location: module_info.source_range(key.range()).to_string(),
                     binding: bindings.get(idx).display_with(bindings).to_string(),
-                    result: val.to_string(),
+                    result: match val.get() {
+                        None => "None".to_owned(),
+                        Some(v) => v.to_string(),
+                    },
                 })
             }
         }
@@ -80,10 +85,10 @@ impl DebugInfo {
         Self {
             modules: modules
                 .iter()
-                .map(|(module_info, errors, bindings, solutions)| {
+                .map(|(module_info, errors, bindings, answers)| {
                     let mut res = Vec::new();
                     let error_config = error_configs.get(module_info.path());
-                    table_for_each!(solutions.table(), |t| f(t, module_info, bindings, &mut res));
+                    table_for_each!(answers.table(), |t| f(t, module_info, bindings, &mut res));
                     let errors = errors.collect(error_config).shown.map(|e| Error {
                         location: e.source_range().to_string(),
                         message: e.msg().to_owned(),

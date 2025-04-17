@@ -206,18 +206,16 @@ impl ReadableState {
     }
 
     pub fn debug_info(&self, handles: &[Handle], error_configs: &ErrorConfigs) -> DebugInfo {
-        let owned: Vec<(Arc<Load>, Arc<(Bindings, Arc<Answers>)>, Arc<Solutions>)> =
-            handles.map(|x| {
-                let module = self.modules.get(x).unwrap();
-                let steps = &module.state;
-                (
-                    steps.steps.load.dupe().unwrap(),
-                    steps.steps.answers.dupe().unwrap(),
-                    steps.steps.solutions.dupe().unwrap(),
-                )
-            });
+        let owned: Vec<(Arc<Load>, Arc<(Bindings, Arc<Answers>)>)> = handles.map(|x| {
+            let module = self.modules.get(x).unwrap();
+            let steps = &module.state;
+            (
+                steps.steps.load.dupe().unwrap(),
+                steps.steps.answers.dupe().unwrap(),
+            )
+        });
         DebugInfo::new(
-            &owned.map(|x| (&x.0.module_info, &x.0.errors, &x.1.0, &*x.2)),
+            &owned.map(|x| (&x.0.module_info, &x.0.errors, &x.1.0, &*x.1.1)),
             error_configs,
         )
     }

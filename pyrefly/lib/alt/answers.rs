@@ -81,7 +81,7 @@ pub type AnswerEntry<K> =
 
 table!(
     #[derive(Debug, Default)]
-    pub struct AnswerTable(AnswerEntry)
+    pub struct AnswerTable(pub AnswerEntry)
 );
 
 impl DisplayWith<Bindings> for Answers {
@@ -192,10 +192,6 @@ impl Display for SolutionsDifference<'_> {
 }
 
 impl Solutions {
-    pub fn table(&self) -> &SolutionsTable {
-        &self.0
-    }
-
     #[allow(dead_code)] // Used in tests.
     pub fn get<K: Keyed<EXPORTED = true>>(&self, key: &K) -> Option<&Arc<<K as Keyed>::Answer>>
     where
@@ -309,6 +305,10 @@ pub trait LookupAnswer: Sized {
 }
 
 impl Answers {
+    pub fn table(&self) -> &AnswerTable {
+        &self.table
+    }
+
     pub fn new(bindings: &Bindings, solver: Solver, enable_trace: bool) -> Self {
         fn presize<K: SolveRecursive>(items: &mut AnswerEntry<K>, bindings: &Bindings)
         where
