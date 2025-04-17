@@ -41,6 +41,7 @@ use crate::types::module::Module;
 use crate::types::quantified::Quantified;
 use crate::types::tuple::Tuple;
 use crate::types::type_var::Restriction;
+use crate::types::typed_dict::TypedDict;
 use crate::types::types::AnyStyle;
 use crate::types::types::Overload;
 use crate::types::types::SuperObj;
@@ -311,6 +312,8 @@ enum AttributeBase {
     Property(Type),
     /// Result of a super() call. See Type::SuperInstance for details on what these fields are.
     SuperInstance(ClassType, SuperObj),
+    /// Typed dictionaries have similar properties to dict and Mapping, with some exceptions
+    TypedDict(TypedDict),
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -967,6 +970,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
             }
+            AttributeBase::TypedDict(typed_dict) => {
+                if attr_name == "clear" {
+                    LookupResult::NotFound(NotFound::Attribute(typed_dict.as_class_type()))
+                } else {
+                    self.lookup_attr_from_attribute_base(
+                        AttributeBase::ClassInstance(self.stdlib.dict(
+                            self.stdlib.str().clone().to_type(),
+                            self.stdlib.object().clone().to_type(),
+                        )),
+                        attr_name,
+                    )
+                }
+            }
         }
     }
 
@@ -1074,10 +1090,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::SelfType(class_type)) => {
                 Some(AttributeBase::ClassObject(class_type.class_object().dupe()))
             }
-            Type::TypedDict(_) => Some(AttributeBase::ClassInstance(self.stdlib.mapping(
-                self.stdlib.str().clone().to_type(),
-                self.stdlib.object().clone().to_type(),
-            ))),
+            Type::TypedDict(box typed_dict) => Some(AttributeBase::TypedDict(typed_dict.clone())),
             Type::Tuple(Tuple::Unbounded(box element)) => {
                 Some(AttributeBase::ClassInstance(self.stdlib.tuple(element)))
             }
@@ -1334,6 +1347,13 @@ impl<'a, Ans: LookupAnswer + LookupExport> AnswersSolver<'a, Ans> {
         if let Some(base) = self.as_attribute_base_no_union(base) {
             match &base {
                 AttributeBase::ClassInstance(class) => self.completions_class_type(class, &mut res),
+                AttributeBase::TypedDict(_) => self.completions_class_type(
+                    &self.stdlib.dict(
+                        self.stdlib.str().clone().to_type(),
+                        self.stdlib.object().clone().to_type(),
+                    ),
+                    &mut res,
+                ),
                 AttributeBase::SuperInstance(class, _) => {
                     self.completions_class_type(class, &mut res)
                 }

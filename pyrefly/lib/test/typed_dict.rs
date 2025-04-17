@@ -166,7 +166,7 @@ class Coord(TypedDict):
     z: bool
 def foo(c: Coord, key: str, key2: Literal["x", "y"]):
     x: int = c["x"]
-    x2: int = c.x  # E: Object of class `Mapping` has no attribute `x`
+    x2: int = c.x  # E: Object of class `dict` has no attribute `x`
     x3: int = c[key]  # E: Invalid key for TypedDict `Coord`, got `str`
     x4: int = c["aaaaaa"]  # E: TypedDict `Coord` does not have key `aaaaaa`
     assert_type(c[key2], int | str)
@@ -432,13 +432,13 @@ assert_type(X, type[X])
 );
 
 testcase!(
-    bug = "Wrong return type from get(), also weird @_ in error message",
+    bug = "Wrong return type from get()",
     test_get,
     r#"
 from typing import TypedDict
 UserType1 = TypedDict("UserType1", {"name": str, "age": int}, total=False)
 user1: UserType1 = {"name": "Bob", "age": 40}
-name: str = user1.get("name", "n/a")  # E: `object | @_` is not assignable to `str`
+name: str = user1.get("name", "n/a")  # E: `object` is not assignable to `str`
 
     "#,
 );
