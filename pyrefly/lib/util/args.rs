@@ -10,7 +10,7 @@ use std::ffi::OsString;
 use anyhow::Context as _;
 use argfile::Argument;
 
-pub static ENV_VAR_OVERRIDE_PREFIX: &str = "PYRE_";
+pub static ENV_VAR_OVERRIDE_PREFIX: &str = "PYREFLY_";
 
 /// Do `@` file expansion
 pub fn get_args_expanded(args: impl Iterator<Item = OsString>) -> anyhow::Result<Vec<OsString>> {
