@@ -235,6 +235,7 @@ pub enum FunctionKind {
     Final,
     PropertySetter(Box<FuncId>),
     Def(Box<FuncId>),
+    AbstractMethod,
     /// Instance of a protocol with a `__call__` method. The function has the `__call__` signature.
     CallbackProtocol(Box<ClassType>),
 }
@@ -474,6 +475,7 @@ impl FunctionKind {
             ("typing", None, "assert_type") => Self::AssertType,
             ("typing", None, "reveal_type") => Self::RevealType,
             ("typing", None, "final") => Self::Final,
+            ("abc", None, "abstractmethod") => Self::AbstractMethod,
             _ => Self::Def(Box::new(FuncId {
                 module,
                 cls: cls.cloned(),
@@ -543,6 +545,11 @@ impl FunctionKind {
                 module: cls.qname().module_name(),
                 cls: Some(cls.name().clone()),
                 func: dunder::CALL,
+            },
+            Self::AbstractMethod => FuncId {
+                module: ModuleName::abc(),
+                cls: None,
+                func: Name::new_static("abstractmethod"),
             },
             Self::PropertySetter(func_id) | Self::Def(func_id) => (**func_id).clone(),
         }

@@ -72,6 +72,7 @@ use crate::ruff::ast::Ast;
 use crate::types::annotation::Annotation;
 use crate::types::annotation::Qualifier;
 use crate::types::callable::Function;
+use crate::types::callable::FunctionKind;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Required;
@@ -91,6 +92,7 @@ use crate::types::type_var::TypeVar;
 use crate::types::type_var::Variance;
 use crate::types::type_var_tuple::TypeVarTuple;
 use crate::types::types::AnyStyle;
+use crate::types::types::CalleeKind;
 use crate::types::types::Forallable;
 use crate::types::types::SuperObj;
 use crate::types::types::TParamInfo;
@@ -1887,6 +1889,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // functions when solving Binding::ReturnType. Unfortunately, this leads to
                 // another issue (see comment on Binding::ReturnType).
                 if x.function_source == FunctionSource::Stub
+                    || x.decorators.iter().any(|k| {
+                        // We handle functions decorated with `@abstractmethod` the same way
+                        // as stubs, inferring an implicit return of `Never` instead of `None`
+                        let decorator = self.get_idx(*k);
+                        match decorator.ty().callee_kind() {
+                            Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => true,
+                            _ => false,
+                        }
+                    })
                     || x.last_exprs.as_ref().is_some_and(|xs| {
                         xs.iter().all(|(last, k)| {
                             let e = self.get_idx(*k);

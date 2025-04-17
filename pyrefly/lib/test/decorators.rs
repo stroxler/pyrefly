@@ -23,6 +23,19 @@ assert_type(decorated, int)
 );
 
 testcase!(
+    test_abstract_method_implicit_return,
+    r#"
+import abc
+class Foo:
+    @abc.abstractmethod
+    def foo(self) -> str:
+        """
+        Some docstring
+        """
+    "#,
+);
+
+testcase!(
     test_identity_function_decorator,
     r#"
 from typing import Any, Callable, reveal_type

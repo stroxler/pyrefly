@@ -215,6 +215,7 @@ impl<'a> BindingsBuilder<'a> {
             Binding::ReturnImplicit(ReturnImplicit {
                 last_exprs: last_expr_keys,
                 function_source: source,
+                decorators: decorators.clone().into_boxed_slice(),
             }),
         );
 

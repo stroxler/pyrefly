@@ -663,6 +663,7 @@ pub struct ReturnImplicit {
     /// Ignore the implicit return type for stub functions (returning `...`). This is
     /// unsafe, but is convenient and matches Pyright's behavior.
     pub function_source: FunctionSource,
+    pub decorators: Box<[Idx<Key>]>,
 }
 
 #[derive(Clone, Debug)]

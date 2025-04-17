@@ -107,6 +107,10 @@ impl ModuleName {
         Self::from_str("enum")
     }
 
+    pub fn abc() -> Self {
+        Self::from_str("abc")
+    }
+
     pub fn dataclasses() -> Self {
         Self::from_str("dataclasses")
     }
