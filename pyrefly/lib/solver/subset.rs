@@ -642,7 +642,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (_, Type::Any(_)) => true,
             (Type::Never(_), _) => true,
-            (_, Type::ClassType(want)) if want == self.type_order.stdlib().object() => {
+            (_, Type::ClassType(want)) if want.has_qname("builtins", "object") => {
                 true // everything is an instance of `object`
             }
             (Type::Union(ls), u) => ls.iter().all(|l| self.is_subset_eq(l, u)),
@@ -759,15 +759,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 true
             }
             (Type::ClassType(got), Type::ClassType(want))
-                if want == self.type_order.stdlib().float()
-                    && got == self.type_order.stdlib().int() =>
+                if want.has_qname("builtins", "float") && got.has_qname("builtins", "int") =>
             {
                 true
             }
             (Type::ClassType(got), Type::ClassType(want))
-                if want == self.type_order.stdlib().complex()
-                    && (got == self.type_order.stdlib().int()
-                        || got == self.type_order.stdlib().float()) =>
+                if want.has_qname("builtins", "complex")
+                    && (got.has_qname("builtins", "int") || got.has_qname("builtins", "float")) =>
             {
                 true
             }
@@ -813,8 +811,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 )
             }
             (Type::ClassType(got), Type::Tuple(_))
-                if *got.class_object() == self.type_order.stdlib().tuple_class_object()
-                    && got.targs().as_slice().len() == 1 =>
+                if got.has_qname("builtins", "tuple") && got.targs().as_slice().len() == 1 =>
             {
                 let mut tuple_targ = got.targs().as_slice()[0].clone();
                 if let Type::Var(var) = tuple_targ {
@@ -908,13 +905,14 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 | Type::Callable(_)
                 | Type::Function(_),
             ) => {
-                if class == self.type_order.stdlib().builtins_type() {
+                let type_type = self.type_order.stdlib().builtins_type();
+                if class == type_type {
                     // Unparameterized `type` is equivalent to `type[Any]`
                     true
-                } else if let Some(got_as_type) = self.type_order.as_superclass(
-                    class,
-                    self.type_order.stdlib().builtins_type().class_object(),
-                ) && got_as_type.targs().is_empty()
+                } else if let Some(got_as_type) = self
+                    .type_order
+                    .as_superclass(class, type_type.class_object())
+                    && got_as_type.targs().is_empty()
                 {
                     // The class extends unparameterized `type`
                     true

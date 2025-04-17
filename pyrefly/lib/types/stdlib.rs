@@ -289,10 +289,6 @@ impl Stdlib {
         Self::apply(&self.tuple, vec![x])
     }
 
-    pub fn tuple_class_object(&self) -> Class {
-        Self::unwrap(&self.tuple).dupe()
-    }
-
     pub fn list(&self, x: Type) -> ClassType {
         Self::apply(&self.list, vec![x])
     }
