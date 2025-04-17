@@ -176,7 +176,7 @@ impl Display for SolutionsDifference<'_> {
         // However, we do know it is exported, and exported things can't rely on locations, so regardless
         // of the ModuleInfo, it should display the same. Therefore, we fake one up.
         let fake_module_info = ModuleInfo::new(
-            ModuleName::builtins(),
+            ModuleName::from_str("Fake.Module.For.SolutionsDifference.Display"),
             ModulePath::memory(PathBuf::new()),
             Default::default(),
         );
