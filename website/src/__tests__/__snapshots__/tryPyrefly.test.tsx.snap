@@ -42,7 +42,6 @@ reveal_type(test(42))
       </div>
       <button
         aria-label="share URL button"
-        class=""
         id="share-url-button"
       >
         <span>
@@ -55,17 +54,13 @@ reveal_type(test(42))
     >
       <div>
         <ul>
-          <li
-            class=""
-          >
+          <li>
             Errors
           </li>
         </ul>
       </div>
       <div>
-        <pre
-          class=""
-        >
+        <pre>
           <ul>
             <li>
               No errors!

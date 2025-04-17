@@ -8,10 +8,9 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import clsx from 'clsx';
 import Editor from '@monaco-editor/react';
 import * as LZString from 'lz-string';
-import styles from './TryPyrefly.module.css';
+import * as stylex from '@stylexjs/stylex';
 import TryPyreflyResults from './TryPyreflyResults';
 import {
     monaco,
@@ -186,10 +185,10 @@ export default function TryPyrefly({
     };
 
     return (
-        <div id="tryPyrefly-editor" className={styles.tryEditor}>
+        <div id="tryPyrefly-editor" {...stylex.props(styles.tryEditor)}>
             <div
                 id="tryPyrefly-code-editor-container"
-                className={styles.codeEditorContainer}
+                {...stylex.props(styles.codeEditorContainer)}
             >
                 {getPyreflyEditor(
                     isCodeSnippet,
@@ -202,14 +201,14 @@ export default function TryPyrefly({
                 {!isCodeSnippet && (
                     <button
                         id="share-url-button"
-                        className={clsx(
-                            styles.shareButton,
-                            isCopied && styles.shareButtonCopied
+                        {...stylex.props(
+                            styles.shareButtonBase,
+                            isCopied ? styles.shareButtonCopied : styles.shareButtonDefault
                         )}
                         onClick={() => copyToClipboard(setIsCopied)}
                         aria-label="share URL button"
                     >
-                        <span className={styles.shareButtonText}>
+                        <span {...stylex.props(styles.shareButtonText)}>
                             {isCopied ? '✓ URL Copied!' : '📋 Share URL'}
                         </span>
                     </button>
@@ -358,3 +357,88 @@ function mapPyreflyErrorsToMarkerData(
         severity: error.severity,
     }));
 }
+
+// Define keyframes for animations
+const copySuccessKeyframes = stylex.keyframes({
+    '0%': { transform: 'scale(1)' },
+    '50%': { transform: 'scale(1.1)' },
+    '100%': { transform: 'scale(1)' },
+});
+
+// Styles for TryPyrefly component
+const styles = stylex.create({
+    tryEditor: {
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+    },
+    codeEditorContainer: {
+        position: 'relative',
+        display: 'flex',
+        overflow: 'auto',
+        borderBottom: '10px',
+        background: '#fff',
+        height: '100%',
+    },
+    // Common share button styles
+    shareButtonBase: {
+        position: 'absolute',
+        display: 'flex',
+        alignItems: 'center',
+        borderRadius: '24px',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        zIndex: 1000,
+        backdropFilter: 'blur(4px)',
+        height: '40px',
+        // Mobile styles (max-width: 768px)
+        '@media (max-width: 768px)': {
+            bottom: '16px',
+            right: '16px',
+            padding: '8px 16px',
+            fontSize: '13px',
+        },
+        // Desktop styles (min-width: 769px)
+        '@media (min-width: 769px)': {
+            top: '20px',
+            right: '20px',
+            padding: '12px 20px',
+            fontSize: '14px',
+        },
+    },
+    // Default state (not copied)
+    shareButtonDefault: {
+        background: 'rgba(255, 255, 255, 0.95)',
+        border: '1px solid #ddd',
+        color: 'inherit',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        '@media (min-width: 769px)': {
+            ':hover': {
+                background: 'rgba(255, 255, 255, 1)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            },
+        },
+    },
+    shareButtonText: {
+        transition: 'opacity 0.2s ease, display 0s 0.2s',
+    },
+    // Copied state
+    shareButtonCopied: {
+        background: 'rgba(76, 175, 80, 0.95)',
+        color: 'white',
+        border: '1px solid #43a047',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        animationName: copySuccessKeyframes,
+        animationDuration: '0.3s',
+        animationTimingFunction: 'ease',
+        '@media (min-width: 769px)': {
+            ':hover': {
+                background: 'rgba(67, 160, 71, 1)',
+                color: 'white',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            },
+        },
+    },
+});
