@@ -41,7 +41,8 @@ use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::module::bundled::typeshed;
-use crate::module::finder::find_module;
+use crate::module::finder::find_module_in_search_path;
+use crate::module::finder::find_module_in_site_package_path;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
@@ -161,11 +162,15 @@ impl Loader for CheckLoader {
             .any(|p| p.matches(module))
         {
             Err(FindError::Ignored)
-        } else if let Some(path) = find_module(module, &self.loader_inputs.search_path) {
+        } else if let Some(path) =
+            find_module_in_search_path(module, &self.loader_inputs.search_path)
+        {
             Ok(path)
         } else if let Some(path) = typeshed().map_err(FindError::not_found)?.find(module) {
             Ok(path)
-        } else if let Some(path) = find_module(module, &self.loader_inputs.site_package_path) {
+        } else if let Some(path) =
+            find_module_in_site_package_path(module, &self.loader_inputs.site_package_path)
+        {
             Ok(path)
         } else {
             Err(FindError::search_path(

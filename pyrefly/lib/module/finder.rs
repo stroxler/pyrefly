@@ -54,7 +54,7 @@ fn find_one_part(name: &Name, roots: &[PathBuf]) -> Option<FindResult> {
     }
 }
 
-pub fn find_module(module: ModuleName, include: &[PathBuf]) -> Option<ModulePath> {
+pub fn find_module_in_search_path(module: ModuleName, include: &[PathBuf]) -> Option<ModulePath> {
     let parts = module.components();
     if parts.is_empty() {
         return None;
@@ -88,6 +88,22 @@ pub fn find_module(module: ModuleName, include: &[PathBuf]) -> Option<ModulePath
             ModulePath::namespace(roots.first().clone())
         }
     })
+}
+
+pub fn find_module_in_site_package_path(
+    module: ModuleName,
+    include: &[PathBuf],
+) -> Option<ModulePath> {
+    let mut first = module.first_component().to_string();
+    first.push_str("-stubs");
+    let stubs_module = ModuleName::from_parts(
+        [Name::new(first)]
+            .iter()
+            .chain(module.components().iter().skip(1)),
+    );
+
+    find_module_in_search_path(stubs_module, include)
+        .or_else(|| find_module_in_search_path(module, include))
 }
 
 #[cfg(test)]
@@ -152,15 +168,15 @@ mod tests {
             )],
         );
         assert_eq!(
-            find_module(ModuleName::from_str("foo.bar"), &[root.to_path_buf()]),
+            find_module_in_search_path(ModuleName::from_str("foo.bar"), &[root.to_path_buf()],),
             Some(ModulePath::filesystem(root.join("foo/bar.py")))
         );
         assert_eq!(
-            find_module(ModuleName::from_str("foo.baz"), &[root.to_path_buf()]),
+            find_module_in_search_path(ModuleName::from_str("foo.baz"), &[root.to_path_buf()],),
             Some(ModulePath::filesystem(root.join("foo/baz.pyi")))
         );
         assert_eq!(
-            find_module(ModuleName::from_str("foo.qux"), &[root.to_path_buf()]),
+            find_module_in_search_path(ModuleName::from_str("foo.qux"), &[root.to_path_buf()],),
             None,
         );
     }
@@ -181,11 +197,11 @@ mod tests {
             )],
         );
         assert_eq!(
-            find_module(ModuleName::from_str("foo.bar"), &[root.to_path_buf()]),
+            find_module_in_search_path(ModuleName::from_str("foo.bar"), &[root.to_path_buf()],),
             Some(ModulePath::filesystem(root.join("foo/bar/__init__.py")))
         );
         assert_eq!(
-            find_module(ModuleName::from_str("foo.baz"), &[root.to_path_buf()]),
+            find_module_in_search_path(ModuleName::from_str("foo.baz"), &[root.to_path_buf()],),
             Some(ModulePath::filesystem(root.join("foo/baz/__init__.pyi")))
         );
     }
@@ -206,7 +222,7 @@ mod tests {
             )],
         );
         assert_eq!(
-            find_module(ModuleName::from_str("foo.bar"), &[root.to_path_buf()]),
+            find_module_in_search_path(ModuleName::from_str("foo.bar"), &[root.to_path_buf()],),
             Some(ModulePath::filesystem(root.join("foo/bar.pyi")))
         );
     }
@@ -227,7 +243,7 @@ mod tests {
             )],
         );
         assert_eq!(
-            find_module(ModuleName::from_str("foo.bar"), &[root.to_path_buf()]),
+            find_module_in_search_path(ModuleName::from_str("foo.bar"), &[root.to_path_buf()],),
             Some(ModulePath::filesystem(root.join("foo/bar/__init__.py")))
         );
     }
@@ -246,19 +262,19 @@ mod tests {
         );
         let search_roots = [root.to_path_buf()];
         assert_eq!(
-            find_module(ModuleName::from_str("a"), &search_roots),
+            find_module_in_search_path(ModuleName::from_str("a"), &search_roots),
             Some(ModulePath::namespace(root.join("a")))
         );
         assert_eq!(
-            find_module(ModuleName::from_str("b"), &search_roots),
+            find_module_in_search_path(ModuleName::from_str("b"), &search_roots),
             Some(ModulePath::namespace(root.join("b")))
         );
         assert_eq!(
-            find_module(ModuleName::from_str("c.d"), &search_roots),
+            find_module_in_search_path(ModuleName::from_str("c.d"), &search_roots),
             Some(ModulePath::namespace(root.join("c/d")))
         );
         assert_eq!(
-            find_module(ModuleName::from_str("c.d.e"), &search_roots),
+            find_module_in_search_path(ModuleName::from_str("c.d.e"), &search_roots),
             Some(ModulePath::filesystem(root.join("c/d/e.py")))
         );
     }
@@ -287,9 +303,9 @@ mod tests {
             ],
         );
         assert_eq!(
-            find_module(
+            find_module_in_search_path(
                 ModuleName::from_str("a.c"),
-                &[root.join("search_root0"), root.join("search_root1")]
+                &[root.join("search_root0"), root.join("search_root1")],
             ),
             // We won't find `a.c` because when searching for package `a`, we've already
             // committed to `search_root0/a/` as the path to search next for `c`. And there's
@@ -316,13 +332,63 @@ mod tests {
             ],
         );
         assert_eq!(
-            find_module(
+            find_module_in_search_path(
                 ModuleName::from_str("a.c"),
-                &[root.join("search_root0"), root.join("search_root1")]
+                &[root.join("search_root0"), root.join("search_root1")],
             ),
             // We will find `a.c` because `a` is a namespace package whose search roots
             // include both `search_root0/a/` and `search_root1/a/`.
             Some(ModulePath::filesystem(root.join("search_root1/a/c.py")))
+        );
+    }
+
+    #[test]
+    fn test_find_stubs_module_takes_precedence() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        setup_test_directory(
+            root,
+            vec![
+                TestPath::dir(
+                    "foo",
+                    vec![
+                        TestPath::file("__init__.py"),
+                        TestPath::dir("bar", vec![TestPath::file("__init__.py")]),
+                        TestPath::dir("baz", vec![TestPath::file("__init__.pyi")]),
+                    ],
+                ),
+                TestPath::dir(
+                    "foo-stubs",
+                    vec![
+                        TestPath::file("__init__.py"),
+                        TestPath::dir("bar", vec![TestPath::file("__init__.py")]),
+                    ],
+                ),
+            ],
+        );
+        assert_eq!(
+            find_module_in_search_path(ModuleName::from_str("foo.bar"), &[root.to_path_buf()],),
+            Some(ModulePath::filesystem(root.join("foo/bar/__init__.py")))
+        );
+        assert_eq!(
+            find_module_in_search_path(ModuleName::from_str("foo.baz"), &[root.to_path_buf()],),
+            Some(ModulePath::filesystem(root.join("foo/baz/__init__.pyi")))
+        );
+        assert_eq!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.bar"),
+                &[root.to_path_buf()]
+            ),
+            Some(ModulePath::filesystem(
+                root.join("foo-stubs/bar/__init__.py")
+            ))
+        );
+        assert_eq!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.baz"),
+                &[root.to_path_buf()]
+            ),
+            Some(ModulePath::filesystem(root.join("foo/baz/__init__.pyi")))
         );
     }
 }
