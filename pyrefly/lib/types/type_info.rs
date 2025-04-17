@@ -40,15 +40,12 @@ use crate::util::visit::VisitMut;
 #[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut, TypeEq)]
 pub struct TypeInfo {
     ty: Type,
-    attrs: NarrowedAttrs,
+    attrs: Option<NarrowedAttrs>,
 }
 
 impl TypeInfo {
     pub fn of_ty(ty: Type) -> Self {
-        Self {
-            ty,
-            attrs: NarrowedAttrs::new(),
-        }
+        Self { ty, attrs: None }
     }
 
     pub fn with_ty(self, ty: Type) -> Self {
@@ -59,23 +56,23 @@ impl TypeInfo {
     }
 
     pub fn type_at_name(&self, name: &Name) -> Option<&Type> {
-        match self.attrs.get(name) {
+        match self.get_at_name(name) {
             None | Some(NarrowedAttr::WithoutRoot(..)) => None,
             Some(NarrowedAttr::Leaf(ty)) | Some(NarrowedAttr::WithRoot(ty, _)) => Some(ty),
         }
     }
 
     pub fn at_name(&self, name: &Name, fallback: impl Fn() -> Type) -> Self {
-        match self.attrs.get(name) {
+        match self.get_at_name(name) {
             None => TypeInfo::of_ty(fallback()),
             Some(NarrowedAttr::Leaf(ty)) => Self::of_ty(ty.clone()),
             Some(NarrowedAttr::WithoutRoot(attrs)) => Self {
                 ty: fallback(),
-                attrs: attrs.clone(),
+                attrs: Some(attrs.clone()),
             },
             Some(NarrowedAttr::WithRoot(ty, attrs)) => Self {
                 ty: ty.clone(),
-                attrs: attrs.clone(),
+                attrs: Some(attrs.clone()),
             },
         }
     }
@@ -91,18 +88,22 @@ impl TypeInfo {
     /// - At attribute chains where all branches narrow, take a union of the narrowed types.
     /// - Drop narrowing for attribute chains where at least one branch does not narrow
     pub fn join(branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
-        let (tys, attrs) = branches
+        let (tys, attrs): (Vec<Type>, Vec<Option<NarrowedAttrs>>) = branches
             .into_iter()
             .map(|TypeInfo { ty, attrs }| (ty, attrs))
             .unzip();
         let ty = union_types(tys);
-        let attrs = NarrowedAttrs::join(attrs, union_types);
+        let attrs = NarrowedAttrs::join(attrs.into_iter().flatten().collect(), union_types);
         Self { ty, attrs }
     }
 
     fn add_narrow(&mut self, names: &Vec1<Name>, ty: Type) {
         if let Some((name, more_names)) = names.split_first() {
-            self.attrs.add_narrow(name.clone(), more_names, ty)
+            if let Some(attrs) = &mut self.attrs {
+                attrs.add_narrow(name.clone(), more_names, ty);
+            } else {
+                self.attrs = Some(NarrowedAttrs::of_narrow(name.clone(), more_names, ty));
+            }
         } else {
             unreachable!(
                 "We know the Vec1 will split. But the safe API, split_off_first, is not ref-based."
@@ -125,127 +126,106 @@ impl TypeInfo {
     pub fn arc_clone_ty(self: Arc<Self>) -> Type {
         self.arc_clone().into_ty()
     }
+
+    fn get_at_name(&self, name: &Name) -> Option<&NarrowedAttr> {
+        self.attrs.as_ref().and_then(|attrs| attrs.get(name))
+    }
 }
 
 impl Display for TypeInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.ty().fmt(f)?;
-        if let NarrowedAttrs(Some(_)) = &self.attrs {
-            write!(f, " ({})", self.attrs)?;
+        if let Some(attrs) = &self.attrs {
+            write!(f, " ({})", attrs)?;
         }
         Ok(())
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq)]
-struct NarrowedAttrs(Option<Box<SmallMap<Name, NarrowedAttr>>>);
+struct NarrowedAttrs(SmallMap<Name, NarrowedAttr>);
 
 impl NarrowedAttrs {
-    fn new() -> Self {
-        Self(None)
-    }
-
     fn add_narrow(&mut self, name: Name, more_names: &[Name], ty: Type) {
-        if self.0.is_none() {
-            self.0 = Some(Box::new(SmallMap::with_capacity(1)))
-        }
-        match &mut self.0 {
-            None => unreachable!("We just ensured that we have a map of attrs"),
-            Some(box attrs) => {
-                let attr = match attrs.shift_remove(&name) {
-                    Some(attr) => attr.with_narrow(more_names, ty),
-                    None => NarrowedAttr::new(more_names, ty),
-                };
-                attrs.insert(name, attr);
-            }
-        }
+        let attrs = &mut self.0;
+        let attr = match attrs.shift_remove(&name) {
+            Some(attr) => attr.with_narrow(more_names, ty),
+            None => NarrowedAttr::new(more_names, ty),
+        };
+        attrs.insert(name, attr);
     }
 
     fn get(&self, name: &Name) -> Option<&NarrowedAttr> {
-        match &self.0 {
-            None => None,
-            Some(box attrs) => attrs.get(name),
-        }
+        self.0.get(name)
     }
 
     fn of_narrow(name: Name, more_names: &[Name], ty: Type) -> Self {
         let mut attrs = SmallMap::with_capacity(1);
         attrs.insert(name.clone(), NarrowedAttr::new(more_names, ty));
-        Self(Some(Box::new(attrs)))
+        Self(attrs)
     }
 
-    fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
+    fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Option<Self> {
         let n = branches.len();
         if n == 0 {
-            // Exit early on empty branches - the split_off call is only legal
-            // if the vec has at least one element.
-            return Self::new();
+            return None;
         }
         let mut tail = branches.split_off(1);
         match branches.into_iter().next() {
             None => {
                 // Not actually reachable since we exit early for n == 0, but needed for type
                 // safety (and if split_off behaved differently it would be reachable)
-                Self::new()
+                None
             }
-            Some(first) => match first.0 {
-                None => Self::new(),
-                Some(box attrs) => {
-                    let attrs: SmallMap<_, _> = attrs
-                        .into_iter()
-                        .filter_map(|(name, attr)| {
-                            let mut attr_vec = vec![attr];
-                            attr_vec.extend(
-                                tail.iter_mut()
-                                    .filter_map(|attrs| attrs.shift_remove(&name)),
-                            );
-                            // If any map lacked this name, we just drop it. Only join if all maps have it.
-                            if attr_vec.len() == n {
-                                NarrowedAttr::join(attr_vec, union_types)
-                                    .map(move |attr| (name, attr))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    if attrs.is_empty() {
-                        Self::new()
-                    } else {
-                        Self(Some(Box::new(attrs)))
-                    }
+            Some(first) => {
+                let attrs = first.0;
+                let attrs: SmallMap<_, _> = attrs
+                    .into_iter()
+                    .filter_map(|(name, attr)| {
+                        let mut attr_vec = vec![attr];
+                        attr_vec.extend(
+                            tail.iter_mut()
+                                .filter_map(|attrs| attrs.shift_remove(&name)),
+                        );
+                        // If any map lacked this name, we just drop it. Only join if all maps have it.
+                        if attr_vec.len() == n {
+                            NarrowedAttr::join(attr_vec, union_types).map(move |attr| (name, attr))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                if attrs.is_empty() {
+                    None
+                } else {
+                    Some(Self(attrs))
                 }
-            },
+            }
         }
     }
 
     fn shift_remove(&mut self, name: &Name) -> Option<NarrowedAttr> {
-        match &mut self.0 {
-            None => None,
-            Some(box attrs) => attrs.shift_remove(name),
-        }
+        self.0.shift_remove(name)
     }
 
     fn fmt_with_prefix(&self, prefix: &mut Vec<String>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(attrs) = &self.0 {
-            let mut first = true;
-            for (name, value) in attrs.iter() {
-                if first {
-                    first = false
-                } else {
-                    write!(f, ", ")?;
-                }
-                match value {
-                    NarrowedAttr::Leaf(ty) => Self::fmt_type_with_label(prefix, name, ty, f),
-                    NarrowedAttr::WithRoot(ty, attrs) => {
-                        Self::fmt_type_with_label(prefix, name, ty, f)?;
-                        write!(f, ", ")?;
-                        attrs.fmt_with_prefix_and_name(prefix, name, f)
-                    }
-                    NarrowedAttr::WithoutRoot(attrs) => {
-                        attrs.fmt_with_prefix_and_name(prefix, name, f)
-                    }
-                }?;
+        let attrs = &self.0;
+        let mut first = true;
+        for (name, value) in attrs.iter() {
+            if first {
+                first = false
+            } else {
+                write!(f, ", ")?;
             }
+            match value {
+                NarrowedAttr::Leaf(ty) => Self::fmt_type_with_label(prefix, name, ty, f),
+                NarrowedAttr::WithRoot(ty, attrs) => {
+                    Self::fmt_type_with_label(prefix, name, ty, f)?;
+                    write!(f, ", ")?;
+                    attrs.fmt_with_prefix_and_name(prefix, name, f)
+                }
+                NarrowedAttr::WithoutRoot(attrs) => attrs.fmt_with_prefix_and_name(prefix, name, f),
+            }?;
         }
         Ok(())
     }
@@ -281,21 +261,19 @@ impl NarrowedAttrs {
 
 impl Visit<Type> for NarrowedAttrs {
     fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Type)) {
-        if let Some(attrs) = &self.0 {
-            attrs.values().for_each(|value| {
-                value.visit(f);
-            })
-        }
+        let attrs = &self.0;
+        attrs.values().for_each(|value| {
+            value.visit(f);
+        })
     }
 }
 
 impl VisitMut<Type> for NarrowedAttrs {
     fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut Type)) {
-        if let Some(attrs) = &mut self.0 {
-            attrs.values_mut().for_each(|value| {
-                value.visit_mut(f);
-            })
-        }
+        let attrs = &mut self.0;
+        attrs.values_mut().for_each(|value| {
+            value.visit_mut(f);
+        })
     }
 }
 
@@ -391,11 +369,11 @@ impl NarrowedAttr {
             }
         }
         let ty = ty_branches.map(union_types);
-        let attrs =
-            attrs_branches.map(|attrs_branches| NarrowedAttrs::join(attrs_branches, union_types));
+        let attrs = attrs_branches
+            .and_then(|attrs_branches| NarrowedAttrs::join(attrs_branches, union_types));
         match (ty, attrs) {
-            (None, None | Some(NarrowedAttrs(None))) => None,
-            (Some(ty), None | Some(NarrowedAttrs(None))) => Some(Self::Leaf(ty)),
+            (None, None) => None,
+            (Some(ty), None) => Some(Self::Leaf(ty)),
             (Some(ty), Some(attrs)) => Some(Self::WithRoot(ty, attrs)),
             (None, Some(attrs)) => Some(Self::WithoutRoot(attrs)),
         }
