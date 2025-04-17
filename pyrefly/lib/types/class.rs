@@ -419,4 +419,8 @@ impl ClassType {
     pub fn to_type(self) -> Type {
         Type::ClassType(self)
     }
+
+    pub fn has_qname(&self, module: &str, name: &str) -> bool {
+        self.0.has_qname(module, name)
+    }
 }

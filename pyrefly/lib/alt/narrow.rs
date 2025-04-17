@@ -160,7 +160,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Type::None | Type::Literal(Lit::Bool(_)) | Type::Literal(Lit::Enum(_)),
                         ) if *t == right => Type::never(),
                         (Type::ClassType(cls), Type::Literal(Lit::Bool(b)))
-                            if cls.class_object().has_qname("builtins", "bool") =>
+                            if cls.has_qname("builtins", "bool") =>
                         {
                             Type::Literal(Lit::Bool(!b))
                         }
@@ -183,8 +183,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AtomicNarrowOp::IsSubclass(v) => {
                 let right = self.expr_infer(v, errors);
                 if let Some(left) = self.untype_opt(ty.clone(), v.range())
-                    && let Some(right) =
-                        self.unwrap_class_object_silently(&right)
+                    && let Some(right) = self.unwrap_class_object_silently(&right)
                 {
                     Type::type_form(self.intersect(&left, &right))
                 } else {
@@ -194,8 +193,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AtomicNarrowOp::IsNotSubclass(v) => {
                 let right = self.expr_infer(v, errors);
                 if let Some(left) = self.untype_opt(ty.clone(), v.range())
-                    && let Some(right) =
-                        self.unwrap_class_object_silently(&right)
+                    && let Some(right) = self.unwrap_class_object_silently(&right)
                 {
                     Type::type_form(self.subtract(&left, &right))
                 } else {
@@ -208,13 +206,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Expr::Starred(x) => CallArg::Star(&x.value, x.range),
                         _ => CallArg::Expr(arg),
                     });
-                    let ret = self.call_infer(call_target, &args, &arguments.keywords, range, errors, None);
+                    let ret = self.call_infer(
+                        call_target,
+                        &args,
+                        &arguments.keywords,
+                        range,
+                        errors,
+                        None,
+                    );
                     if let Type::TypeGuard(box t) = ret {
                         return t.clone();
                     }
                 }
                 ty.clone()
-            },
+            }
             AtomicNarrowOp::NotTypeGuard(_, _) => ty.clone(),
             AtomicNarrowOp::TypeIs(t, arguments) => {
                 if let Some(call_target) = self.as_call_target(t.clone()) {
@@ -222,31 +227,45 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Expr::Starred(x) => CallArg::Star(&x.value, x.range),
                         _ => CallArg::Expr(arg),
                     });
-                    let ret = self.call_infer(call_target, &args, &arguments.keywords, range, errors, None);
+                    let ret = self.call_infer(
+                        call_target,
+                        &args,
+                        &arguments.keywords,
+                        range,
+                        errors,
+                        None,
+                    );
                     if let Type::TypeIs(box t) = ret {
                         return self.intersect(ty, &t);
                     }
                 }
                 ty.clone()
-            },
+            }
             AtomicNarrowOp::NotTypeIs(t, arguments) => {
                 if let Some(call_target) = self.as_call_target(t.clone()) {
                     let args = arguments.args.map(|arg| match arg {
                         Expr::Starred(x) => CallArg::Star(&x.value, x.range),
                         _ => CallArg::Expr(arg),
                     });
-                    let ret = self.call_infer(call_target, &args, &arguments.keywords, range, errors, None);
+                    let ret = self.call_infer(
+                        call_target,
+                        &args,
+                        &arguments.keywords,
+                        range,
+                        errors,
+                        None,
+                    );
                     if let Type::TypeIs(box t) = ret {
                         return self.subtract(ty, &t);
                     }
                 }
                 ty.clone()
-            },
+            }
             AtomicNarrowOp::Truthy | AtomicNarrowOp::Falsy => self.distribute_over_union(ty, |t| {
                 let boolval = matches!(op, AtomicNarrowOp::Truthy);
                 if t.as_bool() == Some(!boolval) {
                     Type::never()
-                } else if matches!(t, Type::ClassType(cls) if cls.class_object().has_qname("builtins", "bool")) {
+                } else if matches!(t, Type::ClassType(cls) if cls.has_qname("builtins", "bool")) {
                     Type::Literal(Lit::Bool(boolval))
                 } else {
                     t.clone()
@@ -266,7 +285,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.distribute_over_union(ty, |t| match (t, &right) {
                         (_, _) if *t == right => Type::never(),
                         (Type::ClassType(cls), Type::Literal(Lit::Bool(b)))
-                            if cls.class_object().has_qname("builtins", "bool") =>
+                            if cls.has_qname("builtins", "bool") =>
                         {
                             Type::Literal(Lit::Bool(!b))
                         }

@@ -53,10 +53,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::BoundMethod(_) | Type::Callable(_) | Type::Function(_) => false,
             // Values initialized with nonmember() are not members
             Type::ClassType(cls)
-                if cls.class_object().has_qname("enum", "nonmember")
-                    || cls.class_object().has_qname("builtins", "staticmethod")
-                    || cls.class_object().has_qname("builtins", "classmethod")
-                    || cls.class_object().has_qname("enum", "property") =>
+                if cls.has_qname("enum", "nonmember")
+                    || cls.has_qname("builtins", "staticmethod")
+                    || cls.has_qname("builtins", "classmethod")
+                    || cls.has_qname("enum", "property") =>
             {
                 false
             }

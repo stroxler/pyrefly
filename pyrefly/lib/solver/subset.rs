@@ -653,11 +653,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 .all(|u| self.is_subset_eq(l, &u.as_type())),
             (l, Type::Union(us)) => us.iter().any(|u| self.is_subset_eq(l, u)),
             (Type::Intersect(ls), u) => ls.iter().any(|l| self.is_subset_eq(l, u)),
-            (Type::Module(_), Type::ClassType(cls))
-                if cls.class_object().has_qname("types", "ModuleType") =>
-            {
-                true
-            }
+            (Type::Module(_), Type::ClassType(cls)) if cls.has_qname("types", "ModuleType") => true,
             (
                 Type::Function(_)
                 | Type::Overload(_)
@@ -666,9 +662,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     ..
                 }),
                 Type::ClassType(cls),
-            ) if cls.class_object().has_qname("types", "FunctionType") => true,
+            ) if cls.has_qname("types", "FunctionType") => true,
             (Type::BoundMethod(_), Type::ClassType(cls))
-                if cls.class_object().has_qname("types", "MethodType") =>
+                if cls.has_qname("types", "MethodType") =>
             {
                 true
             }

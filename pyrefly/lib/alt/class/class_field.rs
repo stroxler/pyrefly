@@ -295,7 +295,7 @@ impl ClassField {
     fn is_dataclass_kwonly_marker(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => {
-                matches!(ty, Type::ClassType(cls) if cls.class_object().has_qname("dataclasses", "KW_ONLY"))
+                matches!(ty, Type::ClassType(cls) if cls.has_qname("dataclasses", "KW_ONLY"))
             }
         }
     }
