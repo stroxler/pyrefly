@@ -7,6 +7,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::ops::Range;
 use std::sync::Arc;
 
 use dupe::Dupe;
@@ -112,7 +113,15 @@ impl ModuleInfo {
     }
 
     pub fn code_at(&self, range: TextRange) -> &str {
-        &self.0.contents[range]
+        match self.0.contents.get(Range::<usize>::from(range)) {
+            Some(code) => code,
+            None => panic!(
+                "Module {}({}): `range` is invalid, got {range:?}, but file is {} bytes long",
+                self.0.name,
+                self.0.path,
+                self.0.contents.len()
+            ),
+        }
     }
 
     pub fn path(&self) -> &ModulePath {
