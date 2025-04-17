@@ -388,9 +388,13 @@ impl<'a> BindingsBuilder<'a> {
                 );
                 continue;
             }
+            // Synthesized fields for named tuples are always considered annotated
             fields.insert(
                 member_name.clone(),
-                ClassFieldProperties::new(member_annotation.is_some(), range),
+                ClassFieldProperties::new(
+                    member_annotation.is_some() || class_kind == SynthesizedClassKind::NamedTuple,
+                    range,
+                ),
             );
             let initial_value = if force_class_initialization || member_value.is_some() {
                 ClassFieldInitialValue::Class(member_value.clone())

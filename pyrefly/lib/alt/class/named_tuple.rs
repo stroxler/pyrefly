@@ -30,6 +30,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_named_tuple_elements(&self, cls: &Class) -> Vec<Name> {
         let mut elements = Vec::new();
         for name in cls.fields() {
+            if !cls.is_field_annotated(name) {
+                continue;
+            }
             if let Some(range) = cls.field_decl_range(name) {
                 elements.push((name.clone(), range));
             }
