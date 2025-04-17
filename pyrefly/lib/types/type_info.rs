@@ -7,6 +7,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::mem;
 use std::sync::Arc;
 
 use itertools::Itertools;
@@ -166,28 +167,20 @@ impl NarrowedAttrs {
     }
 
     fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Option<Self> {
-        let n = branches.len();
-        if n == 0 {
-            return None;
-        }
-        let mut tail = branches.split_off(1);
-        match branches.into_iter().next() {
-            None => {
-                // Not actually reachable since we exit early for n == 0, but needed for type
-                // safety (and if split_off behaved differently it would be reachable)
-                None
-            }
-            Some(first) => {
-                let attrs = first.0;
-                let attrs: SmallMap<_, _> = attrs
+        match branches.len() {
+            0 => None,
+            1 => Some(branches.pop().unwrap()),
+            n => {
+                let first = branches[0].clone();
+                let tail = &branches[1..];
+                let attrs: SmallMap<_, _> = first
+                    .0
                     .into_iter()
                     .filter_map(|(name, attr)| {
                         let mut attr_branches = Vec::with_capacity(n);
-                        attr_branches.push(attr);
-                        attr_branches.extend(
-                            tail.iter_mut()
-                                .filter_map(|attrs| attrs.get(&name).cloned()),
-                        );
+                        attr_branches.push(attr.clone());
+                        attr_branches
+                            .extend(tail.iter().filter_map(|attrs| attrs.get(&name).cloned()));
                         // If any map lacked this name, we just drop it. Only join if all maps have it.
                         if attr_branches.len() == n {
                             NarrowedAttr::join(attr_branches, union_types)
