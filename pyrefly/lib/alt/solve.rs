@@ -1125,9 +1125,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BindingExpect::Eq(k1, k2, name) => {
                 let ann1 = self.get_idx(*k1);
                 let ann2 = self.get_idx(*k2);
-                if let Some(t1) = ann1.ty()
-                    && let Some(t2) = ann2.ty()
-                    && *t1 != *t2
+                if let Some(t1) = ann1.ty(self.stdlib)
+                    && let Some(t2) = ann2.ty(self.stdlib)
+                    && t1 != t2
                 {
                     let t1 = self.for_display(t1.clone());
                     let t2 = self.for_display(t2.clone());
@@ -1515,7 +1515,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         );
                     }
                     // TODO(stroxler): propagate attribute narrows here
-                    TypeInfo::of_ty(self.expr(e, annot.ty().map(|t| (t, tcc)), errors))
+                    TypeInfo::of_ty(self.expr(
+                        e,
+                        annot.ty(self.stdlib).as_ref().map(|t| (t, tcc)),
+                        errors,
+                    ))
                 }
                 None => {
                     // TODO(stroxler): propagate attribute narrows here
@@ -1653,7 +1657,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 format!("`{}` is marked final", name),
                             );
                         }
-                        let hint = annot.ty().map(|t| (t, tcc));
+                        let annot_ty = annot.ty(self.stdlib);
+                        let hint = annot_ty.as_ref().map(|t| (t, tcc));
                         (
                             Some(annot.annotation.qualifiers.contains(&Qualifier::TypeAlias)),
                             self.expr(expr, hint, errors),
@@ -1832,7 +1837,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Binding::ReturnExplicit(x) => {
                 let annot = x.annot.map(|k| self.get_idx(k));
-                let hint = annot.as_ref().and_then(|ann| ann.ty());
+                let hint = annot.as_ref().and_then(|ann| ann.ty(self.stdlib));
 
                 if let Some(expr) = &x.expr {
                     if x.is_async && x.is_generator {
@@ -1847,7 +1852,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         )
                     } else if x.is_generator {
                         let hint =
-                            hint.and_then(|ty| self.decompose_generator(ty).map(|(_, _, r)| r));
+                            hint.and_then(|ty| self.decompose_generator(&ty).map(|(_, _, r)| r));
                         let tcc: &dyn Fn() -> TypeCheckContext =
                             &|| TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn);
                         self.expr(expr, hint.as_ref().map(|t| (t, tcc)), errors)
@@ -1859,7 +1864,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     } else {
                         let tcc: &dyn Fn() -> TypeCheckContext =
                             &|| TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn);
-                        self.expr(expr, hint.map(|t| (t, tcc)), errors)
+                        self.expr(expr, hint.as_ref().map(|t| (t, tcc)), errors)
                     }
                 } else {
                     Type::None
@@ -1997,7 +2002,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     | AnnotationTarget::ClassMember(name) => Some(name.clone()),
                                     _ => None,
                                 },
-                                t.ty().cloned(),
+                                t.ty(self.stdlib).clone(),
                             ),
                         }
                     };
@@ -2008,7 +2013,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
                 let iterables = if is_async.is_async() {
                     let hint = ty.clone().and_then(|x| {
-                        x.ty()
+                        x.ty(self.stdlib)
                             .map(|ty| self.stdlib.async_iterable(ty.clone()).to_type())
                     });
                     self.async_iterate(
@@ -2017,9 +2022,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         errors,
                     )
                 } else {
-                    let hint = ty
-                        .clone()
-                        .and_then(|x| x.ty().map(|ty| self.stdlib.iterable(ty.clone()).to_type()));
+                    let hint = ty.clone().and_then(|x| {
+                        x.ty(self.stdlib)
+                            .map(|ty| self.stdlib.iterable(ty.clone()).to_type())
+                    });
                     self.iterate(
                         &self.expr(e, hint.as_ref().map(|t| (t, tcc)), errors),
                         e.range(),
@@ -2039,9 +2045,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let context_manager = self.get_idx(*e);
                 let context_value = self.context_value(context_manager.ty(), *kind, *range, errors);
                 let ty = ann.map(|k| self.get_idx(k));
-                match ty.as_ref().and_then(|x| x.ty().map(|t| (t, &x.target))) {
+                match ty
+                    .as_ref()
+                    .and_then(|x| x.ty(self.stdlib).map(|t| (t, &x.target)))
+                {
                     Some((ty, target)) => {
-                        self.check_and_return_type(ty, context_value, *range, errors, &|| {
+                        self.check_and_return_type(&ty, context_value, *range, errors, &|| {
                             TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
                         })
                     }
@@ -2175,7 +2184,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ty
                 }
             },
-            Binding::AnnotatedType(ann, val) => match &self.get_idx(*ann).ty() {
+            Binding::AnnotatedType(ann, val) => match &self.get_idx(*ann).ty(self.stdlib) {
                 Some(ty) => (*ty).clone(),
                 None => self.binding_to_type(val, errors),
             },
@@ -2311,50 +2320,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::Decorator(expr) => self.expr_infer(expr, errors),
             Binding::LambdaParameter(var) => var.to_type(),
             Binding::FunctionParameter(param) => {
-                let mut unpacked = false;
-                let (mut annotated_ty, target) = match param {
+                match param {
                     Either::Left(key) => {
                         let annotation = self.get_idx(*key);
-                        unpacked = annotation
-                            .annotation
-                            .qualifiers
-                            .contains(&Qualifier::Unpack);
-                        let ty = annotation.ty().cloned().unwrap_or_else(|| {
+                        annotation.ty(self.stdlib).clone().unwrap_or_else(|| {
                             // This annotation isn't valid. It's something like `: Final` that doesn't
                             // have enough information to create a real type.
                             Type::any_implicit()
-                        });
-                        (ty, annotation.target.clone())
+                        })
                     }
-                    Either::Right((var, function_idx, target)) => {
+                    Either::Right((var, function_idx, _)) => {
                         // Force the function binding to be evaluated, if it hasn't already.
                         // Solving the function will also force the Var type to some concrete type,
                         // and this must happen first so the Var can not interact with other types.
                         self.get_idx(*function_idx);
-                        (var.to_type(), target.clone())
+                        var.to_type()
                     }
-                };
-                match target {
-                    AnnotationTarget::ArgsParam(_) => match annotated_ty {
-                        Type::Unpack(box inner) => {
-                            annotated_ty = inner;
-                        }
-                        Type::Args(_) => {}
-                        _ => annotated_ty = Type::Tuple(Tuple::unbounded(annotated_ty.clone())),
-                    },
-                    AnnotationTarget::KwargsParam(_) => match annotated_ty {
-                        Type::Kwargs(_) => {}
-                        Type::TypedDict(_) if unpacked => {}
-                        _ => {
-                            annotated_ty = self
-                                .stdlib
-                                .dict(self.stdlib.str().clone().to_type(), annotated_ty.clone())
-                                .to_type()
-                        }
-                    },
-                    _ => {}
                 }
-                annotated_ty
             }
             Binding::SuperInstance(style, range) => self.solve_super_binding(style, *range, errors),
         }
@@ -2381,13 +2363,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: Keep track of whether the function is async in the binding, decompose hint
                 // appropriately instead of just trying both.
                 let annot = annot.map(|k| self.get_idx(k));
-                let hint = annot.as_ref().and_then(|x| x.ty()).and_then(|ty| {
-                    if let Some((yield_ty, send_ty, _)) = self.decompose_generator(ty) {
-                        Some((yield_ty, send_ty))
-                    } else {
-                        self.decompose_async_generator(ty)
-                    }
-                });
+                let hint = annot
+                    .as_ref()
+                    .and_then(|x| x.ty(self.stdlib))
+                    .and_then(|ty| {
+                        if let Some((yield_ty, send_ty, _)) = self.decompose_generator(&ty) {
+                            Some((yield_ty, send_ty))
+                        } else {
+                            self.decompose_async_generator(&ty)
+                        }
+                    });
                 if let Some((yield_hint, send_ty)) = hint {
                     let yield_ty = if let Some(expr) = x.value.as_ref() {
                         self.expr(
@@ -2442,7 +2427,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BindingYieldFrom::YieldFrom(annot, x) => {
                 // TODO: Error if the function is async
                 let annot = annot.map(|k| self.get_idx(k));
-                let want = annot.as_ref().and_then(|x| x.ty());
+                let want = annot.as_ref().and_then(|x| x.ty(self.stdlib));
 
                 let mut ty = self.expr_infer(&x.value, errors);
                 let res = if let Some(generator) = self.unwrap_generator(&ty) {
@@ -2469,7 +2454,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     YieldFromResult::any_error()
                 };
                 if let Some(want) = want {
-                    self.check_type(want, &ty, x.range, errors, &|| {
+                    self.check_type(&want, &ty, x.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::YieldFrom)
                     });
                 }

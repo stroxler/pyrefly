@@ -636,6 +636,26 @@ B().f("")  # E: in function `A.f`
 );
 
 testcase!(
+    test_args_kwargs_assignment,
+    r#"
+from typing import TypedDict, Unpack
+def test1(*cmd: str, **keywords: str) -> None:
+    cmd = ("mycmd",)
+    cmd = (1,)  # E: `tuple[Literal[1]]` is not assignable to variable `cmd` with type `tuple[str, ...]`
+    keywords = {"key": "value"}
+    keywords = {"key": 0}  # E: `dict[str, int]` is not assignable to variable `keywords` with type `dict[str, str]`
+class MyDict(TypedDict):
+    x: int
+    y: int
+def test2(my_dict: MyDict, *cmd: *tuple[str, str], **keywords: Unpack[MyDict]) -> None:
+    cmd = ("mycmd", "mycmd2")
+    cmd = ("mycmd",)  # E: `tuple[Literal['mycmd']]` is not assignable to variable `cmd` with type `tuple[str, str]`
+    keywords = my_dict
+    keywords = { "x": 1 }  # E: Missing required key `y` for TypedDict `MyDict`
+"#,
+);
+
+testcase!(
     test_never_callable,
     r#"
 from typing import Never

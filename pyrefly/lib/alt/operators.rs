@@ -196,8 +196,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     format!("Cannot assign to {} because it is marked final", ann.target),
                 );
             }
-            if let Some(ann_ty) = ann.ty() {
-                return self.check_and_return_type(ann_ty, result, x.range(), errors, tcc);
+            if let Some(ann_ty) = ann.ty(self.stdlib) {
+                return self.check_and_return_type(&ann_ty, result, x.range(), errors, tcc);
             }
         }
         result

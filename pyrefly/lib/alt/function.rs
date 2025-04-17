@@ -35,7 +35,6 @@ use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 use crate::module::module_path::ModuleStyle;
 use crate::module::short_identifier::ShortIdentifier;
-use crate::types::annotation::Qualifier;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncFlags;
 use crate::types::callable::FuncMetadata;
@@ -308,7 +307,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Either::Left(idx) => {
                     let annot = self.get_idx(idx);
                     let ty = annot.annotation.get_type().clone();
-                    if annot.annotation.qualifiers.contains(&Qualifier::Unpack) {
+                    if annot.annotation.is_unpacked() {
                         Type::Unpack(Box::new(ty))
                     } else {
                         ty

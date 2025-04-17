@@ -55,6 +55,8 @@ use crate::types::class::ClassFieldProperties;
 use crate::types::class::ClassIndex;
 use crate::types::equality::TypeEq;
 use crate::types::quantified::QuantifiedKind;
+use crate::types::stdlib::Stdlib;
+use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
 use crate::types::types::Type;
 use crate::types::types::Var;
@@ -1002,8 +1004,36 @@ pub struct AnnotationWithTarget {
 }
 
 impl AnnotationWithTarget {
-    pub fn ty(&self) -> Option<&Type> {
-        self.annotation.ty.as_ref()
+    pub fn ty(&self, stdlib: &Stdlib) -> Option<Type> {
+        let annotation_ty = self.annotation.ty.as_ref()?;
+        match self.target {
+            AnnotationTarget::ArgsParam(_) => {
+                if let Type::Unpack(box unpacked) = annotation_ty {
+                    Some(unpacked.clone())
+                } else if self.annotation.is_unpacked() || matches!(annotation_ty, Type::Args(_)) {
+                    Some(annotation_ty.clone())
+                } else {
+                    Some(Type::Tuple(Tuple::Unbounded(Box::new(
+                        annotation_ty.clone(),
+                    ))))
+                }
+            }
+            AnnotationTarget::KwargsParam(_) => {
+                if let Type::Unpack(box unpacked) = annotation_ty {
+                    Some(unpacked.clone())
+                } else if self.annotation.is_unpacked() || matches!(annotation_ty, Type::Kwargs(_))
+                {
+                    Some(annotation_ty.clone())
+                } else {
+                    Some(
+                        stdlib
+                            .dict(stdlib.str().clone().to_type(), annotation_ty.clone())
+                            .to_type(),
+                    )
+                }
+            }
+            _ => Some(annotation_ty.clone()),
+        }
     }
 }
 
