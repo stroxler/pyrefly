@@ -59,6 +59,14 @@ enum IllegalIdentifierHandling {
     Rename,
 }
 
+#[derive(Eq, PartialEq)]
+enum SynthesizedClassKind {
+    Enum,
+    TypedDict,
+    NamedTuple,
+    NewType,
+}
+
 impl<'a> BindingsBuilder<'a> {
     fn class_index(&mut self) -> ClassIndex {
         let res = ClassIndex(self.class_count);
@@ -315,7 +323,7 @@ impl<'a> BindingsBuilder<'a> {
         member_definitions: Vec<(String, TextRange, Option<Expr>, Option<Expr>)>,
         illegal_identifier_handling: IllegalIdentifierHandling,
         force_class_initialization: bool,
-        is_new_type: bool,
+        class_kind: SynthesizedClassKind,
         special_base: Option<Box<BaseClass>>,
     ) {
         let class_index = self.class_index();
@@ -328,7 +336,7 @@ impl<'a> BindingsBuilder<'a> {
                 bases: base.into_iter().collect::<Vec<_>>().into_boxed_slice(),
                 keywords,
                 decorators: Box::new([]),
-                is_new_type,
+                is_new_type: class_kind == SynthesizedClassKind::NewType,
                 special_base,
             },
         );
@@ -510,7 +518,7 @@ impl<'a> BindingsBuilder<'a> {
             member_definitions,
             IllegalIdentifierHandling::Error,
             true,
-            false,
+            SynthesizedClassKind::Enum,
             None,
         );
     }
@@ -613,7 +621,7 @@ impl<'a> BindingsBuilder<'a> {
             member_definitions_with_defaults,
             illegal_identifier_handling,
             false,
-            false,
+            SynthesizedClassKind::NamedTuple,
             Some(Box::new(BaseClass::CollectionsNamedTuple(range))),
         );
     }
@@ -665,7 +673,7 @@ impl<'a> BindingsBuilder<'a> {
             member_definitions,
             IllegalIdentifierHandling::Error,
             false,
-            false,
+            SynthesizedClassKind::NamedTuple,
             None,
         );
     }
@@ -679,7 +687,7 @@ impl<'a> BindingsBuilder<'a> {
             Vec::new(),
             IllegalIdentifierHandling::Error,
             false,
-            true,
+            SynthesizedClassKind::NewType,
             None,
         );
     }
@@ -755,7 +763,7 @@ impl<'a> BindingsBuilder<'a> {
             member_definitions,
             IllegalIdentifierHandling::Allow,
             false,
-            false,
+            SynthesizedClassKind::TypedDict,
             None,
         );
     }
