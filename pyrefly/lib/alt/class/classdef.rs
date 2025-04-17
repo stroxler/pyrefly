@@ -213,7 +213,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // but it's not always a valid argument to isinstance/issubclass. expr_infer separately checks
             // whether the argument is valid.
             Type::Type(box ty @ (Type::ClassType(_) | Type::Quantified(_))) => Some(ty.clone()),
-            Type::ClassType(cls) if cls.has_qname("builtins", "type") => Some(Type::any_implicit()),
+            Type::ClassType(cls) if cls.is_builtin("type") => Some(Type::any_implicit()),
             Type::Any(_) => Some(ty.clone()),
             _ => None,
         }

@@ -202,7 +202,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 *ty = Type::callable_ellipsis(Type::Any(AnyStyle::Implicit))
             }
             Type::ClassDef(cls) => {
-                if cls.has_qname("builtins", "tuple") {
+                if cls.is_builtin("tuple") {
                     *ty = Type::type_form(Type::Tuple(Tuple::unbounded(Type::Any(
                         AnyStyle::Implicit,
                     ))));
@@ -1075,7 +1075,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::Compare(x) => self.compare_infer(x, errors),
             Expr::Call(x) => {
                 let ty_fun = self.expr_infer(&x.func, errors);
-                if matches!(&ty_fun, Type::ClassDef(cls) if cls.has_qname("builtins", "super")) {
+                if matches!(&ty_fun, Type::ClassDef(cls) if cls.is_builtin("super")) {
                     if is_special_name(&x.func, "super") {
                         self.get(&Key::SuperInstance(x.range)).arc_clone_ty()
                     } else {
@@ -1217,7 +1217,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                         // Note that we have to check for `builtins.type` by name here because this code runs
                         // when we're bootstrapping the stdlib and don't have access to class objects yet.
-                        Type::ClassDef(cls) if cls.has_qname("builtins", "type") => {
+                        Type::ClassDef(cls) if cls.is_builtin("type") => {
                             let targ = match xs.len() {
                                 // This causes us to treat `type[list]` as equivalent to `type[list[Any]]`,
                                 // which may or may not be what we want.

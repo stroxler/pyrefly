@@ -54,8 +54,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Values initialized with nonmember() are not members
             Type::ClassType(cls)
                 if cls.has_qname("enum", "nonmember")
-                    || cls.has_qname("builtins", "staticmethod")
-                    || cls.has_qname("builtins", "classmethod")
+                    || cls.is_builtin("staticmethod")
+                    || cls.is_builtin("classmethod")
                     || cls.has_qname("enum", "property") =>
             {
                 false

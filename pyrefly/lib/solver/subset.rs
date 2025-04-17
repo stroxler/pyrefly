@@ -642,7 +642,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (_, Type::Any(_)) => true,
             (Type::Never(_), _) => true,
-            (_, Type::ClassType(want)) if want.has_qname("builtins", "object") => {
+            (_, Type::ClassType(want)) if want.is_builtin("object") => {
                 true // everything is an instance of `object`
             }
             (Type::Union(ls), u) => ls.iter().all(|l| self.is_subset_eq(l, u)),
@@ -759,13 +759,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 true
             }
             (Type::ClassType(got), Type::ClassType(want))
-                if want.has_qname("builtins", "float") && got.has_qname("builtins", "int") =>
+                if want.is_builtin("float") && got.is_builtin("int") =>
             {
                 true
             }
             (Type::ClassType(got), Type::ClassType(want))
-                if want.has_qname("builtins", "complex")
-                    && (got.has_qname("builtins", "int") || got.has_qname("builtins", "float")) =>
+                if want.is_builtin("complex")
+                    && (got.is_builtin("int") || got.is_builtin("float")) =>
             {
                 true
             }
@@ -811,7 +811,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 )
             }
             (Type::ClassType(got), Type::Tuple(_))
-                if got.has_qname("builtins", "tuple") && got.targs().as_slice().len() == 1 =>
+                if got.is_builtin("tuple") && got.targs().as_slice().len() == 1 =>
             {
                 let mut tuple_targ = got.targs().as_slice()[0].clone();
                 if let Type::Var(var) = tuple_targ {

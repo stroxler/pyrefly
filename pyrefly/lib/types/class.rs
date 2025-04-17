@@ -148,6 +148,10 @@ impl Class {
         self.0.qname.module_name().as_str() == module && self.0.qname.id() == name
     }
 
+    pub fn is_builtin(&self, name: &str) -> bool {
+        self.has_qname("builtins", name)
+    }
+
     /// Key to use for equality purposes. If we have the same module and index,
     /// we must point at the same class underneath.
     fn key_eq(&self) -> (ClassIndex, ModuleName) {
@@ -422,5 +426,9 @@ impl ClassType {
 
     pub fn has_qname(&self, module: &str, name: &str) -> bool {
         self.0.has_qname(module, name)
+    }
+
+    pub fn is_builtin(&self, name: &str) -> bool {
+        self.0.is_builtin(name)
     }
 }
