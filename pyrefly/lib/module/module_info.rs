@@ -90,7 +90,21 @@ impl ModuleInfo {
     }
 
     pub fn line_count(&self) -> usize {
-        self.0.index.line_count()
+        // By default we count the empty lines, but sometimes to get stats
+        // we might need to only count the non-empty/non-comment lines.
+        const COUNT_EMPTY_LINES: bool = true;
+        if COUNT_EMPTY_LINES {
+            self.0.index.line_count()
+        } else {
+            self.0
+                .contents
+                .lines()
+                .filter(|x| {
+                    let res = x.trim_start();
+                    !res.is_empty() && !res.starts_with('#')
+                })
+                .count()
+        }
     }
 
     pub fn source_range(&self, range: TextRange) -> SourceRange {
