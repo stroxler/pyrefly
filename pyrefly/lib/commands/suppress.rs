@@ -1,13 +1,16 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
+* Copyright (c) Meta Platforms, Inc. and affiliates.
+*
+* This source code is licensed under the MIT license found in the
+* LICENSE file in the root directory of this source tree.
+*/
 
 use std::path::PathBuf;
 
+use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
+use tracing::error;
 
 use crate::error::error::Error;
 use crate::util::fs_anyhow;
@@ -89,12 +92,68 @@ pub fn suppress_errors(path_errors: &SmallMap<PathBuf, Vec<Error>>) {
     }
 }
 
+pub fn find_unused_ignores<'a>(
+    all_ignores: SmallMap<&'a PathBuf, SmallSet<OneIndexed>>,
+    suppressed_errors: SmallMap<&PathBuf, SmallSet<OneIndexed>>,
+) -> SmallMap<&'a PathBuf, SmallSet<OneIndexed>> {
+    let mut all_unused_ignores: SmallMap<&PathBuf, SmallSet<OneIndexed>> = SmallMap::new();
+    let one = OneIndexed::new(1).unwrap();
+    let default_set: SmallSet<OneIndexed> = SmallSet::new();
+    // Loop over each path only save the ignores that are not in use
+    for (path, ignores) in all_ignores {
+        let errors = suppressed_errors.get(path).unwrap_or(&default_set);
+        let mut unused_ignores = SmallSet::new();
+        for ignore in ignores {
+            if let Some(location) = ignore.checked_add(one)
+                && !errors.contains(&location)
+                && !errors.contains(&ignore)
+            {
+                unused_ignores.insert(ignore);
+            }
+        }
+
+        all_unused_ignores.insert(path, unused_ignores);
+    }
+    all_unused_ignores
+}
+
+pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<OneIndexed>>) {
+    for (path, ignores) in path_ignores {
+        let zero_index_ignores: SmallSet<usize> =
+            ignores.iter().map(|i| i.to_zero_indexed()).collect();
+        if let Ok(file) = fs_anyhow::read_to_string(path) {
+            let mut buf = String::with_capacity(file.len());
+            let lines = file.lines();
+            for (idx, line) in lines.enumerate() {
+                if zero_index_ignores.contains(&idx) {
+                    // TODO: Expand support of what we remove and thoroughly test
+                    let new_string = line.replace("# pyrefly: ignore", "");
+                    if !new_string.is_empty() {
+                        buf.push_str(&new_string);
+                        buf.push('\n');
+                    }
+                    continue;
+                }
+                buf.push_str(line);
+                buf.push('\n');
+            }
+            if let Err(e) = fs_anyhow::write(path, buf.as_bytes()) {
+                error!("Failed to remove unused error suppressions in {} files:", e);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
+    use std::io::Write;
+
     use pretty_assertions::assert_str_eq;
     use ruff_source_file::OneIndexed;
     use ruff_source_file::SourceLocation;
     use tempfile;
+    use tempfile::tempdir;
     use vec1::Vec1;
 
     use super::*;

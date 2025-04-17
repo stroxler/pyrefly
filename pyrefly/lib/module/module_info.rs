@@ -178,6 +178,10 @@ impl ModuleInfo {
     pub fn is_ignored(&self, source_range: &SourceRange, msg: &str) -> bool {
         self.0.ignore.is_ignored(source_range, msg)
     }
+
+    pub fn ignore(&self) -> &Ignore {
+        &self.0.ignore
+    }
 }
 
 #[derive(Debug, Clone)]

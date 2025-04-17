@@ -10,6 +10,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use dupe::Dupe;
 use ruff_text_size::TextRange;
+use starlark_map::small_map::SmallMap;
 
 use crate::config::error::ErrorConfigs;
 use crate::error::collector::CollectedErrors;
@@ -18,6 +19,7 @@ use crate::error::expectation::Expectation;
 use crate::error::kind::ErrorKind;
 use crate::error::style::ErrorStyle;
 use crate::module::bundled::typeshed;
+use crate::module::ignore::Ignore;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
@@ -103,6 +105,16 @@ impl Loads {
             errors.extend(load.errors.collect(error_config));
         }
         errors
+    }
+
+    pub fn collect_ignores(&self) -> SmallMap<&ModulePath, &Ignore> {
+        let mut ignore_collection: SmallMap<&ModulePath, &Ignore> = SmallMap::new();
+        for load in self.loads.iter() {
+            let module_path = load.module_info.path();
+            let ignores = load.module_info.ignore();
+            ignore_collection.insert(module_path, ignores);
+        }
+        ignore_collection
     }
 
     pub fn check_against_expectations(&self, error_configs: &ErrorConfigs) -> anyhow::Result<()> {

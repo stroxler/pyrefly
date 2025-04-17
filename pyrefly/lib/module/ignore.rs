@@ -8,11 +8,12 @@
 use dupe::Dupe;
 use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::module::module_info::SourceRange;
 
 #[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy)]
-enum SuppressionKind {
+pub enum SuppressionKind {
     Ignore,
     Pyre,
     Pyrefly,
@@ -82,6 +83,15 @@ impl Ignore {
             (range.start.row.to_zero_indexed().saturating_sub(1)..=range.end.row.to_zero_indexed())
                 .any(|x| self.ignores.contains_key(&OneIndexed::from_zero_indexed(x)))
         }
+    }
+
+    /// Get all the ignores of a given kind.
+    pub fn get_ignores(&self, kind: SuppressionKind) -> SmallSet<OneIndexed> {
+        self.ignores
+            .iter()
+            .filter(|ignore| ignore.1.contains(&kind))
+            .map(|(line, _)| *line)
+            .collect()
     }
 }
 

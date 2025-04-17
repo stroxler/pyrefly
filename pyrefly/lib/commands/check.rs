@@ -20,7 +20,9 @@ use clap::Parser;
 use clap::ValueEnum;
 use dupe::Dupe;
 use dupe::IterDupedExt;
+use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 use tracing::info;
 
 use crate::clap_env;
@@ -43,6 +45,7 @@ use crate::metadata::RuntimeMetadata;
 use crate::module::bundled::typeshed;
 use crate::module::finder::find_module_in_search_path;
 use crate::module::finder::find_module_in_site_package_path;
+use crate::module::ignore::SuppressionKind;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
@@ -135,6 +138,9 @@ pub struct Args {
     /// Check against any `E:` lines in the file.
     #[clap(long, env = clap_env("EXPECTATIONS"))]
     expectations: bool,
+    /// Remove unused ignores from the input files.
+    #[clap(long, env = clap_env("REMOVE_UNUSED_IGNORES"))]
+    remove_unused_ignores: bool,
     /// Whether to ignore type errors in generated code.
     /// Generated code is defined as code that contains the marker string `@` immediately followed by `generated`.
     #[clap(long, env = clap_env("IGNORE_ERRORS_IN_GENERATED_CODE"))]
@@ -542,7 +548,7 @@ impl Args {
             fs_anyhow::write(path, report::trace::trace(&transaction).as_bytes())?;
         }
         if self.suppress_errors {
-            let errors: SmallMap<PathBuf, Vec<Error>> = errors
+            let errors_to_suppress: SmallMap<PathBuf, Vec<Error>> = errors
                 .shown
                 .into_iter()
                 .filter(|e| matches!(e.path().details(), ModulePathDetails::FileSystem(_)))
@@ -551,7 +557,30 @@ impl Args {
                     acc.entry(path).or_default().push(e);
                     acc
                 });
-            suppress::suppress_errors(&errors);
+            suppress::suppress_errors(&errors_to_suppress);
+        }
+        if self.remove_unused_ignores {
+            let mut all_ignores: SmallMap<&PathBuf, SmallSet<OneIndexed>> = SmallMap::new();
+            for (module_path, ignore) in loads.collect_ignores() {
+                if let ModulePathDetails::FileSystem(path) = module_path.details() {
+                    all_ignores.insert(path, ignore.get_ignores(SuppressionKind::Pyrefly));
+                }
+            }
+
+            let mut suppressed_errors: SmallMap<&PathBuf, SmallSet<OneIndexed>> = SmallMap::new();
+            for e in &errors.suppressed {
+                if e.is_ignored()
+                    && let ModulePathDetails::FileSystem(path) = e.path().details()
+                {
+                    suppressed_errors
+                        .entry(path)
+                        .or_default()
+                        .insert(e.source_range().start.row);
+                }
+            }
+
+            let unused_ignores = suppress::find_unused_ignores(all_ignores, suppressed_errors);
+            suppress::remove_unused_ignores(unused_ignores);
         }
         if self.expectations {
             loads.check_against_expectations(error_configs)?;
