@@ -363,6 +363,22 @@ impl<'a> BindingsBuilder<'a> {
                     IllegalIdentifierHandling::Rename => member_name = format!("_{idx}"),
                 }
             }
+            if class_kind == SynthesizedClassKind::NamedTuple && member_name.starts_with("_") {
+                match illegal_identifier_handling {
+                    IllegalIdentifierHandling::Allow => {}
+                    IllegalIdentifierHandling::Error => {
+                        self.error(
+                            range,
+                            format!(
+                                "NamedTuple field name may not start with an underscore: `{member_name}`"
+                            ),
+                            ErrorKind::BadClassDefinition,
+                        );
+                        continue;
+                    }
+                    IllegalIdentifierHandling::Rename => member_name = format!("_{idx}"),
+                }
+            }
             let member_name = Name::new(member_name);
             if fields.contains_key(&member_name) {
                 self.error(
