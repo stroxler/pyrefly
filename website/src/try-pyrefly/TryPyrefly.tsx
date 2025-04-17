@@ -106,7 +106,7 @@ export default function TryPyrefly({
     }, []);
 
     // Need to add createModel handler in case monaco model was not created at mount time
-    monaco.editor.onDidCreateModel((model) => {
+    monaco.editor.onDidCreateModel((_newModel) => {
         const curModel = fetchCurMonacoModelAndTriggerUpdate(sampleFilename);
         setModel(curModel);
         forceRecheck();
@@ -119,7 +119,6 @@ export default function TryPyrefly({
 
     function forceRecheck() {
         if (model == null || pyreService == null) return;
-        const value = model.getValue();
 
         setAutoCompleteFunction(model, (l: number, c: number) =>
             pyreService.autoComplete(l, c)
@@ -134,7 +133,8 @@ export default function TryPyrefly({
 
         // typecheck on edit
         try {
-            pyreService.updateSource(model.getValue());
+            const value = model.getValue();
+            pyreService.updateSource(value);
             const errors =
                 pyreService.getErrors() as ReadonlyArray<PyreflyErrorMessage>;
             monaco.editor.setModelMarkers(
