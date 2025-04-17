@@ -149,11 +149,14 @@ struct NarrowedAttrs(SmallMap<Name, NarrowedAttr>);
 impl NarrowedAttrs {
     fn add_narrow(&mut self, name: Name, more_names: &[Name], ty: Type) {
         let attrs = &mut self.0;
-        let attr = match attrs.shift_remove(&name) {
-            Some(attr) => attr.with_narrow(more_names, ty),
-            None => NarrowedAttr::new(more_names, ty),
+        match attrs.get_mut(&name) {
+            Some(attr) => {
+                attr.add_narrow(more_names, ty);
+            }
+            None => {
+                attrs.insert(name, NarrowedAttr::new(more_names, ty));
+            }
         };
-        attrs.insert(name, attr);
     }
 
     fn get(&self, name: &Name) -> Option<&NarrowedAttr> {
@@ -299,6 +302,13 @@ impl NarrowedAttr {
         }
     }
 
+    fn add_narrow(&mut self, names: &[Name], narrowed_ty: Type) {
+        // Take ownership of self so we can destructure it and potentially change enum variants.
+        let mut current = NarrowedAttr::Leaf(Type::None);
+        mem::swap(self, &mut current);
+        *self = current.with_narrow(names, narrowed_ty)
+    }
+
     fn with_narrow(self, names: &[Name], narrowed_ty: Type) -> Self {
         match names {
             [] => {
@@ -421,7 +431,7 @@ mod tests {
         );
         assert_eq!(
             type_info.to_string(),
-            "Foo (_.x: Bar, _.x.z: Qux, _.x.y: Baz, _.x.y.x: Foo)"
+            "Foo (_.x: Bar, _.x.y: Baz, _.x.y.x: Foo, _.x.z: Qux)"
         );
     }
 
