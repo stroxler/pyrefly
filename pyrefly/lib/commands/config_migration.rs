@@ -19,6 +19,7 @@ use clap::Parser;
 use tracing::info;
 
 use crate::ConfigFile;
+use crate::config::mypy::MypyConfig;
 use crate::config::pyright::PyrightConfig;
 use crate::run::CommandExitStatus;
 use crate::util::fs_anyhow;
@@ -34,32 +35,40 @@ pub struct Args {
 impl Args {
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
         info!("Looking for {}", self.input_path.display());
-        let raw_file = fs_anyhow::read_to_string(&self.input_path)?;
-        if self.input_path.file_name() == Some("pyrightconfig.json".as_ref()) {
+        let config = if self.input_path.file_name() == Some("pyrightconfig.json".as_ref()) {
+            let raw_file = fs_anyhow::read_to_string(&self.input_path)?;
             info!("Detected pyright config file");
             let pyr = serde_json::from_str::<PyrightConfig>(&raw_file)?;
-            let config = pyr.convert();
-            let serialized = toml::to_string_pretty(&config)?;
-            info!("Conversion finished");
-            if let Some(output_path) = &self.output_path {
-                fs_anyhow::write(output_path, serialized.as_bytes())?;
-                info!("New config written to {}", output_path.display());
-            } else {
-                let output_path = self.input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
-                fs_anyhow::write(&output_path, serialized.as_bytes())?;
-                info!("New config written to {}", output_path.display());
-            }
-            Ok(CommandExitStatus::Success)
+            pyr.convert()
+        } else if self.input_path.file_name() == Some("mypy.ini".as_ref()) {
+            info!("Detected mypy config file");
+            MypyConfig::parse_mypy_config(&self.input_path)?
         } else {
-            eprintln!("Currently only migration form pyrightconfig.json is supported at this time");
-            Ok(CommandExitStatus::UserError)
+            eprintln!(
+                "Currently only migration from pyrightconfig.json and mypy.ini is supported at this time"
+            );
+            return Ok(CommandExitStatus::UserError);
+        };
+        info!("Conversion finished");
+
+        let serialized = toml::to_string_pretty(&config)?;
+        if let Some(output_path) = &self.output_path {
+            fs_anyhow::write(output_path, serialized.as_bytes())?;
+            info!("New config written to {}", output_path.display());
+        } else {
+            let output_path = self.input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
+            fs_anyhow::write(&output_path, serialized.as_bytes())?;
+            info!("New config written to {}", output_path.display());
         }
+        Ok(CommandExitStatus::Success)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::globs::Globs;
+    use crate::module::wildcard::ModuleWildcard;
 
     #[test]
     fn test_run_pyright() -> anyhow::Result<()> {
@@ -82,6 +91,58 @@ mod tests {
         let output_lines = output.lines().collect::<Vec<_>>();
         assert_eq!(output_lines[0], r#"project_includes = ["src/**/*.py"]"#);
         assert!(output_lines.len() > 1);
+        ConfigFile::from_file(&output_path, false)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_run_mypy() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let args = Args {
+            input_path: tmp.path().join("mypy.ini"),
+            output_path: None,
+        };
+        // This config is derived from the pytorch mypy.ini.
+        let mypy = br#"[mypy]
+files =
+    src,
+    other_src,
+    test/some_test.py,
+
+unknown_option = True
+
+exclude = src/include/|other_src/include/|src/specific/bad/file.py
+
+[mypy-some.*.project]
+ignore_missing_imports = True
+
+[mypy-some.specific.project.subdir]
+ignore_missing_imports = True
+
+[mypy-stricter.on.this.*]
+check_untyped_defs = True
+"#;
+        fs_anyhow::write(&args.input_path, mypy)?;
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::Success));
+
+        let output_path = args.input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
+        let cfg = ConfigFile::from_file(&output_path, false)?;
+        let project_includes = Globs::new_with_root(
+            tmp.path(),
+            vec![
+                "src".to_owned(),
+                "other_src".to_owned(),
+                "test/some_test.py".to_owned(),
+            ],
+        );
+        assert_eq!(cfg.project_includes, project_includes);
+        let replace_imports = cfg
+            .replace_imports_with_any()
+            .iter()
+            .map(ModuleWildcard::as_str)
+            .collect::<Vec<_>>();
+        assert_eq!(replace_imports.len(), 2);
         Ok(())
     }
 }
