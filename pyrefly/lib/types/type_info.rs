@@ -18,9 +18,12 @@ use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
 
+use crate::assert_bytes;
 use crate::types::types::Type;
 use crate::util::visit::Visit;
 use crate::util::visit::VisitMut;
+
+assert_bytes!(TypeInfo, 64);
 
 /// The `TypeInfo` datatype represents type information associated with a
 /// name or expression in a control flow context.
