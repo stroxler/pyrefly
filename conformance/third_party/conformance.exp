@@ -1342,26 +1342,6 @@
   "annotations_methods.py": [
     {
       "code": -2,
-      "column": 16,
-      "concise_description": "Expected a callable, got type[TypeVar[T]]",
-      "description": "Expected a callable, got type[TypeVar[T]]",
-      "line": 19,
-      "name": "not-callable",
-      "stop_column": 19,
-      "stop_line": 19
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Expected a callable, got type[TypeVar[T]]",
-      "description": "Expected a callable, got type[TypeVar[T]]",
-      "line": 23,
-      "name": "not-callable",
-      "stop_column": 19,
-      "stop_line": 23
-    },
-    {
-      "code": -2,
       "column": 1,
       "concise_description": "assert_type(B, A) failed",
       "description": "assert_type(B, A) failed",
@@ -2871,86 +2851,6 @@
       "name": "bad-argument-type",
       "stop_column": 10,
       "stop_line": 59
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Expected a callable, got type[TypeVar[T]]",
-      "description": "Expected a callable, got type[TypeVar[T]]",
-      "line": 63,
-      "name": "not-callable",
-      "stop_column": 8,
-      "stop_line": 63
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Expected a callable, got type[TypeVar[T]]",
-      "description": "Expected a callable, got type[TypeVar[T]]",
-      "line": 64,
-      "name": "not-callable",
-      "stop_column": 8,
-      "stop_line": 64
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Expected a callable, got type[TypeVar[T1]]",
-      "description": "Expected a callable, got type[TypeVar[T1]]",
-      "line": 71,
-      "name": "not-callable",
-      "stop_column": 8,
-      "stop_line": 71
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Expected a callable, got type[TypeVar[T1]]",
-      "description": "Expected a callable, got type[TypeVar[T1]]",
-      "line": 72,
-      "name": "not-callable",
-      "stop_column": 8,
-      "stop_line": 72
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Expected a callable, got type[TypeVar[T2]]",
-      "description": "Expected a callable, got type[TypeVar[T2]]",
-      "line": 79,
-      "name": "not-callable",
-      "stop_column": 8,
-      "stop_line": 79
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Expected a callable, got type[TypeVar[T2]]",
-      "description": "Expected a callable, got type[TypeVar[T2]]",
-      "line": 80,
-      "name": "not-callable",
-      "stop_column": 8,
-      "stop_line": 80
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Expected a callable, got type[TypeVar[T2]]",
-      "description": "Expected a callable, got type[TypeVar[T2]]",
-      "line": 81,
-      "name": "not-callable",
-      "stop_column": 8,
-      "stop_line": 81
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Expected a callable, got type[TypeVar[T2]]",
-      "description": "Expected a callable, got type[TypeVar[T2]]",
-      "line": 82,
-      "name": "not-callable",
-      "stop_column": 8,
-      "stop_line": 82
     }
   ],
   "constructors_callable.py": [
@@ -9476,16 +9376,6 @@
     },
     {
       "code": -2,
-      "column": 12,
-      "concise_description": "Expected a callable, got type[TypeVar[T]]",
-      "description": "Expected a callable, got type[TypeVar[T]]",
-      "line": 81,
-      "name": "not-callable",
-      "stop_column": 13,
-      "stop_line": 81
-    },
-    {
-      "code": -2,
       "column": 1,
       "concise_description": "Expected a callable, got type[Annotated]",
       "description": "Expected a callable, got type[Annotated]",
@@ -9857,16 +9747,6 @@
     }
   ],
   "specialtypes_type.py": [
-    {
-      "code": -2,
-      "column": 12,
-      "concise_description": "Expected a callable, got type[TypeVar[U]]",
-      "description": "Expected a callable, got type[TypeVar[U]]",
-      "line": 39,
-      "name": "not-callable",
-      "stop_column": 22,
-      "stop_line": 39
-    },
     {
       "code": -2,
       "column": 7,

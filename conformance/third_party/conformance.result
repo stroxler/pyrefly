@@ -94,10 +94,7 @@
     "Line 185: Unexpected errors ['`() -> AsyncIterator[int]` is not assignable to `() -> Coroutine[Any, Any, AsyncIterator[int]]`']",
     "Line 190: Unexpected errors ['Expected to yield a value of type `int`, but a bare `yield` gives `None` instead']"
   ],
-  "annotations_methods.py": [
-    "Line 19: Unexpected errors ['Expected a callable, got type[TypeVar[T]]']",
-    "Line 23: Unexpected errors ['Expected a callable, got type[TypeVar[T]]']"
-  ],
+  "annotations_methods.py": [],
   "annotations_typeexpr.py": [
     "Line 94: Expected 1 errors"
   ],
@@ -127,10 +124,10 @@
     "Line 117: Unexpected errors ['assert_type(Class8[str], Class8[list[str]]) failed']"
   ],
   "constructors_call_type.py": [
-    "Line 63: Unexpected errors ['Expected a callable, got type[TypeVar[T]]']",
-    "Line 71: Unexpected errors ['Expected a callable, got type[TypeVar[T1]]']",
-    "Line 79: Unexpected errors ['Expected a callable, got type[TypeVar[T2]]']",
-    "Line 80: Unexpected errors ['Expected a callable, got type[TypeVar[T2]]']"
+    "Line 64: Expected 1 errors",
+    "Line 72: Expected 1 errors",
+    "Line 81: Expected 1 errors",
+    "Line 82: Expected 1 errors"
   ],
   "constructors_callable.py": [
     "Line 65: Expected 1 errors",
@@ -562,8 +559,7 @@
     "Line 84: Expected 1 errors",
     "Line 85: Expected 1 errors",
     "Line 92: Expected 1 errors",
-    "Line 93: Expected 1 errors",
-    "Line 81: Unexpected errors ['Expected a callable, got type[TypeVar[T]]']"
+    "Line 93: Expected 1 errors"
   ],
   "qualifiers_final_annotation.py": [
     "Line 34: Expected 1 errors",
@@ -598,7 +594,6 @@
   "specialtypes_promotions.py": [],
   "specialtypes_type.py": [
     "Line 70: Expected 1 errors",
-    "Line 39: Unexpected errors ['Expected a callable, got type[TypeVar[U]]']",
     "Line 84: Unexpected errors ['assert_type(type, type[Any]) failed']",
     "Line 99: Unexpected errors ['Object of class `type` has no attribute `unknown`']",
     "Line 100: Unexpected errors ['Object of class `type` has no attribute `unknown`']",

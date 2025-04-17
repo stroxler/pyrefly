@@ -39,6 +39,23 @@ assert_type(foo(1), int)
 );
 
 testcase!(
+    bug =
+        "We should use the bounds/constraints of the type var to determine the callable input type",
+    test_tyvar_constructor,
+    r#"
+def test[T](cls: type[T]) -> T:
+    cls(1)  # Not OK, we should assume object constructor here
+    return cls()
+class A:
+    def __init__(self, x: int) -> None: pass
+def test2[T: A](cls: type[T]) -> T:
+    a1: A = cls()  # Not OK
+    a2: A = cls(1)
+    return a2
+"#,
+);
+
+testcase!(
     test_tyvar_quoted,
     r#"
 from typing import assert_type

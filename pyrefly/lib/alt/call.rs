@@ -27,6 +27,7 @@ use crate::types::callable::FuncFlags;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
+use crate::types::callable::Params;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
 use crate::types::type_var::Restriction;
@@ -160,6 +161,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::ClassType(cls))
             | Type::Type(box Type::SelfType(cls))
             | Type::SelfType(cls) => Some(CallTarget::new(Target::Class(cls))),
+            Type::Type(box Type::Quantified(quantified)) => {
+                Some(CallTarget::new(Target::Callable(Callable {
+                    // TODO: use upper bound to determine input parameters
+                    params: Params::Ellipsis,
+                    ret: Type::Quantified(quantified),
+                })))
+            }
             Type::Forall(forall) => {
                 let (qs, t) = self.solver().fresh_quantified(
                     &forall.tparams,
