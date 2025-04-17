@@ -74,6 +74,17 @@ function ErrorMessage({
     );
 }
 
+function LoadingAnimation(): React.ReactElement {
+    return (
+        <div>
+            <div {...stylex.props(styles.loader)}>
+                <div {...stylex.props(styles.loaderDot, styles.bounce1)}></div>
+                <div {...stylex.props(styles.loaderDot, styles.bounce2)}></div>
+                <div {...stylex.props(styles.loaderDot)}></div>
+            </div>
+        </div>
+    );
+}
 export default function TryPyreflyResults({
     loading,
     goToDef,
@@ -81,6 +92,9 @@ export default function TryPyreflyResults({
     internalError,
 }: TryPyreflyResultsProps): React.ReactElement {
     const activeToolbarTab = 'errors';
+
+    const hasTypecheckErrors =
+        errors !== undefined && errors !== null && errors.length > 0;
 
     return (
         <div
@@ -101,38 +115,11 @@ export default function TryPyreflyResults({
                 {/* TODO (T217536145): Add JSON tab to sandbox */}
             </div>
             <div {...stylex.props(styles.results)}>
-                {loading && (
-                    <div>
-                        <div {...stylex.props(styles.loader)}>
-                            <div
-                                {...stylex.props(
-                                    styles.loaderDot,
-                                    styles.bounce1
-                                )}
-                            ></div>
-                            <div
-                                {...stylex.props(
-                                    styles.loaderDot,
-                                    styles.bounce2
-                                )}
-                            ></div>
-                            <div {...stylex.props(styles.loaderDot)}></div>
-                        </div>
-                    </div>
-                )}
+                {loading && LoadingAnimation()}
                 {!loading && activeToolbarTab === 'errors' && (
                     <pre {...stylex.props(styles.resultBody)}>
                         <ul {...stylex.props(styles.errorsList)}>
-                            {internalError ? (
-                                <li>
-                                    Pyrefly encountered an internal error:{' '}
-                                    {internalError}.
-                                </li>
-                            ) : errors === undefined || errors === null ? (
-                                <li>Pyrefly failed to fetch errors.</li>
-                            ) : errors?.length === 0 ? (
-                                <li>No errors!</li>
-                            ) : (
+                            {hasTypecheckErrors ? (
                                 errors.map((error, i) => (
                                     <li
                                         key={i}
@@ -147,6 +134,17 @@ export default function TryPyreflyResults({
                                         />
                                     </li>
                                 ))
+                            ) : (
+                                <li>
+                                    {internalError
+                                        ? `Pyrefly encountered an internal error: ${internalError}.`
+                                        : errors === undefined ||
+                                          errors === null
+                                        ? 'Pyrefly failed to fetch errors.'
+                                        : errors?.length === 0
+                                        ? 'No errors!'
+                                        : null}
+                                </li>
                             )}
                         </ul>
                     </pre>
