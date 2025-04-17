@@ -87,10 +87,12 @@ impl TypeInfo {
         type_info
     }
 
-    /// Join two `TypeInfo`s together:
+    /// Join zero or more `TypeInfo`s together:
     /// - We'll take the union of the top-level types
     /// - At attribute chains where all branches narrow, take a union of the narrowed types.
     /// - Drop narrowing for attribute chains where at least one branch does not narrow
+    ///
+    /// In the case where there are no branches, we get `Never` with no narrows.
     pub fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
         match branches.len() {
             0 => Self::of_ty(Type::never()),
