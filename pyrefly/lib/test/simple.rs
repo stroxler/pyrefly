@@ -1242,3 +1242,16 @@ class A:
 assert_type(A()["":"":""], slice[str, str, str])
     "#,
 );
+
+testcase!(
+    test_bool_and_literal_true_fals,
+    r#"
+from typing import Literal
+def f0(x: bool) -> Literal[True, False]:
+    return x
+def f1(x: bool) -> Literal[False, True]:
+    return x
+def f2(x: bool) -> Literal[False, True, 42]:
+    return x
+    "#,
+);

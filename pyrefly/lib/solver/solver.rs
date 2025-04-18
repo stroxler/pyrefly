@@ -25,6 +25,7 @@ use crate::types::callable::Function;
 use crate::types::callable::Params;
 use crate::types::module::Module;
 use crate::types::quantified::QuantifiedInfo;
+use crate::types::simplify::replace_literal_true_false_with_bool;
 use crate::types::simplify::simplify_tuples;
 use crate::types::simplify::unions;
 use crate::types::types::TParams;
@@ -433,6 +434,9 @@ impl Solver {
             .collect::<Vec<_>>();
         branches.extend(modules.into_values().map(Type::Module));
 
+        replace_literal_true_false_with_bool(&mut branches, || {
+            type_order.stdlib().bool().clone().to_type()
+        });
         unions(branches)
     }
 

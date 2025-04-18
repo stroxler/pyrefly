@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 
@@ -36,6 +37,31 @@ pub fn unions(mut xs: Vec<Type>) -> Type {
         res.pop().unwrap()
     } else {
         Type::Union(res)
+    }
+}
+
+pub fn replace_literal_true_false_with_bool(
+    types: &mut Vec<Type>,
+    get_bool_type: impl FnOnce() -> Type,
+) {
+    let mut has_true = false;
+    let mut has_false = false;
+
+    for t in types.iter() {
+        match t {
+            Type::Literal(Lit::Bool(true)) => {
+                has_true = true;
+            }
+            Type::Literal(Lit::Bool(false)) => {
+                has_false = true;
+            }
+            _ => {}
+        }
+    }
+
+    if has_true && has_false {
+        types.retain(|t| !matches!(t, Type::Literal(Lit::Bool(_))));
+        types.push(get_bool_type());
     }
 }
 

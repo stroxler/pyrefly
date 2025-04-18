@@ -243,13 +243,12 @@ def f(x: str | None):
 );
 
 testcase!(
-    bug = "`Literal[False, True] | bool` should collapse to `bool`",
     test_not_and,
     r#"
 from typing import assert_type, Literal
 def f(x: bool | None):
     if not (x is True and x is None):
-        assert_type(x, Literal[False, True] | bool | None)
+        assert_type(x, Literal[False] | bool | None)
     "#,
 );
 
