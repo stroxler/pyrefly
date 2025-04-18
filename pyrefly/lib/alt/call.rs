@@ -197,7 +197,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .instance_to_method(&cls)
                 .and_then(|ty| self.as_call_target(ty)),
             Type::Type(box Type::TypedDict(typed_dict)) => {
-                Some(CallTarget::new(Target::TypedDict(*typed_dict)))
+                Some(CallTarget::new(Target::TypedDict(typed_dict)))
             }
             Type::Quantified(q) if q.is_type_var() => match q.restriction() {
                 Restriction::Bound(bound) => self.as_call_target(bound.clone()),
@@ -451,7 +451,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
         );
-        Type::TypedDict(Box::new(typed_dict))
+        Type::TypedDict(typed_dict)
     }
 
     pub fn call_infer(

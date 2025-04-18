@@ -549,9 +549,6 @@ pub mod tests {
         let t = Type::None;
         let targs = TArgs::new(vec![t]);
         let td = TypedDict::new(cls, targs);
-        assert_eq!(
-            Type::TypedDict(Box::new(td)).to_string(),
-            "TypedDict[C[None]]"
-        );
+        assert_eq!(Type::TypedDict(td).to_string(), "TypedDict[C[None]]");
     }
 }

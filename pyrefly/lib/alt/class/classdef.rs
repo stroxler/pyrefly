@@ -138,7 +138,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn type_of_instance(&self, cls: &Class, targs: TArgs) -> Type {
         let metadata = self.get_metadata_for_class(cls);
         if metadata.is_typed_dict() {
-            Type::TypedDict(Box::new(TypedDict::new(cls.dupe(), targs)))
+            Type::TypedDict(TypedDict::new(cls.dupe(), targs))
         } else {
             Type::ClassType(ClassType::new(cls.dupe(), targs))
         }

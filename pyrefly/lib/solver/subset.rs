@@ -245,8 +245,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         // Expand typed dict kwargs if necessary, check regular kwargs
         let l_kwargs = match (l_kwargs, u_kwargs) {
             (
-                Some(Type::Unpack(box Type::TypedDict(box l_typed_dict))),
-                Some(Type::Unpack(box Type::TypedDict(box u_typed_dict))),
+                Some(Type::Unpack(box Type::TypedDict(l_typed_dict))),
+                Some(Type::Unpack(box Type::TypedDict(u_typed_dict))),
             ) => {
                 for (name, ty, required) in self.type_order.typed_dict_kw_param_info(&l_typed_dict)
                 {
@@ -258,14 +258,14 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 }
                 Some(object_type)
             }
-            (Some(Type::Unpack(box Type::TypedDict(box l_typed_dict))), _) => {
+            (Some(Type::Unpack(box Type::TypedDict(l_typed_dict))), _) => {
                 for (name, ty, required) in self.type_order.typed_dict_kw_param_info(&l_typed_dict)
                 {
                     l_keywords.insert(name, (ty, required));
                 }
                 Some(object_type)
             }
-            (l_kwargs @ Some(_), Some(Type::Unpack(box Type::TypedDict(box u_typed_dict)))) => {
+            (l_kwargs @ Some(_), Some(Type::Unpack(box Type::TypedDict(u_typed_dict)))) => {
                 for (name, ty, required) in self.type_order.typed_dict_kw_param_info(&u_typed_dict)
                 {
                     u_keywords.insert(name, (ty, required));

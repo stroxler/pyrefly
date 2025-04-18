@@ -955,7 +955,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Expr::Dict(x) => {
                 let flattened_items = Ast::flatten_dict_items(&x.items);
-                if let Some(hint @ Type::TypedDict(box typed_dict)) = hint {
+                if let Some(hint @ Type::TypedDict(typed_dict)) = hint {
                     self.check_dict_items_against_typed_dict(
                         flattened_items,
                         typed_dict,

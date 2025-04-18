@@ -95,7 +95,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 has_expansion = true;
                 self.expr(
                     &x.value,
-                    Some((&Type::TypedDict(Box::new(typed_dict.clone())), &|| {
+                    Some((&Type::TypedDict(typed_dict.clone()), &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::TypedDictUnpacking)
                     })),
                     errors,
