@@ -589,17 +589,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     format!("Enum member `{}` may not be annotated directly. Instead, annotate the _value_ attribute.", name),
                 );
             }
-            if let Some(enum_value_ty) = self.type_of_enum_value(enum_) {
-                if !matches!(ty, Type::Tuple(_))
-                    && !self
-                        .solver()
-                        .is_subset_eq(&ty, &enum_value_ty, self.type_order())
-                {
-                    self.error(
+            if enum_.has_value
+                && let Some(enum_value_ty) = self.type_of_enum_value(enum_)
+                && !matches!(ty, Type::Tuple(_))
+                && !self
+                    .solver()
+                    .is_subset_eq(&ty, &enum_value_ty, self.type_order())
+            {
+                self.error(
                         errors, range, ErrorKind::BadAssignment, None,
                         format!("The value for enum member `{}` must match the annotation of the _value_ attribute", name), 
                     );
-                }
             }
             Type::Literal(Lit::Enum(Box::new((
                 enum_.cls.clone(),

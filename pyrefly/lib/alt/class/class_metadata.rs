@@ -326,6 +326,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 enum_metadata = Some(EnumMetadata {
                     // A generic enum is an error, but we create Any type args anyway to handle it gracefully.
                     cls: self.promote_nontypeddict_silently_to_classtype(cls),
+                    has_value: bases_with_metadata.iter().any(|(base, _)| {
+                        base.class_object().contains(&Name::new_static("_value_"))
+                    }),
                     is_flag: bases_with_metadata.iter().any(|(base, _)| {
                         self.solver().is_subset_eq(
                             &Type::ClassType(base.clone()),
