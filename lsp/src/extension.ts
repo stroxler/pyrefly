@@ -124,7 +124,7 @@ export async function activate(context: ExtensionContext) {
     client.start();
 
     context.subscriptions.push(
-        pythonExtension.environments.onDidChangeEnvironments(() => {
+        pythonExtension.environments.onDidChangeActiveEnvironmentPath(() => {
           client.sendNotification(DidChangeConfigurationNotification.type, {settings: {}});
         })
     );
