@@ -28,9 +28,19 @@ use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 use crate::util::prelude::SliceExt;
 
+/// Beyond this size, don't try and narrow an enum.
+///
+/// If we have over 100 fields, the odds of the negative-type being useful is vanishingly small.
+/// But the cost to create such a type (and then probably knock individual elements out of it)
+/// is very high.
+const NARROW_ENUM_LIMIT: usize = 100;
+
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // Get the union of all members of an enum, minus the specified member
     fn subtract_enum_member(&self, cls: &ClassType, name: &Name) -> Type {
+        if cls.class_object().fields().len() > NARROW_ENUM_LIMIT {
+            return Type::ClassType(cls.clone());
+        }
         let e = self.get_enum_from_class_type(cls).unwrap();
         // Enums derived from enum.Flag cannot be treated as a union of their members
         if e.is_flag {
