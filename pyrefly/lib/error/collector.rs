@@ -65,7 +65,7 @@ impl ModuleErrors {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CollectedErrors {
     /// Errors that will be reported to the user.
     pub shown: Vec<Error>,
@@ -73,16 +73,6 @@ pub struct CollectedErrors {
     pub suppressed: Vec<Error>,
     /// Errors that are disabled with configuration options.
     pub disabled: Vec<Error>,
-}
-
-impl CollectedErrors {
-    pub fn empty() -> Self {
-        Self {
-            shown: Vec::new(),
-            suppressed: Vec::new(),
-            disabled: Vec::new(),
-        }
-    }
 }
 
 /// Collects the user errors (e.g. type errors) associated with a module.
@@ -175,7 +165,7 @@ impl ErrorCollector {
     }
 
     pub fn collect(&self, error_config: &ErrorConfig) -> CollectedErrors {
-        let mut result = CollectedErrors::empty();
+        let mut result = CollectedErrors::default();
         self.collect_into(error_config, &mut result);
         result
     }

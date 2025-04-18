@@ -96,7 +96,7 @@ impl Loads {
     }
 
     pub fn collect_errors(&self, error_configs: &ErrorConfigs) -> CollectedErrors {
-        let mut errors = CollectedErrors::empty();
+        let mut errors = CollectedErrors::default();
         let mut sorted_loads = self.loads.clone();
         sorted_loads.sort_by_key(|load| load.module_info.name());
         for load in sorted_loads.iter() {
