@@ -675,27 +675,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.unions(res)
     }
 
-    pub fn map_over_union(&self, ty: &Type, mut f: impl FnMut(&Type)) {
-        fn recurse<Ans: LookupAnswer>(
-            me: &AnswersSolver<Ans>,
-            ty: &Type,
-            f: &mut impl FnMut(&Type),
-            in_type: bool,
-        ) {
-            match ty {
-                Type::Never(_) if !in_type => (),
-                Type::Union(tys) => tys.iter().for_each(|ty| recurse(me, ty, f, in_type)),
-                Type::Type(box Type::Union(tys)) if !in_type => {
-                    tys.iter().for_each(|ty| recurse(me, ty, f, true))
+    pub fn map_over_union(&self, ty: &Type, f: impl FnMut(&Type)) {
+        struct Data<'a, 'b, Ans: LookupAnswer, F: FnMut(&Type)> {
+            /// The `self` of `AnswersSolver`
+            me: &'b AnswersSolver<'a, Ans>,
+            /// The function to apply on each call
+            f: F,
+        }
+
+        impl<Ans: LookupAnswer, F: FnMut(&Type)> Data<'_, '_, Ans, F> {
+            fn go(&mut self, ty: &Type, in_type: bool) {
+                match ty {
+                    Type::Never(_) if !in_type => (),
+                    Type::Union(tys) => tys.iter().for_each(|ty| self.go(ty, in_type)),
+                    Type::Type(box Type::Union(tys)) if !in_type => {
+                        tys.iter().for_each(|ty| self.go(ty, true))
+                    }
+                    Type::Var(v) if let Some(_guard) = self.me.recurser.recurse(*v) => {
+                        self.go(&self.me.solver().force_var(*v), in_type)
+                    }
+                    _ if in_type => (self.f)(&Type::Type(Box::new(ty.clone()))),
+                    _ => (self.f)(ty),
                 }
-                Type::Var(v) if let Some(_guard) = me.recurser.recurse(*v) => {
-                    recurse(me, &me.solver().force_var(*v), f, in_type)
-                }
-                _ if in_type => f(&Type::Type(Box::new(ty.clone()))),
-                _ => f(ty),
             }
         }
-        recurse(self, ty, &mut f, false)
+        Data { me: self, f }.go(ty, false)
     }
 
     pub fn unions(&self, xs: Vec<Type>) -> Type {
