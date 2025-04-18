@@ -95,6 +95,8 @@ platform = sys.platform
 v = sys.version_info
 version = '{}.{}.{}'.format(v.major, v.minor, v.micro)
 packages = site.getsitepackages()
+if site.ENABLE_USER_SITE:
+    packages.insert(0, site.getusersitepackages())
 print(json.dumps({'python_platform': platform, 'python_version': version, 'site_package_path': packages}))
 ";
 
