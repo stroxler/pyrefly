@@ -16,6 +16,7 @@ use dupe::OptionDupedExt;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::alt::traits::Solve;
 use crate::alt::traits::SolveRecursive;
@@ -681,13 +682,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             me: &'b AnswersSolver<'a, Ans>,
             /// The function to apply on each call
             f: F,
+            /// Arguments we have already used for the function.
+            /// If we see the same element twice in a union (perhaps due to nested Var expansion),
+            /// we only need to process it once. Aviods O(n^2) for certain flow patterns.
+            done: SmallSet<Type>,
+            /// Have we seen a union node? If not, we can skip the cache
+            /// as there will only be exactly one call to `f` (the common case).
+            seen_union: bool,
         }
 
         impl<Ans: LookupAnswer, F: FnMut(&Type)> Data<'_, '_, Ans, F> {
             fn go(&mut self, ty: &Type, in_type: bool) {
                 match ty {
                     Type::Never(_) if !in_type => (),
-                    Type::Union(tys) => tys.iter().for_each(|ty| self.go(ty, in_type)),
+                    Type::Union(tys) => {
+                        self.seen_union = true;
+                        tys.iter().for_each(|ty| self.go(ty, in_type))
+                    }
                     Type::Type(box Type::Union(tys)) if !in_type => {
                         tys.iter().for_each(|ty| self.go(ty, true))
                     }
@@ -695,11 +706,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.go(&self.me.solver().force_var(*v), in_type)
                     }
                     _ if in_type => (self.f)(&Type::Type(Box::new(ty.clone()))),
-                    _ => (self.f)(ty),
+                    _ => {
+                        // If we haven't encountered a union this must be the only type, no need to cache it.
+                        // Otherwise, if inserting succeeds (we haven't processed this type before) actually do it.
+                        if !self.seen_union || self.done.insert(ty.clone()) {
+                            (self.f)(ty)
+                        }
+                    }
                 }
             }
         }
-        Data { me: self, f }.go(ty, false)
+        Data {
+            me: self,
+            f,
+            done: SmallSet::new(),
+            seen_union: false,
+        }
+        .go(ty, false)
     }
 
     pub fn unions(&self, xs: Vec<Type>) -> Type {
