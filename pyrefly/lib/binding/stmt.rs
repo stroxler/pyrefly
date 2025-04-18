@@ -553,7 +553,7 @@ impl<'a> BindingsBuilder<'a> {
                         Some(v) => ExprOrBinding::Expr(*v.clone()),
                         None => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
                     };
-                    if !self.bind_attr_if_self(&attr, value.clone(), Some(ann_key)) {
+                    if !self.record_self_attr_assign(&attr, value.clone(), Some(ann_key)) {
                         self.error(
                              x.range,
                              format!(

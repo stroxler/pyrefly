@@ -120,7 +120,7 @@ impl<'a> BindingsBuilder<'a> {
                 );
                 // If this is a self-assignment, record it because we may use it to infer
                 // the existence of an instance-only attribute.
-                self.bind_attr_if_self(x, attr_value, None);
+                self.record_self_attr_assign(x, attr_value, None);
             }
             Expr::Subscript(x) => {
                 let binding = make_binding(None);

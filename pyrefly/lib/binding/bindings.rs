@@ -733,7 +733,7 @@ impl<'a> BindingsBuilder<'a> {
     /// attributes defined in constructors; this may change in the future.
     ///
     /// Returns `true` if the attribute was a self attribute.
-    pub fn bind_attr_if_self(
+    pub fn record_self_attr_assign(
         &mut self,
         x: &ExprAttribute,
         value: ExprOrBinding,
