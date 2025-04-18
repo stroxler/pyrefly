@@ -221,9 +221,7 @@ impl NarrowOps {
                 ops: cmp_ops,
                 comparators,
             })) => {
-                let mut narrow_ops = Self::new();
-                let subjects = expr_to_subjects(left);
-                let ops = cmp_ops
+                let mut ops = cmp_ops
                     .iter()
                     .zip(comparators)
                     .filter_map(|(cmp_op, right)| {
@@ -239,13 +237,16 @@ impl NarrowOps {
                         };
                         Some((op, range))
                     });
-
-                for (op, range) in ops {
-                    for subject in subjects.iter() {
-                        narrow_ops.and_atomic(subject.clone(), op.clone(), range);
+                match ops.next() {
+                    None => Self::new(),
+                    Some((op, range)) => {
+                        let mut narrow_ops = NarrowOps::from_single_narrow_op(left, op, range);
+                        for (op, range) in ops {
+                            narrow_ops.and_all(NarrowOps::from_single_narrow_op(left, op, range));
+                        }
+                        narrow_ops
                     }
                 }
-                narrow_ops
             }
             Some(Expr::BoolOp(ExprBoolOp {
                 range: _,
