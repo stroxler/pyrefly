@@ -252,11 +252,16 @@ impl NarrowOps {
                 op: BoolOp::And,
                 values,
             })) => {
-                let mut narrow_ops = Self::new();
-                for e in values {
-                    narrow_ops.and_all(Self::from_expr(Some(e)))
+                let mut exprs = values.iter();
+                if let Some(first_val) = exprs.next() {
+                    let mut narrow_ops = Self::from_expr(Some(first_val));
+                    for next_val in exprs {
+                        narrow_ops.and_all(Self::from_expr(Some(next_val)));
+                    }
+                    narrow_ops
+                } else {
+                    Self::new()
                 }
-                narrow_ops
             }
             Some(Expr::BoolOp(ExprBoolOp {
                 range: _,
