@@ -146,14 +146,10 @@ pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<OneIndexe
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::Write;
-
     use pretty_assertions::assert_str_eq;
     use ruff_source_file::OneIndexed;
     use ruff_source_file::SourceLocation;
     use tempfile;
-    use tempfile::tempdir;
     use vec1::Vec1;
 
     use super::*;
