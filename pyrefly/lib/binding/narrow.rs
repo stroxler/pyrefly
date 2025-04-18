@@ -176,14 +176,6 @@ impl NarrowOps {
         }
     }
 
-    fn and_atomic(&mut self, subject: NarrowingSubject, op: AtomicNarrowOp, range: TextRange) {
-        let (name, attr) = match subject {
-            NarrowingSubject::Name(name) => (name, None),
-            NarrowingSubject::Attribute(name, attr) => (name, Some(attr)),
-        };
-        self.and(name, NarrowOp::Atomic(attr, op), range);
-    }
-
     pub fn and_all(&mut self, other: Self) {
         for (name, (op, range)) in other.0 {
             self.and(name, op, range);
@@ -208,7 +200,17 @@ impl NarrowOps {
     pub fn from_single_narrow_op(left: &Expr, op: AtomicNarrowOp, range: TextRange) -> Self {
         let mut narrow_ops = Self::new();
         for subject in expr_to_subjects(left) {
-            narrow_ops.and_atomic(subject, op.clone(), range);
+            let (name, attr) = match subject {
+                NarrowingSubject::Name(name) => (name, None),
+                NarrowingSubject::Attribute(name, attr) => (name, Some(attr)),
+            };
+            if let Some((existing, _)) = narrow_ops.0.get_mut(&name) {
+                existing.and(NarrowOp::Atomic(attr, op.clone()));
+            } else {
+                narrow_ops
+                    .0
+                    .insert(name, (NarrowOp::Atomic(attr, op.clone()), range));
+            }
         }
         narrow_ops
     }
