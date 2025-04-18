@@ -34,8 +34,6 @@ assert_words!(NarrowOp, 11);
 pub enum AtomicNarrowOp {
     Is(Expr),
     IsNot(Expr),
-    Truthy,
-    Falsy,
     Eq(Expr),
     NotEq(Expr),
     IsInstance(Expr),
@@ -49,6 +47,10 @@ pub enum AtomicNarrowOp {
     /// (func, args) for a function call that may narrow the type of its first argument.
     Call(Box<Expr>, Arguments),
     NotCall(Box<Expr>, Arguments),
+    /// A narrow op applies to a name; these operations mean we are narrowing to the case
+    /// when that name evaluates to a truthy or falsy value.
+    IsTruthy,
+    IsFalsy,
 }
 
 #[derive(Clone, Debug)]
@@ -84,14 +86,14 @@ impl AtomicNarrowOp {
             Self::IsNotSubclass(v) => Self::IsSubclass(v.clone()),
             Self::Eq(v) => Self::NotEq(v.clone()),
             Self::NotEq(v) => Self::Eq(v.clone()),
-            Self::Truthy => Self::Falsy,
-            Self::Falsy => Self::Truthy,
             Self::TypeGuard(ty, args) => Self::NotTypeGuard(ty.clone(), args.clone()),
             Self::NotTypeGuard(ty, args) => Self::TypeGuard(ty.clone(), args.clone()),
             Self::TypeIs(ty, args) => Self::NotTypeIs(ty.clone(), args.clone()),
             Self::NotTypeIs(ty, args) => Self::TypeIs(ty.clone(), args.clone()),
             Self::Call(f, args) => Self::NotCall(f.clone(), args.clone()),
             Self::NotCall(f, args) => Self::Call(f.clone(), args.clone()),
+            Self::IsTruthy => Self::IsFalsy,
+            Self::IsFalsy => Self::IsTruthy,
         }
     }
 }
@@ -289,7 +291,7 @@ impl NarrowOps {
                     *range,
                 )
             }
-            Some(e) => Self::from_single_narrow_op(e, AtomicNarrowOp::Truthy, e.range()),
+            Some(e) => Self::from_single_narrow_op(e, AtomicNarrowOp::IsTruthy, e.range()),
             None => Self::new(),
         }
     }

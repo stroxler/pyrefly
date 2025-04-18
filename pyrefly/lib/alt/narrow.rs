@@ -261,16 +261,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 ty.clone()
             }
-            AtomicNarrowOp::Truthy | AtomicNarrowOp::Falsy => self.distribute_over_union(ty, |t| {
-                let boolval = matches!(op, AtomicNarrowOp::Truthy);
-                if t.as_bool() == Some(!boolval) {
-                    Type::never()
-                } else if matches!(t, Type::ClassType(cls) if cls.is_builtin("bool")) {
-                    Type::Literal(Lit::Bool(boolval))
-                } else {
-                    t.clone()
-                }
-            }),
+            AtomicNarrowOp::IsTruthy | AtomicNarrowOp::IsFalsy => {
+                self.distribute_over_union(ty, |t| {
+                    let boolval = matches!(op, AtomicNarrowOp::IsTruthy);
+                    if t.as_bool() == Some(!boolval) {
+                        Type::never()
+                    } else if matches!(t, Type::ClassType(cls) if cls.is_builtin("bool")) {
+                        Type::Literal(Lit::Bool(boolval))
+                    } else {
+                        t.clone()
+                    }
+                })
+            }
             AtomicNarrowOp::Eq(v) => {
                 let right = self.expr_infer(v, errors);
                 if matches!(right, Type::Literal(_) | Type::None) {
