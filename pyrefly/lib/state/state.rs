@@ -5,9 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-// Clippy thinks ModuleData is mutable (it is), but the ArcId makes the Hash/Eq immutable
-#![allow(clippy::mutable_key_type)]
-
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Display;
