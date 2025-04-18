@@ -548,15 +548,13 @@ impl Args {
             fs_anyhow::write(path, report::trace::trace(&transaction).as_bytes())?;
         }
         if self.suppress_errors {
-            let errors_to_suppress: SmallMap<PathBuf, Vec<Error>> = errors
-                .shown
-                .into_iter()
-                .filter(|e| matches!(e.path().details(), ModulePathDetails::FileSystem(_)))
-                .fold(SmallMap::new(), |mut acc, e| {
-                    let path = PathBuf::from(e.path().to_string());
-                    acc.entry(path).or_default().push(e);
-                    acc
-                });
+            let mut errors_to_suppress: SmallMap<PathBuf, Vec<Error>> = SmallMap::new();
+
+            for e in errors.shown {
+                if let ModulePathDetails::FileSystem(path) = e.path().details() {
+                    errors_to_suppress.entry(path.clone()).or_default().push(e);
+                }
+            }
             suppress::suppress_errors(&errors_to_suppress);
         }
         if self.remove_unused_ignores {
