@@ -77,6 +77,10 @@ pub struct ConfigFile {
     #[serde(default, flatten)]
     pub root: ConfigBase,
 
+    /// Ignores issues with packages missing py.typed files
+    #[serde(default)]
+    pub use_untyped_imports: bool,
+
     #[serde(default)]
     pub sub_configs: Vec<SubConfig>,
 }
@@ -116,6 +120,7 @@ impl ConfigFile {
                 site_package_path_from_interpreter: false,
             },
             root: Default::default(),
+            use_untyped_imports: false,
             sub_configs: Default::default(),
         }
     }
@@ -445,6 +450,7 @@ mod tests {
                     replace_imports_with_any: Some(vec![ModuleWildcard::new("fibonacci").unwrap()]),
                     skip_untyped_functions: Some(false),
                 },
+                use_untyped_imports: false,
                 sub_configs: vec![SubConfig {
                     matches: Glob::new("sub/project/**".to_owned()),
                     settings: ConfigBase {
@@ -601,6 +607,7 @@ mod tests {
             python_environment: python_environment.clone(),
             python_interpreter: Some(PathBuf::from(interpreter.clone())),
             root: Default::default(),
+            use_untyped_imports: false,
             sub_configs: vec![SubConfig {
                 matches: Glob::new("sub/project/**".to_owned()),
                 settings: Default::default(),
@@ -630,6 +637,7 @@ mod tests {
             search_path,
             python_environment,
             root: Default::default(),
+            use_untyped_imports: false,
             sub_configs: vec![SubConfig {
                 matches: sub_config_matches,
                 settings: Default::default(),
