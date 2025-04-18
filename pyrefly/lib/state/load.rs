@@ -102,7 +102,7 @@ impl Loads {
         for load in sorted_loads.iter() {
             let module_path = load.module_info.path();
             let error_config = error_configs.get(module_path);
-            errors.extend(load.errors.collect(error_config));
+            load.errors.collect_into(error_config, &mut errors);
         }
         errors
     }

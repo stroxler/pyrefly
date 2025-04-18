@@ -83,12 +83,6 @@ impl CollectedErrors {
             disabled: Vec::new(),
         }
     }
-
-    pub fn extend(&mut self, other: CollectedErrors) {
-        self.shown.extend(other.shown);
-        self.suppressed.extend(other.suppressed);
-        self.disabled.extend(other.disabled);
-    }
 }
 
 /// Collects the user errors (e.g. type errors) associated with a module.
@@ -165,28 +159,25 @@ impl ErrorCollector {
         self.errors.lock().len()
     }
 
-    pub fn collect(&self, error_config: &ErrorConfig) -> CollectedErrors {
-        let mut shown = Vec::new();
-        let mut suppressed = Vec::new();
-        let mut disabled = Vec::new();
-
+    pub fn collect_into(&self, error_config: &ErrorConfig, result: &mut CollectedErrors) {
         let mut errors = self.errors.lock();
         if !(self.module_info.is_generated() && error_config.ignore_errors_in_generated_code) {
             for err in errors.iter() {
                 if err.is_ignored() {
-                    suppressed.push(err.clone());
+                    result.suppressed.push(err.clone());
                 } else if !error_config.display_config.is_enabled(err.error_kind()) {
-                    disabled.push(err.clone());
+                    result.disabled.push(err.clone());
                 } else {
-                    shown.push(err.clone());
+                    result.shown.push(err.clone());
                 }
             }
         }
-        CollectedErrors {
-            shown,
-            suppressed,
-            disabled,
-        }
+    }
+
+    pub fn collect(&self, error_config: &ErrorConfig) -> CollectedErrors {
+        let mut result = CollectedErrors::empty();
+        self.collect_into(error_config, &mut result);
+        result
     }
 }
 
