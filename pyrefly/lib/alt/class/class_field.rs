@@ -868,8 +868,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        let class_type = class.as_class_type();
-        let got_attr = self.as_instance_attribute(class_field.clone(), &class_type);
+        let mut got_attr = None;
         let metadata = self.get_metadata_for_class(class);
         let parents = metadata.bases_with_metadata();
         let mut parent_attr_found = false;
@@ -937,9 +936,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             let want_attr = self.as_instance_attribute(want_class_field.clone(), parent);
-            let attr_check = self.is_attr_subset(&got_attr, &want_attr, &mut |got, want| {
-                self.solver().is_subset_eq(got, want, self.type_order())
-            });
+            if got_attr.is_none() {
+                // Optimisation: Only compute the `got_attr` once, and only if we actually need it.
+                got_attr =
+                    Some(self.as_instance_attribute(class_field.clone(), &class.as_class_type()));
+            }
+            let attr_check =
+                self.is_attr_subset(got_attr.as_ref().unwrap(), &want_attr, &mut |got, want| {
+                    self.solver().is_subset_eq(got, want, self.type_order())
+                });
             if !attr_check {
                 self.error(
                     errors,
