@@ -659,11 +659,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.get_metadata_for_class(class)
             .ancestors(self.stdlib)
             .find_map(|parent| {
-                let parent_field = self
-                    .get_field_from_current_class_only(parent.class_object(), name)
-                    .map(Arc::unwrap_or_clone)?;
-                let ClassField(ClassFieldInner::Simple { annotation, .. }) = parent_field;
-                annotation
+                let parent_field =
+                    self.get_field_from_current_class_only(parent.class_object(), name)?;
+                let ClassField(ClassFieldInner::Simple { annotation, .. }) = &*parent_field;
+                annotation.clone()
             })
     }
 
