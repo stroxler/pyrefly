@@ -51,6 +51,11 @@ pub enum AtomicNarrowOp {
     /// when that name evaluates to a truthy or falsy value.
     IsTruthy,
     IsFalsy,
+    /// An operation that might be true or false, but does not narrow the name
+    /// currently under consideration (for example, if we are modeling the
+    /// narrowing for name `x` from `x is None or y is None`). We need to
+    /// preserve its existence in order to handle control flow and negation
+    Placeholder,
 }
 
 #[derive(Clone, Debug)]
@@ -94,6 +99,7 @@ impl AtomicNarrowOp {
             Self::NotCall(f, args) => Self::Call(f.clone(), args.clone()),
             Self::IsTruthy => Self::IsFalsy,
             Self::IsFalsy => Self::IsTruthy,
+            Self::Placeholder => Self::Placeholder,
         }
     }
 }

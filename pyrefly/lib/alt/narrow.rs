@@ -144,6 +144,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         match op {
+            AtomicNarrowOp::Placeholder => ty.clone(),
             AtomicNarrowOp::Is(v) => {
                 let right = self.expr_infer(v, errors);
                 // Get our best approximation of ty & right.
