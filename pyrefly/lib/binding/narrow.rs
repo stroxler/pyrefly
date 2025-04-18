@@ -250,30 +250,18 @@ impl NarrowOps {
             }
             Some(Expr::BoolOp(ExprBoolOp {
                 range: _,
-                op: BoolOp::And,
+                op,
                 values,
             })) => {
+                let extend = match op {
+                    BoolOp::And => NarrowOps::and_all,
+                    BoolOp::Or => NarrowOps::or_all,
+                };
                 let mut exprs = values.iter();
                 if let Some(first_val) = exprs.next() {
                     let mut narrow_ops = Self::from_expr(Some(first_val));
                     for next_val in exprs {
-                        narrow_ops.and_all(Self::from_expr(Some(next_val)));
-                    }
-                    narrow_ops
-                } else {
-                    Self::new()
-                }
-            }
-            Some(Expr::BoolOp(ExprBoolOp {
-                range: _,
-                op: BoolOp::Or,
-                values,
-            })) => {
-                let mut exprs = values.iter();
-                if let Some(first_val) = exprs.next() {
-                    let mut narrow_ops = Self::from_expr(Some(first_val));
-                    for next_val in exprs {
-                        narrow_ops.or_all(Self::from_expr(Some(next_val)));
+                        extend(&mut narrow_ops, Self::from_expr(Some(next_val)))
                     }
                     narrow_ops
                 } else {
