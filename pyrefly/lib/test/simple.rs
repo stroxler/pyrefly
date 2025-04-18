@@ -183,6 +183,22 @@ assert_type(x, list[Literal[4]])
 "#,
 );
 
+// NOTE(grievejia): There's also an argument to be made that `y` should be inferred as
+// `list[int] | list[Any]`, and `e` inferred as `int | Any`. The test case here is to ensure
+// that if we ever want to take the alternative behavior, an explicit acknowledgement (of
+// changing this test case) is required.
+testcase!(
+    test_or_empty_list,
+    r#"
+from typing import assert_type
+def test(x: list[int]) -> None:
+    y = x or []
+    assert_type(y, list[int])
+    for e in y:
+        assert_type(e, int)
+"#,
+);
+
 testcase!(
     test_shadow_var,
     r#"
