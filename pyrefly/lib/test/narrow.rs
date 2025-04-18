@@ -928,3 +928,34 @@ class A:
         return isinstance(x, type(self))
     "#,
 );
+
+testcase!(
+    bug = "TODO(stroxler): We are oversimplifying booleans, and cannot handle multi-name or as a result",
+    test_or_negation,
+    r#"
+from typing import assert_type
+def f(x: int | None, y: int | None):
+    if x is None or y is None:
+        pass
+    else:
+        assert_type(x, int)  # E: assert_type(int | None, int)
+        assert_type(y, int)  # E: assert_type(int | None, int)
+"#,
+);
+
+testcase!(
+    bug = "TODO(stroxler): We are oversimplifying booleans, and cannot handle multi-name or as a result",
+    test_nested_or_with_multiple_vars,
+    r#"
+from typing import assert_type
+class Foo: pass
+class Bar(Foo): pass
+def f(x: object, y: object) -> None:
+    if isinstance(x, Bar) or (isinstance(y, Foo) and isinstance(x, Foo)):
+        assert_type(x, Bar | Foo)  # E: assert_type(Bar | object, Bar | Foo)
+        assert_type(y, Foo | object)
+    else:
+        assert_type(x, object)
+        assert_type(y, object)
+"#,
+);
