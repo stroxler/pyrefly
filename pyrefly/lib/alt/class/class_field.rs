@@ -874,15 +874,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let parents = metadata.bases_with_metadata();
         let mut parent_attr_found = false;
         let mut parent_has_any = false;
+
+        // TODO(zeina): skip private properties and dunder methods for now. This will need some special casing.
+        if (name.starts_with('_') && name.ends_with('_'))
+            || (name.starts_with("__") && !name.ends_with("__"))
+        {
+            return;
+        }
+
         for (parent, parent_metadata) in parents {
             parent_has_any = parent_has_any || parent_metadata.has_base_any();
-            // todo zeina: skip private properties and dunder methods for now. This will need some special casing.
-            if name.starts_with('_') && name.ends_with('_') {
-                continue;
-            }
-            if name.starts_with("__") && !name.ends_with("__") {
-                continue;
-            }
             let Some(want_member) = self.get_class_member(parent.class_object(), name) else {
                 continue;
             };
