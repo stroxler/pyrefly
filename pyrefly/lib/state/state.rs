@@ -1097,6 +1097,7 @@ impl<'a> Transaction<'a> {
         writeln!(file, "Module,Step,Seconds")?;
         file.flush()?;
         if let Some(subscriber) = &subscriber {
+            // Start everything so we have the right size progress bar.
             for m in self.readable.modules.values() {
                 subscriber.start_work(m.handle.dupe());
             }
@@ -1157,7 +1158,7 @@ impl<'a> Transaction<'a> {
                     error!("Not deterministic {}: {}", m.handle.module(), diff)
                 }
             }
-            if let Some(subscriber) = &self.subscriber {
+            if let Some(subscriber) = &subscriber {
                 subscriber.finish_work(m.handle.dupe(), alt.load.unwrap().dupe());
             }
         }
