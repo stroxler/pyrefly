@@ -134,7 +134,7 @@ pub enum DescriptorBase {
 
 #[derive(Debug)]
 pub enum NotFound {
-    Attribute(ClassType),
+    Attribute(Class),
     ClassAttribute(Class),
     ModuleExport(Module),
 }
@@ -266,8 +266,8 @@ impl LookupResult {
 impl NotFound {
     pub fn to_error_msg(self, attr_name: &Name) -> String {
         match self {
-            NotFound::Attribute(class_type) => {
-                let class_name = class_type.name();
+            NotFound::Attribute(class) => {
+                let class_name = class.name();
                 format!("Object of class `{class_name}` has no attribute `{attr_name}`",)
             }
             NotFound::ClassAttribute(class) => {
@@ -870,7 +870,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None if self.extends_any(class.class_object()) => {
                         LookupResult::found_type(Type::Any(AnyStyle::Implicit))
                     }
-                    None => LookupResult::NotFound(NotFound::Attribute(class)),
+                    None => {
+                        LookupResult::NotFound(NotFound::Attribute(class.class_object().dupe()))
+                    }
                 }
             }
             AttributeBase::SuperInstance(cls, obj) => {
@@ -886,7 +888,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     {
                         LookupResult::found_type(Type::Any(AnyStyle::Implicit))
                     }
-                    None => LookupResult::NotFound(NotFound::Attribute(cls)),
+                    None => LookupResult::NotFound(NotFound::Attribute(cls.class_object().dupe())),
                 }
             }
             AttributeBase::ClassObject(class) => {
@@ -930,7 +932,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let class = q.as_value(self.stdlib);
                     match self.get_instance_attribute(class, attr_name) {
                         Some(attr) => LookupResult::Found(attr),
-                        None => LookupResult::NotFound(NotFound::Attribute(class.clone())),
+                        None => {
+                            LookupResult::NotFound(NotFound::Attribute(class.class_object().dupe()))
+                        }
                     }
                 }
             }
@@ -966,13 +970,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let class = self.stdlib.property();
                     match self.get_instance_attribute(class, attr_name) {
                         Some(attr) => LookupResult::Found(attr),
-                        None => LookupResult::NotFound(NotFound::Attribute(class.clone())),
+                        None => {
+                            LookupResult::NotFound(NotFound::Attribute(class.class_object().dupe()))
+                        }
                     }
                 }
             }
             AttributeBase::TypedDict(typed_dict) => {
                 if attr_name == "clear" {
-                    LookupResult::NotFound(NotFound::Attribute(typed_dict.as_class_type()))
+                    LookupResult::NotFound(NotFound::Attribute(typed_dict.class_object().dupe()))
                 } else {
                     self.lookup_attr_from_attribute_base(
                         AttributeBase::ClassInstance(self.stdlib.dict(
