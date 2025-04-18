@@ -258,15 +258,11 @@ impl NarrowOps {
                     BoolOp::Or => NarrowOps::or_all,
                 };
                 let mut exprs = values.iter();
-                if let Some(first_val) = exprs.next() {
-                    let mut narrow_ops = Self::from_expr(Some(first_val));
-                    for next_val in exprs {
-                        extend(&mut narrow_ops, Self::from_expr(Some(next_val)))
-                    }
-                    narrow_ops
-                } else {
-                    Self::new()
+                let mut narrow_ops = Self::from_expr(exprs.next());
+                for next_val in exprs {
+                    extend(&mut narrow_ops, Self::from_expr(Some(next_val)))
                 }
+                narrow_ops
             }
             Some(Expr::UnaryOp(ExprUnaryOp {
                 range: _,
