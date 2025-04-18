@@ -9,13 +9,8 @@ use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 
-pub fn unions(mut xs: Vec<Type>) -> Type {
-    if xs.is_empty() {
-        return Type::never();
-    }
-    if xs.len() == 1 {
-        return xs.pop().unwrap();
-    }
+/// Turn unions of unions into a flattened list for one union, and return the deduped list.
+fn flatten_and_dedup(xs: Vec<Type>) -> Vec<Type> {
     fn flatten(xs: Vec<Type>, res: &mut Vec<Type>) {
         for x in xs {
             match x {
@@ -30,14 +25,29 @@ pub fn unions(mut xs: Vec<Type>) -> Type {
 
     res.sort();
     res.dedup();
-    if res.is_empty() {
-        // can happen if `flatten` drops all elements
-        Type::never()
-    } else if res.len() == 1 {
-        res.pop().unwrap()
+    res
+}
+
+/// Given a list of types to union together,
+/// - If there's 0 element in the list, return `Ok` with `Type::never()`.
+/// - If there's 1 element in the list, return `Ok` with that element.
+/// - Otherwise, return `Err` along with `xs`.
+fn try_collapse(mut xs: Vec<Type>) -> Result<Type, Vec<Type>> {
+    if xs.is_empty() {
+        Ok(Type::never())
+    } else if xs.len() == 1 {
+        Ok(xs.pop().unwrap())
     } else {
-        Type::Union(res)
+        Err(xs)
     }
+}
+
+pub fn unions(xs: Vec<Type>) -> Type {
+    try_collapse(xs).unwrap_or_else(|xs| {
+        let res = flatten_and_dedup(xs);
+        // `res` is collapsable again if `flatten_and_dedup` drops `xs` to 0 or 1 elements
+        try_collapse(res).unwrap_or_else(Type::Union)
+    })
 }
 
 pub fn replace_literal_true_false_with_bool(
