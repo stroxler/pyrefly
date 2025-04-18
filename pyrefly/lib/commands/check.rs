@@ -497,7 +497,6 @@ impl Args {
         } else {
             print_errors(&errors.shown);
         }
-        let printing = start.elapsed();
         memory_trace.stop();
         if let Some(limit) = self.count_errors {
             print_error_counts(&errors.shown, limit);
@@ -506,6 +505,7 @@ impl Args {
             print_error_summary(&errors.shown, path_index);
         }
         let shown_errors_count = errors.shown.len();
+        let printing = start.elapsed();
         info!(
             "{} errors shown, {} errors disabled, {} errors suppressed, {} modules, {} lines, took {printing:.2?} ({computing:.2?} without printing errors), peak memory {}",
             number_thousands(shown_errors_count),
