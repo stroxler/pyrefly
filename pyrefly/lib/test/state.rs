@@ -212,9 +212,10 @@ impl Incremental {
                 .0
                 .lock()
                 .insert(ModuleName::from_str(&file), contents.dupe());
-            transaction
-                .as_mut()
-                .invalidate_memory(self.loader.dupe(), vec![(PathBuf::from(file), contents)]);
+            transaction.as_mut().set_memory(
+                self.loader.dupe(),
+                vec![(PathBuf::from(file), Some(contents))],
+            );
         }
 
         let handles = want.map(|x| self.handle(x));

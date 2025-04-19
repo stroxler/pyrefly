@@ -63,6 +63,8 @@ use crate::state::loader::FindError;
 use crate::state::loader::Loader;
 use crate::state::loader::LoaderFindCache;
 use crate::state::loader::LoaderId;
+use crate::state::memory::MemoryFiles;
+use crate::state::memory::MemoryFilesOverlay;
 use crate::state::require::Require;
 use crate::state::require::RequireDefault;
 use crate::state::require::RequireOverride;
@@ -176,6 +178,8 @@ struct StateInner {
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     modules: HashMap<Handle, ModuleData>,
     loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
+    /// The contents for ModulePath::memory values
+    memory: MemoryFiles,
     /// The current epoch, gets incremented every time we recompute
     now: Epoch,
     require: RequireDefault,
@@ -187,6 +191,7 @@ impl StateInner {
             stdlib: Default::default(),
             modules: Default::default(),
             loaders: Default::default(),
+            memory: Default::default(),
             now: Epoch::zero(),
             // Will be overwritten with a new default before is it used.
             require: RequireDefault::new(Require::Exports),
@@ -202,6 +207,7 @@ pub struct TransactionData<'a> {
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleDataMut>>,
     additional_loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
+    memory_overlay: MemoryFilesOverlay,
     require: RequireDefault,
     /// The current epoch, gets incremented every time we recompute
     now: Epoch,
@@ -1016,15 +1022,18 @@ impl<'a> Transaction<'a> {
     }
 
     /// Called if the `load_from_memory` portion of loading might have changed.
-    /// Specify which in-memory files might have changed.
-    pub fn invalidate_memory(&mut self, loader: LoaderId, files: Vec<(PathBuf, Arc<String>)>) {
-        let files = files
-            .into_iter()
-            .map(|x| ModulePath::memory(x.0))
-            .collect::<SmallSet<_>>();
+    /// Specify which in-memory files might have changed, use None to say they don't exist anymore.
+    pub fn set_memory(&mut self, loader: LoaderId, files: Vec<(PathBuf, Option<Arc<String>>)>) {
+        let mut changed = SmallSet::new();
+        for (path, contents) in files {
+            self.data
+                .memory_overlay
+                .set(loader.dupe(), path.clone(), contents);
+            changed.insert(ModulePath::memory(path));
+        }
         let mut dirty_set = self.data.dirty.lock();
         for handle in self.readable.modules.keys() {
-            if handle.loader() == &loader && files.contains(handle.path()) {
+            if handle.loader() == &loader && changed.contains(handle.path()) {
                 let module_data = self.get_module(handle);
                 module_data.state.write(Step::Load).unwrap().dirty.load = true;
                 dirty_set.insert(module_data.dupe());
@@ -1249,6 +1258,7 @@ impl State {
                 stdlib,
                 updated_modules: Default::default(),
                 additional_loaders: Default::default(),
+                memory_overlay: Default::default(),
                 now,
                 require: RequireDefault::new(require),
                 todo: Default::default(),
@@ -1302,6 +1312,7 @@ impl State {
                             stdlib,
                             updated_modules,
                             additional_loaders,
+                            memory_overlay,
                             now,
                             require,
                             state: _,
@@ -1325,6 +1336,7 @@ impl State {
                 .modules
                 .insert(handle.dupe(), new_module_data.take_and_freeze());
         }
+        state.memory.apply_overlay(memory_overlay);
         for (loader_id, additional_loader) in additional_loaders {
             state.loaders.insert(loader_id, additional_loader);
         }

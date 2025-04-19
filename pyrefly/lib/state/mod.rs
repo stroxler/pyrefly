@@ -11,6 +11,7 @@ pub mod handle;
 pub mod load;
 pub mod loader;
 pub mod lsp;
+pub mod memory;
 pub mod require;
 pub mod state;
 pub mod steps;
