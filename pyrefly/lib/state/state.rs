@@ -96,7 +96,7 @@ use crate::util::upgrade_lock::UpgradeLockWriteGuard;
 #[derive(Debug)]
 struct ModuleDataSnapshot {
     handle: Handle,
-    state: ModuleState,
+    state: ModuleDataInner,
     deps: HashMap<ModuleName, Handle, BuildNoHash>,
     rdeps: HashSet<Handle>,
 }
@@ -104,7 +104,7 @@ struct ModuleDataSnapshot {
 #[derive(Debug)]
 struct ModuleData {
     handle: Handle,
-    state: UpgradeLock<Step, ModuleState>,
+    state: UpgradeLock<Step, ModuleDataInner>,
     deps: RwLock<HashMap<ModuleName, Handle, BuildNoHash>>,
     /// The reverse dependencies of this module. This is used to invalidate on change.
     /// Note that if we are only running once, e.g. on the command line, this isn't valuable.
@@ -112,8 +112,9 @@ struct ModuleData {
     rdeps: Mutex<HashSet<Handle>>,
 }
 
+/// The fields of `ModuleData` that are stored together as they might be mutated.
 #[derive(Debug, Clone)]
-struct ModuleState {
+struct ModuleDataInner {
     require: RequireOverride,
     epochs: Epochs,
     dirty: Dirty,
@@ -124,7 +125,7 @@ impl ModuleData {
     fn new(handle: Handle, now: Epoch) -> Self {
         Self {
             handle,
-            state: UpgradeLock::new(ModuleState {
+            state: UpgradeLock::new(ModuleDataInner {
                 require: Default::default(),
                 epochs: Epochs::new(now),
                 dirty: Dirty::default(),
@@ -365,19 +366,19 @@ impl<'a> Transaction<'a> {
     fn clean(
         &self,
         module_data: &ArcId<ModuleData>,
-        exclusive: UpgradeLockExclusiveGuard<Step, ModuleState>,
+        exclusive: UpgradeLockExclusiveGuard<Step, ModuleDataInner>,
     ) {
         // We need to clean up the state.
         // If things have changed, we need to update the last_step.
         // We clear memory as an optimisation only.
 
         // Mark ourselves as having completed everything.
-        let finish = |w: &mut ModuleState| {
+        let finish = |w: &mut ModuleDataInner| {
             w.epochs.checked = self.data.now;
             w.dirty.clean();
         };
         // Rebuild stuff. Pass clear_ast to indicate we need to rebuild the AST, otherwise can reuse it (if present).
-        let rebuild = |mut w: UpgradeLockWriteGuard<Step, ModuleState>, clear_ast: bool| {
+        let rebuild = |mut w: UpgradeLockWriteGuard<Step, ModuleDataInner>, clear_ast: bool| {
             w.steps.last_step = if clear_ast || w.steps.ast.is_none() {
                 if w.steps.load.is_none() {
                     None
