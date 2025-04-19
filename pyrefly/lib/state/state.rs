@@ -274,6 +274,30 @@ impl<'a> Transaction<'a> {
         )
     }
 
+    pub fn get_all_loads(&self) -> Loads {
+        if self.data.updated_modules.is_empty() {
+            // Optimised path
+            return Loads::new(
+                self.readable
+                    .modules
+                    .values()
+                    .filter_map(|x| x.state.steps.load.dupe()),
+            );
+        }
+        let mut res = self
+            .data
+            .updated_modules
+            .iter_unordered()
+            .filter_map(|x| x.1.state.read().steps.load.dupe())
+            .collect::<Vec<_>>();
+        for (k, v) in self.readable.modules.iter() {
+            if self.data.updated_modules.get(k).is_none() {
+                res.extend(v.state.steps.load.dupe());
+            }
+        }
+        Loads::new(res)
+    }
+
     pub fn get_module_info(&self, handle: &Handle) -> Option<ModuleInfo> {
         self.get_load(handle).map(|x| x.module_info.dupe())
     }
