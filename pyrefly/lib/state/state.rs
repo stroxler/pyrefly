@@ -1270,11 +1270,6 @@ impl<'a> CommittingTransaction<'a> {
             committing_transaction_guard,
         }
     }
-
-    #[cfg(test)]
-    pub fn set_subscriber(&mut self, subscriber: Option<Box<dyn Subscriber>>) {
-        self.transaction.subscriber = subscriber;
-    }
 }
 
 /// `State` coordinates between potential parallel operations over itself.

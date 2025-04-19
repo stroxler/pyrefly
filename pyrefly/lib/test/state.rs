@@ -202,9 +202,10 @@ impl Incremental {
 
     /// Run a check. Expect recompute things to have changed.
     fn check(&mut self, want: &[&str], recompute: &[&str]) {
+        let subscriber = TestSubscriber::new();
         let mut transaction = self
             .state
-            .new_committable_transaction(Require::Exports, None);
+            .new_committable_transaction(Require::Exports, Some(Box::new(subscriber.dupe())));
         for (file, content) in mem::take(&mut self.to_set) {
             self.data
                 .0
@@ -215,9 +216,7 @@ impl Incremental {
                 .invalidate_memory(self.loader.dupe(), &[PathBuf::from(file)]);
         }
 
-        let subscriber = TestSubscriber::new();
         let handles = want.map(|x| self.handle(x));
-        transaction.set_subscriber(Some(Box::new(subscriber.dupe())));
         self.state.run_with_committing_transaction(
             transaction,
             &handles.map(|x| (x.dupe(), Require::Everything)),
