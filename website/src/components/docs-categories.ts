@@ -22,7 +22,7 @@ interface DocsCategory {
     href: string;
     label: string;
     type: string;
-    description?: string,
+    description?: string;
 }
 
 const docsCategories: DocsCategory[] = docsSidebar.map((item: SidebarItem) => {
@@ -34,7 +34,7 @@ const docsCategories: DocsCategory[] = docsSidebar.map((item: SidebarItem) => {
     if (item.type === 'category' && item.description !== undefined) {
         return { type: 'link', href, label, description: item.description };
     }
-    return { type: 'link', docId: id, href, label};
+    return { type: 'link', docId: id, href, label };
 });
 
 export default docsCategories;
