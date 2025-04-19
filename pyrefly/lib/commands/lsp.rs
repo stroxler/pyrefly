@@ -192,7 +192,7 @@ struct Server {
 /// TODO(connernilsel): replace with real config logic
 #[derive(Debug)]
 struct Config {
-    open_files: Arc<Mutex<HashMap<PathBuf, Arc<String>>>>,
+    open_files: Mutex<HashMap<PathBuf, Arc<String>>>,
     runtime_metadata: RuntimeMetadata,
     search_path: Vec<PathBuf>,
     loader: LoaderId,
@@ -207,7 +207,7 @@ impl Config {
         open_files: HashMap<PathBuf, Arc<String>>,
     ) -> Self {
         Self {
-            open_files: Arc::new(Mutex::new(open_files)),
+            open_files: Mutex::new(open_files),
             runtime_metadata,
             search_path: search_path.clone(),
             loader: LoaderId::new(LspLoader {
