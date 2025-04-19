@@ -517,7 +517,7 @@ impl Args {
             number_thousands(errors.disabled.len()),
             number_thousands(errors.suppressed.len()),
             number_thousands(transaction.module_count()),
-            number_thousands(readable_state.line_count()),
+            number_thousands(transaction.line_count()),
             memory_trace.peak()
         );
         if let Some(timings) = &self.report_timings {

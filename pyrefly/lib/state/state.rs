@@ -221,13 +221,6 @@ impl ReadableState {
             steps.solutions.as_deref().unwrap(),
         )
     }
-
-    pub fn line_count(&self) -> usize {
-        self.modules
-            .values()
-            .map(|x| x.state.steps.line_count())
-            .sum()
-    }
 }
 
 /// `TransactionData` contains most of the information in `Transaction`, but it doesn't lock
@@ -369,6 +362,29 @@ impl<'a> Transaction<'a> {
             }
             res
         }
+    }
+
+    pub fn line_count(&self) -> usize {
+        if self.data.updated_modules.is_empty() {
+            return self
+                .readable
+                .modules
+                .values()
+                .map(|x| x.state.steps.line_count())
+                .sum();
+        }
+        let mut res = self
+            .data
+            .updated_modules
+            .iter_unordered()
+            .map(|x| x.1.state.read().steps.line_count())
+            .sum();
+        for (k, v) in self.readable.modules.iter() {
+            if self.data.updated_modules.get(k).is_none() {
+                res += v.state.steps.line_count();
+            }
+        }
+        res
     }
 
     pub fn import_handle(
