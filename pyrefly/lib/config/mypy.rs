@@ -45,7 +45,7 @@ struct MypyOutput {
 impl MypyConfig {
     pub fn parse_mypy_config(ini_path: &Path) -> anyhow::Result<ConfigFile> {
         let script = "\
-import configparser, json, sys
+import configparser, json, re, sys
 cp = configparser.ConfigParser()
 with open(sys.argv[1]) as f:
     cp.read_file(f)
@@ -59,6 +59,8 @@ for section in cp.sections():
             continue
         if key in ('files', 'packages', 'modules'):
             value = [x.strip() for x in value.split(',') if x.strip()]
+        elif key == 'mypy_path':
+            value = [x.strip() for x in re.split('[,:]', value) if x.strip()]
         elif value in ('True', 'False'):
             value = value == 'True'
         cfg[section][key] = value
@@ -114,5 +116,61 @@ print(json.dumps({'mypy': mypy, 'per_module': cfg, 'replace_imports': replace_im
         cfg.root.replace_imports_with_any = Some(replace_imports);
 
         Ok(cfg)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::util::fs_anyhow;
+
+    #[test]
+    fn test_run_mypy() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("mypy.ini");
+        // This config is derived from the pytorch mypy.ini.
+        let mypy = br#"[mypy]
+files =
+    src,
+    other_src,
+    test/some_test.py,
+
+mypy_path = some_paths:comma,separated
+
+unknown_option = True
+
+exclude = src/include/|other_src/include/|src/specific/bad/file.py
+
+[mypy-some.*.project]
+ignore_missing_imports = True
+
+[mypy-some.specific.project.subdir]
+ignore_missing_imports = True
+
+[mypy-stricter.on.this.*]
+check_untyped_defs = True
+"#;
+        fs_anyhow::write(&input_path, mypy)?;
+
+        let cfg = MypyConfig::parse_mypy_config(&input_path)?;
+
+        let project_includes = Globs::new(vec![
+            "src".to_owned(),
+            "other_src".to_owned(),
+            "test/some_test.py".to_owned(),
+        ]);
+        assert_eq!(cfg.project_includes, project_includes);
+
+        assert_eq!(
+            cfg.search_path,
+            vec![
+                PathBuf::from("some_paths"),
+                PathBuf::from("comma"),
+                PathBuf::from("separated"),
+            ]
+        );
+
+        assert_eq!(cfg.replace_imports_with_any().len(), 2);
+        Ok(())
     }
 }

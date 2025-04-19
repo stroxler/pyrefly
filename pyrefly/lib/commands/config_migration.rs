@@ -66,9 +66,9 @@ impl Args {
 
 #[cfg(test)]
 mod tests {
+    use serde::Deserialize;
+
     use super::*;
-    use crate::globs::Globs;
-    use crate::module::wildcard::ModuleWildcard;
 
     #[test]
     fn test_run_pyright() -> anyhow::Result<()> {
@@ -109,6 +109,8 @@ files =
     other_src,
     test/some_test.py,
 
+mypy_path = some_paths:comma,separated
+
 unknown_option = True
 
 exclude = src/include/|other_src/include/|src/specific/bad/file.py
@@ -126,23 +128,24 @@ check_untyped_defs = True
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
 
+        // We care about the config getting serialized in a way that can be checked-in to a repo,
+        // i.e. without absolutized paths. So we need to check the raw file.
+        #[derive(Deserialize)]
+        struct CheckConfig {
+            project_includes: Vec<String>,
+            search_path: Vec<String>,
+        }
         let output_path = args.input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
-        let cfg = ConfigFile::from_file(&output_path, false)?;
-        let project_includes = Globs::new_with_root(
-            tmp.path(),
-            vec![
-                "src".to_owned(),
-                "other_src".to_owned(),
-                "test/some_test.py".to_owned(),
-            ],
+        let raw_output = fs_anyhow::read_to_string(&output_path)?;
+        let CheckConfig {
+            project_includes,
+            search_path,
+        } = toml::from_str::<CheckConfig>(&raw_output)?;
+        assert_eq!(
+            project_includes,
+            vec!["src", "other_src", "test/some_test.py"]
         );
-        assert_eq!(cfg.project_includes, project_includes);
-        let replace_imports = cfg
-            .replace_imports_with_any()
-            .iter()
-            .map(ModuleWildcard::as_str)
-            .collect::<Vec<_>>();
-        assert_eq!(replace_imports.len(), 2);
+        assert_eq!(search_path, vec!["some_paths", "comma", "separated"]);
         Ok(())
     }
 }
