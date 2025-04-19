@@ -245,6 +245,10 @@ impl<'a> Transaction<'a> {
         data
     }
 
+    pub fn set_subscriber(&mut self, subscriber: Option<Box<dyn Subscriber>>) {
+        self.data.subscriber = subscriber;
+    }
+
     #[allow(dead_code)] // Only used in tests for now
     pub fn get_solutions(&self, handle: &Handle) -> Option<Arc<Solutions>> {
         self.with_module_inner(handle, |x| x.steps.solutions.dupe())

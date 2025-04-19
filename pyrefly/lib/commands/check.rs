@@ -56,8 +56,8 @@ use crate::state::loader::FindError;
 use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
-use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
+use crate::state::state::Transaction;
 use crate::state::subscriber::ProgressBarSubscriber;
 use crate::util::display;
 use crate::util::display::number_thousands;
@@ -357,14 +357,15 @@ impl Args {
             return Ok(CommandExitStatus::Success);
         }
 
-        let mut holder = Forgetter::new(State::new(), allow_forget);
+        let holder = Forgetter::new(State::new(), allow_forget);
         let handles = Handles::new(expanded_file_list, &config_finder);
         let require_levels = self.get_required_levels();
+        let mut transaction = holder
+            .as_ref()
+            .new_transaction(require_levels.default, None);
         self.run_inner(
-            holder.as_mut(),
-            None,
+            &mut transaction,
             &handles.all(require_levels.specified),
-            require_levels.default,
             &handles.error_configs(),
         )
     }
@@ -381,24 +382,23 @@ impl Args {
         let require_levels = self.get_required_levels();
         let mut handles = Handles::new(expanded_file_list, &config_finder);
         let state = State::new();
-        let mut transaction = None;
+        let mut transaction = state.new_committable_transaction(require_levels.default, None);
         loop {
             let res = self.run_inner(
-                &state,
-                transaction,
+                transaction.as_mut(),
                 &handles.all(require_levels.specified),
-                require_levels.default,
                 &handles.error_configs(),
             );
+            state.commit_transaction(transaction);
             if let Err(e) = res {
                 eprintln!("{e:#}");
             }
             let events = get_watcher_events(&mut watcher).await?;
-            let mut new_transaction = state.new_committable_transaction(
+            transaction = state.new_committable_transaction(
                 require_levels.default,
                 Some(Box::new(ProgressBarSubscriber::new())),
             );
-            let new_transaction_mut = new_transaction.as_mut();
+            let new_transaction_mut = transaction.as_mut();
             new_transaction_mut.invalidate_disk(&events.modified);
 
             new_transaction_mut.invalidate_disk(&events.created);
@@ -413,7 +413,6 @@ impl Args {
             for loader in handles.loaders() {
                 new_transaction_mut.invalidate_find(&loader);
             }
-            transaction = Some(new_transaction);
         }
     }
 
@@ -471,22 +470,17 @@ impl Args {
 
     fn run_inner(
         &self,
-        state: &State,
-        transaction: Option<CommittingTransaction>,
+        transaction: &mut Transaction,
         handles: &[(Handle, Require)],
-        default_require: Require,
         error_configs: &ErrorConfigs,
     ) -> anyhow::Result<CommandExitStatus> {
         let mut memory_trace = MemoryUsageTrace::start(Duration::from_secs_f32(0.1));
         let start = Instant::now();
 
-        if let Some(transaction) = transaction {
-            state.run_with_committing_transaction(transaction, handles);
-        } else {
-            let progress = Box::new(ProgressBarSubscriber::new());
-            state.run(handles, default_require, Some(progress));
-        }
-        let transaction = state.transaction();
+        transaction.set_subscriber(Some(Box::new(ProgressBarSubscriber::new())));
+        transaction.run(handles);
+        transaction.set_subscriber(None);
+
         let loads = if self.check_all {
             transaction.get_all_loads()
         } else {
@@ -527,7 +521,7 @@ impl Args {
             fs_anyhow::write(
                 debug_info,
                 report::debug_info::debug_info(
-                    &transaction,
+                    transaction,
                     &handles.map(|x| x.0.dupe()),
                     error_configs,
                     is_javascript,
@@ -540,18 +534,18 @@ impl Args {
             for (handle, _) in handles {
                 fs_anyhow::write(
                     &glean.join(format!("{}.json", handle.module())),
-                    report::glean::glean(&transaction, handle).as_bytes(),
+                    report::glean::glean(transaction, handle).as_bytes(),
                 )?;
             }
         }
         if let Some(path) = &self.report_binding_memory {
             fs_anyhow::write(
                 path,
-                report::binding_memory::binding_memory(&transaction).as_bytes(),
+                report::binding_memory::binding_memory(transaction).as_bytes(),
             )?;
         }
         if let Some(path) = &self.report_trace {
-            fs_anyhow::write(path, report::trace::trace(&transaction).as_bytes())?;
+            fs_anyhow::write(path, report::trace::trace(transaction).as_bytes())?;
         }
         if self.suppress_errors {
             let mut errors_to_suppress: SmallMap<PathBuf, Vec<Error>> = SmallMap::new();
