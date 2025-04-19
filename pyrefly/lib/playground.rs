@@ -113,22 +113,14 @@ pub struct InlayHint {
     position: Position,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 struct DemoEnv(SmallMap<ModuleName, (ModulePath, Arc<String>)>);
 
 impl DemoEnv {
-    fn new() -> Self {
-        Self(SmallMap::new())
-    }
-
     fn add(&mut self, name: &str, code: Arc<String>) {
         let module_name = ModuleName::from_str(name);
         let relative_path = ModulePath::memory(PathBuf::from("test.py"));
         self.0.insert(module_name, (relative_path, code));
-    }
-
-    fn config() -> RuntimeMetadata {
-        RuntimeMetadata::default()
     }
 }
 
@@ -180,31 +172,23 @@ pub struct LanguageServiceState {
 
 impl LanguageServiceState {
     pub fn new() -> Self {
-        let demo_env = {
-            let mut demo_env = DemoEnv::new();
-            demo_env.add("test", Arc::new("".to_owned()));
-            Arc::new(Mutex::new(demo_env))
-        };
-        let load = Load(demo_env.dupe());
-        let loader = LoaderId::new(load);
+        let demo_env: Arc<Mutex<DemoEnv>> = Default::default();
+        let loader = LoaderId::new(Load(demo_env.dupe()));
         let state = State::new();
         let handle = Handle::new(
             ModuleName::from_str("test"),
             ModulePath::memory(PathBuf::from("test.py")),
-            DemoEnv::config(),
+            RuntimeMetadata::default(),
             loader.dupe(),
         );
-        state.run(
-            &[(handle.dupe(), Require::Everything)],
-            Require::Exports,
-            None,
-        );
-        Self {
+        let mut me = Self {
             state,
             demo_env,
             loader,
             handle,
-        }
+        };
+        me.update_source("".to_owned());
+        me
     }
 
     pub fn update_source(&mut self, source: String) {
