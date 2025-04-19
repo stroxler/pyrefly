@@ -153,9 +153,7 @@ impl<'a> IDETransactionManager<'a> {
     /// The `Transaction` will always contain the handles of all open files with the latest content.
     /// It might be created fresh from state, or reused from previously saved state.
     fn non_commitable_transaction(&mut self, state: &'a State) -> Transaction<'a> {
-        let mut saved_state = None;
-        std::mem::swap(&mut self.saved_state, &mut saved_state);
-        if let Some(saved_state) = saved_state {
+        if let Some(saved_state) = self.saved_state.take() {
             saved_state.into_running()
         } else {
             state.transaction()
