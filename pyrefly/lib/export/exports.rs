@@ -102,6 +102,7 @@ impl Exports {
                         }
                     }
                     DunderAllEntry::Remove(_, x) => {
+                        // This is O(n), but we'd appreciate the determism, and remove is rare in `__all__`.
                         result.shift_remove(x);
                     }
                 }
