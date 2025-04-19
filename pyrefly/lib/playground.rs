@@ -216,7 +216,7 @@ impl LanguageServiceState {
             .new_committable_transaction(Require::Exports, None);
         transaction
             .as_mut()
-            .invalidate_memory(self.loader.dupe(), &[PathBuf::from("test.py")]);
+            .invalidate_memory(self.loader.dupe(), vec![PathBuf::from("test.py")]);
         self.state.run_with_committing_transaction(
             transaction,
             &[(self.handle.dupe(), Require::Everything)],

@@ -213,7 +213,7 @@ impl Incremental {
                 .insert(ModuleName::from_str(&file), Arc::new(content.to_owned()));
             transaction
                 .as_mut()
-                .invalidate_memory(self.loader.dupe(), &[PathBuf::from(file)]);
+                .invalidate_memory(self.loader.dupe(), vec![PathBuf::from(file)]);
         }
 
         let handles = want.map(|x| self.handle(x));
