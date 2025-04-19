@@ -257,10 +257,10 @@ pub struct TransactionChanges<'a> {
     committing_transaction_guard: MutexGuard<'a, ()>,
 }
 
-/// `TransactionSavedState` contains most of the information in `RunningTransaction`, but it doesn't lock
+/// `TransactionData` contains most of the information in `Transaction`, but it doesn't lock
 /// the read of `State`.
 /// It is used to store uncommitted transaction state in between transaction runs.
-pub struct TransactionSavedState<'a> {
+pub struct TransactionData<'a> {
     state: &'a State,
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleData>>,
@@ -274,8 +274,8 @@ pub struct TransactionSavedState<'a> {
     subscriber: Option<Box<dyn Subscriber>>,
 }
 
-impl<'a> TransactionSavedState<'a> {
-    pub fn into_running(self) -> Transaction<'a> {
+impl<'a> TransactionData<'a> {
+    pub fn into_transaction(self) -> Transaction<'a> {
         let Self {
             state,
             stdlib,
@@ -332,7 +332,8 @@ pub struct Transaction<'a> {
 }
 
 impl<'a> Transaction<'a> {
-    pub fn into_saved_state(self) -> TransactionSavedState<'a> {
+    /// Drops the lock and retains just the underlying data.
+    pub fn into_data(self) -> TransactionData<'a> {
         let Self {
             state,
             readable,
@@ -347,7 +348,7 @@ impl<'a> Transaction<'a> {
             subscriber,
         } = self;
         drop(readable);
-        TransactionSavedState {
+        TransactionData {
             state,
             stdlib,
             updated_modules,

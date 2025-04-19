@@ -100,7 +100,7 @@ use crate::state::require::Require;
 use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::state::Transaction;
-use crate::state::state::TransactionSavedState;
+use crate::state::state::TransactionData;
 use crate::util::lock::Mutex;
 use crate::util::lock::RwLock;
 use crate::util::prelude::VecExt;
@@ -121,7 +121,7 @@ struct IDETransactionManager<'a> {
     /// If it's None, then the main `State` already contains up-to-date checked content
     /// of all in-memory files.
     /// Otherwise, it will contains up-to-date checked content of all in-memory files.
-    saved_state: Option<TransactionSavedState<'a>>,
+    saved_state: Option<TransactionData<'a>>,
 }
 
 impl<'a> IDETransactionManager<'a> {
@@ -155,7 +155,7 @@ impl<'a> IDETransactionManager<'a> {
     /// It might be created fresh from state, or reused from previously saved state.
     fn non_commitable_transaction(&mut self, state: &'a State) -> Transaction<'a> {
         if let Some(saved_state) = self.saved_state.take() {
-            saved_state.into_running()
+            saved_state.into_transaction()
         } else {
             state.transaction()
         }
@@ -163,7 +163,7 @@ impl<'a> IDETransactionManager<'a> {
 
     /// This function should be called once we finished using transaction for an LSP request.
     fn save(&mut self, transaction: Transaction<'a>) {
-        self.saved_state = Some(transaction.into_saved_state())
+        self.saved_state = Some(transaction.into_data())
     }
 }
 
