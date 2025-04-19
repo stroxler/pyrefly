@@ -11,6 +11,9 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use dupe::Dupe;
+use dupe::OptionDupedExt;
+
 use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 
@@ -38,9 +41,7 @@ impl MemoryFilesOverlay {
 }
 
 pub struct MemoryFilesLookup<'a> {
-    #[expect(dead_code)]
     base: &'a MemoryFiles,
-    #[expect(dead_code)]
     overlay: &'a MemoryFilesOverlay,
     loader: &'a LoaderId,
 }
@@ -59,7 +60,13 @@ impl<'a> MemoryFilesLookup<'a> {
     }
 
     pub fn get(&self, path: &Path) -> Option<Arc<String>> {
-        // TODO: Use the base and overlay
-        self.loader.load_from_memory(path)
+        if let Some(res) = self.loader.load_from_memory(path) {
+            return Some(res);
+        }
+        let key = (self.loader.dupe(), path.to_path_buf());
+        match self.overlay.0.get(&key) {
+            Some(contents) => contents.dupe(), // Might be a None if deleted
+            None => self.base.0.get(&key).duped(),
+        }
     }
 }
