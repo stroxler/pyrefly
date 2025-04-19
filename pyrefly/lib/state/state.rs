@@ -548,13 +548,12 @@ impl<'a> Transaction<'a> {
             }
 
             let stdlib = self.get_stdlib(&module_data.handle);
-            let loader = self.get_cached_loader(module_data.handle.loader());
             let set = compute(&Context {
                 require,
                 module: module_data.handle.module(),
                 path: module_data.handle.path(),
                 config: module_data.handle.config(),
-                loader: &*loader,
+                loader: module_data.handle.loader(),
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(module_data.dupe()),
@@ -1091,13 +1090,12 @@ impl<'a> Transaction<'a> {
             let mut alt = Steps::default();
             let lock = m.state.read();
             let stdlib = self.get_stdlib(&m.handle);
-            let loader = self.get_cached_loader(m.handle.loader());
             let ctx = Context {
                 require: lock.require.get(self.data.require),
                 module: m.handle.module(),
                 path: m.handle.path(),
                 config: m.handle.config(),
-                loader: &*loader,
+                loader: m.handle.loader(),
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(m.dupe()),
