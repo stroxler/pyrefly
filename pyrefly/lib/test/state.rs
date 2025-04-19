@@ -108,7 +108,7 @@ fn test_multiple_path() {
 
         fn load_from_memory(&self, path: &Path) -> Option<Arc<String>> {
             match FILES.iter().find(|x| x.1 == path.to_str().unwrap()) {
-                Some((_, _, content)) => Some(Arc::new((*content).to_owned())),
+                Some((_, _, contents)) => Some(Arc::new((*contents).to_owned())),
                 None => self.0.load_from_memory(path),
             }
         }
@@ -187,8 +187,8 @@ impl Incremental {
     }
 
     /// Change this file to these contents, expecting this number of errors.
-    fn set(&mut self, file: &str, content: &str) {
-        self.to_set.push((file.to_owned(), content.to_owned()));
+    fn set(&mut self, file: &str, contents: &str) {
+        self.to_set.push((file.to_owned(), contents.to_owned()));
     }
 
     fn handle(&self, x: &str) -> Handle {
@@ -206,15 +206,15 @@ impl Incremental {
         let mut transaction = self
             .state
             .new_committable_transaction(Require::Exports, Some(Box::new(subscriber.dupe())));
-        for (file, content) in mem::take(&mut self.to_set) {
-            let content = Arc::new(content.to_owned());
+        for (file, contents) in mem::take(&mut self.to_set) {
+            let contents = Arc::new(contents.to_owned());
             self.data
                 .0
                 .lock()
-                .insert(ModuleName::from_str(&file), content.dupe());
+                .insert(ModuleName::from_str(&file), contents.dupe());
             transaction
                 .as_mut()
-                .invalidate_memory(self.loader.dupe(), vec![(PathBuf::from(file), content)]);
+                .invalidate_memory(self.loader.dupe(), vec![(PathBuf::from(file), contents)]);
         }
 
         let handles = want.map(|x| self.handle(x));

@@ -49,25 +49,25 @@ impl BundledTypeshed {
                 .components()
                 .collect::<PathBuf>();
             let size = entry.size();
-            let mut content = String::with_capacity(size as usize);
+            let mut contents = String::with_capacity(size as usize);
             entry
-                .read_to_string(&mut content)
+                .read_to_string(&mut contents)
                 .context("Cannot read content of archive entry")?;
-            items.entry(relative_path).or_insert(content);
+            items.entry(relative_path).or_insert(contents);
         }
         Ok(items)
     }
 
     fn new() -> anyhow::Result<Self> {
-        let content = Self::unpack()?;
+        let contents = Self::unpack()?;
         let mut res = Self {
             find: SmallMap::new(),
             load: SmallMap::new(),
         };
-        for (relative_path, content) in content {
+        for (relative_path, contents) in contents {
             let module_name = ModuleName::from_relative_path(&relative_path)?;
             res.find.insert(module_name, relative_path.clone());
-            res.load.insert(relative_path, Arc::new(content));
+            res.load.insert(relative_path, Arc::new(contents));
         }
         Ok(res)
     }

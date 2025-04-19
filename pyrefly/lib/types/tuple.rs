@@ -66,7 +66,7 @@ impl Tuple {
         f: &mut fmt::Formatter<'_>,
         wrap: impl Fn(&'a Type) -> D,
     ) -> fmt::Result {
-        let content = match self {
+        let contents = match self {
             Self::Concrete(elts) => {
                 if elts.is_empty() {
                     "()".to_owned()
@@ -90,6 +90,6 @@ impl Tuple {
                 format!("{}{}{}", prefix, unpacked, suffix)
             }
         };
-        write!(f, "tuple[{content}]")
+        write!(f, "tuple[{contents}]")
     }
 }

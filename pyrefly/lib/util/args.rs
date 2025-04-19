@@ -15,8 +15,8 @@ pub static ENV_VAR_OVERRIDE_PREFIX: &str = "PYREFLY_";
 /// Do `@` file expansion
 pub fn get_args_expanded(args: impl Iterator<Item = OsString>) -> anyhow::Result<Vec<OsString>> {
     // Most programs drop empty lines, so we do too.
-    fn parse_file_skipping_blanks(content: &str, prefix: char) -> Vec<Argument> {
-        let mut res = argfile::parse_fromfile(content, prefix);
+    fn parse_file_skipping_blanks(contents: &str, prefix: char) -> Vec<Argument> {
+        let mut res = argfile::parse_fromfile(contents, prefix);
         res.retain(|x| match x {
             Argument::PassThrough(arg) => !arg.is_empty(),
             _ => true,
