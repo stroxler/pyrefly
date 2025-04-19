@@ -1017,10 +1017,10 @@ impl<'a> Transaction<'a> {
 
     /// Called if the `load_from_memory` portion of loading might have changed.
     /// Specify which in-memory files might have changed.
-    pub fn invalidate_memory(&mut self, loader: LoaderId, files: Vec<PathBuf>) {
+    pub fn invalidate_memory(&mut self, loader: LoaderId, files: Vec<(PathBuf, Arc<String>)>) {
         let files = files
             .into_iter()
-            .map(ModulePath::memory)
+            .map(|x| ModulePath::memory(x.0))
             .collect::<SmallSet<_>>();
         let mut dirty_set = self.data.dirty.lock();
         for handle in self.readable.modules.keys() {

@@ -210,13 +210,14 @@ impl Default for LanguageServiceState {
 
 impl LanguageServiceState {
     pub fn update_source(&mut self, source: String) {
-        self.demo_env.lock().unwrap().add("test", Arc::new(source));
+        let source = Arc::new(source);
+        self.demo_env.lock().unwrap().add("test", source.dupe());
         let mut transaction = self
             .state
             .new_committable_transaction(Require::Exports, None);
         transaction
             .as_mut()
-            .invalidate_memory(self.loader.dupe(), vec![PathBuf::from("test.py")]);
+            .invalidate_memory(self.loader.dupe(), vec![(PathBuf::from("test.py"), source)]);
         self.state.run_with_committing_transaction(
             transaction,
             &[(self.handle.dupe(), Require::Everything)],

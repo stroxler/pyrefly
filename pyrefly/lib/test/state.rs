@@ -207,13 +207,14 @@ impl Incremental {
             .state
             .new_committable_transaction(Require::Exports, Some(Box::new(subscriber.dupe())));
         for (file, content) in mem::take(&mut self.to_set) {
+            let content = Arc::new(content.to_owned());
             self.data
                 .0
                 .lock()
-                .insert(ModuleName::from_str(&file), Arc::new(content.to_owned()));
+                .insert(ModuleName::from_str(&file), content.dupe());
             transaction
                 .as_mut()
-                .invalidate_memory(self.loader.dupe(), vec![PathBuf::from(file)]);
+                .invalidate_memory(self.loader.dupe(), vec![(PathBuf::from(file), content)]);
         }
 
         let handles = want.map(|x| self.handle(x));

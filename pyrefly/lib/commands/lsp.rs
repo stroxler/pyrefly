@@ -629,7 +629,12 @@ impl Server {
                 let handles = config.open_file_handles();
                 transaction.invalidate_memory(
                     config.loader.dupe(),
-                    config.open_files.lock().keys().cloned().collect::<Vec<_>>(),
+                    config
+                        .open_files
+                        .lock()
+                        .iter()
+                        .map(|x| (x.0.clone(), x.1.dupe()))
+                        .collect::<Vec<_>>(),
                 );
                 all_handles.extend(handles.clone());
                 config_with_handles.push((config, handles));
