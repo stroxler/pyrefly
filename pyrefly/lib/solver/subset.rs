@@ -6,12 +6,12 @@
  */
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 use itertools::EitherOrBoth;
 use itertools::Itertools;
 use itertools::izip;
 use ruff_python_ast::name::Name;
-use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
@@ -219,7 +219,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 _ => return false,
             }
         }
-        let mut l_keywords = SmallMap::new();
+        let mut l_keywords = HashMap::new(); // All iterations don't matter about determinism
         let mut l_kwargs = None;
         for arg in Option::into_iter(l_arg).chain(l_args_iter) {
             match arg {
@@ -285,7 +285,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         };
         // Handle keyword-only args
         for (name, (u_ty, u_req)) in u_keywords.iter() {
-            if let Some((l_ty, l_req)) = l_keywords.shift_remove_hashed(Hashed::new(name)) {
+            if let Some((l_ty, l_req)) = l_keywords.remove(name) {
                 if !(*u_req == Required::Required || l_req == Required::Optional)
                     || !self.is_subset_eq(u_ty, &l_ty)
                 {
