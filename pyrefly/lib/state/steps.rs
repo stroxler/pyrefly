@@ -61,6 +61,12 @@ impl Steps {
             Some(last) => last.next(),
         }
     }
+
+    pub fn line_count(&self) -> usize {
+        self.load
+            .as_ref()
+            .map_or(0, |load| load.module_info.line_count())
+    }
 }
 
 #[derive(

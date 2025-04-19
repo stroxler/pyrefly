@@ -225,13 +225,7 @@ impl ReadableState {
     pub fn line_count(&self) -> usize {
         self.modules
             .values()
-            .map(|x| {
-                x.state
-                    .steps
-                    .load
-                    .as_ref()
-                    .map_or(0, |x| x.module_info.line_count())
-            })
+            .map(|x| x.state.steps.line_count())
             .sum()
     }
 }
