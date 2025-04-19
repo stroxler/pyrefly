@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter;
 use std::iter::once;
+use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -318,11 +319,7 @@ pub fn run_lsp(
             break;
         }
         server.process_lsp_message(&mut ide_transaction_manager, &mut canceled_requests, msg)?;
-        let mut immediately_handled_events = Vec::new();
-        std::mem::swap(
-            &mut immediately_handled_events,
-            server.immediately_handled_events.lock().as_mut(),
-        );
+        let immediately_handled_events = mem::take(&mut *server.immediately_handled_events.lock());
         for msg in immediately_handled_events {
             server.process_immediately_handled_event(&mut ide_transaction_manager, msg)?;
         }
