@@ -121,31 +121,42 @@ struct ModuleDataInner {
     steps: Steps,
 }
 
+impl ModuleDataInner {
+    fn new(now: Epoch) -> Self {
+        Self {
+            require: Default::default(),
+            epochs: Epochs::new(now),
+            dirty: Dirty::default(),
+            steps: Steps::default(),
+        }
+    }
+}
+
+impl ModuleData {
+    /// Make a copy of the data that can be mutated.
+    fn clone_for_mutation(&self) -> ModuleDataMut {
+        ModuleDataMut {
+            handle: self.handle.dupe(),
+            state: UpgradeLock::new(self.state.clone()),
+            deps: RwLock::new(self.deps.clone()),
+            rdeps: Mutex::new(self.rdeps.clone()),
+        }
+    }
+}
+
 impl ModuleDataMut {
     fn new(handle: Handle, now: Epoch) -> Self {
         Self {
             handle,
-            state: UpgradeLock::new(ModuleDataInner {
-                require: Default::default(),
-                epochs: Epochs::new(now),
-                dirty: Dirty::default(),
-                steps: Steps::default(),
-            }),
+            state: UpgradeLock::new(ModuleDataInner::new(now)),
             deps: Default::default(),
             rdeps: Default::default(),
         }
     }
 
-    fn from_snapshot(value: &ModuleData) -> Self {
-        ModuleDataMut {
-            handle: value.handle.dupe(),
-            state: UpgradeLock::new(value.state.clone()),
-            deps: RwLock::new(value.deps.clone()),
-            rdeps: Mutex::new(value.rdeps.clone()),
-        }
-    }
-
-    fn to_snapshot(&self) -> ModuleData {
+    /// Take the data out of the `ModuleDataMut`, leaving a `ModuleData`.
+    /// Reusing the `ModuleDataMut` is not possible.
+    fn take_and_freeze(&self) -> ModuleData {
         let ModuleDataMut {
             handle,
             state,
@@ -626,7 +637,7 @@ impl<'a> Transaction<'a> {
             .updated_modules
             .ensure(handle, || {
                 if let Some(m) = self.readable.modules.get(handle) {
-                    ArcId::new(ModuleDataMut::from_snapshot(m))
+                    ArcId::new(m.clone_for_mutation())
                 } else {
                     let res = ArcId::new(ModuleDataMut::new(handle.dupe(), self.data.now));
                     created = Some(res.dupe());
@@ -1284,8 +1295,9 @@ impl State {
         state.now = now;
         state.require = require;
         for (handle, new_module_data) in updated_modules.iter_unordered() {
-            let new_data = new_module_data.to_snapshot();
-            state.modules.insert(handle.dupe(), new_data);
+            state
+                .modules
+                .insert(handle.dupe(), new_module_data.take_and_freeze());
         }
         for (loader_id, additional_loader) in additional_loaders {
             state.loaders.insert(loader_id, additional_loader);
