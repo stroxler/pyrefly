@@ -206,13 +206,11 @@ impl Config {
         runtime_metadata: RuntimeMetadata,
         open_files: HashMap<PathBuf, Arc<String>>,
     ) -> Self {
-        let open_files = Arc::new(Mutex::new(open_files));
         Self {
-            open_files: open_files.dupe(),
+            open_files: Arc::new(Mutex::new(open_files)),
             runtime_metadata,
             search_path: search_path.clone(),
             loader: LoaderId::new(LspLoader {
-                open_files,
                 search_path,
                 site_package_path,
             }),
@@ -351,7 +349,6 @@ impl Args {
 
 #[derive(Debug, Clone)]
 struct LspLoader {
-    open_files: Arc<Mutex<HashMap<PathBuf, Arc<String>>>>,
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
 }
@@ -371,10 +368,6 @@ impl Loader for LspLoader {
                 &self.site_package_path,
             ))
         }
-    }
-
-    fn load_from_memory(&self, path: &Path) -> Option<Arc<String>> {
-        Some(self.open_files.lock().get(path)?.dupe())
     }
 }
 
