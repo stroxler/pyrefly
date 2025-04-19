@@ -514,7 +514,9 @@ impl Args {
         );
         if let Some(timings) = &self.report_timings {
             eprintln!("Computing timing information");
-            transaction.report_timings(timings, Some(Box::new(ProgressBarSubscriber::new())))?;
+            transaction.set_subscriber(Some(Box::new(ProgressBarSubscriber::new())));
+            transaction.report_timings(timings)?;
+            transaction.set_subscriber(None);
         }
         if let Some(debug_info) = &self.debug_info {
             let is_javascript = debug_info.extension() == Some("js".as_ref());

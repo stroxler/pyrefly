@@ -1055,15 +1055,11 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    pub fn report_timings(
-        &self,
-        path: &Path,
-        subscriber: Option<Box<dyn Subscriber>>,
-    ) -> anyhow::Result<()> {
+    pub fn report_timings(&self, path: &Path) -> anyhow::Result<()> {
         let mut file = BufWriter::new(File::create(path)?);
         writeln!(file, "Module,Step,Seconds")?;
         file.flush()?;
-        if let Some(subscriber) = &subscriber {
+        if let Some(subscriber) = &self.data.subscriber {
             // Start everything so we have the right size progress bar.
             for m in self.readable.modules.values() {
                 subscriber.start_work(m.handle.dupe());
@@ -1125,7 +1121,7 @@ impl<'a> Transaction<'a> {
                     error!("Not deterministic {}: {}", m.handle.module(), diff)
                 }
             }
-            if let Some(subscriber) = &subscriber {
+            if let Some(subscriber) = &self.data.subscriber {
                 subscriber.finish_work(m.handle.dupe(), alt.load.unwrap().dupe());
             }
         }
