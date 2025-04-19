@@ -5,10 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use anyhow::anyhow;
 use dupe::Dupe;
@@ -16,7 +14,6 @@ use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use ruff_source_file::SourceLocation;
 use serde::Serialize;
-use starlark_map::small_map::SmallMap;
 
 use crate::config::error::ErrorConfigs;
 use crate::metadata::RuntimeMetadata;
@@ -114,21 +111,11 @@ pub struct InlayHint {
 }
 
 #[derive(Default, Debug, Clone)]
-struct DemoEnv(SmallMap<ModuleName, (ModulePath, Arc<String>)>);
+struct TypeshedLoader;
 
-impl DemoEnv {
-    fn add(&mut self, name: &str, code: Arc<String>) {
-        let module_name = ModuleName::from_str(name);
-        let relative_path = ModulePath::memory(PathBuf::from("test.py"));
-        self.0.insert(module_name, (relative_path, code));
-    }
-}
-
-impl Loader for DemoEnv {
+impl Loader for TypeshedLoader {
     fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        if let Some((path, _)) = self.0.get(&module) {
-            Ok(path.dupe())
-        } else if let Some(path) = typeshed().map_err(FindError::not_found)?.find(module) {
+        if let Some(path) = typeshed().map_err(FindError::not_found)?.find(module) {
             Ok(path)
         } else {
             Err(FindError::not_found(anyhow!(
@@ -138,30 +125,15 @@ impl Loader for DemoEnv {
     }
 }
 
-#[derive(Debug)]
-struct Load(Arc<Mutex<DemoEnv>>);
-
-impl Loader for Load {
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        self.0.lock().unwrap().find_import(module)
-    }
-
-    fn load_from_memory(&self, path: &Path) -> Option<Arc<String>> {
-        self.0.lock().unwrap().load_from_memory(path)
-    }
-}
-
 pub struct LanguageServiceState {
     state: State,
-    demo_env: Arc<Mutex<DemoEnv>>,
     loader: LoaderId,
     handle: Handle,
 }
 
 impl LanguageServiceState {
     pub fn new() -> Self {
-        let demo_env: Arc<Mutex<DemoEnv>> = Default::default();
-        let loader = LoaderId::new(Load(demo_env.dupe()));
+        let loader = LoaderId::new(TypeshedLoader);
         let state = State::new();
         let handle = Handle::new(
             ModuleName::from_str("test"),
@@ -171,7 +143,6 @@ impl LanguageServiceState {
         );
         let mut me = Self {
             state,
-            demo_env,
             loader,
             handle,
         };
@@ -181,7 +152,6 @@ impl LanguageServiceState {
 
     pub fn update_source(&mut self, source: String) {
         let source = Arc::new(source);
-        self.demo_env.lock().unwrap().add("test", source.dupe());
         let mut transaction = self
             .state
             .new_committable_transaction(Require::Exports, None);
