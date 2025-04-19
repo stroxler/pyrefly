@@ -247,7 +247,7 @@ impl ReadableState {
 
 /// The changes that happen during the transactions, which should either be completely discarded
 /// or committed together in the end.
-pub struct TransactionChanges<'a> {
+struct TransactionChanges<'a> {
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleData>>,
     additional_loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
@@ -1186,7 +1186,7 @@ impl<'a> AsMut<Transaction<'a>> for CommittingTransaction<'a> {
 }
 
 impl<'a> CommittingTransaction<'a> {
-    pub fn into_changes(self) -> TransactionChanges<'a> {
+    fn into_changes(self) -> TransactionChanges<'a> {
         let CommittingTransaction {
             transaction:
                 Transaction {
@@ -1301,8 +1301,7 @@ impl State {
         }
     }
 
-    pub fn commit_transaction(&self, changes: TransactionChanges) {
-        let mut state = self.state.write();
+    pub fn commit_transaction(&self, transaction: CommittingTransaction) {
         let TransactionChanges {
             stdlib,
             updated_modules,
@@ -1310,7 +1309,8 @@ impl State {
             now,
             require,
             committing_transaction_guard,
-        } = changes;
+        } = transaction.into_changes();
+        let mut state = self.state.write();
         state.stdlib = stdlib;
         state.now = now;
         state.require = require;
@@ -1332,7 +1332,7 @@ impl State {
     ) {
         let mut transaction = self.new_committable_transaction(new_require, subscriber);
         transaction.transaction.run(handles);
-        self.commit_transaction(transaction.into_changes());
+        self.commit_transaction(transaction);
     }
 
     pub fn run_with_committing_transaction(
@@ -1341,6 +1341,6 @@ impl State {
         handles: &[(Handle, Require)],
     ) {
         transaction.transaction.run(handles);
-        self.commit_transaction(transaction.into_changes());
+        self.commit_transaction(transaction);
     }
 }

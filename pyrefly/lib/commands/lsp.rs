@@ -637,7 +637,7 @@ impl Server {
         transaction.run(&all_handles);
         match possibly_committable_transaction {
             Ok(transaction) => {
-                self.state.commit_transaction(transaction.into_changes());
+                self.state.commit_transaction(transaction);
                 // In the case where we can commit transactions, `State` already has latest updates.
                 // Therefore, we can compute errors from transactions freshly created from `State``.
                 let transaction = self.state.transaction();
