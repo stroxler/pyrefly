@@ -193,7 +193,7 @@ struct Server {
 /// TODO(connernilsel): replace with real config logic
 #[derive(Debug)]
 struct Config {
-    open_files: Arc<Mutex<HashMap<PathBuf, (i32, Arc<String>)>>>,
+    open_files: Arc<Mutex<HashMap<PathBuf, Arc<String>>>>,
     runtime_metadata: RuntimeMetadata,
     search_path: Vec<PathBuf>,
     loader: LoaderId,
@@ -205,7 +205,7 @@ impl Config {
         search_path: Vec<PathBuf>,
         site_package_path: Vec<PathBuf>,
         runtime_metadata: RuntimeMetadata,
-        open_files: HashMap<PathBuf, (i32, Arc<String>)>,
+        open_files: HashMap<PathBuf, Arc<String>>,
     ) -> Self {
         let open_files = Arc::new(Mutex::new(open_files));
         Self {
@@ -356,7 +356,7 @@ impl Args {
 
 #[derive(Debug, Clone)]
 struct LspLoader {
-    open_files: Arc<Mutex<HashMap<PathBuf, (i32, Arc<String>)>>>,
+    open_files: Arc<Mutex<HashMap<PathBuf, Arc<String>>>>,
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
 }
@@ -379,7 +379,7 @@ impl Loader for LspLoader {
     }
 
     fn load_from_memory(&self, path: &Path) -> Option<Arc<String>> {
-        Some(self.open_files.lock().get(path)?.1.dupe())
+        Some(self.open_files.lock().get(path)?.dupe())
     }
 }
 
@@ -693,13 +693,10 @@ impl Server {
     ) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
         self.get_config_with(uri.clone(), |config| {
-            config.open_files.lock().insert(
-                uri,
-                (
-                    params.text_document.version,
-                    Arc::new(params.text_document.text),
-                ),
-            );
+            config
+                .open_files
+                .lock()
+                .insert(uri, Arc::new(params.text_document.text));
         });
         self.validate_in_memory(ide_transaction_manager)
     }
@@ -713,10 +710,7 @@ impl Server {
         let change = params.content_changes.into_iter().next().unwrap();
         let uri = params.text_document.uri.to_file_path().unwrap();
         self.get_config_with(uri.clone(), |config| {
-            config
-                .open_files
-                .lock()
-                .insert(uri, (params.text_document.version, Arc::new(change.text)));
+            config.open_files.lock().insert(uri, Arc::new(change.text));
         });
         self.validate_in_memory(ide_transaction_manager)
     }
