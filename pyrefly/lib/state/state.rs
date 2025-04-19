@@ -222,10 +222,6 @@ impl ReadableState {
         )
     }
 
-    pub fn module_count(&self) -> usize {
-        self.modules.len()
-    }
-
     pub fn line_count(&self) -> usize {
         self.modules
             .values()
@@ -359,6 +355,22 @@ impl<'a> Transaction<'a> {
             for x in self.readable.modules.keys() {
                 if self.data.updated_modules.get(x).is_none() {
                     res.push(x.clone());
+                }
+            }
+            res
+        }
+    }
+
+    pub fn module_count(&self) -> usize {
+        let transaction = self.data.updated_modules.len();
+        let base = self.readable.modules.len();
+        if transaction == 0 || base == 0 {
+            transaction + base
+        } else {
+            let mut res = transaction;
+            for x in self.readable.modules.keys() {
+                if self.data.updated_modules.get(x).is_none() {
+                    res += 1;
                 }
             }
             res

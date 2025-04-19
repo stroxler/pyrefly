@@ -516,7 +516,7 @@ impl Args {
             number_thousands(shown_errors_count),
             number_thousands(errors.disabled.len()),
             number_thousands(errors.suppressed.len()),
-            number_thousands(readable_state.module_count()),
+            number_thousands(transaction.module_count()),
             number_thousands(readable_state.line_count()),
             memory_trace.peak()
         );
