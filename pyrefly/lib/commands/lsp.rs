@@ -553,9 +553,9 @@ impl Server {
         search_path: Vec<PathBuf>,
         site_package_path: Vec<PathBuf>,
     ) -> Self {
-        let folders = if let Some(capability) = initialize_params.clone().capabilities.workspace
+        let folders = if let Some(capability) = &initialize_params.capabilities.workspace
             && let Some(true) = capability.workspace_folders
-            && let Some(folders) = initialize_params.clone().workspace_folders
+            && let Some(folders) = &initialize_params.workspace_folders
         {
             folders
                 .iter()
@@ -961,14 +961,14 @@ impl Server {
         // Currently uses the default interpreter if the pythonPath is invalid
         let env = PythonEnvironment::get_interpreter_env(&PathBuf::from(python_path));
         // TODO(kylei): warn if interpreter could not be found
-        if let Some(site_package_path) = env.clone().site_package_path
+        if let Some(site_package_path) = &env.site_package_path
             && let Some(config) = configs.get(&config_path)
         {
             *modified = true;
             let search_path = config.search_path.clone();
             let new_config = Config::new(
                 search_path,
-                site_package_path,
+                site_package_path.clone(),
                 // this is okay, since `get_interpreter_env()` must return an environment with all values as `Some()`
                 RuntimeMetadata::new(env.python_version.unwrap(), env.python_platform.unwrap()),
                 config.open_files.lock().clone(),
