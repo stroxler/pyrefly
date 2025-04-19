@@ -90,7 +90,7 @@ use crate::util::upgrade_lock::UpgradeLock;
 use crate::util::upgrade_lock::UpgradeLockExclusiveGuard;
 use crate::util::upgrade_lock::UpgradeLockWriteGuard;
 
-/// `ModuleDataSnapshot` is a snapshot of `ArcId<ModuleData>` in the main state.
+/// `ModuleDataSnapshot` is a snapshot of `ArcId<ModuleDataMut>` in the main state.
 /// The snapshot is readonly most of the times. It will only be overwritten with updated information
 /// from `Transaction` when we decide to commit a `Transaction` into the main state.
 #[derive(Debug)]
@@ -102,7 +102,7 @@ struct ModuleDataSnapshot {
 }
 
 #[derive(Debug)]
-struct ModuleData {
+struct ModuleDataMut {
     handle: Handle,
     state: UpgradeLock<Step, ModuleDataInner>,
     deps: RwLock<HashMap<ModuleName, Handle, BuildNoHash>>,
@@ -112,7 +112,7 @@ struct ModuleData {
     rdeps: Mutex<HashSet<Handle>>,
 }
 
-/// The fields of `ModuleData` that are stored together as they might be mutated.
+/// The fields of `ModuleDataMut` that are stored together as they might be mutated.
 #[derive(Debug, Clone)]
 struct ModuleDataInner {
     require: RequireOverride,
@@ -121,7 +121,7 @@ struct ModuleDataInner {
     steps: Steps,
 }
 
-impl ModuleData {
+impl ModuleDataMut {
     fn new(handle: Handle, now: Epoch) -> Self {
         Self {
             handle,
@@ -137,7 +137,7 @@ impl ModuleData {
     }
 
     fn from_snapshot(value: &ModuleDataSnapshot) -> Self {
-        ModuleData {
+        ModuleDataMut {
             handle: value.handle.dupe(),
             state: UpgradeLock::new(value.state.clone()),
             deps: RwLock::new(value.deps.clone()),
@@ -146,7 +146,7 @@ impl ModuleData {
     }
 
     fn to_snapshot(&self) -> ModuleDataSnapshot {
-        let ModuleData {
+        let ModuleDataMut {
             handle,
             state,
             deps,
@@ -252,7 +252,7 @@ impl ReadableState {
 pub struct TransactionData<'a> {
     state: &'a State,
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
-    updated_modules: LockedMap<Handle, ArcId<ModuleData>>,
+    updated_modules: LockedMap<Handle, ArcId<ModuleDataMut>>,
     additional_loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
     require: RequireDefault,
     /// The current epoch, gets incremented every time we recompute
@@ -260,11 +260,11 @@ pub struct TransactionData<'a> {
     /// Items we still need to process. Stored in a max heap, so that
     /// the highest step (the module that is closest to being finished)
     /// gets picked first, ensuring we release its memory quickly.
-    todo: TaskHeap<Step, ArcId<ModuleData>>,
+    todo: TaskHeap<Step, ArcId<ModuleDataMut>>,
     /// Values whose solutions changed value since the last time we recomputed
-    changed: Mutex<Vec<ArcId<ModuleData>>>,
+    changed: Mutex<Vec<ArcId<ModuleDataMut>>>,
     /// Handles which are dirty
-    dirty: Mutex<SmallSet<ArcId<ModuleData>>>,
+    dirty: Mutex<SmallSet<ArcId<ModuleDataMut>>>,
     /// Thing to tell about each action.
     subscriber: Option<Box<dyn Subscriber>>,
 }
@@ -365,7 +365,7 @@ impl<'a> Transaction<'a> {
 
     fn clean(
         &self,
-        module_data: &ArcId<ModuleData>,
+        module_data: &ArcId<ModuleDataMut>,
         exclusive: UpgradeLockExclusiveGuard<Step, ModuleDataInner>,
     ) {
         // We need to clean up the state.
@@ -477,7 +477,7 @@ impl<'a> Transaction<'a> {
         finish(&mut write);
     }
 
-    fn demand(&self, module_data: &ArcId<ModuleData>, step: Step) {
+    fn demand(&self, module_data: &ArcId<ModuleDataMut>, step: Step) {
         let mut computed = false;
         loop {
             let reader = module_data.state.read();
@@ -614,27 +614,27 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn get_module(&self, handle: &Handle) -> ArcId<ModuleData> {
+    fn get_module(&self, handle: &Handle) -> ArcId<ModuleDataMut> {
         self.get_module_ex(handle).0
     }
 
     /// Return the module, plus true if the module was newly created.
-    fn get_module_ex(&self, handle: &Handle) -> (ArcId<ModuleData>, bool) {
+    fn get_module_ex(&self, handle: &Handle) -> (ArcId<ModuleDataMut>, bool) {
         let mut created = None;
         let res = self
             .data
             .updated_modules
             .ensure(handle, || {
                 if let Some(m) = self.readable.modules.get(handle) {
-                    ArcId::new(ModuleData::from_snapshot(m))
+                    ArcId::new(ModuleDataMut::from_snapshot(m))
                 } else {
-                    let res = ArcId::new(ModuleData::new(handle.dupe(), self.data.now));
+                    let res = ArcId::new(ModuleDataMut::new(handle.dupe(), self.data.now));
                     created = Some(res.dupe());
                     res
                 }
             })
             .dupe();
-        // Due to race conditions, we might create two ModuleData, but only the first is returned.
+        // Due to race conditions, we might create two ModuleDataMut, but only the first is returned.
         // Figure out if we won the race, and thus are the person who actually did the creation.
         let created = Some(&res) == created.as_ref();
         if created && let Some(subscriber) = &self.data.subscriber {
@@ -645,7 +645,7 @@ impl<'a> Transaction<'a> {
 
     fn add_error(
         &self,
-        module_data: &ArcId<ModuleData>,
+        module_data: &ArcId<ModuleDataMut>,
         range: TextRange,
         msg: String,
         kind: ErrorKind,
@@ -654,7 +654,7 @@ impl<'a> Transaction<'a> {
         load.errors.add(range, msg, kind, None);
     }
 
-    fn lookup<'b>(&'b self, module_data: ArcId<ModuleData>) -> TransactionHandle<'b> {
+    fn lookup<'b>(&'b self, module_data: ArcId<ModuleDataMut>) -> TransactionHandle<'b> {
         TransactionHandle {
             transaction: self,
             module_data,
@@ -698,7 +698,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn lookup_export(&self, module_data: &ArcId<ModuleData>) -> Exports {
+    fn lookup_export(&self, module_data: &ArcId<ModuleDataMut>) -> Exports {
         self.demand(module_data, Step::Exports);
         let lock = module_data.state.read();
         lock.steps.exports.dupe().unwrap()
@@ -706,7 +706,7 @@ impl<'a> Transaction<'a> {
 
     fn lookup_answer<'b, K: Solve<TransactionHandle<'b>> + Keyed<EXPORTED = true>>(
         &'b self,
-        module_data: ArcId<ModuleData>,
+        module_data: ArcId<ModuleDataMut>,
         key: &K,
     ) -> Arc<<K as Keyed>::Answer>
     where
@@ -842,11 +842,11 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn invalidate_rdeps(&mut self, changed: &[ArcId<ModuleData>]) {
+    fn invalidate_rdeps(&mut self, changed: &[ArcId<ModuleDataMut>]) {
         // We need to invalidate all modules that depend on anything in changed, including transitively.
         fn f(
             state: &Transaction,
-            dirty_handles: &mut SmallMap<Handle, Option<ArcId<ModuleData>>>,
+            dirty_handles: &mut SmallMap<Handle, Option<ArcId<ModuleDataMut>>>,
             stack: &mut HashSet<Handle>,
             x: &ModuleDataSnapshot,
         ) -> bool {
@@ -887,7 +887,7 @@ impl<'a> Transaction<'a> {
             f(self, &mut dirty_handles, &mut stack, x);
         }
 
-        let mut dirty_set: std::sync::MutexGuard<'_, SmallSet<ArcId<ModuleData>>> =
+        let mut dirty_set: std::sync::MutexGuard<'_, SmallSet<ArcId<ModuleDataMut>>> =
             self.data.dirty.lock();
         for (_, dirty_module_data) in dirty_handles {
             if let Some(x) = dirty_module_data {
@@ -1107,7 +1107,7 @@ impl<'a> Transaction<'a> {
 
 pub struct TransactionHandle<'a> {
     transaction: &'a Transaction<'a>,
-    module_data: ArcId<ModuleData>,
+    module_data: ArcId<ModuleDataMut>,
 }
 
 impl<'a> TransactionHandle<'a> {
@@ -1115,7 +1115,7 @@ impl<'a> TransactionHandle<'a> {
         &self,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> Result<ArcId<ModuleData>, FindError> {
+    ) -> Result<ArcId<ModuleDataMut>, FindError> {
         if let Some(res) = self.module_data.deps.read().get(&module) {
             return Ok(self.transaction.get_module(res));
         }
