@@ -20,7 +20,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::config::error::ErrorConfigs;
 use crate::metadata::RuntimeMetadata;
-use crate::module::bundled::BundledTypeshed;
 use crate::module::bundled::typeshed;
 use crate::module::module_info::SourceRange;
 use crate::module::module_name::ModuleName;
@@ -115,14 +114,11 @@ pub struct InlayHint {
 }
 
 #[derive(Debug, Clone)]
-struct DemoEnv(
-    SmallMap<ModuleName, (ModulePath, Option<String>)>,
-    BundledTypeshed,
-);
+struct DemoEnv(SmallMap<ModuleName, (ModulePath, Option<String>)>);
 
 impl DemoEnv {
     pub fn new() -> Self {
-        Self(SmallMap::new(), typeshed().unwrap().clone())
+        Self(SmallMap::new())
     }
 
     pub fn add(&mut self, name: &str, code: String) {
@@ -134,21 +130,14 @@ impl DemoEnv {
     pub fn config() -> RuntimeMetadata {
         RuntimeMetadata::default()
     }
-
-    pub fn typeshed(&self) -> &BundledTypeshed {
-        &self.1
-    }
 }
 
 impl Loader for DemoEnv {
     fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
         if let Some((path, _)) = self.0.get(&module) {
             Ok(path.dupe())
-        } else if self.typeshed().find(module).is_some() {
-            Ok(ModulePath::memory(PathBuf::from(format!(
-                "{}.pyi",
-                module.as_str().replace('.', "/")
-            ))))
+        } else if let Some(path) = typeshed().map_err(FindError::not_found)?.find(module) {
+            Ok(path)
         } else {
             Err(FindError::not_found(anyhow!(
                 "module is not available in sandbox"
@@ -167,13 +156,7 @@ impl Loader for DemoEnv {
                 }
             }
         }
-        let module_name = ModuleName::from_str(path.file_stem()?.to_str()?);
-        Some(Arc::new(
-            self.typeshed()
-                .find_and_load(module_name)?
-                .to_string()
-                .to_owned(),
-        ))
+        None
     }
 }
 

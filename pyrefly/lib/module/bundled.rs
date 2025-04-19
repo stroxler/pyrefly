@@ -81,12 +81,6 @@ impl BundledTypeshed {
     pub fn load(&self, path: &PathBuf) -> Option<Arc<String>> {
         self.load.get(path).cloned()
     }
-
-    pub fn find_and_load(&self, module: ModuleName) -> Option<Arc<String>> {
-        self.find
-            .get(&module)
-            .and_then(|path| self.load.get(path).cloned())
-    }
 }
 
 static BUNDLED_TYPESHED: LazyLock<anyhow::Result<BundledTypeshed>> =
