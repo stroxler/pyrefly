@@ -9,7 +9,7 @@ use ruff_python_ast::ModModule;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::alt::answers::Solutions;
+use crate::alt::answers::Answers;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::report::glean::schema::*;
@@ -29,7 +29,7 @@ impl Glean {
         module_info: &ModuleInfo,
         ast: &ModModule,
         bindings: &Bindings,
-        solutions: &Solutions,
+        answers: &Answers,
     ) -> Self {
         let entries = vec![
             GleanEntry::SchemaId {

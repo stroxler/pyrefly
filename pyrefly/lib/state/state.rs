@@ -218,7 +218,7 @@ impl ReadableState {
             &steps.load.as_ref().unwrap().module_info,
             steps.ast.as_deref().unwrap(),
             &steps.answers.as_ref().unwrap().0,
-            steps.solutions.as_deref().unwrap(),
+            &steps.answers.as_ref().unwrap().1,
         )
     }
 }
