@@ -635,7 +635,7 @@ impl Server {
                     config.loader.dupe(),
                     &config.open_files.lock().keys().cloned().collect::<Vec<_>>(),
                 );
-                all_handles.append(&mut handles.clone());
+                all_handles.extend(handles.clone());
                 config_with_handles.push((config, handles));
             });
         transaction.run(&all_handles);
