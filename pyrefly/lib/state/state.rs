@@ -1304,7 +1304,11 @@ impl State {
                             additional_loaders,
                             now,
                             require,
-                            ..
+                            state: _,
+                            todo: _,
+                            changed: _,
+                            dirty: _,
+                            subscriber: _,
                         },
                 },
             committing_transaction_guard,
