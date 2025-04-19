@@ -114,7 +114,7 @@ pub struct InlayHint {
 }
 
 #[derive(Debug, Clone)]
-struct DemoEnv(SmallMap<ModuleName, (ModulePath, Option<String>)>);
+struct DemoEnv(SmallMap<ModuleName, (ModulePath, String)>);
 
 impl DemoEnv {
     pub fn new() -> Self {
@@ -124,7 +124,7 @@ impl DemoEnv {
     pub fn add(&mut self, name: &str, code: String) {
         let module_name = ModuleName::from_str(name);
         let relative_path = ModulePath::memory(PathBuf::from("test.py"));
-        self.0.insert(module_name, (relative_path, Some(code)));
+        self.0.insert(module_name, (relative_path, code));
     }
 
     pub fn config() -> RuntimeMetadata {
@@ -151,9 +151,7 @@ impl Loader for DemoEnv {
         let memory_path = ModulePath::memory(path.to_owned());
         for (p, contents) in self.0.values() {
             if p == &memory_path {
-                if let Some(c) = contents {
-                    return Some(Arc::new(c.clone()));
-                }
+                return Some(Arc::new(contents.clone()));
             }
         }
         None
