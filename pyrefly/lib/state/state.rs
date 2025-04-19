@@ -172,7 +172,7 @@ impl ModuleDataMut {
 }
 
 /// A subset of State that contains readable information for various systems (e.g. IDE, error reporting, etc).
-pub struct ReadableState {
+struct ReadableState {
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     modules: HashMap<Handle, ModuleData>,
     loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
