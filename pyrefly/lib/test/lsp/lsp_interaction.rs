@@ -114,51 +114,46 @@ fn run_test_lsp(test_case: TestCase) {
     // this thread sends messages to the language server (from test case)
     let language_server_sender_thread: thread::JoinHandle<Result<(), std::io::Error>> =
         thread::spawn(move || {
-            test_case
-                .messages_from_language_client
-                .iter()
-                .for_each(|msg| {
-                    let send = || {
-                        eprintln!("client--->server {}", serde_json::to_string(&msg).unwrap());
-                        if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout)
+            for msg in test_case.messages_from_language_client {
+                let send = || {
+                    eprintln!("client--->server {}", serde_json::to_string(&msg).unwrap());
+                    if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout) {
+                        panic!("Failed to send message to language server: {:?}", err);
+                    }
+                };
+                match &msg {
+                    Message::Request(Request {
+                        id,
+                        method: _,
+                        params: _,
+                    }) => {
+                        send();
+                        if let Ok(response) =
+                            server_response_received_receiver.recv_timeout(timeout)
+                            && response == *id
                         {
-                            panic!("Failed to send message to language server: {:?}", err);
-                        }
-                    };
-                    match &msg {
-                        Message::Request(Request {
-                            id,
-                            method: _,
-                            params: _,
-                        }) => {
-                            send();
-                            if let Ok(response) =
-                                server_response_received_receiver.recv_timeout(timeout)
-                                && response == *id
-                            {
-                                // continue
-                            } else {
-                                panic!("Did not receive response for request {:?}", id);
-                            }
-                        }
-                        Message::Notification(_) => send(),
-                        // Language client responses need to ensure the request was sent first
-                        Message::Response(Response {
-                            id,
-                            result: _,
-                            error: _,
-                        }) => {
-                            if let Ok(response) =
-                                client_request_received_receiver.recv_timeout(timeout)
-                                && response == *id
-                            {
-                                send();
-                            } else {
-                                panic!("Did not receive request for intended response {:?}", &msg);
-                            }
+                            // continue
+                        } else {
+                            panic!("Did not receive response for request {:?}", id);
                         }
                     }
-                });
+                    Message::Notification(_) => send(),
+                    // Language client responses need to ensure the request was sent first
+                    Message::Response(Response {
+                        id,
+                        result: _,
+                        error: _,
+                    }) => {
+                        if let Ok(response) = client_request_received_receiver.recv_timeout(timeout)
+                            && response == *id
+                        {
+                            send();
+                        } else {
+                            panic!("Did not receive request for intended response {:?}", &msg);
+                        }
+                    }
+                }
+            }
             Ok(())
         });
 

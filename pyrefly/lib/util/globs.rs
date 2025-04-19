@@ -49,7 +49,7 @@ impl Glob {
 
     fn pattern_relative_to_root(root: &Path, pattern: &Path) -> PathBuf {
         let mut relative_path = root.to_path_buf();
-        pattern.components().for_each(|comp: Component| {
+        for comp in pattern.components() {
             match comp {
                 prefix @ Component::Prefix(_) => {
                     // we'll only hit this if we're on windows -- this will fully replace `relative_path`
@@ -64,7 +64,7 @@ impl Glob {
                 }
                 rest => relative_path.push(rest),
             }
-        });
+        }
 
         relative_path
     }

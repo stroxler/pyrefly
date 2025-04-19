@@ -103,7 +103,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         });
         if !has_expansion {
-            fields.iter().for_each(|(key, field)| {
+            for (key, field) in &fields {
                 if field.required && !keys.contains(key) {
                     self.error(
                         errors,
@@ -117,7 +117,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ),
                     );
                 }
-            });
+            }
         }
     }
 
