@@ -360,11 +360,14 @@ impl Args {
         let holder = Forgetter::new(State::new(), allow_forget);
         let handles = Handles::new(expanded_file_list, &config_finder);
         let require_levels = self.get_required_levels();
-        let mut transaction = holder
-            .as_ref()
-            .new_transaction(require_levels.default, None);
+        let mut transaction = Forgetter::new(
+            holder
+                .as_ref()
+                .new_transaction(require_levels.default, None),
+            allow_forget,
+        );
         self.run_inner(
-            &mut transaction,
+            transaction.as_mut(),
             &handles.all(require_levels.specified),
             &handles.error_configs(),
         )
