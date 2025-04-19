@@ -90,7 +90,7 @@ fn default_path(module: ModuleName) -> PathBuf {
 
 #[derive(Debug, Default, Clone)]
 pub struct TestEnv {
-    modules: SmallMap<ModuleName, (ModulePath, Option<String>)>,
+    modules: SmallMap<ModuleName, (ModulePath, Option<Arc<String>>)>,
     version: PythonVersion,
 }
 
@@ -112,7 +112,7 @@ impl TestEnv {
             ModuleName::from_str(name),
             (
                 ModulePath::memory(PathBuf::from(path)),
-                Some(code.to_owned()),
+                Some(Arc::new(code.to_owned())),
             ),
         );
     }
@@ -120,8 +120,10 @@ impl TestEnv {
     pub fn add(&mut self, name: &str, code: &str) {
         let module_name = ModuleName::from_str(name);
         let relative_path = ModulePath::memory(default_path(module_name));
-        self.modules
-            .insert(module_name, (relative_path, Some(code.to_owned())));
+        self.modules.insert(
+            module_name,
+            (relative_path, Some(Arc::new(code.to_owned()))),
+        );
     }
 
     pub fn one(name: &str, code: &str) -> Self {
@@ -351,7 +353,7 @@ impl Loader for TestEnv {
             if p == &memory_path
                 && let Some(c) = contents
             {
-                return Some(Arc::new(c.clone()));
+                return Some(c.dupe());
             }
         }
         None
