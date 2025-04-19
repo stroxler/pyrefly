@@ -153,17 +153,6 @@ impl Loader for IncrementalData {
             None => TestEnv::new().find_import(module),
         }
     }
-
-    fn load_from_memory(&self, path: &Path) -> Option<Arc<String>> {
-        match self
-            .0
-            .lock()
-            .get(&ModuleName::from_str(path.to_str().unwrap()))
-        {
-            Some(x) => Some(x.dupe()),
-            None => TestEnv::new().load_from_memory(path),
-        }
-    }
 }
 
 /// Helper for writing incrementality tests.
