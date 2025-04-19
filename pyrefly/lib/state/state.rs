@@ -344,8 +344,25 @@ impl<'a> Transaction<'a> {
         self.get_load(handle).map(|x| x.module_info.dupe())
     }
 
+    /// Return all handles for which there is data, in a non-deterministic order.
     pub fn handles(&self) -> Vec<Handle> {
-        self.readable.modules.keys().cloned().collect()
+        if self.data.updated_modules.is_empty() {
+            // Optimised path
+            self.readable.modules.keys().cloned().collect()
+        } else {
+            let mut res = self
+                .data
+                .updated_modules
+                .iter_unordered()
+                .map(|x| x.0.clone())
+                .collect::<Vec<_>>();
+            for x in self.readable.modules.keys() {
+                if self.data.updated_modules.get(x).is_none() {
+                    res.push(x.clone());
+                }
+            }
+            res
+        }
     }
 
     pub fn import_handle(
