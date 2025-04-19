@@ -247,46 +247,28 @@ impl<'a> Transaction<'a> {
 
     #[allow(dead_code)] // Only used in tests for now
     pub fn get_solutions(&self, handle: &Handle) -> Option<Arc<Solutions>> {
-        self.get_module(handle).state.read().steps.solutions.dupe()
+        self.with_module_inner(handle, |x| x.steps.solutions.dupe())
     }
 
     pub fn get_bindings(&self, handle: &Handle) -> Option<Bindings> {
-        self.get_module(handle)
-            .state
-            .read()
-            .steps
-            .answers
-            .as_ref()
-            .map(|x| x.0.dupe())
+        self.with_module_inner(handle, |x| x.steps.answers.as_ref().map(|x| x.0.dupe()))
     }
 
     pub fn get_answers(&self, handle: &Handle) -> Option<Arc<Answers>> {
-        self.get_module(handle)
-            .state
-            .read()
-            .steps
-            .answers
-            .as_ref()
-            .map(|x| x.1.dupe())
+        self.with_module_inner(handle, |x| x.steps.answers.as_ref().map(|x| x.1.dupe()))
     }
 
     pub fn get_ast(&self, handle: &Handle) -> Option<Arc<ruff_python_ast::ModModule>> {
-        self.get_module(handle).state.read().steps.ast.dupe()
+        self.with_module_inner(handle, |x| x.steps.ast.dupe())
     }
 
     pub fn get_load(&self, handle: &Handle) -> Option<Arc<Load>> {
-        self.get_module(handle).state.read().steps.load.dupe()
+        self.with_module_inner(handle, |x| x.steps.load.dupe())
     }
 
     pub fn get_loads<'b>(&self, handles: impl IntoIterator<Item = &'b Handle>) -> Loads {
         Loads::new(handles.into_iter().filter_map(|handle| {
-            self.get_module(handle)
-                .state
-                .read()
-                .steps
-                .load
-                .as_ref()
-                .map(|x| x.dupe())
+            self.with_module_inner(handle, |x| x.steps.load.as_ref().map(|x| x.dupe()))
         }))
     }
 
@@ -620,6 +602,22 @@ impl<'a> Transaction<'a> {
             // For a large benchmark, LIFO is 10Gb retained, FIFO is 13Gb.
             // Perhaps we are getting to the heart of the graph with LIFO?
             self.data.todo.push_lifo(next, module_data.dupe());
+        }
+    }
+
+    /// Like `get_module` but if the data isn't yet in this transaction will not copy it over.
+    /// Saves copying if it is just a query.
+    fn with_module_inner<R>(
+        &self,
+        handle: &Handle,
+        f: impl FnOnce(&ModuleDataInner) -> Option<R>,
+    ) -> Option<R> {
+        if let Some(v) = self.data.updated_modules.get(handle) {
+            f(&v.state.read())
+        } else if let Some(v) = self.readable.modules.get(handle) {
+            f(&v.state)
+        } else {
+            None
         }
     }
 
