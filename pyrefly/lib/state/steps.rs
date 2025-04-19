@@ -132,7 +132,7 @@ impl Step {
         } else {
             ErrorStyle::Never
         };
-        let (code, self_error) = Load::load_from_path(ctx.path, ctx.loader);
+        let (code, self_error) = Load::load_from_path(ctx.path, |x| ctx.loader.load_from_memory(x));
         Arc::new(Load::load_from_data(
             ctx.module,
             ctx.path.dupe(),

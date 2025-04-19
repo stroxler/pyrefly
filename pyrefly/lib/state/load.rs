@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -24,7 +25,6 @@ use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
-use crate::state::loader::Loader;
 use crate::util::fs_anyhow;
 
 #[derive(Debug)]
@@ -42,14 +42,14 @@ impl Load {
     /// Return the code for this module, and whether there was an error while loading (a self-error).
     pub fn load_from_path(
         path: &ModulePath,
-        loader: &dyn Loader,
+        load_memory: impl FnOnce(&Path) -> Option<Arc<String>>,
     ) -> (Arc<String>, Option<anyhow::Error>) {
         let res = match path.details() {
             ModulePathDetails::FileSystem(path) => fs_anyhow::read_to_string(path).map(Arc::new),
             ModulePathDetails::Namespace(_) => Ok(Arc::new("".to_owned())),
-            ModulePathDetails::Memory(path) => loader
-                .load_from_memory(path)
-                .ok_or_else(|| anyhow!("memory path not found")),
+            ModulePathDetails::Memory(path) => {
+                load_memory(path).ok_or_else(|| anyhow!("memory path not found"))
+            }
             ModulePathDetails::BundledTypeshed(path) => typeshed().and_then(|x| {
                 x.load(path)
                     .ok_or_else(|| anyhow!("bundled typeshed problem"))

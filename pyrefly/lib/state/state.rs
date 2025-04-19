@@ -456,8 +456,9 @@ impl<'a> Transaction<'a> {
         if exclusive.dirty.load
             && let Some(old_load) = exclusive.steps.load.dupe()
         {
-            let (code, self_error) =
-                Load::load_from_path(module_data.handle.path(), module_data.handle.loader());
+            let (code, self_error) = Load::load_from_path(module_data.handle.path(), |x| {
+                module_data.handle.loader().load_from_memory(x)
+            });
             if self_error.is_some() || &code != old_load.module_info.contents() {
                 let mut write = exclusive.write();
                 write.steps.load = Some(Arc::new(Load::load_from_data(
