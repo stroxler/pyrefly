@@ -90,11 +90,11 @@ use crate::util::upgrade_lock::UpgradeLock;
 use crate::util::upgrade_lock::UpgradeLockExclusiveGuard;
 use crate::util::upgrade_lock::UpgradeLockWriteGuard;
 
-/// `ModuleDataSnapshot` is a snapshot of `ArcId<ModuleDataMut>` in the main state.
+/// `ModuleData` is a snapshot of `ArcId<ModuleDataMut>` in the main state.
 /// The snapshot is readonly most of the times. It will only be overwritten with updated information
 /// from `Transaction` when we decide to commit a `Transaction` into the main state.
 #[derive(Debug)]
-struct ModuleDataSnapshot {
+struct ModuleData {
     handle: Handle,
     state: ModuleDataInner,
     deps: HashMap<ModuleName, Handle, BuildNoHash>,
@@ -136,7 +136,7 @@ impl ModuleDataMut {
         }
     }
 
-    fn from_snapshot(value: &ModuleDataSnapshot) -> Self {
+    fn from_snapshot(value: &ModuleData) -> Self {
         ModuleDataMut {
             handle: value.handle.dupe(),
             state: UpgradeLock::new(value.state.clone()),
@@ -145,7 +145,7 @@ impl ModuleDataMut {
         }
     }
 
-    fn to_snapshot(&self) -> ModuleDataSnapshot {
+    fn to_snapshot(&self) -> ModuleData {
         let ModuleDataMut {
             handle,
             state,
@@ -155,7 +155,7 @@ impl ModuleDataMut {
         let deps = mem::take(&mut *deps.write());
         let rdeps = mem::take(&mut *rdeps.lock());
         let state = state.read().clone();
-        ModuleDataSnapshot {
+        ModuleData {
             handle: handle.dupe(),
             state,
             deps,
@@ -167,7 +167,7 @@ impl ModuleDataMut {
 /// A subset of State that contains readable information for various systems (e.g. IDE, error reporting, etc).
 pub struct ReadableState {
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
-    modules: HashMap<Handle, ModuleDataSnapshot>,
+    modules: HashMap<Handle, ModuleData>,
     loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
     /// The current epoch, gets incremented every time we recompute
     now: Epoch,
@@ -848,7 +848,7 @@ impl<'a> Transaction<'a> {
             state: &Transaction,
             dirty_handles: &mut SmallMap<Handle, Option<ArcId<ModuleDataMut>>>,
             stack: &mut HashSet<Handle>,
-            x: &ModuleDataSnapshot,
+            x: &ModuleData,
         ) -> bool {
             if let Some(res) = dirty_handles.get(&x.handle) {
                 res.is_some()
