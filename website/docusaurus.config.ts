@@ -13,6 +13,7 @@ import { fbContent } from 'docusaurus-plugin-internaldocs-fb/internal';
 import * as webpack from 'webpack';
 import MonacoWebpackPlugin from 'monaco-editor-webpack-plugin';
 import StylexPlugin from '@stylexjs/webpack-plugin';
+import PyodidePlugin from '@pyodide/webpack-plugin';
 
 function getNavBarItems() {
     return [
@@ -98,6 +99,16 @@ const config: Config = {
                     return {
                         // https://stackoverflow.com/questions/69265357/monaco-editor-worker
                         plugins: [new MonacoWebpackPlugin()],
+                    };
+                },
+            };
+        },
+        function enablePyodidePlugin() {
+            return {
+                name: 'enablePyodidePlugin',
+                configureWebpack() {
+                    return {
+                        plugins: [new PyodidePlugin()],
                     };
                 },
             };

@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import MonacoEditorButton from './MonacoEditorButton';
+import RunPythonButton from './RunPythonButton';
 import Editor from '@monaco-editor/react';
 import * as LZString from 'lz-string';
 import * as stylex from '@stylexjs/stylex';
@@ -56,7 +57,7 @@ export async function initializePyreflyWasm(): Promise<any> {
         await mod.default();
         return await mod;
     } catch (e) {
-        console.log(e);
+        console.error(e);
         throw e;
     }
 }
@@ -84,6 +85,9 @@ export default function TryPyrefly({
     const [editorHeightforCodeSnippet, setEditorHeightforCodeSnippet] =
         useState<number | null>(null);
     const [model, setModel] = useState<editor.ITextModel | null>(null);
+    const [isRunning, setIsRunning] = useState(false);
+    const [pythonOutput, setPythonOutput] = useState<string>('');
+    const [activeTab, setActiveTab] = useState<string>('errors');
 
     // Only run for initial render, and not on subsequent updates
     useEffect(() => {
@@ -198,16 +202,30 @@ export default function TryPyrefly({
                     onEditorMount,
                     editorHeightforCodeSnippet
                 )}
-                {!isCodeSnippet && <div {...stylex.props(styles.buttonContainer)}> <MonacoEditorButton
+                {!isCodeSnippet && (
+                    <div {...stylex.props(styles.buttonContainer)}>
+                        <MonacoEditorButton
                             id="share-url-button"
                             onClick={() => {
                                 const currentURL = window.location.href;
-                                return navigator.clipboard.writeText(currentURL);
+                                return navigator.clipboard.writeText(
+                                    currentURL
+                                );
                             }}
                             defaultLabel="📋 Share URL"
                             successLabel="✓ URL Copied!"
                             ariaLabel="share URL button"
-                        />  </div>}
+                        />
+                        <RunPythonButton
+                            model={model}
+                            onActiveTabChange={setActiveTab}
+                            isRunning={isRunning}
+                            setIsRunning={setIsRunning}
+                            pythonOutput={pythonOutput}
+                            setPythonOutput={setPythonOutput}
+                        />
+                    </div>
+                )}
             </div>
             {!isCodeSnippet && (
                 <TryPyreflyResults
@@ -215,6 +233,10 @@ export default function TryPyrefly({
                     goToDef={handleGoToDefFromErrors}
                     errors={errors}
                     internalError={internalError}
+                    pythonOutput={pythonOutput}
+                    isRunning={isRunning}
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
                 />
             )}
         </div>
@@ -226,7 +248,6 @@ function updateURL(code: string): void {
     const newURL = `${window.location.pathname}?code=${compressed}`;
     window.history.replaceState({}, '', newURL);
 }
-
 
 function getCodeFromURL(): string | null {
     if (typeof window === 'undefined') return null;
@@ -345,7 +366,6 @@ function mapPyreflyErrorsToMarkerData(
         severity: error.severity,
     }));
 }
-
 
 // Styles for TryPyrefly component
 const styles = stylex.create({

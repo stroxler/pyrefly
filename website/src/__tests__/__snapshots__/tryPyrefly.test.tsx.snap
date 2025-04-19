@@ -41,7 +41,6 @@ reveal_type(test(42))
         </textarea>
       </div>
       <div>
-         
         <button
           aria-label="share URL button"
           id="share-url-button"
@@ -50,7 +49,15 @@ reveal_type(test(42))
             📋 Share URL
           </span>
         </button>
-          
+        <button
+          aria-label="run Python code button"
+          disabled=""
+          id="run-python-button"
+        >
+          <span>
+            ▶️ Run
+          </span>
+        </button>
       </div>
     </div>
     <div
@@ -60,6 +67,9 @@ reveal_type(test(42))
         <ul>
           <li>
             Errors
+          </li>
+          <li>
+            Output
           </li>
         </ul>
       </div>

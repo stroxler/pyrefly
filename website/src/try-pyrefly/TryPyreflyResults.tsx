@@ -37,6 +37,10 @@ interface TryPyreflyResultsProps {
     goToDef: GoToDefFromError;
     errors?: ReadonlyArray<PyreflyErrorMessage> | null;
     internalError: string;
+    pythonOutput: string;
+    isRunning: boolean;
+    activeTab: string;
+    setActiveTab: (tab: string) => void;
 }
 
 function ErrorMessage({
@@ -49,7 +53,7 @@ function ErrorMessage({
     // TODO (T217247871): expose full error message from Pyrefly binary and use it directly here instead of duplicating the logic
     const { startLineNumber, startColumn, endLineNumber, endColumn } = error;
 
-    let rangeStr;
+    let rangeStr: string;
     if (startLineNumber === endLineNumber) {
         if (startColumn === endColumn) {
             rangeStr = `${startLineNumber}:${startColumn}`;
@@ -90,8 +94,12 @@ export default function TryPyreflyResults({
     goToDef,
     errors,
     internalError,
+    pythonOutput = '',
+    isRunning = false,
+    activeTab = 'errors',
+    setActiveTab = () => {},
 }: TryPyreflyResultsProps): React.ReactElement {
-    const activeToolbarTab = 'errors';
+    const activeToolbarTab = activeTab;
 
     const hasTypecheckErrors =
         errors !== undefined && errors !== null && errors.length > 0;
@@ -102,14 +110,24 @@ export default function TryPyreflyResults({
             {...stylex.props(styles.resultsContainer)}
         >
             <div {...stylex.props(styles.resultsToolbar)}>
-                <ul {...stylex.props(styles.tabs)}>
+                <ul {...stylex.props(styles.tabs, styles.tabsEnabled)}>
                     <li
                         {...stylex.props(
                             styles.tab,
                             activeToolbarTab === 'errors' && styles.selectedTab
                         )}
+                        onClick={() => setActiveTab('errors')}
                     >
                         Errors
+                    </li>
+                    <li
+                        {...stylex.props(
+                            styles.tab,
+                            activeToolbarTab === 'output' && styles.selectedTab
+                        )}
+                        onClick={() => setActiveTab('output')}
+                    >
+                        Output
                     </li>
                 </ul>
                 {/* TODO (T217536145): Add JSON tab to sandbox */}
@@ -139,14 +157,23 @@ export default function TryPyreflyResults({
                                     {internalError
                                         ? `Pyrefly encountered an internal error: ${internalError}.`
                                         : errors === undefined ||
-                                          errors === null
-                                        ? 'Pyrefly failed to fetch errors.'
-                                        : errors?.length === 0
-                                        ? 'No errors!'
-                                        : null}
+                                            errors === null
+                                          ? 'Pyrefly failed to fetch errors.'
+                                          : errors?.length === 0
+                                            ? 'No errors!'
+                                            : null}
                                 </li>
                             )}
                         </ul>
+                    </pre>
+                )}
+                {activeToolbarTab === 'output' && (
+                    <pre {...stylex.props(styles.resultBody)}>
+                        {isRunning ? (
+                            <div>Running...</div>
+                        ) : (
+                            <div>{pythonOutput || 'No output'}</div>
+                        )}
                     </pre>
                 )}
                 {/* TODO (T217536145): Add JSON tab to sandbox */}
@@ -190,7 +217,10 @@ const styles = stylex.create({
         listStyle: 'none',
         margin: 0,
         padding: 0,
-        pointerEvents: 'none', // TODO (T217536145): Remove once we add back JSON and AST tabs
+        pointerEvents: 'none',
+    },
+    tabsEnabled: {
+        pointerEvents: 'auto',
     },
     tab: {
         borderRight: '1px solid #ddd',
