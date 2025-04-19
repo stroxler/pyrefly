@@ -117,17 +117,17 @@ pub struct InlayHint {
 struct DemoEnv(SmallMap<ModuleName, (ModulePath, Arc<String>)>);
 
 impl DemoEnv {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self(SmallMap::new())
     }
 
-    pub fn add(&mut self, name: &str, code: Arc<String>) {
+    fn add(&mut self, name: &str, code: Arc<String>) {
         let module_name = ModuleName::from_str(name);
         let relative_path = ModulePath::memory(PathBuf::from("test.py"));
         self.0.insert(module_name, (relative_path, code));
     }
 
-    pub fn config() -> RuntimeMetadata {
+    fn config() -> RuntimeMetadata {
         RuntimeMetadata::default()
     }
 }
