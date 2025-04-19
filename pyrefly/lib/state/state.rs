@@ -245,18 +245,6 @@ impl ReadableState {
     }
 }
 
-/// The changes that happen during the transactions, which should either be completely discarded
-/// or committed together in the end.
-struct TransactionChanges<'a> {
-    stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
-    updated_modules: LockedMap<Handle, ArcId<ModuleData>>,
-    additional_loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
-    /// The current epoch, gets incremented every time we recompute
-    now: Epoch,
-    require: RequireDefault,
-    committing_transaction_guard: MutexGuard<'a, ()>,
-}
-
 /// `TransactionData` contains most of the information in `Transaction`, but it doesn't lock
 /// the read of `State`.
 /// It is used to store uncommitted transaction state in between transaction runs.
@@ -1185,37 +1173,6 @@ impl<'a> AsMut<Transaction<'a>> for CommittingTransaction<'a> {
     }
 }
 
-impl<'a> CommittingTransaction<'a> {
-    fn into_changes(self) -> TransactionChanges<'a> {
-        let CommittingTransaction {
-            transaction:
-                Transaction {
-                    readable,
-                    data:
-                        TransactionData {
-                            stdlib,
-                            updated_modules,
-                            additional_loaders,
-                            now,
-                            require,
-                            ..
-                        },
-                },
-            committing_transaction_guard,
-        } = self;
-        // Drop the read lock the transaction holds.
-        drop(readable);
-        TransactionChanges {
-            stdlib,
-            updated_modules,
-            additional_loaders,
-            now,
-            require,
-            committing_transaction_guard,
-        }
-    }
-}
-
 /// `State` coordinates between potential parallel operations over itself.
 /// It enforces that
 /// 1. There can be at most one ongoing recheck that can eventually commit.
@@ -1302,14 +1259,25 @@ impl State {
     }
 
     pub fn commit_transaction(&self, transaction: CommittingTransaction) {
-        let TransactionChanges {
-            stdlib,
-            updated_modules,
-            additional_loaders,
-            now,
-            require,
+        let CommittingTransaction {
+            transaction:
+                Transaction {
+                    readable,
+                    data:
+                        TransactionData {
+                            stdlib,
+                            updated_modules,
+                            additional_loaders,
+                            now,
+                            require,
+                            ..
+                        },
+                },
             committing_transaction_guard,
-        } = transaction.into_changes();
+        } = transaction;
+        // Drop the read lock the transaction holds.
+        drop(readable);
+
         let mut state = self.state.write();
         state.stdlib = stdlib;
         state.now = now;
