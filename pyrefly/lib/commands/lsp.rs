@@ -208,7 +208,7 @@ impl Config {
     ) -> Self {
         let open_files = Arc::new(Mutex::new(open_files));
         Self {
-            open_files: open_files.clone(),
+            open_files: open_files.dupe(),
             runtime_metadata,
             search_path: search_path.clone(),
             loader: LoaderId::new(LspLoader {
