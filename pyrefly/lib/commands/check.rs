@@ -6,7 +6,6 @@
  */
 
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
@@ -528,7 +527,7 @@ impl Args {
             let mut output = serde_json::to_string_pretty(
                 &readable_state.debug_info(&handles.map(|x| x.0.dupe()), error_configs),
             )?;
-            if debug_info.extension() == Some(OsStr::new("js")) {
+            if debug_info.extension() == Some("js".as_ref()) {
                 output = format!("var data = {output}");
             }
             fs_anyhow::write(debug_info, output.as_bytes())?;

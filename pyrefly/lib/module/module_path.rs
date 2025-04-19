@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
 use std::path::Path;
@@ -46,12 +45,12 @@ pub enum ModulePathDetails {
 }
 
 fn is_path_init(path: &Path) -> bool {
-    path.file_stem() == Some(OsStr::new(dunder::INIT.as_str()))
+    path.file_stem() == Some(dunder::INIT.as_str().as_ref())
 }
 
 impl ModuleStyle {
     fn of_path(path: &Path) -> Self {
-        if path.extension() == Some(OsStr::new("pyi")) {
+        if path.extension() == Some("pyi".as_ref()) {
             ModuleStyle::Interface
         } else {
             ModuleStyle::Executable

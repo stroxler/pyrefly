@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::ffi::OsStr;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
@@ -16,7 +15,7 @@ use crate::module::module_name::ModuleName;
 pub fn module_from_path(path: &Path, includes: &[PathBuf]) -> ModuleName {
     // Return a module name, and a boolean as to whether it is any good.
     fn path_to_module(mut path: &Path) -> (ModuleName, bool) {
-        if path.file_stem() == Some(OsStr::new(dunder::INIT.as_str())) {
+        if path.file_stem() == Some(dunder::INIT.as_str().as_ref()) {
             match path.parent() {
                 Some(parent) => path = parent,
                 None => return (ModuleName::from_name(&dunder::INIT), false),
