@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::iter;
 use std::iter::once;
 use std::path::Path;
 use std::path::PathBuf;
@@ -735,12 +736,11 @@ impl Server {
     /// Configure the server with a new set of workspace folders
     fn configure(&mut self, config_paths: Vec<PathBuf>) {
         let mut new_configs = SmallMap::new();
-        config_paths.iter().for_each(|x| {
+        for x in &config_paths {
             new_configs.insert(
                 x.clone(),
                 Config::new(
-                    [x.clone()]
-                        .into_iter()
+                    iter::once(x.clone())
                         .chain(self.search_path.clone())
                         .collect(),
                     self.site_package_path.clone(),
@@ -750,7 +750,7 @@ impl Server {
             );
             // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
             self.request_settings_for_config(&Url::from_file_path(x).unwrap());
-        });
+        }
         self.configs = Arc::new(RwLock::new(new_configs));
     }
 
