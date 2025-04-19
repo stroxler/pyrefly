@@ -15,7 +15,7 @@ pub struct State(LanguageServiceState);
 impl State {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        Self(LanguageServiceState::default())
+        Self(LanguageServiceState::new())
     }
 
     #[wasm_bindgen(js_name=updateSource)]

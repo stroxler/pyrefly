@@ -178,8 +178,8 @@ pub struct LanguageServiceState {
     handle: Handle,
 }
 
-impl Default for LanguageServiceState {
-    fn default() -> Self {
+impl LanguageServiceState {
+    pub fn new() -> Self {
         let demo_env = {
             let mut demo_env = DemoEnv::new();
             demo_env.add("test", Arc::new("".to_owned()));
@@ -206,9 +206,7 @@ impl Default for LanguageServiceState {
             handle,
         }
     }
-}
 
-impl LanguageServiceState {
     pub fn update_source(&mut self, source: String) {
         let source = Arc::new(source);
         self.demo_env.lock().unwrap().add("test", source.dupe());
@@ -329,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_regular_import() {
-        let mut state = LanguageServiceState::default();
+        let mut state = LanguageServiceState::new();
         let expected_errors: Vec<String> = Vec::new();
 
         state.update_source("from typing import *".to_owned());
@@ -346,7 +344,7 @@ mod tests {
 
     #[test]
     fn test_invalid_import() {
-        let mut state = LanguageServiceState::default();
+        let mut state = LanguageServiceState::new();
         state.update_source("from t".to_owned());
         let expected_errors: Vec<&str> = vec![
             "Could not find import of `t`, module is not available in sandbox",
