@@ -172,7 +172,7 @@ impl ModuleDataMut {
 }
 
 /// A subset of State that contains readable information for various systems (e.g. IDE, error reporting, etc).
-struct ReadableState {
+struct StateInner {
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     modules: HashMap<Handle, ModuleData>,
     loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
@@ -181,7 +181,7 @@ struct ReadableState {
     require: RequireDefault,
 }
 
-impl ReadableState {
+impl StateInner {
     fn new() -> Self {
         Self {
             stdlib: Default::default(),
@@ -234,7 +234,7 @@ impl<'a> TransactionData<'a> {
 /// in a transaction.
 pub struct Transaction<'a> {
     data: TransactionData<'a>,
-    readable: RwLockReadGuard<'a, ReadableState>,
+    readable: RwLockReadGuard<'a, StateInner>,
 }
 
 impl<'a> Transaction<'a> {
@@ -1196,7 +1196,7 @@ impl<'a> AsMut<Transaction<'a>> for CommittingTransaction<'a> {
 pub struct State {
     threads: ThreadPool,
     uniques: UniqueFactory,
-    state: RwLock<ReadableState>,
+    state: RwLock<StateInner>,
     committing_transaction_lock: Mutex<()>,
 }
 
@@ -1205,7 +1205,7 @@ impl State {
         Self {
             threads: ThreadPool::new(),
             uniques: UniqueFactory::new(),
-            state: RwLock::new(ReadableState::new()),
+            state: RwLock::new(StateInner::new()),
             committing_transaction_lock: Mutex::new(()),
         }
     }
