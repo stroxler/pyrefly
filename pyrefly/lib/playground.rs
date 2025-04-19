@@ -114,14 +114,14 @@ pub struct InlayHint {
 }
 
 #[derive(Debug, Clone)]
-struct DemoEnv(SmallMap<ModuleName, (ModulePath, String)>);
+struct DemoEnv(SmallMap<ModuleName, (ModulePath, Arc<String>)>);
 
 impl DemoEnv {
     pub fn new() -> Self {
         Self(SmallMap::new())
     }
 
-    pub fn add(&mut self, name: &str, code: String) {
+    pub fn add(&mut self, name: &str, code: Arc<String>) {
         let module_name = ModuleName::from_str(name);
         let relative_path = ModulePath::memory(PathBuf::from("test.py"));
         self.0.insert(module_name, (relative_path, code));
@@ -151,7 +151,7 @@ impl Loader for DemoEnv {
         let memory_path = ModulePath::memory(path.to_owned());
         for (p, contents) in self.0.values() {
             if p == &memory_path {
-                return Some(Arc::new(contents.clone()));
+                return Some(contents.dupe());
             }
         }
         None
@@ -182,7 +182,7 @@ impl Default for LanguageServiceState {
     fn default() -> Self {
         let demo_env = {
             let mut demo_env = DemoEnv::new();
-            demo_env.add("test", "".to_owned());
+            demo_env.add("test", Arc::new("".to_owned()));
             Arc::new(Mutex::new(demo_env))
         };
         let load = Load(demo_env.dupe());
@@ -210,7 +210,7 @@ impl Default for LanguageServiceState {
 
 impl LanguageServiceState {
     pub fn update_source(&mut self, source: String) {
-        self.demo_env.lock().unwrap().add("test", source);
+        self.demo_env.lock().unwrap().add("test", Arc::new(source));
         let mut transaction = self
             .state
             .new_committable_transaction(Require::Exports, None);
