@@ -457,9 +457,10 @@ impl<'a> Transaction<'a> {
         if exclusive.dirty.load
             && let Some(old_load) = exclusive.steps.load.dupe()
         {
-            let (code, self_error) = Load::load_from_path(module_data.handle.path(), |x| {
-                module_data.handle.loader().load_from_memory(x)
-            });
+            let (code, self_error) = Load::load_from_path(
+                module_data.handle.path(),
+                &self.memory_lookup(&module_data.handle),
+            );
             if self_error.is_some() || &code != old_load.module_info.contents() {
                 let mut write = exclusive.write();
                 write.steps.load = Some(Arc::new(Load::load_from_data(
@@ -554,11 +555,7 @@ impl<'a> Transaction<'a> {
                 module: module_data.handle.module(),
                 path: module_data.handle.path(),
                 config: module_data.handle.config(),
-                memory: &MemoryFilesLookup::new(
-                    &self.readable.memory,
-                    &self.data.memory_overlay,
-                    module_data.handle.loader(),
-                ),
+                memory: &self.memory_lookup(&module_data.handle),
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(module_data.dupe()),
@@ -790,6 +787,14 @@ impl<'a> Transaction<'a> {
             self.demand(&module_data, Step::Answers);
         }
         unreachable!("We demanded the answers, either answers or solutions should be present");
+    }
+
+    fn memory_lookup<'b>(&'b self, handle: &'b Handle) -> MemoryFilesLookup<'b> {
+        MemoryFilesLookup::new(
+            &self.readable.memory,
+            &self.data.memory_overlay,
+            handle.loader(),
+        )
     }
 
     fn get_cached_find_dependency(
@@ -1100,11 +1105,7 @@ impl<'a> Transaction<'a> {
                 module: m.handle.module(),
                 path: m.handle.path(),
                 config: m.handle.config(),
-                memory: &MemoryFilesLookup::new(
-                    &self.readable.memory,
-                    &self.data.memory_overlay,
-                    m.handle.loader(),
-                ),
+                memory: &self.memory_lookup(&m.handle),
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(m.dupe()),
