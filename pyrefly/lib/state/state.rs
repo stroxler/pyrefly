@@ -261,9 +261,7 @@ pub struct TransactionChanges<'a> {
 /// the read of `State`.
 /// It is used to store uncommitted transaction state in between transaction runs.
 pub struct TransactionSavedState<'a> {
-    threads: &'a ThreadPool,
-    uniques: &'a UniqueFactory,
-    readable: &'a RwLock<ReadableState>,
+    state: &'a State,
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleData>>,
     additional_loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
@@ -279,9 +277,7 @@ pub struct TransactionSavedState<'a> {
 impl<'a> TransactionSavedState<'a> {
     pub fn into_running(self) -> Transaction<'a> {
         let Self {
-            threads,
-            uniques,
-            readable,
+            state,
             stdlib,
             updated_modules,
             additional_loaders,
@@ -292,11 +288,9 @@ impl<'a> TransactionSavedState<'a> {
             dirty,
             subscriber,
         } = self;
-        let locked_readable = readable.read();
+        let locked_readable = state.state.read();
         Transaction {
-            threads,
-            uniques,
-            readable_ref: readable,
+            state,
             readable: locked_readable,
             stdlib,
             updated_modules,
@@ -317,9 +311,7 @@ impl<'a> TransactionSavedState<'a> {
 /// At the end of a check, the updated modules information can be committed back to the main `State`
 /// in a transaction.
 pub struct Transaction<'a> {
-    threads: &'a ThreadPool,
-    uniques: &'a UniqueFactory,
-    readable_ref: &'a RwLock<ReadableState>,
+    state: &'a State,
     readable: RwLockReadGuard<'a, ReadableState>,
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleData>>,
@@ -342,9 +334,7 @@ pub struct Transaction<'a> {
 impl<'a> Transaction<'a> {
     pub fn into_saved_state(self) -> TransactionSavedState<'a> {
         let Self {
-            threads,
-            uniques,
-            readable_ref,
+            state,
             readable,
             stdlib,
             updated_modules,
@@ -358,9 +348,7 @@ impl<'a> Transaction<'a> {
         } = self;
         drop(readable);
         TransactionSavedState {
-            threads,
-            uniques,
-            readable: readable_ref,
+            state,
             stdlib,
             updated_modules,
             additional_loaders,
@@ -603,7 +591,7 @@ impl<'a> Transaction<'a> {
                 path: module_data.handle.path(),
                 config: module_data.handle.config(),
                 loader: &*loader,
-                uniques: self.uniques,
+                uniques: &self.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(module_data.dupe()),
             });
@@ -807,7 +795,7 @@ impl<'a> Transaction<'a> {
                     &answers.0,
                     &load.errors,
                     &stdlib,
-                    self.uniques,
+                    &self.state.uniques,
                     key,
                 );
             }
@@ -899,7 +887,7 @@ impl<'a> Transaction<'a> {
             }
         }
 
-        self.threads.spawn_many(|| self.work());
+        self.state.threads.spawn_many(|| self.work());
     }
 
     fn ensure_loaders(&mut self, handles: &[(Handle, Require)]) {
@@ -1021,7 +1009,7 @@ impl<'a> Transaction<'a> {
             errors,
             bindings,
             &lookup,
-            self.uniques,
+            &self.state.uniques,
             &recurser,
             &stdlib,
         );
@@ -1125,7 +1113,7 @@ impl<'a> Transaction<'a> {
                 path: m.handle.path(),
                 config: m.handle.config(),
                 loader: &*loader,
-                uniques: self.uniques,
+                uniques: &self.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(m.dupe()),
             };
@@ -1308,9 +1296,7 @@ impl State {
         let now = readable.now;
         let stdlib = readable.stdlib.clone();
         Transaction {
-            threads: &self.threads,
-            uniques: &self.uniques,
-            readable_ref: &self.state,
+            state: self,
             readable,
             stdlib,
             updated_modules: Default::default(),
