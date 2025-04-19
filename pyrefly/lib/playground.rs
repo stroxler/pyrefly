@@ -136,18 +136,6 @@ impl Loader for DemoEnv {
             )))
         }
     }
-
-    fn load_from_memory(&self, path: &Path) -> Option<Arc<String>> {
-        // This function involves scanning all paths to find what matches.
-        // Not super efficient, but fine for tests, and we don't have many modules.
-        let memory_path = ModulePath::memory(path.to_owned());
-        for (p, contents) in self.0.values() {
-            if p == &memory_path {
-                return Some(contents.dupe());
-            }
-        }
-        None
-    }
 }
 
 #[derive(Debug)]
