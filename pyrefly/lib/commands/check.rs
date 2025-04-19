@@ -536,10 +536,9 @@ impl Args {
         if let Some(glean) = &self.report_glean {
             fs_anyhow::create_dir_all(glean)?;
             for (handle, _) in handles {
-                let output = serde_json::to_string_pretty(&readable_state.glean(handle))?;
                 fs_anyhow::write(
                     &glean.join(format!("{}.json", handle.module())),
-                    output.as_bytes(),
+                    report::glean::glean(&transaction, handle).as_bytes(),
                 )?;
             }
         }
