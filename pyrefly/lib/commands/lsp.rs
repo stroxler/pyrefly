@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::once;
 use std::path::Path;
@@ -184,14 +185,14 @@ struct Server {
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
     outgoing_request_id: Arc<AtomicI32>,
-    outgoing_requests: Mutex<SmallMap<RequestId, Request>>,
+    outgoing_requests: Mutex<HashMap<RequestId, Request>>,
 }
 
 /// Temporary "configuration": this is all that is necessary to run an LSP at a given root.
 /// TODO(connernilsel): replace with real config logic
 #[derive(Debug)]
 struct Config {
-    open_files: Arc<Mutex<SmallMap<PathBuf, (i32, Arc<String>)>>>,
+    open_files: Arc<Mutex<HashMap<PathBuf, (i32, Arc<String>)>>>,
     runtime_metadata: RuntimeMetadata,
     search_path: Vec<PathBuf>,
     loader: LoaderId,
@@ -203,7 +204,7 @@ impl Config {
         search_path: Vec<PathBuf>,
         site_package_path: Vec<PathBuf>,
         runtime_metadata: RuntimeMetadata,
-        open_files: SmallMap<PathBuf, (i32, Arc<String>)>,
+        open_files: HashMap<PathBuf, (i32, Arc<String>)>,
     ) -> Self {
         let open_files = Arc::new(Mutex::new(open_files));
         Self {
@@ -354,7 +355,7 @@ impl Args {
 
 #[derive(Debug, Clone)]
 struct LspLoader {
-    open_files: Arc<Mutex<SmallMap<PathBuf, (i32, Arc<String>)>>>,
+    open_files: Arc<Mutex<HashMap<PathBuf, (i32, Arc<String>)>>>,
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
 }
@@ -491,7 +492,7 @@ impl Server {
                 Ok(())
             }
             Message::Response(x) => {
-                if let Some(request) = self.outgoing_requests.lock().shift_remove(&x.id) {
+                if let Some(request) = self.outgoing_requests.lock().remove(&x.id) {
                     self.handle_response(ide_transaction_manager, &request, &x)
                 } else {
                     eprintln!("Response for unknown request: {x:?}");
@@ -574,12 +575,12 @@ impl Server {
                 search_path.clone(),
                 site_package_path.clone(),
                 RuntimeMetadata::default(),
-                SmallMap::new(),
+                HashMap::new(),
             )),
             search_path,
             site_package_path,
             outgoing_request_id: Arc::new(AtomicI32::new(1)),
-            outgoing_requests: Mutex::new(SmallMap::new()),
+            outgoing_requests: Mutex::new(HashMap::new()),
         };
         s.configure(folders);
 
@@ -725,7 +726,7 @@ impl Server {
             config
                 .open_files
                 .lock()
-                .shift_remove(&params.text_document.uri.to_file_path().unwrap());
+                .remove(&params.text_document.uri.to_file_path().unwrap());
         });
         self.publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
         Ok(())
@@ -744,7 +745,7 @@ impl Server {
                         .collect(),
                     self.site_package_path.clone(),
                     RuntimeMetadata::default(),
-                    SmallMap::new(),
+                    HashMap::new(),
                 ),
             );
             // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
