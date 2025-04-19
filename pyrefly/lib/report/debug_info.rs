@@ -23,9 +23,26 @@ use crate::config::error::ErrorConfigs;
 use crate::error::collector::ErrorCollector;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
+use crate::state::handle::Handle;
+use crate::state::state::Transaction;
 use crate::table_for_each;
 use crate::util::display::DisplayWithCtx;
 use crate::util::prelude::SliceExt;
+
+pub fn debug_info(
+    transaction: &Transaction,
+    handles: &[Handle],
+    error_configs: &ErrorConfigs,
+    is_javascript: bool,
+) -> String {
+    let mut output =
+        serde_json::to_string_pretty(&transaction.readable().debug_info(handles, error_configs))
+            .unwrap();
+    if is_javascript {
+        output = format!("var data = {output}");
+    }
+    output
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DebugInfo {

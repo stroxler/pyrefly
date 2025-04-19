@@ -487,7 +487,6 @@ impl Args {
             state.run(handles, default_require, Some(progress));
         }
         let transaction = state.transaction();
-        let readable_state = transaction.readable();
         let loads = if self.check_all {
             transaction.get_loads(transaction.handles().iter())
         } else {
@@ -524,13 +523,17 @@ impl Args {
             transaction.report_timings(timings, Some(Box::new(ProgressBarSubscriber::new())))?;
         }
         if let Some(debug_info) = &self.debug_info {
-            let mut output = serde_json::to_string_pretty(
-                &readable_state.debug_info(&handles.map(|x| x.0.dupe()), error_configs),
+            let is_javascript = debug_info.extension() == Some("js".as_ref());
+            fs_anyhow::write(
+                debug_info,
+                report::debug_info::debug_info(
+                    &transaction,
+                    &handles.map(|x| x.0.dupe()),
+                    error_configs,
+                    is_javascript,
+                )
+                .as_bytes(),
             )?;
-            if debug_info.extension() == Some("js".as_ref()) {
-                output = format!("var data = {output}");
-            }
-            fs_anyhow::write(debug_info, output.as_bytes())?;
         }
         if let Some(glean) = &self.report_glean {
             fs_anyhow::create_dir_all(glean)?;
