@@ -25,7 +25,7 @@ use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::solver::solver::Solver;
 use crate::state::load::Load;
-use crate::state::loader::Loader;
+use crate::state::memory::MemoryFilesLookup;
 use crate::state::require::Require;
 use crate::types::stdlib::Stdlib;
 use crate::util::uniques::UniqueFactory;
@@ -35,7 +35,7 @@ pub struct Context<'a, Lookup> {
     pub module: ModuleName,
     pub path: &'a ModulePath,
     pub config: &'a RuntimeMetadata,
-    pub loader: &'a dyn Loader,
+    pub memory: &'a MemoryFilesLookup<'a>,
     pub uniques: &'a UniqueFactory,
     pub stdlib: &'a Stdlib,
     pub lookup: &'a Lookup,
@@ -132,7 +132,7 @@ impl Step {
         } else {
             ErrorStyle::Never
         };
-        let (code, self_error) = Load::load_from_path(ctx.path, |x| ctx.loader.load_from_memory(x));
+        let (code, self_error) = Load::load_from_path(ctx.path, |x| ctx.memory.get(x));
         Arc::new(Load::load_from_data(
             ctx.module,
             ctx.path.dupe(),

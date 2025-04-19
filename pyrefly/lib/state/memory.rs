@@ -7,9 +7,11 @@
 
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 
 #[derive(Debug, Clone, Default)]
@@ -32,5 +34,32 @@ impl MemoryFiles {
 impl MemoryFilesOverlay {
     pub fn set(&mut self, loader: LoaderId, path: PathBuf, contents: Option<Arc<String>>) {
         self.0.insert((loader, path), contents);
+    }
+}
+
+pub struct MemoryFilesLookup<'a> {
+    #[expect(dead_code)]
+    base: &'a MemoryFiles,
+    #[expect(dead_code)]
+    overlay: &'a MemoryFilesOverlay,
+    loader: &'a LoaderId,
+}
+
+impl<'a> MemoryFilesLookup<'a> {
+    pub fn new(
+        base: &'a MemoryFiles,
+        overlay: &'a MemoryFilesOverlay,
+        loader: &'a LoaderId,
+    ) -> Self {
+        Self {
+            base,
+            overlay,
+            loader,
+        }
+    }
+
+    pub fn get(&self, path: &Path) -> Option<Arc<String>> {
+        // TODO: Use the base and overlay
+        self.loader.load_from_memory(path)
     }
 }

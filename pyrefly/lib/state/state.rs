@@ -64,6 +64,7 @@ use crate::state::loader::Loader;
 use crate::state::loader::LoaderFindCache;
 use crate::state::loader::LoaderId;
 use crate::state::memory::MemoryFiles;
+use crate::state::memory::MemoryFilesLookup;
 use crate::state::memory::MemoryFilesOverlay;
 use crate::state::require::Require;
 use crate::state::require::RequireDefault;
@@ -553,7 +554,11 @@ impl<'a> Transaction<'a> {
                 module: module_data.handle.module(),
                 path: module_data.handle.path(),
                 config: module_data.handle.config(),
-                loader: module_data.handle.loader(),
+                memory: &MemoryFilesLookup::new(
+                    &self.readable.memory,
+                    &self.data.memory_overlay,
+                    module_data.handle.loader(),
+                ),
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(module_data.dupe()),
@@ -1095,7 +1100,11 @@ impl<'a> Transaction<'a> {
                 module: m.handle.module(),
                 path: m.handle.path(),
                 config: m.handle.config(),
-                loader: m.handle.loader(),
+                memory: &MemoryFilesLookup::new(
+                    &self.readable.memory,
+                    &self.data.memory_overlay,
+                    m.handle.loader(),
+                ),
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(m.dupe()),
