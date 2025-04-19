@@ -267,9 +267,11 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn get_loads<'b>(&self, handles: impl IntoIterator<Item = &'b Handle>) -> Loads {
-        Loads::new(handles.into_iter().filter_map(|handle| {
-            self.with_module_inner(handle, |x| x.steps.load.as_ref().map(|x| x.dupe()))
-        }))
+        Loads::new(
+            handles
+                .into_iter()
+                .filter_map(|handle| self.with_module_inner(handle, |x| x.steps.load.dupe())),
+        )
     }
 
     pub fn get_module_info(&self, handle: &Handle) -> Option<ModuleInfo> {
