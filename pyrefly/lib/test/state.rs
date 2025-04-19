@@ -296,7 +296,6 @@ fn test_interface_consistent(code: &str) {
     let base = i
         .state
         .transaction()
-        .readable()
         .get_solutions(&i.handle("main"))
         .unwrap();
 
@@ -305,7 +304,6 @@ fn test_interface_consistent(code: &str) {
     let suffix = i
         .state
         .transaction()
-        .readable()
         .get_solutions(&i.handle("main"))
         .unwrap();
 
@@ -314,7 +312,6 @@ fn test_interface_consistent(code: &str) {
     let prefix = i
         .state
         .transaction()
-        .readable()
         .get_solutions(&i.handle("main"))
         .unwrap();
 

@@ -17,11 +17,7 @@ use crate::test::util::mk_state;
 use crate::testcase;
 
 pub fn get_class_metadata(name: &str, handle: &Handle, state: &State) -> Arc<ClassMetadata> {
-    let solutions = state
-        .transaction()
-        .readable()
-        .get_solutions(handle)
-        .unwrap();
+    let solutions = state.transaction().get_solutions(handle).unwrap();
 
     let res = get_class(name, handle, state).and_then(|cls| {
         let x = solutions.get(&KeyClassMetadata(cls.index()));

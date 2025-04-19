@@ -201,19 +201,6 @@ impl ReadableState {
         self.modules.keys().cloned().collect()
     }
 
-    #[allow(dead_code)]
-    pub fn get_solutions(&self, handle: &Handle) -> Option<Arc<Solutions>> {
-        Some(
-            self.modules
-                .get(handle)?
-                .state
-                .steps
-                .solutions
-                .as_ref()?
-                .dupe(),
-        )
-    }
-
     pub fn debug_info(&self, handles: &[Handle], error_configs: &ErrorConfigs) -> DebugInfo {
         let owned: Vec<(Arc<Load>, Arc<(Bindings, Arc<Answers>)>)> = handles.map(|x| {
             let module = self.modules.get(x).unwrap();
@@ -310,6 +297,11 @@ impl<'a> Transaction<'a> {
 
     pub fn readable(&self) -> &ReadableState {
         &self.readable
+    }
+
+    #[allow(dead_code)] // Only used in tests for now
+    pub fn get_solutions(&self, handle: &Handle) -> Option<Arc<Solutions>> {
+        self.get_module(handle).state.read().steps.solutions.dupe()
     }
 
     pub fn get_bindings(&self, handle: &Handle) -> Option<Bindings> {
