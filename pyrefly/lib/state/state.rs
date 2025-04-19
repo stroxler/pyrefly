@@ -197,10 +197,6 @@ impl ReadableState {
         }
     }
 
-    pub fn handles(&self) -> Vec<Handle> {
-        self.modules.keys().cloned().collect()
-    }
-
     pub fn debug_info(&self, handles: &[Handle], error_configs: &ErrorConfigs) -> DebugInfo {
         let owned: Vec<(Arc<Load>, Arc<(Bindings, Arc<Answers>)>)> = handles.map(|x| {
             let module = self.modules.get(x).unwrap();
@@ -346,6 +342,10 @@ impl<'a> Transaction<'a> {
 
     pub fn get_module_info(&self, handle: &Handle) -> Option<ModuleInfo> {
         self.get_load(handle).map(|x| x.module_info.dupe())
+    }
+
+    pub fn handles(&self) -> Vec<Handle> {
+        self.readable.modules.keys().cloned().collect()
     }
 
     pub fn import_handle(

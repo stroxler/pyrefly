@@ -490,7 +490,7 @@ impl Args {
         let transaction = state.transaction();
         let readable_state = transaction.readable();
         let loads = if self.check_all {
-            transaction.get_loads(readable_state.handles().iter())
+            transaction.get_loads(transaction.handles().iter())
         } else {
             transaction.get_loads(handles.iter().map(|(handle, _)| handle))
         };
