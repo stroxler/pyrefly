@@ -332,7 +332,7 @@ impl<'a> Transaction<'a> {
         self.get_module(handle).state.read().steps.load.dupe()
     }
 
-    pub fn get_loads<'b>(&self, handles: impl IntoIterator<Item = &'a Handle>) -> Loads {
+    pub fn get_loads<'b>(&self, handles: impl IntoIterator<Item = &'b Handle>) -> Loads {
         Loads::new(handles.into_iter().filter_map(|handle| {
             self.get_module(handle)
                 .state
