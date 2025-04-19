@@ -6,6 +6,7 @@
  */
 
 use std::any::type_name_of_val;
+use std::sync::Arc;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -24,6 +25,7 @@ use crate::error::collector::ErrorCollector;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::state::handle::Handle;
+use crate::state::load::Load;
 use crate::state::state::Transaction;
 use crate::table_for_each;
 use crate::util::display::DisplayWithCtx;
@@ -35,9 +37,28 @@ pub fn debug_info(
     error_configs: &ErrorConfigs,
     is_javascript: bool,
 ) -> String {
-    let mut output =
-        serde_json::to_string_pretty(&transaction.readable().debug_info(handles, error_configs))
-            .unwrap();
+    fn f(
+        transaction: &Transaction,
+        handles: &[Handle],
+    ) -> Option<Vec<(Arc<Load>, Bindings, Arc<Answers>)>> {
+        handles
+            .iter()
+            .map(|x| {
+                Some((
+                    transaction.get_load(x)?,
+                    transaction.get_bindings(x)?,
+                    transaction.get_answers(x)?,
+                ))
+            })
+            .collect()
+    }
+
+    let owned = f(transaction, handles).expect("Everything to be computed for debug info");
+    let debug_info = DebugInfo::new(
+        &owned.map(|x| (&x.0.module_info, &x.0.errors, &x.1, &*x.2)),
+        error_configs,
+    );
+    let mut output = serde_json::to_string(&debug_info).unwrap();
     if is_javascript {
         output = format!("var data = {output}");
     }

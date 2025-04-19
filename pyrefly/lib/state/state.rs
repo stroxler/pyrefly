@@ -45,7 +45,6 @@ use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
 use crate::binding::table::TableKeyed;
-use crate::config::error::ErrorConfigs;
 use crate::error::kind::ErrorKind;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
@@ -54,7 +53,6 @@ use crate::metadata::RuntimeMetadata;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
-use crate::report::debug_info::DebugInfo;
 use crate::state::dirty::Dirty;
 use crate::state::epoch::Epoch;
 use crate::state::epoch::Epochs;
@@ -80,7 +78,6 @@ use crate::util::lock::Mutex;
 use crate::util::lock::RwLock;
 use crate::util::locked_map::LockedMap;
 use crate::util::no_hash::BuildNoHash;
-use crate::util::prelude::SliceExt;
 use crate::util::recurser::Recurser;
 use crate::util::task_heap::TaskHeap;
 use crate::util::thread_pool::ThreadPool;
@@ -195,21 +192,6 @@ impl ReadableState {
             require: RequireDefault::new(Require::Exports),
         }
     }
-
-    pub fn debug_info(&self, handles: &[Handle], error_configs: &ErrorConfigs) -> DebugInfo {
-        let owned: Vec<(Arc<Load>, Arc<(Bindings, Arc<Answers>)>)> = handles.map(|x| {
-            let module = self.modules.get(x).unwrap();
-            let steps = &module.state;
-            (
-                steps.steps.load.dupe().unwrap(),
-                steps.steps.answers.dupe().unwrap(),
-            )
-        });
-        DebugInfo::new(
-            &owned.map(|x| (&x.0.module_info, &x.0.errors, &x.1.0, &*x.1.1)),
-            error_configs,
-        )
-    }
 }
 
 /// `TransactionData` contains most of the information in `Transaction`, but it doesn't lock
@@ -261,10 +243,6 @@ impl<'a> Transaction<'a> {
         let Transaction { data, readable } = self;
         drop(readable);
         data
-    }
-
-    pub fn readable(&self) -> &ReadableState {
-        &self.readable
     }
 
     #[allow(dead_code)] // Only used in tests for now
