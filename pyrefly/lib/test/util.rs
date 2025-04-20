@@ -149,6 +149,16 @@ impl TestEnv {
         RuntimeMetadata::new(self.version, PythonPlatform::linux())
     }
 
+    pub fn get_memory(&self) -> Vec<(PathBuf, Option<Arc<String>>)> {
+        self.modules
+            .values()
+            .filter_map(|(path, contents)| match path.details() {
+                ModulePathDetails::Memory(path) => Some((path.clone(), contents.dupe())),
+                _ => None,
+            })
+            .collect()
+    }
+
     pub fn to_state(self) -> (State, impl Fn(&str) -> Handle) {
         let config = self.metadata();
         let loader = LoaderId::new(self.clone());
@@ -164,16 +174,9 @@ impl TestEnv {
         let subscriber = TestSubscriber::new();
         let mut transaction =
             state.new_committable_transaction(Require::Exports, Some(Box::new(subscriber.dupe())));
-        transaction.as_mut().set_memory(
-            loader.dupe(),
-            self.modules
-                .into_values()
-                .filter_map(|(path, contents)| match path.details() {
-                    ModulePathDetails::Memory(path) => Some((path.clone(), contents)),
-                    _ => None,
-                })
-                .collect(),
-        );
+        transaction
+            .as_mut()
+            .set_memory(loader.dupe(), self.get_memory());
         transaction
             .as_mut()
             .run(&handles.map(|x| (x.dupe(), Require::Everything)));

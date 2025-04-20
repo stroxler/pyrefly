@@ -55,7 +55,7 @@ else:
         "import lib; x: str = lib.value  # E: `Literal[42]` is not assignable to `str`",
     );
     let state = State::new();
-    let loader = LoaderId::new(test_env);
+    let loader = LoaderId::new(test_env.clone());
 
     let f = |name: &str, config: &RuntimeMetadata| {
         let name = ModuleName::from_str(name);
@@ -71,9 +71,10 @@ else:
         f("windows", &windows),
         f("main", &linux),
     ];
-    state.run(&handles, Require::Exports, None);
-    state
-        .transaction()
+    let mut transaction = state.new_transaction(Require::Exports, None);
+    transaction.set_memory(loader, test_env.get_memory());
+    transaction.run(&handles);
+    transaction
         .get_loads(handles.iter().map(|(handle, _)| handle))
         .check_against_expectations(&ErrorConfigs::default())
         .unwrap();
