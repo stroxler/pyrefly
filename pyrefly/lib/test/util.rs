@@ -7,7 +7,6 @@
 
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::sleep;
@@ -358,20 +357,6 @@ impl Loader for TestEnv {
                 "Module not given in test suite"
             )))
         }
-    }
-
-    fn load_from_memory(&self, path: &Path) -> Option<Arc<String>> {
-        // This function involves scanning all paths to find what matches.
-        // Not super efficient, but fine for tests, and we don't have many modules.
-        let memory_path = ModulePath::memory(path.to_owned());
-        for (p, contents) in self.modules.values() {
-            if p == &memory_path
-                && let Some(c) = contents
-            {
-                return Some(c.dupe());
-            }
-        }
-        None
     }
 }
 
