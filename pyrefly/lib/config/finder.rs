@@ -9,7 +9,6 @@ use std::fmt::Debug;
 use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::LazyLock;
 
 use dupe::Dupe;
@@ -18,9 +17,10 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
+use crate::util::arc_id::ArcId;
 use crate::util::lock::RwLock;
 
-pub struct ConfigFinder<T = Arc<ConfigFile>> {
+pub struct ConfigFinder<T = ArcId<ConfigFile>> {
     custom: Box<dyn Fn(&Path) -> anyhow::Result<Option<T>>>,
     default: LazyLock<T, Box<dyn FnOnce() -> T>>,
     load: Box<dyn Fn(&Path) -> anyhow::Result<T>>,

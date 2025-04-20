@@ -58,6 +58,7 @@ pub use crate::config::environment::PythonEnvironment;
 pub use crate::config::finder;
 pub use crate::metadata::PythonPlatform;
 pub use crate::metadata::PythonVersion;
+pub use crate::util::arc_id::ArcId;
 pub use crate::util::args::clap_env;
 pub use crate::util::args::get_args_expanded;
 pub use crate::util::globs;

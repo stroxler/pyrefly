@@ -18,6 +18,7 @@ use clap::Parser;
 use clap::Subcommand;
 use dupe::Dupe;
 use path_absolutize::Absolutize;
+use pyrefly::ArcId;
 use pyrefly::ConfigFile;
 use pyrefly::NotifyWatcher;
 use pyrefly::clap_env;
@@ -122,11 +123,11 @@ async fn run_check(
 fn config_finder(args: pyrefly::run::CheckArgs) -> ConfigFinder {
     let args = Arc::new(args);
     let args2 = args.dupe();
-    let default = move || Arc::new(args.override_config(ConfigFile::default()));
+    let default = move || ArcId::new(args.override_config(ConfigFile::default()));
     // The Box is a bit annoying here, but otherwise I can't persuade it that the `&Path` has a good enough lifetime.
-    let load: Box<dyn Fn(&Path) -> anyhow::Result<Arc<ConfigFile>>> =
+    let load: Box<dyn Fn(&Path) -> anyhow::Result<ArcId<ConfigFile>>> =
         Box::new(move |config_path| {
-            Ok(Arc::new(args2.override_config(ConfigFile::from_file(
+            Ok(ArcId::new(args2.override_config(ConfigFile::from_file(
                 config_path,
                 true,
             )?)))
@@ -148,7 +149,7 @@ async fn run_check_on_project(
                 explicit.display()
             );
             // We deliberately don't use the cached object, since we want errors in an explicit config to be fatal
-            Arc::new(args.override_config(ConfigFile::from_file(&explicit, true)?))
+            ArcId::new(args.override_config(ConfigFile::from_file(&explicit, true)?))
         }
         None => {
             let current_dir = std::env::current_dir().context("cannot identify current dir")?;
