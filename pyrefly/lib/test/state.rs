@@ -8,7 +8,6 @@
 //! Tests of the `State` object.
 
 use std::mem;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -106,13 +105,6 @@ fn test_multiple_path() {
                 None => self.0.find_import(module),
             }
         }
-
-        fn load_from_memory(&self, path: &Path) -> Option<Arc<String>> {
-            match FILES.iter().find(|x| x.1 == path.to_str().unwrap()) {
-                Some((_, _, contents)) => Some(Arc::new((*contents).to_owned())),
-                None => self.0.load_from_memory(path),
-            }
-        }
     }
 
     let test_env = TestEnv::new();
@@ -128,12 +120,15 @@ fn test_multiple_path() {
             loader.dupe(),
         )
     });
-    state.run(
-        &handles.map(|x| (x.dupe(), Require::Everything)),
-        Require::Exports,
-        None,
+    let mut transaction = state.new_transaction(Require::Exports, None);
+    transaction.set_memory(
+        loader,
+        FILES.map(|(_, path, contents)| {
+            (PathBuf::from(path), Some(Arc::new((*contents).to_owned())))
+        }),
     );
-    let loads = state.transaction().get_loads(handles.iter());
+    transaction.run(&handles.map(|x| (x.dupe(), Require::Everything)));
+    let loads = transaction.get_loads(handles.iter());
     print_errors(&loads.collect_errors(&ErrorConfigs::default()).shown);
     loads
         .check_against_expectations(&ErrorConfigs::default())
