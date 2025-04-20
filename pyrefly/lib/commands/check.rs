@@ -273,7 +273,7 @@ impl Handles {
             site_package_path: config.site_package_path().to_owned(),
             replace_imports_with_any: config.replace_imports_with_any().to_vec(),
         };
-        if let Some(loader) = self.loader_factory.get_mut(&key) {
+        if let Some(loader) = self.loader_factory.get(&key) {
             loader.dupe()
         } else {
             let loader = create_loader(key.clone());
