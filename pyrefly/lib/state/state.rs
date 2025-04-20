@@ -827,11 +827,12 @@ impl<'a> Transaction<'a> {
 
     fn compute_stdlib(&mut self, configs: SmallSet<(RuntimeMetadata, LoaderId)>) {
         for k in configs.into_iter_hashed() {
+            let loader = self.get_cached_loader(&k.1);
             self.data
                 .stdlib
                 .insert_hashed(k.to_owned(), Arc::new(Stdlib::for_bootstrapping()));
             let v = Arc::new(Stdlib::new(k.0.version(), &|module, name| {
-                let path = self.get_cached_find_dependency(&k.1, module).ok()?;
+                let path = loader.find_import(module).ok()?;
                 self.lookup_stdlib(&Handle::new(module, path, k.0.dupe(), k.1.dupe()), name)
             }));
             self.data.stdlib.insert_hashed(k, v);
