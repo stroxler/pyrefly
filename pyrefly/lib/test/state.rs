@@ -71,7 +71,7 @@ else:
         f("main", &linux),
     ];
     let mut transaction = state.new_transaction(Require::Exports, None);
-    transaction.set_memory(loader, test_env.get_memory());
+    transaction.set_memory(test_env.get_memory());
     transaction.run(&handles);
     transaction
         .get_loads(handles.iter().map(|(handle, _)| handle))
@@ -122,7 +122,6 @@ fn test_multiple_path() {
     });
     let mut transaction = state.new_transaction(Require::Exports, None);
     transaction.set_memory(
-        loader,
         FILES.map(|(_, path, contents)| {
             (PathBuf::from(path), Some(Arc::new((*contents).to_owned())))
         }),
@@ -197,10 +196,9 @@ impl Incremental {
                 .0
                 .lock()
                 .insert(ModuleName::from_str(&file), contents.dupe());
-            transaction.as_mut().set_memory(
-                self.loader.dupe(),
-                vec![(PathBuf::from(file), Some(contents))],
-            );
+            transaction
+                .as_mut()
+                .set_memory(vec![(PathBuf::from(file), Some(contents))]);
         }
 
         let handles = want.map(|x| self.handle(x));

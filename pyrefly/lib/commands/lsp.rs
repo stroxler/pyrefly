@@ -621,7 +621,6 @@ impl Server {
             .for_each(|config| {
                 let handles = config.open_file_handles();
                 transaction.set_memory(
-                    config.loader.dupe(),
                     config
                         .open_files
                         .lock()

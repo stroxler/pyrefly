@@ -127,25 +127,19 @@ impl Loader for TypeshedLoader {
 
 pub struct LanguageServiceState {
     state: State,
-    loader: LoaderId,
     handle: Handle,
 }
 
 impl LanguageServiceState {
     pub fn new() -> Self {
-        let loader = LoaderId::new(TypeshedLoader);
         let state = State::new();
         let handle = Handle::new(
             ModuleName::from_str("test"),
             ModulePath::memory(PathBuf::from("test.py")),
             RuntimeMetadata::default(),
-            loader.dupe(),
+            LoaderId::new(TypeshedLoader),
         );
-        let mut me = Self {
-            state,
-            loader,
-            handle,
-        };
+        let mut me = Self { state, handle };
         me.update_source("".to_owned());
         me
     }
@@ -155,10 +149,9 @@ impl LanguageServiceState {
         let mut transaction = self
             .state
             .new_committable_transaction(Require::Exports, None);
-        transaction.as_mut().set_memory(
-            self.loader.dupe(),
-            vec![(PathBuf::from("test.py"), Some(source))],
-        );
+        transaction
+            .as_mut()
+            .set_memory(vec![(PathBuf::from("test.py"), Some(source))]);
         self.state.run_with_committing_transaction(
             transaction,
             &[(self.handle.dupe(), Require::Everything)],

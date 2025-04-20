@@ -173,9 +173,7 @@ impl TestEnv {
         let subscriber = TestSubscriber::new();
         let mut transaction =
             state.new_committable_transaction(Require::Exports, Some(Box::new(subscriber.dupe())));
-        transaction
-            .as_mut()
-            .set_memory(loader.dupe(), self.get_memory());
+        transaction.as_mut().set_memory(self.get_memory());
         transaction
             .as_mut()
             .run(&handles.map(|x| (x.dupe(), Require::Everything)));

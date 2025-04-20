@@ -14,55 +14,43 @@ use std::sync::Arc;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 
-use crate::state::loader::LoaderId;
-
 #[derive(Debug, Clone, Default)]
-pub struct MemoryFiles(HashMap<(LoaderId, PathBuf), Arc<String>>);
+pub struct MemoryFiles(HashMap<PathBuf, Arc<String>>);
 
 #[derive(Debug, Default, Clone)]
-pub struct MemoryFilesOverlay(HashMap<(LoaderId, PathBuf), Option<Arc<String>>>);
+pub struct MemoryFilesOverlay(HashMap<PathBuf, Option<Arc<String>>>);
 
 impl MemoryFiles {
     pub fn apply_overlay(&mut self, overlay: MemoryFilesOverlay) {
-        for ((loader_id, path), contents) in overlay.0.into_iter() {
+        for (path, contents) in overlay.0.into_iter() {
             match contents {
-                None => self.0.remove(&(loader_id, path)),
-                Some(contents) => self.0.insert((loader_id, path), contents),
+                None => self.0.remove(&path),
+                Some(contents) => self.0.insert(path, contents),
             };
         }
     }
 }
 
 impl MemoryFilesOverlay {
-    pub fn set(&mut self, loader: LoaderId, path: PathBuf, contents: Option<Arc<String>>) {
-        self.0.insert((loader, path), contents);
+    pub fn set(&mut self, path: PathBuf, contents: Option<Arc<String>>) {
+        self.0.insert(path, contents);
     }
 }
 
 pub struct MemoryFilesLookup<'a> {
     base: &'a MemoryFiles,
     overlay: &'a MemoryFilesOverlay,
-    loader: &'a LoaderId,
 }
 
 impl<'a> MemoryFilesLookup<'a> {
-    pub fn new(
-        base: &'a MemoryFiles,
-        overlay: &'a MemoryFilesOverlay,
-        loader: &'a LoaderId,
-    ) -> Self {
-        Self {
-            base,
-            overlay,
-            loader,
-        }
+    pub fn new(base: &'a MemoryFiles, overlay: &'a MemoryFilesOverlay) -> Self {
+        Self { base, overlay }
     }
 
     pub fn get(&self, path: &Path) -> Option<Arc<String>> {
-        let key = (self.loader.dupe(), path.to_path_buf());
-        match self.overlay.0.get(&key) {
+        match self.overlay.0.get(path) {
             Some(contents) => contents.dupe(), // Might be a None if deleted
-            None => self.base.0.get(&key).duped(),
+            None => self.base.0.get(path).duped(),
         }
     }
 }

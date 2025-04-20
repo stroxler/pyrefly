@@ -457,10 +457,8 @@ impl<'a> Transaction<'a> {
         if exclusive.dirty.load
             && let Some(old_load) = exclusive.steps.load.dupe()
         {
-            let (code, self_error) = Load::load_from_path(
-                module_data.handle.path(),
-                &self.memory_lookup(&module_data.handle),
-            );
+            let (code, self_error) =
+                Load::load_from_path(module_data.handle.path(), &self.memory_lookup());
             if self_error.is_some() || &code != old_load.module_info.contents() {
                 let mut write = exclusive.write();
                 write.steps.load = Some(Arc::new(Load::load_from_data(
@@ -555,7 +553,7 @@ impl<'a> Transaction<'a> {
                 module: module_data.handle.module(),
                 path: module_data.handle.path(),
                 config: module_data.handle.config(),
-                memory: &self.memory_lookup(&module_data.handle),
+                memory: &self.memory_lookup(),
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(module_data.dupe()),
@@ -789,12 +787,8 @@ impl<'a> Transaction<'a> {
         unreachable!("We demanded the answers, either answers or solutions should be present");
     }
 
-    fn memory_lookup<'b>(&'b self, handle: &'b Handle) -> MemoryFilesLookup<'b> {
-        MemoryFilesLookup::new(
-            &self.readable.memory,
-            &self.data.memory_overlay,
-            handle.loader(),
-        )
+    fn memory_lookup<'b>(&'b self) -> MemoryFilesLookup<'b> {
+        MemoryFilesLookup::new(&self.readable.memory, &self.data.memory_overlay)
     }
 
     fn get_cached_find_dependency(
@@ -1033,17 +1027,15 @@ impl<'a> Transaction<'a> {
 
     /// Called if the `load_from_memory` portion of loading might have changed.
     /// Specify which in-memory files might have changed, use None to say they don't exist anymore.
-    pub fn set_memory(&mut self, loader: LoaderId, files: Vec<(PathBuf, Option<Arc<String>>)>) {
+    pub fn set_memory(&mut self, files: Vec<(PathBuf, Option<Arc<String>>)>) {
         let mut changed = SmallSet::new();
         for (path, contents) in files {
-            self.data
-                .memory_overlay
-                .set(loader.dupe(), path.clone(), contents);
+            self.data.memory_overlay.set(path.clone(), contents);
             changed.insert(ModulePath::memory(path));
         }
         let mut dirty_set = self.data.dirty.lock();
         for handle in self.readable.modules.keys() {
-            if handle.loader() == &loader && changed.contains(handle.path()) {
+            if changed.contains(handle.path()) {
                 let module_data = self.get_module(handle);
                 module_data.state.write(Step::Load).unwrap().dirty.load = true;
                 dirty_set.insert(module_data.dupe());
@@ -1105,7 +1097,7 @@ impl<'a> Transaction<'a> {
                 module: m.handle.module(),
                 path: m.handle.path(),
                 config: m.handle.config(),
-                memory: &self.memory_lookup(&m.handle),
+                memory: &self.memory_lookup(),
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(m.dupe()),
