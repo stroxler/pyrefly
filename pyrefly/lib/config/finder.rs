@@ -21,8 +21,8 @@ use crate::config::config::ConfigFile;
 use crate::util::lock::RwLock;
 
 pub struct ConfigFinder<T = Arc<ConfigFile>> {
-    custom: Box<dyn Fn(&Path) -> anyhow::Result<Option<T>> + 'static>,
-    default: LazyLock<T, Box<dyn FnOnce() -> T + 'static>>,
+    custom: Box<dyn Fn(&Path) -> anyhow::Result<Option<T>>>,
+    default: LazyLock<T, Box<dyn FnOnce() -> T>>,
     load: Box<dyn Fn(&Path) -> anyhow::Result<T>>,
     state: RwLock<ConfigFinderState<T>>,
 }
