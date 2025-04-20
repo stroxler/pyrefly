@@ -6,7 +6,6 @@
  */
 
 use std::fmt::Debug;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -49,13 +48,6 @@ impl FindError {
 pub trait Loader: Sync + Debug {
     /// Return `Err` to indicate the module could not be found.
     fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError>;
-
-    /// Load a file from memory, if you can find it. Only called if `find` returns
-    /// a `ModulePath::memory`.
-    fn load_from_memory(&self, path: &Path) -> Option<Arc<String>> {
-        let _path = path;
-        None
-    }
 }
 
 #[derive(Clone, Dupe, Debug, Hash, PartialEq, Eq)]
@@ -64,10 +56,6 @@ pub struct LoaderId(ArcId<dyn Loader + Send>);
 impl Loader for LoaderId {
     fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
         self.0.find_import(module)
-    }
-
-    fn load_from_memory(&self, path: &Path) -> Option<Arc<String>> {
-        self.0.load_from_memory(path)
     }
 }
 
@@ -88,10 +76,6 @@ impl<T: Loader> Loader for LoaderFindCache<T> {
         self.cache
             .ensure(&module, || self.loader.find_import(module))
             .dupe()
-    }
-
-    fn load_from_memory(&self, path: &Path) -> Option<Arc<String>> {
-        self.loader.load_from_memory(path)
     }
 }
 

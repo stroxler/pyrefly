@@ -14,7 +14,6 @@ use std::sync::Arc;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 
-use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 
 #[derive(Debug, Clone, Default)]
@@ -60,9 +59,6 @@ impl<'a> MemoryFilesLookup<'a> {
     }
 
     pub fn get(&self, path: &Path) -> Option<Arc<String>> {
-        if let Some(res) = self.loader.load_from_memory(path) {
-            return Some(res);
-        }
         let key = (self.loader.dupe(), path.to_path_buf());
         match self.overlay.0.get(&key) {
             Some(contents) => contents.dupe(), // Might be a None if deleted
