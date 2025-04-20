@@ -32,6 +32,7 @@ use crate::metadata::RuntimeMetadata;
 use crate::module::bundled::typeshed;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
+use crate::module::module_path::ModulePathDetails;
 use crate::state::handle::Handle;
 use crate::state::loader::FindError;
 use crate::state::loader::Loader;
@@ -153,19 +154,30 @@ impl TestEnv {
         let loader = LoaderId::new(self.clone());
         let handles = self
             .modules
-            .into_iter()
+            .iter()
             // Reverse so we start at the last file, which is likely to be what the user
             // would have opened, so make it most faithful.
             .rev()
-            .map(|(x, (path, _))| Handle::new(x, path, config.dupe(), loader.dupe()))
+            .map(|(x, (path, _))| Handle::new(*x, path.clone(), config.dupe(), loader.dupe()))
             .collect::<Vec<_>>();
         let state = State::new();
         let subscriber = TestSubscriber::new();
-        state.run(
-            &handles.map(|x| (x.dupe(), Require::Everything)),
-            Require::Exports,
-            Some(Box::new(subscriber.dupe())),
+        let mut transaction =
+            state.new_committable_transaction(Require::Exports, Some(Box::new(subscriber.dupe())));
+        transaction.as_mut().set_memory(
+            loader.dupe(),
+            self.modules
+                .into_values()
+                .filter_map(|(path, contents)| match path.details() {
+                    ModulePathDetails::Memory(path) => Some((path.clone(), contents)),
+                    _ => None,
+                })
+                .collect(),
         );
+        transaction
+            .as_mut()
+            .run(&handles.map(|x| (x.dupe(), Require::Everything)));
+        state.commit_transaction(transaction);
         subscriber.finish();
         print_errors(
             &state
