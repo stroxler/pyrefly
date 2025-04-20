@@ -125,7 +125,7 @@ fn config_finder(args: pyrefly::run::CheckArgs) -> ConfigFinder {
     let args2 = args.dupe();
     let default = move || ArcId::new(args.override_config(ConfigFile::default()));
     // The Box is a bit annoying here, but otherwise I can't persuade it that the `&Path` has a good enough lifetime.
-    let load: Box<dyn Fn(&Path) -> anyhow::Result<ArcId<ConfigFile>>> =
+    let load: Box<dyn Fn(&Path) -> anyhow::Result<ArcId<ConfigFile>> + Send + Sync> =
         Box::new(move |config_path| {
             Ok(ArcId::new(args2.override_config(ConfigFile::from_file(
                 config_path,

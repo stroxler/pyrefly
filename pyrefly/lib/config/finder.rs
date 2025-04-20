@@ -21,9 +21,9 @@ use crate::util::arc_id::ArcId;
 use crate::util::lock::RwLock;
 
 pub struct ConfigFinder<T = ArcId<ConfigFile>> {
-    custom: Box<dyn Fn(&Path) -> anyhow::Result<Option<T>>>,
-    default: LazyLock<T, Box<dyn FnOnce() -> T>>,
-    load: Box<dyn Fn(&Path) -> anyhow::Result<T>>,
+    custom: Box<dyn Fn(&Path) -> anyhow::Result<Option<T>> + Send + Sync>,
+    default: LazyLock<T, Box<dyn FnOnce() -> T + Send + Sync>>,
+    load: Box<dyn Fn(&Path) -> anyhow::Result<T> + Send + Sync>,
     state: RwLock<ConfigFinderState<T>>,
 }
 
@@ -48,8 +48,8 @@ impl<T> Default for ConfigFinderState<T> {
 impl<T: Dupe + Debug> ConfigFinder<T> {
     /// Create a new ConfigFinder a way to produce a default, and to load a given file.
     pub fn new(
-        default: impl FnOnce() -> T + 'static,
-        load: impl Fn(&Path) -> anyhow::Result<T> + 'static,
+        default: impl FnOnce() -> T + Send + Sync + 'static,
+        load: impl Fn(&Path) -> anyhow::Result<T> + Send + Sync + 'static,
     ) -> Self {
         Self::new_custom(|_| Ok(None), default, load)
     }
@@ -57,9 +57,9 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
     /// Create a new ConfigFinder, but with a custom way to produce a result from a Python file.
     /// If the custom function fails to produce a config, then the other methods will be used.
     pub fn new_custom(
-        custom: impl Fn(&Path) -> anyhow::Result<Option<T>> + 'static,
-        default: impl FnOnce() -> T + 'static,
-        load: impl Fn(&Path) -> anyhow::Result<T> + 'static,
+        custom: impl Fn(&Path) -> anyhow::Result<Option<T>> + Send + Sync + 'static,
+        default: impl FnOnce() -> T + Send + Sync + 'static,
+        load: impl Fn(&Path) -> anyhow::Result<T> + Send + Sync + 'static,
     ) -> Self {
         Self {
             custom: Box::new(custom),
@@ -72,7 +72,7 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
     /// Create a new ConfigFinder that always returns the same constant.
     pub fn new_constant(constant: T) -> Self
     where
-        T: 'static,
+        T: Send + Sync + 'static,
     {
         let c1 = constant.dupe();
         let c2 = constant.dupe();
