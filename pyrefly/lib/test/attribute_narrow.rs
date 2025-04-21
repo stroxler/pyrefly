@@ -355,3 +355,35 @@ def f(foo: Foo):
     assert_type(foo.x, Bar | Baz)
 "#,
 );
+
+testcase!(
+    test_assignment_to_names,
+    r#"
+from typing import assert_type, Callable
+class Foo:
+    x: Foo
+class Bar(Foo):
+    pass
+def f(foo: Foo):
+    if isinstance(foo.x, Bar) and isinstance(foo.x.x, Bar):
+        assert_type(foo.x, Bar)
+        assert_type(foo.x.x, Bar)
+        # Narrows on attributes do not propagate across assignment. This is
+        # intended - without mutation restrictions it is unsound and could lead
+        # to difficult bugs.
+        baz = foo
+        assert_type(baz.x, Foo)
+        # Types of narrowed attributes themselves do propagate, but chained
+        # attribute narrows do not.
+        qux = foo.x
+        assert_type(qux, Bar)
+        assert_type(qux.x, Foo)
+        # The behavior is the same for other styles of assignment (we use different
+        # binding kinds for "target" assignment vs bare name assignment, this test
+        # is verifying they work the same way)
+        baz, qux = foo, foo.x
+        assert_type(baz.x, Foo)
+        assert_type(qux, Bar)
+        assert_type(qux.x, Foo)
+"#,
+);
