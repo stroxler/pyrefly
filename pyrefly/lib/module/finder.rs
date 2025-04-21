@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::path::Path;
 use std::path::PathBuf;
 
 use ruff_python_ast::name::Name;
@@ -12,6 +13,14 @@ use vec1::Vec1;
 
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Default)]
+enum PyTyped {
+    #[default]
+    Missing,
+    Complete,
+    Partial,
+}
 
 enum FindResult {
     /// Found a single-file module. The path must not point to an __init__ file.
@@ -23,6 +32,42 @@ enum FindResult {
     /// The path component indicates where to continue search next. It may contain more than one directories as the namespace package
     /// may span across multiple search roots.
     NamespacePackage(Vec1<PathBuf>),
+}
+
+impl FindResult {
+    #[expect(dead_code)]
+    fn py_typed(&self) -> PyTyped {
+        /// Finds a `py.typed` file for the given path, if it exists, and
+        /// returns a boolean representing if it is partial or not.
+        ///
+        /// If we get an error on reading the `py.typed`, treat it as partial,
+        /// since that's the most permissive behavior.
+        fn get_py_typed(candidate_path: &Path) -> PyTyped {
+            let py_typed = candidate_path.join("py.typed");
+            if py_typed.exists() {
+                if std::fs::read_to_string(py_typed)
+                    .ok()
+                    // if we fail to read it (ok() returns None), then treat as partial
+                    .is_none_or(|contents| contents.trim() == "partial")
+                {
+                    return PyTyped::Partial;
+                } else {
+                    return PyTyped::Complete;
+                }
+            }
+            PyTyped::Missing
+        }
+        match self {
+            Self::SingleFileModule(candidate_path) | Self::RegularPackage(_, candidate_path) => {
+                get_py_typed(candidate_path)
+            }
+            Self::NamespacePackage(paths) => paths
+                .iter()
+                .map(|path| get_py_typed(path))
+                .max()
+                .unwrap_or_default(),
+        }
+    }
 }
 
 fn find_one_part(name: &Name, roots: &[PathBuf]) -> Option<FindResult> {
