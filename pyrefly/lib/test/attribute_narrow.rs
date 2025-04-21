@@ -387,3 +387,17 @@ def f(foo: Foo):
         assert_type(qux.x, Foo)
 "#,
 );
+
+testcase!(
+    test_none_to_iterable,
+    r#"
+from typing import assert_type, Callable
+class Foo:
+    xs: list[int] | None
+def f(foo: Foo):
+    if foo.xs is not None:
+        assert_type(foo.xs, list[int])
+        for x in foo.xs:
+            assert_type(x, int)
+"#,
+);
