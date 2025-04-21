@@ -1499,6 +1499,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     TypeInfo::join(type_infos, &|ts| self.unions(ts))
                 }
             }
+            Binding::Default(default, binding) => {
+                // We force the default first so that if we hit a recursive case it is already available
+                self.get_idx(*default);
+                self.binding_to_type_info(binding, errors)
+            }
+            _ => {
+                // All other Bindings model `Type` level operations where we do not
+                // propagate any attribute narrows.
+                TypeInfo::of_ty(self.binding_to_type(binding, errors))
+            }
+        }
+    }
+
+    fn binding_to_type(&self, binding: &Binding, errors: &ErrorCollector) -> Type {
+        match binding {
+            Binding::Forward(..)
+            | Binding::Default(..)
+            | Binding::Phi(..)
+            | Binding::Narrow(..) => {
+                // These forms require propagating attribute narrowing information, so they
+                // are handled in `binding_to_type_info`
+                self.binding_to_type_info(binding, errors).into_ty()
+            }
             Binding::Expr(ann, e) => match ann {
                 Some(k) => {
                     let annot = self.get_idx(*k);
@@ -1516,43 +1539,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             "Assignment target is marked final".to_owned(),
                         );
                     }
-                    // TODO(stroxler): propagate attribute narrows here
-                    TypeInfo::of_ty(self.expr(
-                        e,
-                        annot.ty(self.stdlib).as_ref().map(|t| (t, tcc)),
-                        errors,
-                    ))
+                    self.expr(e, annot.ty(self.stdlib).as_ref().map(|t| (t, tcc)), errors)
                 }
                 None => {
                     // TODO(stroxler): propagate attribute narrows here
-                    TypeInfo::of_ty(self.expr(e, None, errors))
+                    self.expr(e, None, errors)
                 }
             },
-            Binding::Default(default, binding) => {
-                // We force the default first so that if we hit a recursive case it is already available
-                self.get_idx(*default);
-                self.binding_to_type_info(binding, errors)
-            }
-            _ => {
-                // All other Bindings model `Type` level operations where we do not
-                // propagate any attribute narrows.
-                // TODO(stroxler): A number of other cases need to be handled eventually
-                TypeInfo::of_ty(self.binding_to_type(binding, errors))
-            }
-        }
-    }
-
-    fn binding_to_type(&self, binding: &Binding, errors: &ErrorCollector) -> Type {
-        match binding {
-            Binding::Forward(..)
-            | Binding::Default(..)
-            | Binding::Expr(..)
-            | Binding::Phi(..)
-            | Binding::Narrow(..) => {
-                // These forms require propagating attribute narrowing information, so they
-                // are handled in `binding_to_type_info`
-                self.binding_to_type_info(binding, errors).into_ty()
-            }
             Binding::PatternMatchMapping(mapping_key, binding_key) => {
                 // TODO: check that value is a mapping
                 // TODO: check against duplicate keys (optional)
