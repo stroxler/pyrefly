@@ -34,6 +34,8 @@ pub struct MypyConfig {
     python_version: Option<PythonVersion>,
     #[serde(rename = "python_executable")]
     python_interpreter: Option<PathBuf>,
+    #[serde(rename = "follow_untyped_imports")]
+    use_untyped_imports: bool,
 }
 
 #[derive(Deserialize)]
@@ -51,6 +53,7 @@ with open(sys.argv[1]) as f:
     cp.read_file(f)
 cfg = {}
 replace_imports = []
+follow_untyped_imports = False
 for section in cp.sections():
     cfg[section] = {}
     for key, value in cp.items(section):
@@ -61,12 +64,15 @@ for section in cp.sections():
             value = [x.strip() for x in value.split(',') if x.strip()]
         elif key == 'mypy_path':
             value = [x.strip() for x in re.split('[,:]', value) if x.strip()]
+        elif key == 'follow_untyped_imports':
+            follow_untyped_imports |= value == 'True'
         elif value in ('True', 'False'):
             value = value == 'True'
         cfg[section][key] = value
     if not cfg[section]:
         del cfg[section]
 mypy = cfg.pop('mypy', {})
+mypy['follow_untyped_imports'] = follow_untyped_imports
 print(json.dumps({'mypy': mypy, 'per_module': cfg, 'replace_imports': replace_imports}))
 ";
         let mut cmd = Command::new(
@@ -112,6 +118,7 @@ print(json.dumps({'mypy': mypy, 'per_module': cfg, 'replace_imports': replace_im
         if mypy.python_interpreter.is_some() {
             cfg.python_interpreter = mypy.python_interpreter;
         }
+        cfg.use_untyped_imports = mypy.use_untyped_imports;
 
         cfg.root.replace_imports_with_any = Some(replace_imports);
 
@@ -149,6 +156,9 @@ ignore_missing_imports = True
 
 [mypy-stricter.on.this.*]
 check_untyped_defs = True
+
+[mypy-do.follow.*]
+follow_untyped_imports = True
 "#;
         fs_anyhow::write(&input_path, mypy)?;
 
@@ -171,6 +181,7 @@ check_untyped_defs = True
         );
 
         assert_eq!(cfg.replace_imports_with_any().len(), 2);
+        assert!(cfg.use_untyped_imports);
         Ok(())
     }
 }
