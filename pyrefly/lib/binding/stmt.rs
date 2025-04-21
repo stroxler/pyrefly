@@ -907,11 +907,20 @@ impl<'a> BindingsBuilder<'a> {
                             self.error(
                                 x.range,
                                 FindError::display(err, m),
+                                // TODO: should this be an import error?
                                 ErrorKind::MissingModuleAttribute,
                             );
                             self.bind_unimportable_names(&x);
                         }
                         Err(FindError::Ignored) => self.bind_unimportable_names(&x),
+                        Err(FindError::NoPyTyped) => {
+                            self.error(
+                                x.range,
+                                FindError::NO_PY_TYPED_ERROR_MESSAGE.to_owned(),
+                                ErrorKind::ImportError,
+                            );
+                            self.bind_unimportable_names(&x);
+                        }
                     }
                 } else {
                     self.error(

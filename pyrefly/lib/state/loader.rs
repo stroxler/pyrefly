@@ -24,9 +24,16 @@ pub enum FindError {
     NotFound(Arc<anyhow::Error>),
     /// This import could not be found, but the user configured it to be ignored
     Ignored,
+    /// This site package path entry was found, but does not have a py.typed entry
+    /// and ignore_py_typed_package_errors is disabled
+    #[expect(dead_code)]
+    NoPyTyped,
 }
 
 impl FindError {
+    pub const NO_PY_TYPED_ERROR_MESSAGE: &'static str = "Imported package does not contain a py.typed file, \
+        and therefore cannot be typed. See `use_untyped_imports` to import anyway.";
+
     pub fn not_found(err: anyhow::Error) -> Self {
         Self::NotFound(Arc::new(err))
     }
