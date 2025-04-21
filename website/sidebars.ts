@@ -61,11 +61,6 @@ const docsSidebar = [
             },
             {
                 type: 'doc' as const,
-                id: 'fb/pyrefly-upgrade',
-                label: 'Pyrefly Upgrade',
-            },
-            {
-                type: 'doc' as const,
                 id: 'fb/error-suppresions',
                 label: 'Error Suppressions',
             },
