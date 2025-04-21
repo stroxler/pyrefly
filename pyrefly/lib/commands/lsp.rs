@@ -79,21 +79,16 @@ use starlark_map::small_map::SmallMap;
 
 use crate::commands::run::CommandExitStatus;
 use crate::commands::util::module_from_path;
+use crate::config::config::ConfigFile;
 use crate::config::environment::PythonEnvironment;
 use crate::config::error::ErrorConfigs;
 use crate::metadata::RuntimeMetadata;
-use crate::module::bundled::typeshed;
-use crate::module::finder::find_module_in_search_path;
-use crate::module::finder::find_module_in_site_package_path;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::SourceRange;
 use crate::module::module_info::TextRangeWithModuleInfo;
-use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::state::handle::Handle;
-use crate::state::loader::FindError;
-use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::CommittingTransaction;
@@ -206,14 +201,18 @@ impl Config {
         runtime_metadata: RuntimeMetadata,
         open_files: HashMap<PathBuf, Arc<String>>,
     ) -> Self {
+        let mut config_file = ConfigFile::default();
+        config_file.python_environment.python_version = Some(runtime_metadata.version());
+        config_file.python_environment.python_platform = Some(runtime_metadata.platform().clone());
+        config_file.python_environment.site_package_path = Some(site_package_path);
+        config_file.search_path = search_path.clone();
+        config_file.configure();
+
         Self {
             open_files: Mutex::new(open_files),
             runtime_metadata,
             search_path: search_path.clone(),
-            loader: LoaderId::new(LspLoader {
-                search_path,
-                site_package_path,
-            }),
+            loader: LoaderId::new(config_file),
             disable_language_services: false,
         }
     }
@@ -344,30 +343,6 @@ impl Args {
             move || io_threads.join().map_err(anyhow::Error::from),
             self,
         )
-    }
-}
-
-#[derive(Debug, Clone)]
-struct LspLoader {
-    search_path: Vec<PathBuf>,
-    site_package_path: Vec<PathBuf>,
-}
-
-impl Loader for LspLoader {
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        if let Some(path) = find_module_in_search_path(module, &self.search_path) {
-            Ok(path)
-        } else if let Some(path) = typeshed().map_err(FindError::not_found)?.find(module) {
-            Ok(path)
-        } else if let Some(path) = find_module_in_site_package_path(module, &self.site_package_path)
-        {
-            Ok(path)
-        } else {
-            Err(FindError::search_path(
-                &self.search_path,
-                &self.site_package_path,
-            ))
-        }
     }
 }
 
