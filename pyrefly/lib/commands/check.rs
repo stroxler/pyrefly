@@ -24,6 +24,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::info;
 
+use crate::ArcId;
 use crate::clap_env;
 use crate::commands::suppress;
 use crate::commands::util::module_from_path;
@@ -226,7 +227,7 @@ fn create_loader(loader_inputs: LoaderInputs) -> LoaderId {
 struct Handles {
     /// We want to have different handles to share the same loader if the corresponding files share the same search path.
     /// This field keeps track of the loaders we've created so far and what search paths they correspond to.
-    loader_factory: SmallMap<LoaderInputs, LoaderId>,
+    loader_factory: SmallMap<ArcId<ConfigFile>, LoaderId>,
     /// A mapping from a file to all other information needed to create a `Handle`.
     /// The value type is basically everything else in `Handle` except for the file path.
     path_data: HashMap<PathBuf, (ModuleName, RuntimeMetadata, LoaderId)>,
@@ -267,17 +268,16 @@ impl Handles {
             .or_insert((module_name, config.get_runtime_metadata(), loader))
     }
 
-    fn get_or_register_loader(&mut self, config: &ConfigFile) -> LoaderId {
-        let key = LoaderInputs {
-            search_path: config.search_path.clone(),
-            site_package_path: config.site_package_path().to_owned(),
-            replace_imports_with_any: config.replace_imports_with_any().to_vec(),
-        };
-        if let Some(loader) = self.loader_factory.get(&key) {
+    fn get_or_register_loader(&mut self, config: &ArcId<ConfigFile>) -> LoaderId {
+        if let Some(loader) = self.loader_factory.get(config) {
             loader.dupe()
         } else {
-            let loader = create_loader(key.clone());
-            self.loader_factory.insert(key, loader.dupe());
+            let loader = create_loader(LoaderInputs {
+                search_path: config.search_path.clone(),
+                site_package_path: config.site_package_path().to_owned(),
+                replace_imports_with_any: config.replace_imports_with_any().to_vec(),
+            });
+            self.loader_factory.insert(config.dupe(), loader.dupe());
             loader
         }
     }
