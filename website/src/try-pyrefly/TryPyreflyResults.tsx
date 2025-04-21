@@ -182,7 +182,10 @@ export default function TryPyreflyResults({
                         {isRunning ? (
                             <div>Running...</div>
                         ) : (
-                            <div>{pythonOutput || 'No output'}</div>
+                            <div>
+                                {pythonOutput.trimStart() ||
+                                    'No output, please press the ▶️ Run button.'}
+                            </div>
                         )}
                     </pre>
                 )}
