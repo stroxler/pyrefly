@@ -23,8 +23,17 @@ const docsSidebar = [
         type: 'category' as const,
         label: 'Introduction',
         description: "Never used a type system before or just new to Pyrefly? Start here!",
-        items: [...fbInternalOnly(['fb/getting-started',  'fb/installation']), 'configuration', ...fbInternalOnly(['fb/migrating-to-pyrefly'])],
-      },
+        items: [...fbInternalOnly(['fb/getting-started',  'fb/installation']), 'configuration'],
+    },
+    ...fbInternalOnly(
+        [
+            {
+                type: 'category' as const,
+                label: 'Migrating to Pyrefly',
+                description: "Never used a type system before or just new to Pyrefly? Start here!",
+                items: ['fb/migrating-from-mypy',  'fb/migrating-from-pyright']
+            },
+        ]),
     {
         type: 'doc' as const,
         id: 'learn-python-typing',
@@ -32,6 +41,7 @@ const docsSidebar = [
     },
     ...fbInternalOnly(
         [
+
             {
                 type: 'doc' as const,
                 id: 'fb/FAQ',
@@ -41,6 +51,16 @@ const docsSidebar = [
                 type: 'doc' as const,
                 id: 'fb/IDE',
                 label: 'IDE',
+            },
+            {
+                type: 'doc' as const,
+                id: 'fb/pyrefly-upgrade',
+                label: 'Pyrefly Upgrade',
+            },
+            {
+                type: 'doc' as const,
+                id: 'fb/error-suppresions',
+                label: 'Error Suppressions',
             },
         ]
     ),
