@@ -79,7 +79,7 @@ export default function RunPythonButton({
             id="run-python-button"
             onClick={runPythonCode}
             defaultLabel="▶️ Run"
-            successLabel="⏳ Running..."
+            runningLabel="⏳ Running..."
             disabled={isRunning || !pyodide}
             ariaLabel="run Python code button"
         />

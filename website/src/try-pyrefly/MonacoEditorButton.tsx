@@ -14,7 +14,7 @@ interface MonacoEditorButtonProps {
     id: string;
     onClick: () => Promise<void>;
     defaultLabel: string;
-    successLabel: string;
+    runningLabel: string;
     disabled?: boolean;
     ariaLabel?: string;
 }
@@ -23,19 +23,19 @@ export default function MonacoEditorButton({
     id,
     onClick,
     defaultLabel,
-    successLabel,
+    runningLabel,
     disabled = false,
     ariaLabel,
 }: MonacoEditorButtonProps): React.ReactElement {
-    const [isSuccess, setIsSuccess] = useState(false);
+    const [isRunning, setIsRunning] = useState(false);
 
     async function handleClick(): Promise<void> {
         if (disabled) return;
 
         try {
             await onClick();
-            setIsSuccess(true);
-            setTimeout(() => setIsSuccess(false), 2000);
+            setIsRunning(true);
+            setTimeout(() => setIsRunning(false), 2000);
         } catch (error) {
             console.error('Error in button action:', error);
         }
@@ -46,7 +46,7 @@ export default function MonacoEditorButton({
             id={id}
             {...stylex.props(
                 styles.buttonBase,
-                isSuccess ? styles.buttonSuccess : styles.buttonDefault,
+                isRunning ? styles.buttonRunning : styles.buttonDefault,
                 disabled && styles.buttonDisabled
             )}
             onClick={() => handleClick()}
@@ -54,14 +54,14 @@ export default function MonacoEditorButton({
             disabled={disabled}
         >
             <span {...stylex.props(styles.buttonText)}>
-                {isSuccess ? successLabel : defaultLabel}
+                {isRunning ? runningLabel : defaultLabel}
             </span>
         </button>
     );
 }
 
 // Define keyframes for animations
-const successKeyframes = stylex.keyframes({
+const runningKeyframes = stylex.keyframes({
     '0%': { transform: 'scale(1)' },
     '50%': { transform: 'scale(1.1)' },
     '100%': { transform: 'scale(1)' },
@@ -108,13 +108,13 @@ const styles = stylex.create({
     buttonText: {
         transition: 'opacity 0.2s ease, display 0s 0.2s',
     },
-    // Success state
-    buttonSuccess: {
+    // Running state
+    buttonRunning: {
         background: 'rgba(76, 175, 80, 0.95)',
         color: 'white',
         border: '1px solid #43a047',
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-        animationName: successKeyframes,
+        animationName: runningKeyframes,
         animationDuration: '0.3s',
         animationTimingFunction: 'ease',
         '@media (min-width: 769px)': {

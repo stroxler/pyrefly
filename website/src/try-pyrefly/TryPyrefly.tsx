@@ -213,7 +213,7 @@ export default function TryPyrefly({
                                 );
                             }}
                             defaultLabel="📋 Share URL"
-                            successLabel="✓ URL Copied!"
+                            runningLabel="✓ URL Copied!" // we reuse the running label to indicate that the URL has been copied
                             ariaLabel="share URL button"
                         />
                         <RunPythonButton
