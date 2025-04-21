@@ -26,7 +26,14 @@ use crate::config::error::ErrorDisplayConfig;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
+use crate::module::bundled::typeshed;
+use crate::module::finder::find_module_in_search_path;
+use crate::module::finder::find_module_in_site_package_path;
+use crate::module::module_name::ModuleName;
+use crate::module::module_path::ModulePath;
 use crate::module::wildcard::ModuleWildcard;
+use crate::state::loader::FindError;
+use crate::state::loader::Loader;
 use crate::util::fs_anyhow;
 use crate::util::globs::Glob;
 use crate::util::globs::Globs;
@@ -101,6 +108,31 @@ impl Default for ConfigFile {
             }
         }
         result
+    }
+}
+
+impl Loader for ConfigFile {
+    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
+        if self
+            .replace_imports_with_any()
+            .iter()
+            .any(|p| p.matches(module))
+        {
+            Err(FindError::Ignored)
+        } else if let Some(path) = find_module_in_search_path(module, &self.search_path) {
+            Ok(path)
+        } else if let Some(path) = typeshed().map_err(FindError::not_found)?.find(module) {
+            Ok(path)
+        } else if let Some(path) =
+            find_module_in_site_package_path(module, self.site_package_path())
+        {
+            Ok(path)
+        } else {
+            Err(FindError::search_path(
+                &self.search_path,
+                self.site_package_path(),
+            ))
+        }
     }
 }
 

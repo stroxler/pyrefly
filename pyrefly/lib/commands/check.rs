@@ -41,18 +41,12 @@ use crate::error::summarise::print_error_summary;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
-use crate::module::bundled::typeshed;
-use crate::module::finder::find_module_in_search_path;
-use crate::module::finder::find_module_in_site_package_path;
 use crate::module::ignore::SuppressionKind;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
-use crate::module::wildcard::ModuleWildcard;
 use crate::report;
 use crate::state::handle::Handle;
-use crate::state::loader::FindError;
-use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
@@ -150,46 +144,6 @@ pub struct Args {
     use_untyped_imports: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct LoaderInputs {
-    search_path: Vec<PathBuf>,
-    site_package_path: Vec<PathBuf>,
-    replace_imports_with_any: Vec<ModuleWildcard>,
-}
-
-#[derive(Debug, Clone)]
-struct CheckLoader {
-    loader_inputs: LoaderInputs,
-}
-
-impl Loader for CheckLoader {
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        if self
-            .loader_inputs
-            .replace_imports_with_any
-            .iter()
-            .any(|p| p.matches(module))
-        {
-            Err(FindError::Ignored)
-        } else if let Some(path) =
-            find_module_in_search_path(module, &self.loader_inputs.search_path)
-        {
-            Ok(path)
-        } else if let Some(path) = typeshed().map_err(FindError::not_found)?.find(module) {
-            Ok(path)
-        } else if let Some(path) =
-            find_module_in_site_package_path(module, &self.loader_inputs.site_package_path)
-        {
-            Ok(path)
-        } else {
-            Err(FindError::search_path(
-                &self.loader_inputs.search_path,
-                &self.loader_inputs.site_package_path,
-            ))
-        }
-    }
-}
-
 impl OutputFormat {
     fn write_error_text_to_file(path: &Path, errors: &[Error]) -> anyhow::Result<()> {
         let mut file = BufWriter::new(File::create(path)?);
@@ -217,10 +171,6 @@ impl OutputFormat {
             Self::Json => Self::write_error_json_to_file(path, errors),
         }
     }
-}
-
-fn create_loader(loader_inputs: LoaderInputs) -> LoaderId {
-    LoaderId::new(CheckLoader { loader_inputs })
 }
 
 /// A data structure to facilitate the creation of handles for all the files we want to check.
@@ -272,11 +222,7 @@ impl Handles {
         if let Some(loader) = self.loader_factory.get(config) {
             loader.dupe()
         } else {
-            let loader = create_loader(LoaderInputs {
-                search_path: config.search_path.clone(),
-                site_package_path: config.site_package_path().to_owned(),
-                replace_imports_with_any: config.replace_imports_with_any().to_vec(),
-            });
+            let loader = LoaderId::new(config.dupe());
             self.loader_factory.insert(config.dupe(), loader.dupe());
             loader
         }

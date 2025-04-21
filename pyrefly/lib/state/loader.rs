@@ -50,6 +50,12 @@ pub trait Loader: Sync + Debug {
     fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError>;
 }
 
+impl<T: Loader + Send> Loader for ArcId<T> {
+    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
+        (**self).find_import(module)
+    }
+}
+
 #[derive(Clone, Dupe, Debug, Hash, PartialEq, Eq)]
 pub struct LoaderId(ArcId<dyn Loader + Send>);
 
