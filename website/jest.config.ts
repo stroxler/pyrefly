@@ -52,6 +52,7 @@ const config: Config.InitialOptions = {
         './configured-monaco': '<rootDir>/__mocks__/configuredMonacoMock.ts',
         'lz-string': '<rootDir>/__mocks__/lzStringMock.ts',
         'monaco-editor': '<rootDir>/__mocks__/monaco-editor.ts',
+        './usePythonWorker': '<rootDir>/__mocks__/usePythonWorkerMock.ts',
     },
     setupFilesAfterEnv: ['@testing-library/jest-dom'],
 };

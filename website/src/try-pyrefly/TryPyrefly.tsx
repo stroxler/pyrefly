@@ -221,7 +221,6 @@ export default function TryPyrefly({
                             onActiveTabChange={setActiveTab}
                             isRunning={isRunning}
                             setIsRunning={setIsRunning}
-                            pythonOutput={pythonOutput}
                             setPythonOutput={setPythonOutput}
                         />
                     </div>

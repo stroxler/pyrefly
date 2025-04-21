@@ -33,9 +33,19 @@ export default function MonacoEditorButton({
         if (disabled) return;
 
         try {
-            await onClick();
             setIsRunning(true);
-            setTimeout(() => setIsRunning(false), 2000);
+
+            // Create a promise that resolves after 2 seconds
+            const timerPromise = new Promise<void>((resolve) => {
+                setTimeout(() => {
+                    resolve();
+                }, 2000);
+            });
+
+            // Wait for both the onClick function and the 2-second timer to complete
+            Promise.all([onClick(), timerPromise]).then(() => {
+                setIsRunning(false);
+            });
         } catch (error) {
             console.error('Error in button action:', error);
         }
@@ -49,7 +59,7 @@ export default function MonacoEditorButton({
                 isRunning ? styles.buttonRunning : styles.buttonDefault,
                 disabled && styles.buttonDisabled
             )}
-            onClick={() => handleClick()}
+            onClick={handleClick}
             aria-label={ariaLabel || id}
             disabled={disabled}
         >

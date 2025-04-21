@@ -51,7 +51,6 @@ reveal_type(test(42))
         </button>
         <button
           aria-label="run Python code button"
-          disabled=""
           id="run-python-button"
         >
           <span>

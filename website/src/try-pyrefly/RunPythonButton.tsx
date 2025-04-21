@@ -7,17 +7,16 @@
  * @format
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { loadPyodide, PyodideInterface } from 'pyodide';
+import React, { useCallback, useEffect } from 'react';
 import MonacoEditorButton from './MonacoEditorButton';
 import type { editor } from 'monaco-editor';
+import { usePythonWorker } from './usePythonWorker';
 
 interface RunPythonButtonProps {
     model: editor.ITextModel | null;
     onActiveTabChange: (tab: string) => void;
     isRunning: boolean;
     setIsRunning: React.Dispatch<React.SetStateAction<boolean>>;
-    pythonOutput: string;
     setPythonOutput: React.Dispatch<React.SetStateAction<string>>;
 }
 
@@ -26,53 +25,24 @@ export default function RunPythonButton({
     onActiveTabChange,
     isRunning,
     setIsRunning,
-    pythonOutput,
     setPythonOutput,
 }: RunPythonButtonProps): React.ReactElement {
-    const [pyodide, setPyodide] = useState<PyodideInterface | null>(null);
+    const { runPython } = usePythonWorker({
+        setIsRunning,
+        setPythonOutput,
+    });
 
-    // Initialize Pyodide
-    useEffect(() => {
-        async function initPyodide() {
-            try {
-                const pyodideInstance = await loadPyodide({
-                    indexURL: `${window.location.origin}/pyodide`,
-                });
-
-                const updateOutput = (output: string) => {
-                    setPythonOutput((prev) => prev + '\n' + output);
-                };
-                // Set up stdout and stderr capture
-                pyodideInstance.setStdout({ batched: updateOutput });
-                pyodideInstance.setStderr({ batched: updateOutput });
-                setPyodide(pyodideInstance);
-            } catch (error) {
-                console.error('Error loading Pyodide:', error);
-            }
-        }
-
-        initPyodide();
-    }, []);
-
-    // Run Python code using Pyodide
+    // Run Python code using the worker
     const runPythonCode = useCallback(async () => {
-        if (!pyodide || !model) return;
+        if (!model) return;
 
         // Switch to output tab
         onActiveTabChange('output');
-        setIsRunning(true);
         setPythonOutput('');
 
-        try {
-            const code = model.getValue();
-            pyodide.runPython(code);
-        } catch (error) {
-            console.error('Error running Python code:', error);
-            setPythonOutput((prev) => prev + '\n' + error);
-        } finally {
-            setIsRunning(false);
-        }
-    }, [pyodide, model, onActiveTabChange]);
+        const code = model.getValue();
+        await runPython(code);
+    }, [model, onActiveTabChange, setPythonOutput, runPython]);
 
     return (
         <MonacoEditorButton
@@ -80,7 +50,7 @@ export default function RunPythonButton({
             onClick={runPythonCode}
             defaultLabel="▶️ Run"
             runningLabel="⏳ Running..."
-            disabled={isRunning || !pyodide}
+            disabled={isRunning}
             ariaLabel="run Python code button"
         />
     );
