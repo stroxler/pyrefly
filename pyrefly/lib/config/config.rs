@@ -204,6 +204,7 @@ impl ConfigFile {
                 let system_env = PythonEnvironment::get_interpreter_env(interpreter);
                 self.python_environment.override_empty(system_env);
             } else {
+                self.python_environment.set_empty_to_default();
                 warn!(
                     "Python environment (version, platform, or site_package_path) has value unset, \
                 but no Python interpreter could be found to query for values. Falling back to \

@@ -75,6 +75,19 @@ impl PythonEnvironment {
             || self.site_package_path.is_none()
     }
 
+    pub fn set_empty_to_default(&mut self) {
+        if self.python_platform.is_none() {
+            self.python_platform = Some(PythonPlatform::default());
+        }
+        if self.python_version.is_none() {
+            self.python_version = Some(PythonVersion::default());
+        }
+        if self.site_package_path.is_none() {
+            self.site_package_path = Some(Vec::new());
+            self.site_package_path_from_interpreter = false;
+        }
+    }
+
     pub fn override_empty(&mut self, other: Self) {
         if self.python_platform.is_none() {
             self.python_platform = other.python_platform;
