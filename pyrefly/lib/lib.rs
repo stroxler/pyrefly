@@ -50,20 +50,22 @@ mod test;
 mod types;
 mod util;
 
-#[cfg(not(target_arch = "wasm32"))]
-pub use crate::commands::run;
-pub use crate::config::base::ConfigBase;
-pub use crate::config::config::ConfigFile;
-pub use crate::config::environment::PythonEnvironment;
-pub use crate::config::finder;
-pub use crate::metadata::PythonPlatform;
-pub use crate::metadata::PythonVersion;
-pub use crate::util::arc_id::ArcId;
-pub use crate::util::args::clap_env;
-pub use crate::util::args::get_args_expanded;
-pub use crate::util::globs;
-pub use crate::util::listing::FileList;
-pub use crate::util::notify_watcher::NotifyWatcher;
-pub use crate::util::thread_pool::init_thread_pool;
-pub use crate::util::trace::init_tracing;
-pub use crate::util::watcher::Watcher;
+pub mod exported {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub use crate::commands::run;
+    pub use crate::config::base::ConfigBase;
+    pub use crate::config::config::ConfigFile;
+    pub use crate::config::environment::PythonEnvironment;
+    pub use crate::config::finder;
+    pub use crate::metadata::PythonPlatform;
+    pub use crate::metadata::PythonVersion;
+    pub use crate::util::arc_id::ArcId;
+    pub use crate::util::args::clap_env;
+    pub use crate::util::args::get_args_expanded;
+    pub use crate::util::globs;
+    pub use crate::util::listing::FileList;
+    pub use crate::util::notify_watcher::NotifyWatcher;
+    pub use crate::util::thread_pool::init_thread_pool;
+    pub use crate::util::trace::init_tracing;
+    pub use crate::util::watcher::Watcher;
+}
