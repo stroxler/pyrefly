@@ -33,6 +33,10 @@ const docsSidebar = [
             {
                 type: 'category' as const,
                 label: 'Migrating to Pyrefly',
+                link: {
+                    type: 'doc' as const,
+                    id: 'fb/migrating-to-pyrefly',
+                },
                 description: "Never used a type system before or just new to Pyrefly? Start here!",
                 items: ['fb/migrating-from-mypy',  'fb/migrating-from-pyright']
             },
