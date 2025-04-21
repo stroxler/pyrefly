@@ -138,11 +138,6 @@ const styles = stylex.create({
     },
     // Disabled state
     buttonDisabled: {
-        opacity: 0.5,
         cursor: 'not-allowed',
-        ':hover': {
-            transform: 'none',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-        },
     },
 });
