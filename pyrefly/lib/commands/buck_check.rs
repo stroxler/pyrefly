@@ -15,7 +15,7 @@ use dupe::Dupe;
 use serde::Deserialize;
 use tracing::info;
 
-use crate::clap_env;
+use crate::commands::run::CommandExitStatus;
 use crate::config::error::ErrorConfigs;
 use crate::error::error::Error;
 use crate::error::legacy::LegacyErrors;
@@ -24,11 +24,11 @@ use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::module::module_path::ModulePath;
 use crate::module::source_db::BuckSourceDatabase;
-use crate::run::CommandExitStatus;
 use crate::state::handle::Handle;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
+use crate::util::args::clap_env;
 use crate::util::fs_anyhow;
 use crate::util::prelude::VecExt;
 

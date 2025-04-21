@@ -18,10 +18,10 @@ use std::path::PathBuf;
 use clap::Parser;
 use tracing::info;
 
+use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::config::mypy::MypyConfig;
 use crate::config::pyright::PyrightConfig;
-use crate::run::CommandExitStatus;
 use crate::util::fs_anyhow;
 
 #[derive(Clone, Debug, Parser)]

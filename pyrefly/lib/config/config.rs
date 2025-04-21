@@ -23,13 +23,13 @@ use tracing::warn;
 use crate::config::base::ConfigBase;
 use crate::config::environment::PythonEnvironment;
 use crate::config::error::ErrorDisplayConfig;
-use crate::globs::Glob;
-use crate::globs::Globs;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::module::wildcard::ModuleWildcard;
 use crate::util::fs_anyhow;
+use crate::util::globs::Glob;
+use crate::util::globs::Globs;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct SubConfig {

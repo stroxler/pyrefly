@@ -9,14 +9,14 @@ use std::process::ExitCode;
 
 use clap::Parser;
 
-use crate::clap_env;
 pub use crate::commands::buck_check::Args as BuckCheckArgs;
 pub use crate::commands::check::Args as CheckArgs;
 pub use crate::commands::config_migration::Args as ConfigMigrationArgs;
 pub use crate::commands::lsp::Args as LspArgs;
-use crate::init_thread_pool;
-use crate::init_tracing;
+use crate::util::args::clap_env;
 use crate::util::thread_pool::ThreadCount;
+use crate::util::thread_pool::init_thread_pool;
+use crate::util::trace::init_tracing;
 
 #[derive(Debug, Parser, Clone)]
 pub struct CommonGlobalArgs {

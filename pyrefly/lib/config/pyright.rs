@@ -53,6 +53,7 @@ impl PyrightConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::environment::PythonEnvironment;
 
     #[test]
     fn test_convert_pyright_config() -> anyhow::Result<()> {
@@ -83,7 +84,7 @@ mod tests {
                 ]),
                 project_excludes: Globs::new(vec!["src/excluded/**/*.py".to_owned()]),
                 search_path: vec![PathBuf::from("src/extra")],
-                python_environment: crate::PythonEnvironment {
+                python_environment: PythonEnvironment {
                     python_platform: Some(PythonPlatform::linux()),
                     python_version: Some(PythonVersion::new(3, 10, 0)),
                     site_package_path: None,
@@ -115,7 +116,7 @@ mod tests {
                     "src/**/*.py".to_owned(),
                     "test/**/*.py".to_owned()
                 ]),
-                python_environment: crate::PythonEnvironment {
+                python_environment: PythonEnvironment {
                     python_version: Some(PythonVersion::new(3, 11, 0)),
                     python_platform: None,
                     site_package_path: None,

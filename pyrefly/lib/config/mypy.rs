@@ -13,10 +13,10 @@ use serde::Deserialize;
 
 use crate::config::config::ConfigFile;
 use crate::config::environment::PythonEnvironment;
-use crate::globs::Globs;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::module::wildcard::ModuleWildcard;
+use crate::util::globs::Globs;
 
 #[derive(Clone, Debug, Deserialize)]
 
