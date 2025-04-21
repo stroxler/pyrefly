@@ -281,32 +281,17 @@ mod tests {
     fn test_invalid_import() {
         let mut state = LanguageServiceState::new();
         state.update_source("from t".to_owned());
-        let expected_errors: Vec<&str> = vec![
+        let expected_errors = &[
             "Could not find import of `t`, module is not available in sandbox",
             "Parse error: Expected 'import', found newline",
         ];
-        let expected_error_kinds: Vec<ErrorKind> =
-            vec![ErrorKind::MissingModuleAttribute, ErrorKind::ParseError];
+        let expected_error_kinds = &[ErrorKind::MissingModuleAttribute, ErrorKind::ParseError];
+
+        assert_eq!(&state.get_errors().into_map(|x| x.message), expected_errors);
 
         assert_eq!(
-            state
-                .get_errors()
-                .into_iter()
-                .map(|x| x.message)
-                .collect::<Vec<_>>(),
-            expected_errors,
-        );
-
-        assert_eq!(
-            state
-                .get_errors()
-                .into_iter()
-                .map(|x| x.kind)
-                .collect::<Vec<_>>(),
-            expected_error_kinds
-                .iter()
-                .map(|k| k.to_name())
-                .collect::<Vec<_>>(),
+            state.get_errors().into_map(|x| x.kind),
+            expected_error_kinds.map(|k| k.to_name()),
         );
     }
 }
