@@ -11,11 +11,11 @@ use std::process::Command;
 
 use serde::Deserialize;
 
-use crate::ConfigFile;
-use crate::PythonEnvironment;
-use crate::PythonPlatform;
-use crate::PythonVersion;
+use crate::config::config::ConfigFile;
+use crate::config::environment::PythonEnvironment;
 use crate::globs::Globs;
+use crate::metadata::PythonPlatform;
+use crate::metadata::PythonVersion;
 use crate::module::wildcard::ModuleWildcard;
 
 #[derive(Clone, Debug, Deserialize)]

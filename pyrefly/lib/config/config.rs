@@ -20,8 +20,8 @@ use serde::Serialize;
 use tracing::debug;
 use tracing::warn;
 
-use crate::PythonEnvironment;
 use crate::config::base::ConfigBase;
+use crate::config::environment::PythonEnvironment;
 use crate::config::error::ErrorDisplayConfig;
 use crate::globs::Glob;
 use crate::globs::Globs;

@@ -24,8 +24,6 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::info;
 
-use crate::ArcId;
-use crate::clap_env;
 use crate::commands::suppress;
 use crate::commands::util::module_from_path;
 use crate::config::config::ConfigFile;
@@ -60,6 +58,8 @@ use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::subscriber::ProgressBarSubscriber;
+use crate::util::arc_id::ArcId;
+use crate::util::args::clap_env;
 use crate::util::display;
 use crate::util::display::number_thousands;
 use crate::util::forgetter::Forgetter;

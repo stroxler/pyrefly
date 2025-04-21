@@ -22,8 +22,8 @@ use tracing::error;
 #[cfg(not(target_arch = "wasm32"))]
 use which::which;
 
-use crate::PythonVersion;
 use crate::metadata::PythonPlatform;
+use crate::metadata::PythonVersion;
 use crate::util::lock::Mutex;
 
 static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonEnvironment>>>> =

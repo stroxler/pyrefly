@@ -22,11 +22,11 @@ use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use starlark_map::small_map::SmallMap;
 
-use crate::PythonVersion;
 use crate::binding::binding::KeyExport;
 use crate::config::error::ErrorConfigs;
 use crate::error::error::print_errors;
 use crate::metadata::PythonPlatform;
+use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::module::bundled::typeshed;
 use crate::module::module_name::ModuleName;

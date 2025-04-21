@@ -77,9 +77,9 @@ use serde::de::DeserializeOwned;
 use starlark_map::small_map::Iter;
 use starlark_map::small_map::SmallMap;
 
-use crate::PythonEnvironment;
 use crate::clap_env;
 use crate::commands::util::module_from_path;
+use crate::config::environment::PythonEnvironment;
 use crate::config::error::ErrorConfigs;
 use crate::metadata::RuntimeMetadata;
 use crate::module::bundled::typeshed;

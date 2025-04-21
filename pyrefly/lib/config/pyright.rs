@@ -9,10 +9,10 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-use crate::ConfigFile;
-use crate::PythonVersion;
-use crate::globs::Globs;
+use crate::config::config::ConfigFile;
 use crate::metadata::PythonPlatform;
+use crate::metadata::PythonVersion;
+use crate::util::globs::Globs;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct PyrightConfig {
