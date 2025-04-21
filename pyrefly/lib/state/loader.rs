@@ -32,11 +32,15 @@ impl FindError {
     }
 
     pub fn search_path(search_roots: &[PathBuf], site_package_path: &[PathBuf]) -> FindError {
-        Self::not_found(anyhow!(
-            "looked at search roots ({}) and site package path ({})",
-            commas_iter(|| search_roots.iter().map(|x| x.display())),
-            commas_iter(|| site_package_path.iter().map(|x| x.display())),
-        ))
+        if search_roots.is_empty() && site_package_path.is_empty() {
+            Self::not_found(anyhow!("no search roots or site package path"))
+        } else {
+            Self::not_found(anyhow!(
+                "looked at search roots ({}) and site package path ({})",
+                commas_iter(|| search_roots.iter().map(|x| x.display())),
+                commas_iter(|| site_package_path.iter().map(|x| x.display())),
+            ))
+        }
     }
 
     pub fn display(err: Arc<anyhow::Error>, module: ModuleName) -> String {

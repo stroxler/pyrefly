@@ -8,7 +8,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use dupe::Dupe;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
@@ -16,14 +15,12 @@ use ruff_source_file::SourceLocation;
 use serde::Serialize;
 
 use crate::config::error::ErrorConfigs;
+use crate::exported::ConfigFile;
 use crate::metadata::RuntimeMetadata;
-use crate::module::bundled::typeshed;
 use crate::module::module_info::SourceRange;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::state::handle::Handle;
-use crate::state::loader::FindError;
-use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
@@ -110,21 +107,6 @@ pub struct InlayHint {
     position: Position,
 }
 
-#[derive(Default, Debug, Clone)]
-struct TypeshedLoader;
-
-impl Loader for TypeshedLoader {
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        if let Some(path) = typeshed().map_err(FindError::not_found)?.find(module) {
-            Ok(path)
-        } else {
-            Err(FindError::not_found(anyhow!(
-                "module is not available in sandbox"
-            )))
-        }
-    }
-}
-
 pub struct LanguageServiceState {
     state: State,
     handle: Handle,
@@ -132,12 +114,17 @@ pub struct LanguageServiceState {
 
 impl LanguageServiceState {
     pub fn new() -> Self {
+        let mut config = ConfigFile::default();
+        config.python_environment.set_empty_to_default();
+        config.search_path = Vec::new();
+        config.configure();
+
         let state = State::new();
         let handle = Handle::new(
             ModuleName::from_str("test"),
             ModulePath::memory(PathBuf::from("test.py")),
             RuntimeMetadata::default(),
-            LoaderId::new(TypeshedLoader),
+            LoaderId::new(config),
         );
         let mut me = Self { state, handle };
         me.update_source("".to_owned());
@@ -282,7 +269,7 @@ mod tests {
         let mut state = LanguageServiceState::new();
         state.update_source("from t".to_owned());
         let expected_errors = &[
-            "Could not find import of `t`, module is not available in sandbox",
+            "Could not find import of `t`, no search roots or site package path",
             "Parse error: Expected 'import', found newline",
         ];
         let expected_error_kinds = &[ErrorKind::MissingModuleAttribute, ErrorKind::ParseError];
