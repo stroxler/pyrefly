@@ -9,6 +9,7 @@
 
 import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 export interface PyreflyErrorMessage {
     startLineNumber: number;
@@ -64,7 +65,13 @@ function ErrorMessage({
         rangeStr = `${startLineNumber}:${startColumn}-${endLineNumber}:${endColumn}`;
     }
 
-    const message = `${rangeStr}: ${error.message} [${error.kind}]`;
+    const errorKindUrl = (
+        <a href={useBaseUrl(`en/docs/error-kinds/#${error.kind}`)}>
+            {error.kind}
+        </a>
+    );
+    const message = `${rangeStr}: ${error.message} `;
+
     return (
         <span
             {...stylex.props(styles.msgType)}
@@ -74,6 +81,9 @@ function ErrorMessage({
         >
             <span {...stylex.props(styles.errorMessageError)}>ERROR </span>
             {message}
+            {'['}
+            {errorKindUrl}
+            {']'}
         </span>
     );
 }
@@ -157,11 +167,11 @@ export default function TryPyreflyResults({
                                     {internalError
                                         ? `Pyrefly encountered an internal error: ${internalError}.`
                                         : errors === undefined ||
-                                            errors === null
-                                          ? 'Pyrefly failed to fetch errors.'
-                                          : errors?.length === 0
-                                            ? 'No errors!'
-                                            : null}
+                                          errors === null
+                                        ? 'Pyrefly failed to fetch errors.'
+                                        : errors?.length === 0
+                                        ? 'No errors!'
+                                        : null}
                                 </li>
                             )}
                         </ul>
