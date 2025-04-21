@@ -664,3 +664,38 @@ def f(x: Never) -> Never:
     return x()
 "#,
 );
+
+testcase!(
+    test_param_matching_rhs_empty,
+    r#"
+from typing import Callable
+def foo(f: Callable[[], None]) -> None: ...
+
+def optional_pos_only_ok(x: int = 0, /) -> None: ...
+foo(optional_pos_only_ok)
+
+def optional_pos_ok(x: int = 0) -> None: ...
+foo(optional_pos_ok)
+
+def optional_kw_only_ok(*, x: int = 0) -> None: ...
+foo(optional_kw_only_ok)
+
+def optional_all_default_ok(x: int = 0, /, y: int = 1, *, z: int = 2) -> None: ...
+foo(optional_all_default_ok)
+
+def varargs_ok(*args: int) -> None: ...
+foo(varargs_ok)
+
+def kwargs_ok(**kwargs: int) -> None: ...
+foo(kwargs_ok)
+
+def varargs_kwargs_ok(*args: int, **kwargs: int) -> None: ...
+foo(varargs_kwargs_ok)
+
+def varargs_bad(*args: int, x: int) -> None: ...
+foo(varargs_bad)  # E: not assignable to parameter `f`
+
+def varargs_kwargs_bad(*args: int, x: int, **kwargs: int) -> None: ...
+foo(varargs_kwargs_bad)  # E: not assignable to parameter `f`
+"#,
+);

@@ -84,7 +84,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         | Param::Kwargs(_, _),
                     ),
                     None,
-                ) => return true,
+                ) => {
+                    l_arg = l_args_iter.next();
+                }
                 (
                     Some(Param::VarArg(_, Type::Unpack(box l))),
                     Some(Param::PosOnly(_, Required::Required)),
