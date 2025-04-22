@@ -739,6 +739,27 @@ def f(x: A):
 );
 
 testcase!(
+    test_getitem_cannot_iterate_class,
+    r#"
+class A:
+    def __getitem__(self, i: int) -> int: ...
+for a in A:  # E: Type `type[A]` is not iterable
+    pass
+    "#,
+);
+
+testcase!(
+    test_getitem_cannot_iterate_generic_class,
+    r#"
+class A[T]:
+    def __getitem__(self, i: int) -> int: ...
+def f(x: type[A[int]]):
+    for a in x:  # E: Type `type[A[int]]` is not iterable
+        pass
+    "#,
+);
+
+testcase!(
     test_not_iterable,
     r#"
 for _ in None:  # E: `None` is not iterable

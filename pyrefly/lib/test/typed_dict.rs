@@ -126,7 +126,7 @@ class Coord(TypedDict):
     x: int
     y: int
 def foo(c: Coord) -> None:
-    for x in Coord:  # E: Type `type[Coord]` is not iterable # E:
+    for x in Coord:  # E: Type `type[Coord]` is not iterable
         pass
     for x in c:
         assert_type(x, str)

@@ -474,6 +474,63 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn iterate_instance(
+        &self,
+        iterable: &Type,
+        context: &impl Fn() -> ErrorContext,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Vec<Iterable> {
+        let ty = self
+            .unwrap_iterable(iterable)
+            .or_else(|| {
+                let int_ty = self.stdlib.int().clone().to_type();
+                let arg = CallArg::Type(&int_ty, range);
+                self.call_method(
+                    iterable,
+                    &dunder::GETITEM,
+                    range,
+                    &[arg],
+                    &[],
+                    errors,
+                    Some(context),
+                )
+            })
+            .unwrap_or_else(|| {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::NotIterable,
+                    None,
+                    context().format(),
+                )
+            });
+        vec![Iterable::OfType(ty)]
+    }
+
+    fn iterate_class(
+        &self,
+        cls: &Class,
+        context: &impl Fn() -> ErrorContext,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Vec<Iterable> {
+        // Class objects should be treated like instances of their metaclasses.
+        let metadata = self.get_metadata_for_class(cls);
+        let metaclass = metadata.metaclass();
+        if let Some(metaclass) = metaclass {
+            self.iterate_instance(&Type::ClassType(metaclass.clone()), &context, range, errors)
+        } else {
+            vec![Iterable::OfType(self.error(
+                errors,
+                range,
+                ErrorKind::NotIterable,
+                None,
+                context().format(),
+            ))]
+        }
+    }
+
     /// Given an `iterable` type, determine the iteration type; this is the type
     /// of `x` if we were to loop using `for x in iterable`.
     pub fn iterate(
@@ -484,6 +541,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Vec<Iterable> {
         // Use the iterable protocol interfaces to determine the iterable type.
         // Special cases like Tuple should be intercepted first.
+        let context = || ErrorContext::Iteration(self.for_display(iterable.clone()));
         match iterable {
             Type::ClassType(cls) if let Some(elts) = self.named_tuple_element_types(cls) => {
                 vec![Iterable::FixedLen(elts.clone())]
@@ -496,34 +554,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .iter()
                 .flat_map(|t| self.iterate(t, range, errors))
                 .collect(),
-            _ => {
-                let context = || ErrorContext::Iteration(self.for_display(iterable.clone()));
-                let ty = self
-                    .unwrap_iterable(iterable)
-                    .or_else(|| {
-                        let int_ty = self.stdlib.int().clone().to_type();
-                        let arg = CallArg::Type(&int_ty, range);
-                        self.call_method(
-                            iterable,
-                            &dunder::GETITEM,
-                            range,
-                            &[arg],
-                            &[],
-                            errors,
-                            Some(&context),
-                        )
-                    })
-                    .unwrap_or_else(|| {
-                        self.error(
-                            errors,
-                            range,
-                            ErrorKind::NotIterable,
-                            None,
-                            context().format(),
-                        )
-                    });
-                vec![Iterable::OfType(ty)]
+            Type::ClassDef(cls) => self.iterate_class(cls, &context, range, errors),
+            Type::Type(box Type::ClassType(cls)) => {
+                self.iterate_class(cls.class_object(), &context, range, errors)
             }
+            _ => self.iterate_instance(iterable, &context, range, errors),
         }
     }
 
