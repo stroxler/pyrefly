@@ -56,27 +56,27 @@ mod tests {
     fn test_module_from_path() {
         let includes = vec![PathBuf::from("/foo/bar")];
         assert_eq!(
-            module_from_path(&PathBuf::from("/foo/bar/baz.py"), &includes),
+            module_from_path(Path::new("/foo/bar/baz.py"), &includes),
             ModuleName::from_str("baz")
         );
         assert_eq!(
-            module_from_path(&PathBuf::from("/foo/bar/baz/qux.pyi"), &includes),
+            module_from_path(Path::new("/foo/bar/baz/qux.pyi"), &includes),
             ModuleName::from_str("baz.qux")
         );
         assert_eq!(
-            module_from_path(&PathBuf::from("/foo/bar/baz/test/magic.py"), &includes),
+            module_from_path(Path::new("/foo/bar/baz/test/magic.py"), &includes),
             ModuleName::from_str("baz.test.magic")
         );
         assert_eq!(
-            module_from_path(&PathBuf::from("/foo/bar/baz/__init__.pyi"), &includes),
+            module_from_path(Path::new("/foo/bar/baz/__init__.pyi"), &includes),
             ModuleName::from_str("baz")
         );
         assert_eq!(
-            module_from_path(&PathBuf::from("/test.py"), &includes),
+            module_from_path(Path::new("/test.py"), &includes),
             ModuleName::from_str("test")
         );
         assert_eq!(
-            module_from_path(&PathBuf::from("/not_foo/test.py"), &includes),
+            module_from_path(Path::new("/not_foo/test.py"), &includes),
             ModuleName::from_str("not_foo.test")
         );
     }

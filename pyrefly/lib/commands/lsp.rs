@@ -920,7 +920,7 @@ impl Server {
         let mut configs = self.configs.write();
         let config_path = scope_uri.to_file_path().unwrap();
         // Currently uses the default interpreter if the pythonPath is invalid
-        let env = PythonEnvironment::get_interpreter_env(&PathBuf::from(python_path));
+        let env = PythonEnvironment::get_interpreter_env(Path::new(python_path));
         // TODO(kylei): warn if interpreter could not be found
         if let Some(site_package_path) = &env.site_package_path
             && let Some(config) = configs.get(&config_path)
