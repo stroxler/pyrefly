@@ -5,14 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use dupe::Dupe;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use ruff_python_ast::name::Name;
 
 use crate::types::class::Class;
-use crate::types::class::ClassType;
 use crate::types::class::Substitution;
 use crate::types::class::TArgs;
 use crate::types::qname::QName;
@@ -62,13 +60,5 @@ impl TypedDict {
 
     pub fn targs(&self) -> &TArgs {
         &self.args
-    }
-
-    pub fn as_class_type(&self) -> ClassType {
-        // TypedDict instances behave very differently from instances of other classes, so we don't
-        // represent TypedDicts as ClassType in normal typechecking logic. However, the two do
-        // share a bit of behavior, so we occasionally convert a TypedDict to a ClassType in order
-        // to reuse code.
-        ClassType::new(self.class.dupe(), self.args.clone())
     }
 }

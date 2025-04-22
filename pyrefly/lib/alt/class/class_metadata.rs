@@ -8,6 +8,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
+use dupe::Dupe;
 use itertools::Either;
 use itertools::Itertools;
 use ruff_python_ast::Expr;
@@ -251,8 +252,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             is_typed_dict = true;
                             let class_object = typed_dict.class_object();
                             let class_metadata = self.get_metadata_for_class(class_object);
+                            // HACK HACK HACK - TypedDict instances behave very differently from instances of other
+                            // classes, so we don't represent them as ClassType in normal typechecking logic. However,
+                            // class ancestors are represented as ClassType all over the code base, and changing this
+                            // would be quite painful. So we convert TypedDict to ClassType in this one spot. Please do
+                            // not do this anywhere else.
                             Some((
-                                typed_dict.as_class_type(),
+                                ClassType::new(typed_dict.class_object().dupe(), typed_dict.targs().clone()),
                                 class_metadata,
                             ))
                         }
