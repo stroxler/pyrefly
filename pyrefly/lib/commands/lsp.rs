@@ -850,7 +850,7 @@ impl Server {
     }
 
     fn change_workspace(&self) {
-        self.workspaces.read().iter().for_each(|(scope_uri, _)| {
+        self.workspaces.read().keys().for_each(|scope_uri| {
             self.request_settings_for_workspace(&Url::from_file_path(scope_uri).unwrap())
         });
     }
