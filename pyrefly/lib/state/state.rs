@@ -182,7 +182,7 @@ impl ModuleDataMut {
 struct StateInner {
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     modules: HashMap<Handle, ModuleData>,
-    loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
+    loaders: SmallMap<LoaderId, Arc<LoaderFindCache>>,
     /// The contents for ModulePath::memory values
     memory: MemoryFiles,
     /// The current epoch, gets incremented every time we recompute
@@ -211,7 +211,7 @@ pub struct TransactionData<'a> {
     state: &'a State,
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleDataMut>>,
-    additional_loaders: SmallMap<LoaderId, Arc<LoaderFindCache<LoaderId>>>,
+    additional_loaders: SmallMap<LoaderId, Arc<LoaderFindCache>>,
     memory_overlay: MemoryFilesOverlay,
     require: RequireDefault,
     /// The current epoch, gets incremented every time we recompute
@@ -803,7 +803,7 @@ impl<'a> Transaction<'a> {
         self.get_cached_loader(loader).find_import(module)
     }
 
-    fn get_cached_loader(&self, loader: &LoaderId) -> Arc<LoaderFindCache<LoaderId>> {
+    fn get_cached_loader(&self, loader: &LoaderId) -> Arc<LoaderFindCache> {
         if self.readable.loaders.len() == 1 {
             // Since we know our one must exist, we can shortcut
             return self.readable.loaders.first().unwrap().1.dupe();
