@@ -42,7 +42,7 @@ fn trace_module(transaction: &Transaction, handle: &Handle) -> Option<ModuleOutp
             Expr::Attribute(x) => x.attr.range,
             _ => return,
         };
-        if let Some(ty) = transaction.hover(handle, loc.start()) {
+        if let Some(ty) = transaction.get_type_at(handle, loc.start()) {
             types.insert(info.source_range(x.range()).to_string(), ty.to_string());
         }
         if let Some(def) = transaction.goto_definition(handle, loc.start()) {

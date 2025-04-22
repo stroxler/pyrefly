@@ -802,7 +802,7 @@ impl Server {
         let handle = self.make_handle(uri);
         let info = transaction.get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
-        let t = transaction.hover(&handle, range)?;
+        let t = transaction.get_type_at(&handle, range)?;
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,

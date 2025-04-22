@@ -9,6 +9,6 @@
 
 mod completion;
 mod definition;
-mod hover;
+mod hover_type;
 mod inlay_hint;
 mod lsp_interaction;

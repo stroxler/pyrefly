@@ -94,7 +94,7 @@ impl<'a> Transaction<'a> {
         res
     }
 
-    pub fn hover(&self, handle: &Handle, position: TextSize) -> Option<Type> {
+    pub fn get_type_at(&self, handle: &Handle, position: TextSize) -> Option<Type> {
         if let Some(key) = self.definition_at(handle, position) {
             return self.get_type(handle, &key);
         }
