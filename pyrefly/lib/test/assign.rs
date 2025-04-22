@@ -615,6 +615,16 @@ assert_type(e, list[str])
 "#,
 );
 
+/*
+testcase!(
+    bug = "This panics Pyrefly at the moment, we forgot to ensure",
+    test_bad_annotated_assign,
+    r#"
+(x.x, y): tuple[int, str]
+"#,
+);
+*/
+
 testcase!(
     test_assign_annotated_subscript,
     r#"
