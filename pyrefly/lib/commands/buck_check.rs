@@ -68,7 +68,7 @@ fn compute_errors(metadata: RuntimeMetadata, sourcedb: BuckSourceDatabase) -> Ve
     config.python_environment.python_version = Some(metadata.version());
     config.python_environment.site_package_path = Some(Vec::new());
     config.search_path = Vec::new();
-    config.custom = sourcedb.list();
+    config.custom_module_paths = sourcedb.list();
     config.configure();
     let config = ArcId::new(config);
     let loader = LoaderId::new_arc_id(config.dupe());

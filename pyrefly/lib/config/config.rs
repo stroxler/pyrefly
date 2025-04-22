@@ -88,9 +88,9 @@ pub struct ConfigFile {
     #[serde(default)]
     pub use_untyped_imports: bool,
 
-    /// Completely custom overrides. Currently not exposed to the user.
+    /// Completely custom module to path mappings. Currently not exposed to the user.
     #[serde(skip)]
-    pub custom: SmallMap<ModuleName, ModulePath>,
+    pub custom_module_paths: SmallMap<ModuleName, ModulePath>,
 
     #[serde(default)]
     pub sub_configs: Vec<SubConfig>,
@@ -132,14 +132,14 @@ impl ConfigFile {
             },
             root: Default::default(),
             use_untyped_imports: false,
-            custom: Default::default(),
+            custom_module_paths: Default::default(),
             sub_configs: Default::default(),
         }
     }
 
     /// Return `Err` to indicate the module could not be found.
     pub fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        if let Some(path) = self.custom.get(&module) {
+        if let Some(path) = self.custom_module_paths.get(&module) {
             Ok(path.clone())
         } else if self
             .replace_imports_with_any()
@@ -490,7 +490,7 @@ mod tests {
                     skip_untyped_functions: Some(false),
                 },
                 use_untyped_imports: false,
-                custom: Default::default(),
+                custom_module_paths: Default::default(),
                 sub_configs: vec![SubConfig {
                     matches: Glob::new("sub/project/**".to_owned()),
                     settings: ConfigBase {
@@ -648,7 +648,7 @@ mod tests {
             python_interpreter: Some(PathBuf::from(interpreter.clone())),
             root: Default::default(),
             use_untyped_imports: false,
-            custom: Default::default(),
+            custom_module_paths: Default::default(),
             sub_configs: vec![SubConfig {
                 matches: Glob::new("sub/project/**".to_owned()),
                 settings: Default::default(),
@@ -679,7 +679,7 @@ mod tests {
             python_environment,
             root: Default::default(),
             use_untyped_imports: false,
-            custom: Default::default(),
+            custom_module_paths: Default::default(),
             sub_configs: vec![SubConfig {
                 matches: sub_config_matches,
                 settings: Default::default(),

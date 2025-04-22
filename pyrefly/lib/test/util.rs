@@ -166,7 +166,7 @@ impl TestEnv {
         config.python_environment.python_platform = Some(PythonPlatform::linux());
         config.python_environment.site_package_path = Some(Vec::new());
         for (name, (path, _)) in self.modules.iter() {
-            config.custom.insert(*name, path.clone());
+            config.custom_module_paths.insert(*name, path.clone());
         }
         config.configure();
         config

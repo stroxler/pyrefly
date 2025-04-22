@@ -100,7 +100,7 @@ fn test_multiple_path() {
     config.python_environment.set_empty_to_default();
     config.search_path = Vec::new();
     for (name, path, _) in FILES.iter().rev() {
-        config.custom.insert(
+        config.custom_module_paths.insert(
             ModuleName::from_str(name),
             ModulePath::memory(PathBuf::from(path)),
         );
@@ -158,7 +158,7 @@ impl Incremental {
         config.python_environment.set_empty_to_default();
         config.search_path = Vec::new();
         for file in ["main", "foo", "bar", "baz"] {
-            config.custom.insert(
+            config.custom_module_paths.insert(
                 ModuleName::from_str(file),
                 ModulePath::memory(PathBuf::from(file)),
             );
