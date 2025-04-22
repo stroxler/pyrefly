@@ -6,6 +6,7 @@
  */
 
 use crate::types::literal::Lit;
+use crate::types::stdlib::Stdlib;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 
@@ -50,10 +51,7 @@ pub fn unions(xs: Vec<Type>) -> Type {
     })
 }
 
-pub fn replace_literal_true_false_with_bool(
-    types: &mut Vec<Type>,
-    get_bool_type: impl FnOnce() -> Type,
-) {
+pub fn replace_literal_true_false_with_bool(types: &mut Vec<Type>, stdlib: &Stdlib) {
     let mut has_true = false;
     let mut has_false = false;
 
@@ -71,7 +69,7 @@ pub fn replace_literal_true_false_with_bool(
 
     if has_true && has_false {
         types.retain(|t| !matches!(t, Type::Literal(Lit::Bool(_))));
-        types.push(get_bool_type());
+        types.push(stdlib.bool().clone().to_type());
     }
 }
 

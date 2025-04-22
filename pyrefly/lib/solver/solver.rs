@@ -434,9 +434,7 @@ impl Solver {
             .collect::<Vec<_>>();
         branches.extend(modules.into_values().map(Type::Module));
 
-        replace_literal_true_false_with_bool(&mut branches, || {
-            type_order.stdlib().bool().clone().to_type()
-        });
+        replace_literal_true_false_with_bool(&mut branches, type_order.stdlib());
         unions(branches)
     }
 
