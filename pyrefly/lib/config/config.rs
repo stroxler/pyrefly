@@ -17,6 +17,7 @@ use itertools::Itertools;
 use path_absolutize::Absolutize;
 use serde::Deserialize;
 use serde::Serialize;
+use starlark_map::small_map::SmallMap;
 use tracing::debug;
 use tracing::warn;
 
@@ -88,6 +89,10 @@ pub struct ConfigFile {
     #[serde(default)]
     pub use_untyped_imports: bool,
 
+    /// Completely custom overrides. Currently not exposed to the user.
+    #[serde(skip)]
+    pub custom: SmallMap<ModuleName, ModulePath>,
+
     #[serde(default)]
     pub sub_configs: Vec<SubConfig>,
 }
@@ -113,7 +118,9 @@ impl Default for ConfigFile {
 
 impl Loader for ConfigFile {
     fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        if self
+        if let Some(path) = self.custom.get(&module) {
+            Ok(path.clone())
+        } else if self
             .replace_imports_with_any()
             .iter()
             .any(|p| p.matches(module))
@@ -153,6 +160,7 @@ impl ConfigFile {
             },
             root: Default::default(),
             use_untyped_imports: false,
+            custom: Default::default(),
             sub_configs: Default::default(),
         }
     }
@@ -484,6 +492,7 @@ mod tests {
                     skip_untyped_functions: Some(false),
                 },
                 use_untyped_imports: false,
+                custom: Default::default(),
                 sub_configs: vec![SubConfig {
                     matches: Glob::new("sub/project/**".to_owned()),
                     settings: ConfigBase {
@@ -641,6 +650,7 @@ mod tests {
             python_interpreter: Some(PathBuf::from(interpreter.clone())),
             root: Default::default(),
             use_untyped_imports: false,
+            custom: Default::default(),
             sub_configs: vec![SubConfig {
                 matches: Glob::new("sub/project/**".to_owned()),
                 settings: Default::default(),
@@ -671,6 +681,7 @@ mod tests {
             python_environment,
             root: Default::default(),
             use_untyped_imports: false,
+            custom: Default::default(),
             sub_configs: vec![SubConfig {
                 matches: sub_config_matches,
                 settings: Default::default(),
