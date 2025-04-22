@@ -23,7 +23,6 @@ use crate::metadata::RuntimeMetadata;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::state::handle::Handle;
-use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;

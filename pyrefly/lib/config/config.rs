@@ -34,7 +34,6 @@ use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::wildcard::ModuleWildcard;
 use crate::state::loader::FindError;
-use crate::state::loader::Loader;
 use crate::util::fs_anyhow;
 use crate::util::globs::Glob;
 use crate::util::globs::Globs;
@@ -116,8 +115,30 @@ impl Default for ConfigFile {
     }
 }
 
-impl Loader for ConfigFile {
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
+impl ConfigFile {
+    /// Gets a default ConfigFile, with no path rewriting. This should only be used for unit testing,
+    /// since it may have strange runtime behavior. Prefer to use `ConfigFile::default()` instead.
+    fn default_no_path_rewrite() -> Self {
+        ConfigFile {
+            project_includes: Self::default_project_includes(),
+            project_excludes: Self::default_project_excludes(),
+            python_interpreter: PythonEnvironment::get_default_interpreter(),
+            search_path: Self::default_search_path(),
+            python_environment: PythonEnvironment {
+                python_platform: None,
+                python_version: None,
+                site_package_path: None,
+                site_package_path_from_interpreter: false,
+            },
+            root: Default::default(),
+            use_untyped_imports: false,
+            custom: Default::default(),
+            sub_configs: Default::default(),
+        }
+    }
+
+    /// Return `Err` to indicate the module could not be found.
+    pub fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
         if let Some(path) = self.custom.get(&module) {
             Ok(path.clone())
         } else if self
@@ -139,29 +160,6 @@ impl Loader for ConfigFile {
                 &self.search_path,
                 self.site_package_path(),
             ))
-        }
-    }
-}
-
-impl ConfigFile {
-    /// Gets a default ConfigFile, with no path rewriting. This should only be used for unit testing,
-    /// since it may have strange runtime behavior. Prefer to use `ConfigFile::default()` instead.
-    fn default_no_path_rewrite() -> Self {
-        ConfigFile {
-            project_includes: Self::default_project_includes(),
-            project_excludes: Self::default_project_excludes(),
-            python_interpreter: PythonEnvironment::get_default_interpreter(),
-            search_path: Self::default_search_path(),
-            python_environment: PythonEnvironment {
-                python_platform: None,
-                python_version: None,
-                site_package_path: None,
-                site_package_path_from_interpreter: false,
-            },
-            root: Default::default(),
-            use_untyped_imports: false,
-            custom: Default::default(),
-            sub_configs: Default::default(),
         }
     }
 }

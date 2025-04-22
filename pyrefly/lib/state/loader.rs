@@ -27,7 +27,6 @@ pub enum FindError {
     Ignored,
     /// This site package path entry was found, but does not have a py.typed entry
     /// and ignore_py_typed_package_errors is disabled
-    #[expect(dead_code)]
     NoPyTyped,
 }
 
@@ -56,20 +55,8 @@ impl FindError {
     }
 }
 
-/// A function that loads a module, given the `ModuleName`.
-pub trait Loader: Sync + Debug {
-    /// Return `Err` to indicate the module could not be found.
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError>;
-}
-
 #[derive(Clone, Dupe, Debug, Hash, PartialEq, Eq)]
 pub struct LoaderId(ArcId<ConfigFile>);
-
-impl Loader for LoaderId {
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        self.0.find_import(module)
-    }
-}
 
 impl LoaderId {
     pub fn new(loader: ConfigFile) -> Self {
@@ -78,6 +65,10 @@ impl LoaderId {
 
     pub fn new_arc_id(loader: ArcId<ConfigFile>) -> Self {
         Self(loader)
+    }
+
+    pub fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
+        self.0.find_import(module)
     }
 }
 
