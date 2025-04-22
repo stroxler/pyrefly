@@ -151,9 +151,11 @@ impl ConfigFile {
             Ok(path)
         } else if let Some(path) = typeshed().map_err(FindError::not_found)?.find(module) {
             Ok(path)
-        } else if let Some(path) =
-            find_module_in_site_package_path(module, self.site_package_path())
-        {
+        } else if let Some(path) = find_module_in_site_package_path(
+            module,
+            self.site_package_path(),
+            self.use_untyped_imports,
+        ) {
             Ok(path)
         } else {
             Err(FindError::search_path(

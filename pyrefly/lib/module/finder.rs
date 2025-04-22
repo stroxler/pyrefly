@@ -158,6 +158,7 @@ pub fn find_module_in_search_path(module: ModuleName, include: &[PathBuf]) -> Op
 pub fn find_module_in_site_package_path(
     module: ModuleName,
     include: &[PathBuf],
+    _use_untyped_imports: bool,
 ) -> Option<ModulePath> {
     let mut first = module.first_component().to_string();
     first.push_str("-stubs");
@@ -409,7 +410,8 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
             )
             .unwrap(),
             ModulePath::filesystem(root.join("foo-stubs/bar/__init__.py")),
@@ -417,7 +419,17 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
+            )
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+        );
+        assert_eq!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.baz"),
+                &[root.to_path_buf()],
+                true,
             )
             .unwrap(),
             ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
@@ -425,7 +437,8 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.qux"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
             )
             .is_none()
         );
@@ -449,7 +462,17 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
+            )
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo/bar/__init__.py")),
+        );
+        assert_eq!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.bar"),
+                &[root.to_path_buf()],
+                true,
             )
             .unwrap(),
             ModulePath::filesystem(root.join("foo/bar/__init__.py")),
@@ -457,7 +480,17 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
+            )
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+        );
+        assert_eq!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.baz"),
+                &[root.to_path_buf()],
+                true,
             )
             .unwrap(),
             ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
@@ -465,7 +498,8 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.qux"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
             )
             .is_none()
         );
@@ -492,14 +526,16 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
             ),
             Some(ModulePath::filesystem(root.join("foo/bar/__init__.py"))),
         );
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
             )
             .unwrap(),
             ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
@@ -507,7 +543,8 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.qux"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
             )
             .is_none()
         );
@@ -532,7 +569,8 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
             )
             .unwrap(),
             ModulePath::filesystem(root.join("foo/bar/__init__.py")),
@@ -540,7 +578,8 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
             )
             .unwrap(),
             ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
@@ -548,7 +587,8 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.qux"),
-                &[root.to_path_buf()]
+                &[root.to_path_buf()],
+                false,
             )
             .is_none()
         );
