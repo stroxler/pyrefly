@@ -637,7 +637,7 @@ impl Server {
         std::thread::spawn(move || {
             let mut transaction = state.new_committable_transaction(Require::Exports, None);
             transaction.as_mut().invalidate_disk(&invalidate_disk);
-            state.run_with_committing_transaction(transaction, &[]);
+            state.commit_transaction(transaction);
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
