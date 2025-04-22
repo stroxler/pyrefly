@@ -16,6 +16,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::config::error::ErrorConfigs;
 use crate::error::error::print_errors;
+use crate::exported::ConfigFile;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
@@ -95,28 +96,26 @@ fn test_multiple_path() {
         ("main", "main.py", MAIN_PY),
     ];
 
-    #[derive(Debug)]
-    struct Load(TestEnv);
-
-    impl Loader for Load {
-        fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-            match FILES.iter().find(|x| x.0 == module.as_str()) {
-                Some((_, path, _)) => Ok(ModulePath::memory(PathBuf::from(path))),
-                None => self.0.find_import(module),
-            }
-        }
+    let mut config = ConfigFile::default();
+    config.python_environment.set_empty_to_default();
+    config.search_path = Vec::new();
+    for (name, path, _) in FILES.iter().rev() {
+        config.custom.insert(
+            ModuleName::from_str(name),
+            ModulePath::memory(PathBuf::from(path)),
+        );
     }
+    config.configure();
+    let loader = LoaderId::new(config);
 
-    let test_env = TestEnv::new();
-    let config = test_env.metadata();
-    let loader = LoaderId::new(Load(test_env));
+    let runtime = RuntimeMetadata::default();
 
     let state = State::new();
     let handles = FILES.map(|(name, path, _)| {
         Handle::new(
             ModuleName::from_str(name),
             ModulePath::memory(PathBuf::from(path)),
-            config.dupe(),
+            runtime.dupe(),
             loader.dupe(),
         )
     });
