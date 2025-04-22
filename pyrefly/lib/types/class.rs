@@ -332,8 +332,18 @@ impl Substitution {
         ty.subst(&self.0)
     }
 
-    pub fn new(mapping: SmallMap<Quantified, Type>) -> Self {
-        Self(mapping)
+    /// Creates a Substitution from a class specialized with type arguments.
+    /// Assumes that the number of args equals the number of type parameters on the class.
+    pub fn new(cls: &Class, args: &TArgs) -> Self {
+        let tparams = cls.tparams();
+        let targs = args.as_slice();
+        Substitution(
+            tparams
+                .quantified()
+                .cloned()
+                .zip(targs.iter().cloned())
+                .collect(),
+        )
     }
 }
 
@@ -401,15 +411,7 @@ impl ClassType {
     }
 
     pub fn substitution(&self) -> Substitution {
-        let tparams = self.tparams();
-        let targs = self.1.as_slice();
-        Substitution(
-            tparams
-                .quantified()
-                .cloned()
-                .zip(targs.iter().cloned())
-                .collect(),
-        )
+        Substitution::new(self.class_object(), self.targs())
     }
 
     pub fn name(&self) -> &Name {

@@ -121,18 +121,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn substitution(&self, typed_dict: &TypedDict, class: &Class) -> Substitution {
-        let targs = typed_dict.targs();
-        let tparams = class.tparams();
-        Substitution::new(
-            tparams
-                .quantified()
-                .cloned()
-                .zip(targs.as_slice().iter().cloned())
-                .collect(),
-        )
-    }
-
     // Get the field names + requiredness, given the ClassMetadata of a typed dict.
     // Callers must be certain the class is a typed dict, we will panic if it is not.
     fn fields_from_metadata<'m>(metadata: &'m ClassMetadata) -> &'m SmallMap<Name, bool> {
@@ -156,7 +144,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn typed_dict_fields(&self, typed_dict: &TypedDict) -> SmallMap<Name, TypedDictField> {
         let class = typed_dict.class_object();
         let metadata = self.get_metadata_for_class(class);
-        let substitution = self.substitution(typed_dict, class);
+        let substitution = Substitution::new(class, typed_dict.targs());
         Self::fields_from_metadata(&metadata)
             .iter()
             .filter_map(|(name, is_total)| {
@@ -169,7 +157,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn typed_dict_field(&self, typed_dict: &TypedDict, name: &Name) -> Option<TypedDictField> {
         let class = typed_dict.class_object();
         let metadata = self.get_metadata_for_class(class);
-        let substitution = self.substitution(typed_dict, class);
+        let substitution = Substitution::new(class, typed_dict.targs());
         Self::fields_from_metadata(&metadata)
             .get(name)
             .and_then(|is_total| {
