@@ -9,7 +9,6 @@ use std::fmt::Debug;
 use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::LazyLock;
 
 use dupe::Dupe;
 use path_absolutize::Absolutize;
@@ -32,7 +31,7 @@ pub struct ConfigFinder<T = ArcId<ConfigFile>> {
     /// Given a config file that exists on disk, load it.
     load: Box<dyn Fn(&Path) -> anyhow::Result<T> + Send + Sync>,
     /// If there is no config file, or loading it fails, use this fallback.
-    fallback: LazyLock<T, Box<dyn FnOnce() -> T + Send + Sync>>,
+    fallback: Box<dyn Fn() -> T + Send + Sync>,
 }
 
 struct ConfigFinderState<T> {
@@ -57,7 +56,7 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
     /// Create a new ConfigFinder a way to load a config file, and a default if that errors or there is no file.
     pub fn new(
         load: impl Fn(&Path) -> anyhow::Result<T> + Send + Sync + 'static,
-        fallback: impl FnOnce() -> T + Send + Sync + 'static,
+        fallback: impl Fn() -> T + Send + Sync + 'static,
     ) -> Self {
         Self::new_custom(|_| Ok(None), load, fallback)
     }
@@ -68,12 +67,12 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
     pub fn new_custom(
         before: impl Fn(&Path) -> anyhow::Result<Option<T>> + Send + Sync + 'static,
         load: impl Fn(&Path) -> anyhow::Result<T> + Send + Sync + 'static,
-        fallback: impl FnOnce() -> T + Send + Sync + 'static,
+        fallback: impl Fn() -> T + Send + Sync + 'static,
     ) -> Self {
         Self {
             before: Box::new(before),
             load: Box::new(load),
-            fallback: LazyLock::new(Box::new(fallback)),
+            fallback: Box::new(fallback),
             state: RwLock::new(ConfigFinderState::default()),
         }
     }
@@ -133,7 +132,7 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
                         Ok(v) => v,
                         Err(e) => {
                             self.state.write().errors.push(e);
-                            self.fallback.dupe()
+                            (self.fallback)()
                         }
                     };
                     found_answer = Some((i + 1, c));
@@ -148,7 +147,7 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
 
         let (applicable, result) = found_answer
             .or(cache_answer)
-            .unwrap_or_else(|| (FULL_PATH, self.fallback.dupe()));
+            .unwrap_or_else(|| (FULL_PATH, (self.fallback)()));
 
         let mut lock = self.state.write();
         for (i, x) in dir.ancestors().take(applicable).enumerate() {
@@ -189,7 +188,7 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
         let parent = absolute.as_ref().and_then(|x| x.parent());
         match parent {
             Some(parent) => self.directory_absolute(parent),
-            None => self.fallback.dupe(),
+            None => (self.fallback)(),
         }
     }
 }
