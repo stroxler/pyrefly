@@ -88,6 +88,12 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
         )
     }
 
+    /// Invalidate all data stored in the config.
+    pub fn clear(&self) {
+        self.search.clear();
+        *self.errors.lock() = Vec::new();
+    }
+
     /// Collect all the current errors that have been produced, and clear them.
     pub fn errors(&self) -> Vec<anyhow::Error> {
         mem::take(&mut self.errors.lock())

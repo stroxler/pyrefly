@@ -41,6 +41,11 @@ impl<T: Dupe + Debug> UpwardSearch<T> {
         }
     }
 
+    /// Clear all cached data.
+    pub fn clear(&self) {
+        self.state.write().clear();
+    }
+
     /// Get the config file associated with a directory.
     pub fn directory(&self, dir: &Path) -> Option<T> {
         self.directory_absolute(dir.absolutize().as_deref().unwrap_or(dir))

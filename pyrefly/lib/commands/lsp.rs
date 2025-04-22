@@ -936,6 +936,20 @@ impl Server {
             );
             configs.insert(config_path, new_config);
         }
+
+        let state = self.state.dupe();
+        let immediately_handled_events = self.immediately_handled_events.dupe();
+        std::thread::spawn(move || {
+            let mut transaction = state.new_committable_transaction(Require::Exports, None);
+            transaction.as_mut().invalidate_config();
+            state.commit_transaction(transaction);
+            // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
+            // the main event loop of the server. As a result, the server can do a revalidation of
+            // all the in-memory files based on the fresh main State as soon as possible.
+            immediately_handled_events
+                .lock()
+                .push(ImmediatelyHandledEvent::RecheckFinished);
+        });
     }
 }
 

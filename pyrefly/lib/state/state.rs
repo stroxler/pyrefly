@@ -1031,6 +1031,17 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    /// The data returned by the ConfigFinder might have changed.
+    pub fn invalidate_config(&mut self) {
+        if let Some(config_finder) = &self.data.state.config_finder {
+            // We clear the global config cache, rather than making a dedicated copy.
+            // This is reasonable, because we will cache the result on ModuleData.
+            config_finder.clear();
+        }
+        // Once we are storing ConfigFile values in ModuleData, we should only wipe our
+        // copy of that per-module resolved values.
+    }
+
     /// Called if the `load_from_memory` portion of loading might have changed.
     /// Specify which in-memory files might have changed, use None to say they don't exist anymore.
     pub fn set_memory(&mut self, files: Vec<(PathBuf, Option<Arc<String>>)>) {
