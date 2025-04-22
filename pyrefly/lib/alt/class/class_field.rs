@@ -1112,6 +1112,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
+    pub fn get_typed_dict_attribute(&self, td: &TypedDict, name: &Name) -> Option<Attribute> {
+        if let Some(meta) = self
+            .get_metadata_for_class(td.class_object())
+            .typed_dict_metadata()
+            && meta.fields.contains_key(name)
+        {
+            // TypedDict fields are dictionary key declarations, not real fields.
+            return None;
+        }
+        self.get_class_member(td.class_object(), name)
+            .map(|member| {
+                self.as_instance_attribute(
+                    Arc::unwrap_or_clone(member.value),
+                    &Instance::of_typed_dict(td),
+                )
+            })
+    }
+
     /// Looks up an attribute on a super instance.
     pub fn get_super_attribute(
         &self,

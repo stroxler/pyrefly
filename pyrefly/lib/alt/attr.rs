@@ -977,16 +977,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             AttributeBase::TypedDict(typed_dict) => {
-                if attr_name == "clear" {
-                    LookupResult::NotFound(NotFound::Attribute(typed_dict.class_object().dupe()))
-                } else {
-                    self.lookup_attr_from_attribute_base(
-                        AttributeBase::ClassInstance(self.stdlib.dict(
-                            self.stdlib.str().clone().to_type(),
-                            self.stdlib.object().clone().to_type(),
-                        )),
-                        attr_name,
-                    )
+                match self.get_typed_dict_attribute(&typed_dict, attr_name) {
+                    Some(attr) => LookupResult::Found(attr),
+                    None if self.extends_any(typed_dict.class_object()) => {
+                        LookupResult::found_type(Type::Any(AnyStyle::Implicit))
+                    }
+                    None => LookupResult::NotFound(NotFound::Attribute(
+                        typed_dict.class_object().dupe(),
+                    )),
                 }
             }
         }
@@ -1353,13 +1351,9 @@ impl<'a, Ans: LookupAnswer + LookupExport> AnswersSolver<'a, Ans> {
         if let Some(base) = self.as_attribute_base_no_union(base) {
             match &base {
                 AttributeBase::ClassInstance(class) => self.completions_class_type(class, &mut res),
-                AttributeBase::TypedDict(_) => self.completions_class_type(
-                    &self.stdlib.dict(
-                        self.stdlib.str().clone().to_type(),
-                        self.stdlib.object().clone().to_type(),
-                    ),
-                    &mut res,
-                ),
+                AttributeBase::TypedDict(_) => {
+                    self.completions_class_type(self.stdlib.typed_dict(), &mut res)
+                }
                 AttributeBase::SuperInstance(class, _) => {
                     self.completions_class_type(class, &mut res)
                 }

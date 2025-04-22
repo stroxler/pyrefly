@@ -10951,7 +10951,18 @@
       "stop_line": 33
     }
   ],
-  "typeddicts_readonly_update.py": [],
+  "typeddicts_readonly_update.py": [
+    {
+      "code": -2,
+      "column": 14,
+      "concise_description": "Argument `TypedDict[B]` is not assignable to parameter with type `TypedDict[A]` in function `typing._TypedDict.update`",
+      "description": "Argument `TypedDict[B]` is not assignable to parameter with type `TypedDict[A]` in function `typing._TypedDict.update`",
+      "line": 34,
+      "name": "bad-argument-type",
+      "stop_column": 15,
+      "stop_line": 34
+    }
+  ],
   "typeddicts_required.py": [
     {
       "code": -2,
@@ -11068,8 +11079,8 @@
     {
       "code": -2,
       "column": 14,
-      "concise_description": "`object` is not assignable to `str`",
-      "description": "`object` is not assignable to `str`",
+      "concise_description": "`object | @_` is not assignable to `str`",
+      "description": "`object | @_` is not assignable to `str`",
       "line": 91,
       "name": "bad-assignment",
       "stop_column": 38,
@@ -11078,8 +11089,8 @@
     {
       "code": -2,
       "column": 13,
-      "concise_description": "`object` is not assignable to `int`",
-      "description": "`object` is not assignable to `int`",
+      "concise_description": "`object | @_` is not assignable to `int`",
+      "description": "`object | @_` is not assignable to `int`",
       "line": 92,
       "name": "bad-assignment",
       "stop_column": 33,
@@ -11108,8 +11119,8 @@
     {
       "code": -2,
       "column": 13,
-      "concise_description": "`object` is not assignable to `int`",
-      "description": "`object` is not assignable to `int`",
+      "concise_description": "`object | @_` is not assignable to `int`",
+      "description": "`object | @_` is not assignable to `int`",
       "line": 103,
       "name": "bad-assignment",
       "stop_column": 33,
@@ -11118,8 +11129,8 @@
     {
       "code": -2,
       "column": 19,
-      "concise_description": "`object` is not assignable to `int | str`",
-      "description": "`object` is not assignable to `int | str`",
+      "concise_description": "`object | @_` is not assignable to `int | str`",
+      "description": "`object | @_` is not assignable to `int | str`",
       "line": 105,
       "name": "bad-assignment",
       "stop_column": 41,
@@ -11128,8 +11139,8 @@
     {
       "code": -2,
       "column": 13,
-      "concise_description": "`object` is not assignable to `int`",
-      "description": "`object` is not assignable to `int`",
+      "concise_description": "`object | @_` is not assignable to `int`",
+      "description": "`object | @_` is not assignable to `int`",
       "line": 107,
       "name": "bad-assignment",
       "stop_column": 35,

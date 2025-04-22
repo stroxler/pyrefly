@@ -397,6 +397,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("`{}` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.", bad.0),
             );
         }
+        let bases_with_metadata = if is_typed_dict && bases_with_metadata.is_empty() {
+            // This is a "fallback" class that contains attributes that are available on all TypedDict subclasses.
+            // Note that this also makes those attributes available on *instances* of said subclasses; this is
+            // desirable for methods but problematic for fields like `__total__` that should be available on the class
+            // but not the instance. For now, we make all fields available on both classes and instances.
+            let td_fallback = self.stdlib.typed_dict();
+            vec![(
+                td_fallback.clone(),
+                self.get_metadata_for_class(td_fallback.class_object()),
+            )]
+        } else {
+            bases_with_metadata
+        };
         ClassMetadata::new(
             cls,
             bases_with_metadata,

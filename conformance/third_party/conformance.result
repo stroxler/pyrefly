@@ -656,7 +656,8 @@
   ],
   "typeddicts_readonly_kwargs.py": [],
   "typeddicts_readonly_update.py": [
-    "Line 23: Expected 1 errors"
+    "Line 23: Expected 1 errors",
+    "Line 34: Unexpected errors ['Argument `TypedDict[B]` is not assignable to parameter with type `TypedDict[A]` in function `typing._TypedDict.update`']"
   ],
   "typeddicts_required.py": [
     "Line 62: Expected 1 errors",
@@ -665,11 +666,11 @@
   ],
   "typeddicts_type_consistency.py": [
     "Line 21: Expected 1 errors",
-    "Line 91: Unexpected errors ['`object` is not assignable to `str`']",
-    "Line 92: Unexpected errors ['`object` is not assignable to `int`']",
+    "Line 91: Unexpected errors ['`object | @_` is not assignable to `str`']",
+    "Line 92: Unexpected errors ['`object | @_` is not assignable to `int`']",
     "Line 97: Unexpected errors ['`object | None` is not assignable to `str | None`']",
-    "Line 103: Unexpected errors ['`object` is not assignable to `int`']",
-    "Line 105: Unexpected errors ['`object` is not assignable to `int | str`']",
+    "Line 103: Unexpected errors ['`object | @_` is not assignable to `int`']",
+    "Line 105: Unexpected errors ['`object | @_` is not assignable to `int | str`']",
     "Line 151: Unexpected errors [\"`dict[str, int]` is not assignable to TypedDict key `z` with type `Literal[''] | TypedDict[Inner3]`\"]"
   ],
   "typeddicts_usage.py": [

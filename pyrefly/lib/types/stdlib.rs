@@ -76,6 +76,7 @@ pub struct Stdlib {
     enum_meta: StdlibResult<ClassType>,
     enum_flag: StdlibResult<ClassType>,
     named_tuple: StdlibResult<ClassType>,
+    typed_dict: StdlibResult<ClassType>,
     property: StdlibResult<ClassType>,
     object: StdlibResult<ClassType>,
 }
@@ -171,6 +172,7 @@ impl Stdlib {
             enum_meta: lookup_concrete(enum_, "EnumMeta"),
             enum_flag: lookup_concrete(enum_, "Flag"),
             named_tuple: lookup_concrete(typing, "NamedTuple"),
+            typed_dict: lookup_concrete(typing, "_TypedDict"),
             property: lookup_concrete(builtins, "property"),
             object: lookup_concrete(builtins, "object"),
         }
@@ -230,6 +232,10 @@ impl Stdlib {
 
     pub fn named_tuple(&self) -> &ClassType {
         Self::primitive(&self.named_tuple)
+    }
+
+    pub fn typed_dict(&self) -> &ClassType {
+        Self::primitive(&self.typed_dict)
     }
 
     pub fn ellipsis_type(&self) -> Option<&ClassType> {

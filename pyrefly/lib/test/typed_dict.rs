@@ -126,7 +126,7 @@ class Coord(TypedDict):
     x: int
     y: int
 def foo(c: Coord) -> None:
-    for x in Coord:  # E: Type `type[Coord]` is not iterable
+    for x in Coord:  # E: Type `type[Coord]` is not iterable # E:
         pass
     for x in c:
         assert_type(x, str)
@@ -166,7 +166,7 @@ class Coord(TypedDict):
     z: bool
 def foo(c: Coord, key: str, key2: Literal["x", "y"]):
     x: int = c["x"]
-    x2: int = c.x  # E: Object of class `dict` has no attribute `x`
+    x2: int = c.x  # E: Object of class `Coord` has no attribute `x`
     x3: int = c[key]  # E: Invalid key for TypedDict `Coord`, got `str`
     x4: int = c["aaaaaa"]  # E: TypedDict `Coord` does not have key `aaaaaa`
     assert_type(c[key2], int | str)
@@ -438,7 +438,7 @@ testcase!(
 from typing import TypedDict
 UserType1 = TypedDict("UserType1", {"name": str, "age": int}, total=False)
 user1: UserType1 = {"name": "Bob", "age": 40}
-name: str = user1.get("name", "n/a")  # E: `object` is not assignable to `str`
+name: str = user1.get("name", "n/a")  # E: `object | @_` is not assignable to `str`
     "#,
 );
 
@@ -453,7 +453,7 @@ class C(TypedDict):
 def f(c: C, k1: str, k2: int):
     assert_type(c.get("x"), int)  # E: object | None
     assert_type(c.get(k1), object | None)
-    assert_type(c.get(k1, 0), object)
+    assert_type(c.get(k1, 0), object | Any)
     c.get(k2)  # E: No matching overload  # E: `int` is not assignable to parameter with type `str`
     "#,
 );
@@ -480,9 +480,30 @@ class C(TypedDict):
     y: int
 def f(c1: C, c2: C, c3: dict[str, int]):
     c1.update(c2)
-    c1.update(c3)  # Should be an error
-    c1.update({"x": 1, "y": 1})
-    c1.update({"x": 1})
-    c1.update({"z": 1})  # Should be an error
+    c1.update(c3)  # E: `dict[str, int]` is not assignable to parameter with type `TypedDict[C]`
+    c1.update({"x": 1, "y": 1})  # Should be OK  # E: `dict[str, int]` is not assignable to parameter with type `TypedDict[C]`
+    c1.update({"x": 1})  # Should be OK  # E: `dict[str, int]` is not assignable to parameter with type `TypedDict[C]`
+    c1.update({"z": 1})  # E: `dict[str, int]` is not assignable to parameter with type `TypedDict[C]`
+    "#,
+);
+
+// Test an attribute that should be available on all TypedDict subclasses
+testcase!(
+    test_common_class_attr,
+    r#"
+from typing import TypedDict, assert_type
+class C(TypedDict): ...
+assert_type(C.__total__, bool)
+    "#,
+);
+
+testcase!(
+    bug = "Instances of TypedDicts are plain dicts at runtime and should not have a `__total__` attribute",
+    test_class_attr_on_instance,
+    r#"
+from typing import TypedDict
+class C(TypedDict): ...
+def f(c: C):
+    c.__total__  # This should be an error
     "#,
 );
