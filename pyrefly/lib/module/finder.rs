@@ -42,7 +42,6 @@ enum FindResult {
 }
 
 impl FindResult {
-    #[expect(dead_code)]
     fn py_typed(&self) -> PyTyped {
         /// Finds a `py.typed` file for the given path, if it exists, and
         /// returns a boolean representing if it is partial or not.
@@ -158,18 +157,41 @@ pub fn find_module_in_search_path(module: ModuleName, include: &[PathBuf]) -> Op
 pub fn find_module_in_site_package_path(
     module: ModuleName,
     include: &[PathBuf],
-    _use_untyped_imports: bool,
+    use_untyped_imports: bool,
 ) -> Option<ModulePath> {
-    let mut first = module.first_component().to_string();
-    first.push_str("-stubs");
-    let stubs_module = ModuleName::from_parts(
-        [Name::new(first)]
+    let first = module.first_component();
+    let mut stub_first = first.as_str().to_owned();
+    stub_first.push_str("-stubs");
+    let stub_first = Name::new(stub_first);
+
+    let stub_module = ModuleName::from_parts(
+        [stub_first.clone()]
             .iter()
             .chain(module.components().iter().skip(1)),
     );
+    let stub_rest = &stub_module.components()[1..];
 
-    find_module_in_search_path(stubs_module, include)
-        .or_else(|| find_module_in_search_path(module, include))
+    let stub_module_imports = include
+        .iter()
+        .filter_map(|root| find_one_part(&stub_first, &[root.to_owned()]));
+
+    let mut any_has_partial_py_typed = false;
+    let mut checked_one_stub = false;
+    for stub_module_import in stub_module_imports {
+        let stub_module_py_typed = stub_module_import.py_typed();
+        if let Some(stub_result) = continue_find_module(stub_module_import, stub_rest) {
+            return Some(stub_result);
+        }
+        any_has_partial_py_typed |= stub_module_py_typed == PyTyped::Partial;
+        checked_one_stub = true;
+    }
+
+    // return none and stop the search if no stubs declared partial, but we searched at least one module
+    if !use_untyped_imports && checked_one_stub && !any_has_partial_py_typed {
+        return None;
+    }
+
+    find_module_in_search_path(module, include)
 }
 
 #[cfg(test)]
@@ -416,14 +438,13 @@ mod tests {
             .unwrap(),
             ModulePath::filesystem(root.join("foo-stubs/bar/__init__.py")),
         );
-        assert_eq!(
+        assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
                 &[root.to_path_buf()],
                 false,
             )
-            .unwrap(),
-            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+            .is_none()
         );
         assert_eq!(
             find_module_in_site_package_path(
