@@ -18,6 +18,7 @@ use tracing::info;
 use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::config::error::ErrorConfigs;
+use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;
 use crate::error::legacy::LegacyErrors;
 use crate::metadata::PythonPlatform;
@@ -29,6 +30,7 @@ use crate::state::handle::Handle;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
+use crate::util::arc_id::ArcId;
 use crate::util::args::clap_env;
 use crate::util::fs_anyhow;
 use crate::util::prelude::VecExt;
@@ -68,7 +70,8 @@ fn compute_errors(metadata: RuntimeMetadata, sourcedb: BuckSourceDatabase) -> Ve
     config.search_path = Vec::new();
     config.custom = sourcedb.list();
     config.configure();
-    let loader = LoaderId::new(config);
+    let config = ArcId::new(config);
+    let loader = LoaderId::new_arc_id(config.dupe());
 
     let modules_to_check = modules.into_map(|(name, path)| {
         (
@@ -81,7 +84,7 @@ fn compute_errors(metadata: RuntimeMetadata, sourcedb: BuckSourceDatabase) -> Ve
             Require::Errors,
         )
     });
-    let state = State::new(None);
+    let state = State::new(Some(ConfigFinder::new_constant(config)));
     state.run(&modules_to_check, Require::Exports, None);
     let transaction = state.transaction();
     transaction
