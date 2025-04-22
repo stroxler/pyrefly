@@ -14,6 +14,7 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use itertools::Itertools;
+use path_absolutize::Absolutize;
 use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_set::SmallSet;
@@ -27,18 +28,20 @@ use crate::util::prelude::VecExt;
 pub struct Glob(PathBuf);
 
 impl Glob {
+    /// Create a new `Glob`, but do not do absolutizing (since we don't want to do
+    /// that until rewriting with a root)
     pub fn new(pattern: String) -> Self {
         Self(PathBuf::from(pattern))
     }
 
+    /// Create a new `Glob`, with the pattern relative to `root`.
+    /// `root` should be an absolute path.
     pub fn new_with_root(root: &Path, pattern: String) -> Self {
-        if root == Path::new("") || root == Path::new(".") {
-            return Self::new(pattern);
-        }
-
         Self(Self::pattern_relative_to_root(root, Path::new(&pattern)))
     }
 
+    /// Rewrite the current `Glob` relative to `root`.
+    /// `root` should be an absolute path.
     pub fn from_root(self, root: &Path) -> Self {
         Self(Self::pattern_relative_to_root(root, &self.0))
     }
@@ -48,25 +51,8 @@ impl Glob {
     }
 
     fn pattern_relative_to_root(root: &Path, pattern: &Path) -> PathBuf {
-        let mut relative_path = root.to_path_buf();
-        for comp in pattern.components() {
-            match comp {
-                prefix @ Component::Prefix(_) => {
-                    // we'll only hit this if we're on windows -- this will fully replace `relative_path`
-                    relative_path.push(prefix);
-                    match root.components().next() {
-                        // if we're on a different drive, give up because we can only hope
-                        // this relative path is correct
-                        Some(root_prefix @ Component::Prefix(_)) if prefix != root_prefix => (),
-                        // otherwise, push the root, and prepare to push the rest of the path
-                        _ => relative_path.push(root),
-                    }
-                }
-                rest => relative_path.push(rest),
-            }
-        }
-
-        relative_path
+        // absolutize_from always returns `Ok()`
+        pattern.absolutize_from(root).unwrap().into_owned()
     }
 
     fn get_glob_root(&self) -> PathBuf {
@@ -181,11 +167,8 @@ impl Globs {
     }
 
     /// Create a new `Globs`, rewriting all patterns to be relative to `root`.
+    /// `root` should be an absolute path.
     pub fn new_with_root(root: &Path, patterns: Vec<String>) -> Self {
-        if root == Path::new("") || root == Path::new(".") {
-            return Self::new(patterns);
-        }
-
         Self::rewrite_with_root(root, patterns.into_map(Glob::new))
     }
 
@@ -198,6 +181,8 @@ impl Globs {
         )
     }
 
+    /// Rewrite the existing `Globs` to be relative to `root`.
+    /// `root` should be an absolute path.
     pub fn from_root(self, root: &Path) -> Self {
         // TODO(connernilsen): store root as part of globs to make it easier to rewrite later on
         Self::rewrite_with_root(root, self.0)
@@ -286,8 +271,6 @@ mod tests {
     use std::ffi::OsString;
     use std::path::PathBuf;
 
-    use path_absolutize::Absolutize;
-
     use super::*;
     use crate::test::util::TestPath;
 
@@ -366,8 +349,7 @@ mod tests {
             let inputs = inputs.clone();
             let root = root.to_owned();
 
-            // because windows will construct all paths with `\` instead of `/`, let's make things simple by
-            // switching everything over to that ourselves
+            // windows has drives, so add tests for that when applicable
             if cfg!(windows) {
                 expected.extend(
                     windows_extras
@@ -384,92 +366,6 @@ mod tests {
             assert_eq!(globs, expected, "with root {:?}", root);
         };
 
-        f(
-            "",
-            vec![
-                "project/**/files",
-                "**/files",
-                "pattern",
-                "pattern.txt",
-                "a/b",
-                "a/b/c.txt",
-                "a/b*/c",
-                "a/b/*.txt",
-                "/**",
-                "/absolute/path/**/files",
-            ],
-            vec![r"c:\absolute\path\**", r"c:relative\path\**"],
-        );
-        f(
-            ".",
-            vec![
-                "project/**/files",
-                "**/files",
-                "pattern",
-                "pattern.txt",
-                "a/b",
-                "a/b/c.txt",
-                "a/b*/c",
-                "a/b/*.txt",
-                "/**",
-                "/absolute/path/**/files",
-            ],
-            vec![r"c:\absolute\path\**", r"c:relative\path\**"],
-        );
-        f(
-            "..",
-            vec![
-                "../project/**/files",
-                "../**/files",
-                "../pattern",
-                "../pattern.txt",
-                "../a/b",
-                "../a/b/c.txt",
-                "../a/b*/c",
-                "../a/b/*.txt",
-                "/**",
-                "/absolute/path/**/files",
-            ],
-            vec![r"c:\absolute\path\**", r"c:..\relative\path\**"],
-        );
-        f(
-            "no/trailing/slash",
-            vec![
-                "no/trailing/slash/project/**/files",
-                "no/trailing/slash/**/files",
-                "no/trailing/slash/pattern",
-                "no/trailing/slash/pattern.txt",
-                "no/trailing/slash/a/b",
-                "no/trailing/slash/a/b/c.txt",
-                "no/trailing/slash/a/b*/c",
-                "no/trailing/slash/a/b/*.txt",
-                "/**",
-                "/absolute/path/**/files",
-            ],
-            vec![
-                r"c:\absolute\path\**",
-                r"c:no\trailing\slash\relative\path\**",
-            ],
-        );
-        f(
-            "relative/path/to/",
-            vec![
-                "relative/path/to/project/**/files",
-                "relative/path/to/**/files",
-                "relative/path/to/pattern",
-                "relative/path/to/pattern.txt",
-                "relative/path/to/a/b",
-                "relative/path/to/a/b/c.txt",
-                "relative/path/to/a/b*/c",
-                "relative/path/to/a/b/*.txt",
-                "/**",
-                "/absolute/path/**/files",
-            ],
-            vec![
-                r"c:\absolute\path\**",
-                r"c:relative\path\to\relative\path\**",
-            ],
-        );
         f(
             "/my/path/to",
             vec![
@@ -504,22 +400,6 @@ mod tests {
                 vec![r"c:\absolute\path\**", r"c:\my\path\to\relative\path\**"],
             );
             f(
-                r"c:my\path\to",
-                vec![
-                    r"c:my\path\to\project\**\files",
-                    r"c:my\path\to\**\files",
-                    r"c:my\path\to\pattern",
-                    r"c:my\path\to\pattern.txt",
-                    r"c:my\path\to\a\b",
-                    r"c:my\path\to\a\b\c.txt",
-                    r"c:my\path\to\a\b*\c",
-                    r"c:my\path\to\a\b\*.txt",
-                    r"c:\**",
-                    r"c:\absolute\path\**\files",
-                ],
-                vec![r"c:\absolute\path\**", r"c:my\path\to\relative\path\**"],
-            );
-            f(
                 r"d:\my\path\to",
                 vec![
                     r"d:\my\path\to\project\**\files",
@@ -533,23 +413,7 @@ mod tests {
                     r"d:\**",
                     r"d:\absolute\path\**\files",
                 ],
-                vec![r"c:\absolute\path\**", r"c:relative\path\**"],
-            );
-            f(
-                r"d:my\path\to",
-                vec![
-                    r"d:my\path\to\project\**\files",
-                    r"d:my\path\to\**\files",
-                    r"d:my\path\to\pattern",
-                    r"d:my\path\to\pattern.txt",
-                    r"d:my\path\to\a\b",
-                    r"d:my\path\to\a\b\c.txt",
-                    r"d:my\path\to\a\b*\c",
-                    r"d:my\path\to\a\b\*.txt",
-                    r"d:\**",
-                    r"d:\absolute\path\**\files",
-                ],
-                vec![r"c:\absolute\path\**", r"c:relative\path\**"],
+                vec![r"c:\absolute\path\**", r"c:\my\path\to\relative\path\**"],
             );
         }
     }
@@ -663,8 +527,11 @@ mod tests {
 
         // glob_matches("", true);
         // glob_matches("..", true);
+        glob_matches("../**", true);
         // glob_matches(".", true);
+        glob_matches("./**", true);
         // glob_matches("path/to/./my", true);
+        glob_matches("path/to/./my/**", true);
         glob_matches("*", true);
         glob_matches("**", true);
         glob_matches("**/*", true);
