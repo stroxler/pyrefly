@@ -414,6 +414,13 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_narrow_ops(&narrow_op, *range);
                 return;
             }
+            Expr::Named(x) => {
+                self.scopes.current_mut().stat.expr_lvalue(&x.target);
+                let make_binding = |k| Binding::Expr(k, (*x.value).clone());
+                self.bind_target(&mut x.target, &make_binding, None);
+                self.ensure_expr(&mut x.value);
+                return;
+            }
             Expr::Call(ExprCall {
                 range: _,
                 func,
@@ -428,13 +435,6 @@ impl<'a> BindingsBuilder<'a> {
                 let binding = self.forward_lookup(&name);
                 self.ensure_name(&name, binding, LookupKind::Regular);
                 false
-            }
-            Expr::Named(x) => {
-                self.scopes.current_mut().stat.expr_lvalue(&x.target);
-                let make_binding = |k| Binding::Expr(k, (*x.value).clone());
-                self.bind_target(&mut x.target, &make_binding, None);
-                self.ensure_expr(&mut x.value);
-                return;
             }
             Expr::ListComp(x) => {
                 self.bind_comprehensions(x.range, &mut x.generators);
