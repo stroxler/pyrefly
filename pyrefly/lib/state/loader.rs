@@ -88,19 +88,20 @@ pub struct LoaderFindCache<T> {
     cache: LockedMap<ModuleName, Result<ModulePath, FindError>>,
 }
 
-impl<T: Loader> Loader for LoaderFindCache<T> {
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        self.cache
-            .ensure(&module, || self.loader.find_import(module))
-            .dupe()
-    }
-}
-
 impl<T> LoaderFindCache<T> {
     pub fn new(loader: T) -> Self {
         Self {
             loader,
             cache: Default::default(),
         }
+    }
+
+    pub fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError>
+    where
+        T: Loader,
+    {
+        self.cache
+            .ensure(&module, || self.loader.find_import(module))
+            .dupe()
     }
 }

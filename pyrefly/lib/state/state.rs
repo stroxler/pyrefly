@@ -60,7 +60,6 @@ use crate::state::handle::Handle;
 use crate::state::load::Load;
 use crate::state::load::Loads;
 use crate::state::loader::FindError;
-use crate::state::loader::Loader;
 use crate::state::loader::LoaderFindCache;
 use crate::state::loader::LoaderId;
 use crate::state::memory::MemoryFiles;
