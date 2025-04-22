@@ -170,7 +170,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         fields: &SmallMap<Name, bool>,
     ) -> ClassSynthesizedField {
-        let mut params = vec![cls.self_param()];
+        let mut params = vec![self.class_self_param(cls)];
         for (name, is_total) in fields {
             // TODO(stroxler): Look into whether we can re-wire the code so that it is not possible to
             // have the typed dict think a field exists that cannot be converted to a `TypedDictField`

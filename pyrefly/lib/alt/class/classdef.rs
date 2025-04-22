@@ -23,6 +23,8 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyLegacyTypeParam;
 use crate::error::collector::ErrorCollector;
 use crate::graph::index::Idx;
+use crate::types::callable::Param;
+use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassFieldProperties;
 use crate::types::class::ClassIndex;
@@ -248,5 +250,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn extends_any(&self, cls: &Class) -> bool {
         self.get_metadata_for_class(cls).has_base_any()
+    }
+
+    pub fn class_self_param(&self, cls: &Class) -> Param {
+        Param::Pos(
+            Name::new_static("self"),
+            self.instantiate(cls),
+            Required::Required,
+        )
     }
 }

@@ -26,7 +26,7 @@ use crate::types::types::Type;
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn get_new_type_init(&self, cls: &Class, base: ClassType) -> ClassSynthesizedField {
         let params = vec![
-            cls.self_param(),
+            self.class_self_param(cls),
             Param::Pos(Name::new_static("_x"), base.to_type(), Required::Required),
         ];
         let ty = Type::Function(Box::new(Function {

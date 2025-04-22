@@ -26,8 +26,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
-use crate::types::callable::Param;
-use crate::types::callable::Required;
 use crate::types::equality::TypeEq;
 use crate::types::qname::QName;
 use crate::types::quantified::Quantified;
@@ -104,17 +102,6 @@ impl Class {
     /// AnswersSolver::instantiate() to get an instance type.
     pub fn as_class_type(&self) -> ClassType {
         ClassType::new(self.dupe(), self.tparams_as_targs())
-    }
-
-    pub fn self_param(&self) -> Param {
-        Param::Pos(
-            Name::new_static("self"),
-            // Note that this always creates a ClassType rather than a TypedDict (even for
-            // TypedDict classes). We do this so that we can reuse the regular method binding
-            // mechanism to call a TypedDict's synthesized `__init__` method.
-            self.as_class_type().to_type(),
-            Required::Required,
-        )
     }
 
     pub fn index(&self) -> ClassIndex {

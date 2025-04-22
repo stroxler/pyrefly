@@ -236,13 +236,8 @@ impl ClassField {
     }
 
     fn as_special_method_type(self, instance: &Instance) -> Option<Type> {
-        self.as_raw_special_method_type(instance).and_then(|ty| {
-            make_bound_method(
-                // TODO(rechen): Use Instance rather than ClassType here
-                &ClassType::new(instance.class.dupe(), instance.args.clone()),
-                &ty,
-            )
-        })
+        self.as_raw_special_method_type(instance)
+            .and_then(|ty| make_bound_method(instance, &ty))
     }
 
     pub fn as_named_tuple_type(&self) -> Type {
@@ -360,9 +355,15 @@ impl ClassField {
     }
 }
 
-/// Wrapper to hold a specialized instance of a class without caring whether it is a
-/// ClassType or TypedDict.
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum InstanceKind {
+    ClassType,
+    TypedDict,
+}
+
+/// Wrapper to hold a specialized instance of a class , unifying ClassType and TypedDict.
 struct Instance<'a> {
+    kind: InstanceKind,
     class: &'a Class,
     args: &'a TArgs,
 }
@@ -370,6 +371,7 @@ struct Instance<'a> {
 impl<'a> Instance<'a> {
     fn of_class(cls: &'a ClassType) -> Self {
         Self {
+            kind: InstanceKind::ClassType,
             class: cls.class_object(),
             args: cls.targs(),
         }
@@ -377,6 +379,7 @@ impl<'a> Instance<'a> {
 
     fn of_typed_dict(td: &'a TypedDict) -> Self {
         Self {
+            kind: InstanceKind::TypedDict,
             class: td.class_object(),
             args: td.targs(),
         }
@@ -386,6 +389,17 @@ impl<'a> Instance<'a> {
     /// by substituting in the type arguments.
     fn instantiate_member(&self, raw_member: Type) -> Type {
         Substitution::new(self.class, self.args).substitute(raw_member)
+    }
+
+    fn to_type(&self) -> Type {
+        match self.kind {
+            InstanceKind::ClassType => {
+                ClassType::new(self.class.dupe(), self.args.clone()).to_type()
+            }
+            InstanceKind::TypedDict => {
+                Type::TypedDict(TypedDict::new(self.class.dupe(), self.args.clone()))
+            }
+        }
     }
 }
 
@@ -422,14 +436,14 @@ fn make_bound_classmethod(cls: &Class, attr: &Type) -> Option<Type> {
     make_bound_method_helper(Type::ClassDef(cls.dupe()), attr, &should_bind)
 }
 
-fn make_bound_method(cls: &ClassType, attr: &Type) -> Option<Type> {
+fn make_bound_method(instance: &Instance, attr: &Type) -> Option<Type> {
     let should_bind =
         |meta: &FuncMetadata| !meta.flags.is_staticmethod && !meta.flags.is_classmethod;
-    make_bound_method_helper(cls.clone().to_type(), attr, &should_bind)
+    make_bound_method_helper(instance.to_type(), attr, &should_bind)
 }
 
 fn bind_instance_attribute(
-    cls: &ClassType,
+    instance: &Instance,
     attr: Type,
     is_class_var: bool,
     readonly: bool,
@@ -437,23 +451,22 @@ fn bind_instance_attribute(
     // Decorated objects are methods, so they can't be ClassVars
     match attr {
         _ if attr.is_property_getter() => Attribute::property(
-            make_bound_method(cls, &attr).unwrap_or(attr),
+            make_bound_method(instance, &attr).unwrap_or(attr),
             None,
-            cls.class_object().dupe(),
+            instance.class.dupe(),
         ),
         _ if let Some(getter) = attr.is_property_setter_with_getter() => Attribute::property(
-            make_bound_method(cls, &getter).unwrap_or(getter),
-            Some(make_bound_method(cls, &attr).unwrap_or(attr)),
-            cls.class_object().dupe(),
+            make_bound_method(instance, &getter).unwrap_or(getter),
+            Some(make_bound_method(instance, &attr).unwrap_or(attr)),
+            instance.class.dupe(),
         ),
         attr if is_class_var || readonly => {
-            Attribute::read_only(make_bound_method(cls, &attr).unwrap_or(attr))
+            Attribute::read_only(make_bound_method(instance, &attr).unwrap_or(attr))
         }
-        attr => {
-            Attribute::read_write(make_bound_method(cls, &attr).unwrap_or_else(|| {
-                make_bound_classmethod(cls.class_object(), &attr).unwrap_or(attr)
-            }))
-        }
+        attr => Attribute::read_write(
+            make_bound_method(instance, &attr)
+                .unwrap_or_else(|| make_bound_classmethod(instance.class, &attr).unwrap_or(attr)),
+        ),
     }
 }
 
@@ -839,8 +852,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn as_instance_attribute(&self, field: ClassField, cls: &ClassType) -> Attribute {
-        match field.instantiate_for(&Instance::of_class(cls)).0 {
+    fn as_instance_attribute(&self, field: ClassField, instance: &Instance) -> Attribute {
+        match field.instantiate_for(instance).0 {
             // TODO(stroxler): Clean up this match by making `ClassFieldInner` an
             // enum; the match is messy
             ClassFieldInner::Simple {
@@ -848,10 +861,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 descriptor_getter,
                 descriptor_setter,
                 ..
-            } if descriptor_getter.is_some() || descriptor_setter.is_some() => {
+            } if (descriptor_getter.is_some() || descriptor_setter.is_some())
+                // There's no situation in which you can stick a usable descriptor in a TypedDict.
+                // TODO(rechen): a descriptor in a TypedDict should be an error at class creation time.
+                && instance.kind == InstanceKind::ClassType =>
+            {
                 Attribute::descriptor(
                     ty,
-                    DescriptorBase::Instance(cls.clone()),
+                    DescriptorBase::Instance(ClassType::new(
+                        instance.class.dupe(),
+                        instance.args.clone(),
+                    )),
                     descriptor_getter,
                     descriptor_setter,
                 )
@@ -865,7 +885,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let is_class_var = annotation.is_some_and(|ann| ann.is_class_var());
                 match field.initialization() {
                     ClassFieldInitialization::Class(_) => {
-                        bind_instance_attribute(cls, ty, is_class_var, readonly)
+                        bind_instance_attribute(instance, ty, is_class_var, readonly)
                     }
                     ClassFieldInitialization::Instance if readonly || is_class_var => {
                         Attribute::read_only(ty)
@@ -987,11 +1007,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     continue;
                 }
             }
-            let want_attr = self.as_instance_attribute(want_class_field.clone(), parent);
+            let want_attr =
+                self.as_instance_attribute(want_class_field.clone(), &Instance::of_class(parent));
             if got_attr.is_none() {
                 // Optimisation: Only compute the `got_attr` once, and only if we actually need it.
-                got_attr =
-                    Some(self.as_instance_attribute(class_field.clone(), &class.as_class_type()));
+                got_attr = Some(self.as_instance_attribute(
+                    class_field.clone(),
+                    &Instance::of_class(&class.as_class_type()),
+                ));
             }
             let attr_check =
                 self.is_attr_subset(got_attr.as_ref().unwrap(), &want_attr, &mut |got, want| {
@@ -1081,7 +1104,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn get_instance_attribute(&self, cls: &ClassType, name: &Name) -> Option<Attribute> {
         self.get_class_member(cls.class_object(), name)
-            .map(|member| self.as_instance_attribute(Arc::unwrap_or_clone(member.value), cls))
+            .map(|member| {
+                self.as_instance_attribute(
+                    Arc::unwrap_or_clone(member.value),
+                    &Instance::of_class(cls),
+                )
+            })
     }
 
     /// Looks up an attribute on a super instance.
@@ -1093,8 +1121,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<Attribute> {
         let member = self.get_class_member(lookup_cls.class_object(), name);
         match super_obj {
-            SuperObj::Instance(obj) => member
-                .map(|member| self.as_instance_attribute(Arc::unwrap_or_clone(member.value), obj)),
+            SuperObj::Instance(obj) => member.map(|member| {
+                self.as_instance_attribute(
+                    Arc::unwrap_or_clone(member.value),
+                    &Instance::of_class(obj),
+                )
+            }),
             SuperObj::Class(obj) => member
                 .map(|member| self.as_class_attribute(Arc::unwrap_or_clone(member.value), obj)),
         }
