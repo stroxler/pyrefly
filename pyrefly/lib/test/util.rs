@@ -25,17 +25,16 @@ use ruff_text_size::TextSize;
 use starlark_map::small_map::SmallMap;
 
 use crate::binding::binding::KeyExport;
+use crate::config::config::ConfigFile;
 use crate::config::error::ErrorConfigs;
 use crate::error::error::print_errors;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
-use crate::module::bundled::typeshed;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::state::handle::Handle;
-use crate::state::loader::FindError;
 use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
@@ -161,7 +160,15 @@ impl TestEnv {
     }
 
     pub fn loader(&self) -> LoaderId {
-        LoaderId::new(self.clone())
+        let mut config = ConfigFile::default();
+        config.python_environment.python_version = Some(self.version);
+        config.python_environment.python_platform = Some(PythonPlatform::linux());
+        config.python_environment.site_package_path = Some(Vec::new());
+        for (name, (path, _)) in self.modules.iter() {
+            config.custom.insert(*name, path.clone());
+        }
+        config.configure();
+        LoaderId::new(config)
     }
 
     pub fn to_state(self) -> (State, impl Fn(&str) -> Handle) {
@@ -348,20 +355,6 @@ pub fn get_batched_lsp_operations_report_allow_error(
     get_report: impl Fn(&State, &Handle, TextSize) -> String,
 ) -> String {
     get_batched_lsp_operations_report_helper(files, false, get_report)
-}
-
-impl Loader for TestEnv {
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        if let Some((path, _)) = self.modules.get(&module) {
-            Ok(path.dupe())
-        } else if let Some(path) = typeshed().map_err(FindError::not_found)?.find(module) {
-            Ok(path)
-        } else {
-            Err(FindError::not_found(anyhow!(
-                "Module not given in test suite"
-            )))
-        }
-    }
 }
 
 pub fn init_test() {
