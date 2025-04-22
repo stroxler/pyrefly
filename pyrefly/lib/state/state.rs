@@ -1036,8 +1036,13 @@ impl<'a> Transaction<'a> {
     pub fn set_memory(&mut self, files: Vec<(PathBuf, Option<Arc<String>>)>) {
         let mut changed = SmallSet::new();
         for (path, contents) in files {
-            self.data.memory_overlay.set(path.clone(), contents);
-            changed.insert(ModulePath::memory(path));
+            if self.memory_lookup().get(&path) != contents {
+                self.data.memory_overlay.set(path.clone(), contents);
+                changed.insert(ModulePath::memory(path));
+            }
+        }
+        if changed.is_empty() {
+            return;
         }
         let mut dirty_set = self.data.dirty.lock();
         for handle in self.readable.modules.keys() {
