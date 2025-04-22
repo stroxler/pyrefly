@@ -590,12 +590,7 @@ impl<'a> BindingsBuilder<'a> {
                             value,
                         })),
                         None => {
-                            self.bind_target_controlling_errors(
-                                &target,
-                                &|_| Binding::Type(Type::any_error()),
-                                None,
-                                false,
-                            );
+                            self.bind_target(&target, &|_| Binding::Type(Type::any_error()), None);
                             self.ensure_expr(&mut target);
                         }
                     }

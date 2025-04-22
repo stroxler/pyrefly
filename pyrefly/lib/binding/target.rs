@@ -92,12 +92,11 @@ impl<'a> BindingsBuilder<'a> {
     /// because for an unpack target there is no annotation for the entire RHS.
     /// As a result, for all cases except attributes we wind up ignoring type errors
     /// when the target is an unpacking pattern.
-    pub fn bind_target_controlling_errors(
+    pub fn bind_target(
         &mut self,
         target: &Expr,
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
         value: Option<&Expr>,
-        add_error: bool,
     ) {
         match target {
             Expr::Name(name) => self.bind_assign(name, make_binding, FlowStyle::None),
@@ -135,28 +134,17 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_unpacking(&lst.elts, make_binding, lst.range);
             }
             Expr::Starred(x) => {
-                if add_error {
-                    self.error(
-                        x.range,
-                        "Starred assignment target must be in a list or tuple".to_owned(),
-                        ErrorKind::InvalidSyntax,
-                    )
-                };
-                self.bind_target_controlling_errors(&x.value, make_binding, value, add_error);
+                self.error(
+                    x.range,
+                    "Starred assignment target must be in a list or tuple".to_owned(),
+                    ErrorKind::InvalidSyntax,
+                );
+                self.bind_target(&x.value, make_binding, value);
             }
             _ => {
                 // Most structurally invalid targets become errors in the parser, which we propagate.
                 // There's no need for a duplicate error here, and there's no work to do.
             }
         }
-    }
-
-    pub fn bind_target(
-        &mut self,
-        target: &Expr,
-        make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
-        value: Option<&Expr>,
-    ) {
-        self.bind_target_controlling_errors(target, make_binding, value, true)
     }
 }
