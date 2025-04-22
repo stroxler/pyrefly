@@ -177,7 +177,7 @@ impl ClassField {
         }
     }
 
-    fn instantiate_for(&self, cls: &ClassType) -> Self {
+    fn instantiate_for(&self, instance: &Instance) -> Self {
         match &self.0 {
             ClassFieldInner::Simple {
                 ty,
@@ -188,16 +188,16 @@ impl ClassField {
                 descriptor_setter,
                 is_function_without_return_annotation,
             } => Self(ClassFieldInner::Simple {
-                ty: Instance::of_class(cls).instantiate_member(ty.clone()),
+                ty: instance.instantiate_member(ty.clone()),
                 annotation: annotation.clone(),
                 initialization: initialization.clone(),
                 readonly: *readonly,
                 descriptor_getter: descriptor_getter
                     .as_ref()
-                    .map(|ty| Instance::of_class(cls).instantiate_member(ty.clone())),
+                    .map(|ty| instance.instantiate_member(ty.clone())),
                 descriptor_setter: descriptor_setter
                     .as_ref()
-                    .map(|ty| Instance::of_class(cls).instantiate_member(ty.clone())),
+                    .map(|ty| instance.instantiate_member(ty.clone())),
                 is_function_without_return_annotation: *is_function_without_return_annotation,
             }),
         }
@@ -225,8 +225,8 @@ impl ClassField {
         tparams.quantified().any(|q| qs.contains(q))
     }
 
-    fn as_raw_special_method_type(self, cls: &ClassType) -> Option<Type> {
-        match self.instantiate_for(cls).0 {
+    fn as_raw_special_method_type(self, instance: &Instance) -> Option<Type> {
+        match self.instantiate_for(instance).0 {
             ClassFieldInner::Simple { ty, .. } => match self.initialization() {
                 ClassFieldInitialization::Class(_) => Some(ty),
                 ClassFieldInitialization::Instance => None,
@@ -234,9 +234,14 @@ impl ClassField {
         }
     }
 
-    fn as_special_method_type(self, cls: &ClassType) -> Option<Type> {
-        self.as_raw_special_method_type(cls)
-            .and_then(|ty| make_bound_method(cls, &ty))
+    fn as_special_method_type(self, instance: &Instance) -> Option<Type> {
+        self.as_raw_special_method_type(instance).and_then(|ty| {
+            make_bound_method(
+                // TODO(rechen): Use Instance rather than ClassType here
+                &ClassType::new(instance.class.dupe(), instance.args.clone()),
+                &ty,
+            )
+        })
     }
 
     pub fn as_named_tuple_type(&self) -> Type {
@@ -371,7 +376,7 @@ impl<'a> Instance<'a> {
 
     /// Instantiate a type that is relative to the class type parameters
     /// by substituting in the type arguments.
-    fn instantiate_member(self, raw_member: Type) -> Type {
+    fn instantiate_member(&self, raw_member: Type) -> Type {
         Substitution::new(self.class, self.args).substitute(raw_member)
     }
 }
@@ -827,7 +832,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn as_instance_attribute(&self, field: ClassField, cls: &ClassType) -> Attribute {
-        match field.instantiate_for(cls).0 {
+        match field.instantiate_for(&Instance::of_class(cls)).0 {
             // TODO(stroxler): Clean up this match by making `ClassFieldInner` an
             // enum; the match is messy
             ClassFieldInner::Simple {
@@ -1059,7 +1064,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .find_map(|ancestor| {
                     self.get_field_from_current_class_only(ancestor.class_object(), name)
                         .map(|field| WithDefiningClass {
-                            value: Arc::new(field.instantiate_for(ancestor)),
+                            value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
                             defining_class: ancestor.class_object().dupe(),
                         })
                 })
@@ -1111,18 +1116,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // class construction; we only care about `__new__` if it is overridden.
             None
         } else {
-            Arc::unwrap_or_clone(new_member.value).as_raw_special_method_type(cls)
+            Arc::unwrap_or_clone(new_member.value)
+                .as_raw_special_method_type(&Instance::of_class(cls))
+        }
+    }
+
+    fn get_dunder_init_helper(&self, instance: &Instance, get_object_init: bool) -> Option<Type> {
+        let init_method = self.get_class_member(instance.class, &dunder::INIT)?;
+        if get_object_init || !init_method.defined_on("builtins", "object") {
+            Arc::unwrap_or_clone(init_method.value).as_special_method_type(instance)
+        } else {
+            None
         }
     }
 
     /// Get the class's `__init__` method. The second argument controls whether we return an inherited `object.__init__`.
     pub fn get_dunder_init(&self, cls: &ClassType, get_object_init: bool) -> Option<Type> {
-        let init_method = self.get_class_member(cls.class_object(), &dunder::INIT)?;
-        if get_object_init || !init_method.defined_on("builtins", "object") {
-            Arc::unwrap_or_clone(init_method.value).as_special_method_type(cls)
-        } else {
-            None
-        }
+        self.get_dunder_init_helper(&Instance::of_class(cls), get_object_init)
     }
 
     /// Get the metaclass `__call__` method
@@ -1141,7 +1151,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // https://typing.python.org/en/latest/spec/constructors.html#converting-a-constructor-to-callable
             None
         } else {
-            Arc::unwrap_or_clone(attr.value).as_special_method_type(metaclass)
+            Arc::unwrap_or_clone(attr.value).as_special_method_type(&Instance::of_class(metaclass))
         }
     }
 }
