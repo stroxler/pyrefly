@@ -303,8 +303,8 @@ impl Args {
             return Ok(CommandExitStatus::Success);
         }
 
-        let holder = Forgetter::new(State::new(None), allow_forget);
-        let handles = Handles::new(expanded_file_list, &config_finder);
+        let holder = Forgetter::new(State::new(Some(config_finder)), allow_forget);
+        let handles = Handles::new(expanded_file_list, holder.as_ref().config_finder().unwrap());
         let require_levels = self.get_required_levels();
         let mut transaction = Forgetter::new(
             holder
@@ -330,7 +330,7 @@ impl Args {
         let expanded_file_list = files_to_check.files()?;
         let require_levels = self.get_required_levels();
         let mut handles = Handles::new(expanded_file_list, &config_finder);
-        let state = State::new(None);
+        let state = State::new(Some(config_finder));
         let mut transaction = state.new_committable_transaction(require_levels.default, None);
         loop {
             let res = self.run_inner(
@@ -357,7 +357,7 @@ impl Args {
             handles.update(
                 events.created.iter().filter(|p| files_to_check.covers(p)),
                 events.removed.iter().filter(|p| files_to_check.covers(p)),
-                &config_finder,
+                state.config_finder().unwrap(),
             );
             for loader in handles.loaders() {
                 new_transaction_mut.invalidate_find(&loader);

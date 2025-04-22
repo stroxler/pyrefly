@@ -1236,7 +1236,6 @@ impl<'a> AsMut<Transaction<'a>> for CommittingTransaction<'a> {
 pub struct State {
     threads: ThreadPool,
     uniques: UniqueFactory,
-    #[expect(dead_code)]
     config_finder: Option<ConfigFinder>,
     state: RwLock<StateInner>,
     committing_transaction_lock: Mutex<()>,
@@ -1251,6 +1250,10 @@ impl State {
             state: RwLock::new(StateInner::new()),
             committing_transaction_lock: Mutex::new(()),
         }
+    }
+
+    pub fn config_finder(&self) -> Option<&ConfigFinder> {
+        self.config_finder.as_ref()
     }
 
     pub fn new_transaction<'a>(
