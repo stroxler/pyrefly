@@ -1036,7 +1036,7 @@ impl<'a> Transaction<'a> {
     pub fn set_memory(&mut self, files: Vec<(PathBuf, Option<Arc<String>>)>) {
         let mut changed = SmallSet::new();
         for (path, contents) in files {
-            if self.memory_lookup().get(&path) != contents {
+            if self.memory_lookup().get(&path) != contents.as_ref() {
                 self.data.memory_overlay.set(path.clone(), contents);
                 changed.insert(ModulePath::memory(path));
             }

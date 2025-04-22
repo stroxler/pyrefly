@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 
@@ -49,6 +50,7 @@ impl Load {
             ModulePathDetails::Namespace(_) => Ok(Arc::new("".to_owned())),
             ModulePathDetails::Memory(path) => memory_lookup
                 .get(path)
+                .duped()
                 .ok_or_else(|| anyhow!("memory path not found")),
             ModulePathDetails::BundledTypeshed(path) => typeshed().and_then(|x| {
                 x.load(path)

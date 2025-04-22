@@ -11,9 +11,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dupe::Dupe;
-use dupe::OptionDupedExt;
-
 #[derive(Debug, Clone, Default)]
 pub struct MemoryFiles(HashMap<PathBuf, Arc<String>>);
 
@@ -47,10 +44,10 @@ impl<'a> MemoryFilesLookup<'a> {
         Self { base, overlay }
     }
 
-    pub fn get(&self, path: &Path) -> Option<Arc<String>> {
+    pub fn get(&self, path: &Path) -> Option<&'a Arc<String>> {
         match self.overlay.0.get(path) {
-            Some(contents) => contents.dupe(), // Might be a None if deleted
-            None => self.base.0.get(path).duped(),
+            Some(contents) => contents.as_ref(), // Might be a None if deleted
+            None => self.base.0.get(path),
         }
     }
 }
