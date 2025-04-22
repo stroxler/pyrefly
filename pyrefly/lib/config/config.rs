@@ -84,6 +84,9 @@ pub struct ConfigFile {
     #[serde(default, flatten)]
     pub root: ConfigBase,
 
+    #[serde(default)]
+    pub sub_configs: Vec<SubConfig>,
+
     /// Ignores issues with packages missing py.typed files
     #[serde(default)]
     pub use_untyped_imports: bool,
@@ -93,7 +96,7 @@ pub struct ConfigFile {
     pub custom_module_paths: SmallMap<ModuleName, ModulePath>,
 
     #[serde(default)]
-    pub sub_configs: Vec<SubConfig>,
+    pub ignore_missing_source: bool,
 }
 
 impl Default for ConfigFile {
@@ -131,9 +134,10 @@ impl ConfigFile {
                 site_package_path_from_interpreter: false,
             },
             root: Default::default(),
-            use_untyped_imports: false,
-            custom_module_paths: Default::default(),
             sub_configs: Default::default(),
+            custom_module_paths: Default::default(),
+            use_untyped_imports: false,
+            ignore_missing_source: false,
         }
     }
 
@@ -451,6 +455,9 @@ mod tests {
             python_interpreter = "venv/my/python"
             replace_imports_with_any = ["fibonacci"]
             ignore_errors_in_generated_code = true
+            use_untyped_imports = true
+            ignore_missing_source = true
+
             [errors]
             assert-type = true
             bad-return = false
@@ -491,7 +498,6 @@ mod tests {
                     replace_imports_with_any: Some(vec![ModuleWildcard::new("fibonacci").unwrap()]),
                     skip_untyped_functions: Some(false),
                 },
-                use_untyped_imports: false,
                 custom_module_paths: Default::default(),
                 sub_configs: vec![SubConfig {
                     matches: Glob::new("sub/project/**".to_owned()),
@@ -506,6 +512,8 @@ mod tests {
                         skip_untyped_functions: Some(true),
                     }
                 }],
+                use_untyped_imports: true,
+                ignore_missing_source: true,
             }
         );
     }
@@ -649,12 +657,13 @@ mod tests {
             python_environment: python_environment.clone(),
             python_interpreter: Some(PathBuf::from(interpreter.clone())),
             root: Default::default(),
-            use_untyped_imports: false,
             custom_module_paths: Default::default(),
             sub_configs: vec![SubConfig {
                 matches: Glob::new("sub/project/**".to_owned()),
                 settings: Default::default(),
             }],
+            use_untyped_imports: false,
+            ignore_missing_source: false,
         };
 
         let path_str = with_sep("path/to/my/config");
@@ -680,12 +689,13 @@ mod tests {
             search_path,
             python_environment,
             root: Default::default(),
-            use_untyped_imports: false,
             custom_module_paths: Default::default(),
             sub_configs: vec![SubConfig {
                 matches: sub_config_matches,
                 settings: Default::default(),
             }],
+            use_untyped_imports: false,
+            ignore_missing_source: false,
         };
         assert_eq!(config, expected_config);
     }
