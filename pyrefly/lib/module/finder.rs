@@ -114,13 +114,9 @@ fn find_one_part(name: &Name, roots: &[PathBuf]) -> Option<FindResult> {
     }
 }
 
-pub fn find_module_in_search_path(module: ModuleName, include: &[PathBuf]) -> Option<ModulePath> {
-    let parts = module.components();
-    if parts.is_empty() {
-        return None;
-    }
-    let mut current_result = find_one_part(&parts[0], include);
-    for part in parts.iter().skip(1) {
+fn continue_find_module(start_result: FindResult, components_rest: &[Name]) -> Option<ModulePath> {
+    let mut current_result = Some(start_result);
+    for part in components_rest.iter() {
         match current_result {
             None => {
                 // Nothing has been found in the previous round. No point keep looking.
@@ -148,6 +144,15 @@ pub fn find_module_in_search_path(module: ModuleName, include: &[PathBuf]) -> Op
             ModulePath::namespace(roots.first().clone())
         }
     })
+}
+
+pub fn find_module_in_search_path(module: ModuleName, include: &[PathBuf]) -> Option<ModulePath> {
+    let parts = module.components();
+    if parts.is_empty() {
+        return None;
+    }
+    let start_result = find_one_part(&parts[0], include);
+    start_result.and_then(|start_result| continue_find_module(start_result, &parts[1..]))
 }
 
 pub fn find_module_in_site_package_path(
