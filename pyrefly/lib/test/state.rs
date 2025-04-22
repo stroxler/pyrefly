@@ -14,16 +14,15 @@ use std::sync::Arc;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
+use crate::config::config::ConfigFile;
 use crate::config::error::ErrorConfigs;
 use crate::error::error::print_errors;
-use crate::exported::ConfigFile;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
 use crate::metadata::RuntimeMetadata;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::state::handle::Handle;
-use crate::state::loader::FindError;
 use crate::state::loader::Loader;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
@@ -140,15 +139,6 @@ fn test_multiple_path() {
 #[derive(Default, Clone, Dupe, Debug)]
 struct IncrementalData(Arc<Mutex<SmallMap<ModuleName, Arc<String>>>>);
 
-impl Loader for IncrementalData {
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        match self.0.lock().get(&module) {
-            Some(_) => Ok(ModulePath::memory(PathBuf::from(module.as_str()))),
-            None => TestEnv::new().find_import(module),
-        }
-    }
-}
-
 /// Helper for writing incrementality tests.
 struct Incremental {
     data: IncrementalData,
@@ -161,9 +151,21 @@ impl Incremental {
     fn new() -> Self {
         init_test();
         let data = IncrementalData::default();
+
+        let mut config = ConfigFile::default();
+        config.python_environment.set_empty_to_default();
+        config.search_path = Vec::new();
+        for file in ["main", "foo", "bar", "baz"] {
+            config.custom.insert(
+                ModuleName::from_str(file),
+                ModulePath::memory(PathBuf::from(file)),
+            );
+        }
+        config.configure();
+
         Self {
             data: data.dupe(),
-            loader: LoaderId::new(data),
+            loader: LoaderId::new(config),
             state: State::new(),
             to_set: Vec::new(),
         }
