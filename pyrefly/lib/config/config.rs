@@ -155,7 +155,7 @@ impl ConfigFile {
             module,
             self.site_package_path(),
             self.use_untyped_imports,
-        ) {
+        )? {
             Ok(path)
         } else {
             Err(FindError::search_path(

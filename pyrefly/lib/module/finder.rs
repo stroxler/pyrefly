@@ -17,6 +17,7 @@ use vec1::Vec1;
 
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
+use crate::state::loader::FindError;
 
 static PY_TYPED_CACHE: LazyLock<Mutex<SmallMap<PathBuf, PyTyped>>> =
     LazyLock::new(|| Mutex::new(SmallMap::new()));
@@ -158,7 +159,7 @@ pub fn find_module_in_site_package_path(
     module: ModuleName,
     include: &[PathBuf],
     use_untyped_imports: bool,
-) -> Option<ModulePath> {
+) -> Result<Option<ModulePath>, FindError> {
     let first = module.first_component();
     let mut stub_first = first.as_str().to_owned();
     stub_first.push_str("-stubs");
@@ -180,7 +181,7 @@ pub fn find_module_in_site_package_path(
     for stub_module_import in stub_module_imports {
         let stub_module_py_typed = stub_module_import.py_typed();
         if let Some(stub_result) = continue_find_module(stub_module_import, stub_rest) {
-            return Some(stub_result);
+            return Ok(Some(stub_result));
         }
         any_has_partial_py_typed |= stub_module_py_typed == PyTyped::Partial;
         checked_one_stub = true;
@@ -188,7 +189,7 @@ pub fn find_module_in_site_package_path(
 
     // return none and stop the search if no stubs declared partial, but we searched at least one module
     if !use_untyped_imports && checked_one_stub && !any_has_partial_py_typed {
-        return None;
+        return Ok(None);
     }
 
     let fallback_modules = include
@@ -196,18 +197,23 @@ pub fn find_module_in_site_package_path(
         .filter_map(|root| find_one_part(&first, &[root.to_owned()]));
 
     let module_rest = &module.components()[1..];
+    let mut any_has_none_py_typed = false;
     for module in fallback_modules {
         if !use_untyped_imports
             && !any_has_partial_py_typed
             && module.py_typed() == PyTyped::Missing
         {
-            // TODO(connernilsen): emit error if no module found
+            any_has_none_py_typed = true;
         } else if let Some(module_result) = continue_find_module(module, module_rest) {
-            return Some(module_result);
+            return Ok(Some(module_result));
         }
     }
 
-    None
+    if any_has_none_py_typed {
+        return Err(FindError::NoPyTyped);
+    }
+
+    Ok(None)
 }
 
 #[cfg(test)]
@@ -451,6 +457,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
+            .unwrap()
             .unwrap(),
             ModulePath::filesystem(root.join("foo-stubs/bar/__init__.py")),
         );
@@ -460,6 +467,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
+            .unwrap()
             .is_none()
         );
         assert_eq!(
@@ -468,6 +476,7 @@ mod tests {
                 &[root.to_path_buf()],
                 true,
             )
+            .unwrap()
             .unwrap(),
             ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
         );
@@ -477,6 +486,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
+            .unwrap()
             .is_none()
         );
     }
@@ -502,7 +512,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
-            .is_none(),
+            .is_err()
         );
         assert_eq!(
             find_module_in_site_package_path(
@@ -510,6 +520,7 @@ mod tests {
                 &[root.to_path_buf()],
                 true,
             )
+            .unwrap()
             .unwrap(),
             ModulePath::filesystem(root.join("foo/bar/__init__.py"))
         );
@@ -519,7 +530,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
-            .is_none(),
+            .is_err()
         );
         assert_eq!(
             find_module_in_site_package_path(
@@ -527,6 +538,7 @@ mod tests {
                 &[root.to_path_buf()],
                 true,
             )
+            .unwrap()
             .unwrap(),
             ModulePath::filesystem(root.join("foo/baz/__init__.pyi"))
         );
@@ -536,7 +548,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
-            .is_none()
+            .is_err()
         );
     }
 
@@ -564,6 +576,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
+            .unwrap()
             .unwrap(),
             ModulePath::filesystem(root.join("foo/bar/__init__.py")),
         );
@@ -573,6 +586,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
+            .unwrap()
             .unwrap(),
             ModulePath::filesystem(root.join("foo/baz/__init__.pyi"))
         );
@@ -582,6 +596,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
+            .unwrap()
             .is_none()
         );
     }
@@ -608,6 +623,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
+            .unwrap()
             .unwrap(),
             ModulePath::filesystem(root.join("foo/bar/__init__.py")),
         );
@@ -617,6 +633,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
+            .unwrap()
             .unwrap(),
             ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
         );
@@ -626,6 +643,7 @@ mod tests {
                 &[root.to_path_buf()],
                 false,
             )
+            .unwrap()
             .is_none()
         );
     }
