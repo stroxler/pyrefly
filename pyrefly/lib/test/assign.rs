@@ -584,6 +584,16 @@ y = 42
 );
 
 testcase!(
+    test_undefined_targets,
+    r#"
+[1 for x.y in []]  # E: Could not find name `x`
+[1 for z[0] in []]  # E: Could not find name `z`
+a.b += 1  # E: Could not find name `a`
+(c.d := 1)  # E: Could not find name `c`  # E: Parse error: Assignment expression target must be an identifier
+    "#,
+);
+
+testcase!(
     bug = "We never validate that assignments to unpacked targets are valid",
     test_assign_unpacked_with_existing_annotations,
     r#"
