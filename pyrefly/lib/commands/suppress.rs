@@ -7,6 +7,7 @@
 
 use std::path::PathBuf;
 
+use regex::Regex;
 use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -118,6 +119,7 @@ pub fn find_unused_ignores<'a>(
 }
 
 pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<OneIndexed>>) {
+    let regex = Regex::new(r"# pyrefly: ignore.*$").unwrap();
     for (path, ignores) in path_ignores {
         let zero_index_ignores: SmallSet<usize> =
             ignores.iter().map(|i| i.to_zero_indexed()).collect();
@@ -127,11 +129,11 @@ pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<OneIndexe
             for (idx, line) in lines.enumerate() {
                 if zero_index_ignores.contains(&idx) {
                     // TODO: Expand support of what we remove and thoroughly test
-                    let new_string = line.replace("# pyrefly: ignore", "");
-                    if !new_string.is_empty() {
+                    let new_string = regex.replace_all(line, "");
+                    if !new_string.trim().is_empty() {
                         buf.push_str(&new_string);
-                        buf.push('\n');
                     }
+                    buf.push('\n');
                     continue;
                 }
                 buf.push_str(line);
@@ -174,6 +176,16 @@ mod tests {
             false,
             error_kind,
         )
+    }
+
+    fn test_remove_suppressions(lines: SmallSet<OneIndexed>, input: &str, want: &str) {
+        let tdir = tempfile::tempdir().unwrap();
+        let path = tdir.path().join("test.py");
+        fs_anyhow::write(&path, input.as_bytes()).unwrap();
+        let map = SmallMap::from_iter([(&path, lines)]);
+        remove_unused_ignores(map);
+        let got_file = fs_anyhow::read_to_string(&path).unwrap();
+        assert_str_eq!(want, got_file);
     }
 
     #[test]
@@ -234,5 +246,71 @@ f(x)
 "#;
         let got_file = fs_anyhow::read_to_string(&path).unwrap();
         assert_str_eq!(want_file, got_file);
+    }
+
+    #[test]
+    fn test_remove_suppression_above() {
+        let lines = SmallSet::from_iter([OneIndexed::new(3).unwrap()]);
+        let input = r#"
+def f() -> int:
+    # pyrefly: ignore # bad-return
+    return 1
+"#;
+        let want = r#"
+def f() -> int:
+
+    return 1
+"#;
+        test_remove_suppressions(lines, input, want);
+    }
+
+    #[test]
+    fn test_remove_suppression_above_two() {
+        let lines = SmallSet::from_iter([OneIndexed::new(3).unwrap()]);
+        let input = r#"
+def g() -> str:
+    # pyrefly: ignore # bad-return
+    return "hello"
+"#;
+        let want = r#"
+def g() -> str:
+
+    return "hello"
+"#;
+        test_remove_suppressions(lines, input, want);
+    }
+
+    #[test]
+    fn test_remove_suppression_inline() {
+        let lines = SmallSet::from_iter([OneIndexed::new(3).unwrap()]);
+        let input = r#"
+def g() -> str:
+    return "hello" # pyrefly: ignore # bad-return
+"#;
+        let want = r#"
+def g() -> str:
+    return "hello" 
+"#;
+        test_remove_suppressions(lines, input, want);
+    }
+
+    #[test]
+    fn test_remove_suppression_multiple() {
+        let lines = SmallSet::from_iter([OneIndexed::new(3).unwrap(), OneIndexed::new(5).unwrap()]);
+        let input = r#"
+def g() -> str:
+    return "hello" # pyrefly: ignore # bad-return
+def f() -> int:
+    # pyrefly: ignore
+    return 1
+"#;
+        let output = r#"
+def g() -> str:
+    return "hello" 
+def f() -> int:
+
+    return 1
+"#;
+        test_remove_suppressions(lines, input, output);
     }
 }
