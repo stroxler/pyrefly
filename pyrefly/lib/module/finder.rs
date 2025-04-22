@@ -159,6 +159,7 @@ pub fn find_module_in_site_package_path(
     module: ModuleName,
     include: &[PathBuf],
     use_untyped_imports: bool,
+    ignore_missing_source: bool,
 ) -> Result<Option<ModulePath>, FindError> {
     let first = module.first_component();
     let mut stub_first = first.as_str().to_owned();
@@ -178,23 +179,37 @@ pub fn find_module_in_site_package_path(
 
     let mut any_has_partial_py_typed = false;
     let mut checked_one_stub = false;
+    let mut found_stubs = None;
     for stub_module_import in stub_module_imports {
         let stub_module_py_typed = stub_module_import.py_typed();
-        if let Some(stub_result) = continue_find_module(stub_module_import, stub_rest) {
-            return Ok(Some(stub_result));
-        }
         any_has_partial_py_typed |= stub_module_py_typed == PyTyped::Partial;
         checked_one_stub = true;
+        if let Some(stub_result) = continue_find_module(stub_module_import, stub_rest) {
+            found_stubs = Some(stub_result);
+            break;
+        }
     }
 
-    // return none and stop the search if no stubs declared partial, but we searched at least one module
-    if !use_untyped_imports && checked_one_stub && !any_has_partial_py_typed {
+    if found_stubs.is_some() {
+        if ignore_missing_source {
+            return Ok(found_stubs);
+        }
+    } else if !use_untyped_imports && checked_one_stub && !any_has_partial_py_typed {
+        // return none and stop the search if no stubs declared partial, but we searched at least one module
         return Ok(None);
     }
 
-    let fallback_modules = include
+    let mut fallback_modules = include
         .iter()
-        .filter_map(|root| find_one_part(&first, &[root.to_owned()]));
+        .filter_map(|root| find_one_part(&first, &[root.to_owned()]))
+        .peekable();
+
+    // check if there's an existing library backing the stubs we have
+    if found_stubs.is_some() && fallback_modules.peek().is_some() {
+        return Ok(found_stubs);
+    } else if found_stubs.is_some() {
+        return Err(FindError::no_source(module));
+    }
 
     let module_rest = &module.components()[1..];
     let mut any_has_none_py_typed = false;
@@ -456,6 +471,7 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 &[root.to_path_buf()],
                 false,
+                false,
             )
             .unwrap()
             .unwrap(),
@@ -466,6 +482,7 @@ mod tests {
                 ModuleName::from_str("foo.baz"),
                 &[root.to_path_buf()],
                 false,
+                false,
             )
             .unwrap()
             .is_none()
@@ -475,6 +492,7 @@ mod tests {
                 ModuleName::from_str("foo.baz"),
                 &[root.to_path_buf()],
                 true,
+                false,
             )
             .unwrap()
             .unwrap(),
@@ -484,6 +502,7 @@ mod tests {
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.qux"),
                 &[root.to_path_buf()],
+                false,
                 false,
             )
             .unwrap()
@@ -511,6 +530,7 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 &[root.to_path_buf()],
                 false,
+                false,
             )
             .is_err()
         );
@@ -519,6 +539,7 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 &[root.to_path_buf()],
                 true,
+                false
             )
             .unwrap()
             .unwrap(),
@@ -529,6 +550,7 @@ mod tests {
                 ModuleName::from_str("foo.baz"),
                 &[root.to_path_buf()],
                 false,
+                false,
             )
             .is_err()
         );
@@ -537,6 +559,7 @@ mod tests {
                 ModuleName::from_str("foo.baz"),
                 &[root.to_path_buf()],
                 true,
+                false,
             )
             .unwrap()
             .unwrap(),
@@ -546,6 +569,7 @@ mod tests {
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.qux"),
                 &[root.to_path_buf()],
+                false,
                 false,
             )
             .is_err()
@@ -575,6 +599,7 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 &[root.to_path_buf()],
                 false,
+                false,
             )
             .unwrap()
             .unwrap(),
@@ -585,6 +610,7 @@ mod tests {
                 ModuleName::from_str("foo.baz"),
                 &[root.to_path_buf()],
                 false,
+                false,
             )
             .unwrap()
             .unwrap(),
@@ -594,6 +620,7 @@ mod tests {
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.qux"),
                 &[root.to_path_buf()],
+                false,
                 false,
             )
             .unwrap()
@@ -622,6 +649,7 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 &[root.to_path_buf()],
                 false,
+                false,
             )
             .unwrap()
             .unwrap(),
@@ -631,6 +659,7 @@ mod tests {
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
                 &[root.to_path_buf()],
+                false,
                 false,
             )
             .unwrap()
@@ -642,9 +671,67 @@ mod tests {
                 ModuleName::from_str("foo.qux"),
                 &[root.to_path_buf()],
                 false,
+                false,
             )
             .unwrap()
             .is_none()
+        );
+    }
+
+    #[test]
+    fn test_find_site_package_path_no_source() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::dir(
+                    "foo-stubs",
+                    vec![
+                        TestPath::file("__init__.py"),
+                        TestPath::dir("bar", vec![TestPath::file("__init__.py")]),
+                    ],
+                ),
+                TestPath::dir("baz", vec![]),
+                TestPath::dir(
+                    "baz-stubs",
+                    vec![
+                        TestPath::file("__init__.py"),
+                        TestPath::dir("qux", vec![TestPath::file("__init__.py")]),
+                    ],
+                ),
+            ],
+        );
+        assert!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.bar"),
+                &[root.to_path_buf()],
+                false,
+                false,
+            )
+            .is_err()
+        );
+        assert_eq!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.bar"),
+                &[root.to_path_buf()],
+                false,
+                true,
+            )
+            .unwrap()
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo-stubs/bar/__init__.py")),
+        );
+        assert_eq!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("baz.qux"),
+                &[root.to_path_buf()],
+                false,
+                false,
+            )
+            .unwrap()
+            .unwrap(),
+            ModulePath::filesystem(root.join("baz-stubs/qux/__init__.py")),
         );
     }
 }

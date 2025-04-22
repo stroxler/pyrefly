@@ -162,6 +162,7 @@ impl ConfigFile {
             module,
             self.site_package_path(),
             self.use_untyped_imports,
+            self.ignore_missing_source,
         )? {
             Ok(path)
         } else {
