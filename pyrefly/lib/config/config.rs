@@ -167,7 +167,7 @@ impl ConfigFile {
 impl ConfigFile {
     pub const CONFIG_FILE_NAME: &str = "pyrefly.toml";
     pub const PYPROJECT_FILE_NAME: &str = "pyproject.toml";
-    pub const CONFIG_FILE_NAMES: [&str; 2] = [Self::CONFIG_FILE_NAME, Self::PYPROJECT_FILE_NAME];
+    pub const CONFIG_FILE_NAMES: &[&str] = &[Self::CONFIG_FILE_NAME, Self::PYPROJECT_FILE_NAME];
 
     pub fn default_project_includes() -> Globs {
         Globs::new(vec!["**/*".to_owned()])
