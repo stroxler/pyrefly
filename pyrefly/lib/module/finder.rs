@@ -191,7 +191,23 @@ pub fn find_module_in_site_package_path(
         return None;
     }
 
-    find_module_in_search_path(module, include)
+    let fallback_modules = include
+        .iter()
+        .filter_map(|root| find_one_part(&first, &[root.to_owned()]));
+
+    let module_rest = &module.components()[1..];
+    for module in fallback_modules {
+        if !use_untyped_imports
+            && !any_has_partial_py_typed
+            && module.py_typed() == PyTyped::Missing
+        {
+            // TODO(connernilsen): emit error if no module found
+        } else if let Some(module_result) = continue_find_module(module, module_rest) {
+            return Some(module_result);
+        }
+    }
+
+    None
 }
 
 #[cfg(test)]
@@ -480,14 +496,13 @@ mod tests {
                 ],
             )],
         );
-        assert_eq!(
+        assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
                 &[root.to_path_buf()],
                 false,
             )
-            .unwrap(),
-            ModulePath::filesystem(root.join("foo/bar/__init__.py")),
+            .is_none(),
         );
         assert_eq!(
             find_module_in_site_package_path(
@@ -496,16 +511,15 @@ mod tests {
                 true,
             )
             .unwrap(),
-            ModulePath::filesystem(root.join("foo/bar/__init__.py")),
+            ModulePath::filesystem(root.join("foo/bar/__init__.py"))
         );
-        assert_eq!(
+        assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
                 &[root.to_path_buf()],
                 false,
             )
-            .unwrap(),
-            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+            .is_none(),
         );
         assert_eq!(
             find_module_in_site_package_path(
@@ -514,7 +528,7 @@ mod tests {
                 true,
             )
             .unwrap(),
-            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+            ModulePath::filesystem(root.join("foo/baz/__init__.pyi"))
         );
         assert!(
             find_module_in_site_package_path(
@@ -549,8 +563,9 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 &[root.to_path_buf()],
                 false,
-            ),
-            Some(ModulePath::filesystem(root.join("foo/bar/__init__.py"))),
+            )
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo/bar/__init__.py")),
         );
         assert_eq!(
             find_module_in_site_package_path(
@@ -559,7 +574,7 @@ mod tests {
                 false,
             )
             .unwrap(),
-            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+            ModulePath::filesystem(root.join("foo/baz/__init__.pyi"))
         );
         assert!(
             find_module_in_site_package_path(
