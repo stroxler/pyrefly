@@ -46,14 +46,13 @@ const docsSidebar = [
         id: 'learn-python-typing',
         label: 'Learn Python Typing',
     },
+    {
+        type: 'doc' as const,
+        id: 'pyrefly-faq',
+        label: 'FAQ',
+    },
     ...fbInternalOnly(
         [
-
-            {
-                type: 'doc' as const,
-                id: 'fb/FAQ',
-                label: 'FAQ',
-            },
             {
                 type: 'doc' as const,
                 id: 'fb/IDE',
