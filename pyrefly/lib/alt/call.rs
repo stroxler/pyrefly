@@ -434,9 +434,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Type {
         // We know `__init__` exists because we synthesize it.
-        let init_method = self
-            .get_dunder_init(&typed_dict.as_class_type(), true)
-            .unwrap();
+        let init_method = self.get_typed_dict_dunder_init(&typed_dict).unwrap();
         self.call_infer(
             self.as_call_target_or_error(
                 init_method,

@@ -49,6 +49,7 @@ use crate::types::class::ClassType;
 use crate::types::class::Substitution;
 use crate::types::class::TArgs;
 use crate::types::literal::Lit;
+use crate::types::typed_dict::TypedDict;
 use crate::types::typed_dict::TypedDictField;
 use crate::types::types::BoundMethod;
 use crate::types::types::BoundMethodType;
@@ -371,6 +372,13 @@ impl<'a> Instance<'a> {
         Self {
             class: cls.class_object(),
             args: cls.targs(),
+        }
+    }
+
+    fn of_typed_dict(td: &'a TypedDict) -> Self {
+        Self {
+            class: td.class_object(),
+            args: td.targs(),
         }
     }
 
@@ -1133,6 +1141,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Get the class's `__init__` method. The second argument controls whether we return an inherited `object.__init__`.
     pub fn get_dunder_init(&self, cls: &ClassType, get_object_init: bool) -> Option<Type> {
         self.get_dunder_init_helper(&Instance::of_class(cls), get_object_init)
+    }
+
+    pub fn get_typed_dict_dunder_init(&self, td: &TypedDict) -> Option<Type> {
+        self.get_dunder_init_helper(&Instance::of_typed_dict(td), true)
     }
 
     /// Get the metaclass `__call__` method
