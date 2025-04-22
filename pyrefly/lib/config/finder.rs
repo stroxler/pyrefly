@@ -188,7 +188,7 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
         let absolute = path.absolutize().ok();
         let parent = absolute.as_ref().and_then(|x| x.parent());
         match parent {
-            Some(parent) => self.directory(parent),
+            Some(parent) => self.directory_absolute(parent),
             None => self.fallback.dupe(),
         }
     }
