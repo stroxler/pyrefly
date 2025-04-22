@@ -59,7 +59,7 @@ the config is invalid.
   check, typically understood as user-space files. This takes highest precedence
   in import resolution.
   - Type: list of Unix Glob patterns
-  - Default: `["**/*.py"]`
+  - Default: `["**/*.py", "**/*.pyi"]`
   - Flag equivalent: `FILES...` argument
   - Equivalent configs: `include` in Pyright, `files`/`modules`/`packages` in
     mypy
@@ -72,6 +72,10 @@ the config is invalid.
       an error.
     - If you get an error about no matches for a directory when passing a glob as a CLI
       argument, try wrapping the glob in quotes to prevent eager shell glob expansion.
+    - We recognize the following wildcards:
+      - `*`, which matches zero or more characters in a single directory component
+      - `**`, which matches the current and any sub directories
+      - `?`, which matches any one character
 - `project_excludes`: the glob patterns used to describe which files to avoid
   type checking, usually as a more fine-grained way of controlling the files you
   get type errors on.
@@ -94,6 +98,10 @@ the config is invalid.
       the default value, override it with a flag as well.
     - If you get an error about no matches for a directory when passing a glob as a CLI
       argument, try wrapping the glob in quotes to prevent eager shell glob expansion.
+    - We recognize the following wildcards:
+      - `*`, which matches zero or more characters in a single directory component
+      - `**`, which matches the current and any sub directories
+      - `?`, which matches any one character
 - `search_path`: a file path describing a root from which imports should be
   found and imported from (including modules in `project_includes`). This takes
   the highest precedence in import order, before `typeshed` and

@@ -46,8 +46,9 @@ impl Glob {
         Self(Self::pattern_relative_to_root(root, &self.0))
     }
 
-    fn contains_asterisk(part: &OsStr) -> bool {
-        part.as_encoded_bytes().contains(&b'*')
+    fn contains_glob_char(part: &OsStr) -> bool {
+        let bytes = part.as_encoded_bytes();
+        bytes.contains(&b'*') || bytes.contains(&b'?')
     }
 
     fn pattern_relative_to_root(root: &Path, pattern: &Path) -> PathBuf {
@@ -70,7 +71,7 @@ impl Glob {
                     | Component::RootDir
                     | Component::CurDir
                     | Component::ParentDir => true,
-                    Component::Normal(part) => !Self::contains_asterisk(part),
+                    Component::Normal(part) => !Self::contains_glob_char(part),
                 }
             })
             .for_each(|comp| path.push(comp));
@@ -315,14 +316,18 @@ mod tests {
     }
 
     #[test]
-    fn test_contains_asterisk() {
-        assert!(!Glob::contains_asterisk(&OsString::from("")));
-        assert!(Glob::contains_asterisk(&OsString::from("*")));
-        assert!(Glob::contains_asterisk(&OsString::from("*a")));
-        assert!(Glob::contains_asterisk(&OsString::from("a*")));
-        assert!(!Glob::contains_asterisk(&OsString::from("abcd")));
-        assert!(Glob::contains_asterisk(&OsString::from("**")));
-        assert!(Glob::contains_asterisk(&OsString::from("asdf*fdsa")));
+    fn test_contains_glob_char() {
+        assert!(!Glob::contains_glob_char(&OsString::from("")));
+        assert!(Glob::contains_glob_char(&OsString::from("*")));
+        assert!(Glob::contains_glob_char(&OsString::from("*a")));
+        assert!(Glob::contains_glob_char(&OsString::from("a*")));
+        assert!(!Glob::contains_glob_char(&OsString::from("abcd")));
+        assert!(Glob::contains_glob_char(&OsString::from("**")));
+        assert!(Glob::contains_glob_char(&OsString::from("asdf*fdsa")));
+        assert!(Glob::contains_glob_char(&OsString::from("?")));
+        assert!(Glob::contains_glob_char(&OsString::from("?a")));
+        assert!(Glob::contains_glob_char(&OsString::from("a?")));
+        assert!(Glob::contains_glob_char(&OsString::from("asdf?fdsa")));
     }
 
     #[test]
@@ -650,7 +655,22 @@ mod tests {
         .unwrap();
         glob_files_match("**/*.pyi", &["a/c/e.pyi", "a/__pycache__/h.pyi"]).unwrap();
         glob_files_match("**/*.py?", &["a/c/e.pyi", "a/__pycache__/h.pyi"]).unwrap();
-        glob_files_match("**/*.py*", all_valid_files).unwrap();
+        glob_files_match(
+            "**/*.py*",
+            &[
+                "a/b.py",
+                "a/c/d.py",
+                "a/c/e.pyi",
+                "a/.dotfile.py",
+                "a/__pycache__/g.py",
+                "a/__pycache__/h.pyi",
+                "c/j/k.py",
+                "l.py",
+                "also_has_l/m.py",
+            ],
+        )
+        .unwrap();
+        glob_files_match("**/*py*", all_valid_files).unwrap();
 
         // this one may be unexpected, since the glob pattern should only match `l.py`,  but we
         // have `resolve_dir` to handle searching this anyway.
@@ -660,6 +680,18 @@ mod tests {
 
         glob_files_match(
             "**/a",
+            &[
+                "a/b.py",
+                "a/c/d.py",
+                "a/c/e.pyi",
+                "a/.dotfile.py",
+                "a/__pycache__/g.py",
+                "a/__pycache__/h.pyi",
+            ],
+        )
+        .unwrap();
+        glob_files_match(
+            "**/a/",
             &[
                 "a/b.py",
                 "a/c/d.py",
@@ -696,6 +728,7 @@ mod tests {
         .unwrap();
 
         glob_files_match("**/c", &["a/c/d.py", "a/c/e.pyi", "c/j/k.py"]).unwrap();
+        glob_files_match("**/c/", &["a/c/d.py", "a/c/e.pyi", "c/j/k.py"]).unwrap();
         glob_files_match(
             "**/c/**",
             &[
