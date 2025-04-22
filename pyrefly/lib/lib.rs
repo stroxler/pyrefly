@@ -59,6 +59,7 @@ pub mod exported {
     pub use crate::config::finder;
     pub use crate::metadata::PythonPlatform;
     pub use crate::metadata::PythonVersion;
+    pub use crate::module::module_path::ModulePath;
     pub use crate::util::arc_id::ArcId;
     pub use crate::util::args::clap_env;
     pub use crate::util::args::get_args_expanded;

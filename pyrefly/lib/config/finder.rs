@@ -34,14 +34,14 @@ pub struct ConfigFinder<T = ArcId<ConfigFile>> {
     /// If this returns anything other than `Ok`, the rest of the functions are used.
     before: Box<dyn Fn(&ModulePath) -> anyhow::Result<Option<T>> + Send + Sync>,
     /// If there is no config file, or loading it fails, use this fallback.
-    fallback: Box<dyn Fn() -> T + Send + Sync>,
+    fallback: Box<dyn Fn(&ModulePath) -> T + Send + Sync>,
 }
 
 impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     /// Create a new ConfigFinder a way to load a config file, and a default if that errors or there is no file.
     pub fn new(
         load: impl Fn(&Path) -> anyhow::Result<T> + Send + Sync + 'static,
-        fallback: impl Fn() -> T + Send + Sync + 'static,
+        fallback: impl Fn(&ModulePath) -> T + Send + Sync + 'static,
     ) -> Self {
         Self::new_custom(|_| Ok(None), load, fallback)
     }
@@ -52,7 +52,7 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     pub fn new_custom(
         before: impl Fn(&ModulePath) -> anyhow::Result<Option<T>> + Send + Sync + 'static,
         load: impl Fn(&Path) -> anyhow::Result<T> + Send + Sync + 'static,
-        fallback: impl Fn() -> T + Send + Sync + 'static,
+        fallback: impl Fn(&ModulePath) -> T + Send + Sync + 'static,
     ) -> Self {
         let errors = Arc::new(Mutex::new(Vec::new()));
         let errors2 = errors.dupe();
@@ -83,7 +83,7 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
         Self::new_custom(
             move |_| Ok(Some(c1.dupe())),
             move |_| Ok(c3.dupe()),
-            move || c2.dupe(),
+            move |_| c2.dupe(),
         )
     }
 
@@ -112,8 +112,8 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
                 .search
                 .directory_absolute(parent)
                 .flatten()
-                .unwrap_or_else(&self.fallback),
-            None => (self.fallback)(),
+                .unwrap_or_else(|| (self.fallback)(path)),
+            None => (self.fallback)(path),
         };
 
         match path.details() {
