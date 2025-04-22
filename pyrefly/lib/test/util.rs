@@ -425,7 +425,6 @@ pub fn get_class(name: &str, handle: &Handle, state: &State) -> Option<Class> {
 // Utility structure to facilitate setting up non-memory filesystem structure under test directories.
 pub enum TestPathKind {
     File,
-    #[expect(dead_code)]
     FileWithContents(String),
     Directory(Vec<TestPath>),
 }

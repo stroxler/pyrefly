@@ -175,6 +175,22 @@ pub fn find_module_in_site_package_path(
 mod tests {
     use super::*;
     use crate::test::util::TestPath;
+    use crate::test::util::TestPathKind;
+
+    impl TestPath {
+        fn partial_py_typed() -> Self {
+            Self {
+                name: "py.typed".to_owned(),
+                kind: TestPathKind::FileWithContents("partial\n".to_owned()),
+            }
+        }
+        fn py_typed() -> Self {
+            Self {
+                name: "py.typed".to_owned(),
+                kind: TestPathKind::FileWithContents("".to_owned()),
+            }
+        }
+    }
 
     #[test]
     fn test_find_module_simple() {
@@ -367,7 +383,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_stubs_module_takes_precedence() {
+    fn test_find_site_package_path_no_py_typed() {
         let tempdir = tempfile::tempdir().unwrap();
         let root = tempdir.path();
         TestPath::setup_test_directory(
@@ -391,28 +407,150 @@ mod tests {
             ],
         );
         assert_eq!(
-            find_module_in_search_path(ModuleName::from_str("foo.bar"), &[root.to_path_buf()],),
-            Some(ModulePath::filesystem(root.join("foo/bar/__init__.py")))
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.bar"),
+                &[root.to_path_buf()]
+            )
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo-stubs/bar/__init__.py")),
         );
         assert_eq!(
-            find_module_in_search_path(ModuleName::from_str("foo.baz"), &[root.to_path_buf()],),
-            Some(ModulePath::filesystem(root.join("foo/baz/__init__.pyi")))
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.baz"),
+                &[root.to_path_buf()]
+            )
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+        );
+        assert!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.qux"),
+                &[root.to_path_buf()]
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn test_find_site_package_path_no_stubs() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::dir(
+                "foo",
+                vec![
+                    TestPath::file("__init__.py"),
+                    TestPath::dir("bar", vec![TestPath::file("__init__.py")]),
+                    TestPath::dir("baz", vec![TestPath::file("__init__.pyi")]),
+                ],
+            )],
+        );
+        assert_eq!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.bar"),
+                &[root.to_path_buf()]
+            )
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo/bar/__init__.py")),
+        );
+        assert_eq!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.baz"),
+                &[root.to_path_buf()]
+            )
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+        );
+        assert!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.qux"),
+                &[root.to_path_buf()]
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn test_find_site_package_path_partial_py_typed() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::dir(
+                    "foo",
+                    vec![
+                        TestPath::file("__init__.py"),
+                        TestPath::dir("bar", vec![TestPath::file("__init__.py")]),
+                        TestPath::dir("baz", vec![TestPath::file("__init__.pyi")]),
+                    ],
+                ),
+                TestPath::dir("foo-stubs", vec![TestPath::partial_py_typed()]),
+            ],
         );
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
                 &[root.to_path_buf()]
             ),
-            Some(ModulePath::filesystem(
-                root.join("foo-stubs/bar/__init__.py")
-            ))
+            Some(ModulePath::filesystem(root.join("foo/bar/__init__.py"))),
         );
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
                 &[root.to_path_buf()]
-            ),
-            Some(ModulePath::filesystem(root.join("foo/baz/__init__.pyi")))
+            )
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+        );
+        assert!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.qux"),
+                &[root.to_path_buf()]
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn test_find_site_package_path_no_stubs_with_py_typed() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::dir(
+                "foo",
+                vec![
+                    TestPath::py_typed(),
+                    TestPath::file("__init__.py"),
+                    TestPath::dir("bar", vec![TestPath::file("__init__.py")]),
+                    TestPath::dir("baz", vec![TestPath::file("__init__.pyi")]),
+                ],
+            )],
+        );
+        assert_eq!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.bar"),
+                &[root.to_path_buf()]
+            )
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo/bar/__init__.py")),
+        );
+        assert_eq!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.baz"),
+                &[root.to_path_buf()]
+            )
+            .unwrap(),
+            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+        );
+        assert!(
+            find_module_in_site_package_path(
+                ModuleName::from_str("foo.qux"),
+                &[root.to_path_buf()]
+            )
+            .is_none()
         );
     }
 }
