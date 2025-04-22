@@ -605,9 +605,9 @@ f() = 12 # E: Could not find name `f` # E: Parse error: Invalid assignment targe
 type (b) = int # E: Could not find name `b` # E: Parse error: Invalid assignment target
 
 # Type annotations on list/tuple are invalid, so ignore them
-c1, c2: (bool, str) = 1, 2 # E: Parse error: Only single target (not tuple) can be annotated # E: Invalid annotated assignment target
+c1, c2: (bool, str) = 1, 2 # E: Parse error: Only single target (not tuple) can be annotated
 assert_type(c1, Literal[1])
-[d1, d2]: list[int] = ["test", "more"] # E: Parse error: Only single target (not list) can be annotated # E: Invalid annotated assignment target
+[d1, d2]: list[int] = ["test", "more"] # E: Parse error: Only single target (not list) can be annotated
 assert_type(d1, str)
 
 *e = ["test"] # E: Starred assignment target must be in a list or tuple
@@ -618,8 +618,7 @@ assert_type(e, list[str])
 testcase!(
     test_bad_annotated_assign,
     r#"
-# TODO(stroxler) We should probably find a way to avoid double errors on the bad annotation.
-(x.x, y): tuple[int, str]  # E: Only single target (not tuple) can be annotated # E: Could not find name `x` # E: Invalid annotated assignment target
+(x.x, y): tuple[int, str]  # E: Only single target (not tuple) can be annotated # E: Could not find name `x`
 "#,
 );
 
@@ -627,9 +626,17 @@ testcase!(
     test_assign_annotated_subscript,
     r#"
 xs: list[int] = [1, 2, 3]
-xs[0]: int = 3 # E: Invalid annotated assignment target
-xs[1]: str = 3 # E: Invalid annotated assignment target
-xs[2]: str = "test" # E: Invalid annotated assignment target # E: Argument `Literal['test']` is not assignable # E: Item assignment is not supported on
+xs[0]: int = 3 # E: Subscripts should not be annotated
+xs[1]: str = 3 # E: Subscripts should not be annotated
+xs[2]: str = "test" # E: Subscripts should not be annotated # E: Argument `Literal['test']` is not assignable # E: Item assignment is not supported on
+"#,
+);
+
+testcase!(
+    test_assign_annotated_starred,
+    r#"
+# TODO(stroxler) Ideally we wouldn't get two errors here, they are partially duplicated.
+*e: int = (42,)  # E: Parse error: Invalid annotated assignment target # E: Starred assignment target must be in a list or tuple
 "#,
 );
 

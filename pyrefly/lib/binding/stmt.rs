@@ -573,13 +573,15 @@ impl<'a> BindingsBuilder<'a> {
                     }
                 }
                 mut target => {
-                    // Note that for Expr::Subscript Python won't fail at runtime,
-                    // but Mypy and Pyright both error here, so let's do the same.
-                    self.error(
-                        x.annotation.range(),
-                        "Invalid annotated assignment target".to_owned(),
-                        ErrorKind::InvalidSyntax,
-                    );
+                    if matches!(&target, Expr::Subscript(..)) {
+                        // Note that for Expr::Subscript Python won't fail at runtime,
+                        // but Mypy and Pyright both error here, so let's do the same.
+                        self.error(
+                            x.annotation.range(),
+                            "Subscripts should not be annotated".to_owned(),
+                            ErrorKind::InvalidSyntax,
+                        );
+                    }
                     // Try and continue as much as we can, by throwing away the type or just binding to error
                     match x.value {
                         Some(value) => self.stmt(Stmt::Assign(StmtAssign {
