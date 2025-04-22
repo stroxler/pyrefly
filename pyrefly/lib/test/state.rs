@@ -16,6 +16,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
 use crate::config::error::ErrorConfigs;
+use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
@@ -29,6 +30,7 @@ use crate::state::state::State;
 use crate::state::subscriber::TestSubscriber;
 use crate::test::util::TestEnv;
 use crate::test::util::init_test;
+use crate::util::arc_id::ArcId;
 use crate::util::lock::Mutex;
 use crate::util::prelude::SliceExt;
 
@@ -52,7 +54,7 @@ else:
         "main",
         "import lib; x: str = lib.value  # E: `Literal[42]` is not assignable to `str`",
     );
-    let state = State::new(None);
+    let state = State::new(Some(test_env.config_finder()));
     let loader = test_env.loader();
 
     let f = |name: &str, config: &RuntimeMetadata| {
@@ -104,11 +106,12 @@ fn test_multiple_path() {
         );
     }
     config.configure();
-    let loader = LoaderId::new(config);
+    let config = ArcId::new(config);
+    let loader = LoaderId::new_arc_id(config.dupe());
 
     let runtime = RuntimeMetadata::default();
 
-    let state = State::new(None);
+    let state = State::new(Some(ConfigFinder::new_constant(config)));
     let handles = FILES.map(|(name, path, _)| {
         Handle::new(
             ModuleName::from_str(name),
@@ -161,11 +164,12 @@ impl Incremental {
             );
         }
         config.configure();
+        let config = ArcId::new(config);
 
         Self {
             data: data.dupe(),
-            loader: LoaderId::new(config),
-            state: State::new(None),
+            loader: LoaderId::new_arc_id(config.dupe()),
+            state: State::new(Some(ConfigFinder::new_constant(config))),
             to_set: Vec::new(),
         }
     }
@@ -367,7 +371,7 @@ class C[R]:
 #[test]
 fn test_change_require() {
     let t = TestEnv::one("foo", "x: str = 1");
-    let state = State::new(None);
+    let state = State::new(Some(t.config_finder()));
     let handle = Handle::new(
         ModuleName::from_str("foo"),
         ModulePath::memory(PathBuf::from("foo")),

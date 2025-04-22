@@ -27,6 +27,7 @@ use starlark_map::small_map::SmallMap;
 use crate::binding::binding::KeyExport;
 use crate::config::config::ConfigFile;
 use crate::config::error::ErrorConfigs;
+use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
@@ -41,6 +42,7 @@ use crate::state::state::State;
 use crate::state::subscriber::TestSubscriber;
 use crate::types::class::Class;
 use crate::types::types::Type;
+use crate::util::arc_id::ArcId;
 use crate::util::prelude::SliceExt;
 use crate::util::thread_pool::ThreadCount;
 use crate::util::thread_pool::init_thread_pool;
@@ -158,7 +160,7 @@ impl TestEnv {
             .collect()
     }
 
-    pub fn loader(&self) -> LoaderId {
+    fn config(&self) -> ConfigFile {
         let mut config = ConfigFile::default();
         config.python_environment.python_version = Some(self.version);
         config.python_environment.python_platform = Some(PythonPlatform::linux());
@@ -167,7 +169,15 @@ impl TestEnv {
             config.custom.insert(*name, path.clone());
         }
         config.configure();
-        LoaderId::new(config)
+        config
+    }
+
+    pub fn config_finder(&self) -> ConfigFinder {
+        ConfigFinder::new_constant(ArcId::new(self.config()))
+    }
+
+    pub fn loader(&self) -> LoaderId {
+        LoaderId::new(self.config())
     }
 
     pub fn to_state(self) -> (State, impl Fn(&str) -> Handle) {
@@ -181,7 +191,7 @@ impl TestEnv {
             .rev()
             .map(|(x, (path, _))| Handle::new(*x, path.clone(), config.dupe(), loader.dupe()))
             .collect::<Vec<_>>();
-        let state = State::new(None);
+        let state = State::new(Some(self.config_finder()));
         let subscriber = TestSubscriber::new();
         let mut transaction =
             state.new_committable_transaction(Require::Exports, Some(Box::new(subscriber.dupe())));
