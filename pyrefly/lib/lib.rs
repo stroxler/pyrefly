@@ -12,6 +12,7 @@
 #![allow(clippy::module_inception)]
 #![allow(clippy::needless_lifetimes)]
 #![allow(clippy::new_without_default)]
+#![allow(clippy::should_implement_trait)]
 #![allow(clippy::single_match)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
@@ -59,6 +60,7 @@ pub mod exported {
     pub use crate::config::finder;
     pub use crate::metadata::PythonPlatform;
     pub use crate::metadata::PythonVersion;
+    pub use crate::module::module_name::ModuleName;
     pub use crate::module::module_path::ModulePath;
     pub use crate::util::arc_id::ArcId;
     pub use crate::util::args::clap_env;

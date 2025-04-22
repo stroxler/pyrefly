@@ -204,7 +204,7 @@ impl Handles {
         config_finder: &ConfigFinder,
     ) -> &(ModuleName, RuntimeMetadata, LoaderId) {
         let module_path = ModulePath::filesystem(path.clone());
-        let config = config_finder.python_file(&module_path);
+        let config = config_finder.python_file(ModuleName::unknown(), &module_path);
         self.module_to_error_config.insert(
             module_path,
             ErrorConfig::new(
