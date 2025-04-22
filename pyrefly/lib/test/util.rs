@@ -160,9 +160,13 @@ impl TestEnv {
             .collect()
     }
 
+    pub fn loader(&self) -> LoaderId {
+        LoaderId::new(self.clone())
+    }
+
     pub fn to_state(self) -> (State, impl Fn(&str) -> Handle) {
         let config = self.metadata();
-        let loader = LoaderId::new(self.clone());
+        let loader = self.loader();
         let handles = self
             .modules
             .iter()

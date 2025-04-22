@@ -54,7 +54,7 @@ else:
         "import lib; x: str = lib.value  # E: `Literal[42]` is not assignable to `str`",
     );
     let state = State::new();
-    let loader = LoaderId::new(test_env.clone());
+    let loader = test_env.loader();
 
     let f = |name: &str, config: &RuntimeMetadata| {
         let name = ModuleName::from_str(name);
@@ -373,7 +373,7 @@ fn test_change_require() {
         ModuleName::from_str("foo"),
         ModulePath::memory(PathBuf::from("foo")),
         t.metadata(),
-        LoaderId::new(t),
+        t.loader(),
     );
     state.run(&[(handle.dupe(), Require::Exports)], Require::Exports, None);
     assert_eq!(
