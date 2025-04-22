@@ -66,7 +66,12 @@ function ErrorMessage({
     }
 
     const errorKindUrl = (
-        <a href={useBaseUrl(`en/docs/error-kinds/#${error.kind}`)}>
+        <a
+            href={useBaseUrl(`en/docs/error-kinds/#${error.kind}`)}
+            target="_blank"
+            // adding this to address security considerations: https://www.dhiwise.com/post/html-open-link-in-new-tab-improve-user-navigation
+            rel="noopener noreferrer"
+        >
             {error.kind}
         </a>
     );
