@@ -51,11 +51,15 @@ impl Ir {
 
 /// RegexConverter is a regex_syntax Visitor for turning (simple) mypy exclude regexes into pyrefly globs.
 // Conversion follows simple rules:
-// - directories end in `/` => prepended with `**/`.
-// - files end in `.py` => prepended with `**/`.
-// - ambiguous names are neither files nor directories => prepend with **/ and append *.
-// - all reptitions (e.g. `.*`) are turned into wildcards (`*`).
+// - directory (ends in `/`) => prepend `**/`.
+//    - e.g. `foo/` -> `**/foo/` which matches `foo/`, `some/foo/`, etc.
+// - file (ends in `.py`) => prepend `**/`.
+//    - e.g. `foo.py` -> `**/foo.py` which matches `foo.py`, `some/foo.py`, etc.
+// - ambiguous name (neither file nor directory) => prepend with **/ and append *.
+//    - e.g. `foo` -> `**/foo*` which matches `some/foo.py`, `some/foo/bar`, etc.
+// - all repetitions (e.g. `.*`) are turned into wildcards (`*`).
 // - all other `.`s are treated as literal `.` instead of wildcards.
+//    - this is to handle cases like `foo.py` where the `.` is clearly part of the file extension.
 // - alternations (`|`) are split into individual items.
 // Conversion proceeds by turning each component of the regex into a literal, a sequence of components, or an
 // alternation of components. This results in a tree of Strings and Vec<String>s.
