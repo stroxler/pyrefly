@@ -7,14 +7,21 @@
 
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::LazyLock;
+use std::sync::Mutex;
 
+use dupe::Dupe;
 use ruff_python_ast::name::Name;
+use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
 
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Default)]
+static PY_TYPED_CACHE: LazyLock<Mutex<SmallMap<PathBuf, PyTyped>>> =
+    LazyLock::new(|| Mutex::new(SmallMap::new()));
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Default, Clone, Dupe)]
 enum PyTyped {
     #[default]
     Missing,
@@ -42,28 +49,36 @@ impl FindResult {
         ///
         /// If we get an error on reading the `py.typed`, treat it as partial,
         /// since that's the most permissive behavior.
-        fn get_py_typed(candidate_path: &Path) -> PyTyped {
-            let py_typed = candidate_path.join("py.typed");
-            if py_typed.exists() {
-                if std::fs::read_to_string(py_typed)
-                    .ok()
-                    // if we fail to read it (ok() returns None), then treat as partial
-                    .is_none_or(|contents| contents.trim() == "partial")
-                {
-                    return PyTyped::Partial;
-                } else {
-                    return PyTyped::Complete;
+        fn py_typed_cached(candidate_path: &Path) -> PyTyped {
+            fn get_py_typed(candidate_path: &Path) -> PyTyped {
+                let py_typed = candidate_path.join("py.typed");
+                if py_typed.exists() {
+                    if std::fs::read_to_string(py_typed)
+                        .ok()
+                        // if we fail to read it (ok() returns None), then treat as partial
+                        .is_none_or(|contents| contents.trim() == "partial")
+                    {
+                        return PyTyped::Partial;
+                    } else {
+                        return PyTyped::Complete;
+                    }
                 }
+                PyTyped::Missing
             }
-            PyTyped::Missing
+            PY_TYPED_CACHE
+                .lock()
+                .unwrap()
+                .entry(candidate_path.to_path_buf())
+                .or_insert_with(|| get_py_typed(candidate_path))
+                .dupe()
         }
         match self {
             Self::SingleFileModule(candidate_path) | Self::RegularPackage(_, candidate_path) => {
-                get_py_typed(candidate_path)
+                py_typed_cached(candidate_path)
             }
             Self::NamespacePackage(paths) => paths
                 .iter()
-                .map(|path| get_py_typed(path))
+                .map(|path| py_typed_cached(path))
                 .max()
                 .unwrap_or_default(),
         }
