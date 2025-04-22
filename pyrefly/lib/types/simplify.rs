@@ -43,22 +43,29 @@ fn try_collapse(mut xs: Vec<Type>) -> Result<Type, Vec<Type>> {
     }
 }
 
-/// Union a set of types together, simplifying as much as you can.
-pub fn unions(xs: Vec<Type>) -> Type {
+fn unions_internal(xs: Vec<Type>, stdlib: Option<&Stdlib>) -> Type {
     try_collapse(xs).unwrap_or_else(|xs| {
-        let res = flatten_and_dedup(xs);
+        let mut res = flatten_and_dedup(xs);
+        if let Some(stdlib) = stdlib {
+            replace_literal_true_false_with_bool(&mut res, stdlib);
+        }
         // `res` is collapsable again if `flatten_and_dedup` drops `xs` to 0 or 1 elements
         try_collapse(res).unwrap_or_else(Type::Union)
     })
 }
 
-/// Like `unions`, but also simplify away things regarding literals if you can,
-/// e.g. `Literal[True, False] ==> bool`.
-pub fn unions_with_literals(mut xs: Vec<Type>, stdlib: &Stdlib) -> Type {
-    replace_literal_true_false_with_bool(&mut xs, stdlib);
-    unions(xs)
+/// Union a set of types together, simplifying as much as you can.
+pub fn unions(xs: Vec<Type>) -> Type {
+    unions_internal(xs, None)
 }
 
+/// Like `unions`, but also simplify away things regarding literals if you can,
+/// e.g. `Literal[True, False] ==> bool`.
+pub fn unions_with_literals(xs: Vec<Type>, stdlib: &Stdlib) -> Type {
+    unions_internal(xs, Some(stdlib))
+}
+
+/// Replace `Literal[True, False]` with `bool`, in a sorted Vec.
 fn replace_literal_true_false_with_bool(types: &mut Vec<Type>, stdlib: &Stdlib) {
     let mut has_true = false;
     let mut has_false = false;
@@ -77,7 +84,10 @@ fn replace_literal_true_false_with_bool(types: &mut Vec<Type>, stdlib: &Stdlib) 
 
     if has_true && has_false {
         types.retain(|t| !matches!(t, Type::Literal(Lit::Bool(_))));
-        types.push(stdlib.bool().clone().to_type());
+        let bool = stdlib.bool().clone().to_type();
+        if let Err(new_pos) = types.binary_search(&bool) {
+            types.insert(new_pos, bool);
+        }
     }
 }
 

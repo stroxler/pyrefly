@@ -1276,3 +1276,13 @@ def f2(x: bool) -> Literal[False, True, 42]:
     return x
     "#,
 );
+
+testcase!(
+    test_bool_nested,
+    r#"
+from typing import Literal, reveal_type
+
+def f(b: bool, x: int | Literal[True], y: int | Literal[False]):
+    reveal_type(x if b else y) # E: revealed type: bool | int
+"#,
+);
