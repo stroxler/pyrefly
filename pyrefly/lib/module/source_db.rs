@@ -11,15 +11,12 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context as _;
-use anyhow::anyhow;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
 use vec1::Vec1;
 
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
-use crate::state::loader::FindError;
-use crate::state::loader::Loader;
 use crate::util::fs_anyhow;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -32,19 +29,6 @@ struct ManifestItem {
 pub struct BuckSourceDatabase {
     sources: SmallMap<ModuleName, Vec1<PathBuf>>,
     dependencies: SmallMap<ModuleName, Vec1<PathBuf>>,
-}
-
-/// Return type from `BuckSourceDatabase::lookup`
-#[derive(Debug, PartialEq, Eq)]
-enum LookupResult {
-    /// Source file of this module is owned by the current target.
-    /// Type errors in the file should be reported to user.
-    OwningSource(PathBuf),
-    /// Source file of this module is owned by the dependency of the current target.
-    /// The file should be analyzed but no type errors should be reported.
-    ExternalSource(PathBuf),
-    /// Did not find any source file associated with the given module name.
-    NoSource,
 }
 
 fn read_manifest_file_data(data: &[u8]) -> anyhow::Result<Vec<ManifestItem>> {
@@ -147,26 +131,13 @@ impl BuckSourceDatabase {
             .collect()
     }
 
-    fn lookup(&self, module: ModuleName) -> LookupResult {
-        match self.sources.get(&module) {
-            Some(paths) => LookupResult::OwningSource(paths.first().clone()),
-            None => match self.dependencies.get(&module) {
-                Some(paths) => LookupResult::ExternalSource(paths.first().clone()),
-                None => LookupResult::NoSource,
-            },
-        }
-    }
-}
-
-impl Loader for BuckSourceDatabase {
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        match self.lookup(module) {
-            LookupResult::OwningSource(path) => Ok(ModulePath::filesystem(path.clone())),
-            LookupResult::ExternalSource(path) => Ok(ModulePath::filesystem(path.clone())),
-            LookupResult::NoSource => Err(FindError::not_found(anyhow!(
-                "Not a dependency or typeshed"
-            ))),
-        }
+    pub fn list(&self) -> SmallMap<ModuleName, ModulePath> {
+        // Iterate the sources second so if there are any conflicts the source wins.
+        self.dependencies
+            .iter()
+            .chain(self.sources.iter())
+            .map(|(name, paths)| (*name, ModulePath::filesystem(paths.first().clone())))
+            .collect()
     }
 }
 
@@ -175,6 +146,31 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
+
+    /// Return type from `BuckSourceDatabase::lookup`
+    #[derive(Debug, PartialEq, Eq)]
+    enum LookupResult {
+        /// Source file of this module is owned by the current target.
+        /// Type errors in the file should be reported to user.
+        OwningSource(PathBuf),
+        /// Source file of this module is owned by the dependency of the current target.
+        /// The file should be analyzed but no type errors should be reported.
+        ExternalSource(PathBuf),
+        /// Did not find any source file associated with the given module name.
+        NoSource,
+    }
+
+    impl BuckSourceDatabase {
+        fn lookup(&self, module: ModuleName) -> LookupResult {
+            match self.sources.get(&module) {
+                Some(paths) => LookupResult::OwningSource(paths.first().clone()),
+                None => match self.dependencies.get(&module) {
+                    Some(paths) => LookupResult::ExternalSource(paths.first().clone()),
+                    None => LookupResult::NoSource,
+                },
+            }
+        }
+    }
 
     #[test]
     fn test_read_manifest() {

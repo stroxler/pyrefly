@@ -16,6 +16,7 @@ use serde::Deserialize;
 use tracing::info;
 
 use crate::commands::run::CommandExitStatus;
+use crate::config::config::ConfigFile;
 use crate::config::error::ErrorConfigs;
 use crate::error::error::Error;
 use crate::error::legacy::LegacyErrors;
@@ -57,15 +58,24 @@ fn read_input_file(path: &Path) -> anyhow::Result<InputFile> {
     Ok(input_file)
 }
 
-fn compute_errors(config: RuntimeMetadata, sourcedb: BuckSourceDatabase) -> Vec<Error> {
+fn compute_errors(metadata: RuntimeMetadata, sourcedb: BuckSourceDatabase) -> Vec<Error> {
     let modules = sourcedb.modules_to_check();
-    let loader = LoaderId::new(sourcedb);
+
+    let mut config = ConfigFile::default();
+    config.python_environment.python_platform = Some(metadata.platform().clone());
+    config.python_environment.python_version = Some(metadata.version());
+    config.python_environment.site_package_path = Some(Vec::new());
+    config.search_path = Vec::new();
+    config.custom = sourcedb.list();
+    config.configure();
+    let loader = LoaderId::new(config);
+
     let modules_to_check = modules.into_map(|(name, path)| {
         (
             Handle::new(
                 name,
                 ModulePath::filesystem(path),
-                config.dupe(),
+                metadata.dupe(),
                 loader.dupe(),
             ),
             Require::Errors,
