@@ -46,6 +46,8 @@ use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
+use crate::types::class::Substitution;
+use crate::types::class::TArgs;
 use crate::types::literal::Lit;
 use crate::types::typed_dict::TypedDictField;
 use crate::types::types::BoundMethod;
@@ -186,16 +188,16 @@ impl ClassField {
                 descriptor_setter,
                 is_function_without_return_annotation,
             } => Self(ClassFieldInner::Simple {
-                ty: cls.instantiate_member(ty.clone()),
+                ty: Instance::of_class(cls).instantiate_member(ty.clone()),
                 annotation: annotation.clone(),
                 initialization: initialization.clone(),
                 readonly: *readonly,
                 descriptor_getter: descriptor_getter
                     .as_ref()
-                    .map(|ty| cls.instantiate_member(ty.clone())),
+                    .map(|ty| Instance::of_class(cls).instantiate_member(ty.clone())),
                 descriptor_setter: descriptor_setter
                     .as_ref()
-                    .map(|ty| cls.instantiate_member(ty.clone())),
+                    .map(|ty| Instance::of_class(cls).instantiate_member(ty.clone())),
                 is_function_without_return_annotation: *is_function_without_return_annotation,
             }),
         }
@@ -349,6 +351,28 @@ impl ClassField {
                 flags
             }
         }
+    }
+}
+
+/// Wrapper to hold a specialized instance of a class without caring whether it is a
+/// ClassType or TypedDict.
+struct Instance<'a> {
+    class: &'a Class,
+    args: &'a TArgs,
+}
+
+impl<'a> Instance<'a> {
+    fn of_class(cls: &'a ClassType) -> Self {
+        Self {
+            class: cls.class_object(),
+            args: cls.targs(),
+        }
+    }
+
+    /// Instantiate a type that is relative to the class type parameters
+    /// by substituting in the type arguments.
+    fn instantiate_member(self, raw_member: Type) -> Type {
+        Substitution::new(self.class, self.args).substitute(raw_member)
     }
 }
 
