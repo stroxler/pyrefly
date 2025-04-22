@@ -175,8 +175,8 @@ struct Server {
     immediately_handled_events: Arc<Mutex<Vec<ImmediatelyHandledEvent>>>,
     initialize_params: InitializeParams,
     state: Arc<State>,
-    configs: Arc<RwLock<SmallMap<PathBuf, Config>>>,
-    default_config: Arc<Config>,
+    workspaces: Arc<RwLock<SmallMap<PathBuf, Workspace>>>,
+    default_workspace: Arc<Workspace>,
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
     outgoing_request_id: Arc<AtomicI32>,
@@ -186,7 +186,7 @@ struct Server {
 /// Temporary "configuration": this is all that is necessary to run an LSP at a given root.
 /// TODO(connernilsel): replace with real config logic
 #[derive(Debug)]
-struct Config {
+struct Workspace {
     open_files: Mutex<HashMap<PathBuf, Arc<String>>>,
     runtime_metadata: RuntimeMetadata,
     search_path: Vec<PathBuf>,
@@ -194,7 +194,7 @@ struct Config {
     disable_language_services: bool,
 }
 
-impl Config {
+impl Workspace {
     fn new(
         search_path: Vec<PathBuf>,
         site_package_path: Vec<PathBuf>,
@@ -480,7 +480,7 @@ impl Server {
                     canceled_requests.insert(id);
                     Ok(())
                 } else if as_notification::<DidChangeConfiguration>(&x).is_some() {
-                    self.change_configuration();
+                    self.change_workspace();
                     Ok(())
                 } else {
                     eprintln!("Unhandled notification: {x:?}");
@@ -490,25 +490,25 @@ impl Server {
         }
     }
 
-    /// Finds a config for a file path: longest config which is a prefix of the file wins
-    fn get_config<'a>(
+    /// Finds a workspace for a file path: longest workspace which is a prefix of the file wins
+    fn get_workspace<'a>(
         &self,
-        configs: Iter<'a, PathBuf, Config>,
-        default: &'a Config,
+        workspaces: Iter<'a, PathBuf, Workspace>,
+        default: &'a Workspace,
         uri: &Path,
-    ) -> &'a Config {
-        configs
+    ) -> &'a Workspace {
+        workspaces
             .filter(|(key, _)| uri.starts_with(key))
             .max_by(|(key1, _), (key2, _)| key2.ancestors().count().cmp(&key1.ancestors().count()))
-            .map_or(default, |(_, config)| config)
+            .map_or(default, |(_, workspace)| workspace)
     }
 
     /// TODO(connernilsen): replace with real config logic
-    fn get_config_with<F, R>(&self, uri: PathBuf, f: F) -> R
+    fn get_workspace_with<F, R>(&self, uri: PathBuf, f: F) -> R
     where
-        F: FnOnce(&Config) -> R,
+        F: FnOnce(&Workspace) -> R,
     {
-        f(self.get_config(self.configs.read().iter(), &self.default_config, &uri))
+        f(self.get_workspace(self.workspaces.read().iter(), &self.default_workspace, &uri))
     }
 
     fn new(
@@ -534,8 +534,8 @@ impl Server {
             immediately_handled_events: Default::default(),
             initialize_params,
             state: Arc::new(State::new(None)),
-            configs: Arc::new(RwLock::new(SmallMap::new())),
-            default_config: Arc::new(Config::new(
+            workspaces: Arc::new(RwLock::new(SmallMap::new())),
+            default_workspace: Arc::new(Workspace::new(
                 search_path.clone(),
                 site_package_path.clone(),
                 RuntimeMetadata::default(),
@@ -588,15 +588,15 @@ impl Server {
             Err(transaction) => transaction,
         };
         let mut all_handles = Vec::new();
-        let mut config_with_handles = Vec::new();
-        let configs = self.configs.read();
-        configs
+        let mut workspace_with_handles = Vec::new();
+        let workspaces = self.workspaces.read();
+        workspaces
             .values()
-            .chain(once(self.default_config.as_ref()))
-            .for_each(|config| {
-                let handles = config.open_file_handles();
+            .chain(once(self.default_workspace.as_ref()))
+            .for_each(|workspace| {
+                let handles = workspace.open_file_handles();
                 transaction.set_memory(
-                    config
+                    workspace
                         .open_files
                         .lock()
                         .iter()
@@ -604,7 +604,7 @@ impl Server {
                         .collect::<Vec<_>>(),
                 );
                 all_handles.extend(handles.clone());
-                config_with_handles.push((config, handles));
+                workspace_with_handles.push((workspace, handles));
             });
         transaction.run(&all_handles);
         match possibly_committable_transaction {
@@ -613,8 +613,8 @@ impl Server {
                 // In the case where we can commit transactions, `State` already has latest updates.
                 // Therefore, we can compute errors from transactions freshly created from `State``.
                 let transaction = self.state.transaction();
-                for (config, handles) in config_with_handles {
-                    self.publish_diagnostics(config.compute_diagnostics(&transaction, handles));
+                for (workspace, handles) in workspace_with_handles {
+                    self.publish_diagnostics(workspace.compute_diagnostics(&transaction, handles));
                 }
             }
             Err(transaction) => {
@@ -622,8 +622,8 @@ impl Server {
                 // recheck, we still want to update the diagnostics. In this case, we compute them
                 // from the transactions that won't be committed. It will still contain all the
                 // up-to-date in-memory content, but can have stale main `State` content.
-                for (config, handles) in config_with_handles {
-                    self.publish_diagnostics(config.compute_diagnostics(&transaction, handles));
+                for (workspace, handles) in workspace_with_handles {
+                    self.publish_diagnostics(workspace.compute_diagnostics(&transaction, handles));
                 }
                 ide_transaction_manager.save(transaction);
             }
@@ -659,8 +659,8 @@ impl Server {
         params: DidOpenTextDocumentParams,
     ) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.get_config_with(uri.clone(), |config| {
-            config
+        self.get_workspace_with(uri.clone(), |workspace| {
+            workspace
                 .open_files
                 .lock()
                 .insert(uri, Arc::new(params.text_document.text));
@@ -676,16 +676,19 @@ impl Server {
         // We asked for Sync full, so can just grab all the text from params
         let change = params.content_changes.into_iter().next().unwrap();
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.get_config_with(uri.clone(), |config| {
-            config.open_files.lock().insert(uri, Arc::new(change.text));
+        self.get_workspace_with(uri.clone(), |workspace| {
+            workspace
+                .open_files
+                .lock()
+                .insert(uri, Arc::new(change.text));
         });
         self.validate_in_memory(ide_transaction_manager)
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.get_config_with(uri.clone(), |config| {
-            config
+        self.get_workspace_with(uri.clone(), |workspace| {
+            workspace
                 .open_files
                 .lock()
                 .remove(&params.text_document.uri.to_file_path().unwrap());
@@ -695,12 +698,12 @@ impl Server {
     }
 
     /// Configure the server with a new set of workspace folders
-    fn configure(&mut self, config_paths: Vec<PathBuf>) {
-        let mut new_configs = SmallMap::new();
-        for x in &config_paths {
-            new_configs.insert(
+    fn configure(&mut self, workspace_paths: Vec<PathBuf>) {
+        let mut new_workspaces = SmallMap::new();
+        for x in &workspace_paths {
+            new_workspaces.insert(
                 x.clone(),
-                Config::new(
+                Workspace::new(
                     iter::once(x.clone())
                         .chain(self.search_path.clone())
                         .collect(),
@@ -710,16 +713,16 @@ impl Server {
                 ),
             );
             // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
-            self.request_settings_for_config(&Url::from_file_path(x).unwrap());
+            self.request_settings_for_workspace(&Url::from_file_path(x).unwrap());
         }
-        self.configs = Arc::new(RwLock::new(new_configs));
+        self.workspaces = Arc::new(RwLock::new(new_workspaces));
     }
 
     fn make_handle(&self, uri: &Url) -> Handle {
         let path = uri.to_file_path().unwrap();
-        self.get_config_with(path.clone(), |config| {
-            let module = module_from_path(&path, &config.search_path);
-            let module_path = if config.open_files.lock().contains_key(&path) {
+        self.get_workspace_with(path.clone(), |workspace| {
+            let module = module_from_path(&path, &workspace.search_path);
+            let module_path = if workspace.open_files.lock().contains_key(&path) {
                 ModulePath::memory(path)
             } else {
                 ModulePath::filesystem(path)
@@ -727,8 +730,8 @@ impl Server {
             Handle::new(
                 module,
                 module_path,
-                config.runtime_metadata.dupe(),
-                config.loader.dupe(),
+                workspace.runtime_metadata.dupe(),
+                workspace.loader.dupe(),
             )
         })
     }
@@ -739,8 +742,8 @@ impl Server {
         params: GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self.get_config_with(uri.to_file_path().unwrap(), |config| {
-            config.disable_language_services
+        if self.get_workspace_with(uri.to_file_path().unwrap(), |workspace| {
+            workspace.disable_language_services
         }) {
             return None;
         }
@@ -765,8 +768,8 @@ impl Server {
         params: CompletionParams,
     ) -> anyhow::Result<CompletionResponse> {
         let uri = &params.text_document_position.text_document.uri;
-        if self.get_config_with(uri.to_file_path().unwrap(), |config| {
-            config.disable_language_services
+        if self.get_workspace_with(uri.to_file_path().unwrap(), |workspace| {
+            workspace.disable_language_services
         }) {
             return Ok(CompletionResponse::List(CompletionList {
                 is_incomplete: false,
@@ -791,8 +794,8 @@ impl Server {
 
     fn hover(&self, transaction: &Transaction<'_>, params: HoverParams) -> Option<Hover> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self.get_config_with(uri.to_file_path().unwrap(), |config| {
-            config.disable_language_services
+        if self.get_workspace_with(uri.to_file_path().unwrap(), |workspace| {
+            workspace.disable_language_services
         }) {
             return None;
         }
@@ -820,8 +823,8 @@ impl Server {
         params: InlayHintParams,
     ) -> Option<Vec<InlayHint>> {
         let uri = &params.text_document.uri;
-        if self.get_config_with(uri.to_file_path().unwrap(), |config| {
-            config.disable_language_services
+        if self.get_workspace_with(uri.to_file_path().unwrap(), |workspace| {
+            workspace.disable_language_services
         }) {
             return None;
         }
@@ -846,13 +849,13 @@ impl Server {
         }))
     }
 
-    fn change_configuration(&self) {
-        self.configs.read().iter().for_each(|(scope_uri, _)| {
-            self.request_settings_for_config(&Url::from_file_path(scope_uri).unwrap())
+    fn change_workspace(&self) {
+        self.workspaces.read().iter().for_each(|(scope_uri, _)| {
+            self.request_settings_for_workspace(&Url::from_file_path(scope_uri).unwrap())
         });
     }
 
-    fn request_settings_for_config(&self, scope_uri: &Url) {
+    fn request_settings_for_workspace(&self, scope_uri: &Url) {
         if let Some(workspace) = &self.initialize_params.capabilities.workspace
             && workspace.configuration == Some(true)
         {
@@ -909,32 +912,32 @@ impl Server {
     }
 
     fn update_disable_language_services(&self, scope_uri: &Url, disable_language_services: bool) {
-        let mut configs = self.configs.write();
-        let config_path = scope_uri.to_file_path().unwrap();
-        if let Some(config) = configs.get_mut(&config_path) {
-            config.disable_language_services = disable_language_services;
+        let mut workspaces = self.workspaces.write();
+        let workspace_path = scope_uri.to_file_path().unwrap();
+        if let Some(workspace) = workspaces.get_mut(&workspace_path) {
+            workspace.disable_language_services = disable_language_services;
         }
     }
 
     fn update_pythonpath(&self, modified: &mut bool, scope_uri: &Url, python_path: &str) {
-        let mut configs = self.configs.write();
-        let config_path = scope_uri.to_file_path().unwrap();
+        let mut workspaces = self.workspaces.write();
+        let workspace_path = scope_uri.to_file_path().unwrap();
         // Currently uses the default interpreter if the pythonPath is invalid
         let env = PythonEnvironment::get_interpreter_env(Path::new(python_path));
         // TODO(kylei): warn if interpreter could not be found
         if let Some(site_package_path) = &env.site_package_path
-            && let Some(config) = configs.get(&config_path)
+            && let Some(workspace) = workspaces.get(&workspace_path)
         {
             *modified = true;
-            let search_path = config.search_path.clone();
-            let new_config = Config::new(
+            let search_path = workspace.search_path.clone();
+            let new_workspace = Workspace::new(
                 search_path,
                 site_package_path.clone(),
                 // this is okay, since `get_interpreter_env()` must return an environment with all values as `Some()`
                 RuntimeMetadata::new(env.python_version.unwrap(), env.python_platform.unwrap()),
-                config.open_files.lock().clone(),
+                workspace.open_files.lock().clone(),
             );
-            configs.insert(config_path, new_config);
+            workspaces.insert(workspace_path, new_workspace);
         }
 
         let state = self.state.dupe();
