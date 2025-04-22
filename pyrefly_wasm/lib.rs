@@ -5,17 +5,17 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use pyrefly::playground::LanguageServiceState;
+use pyrefly::playground::Playground;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct State(LanguageServiceState);
+pub struct State(Playground);
 
 #[wasm_bindgen]
 impl State {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        Self(LanguageServiceState::new())
+        Self(Playground::new())
     }
 
     #[wasm_bindgen(js_name=updateSource)]

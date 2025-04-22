@@ -107,12 +107,12 @@ pub struct InlayHint {
     position: Position,
 }
 
-pub struct LanguageServiceState {
+pub struct Playground {
     state: State,
     handle: Handle,
 }
 
-impl LanguageServiceState {
+impl Playground {
     pub fn new() -> Self {
         let mut config = ConfigFile::default();
         config.python_environment.set_empty_to_default();
@@ -249,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_regular_import() {
-        let mut state = LanguageServiceState::new();
+        let mut state = Playground::new();
         let expected_errors: Vec<String> = Vec::new();
 
         state.update_source("from typing import *".to_owned());
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_invalid_import() {
-        let mut state = LanguageServiceState::new();
+        let mut state = Playground::new();
         state.update_source("from t".to_owned());
         let expected_errors = &[
             "Could not find import of `t`, no search roots or site package path",
