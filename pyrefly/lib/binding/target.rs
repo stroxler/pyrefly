@@ -24,7 +24,7 @@ use crate::graph::index::Idx;
 impl<'a> BindingsBuilder<'a> {
     fn bind_unpacking(
         &mut self,
-        elts: &[Expr],
+        elts: &mut [Expr],
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
         range: TextRange,
     ) {
@@ -33,22 +33,23 @@ impl<'a> BindingsBuilder<'a> {
 
         // An unpacking has zero or one splats (starred expressions).
         let mut splat = false;
-        for (i, e) in elts.iter().enumerate() {
+        let len = elts.len();
+        for (i, e) in elts.iter_mut().enumerate() {
             match e {
                 Expr::Starred(e) => {
                     splat = true;
                     // Counts how many elements are after the splat.
-                    let j = elts.len() - i - 1;
+                    let j = len - i - 1;
                     let make_nested_binding = |_: Option<Idx<KeyAnnotation>>| {
                         Binding::UnpackedValue(key, range, UnpackedPosition::Slice(i, j))
                     };
-                    self.bind_target(&e.value, &make_nested_binding, None);
+                    self.bind_target(&mut e.value, &make_nested_binding, None);
                 }
                 _ => {
                     let idx = if splat {
                         // If we've encountered a splat, we no longer know how many values have been consumed
                         // from the front, but we know how many are left at the back.
-                        UnpackedPosition::ReverseIndex(elts.len() - i)
+                        UnpackedPosition::ReverseIndex(len - i)
                     } else {
                         UnpackedPosition::Index(i)
                     };
@@ -92,46 +93,64 @@ impl<'a> BindingsBuilder<'a> {
     /// because for an unpack target there is no annotation for the entire RHS.
     /// As a result, for all cases except attributes we wind up ignoring type errors
     /// when the target is an unpacking pattern.
-    pub fn bind_target(
+    fn bind_target_impl(
         &mut self,
-        target: &Expr,
+        target: &mut Expr,
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
         value: Option<&Expr>,
+        ensure_mutable_name: bool,
     ) {
         match target {
-            Expr::Name(name) => self.bind_assign(name, make_binding, FlowStyle::None),
-            Expr::Attribute(x) => {
-                // `make_binding` will give us a binding for inferring the value type, which we
-                // *might* use to compute the attribute type if there are no explicit annotations.
-                let attr_value = if let Some(value) = value {
-                    ExprOrBinding::Expr(value.clone())
-                } else {
-                    ExprOrBinding::Binding(make_binding(None))
-                };
-                // Create a check binding to verify that the assignment is valid.
-                self.table.insert(
-                    KeyExpect(x.range),
-                    BindingExpect::CheckAssignToAttribute(Box::new((
-                        x.clone(),
-                        attr_value.clone(),
-                    ))),
-                );
-                // If this is a self-assignment, record it because we may use it to infer
-                // the existence of an instance-only attribute.
-                self.record_self_attr_assign(x, attr_value, None);
+            Expr::Name(name) => {
+                if ensure_mutable_name {
+                    // This is only used for AugAssign targets, which unlike normal targets do not
+                    // define an entirely new name but rely on the name already being bound.
+                    self.ensure_mutable_name(name);
+                }
+                self.bind_assign(name, make_binding, FlowStyle::None)
             }
-            Expr::Subscript(x) => {
-                let binding = make_binding(None);
-                self.table.insert(
-                    Key::Anon(x.range),
-                    Binding::SubscriptValue(Box::new(binding), x.clone()),
-                );
+            e if matches!(&e, Expr::Attribute(..) | Expr::Subscript(..)) => {
+                // Resolving assignment to an attribute or subscript depends on the base.
+                self.ensure_expr(e);
+                // Two layers of matching are needed so that we can pass `e` as mutable in `ensure_expr`.
+                match e {
+                    Expr::Attribute(x) => {
+                        // `make_binding` will give us a binding for inferring the value type, which we
+                        // *might* use to compute the attribute type if there are no explicit annotations.
+                        let attr_value = if let Some(value) = value {
+                            ExprOrBinding::Expr(value.clone())
+                        } else {
+                            ExprOrBinding::Binding(make_binding(None))
+                        };
+                        // Create a check binding to verify that the assignment is valid.
+                        self.table.insert(
+                            KeyExpect(x.range),
+                            BindingExpect::CheckAssignToAttribute(Box::new((
+                                x.clone(),
+                                attr_value.clone(),
+                            ))),
+                        );
+                        // If this is a self-assignment, record it because we may use it to infer
+                        // the existence of an instance-only attribute.
+                        self.record_self_attr_assign(x, attr_value, None);
+                    }
+                    Expr::Subscript(x) => {
+                        let binding = make_binding(None);
+                        self.table.insert(
+                            Key::Anon(x.range),
+                            Binding::SubscriptValue(Box::new(binding), x.clone()),
+                        );
+                    }
+                    _ => {
+                        unreachable!("The outer match disallows this case.")
+                    }
+                }
             }
             Expr::Tuple(tup) => {
-                self.bind_unpacking(&tup.elts, make_binding, tup.range);
+                self.bind_unpacking(&mut tup.elts, make_binding, tup.range);
             }
             Expr::List(lst) => {
-                self.bind_unpacking(&lst.elts, make_binding, lst.range);
+                self.bind_unpacking(&mut lst.elts, make_binding, lst.range);
             }
             Expr::Starred(x) => {
                 self.error(
@@ -139,12 +158,41 @@ impl<'a> BindingsBuilder<'a> {
                     "Starred assignment target must be in a list or tuple".to_owned(),
                     ErrorKind::InvalidSyntax,
                 );
-                self.bind_target(&x.value, make_binding, value);
+                self.bind_target(&mut x.value, make_binding, value);
             }
-            _ => {
-                // Most structurally invalid targets become errors in the parser, which we propagate.
-                // There's no need for a duplicate error here, and there's no work to do.
+            illegal_target => {
+                // Most structurally invalid targets become errors in the parser, which we propagate so there
+                // is no need for duplicate errors. But we do want to catch unbound names (which the parser
+                // will not catch)
+                self.ensure_expr(illegal_target);
             }
         }
+    }
+
+    pub fn bind_target(
+        &mut self,
+        target: &mut Expr,
+        make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
+        value: Option<&Expr>,
+    ) {
+        // A normal target should not ensure top level `Name`
+        self.bind_target_impl(target, make_binding, value, false);
+    }
+
+    pub fn bind_target_for_aug_assign(
+        &mut self,
+        target: &mut Expr,
+        make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
+        value: Option<&Expr>,
+    ) {
+        // A normal target should not ensure top level `Name`, since it will *define*
+        // that name (overwriting any previous value) but an `AugAssign` is a mutation
+        // (possibly in place, possibly overwriting) of an existing value so we do
+        // need to ensure names.
+        //
+        // AugAssign cannot be used with multi-target assignment so it does not interact
+        // with the `bind_unpacking` recursion (if a user attempts to do so, we'll throw
+        // an error and otherwise treat it as a normal assignment from a binding standpoint).
+        self.bind_target_impl(target, make_binding, value, true);
     }
 }

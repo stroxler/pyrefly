@@ -162,8 +162,7 @@ impl<'a> BindingsBuilder<'a> {
             self.scopes.current_mut().stat.expr_lvalue(&comp.target);
             let make_binding =
                 |k| Binding::IterableValue(k, comp.iter.clone(), IsAsync::new(comp.is_async));
-            self.bind_target(&comp.target, &make_binding, None);
-            self.ensure_expr(&mut comp.target);
+            self.bind_target(&mut comp.target, &make_binding, None);
             for x in comp.ifs.iter() {
                 let narrow_ops = NarrowOps::from_expr(Some(x));
                 self.bind_narrow_ops(&narrow_ops, comp.range);
@@ -433,8 +432,9 @@ impl<'a> BindingsBuilder<'a> {
             Expr::Named(x) => {
                 self.scopes.current_mut().stat.expr_lvalue(&x.target);
                 let make_binding = |k| Binding::Expr(k, (*x.value).clone());
-                self.bind_target(&x.target, &make_binding, None);
-                false
+                self.bind_target(&mut x.target, &make_binding, None);
+                self.ensure_expr(&mut x.value);
+                return;
             }
             Expr::ListComp(x) => {
                 self.bind_comprehensions(x.range, &mut x.generators);

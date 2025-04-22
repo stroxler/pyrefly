@@ -238,7 +238,7 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
-    fn ensure_mutable_name(&mut self, x: &ExprName) {
+    pub fn ensure_mutable_name(&mut self, x: &ExprName) {
         let name = Ast::expr_name_identifier(x.clone());
         let binding = self
             .lookup_name(&name.id, LookupKind::Mutable)
@@ -446,19 +446,14 @@ impl<'a> BindingsBuilder<'a> {
                         let make_binding =
                             |k: Option<Idx<KeyAnnotation>>| Binding::Expr(k, value.clone());
                         self.bind_target(target, &make_binding, Some(&value));
-                        self.ensure_expr(target);
                     }
                 }
             }
             Stmt::AugAssign(mut x) => {
-                if let Expr::Name(name) = &*x.target {
-                    self.ensure_mutable_name(name);
-                } else {
-                    self.ensure_expr(&mut x.target);
-                }
                 self.ensure_expr(&mut x.value);
+                let mut target = x.target.as_ref().clone();
                 let make_binding = |k: Option<Idx<KeyAnnotation>>| Binding::AugAssign(k, x.clone());
-                self.bind_target(&x.target, &make_binding, None);
+                self.bind_target_for_aug_assign(&mut target, &make_binding, None);
             }
             Stmt::AnnAssign(mut x) => match *x.target {
                 Expr::Name(name) => {
@@ -590,8 +585,11 @@ impl<'a> BindingsBuilder<'a> {
                             value,
                         })),
                         None => {
-                            self.bind_target(&target, &|_| Binding::Type(Type::any_error()), None);
-                            self.ensure_expr(&mut target);
+                            self.bind_target(
+                                &mut target,
+                                &|_| Binding::Type(Type::any_error()),
+                                None,
+                            );
                         }
                     }
                 }
@@ -625,8 +623,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut x.iter);
                 let make_binding =
                     |k| Binding::IterableValue(k, *x.iter.clone(), IsAsync::new(x.is_async));
-                self.bind_target(&x.target, &make_binding, None);
-                self.ensure_expr(&mut x.target);
+                self.bind_target(&mut x.target, &make_binding, None);
                 self.stmts(x.body);
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse);
             }
@@ -703,8 +700,7 @@ impl<'a> BindingsBuilder<'a> {
                         let make_binding = |k: Option<Idx<KeyAnnotation>>| {
                             Binding::ContextValue(k, context_idx, expr_range, kind)
                         };
-                        self.bind_target(&opts, &make_binding, None);
-                        self.ensure_expr(&mut opts);
+                        self.bind_target(&mut opts, &make_binding, None);
                     } else {
                         self.table.insert(
                             Key::Anon(item_range),
