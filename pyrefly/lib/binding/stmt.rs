@@ -572,7 +572,7 @@ impl<'a> BindingsBuilder<'a> {
                         );
                     }
                 }
-                target => {
+                mut target => {
                     // Note that for Expr::Subscript Python won't fail at runtime,
                     // but Mypy and Pyright both error here, so let's do the same.
                     self.error(
@@ -594,6 +594,7 @@ impl<'a> BindingsBuilder<'a> {
                                 None,
                                 false,
                             );
+                            self.ensure_expr(&mut target);
                         }
                     }
                 }

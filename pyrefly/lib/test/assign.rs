@@ -615,15 +615,13 @@ assert_type(e, list[str])
 "#,
 );
 
-/*
 testcase!(
-    bug = "This panics Pyrefly at the moment, we forgot to ensure",
     test_bad_annotated_assign,
     r#"
-(x.x, y): tuple[int, str]
+# TODO(stroxler) We should probably find a way to avoid double errors on the bad annotation.
+(x.x, y): tuple[int, str]  # E: Only single target (not tuple) can be annotated # E: Could not find name `x` # E: Invalid annotated assignment target
 "#,
 );
-*/
 
 testcase!(
     test_assign_annotated_subscript,
