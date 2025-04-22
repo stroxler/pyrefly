@@ -303,7 +303,7 @@ impl Args {
             return Ok(CommandExitStatus::Success);
         }
 
-        let holder = Forgetter::new(State::new(), allow_forget);
+        let holder = Forgetter::new(State::new(None), allow_forget);
         let handles = Handles::new(expanded_file_list, &config_finder);
         let require_levels = self.get_required_levels();
         let mut transaction = Forgetter::new(
@@ -330,7 +330,7 @@ impl Args {
         let expanded_file_list = files_to_check.files()?;
         let require_levels = self.get_required_levels();
         let mut handles = Handles::new(expanded_file_list, &config_finder);
-        let state = State::new();
+        let state = State::new(None);
         let mut transaction = state.new_committable_transaction(require_levels.default, None);
         loop {
             let res = self.run_inner(

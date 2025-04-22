@@ -50,6 +50,7 @@ use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
 use crate::binding::table::TableKeyed;
+use crate::config::finder::ConfigFinder;
 use crate::error::kind::ErrorKind;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
@@ -1235,15 +1236,18 @@ impl<'a> AsMut<Transaction<'a>> for CommittingTransaction<'a> {
 pub struct State {
     threads: ThreadPool,
     uniques: UniqueFactory,
+    #[expect(dead_code)]
+    config_finder: Option<ConfigFinder>,
     state: RwLock<StateInner>,
     committing_transaction_lock: Mutex<()>,
 }
 
 impl State {
-    pub fn new() -> Self {
+    pub fn new(config_finder: Option<ConfigFinder>) -> Self {
         Self {
             threads: ThreadPool::new(),
             uniques: UniqueFactory::new(),
+            config_finder,
             state: RwLock::new(StateInner::new()),
             committing_transaction_lock: Mutex::new(()),
         }

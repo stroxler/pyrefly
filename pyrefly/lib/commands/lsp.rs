@@ -533,7 +533,7 @@ impl Server {
             send,
             immediately_handled_events: Default::default(),
             initialize_params,
-            state: Arc::new(State::new()),
+            state: Arc::new(State::new(None)),
             configs: Arc::new(RwLock::new(SmallMap::new())),
             default_config: Arc::new(Config::new(
                 search_path.clone(),

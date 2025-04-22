@@ -119,7 +119,7 @@ impl LanguageServiceState {
         config.search_path = Vec::new();
         config.configure();
 
-        let state = State::new();
+        let state = State::new(None);
         let handle = Handle::new(
             ModuleName::from_str("test"),
             ModulePath::memory(PathBuf::from("test.py")),
