@@ -791,11 +791,7 @@ impl<'a> BindingsBuilder<'a> {
                 for x in x.names {
                     let m = ModuleName::from_name(&x.name.id);
                     if let Err(FindError::NotFound(err)) = self.lookup.get(m) {
-                        self.error(
-                            x.range,
-                            FindError::display(err, m),
-                            ErrorKind::MissingModuleAttribute,
-                        );
+                        self.error(x.range, FindError::display(err, m), ErrorKind::ImportError);
                     }
                     match x.asname {
                         Some(asname) => {
@@ -898,12 +894,7 @@ impl<'a> BindingsBuilder<'a> {
                             }
                         }
                         Err(FindError::NotFound(err)) => {
-                            self.error(
-                                x.range,
-                                FindError::display(err, m),
-                                // TODO: should this be an import error?
-                                ErrorKind::MissingModuleAttribute,
-                            );
+                            self.error(x.range, FindError::display(err, m), ErrorKind::ImportError);
                             self.bind_unimportable_names(&x);
                         }
                         Err(FindError::Ignored) => self.bind_unimportable_names(&x),

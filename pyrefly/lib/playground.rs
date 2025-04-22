@@ -275,7 +275,7 @@ mod tests {
             "Could not find import of `t`, no search roots or site package path",
             "Parse error: Expected 'import', found newline",
         ];
-        let expected_error_kinds = &[ErrorKind::MissingModuleAttribute, ErrorKind::ParseError];
+        let expected_error_kinds = &[ErrorKind::ImportError, ErrorKind::ParseError];
 
         assert_eq!(&state.get_errors().into_map(|x| x.message), expected_errors);
 
