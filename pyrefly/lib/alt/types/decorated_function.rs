@@ -45,7 +45,7 @@ impl DecoratedFunction {
             ty: Type::any_implicit(),
             metadata: FuncMetadata {
                 kind: FunctionKind::Def(Box::new(FuncId {
-                    module: ModuleName::default(),
+                    module: ModuleName::from_str("__decorated_function_recursive__"),
                     cls: None,
                     func: Name::default(),
                 })),

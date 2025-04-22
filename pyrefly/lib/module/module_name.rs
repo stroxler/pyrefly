@@ -61,12 +61,6 @@ impl Debug for ModuleName {
     }
 }
 
-impl Default for ModuleName {
-    fn default() -> Self {
-        Self::from_str("__no_module_name__")
-    }
-}
-
 #[derive(Hash, Eq, PartialEq)]
 struct StrRef<'a>(&'a str);
 
