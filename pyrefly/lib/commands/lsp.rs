@@ -226,14 +226,6 @@ impl Workspace {
         )
     }
 
-    fn open_file_handles(&self) -> Vec<(Handle, Require)> {
-        self.open_files
-            .lock()
-            .keys()
-            .map(|x| (self.make_handle(x), Require::Everything))
-            .collect::<Vec<_>>()
-    }
-
     fn compute_diagnostics(
         &self,
         transaction: &Transaction,
@@ -593,7 +585,12 @@ impl Server {
             .values()
             .chain(once(self.default_workspace.as_ref()))
             .for_each(|workspace| {
-                let handles = workspace.open_file_handles();
+                let handles = workspace
+                    .open_files
+                    .lock()
+                    .keys()
+                    .map(|x| (workspace.make_handle(x), Require::Everything))
+                    .collect::<Vec<_>>();
                 transaction.set_memory(
                     workspace
                         .open_files
