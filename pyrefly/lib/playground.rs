@@ -14,8 +14,9 @@ use lsp_types::CompletionItemKind;
 use ruff_source_file::SourceLocation;
 use serde::Serialize;
 
+use crate::config::config::ConfigFile;
 use crate::config::error::ErrorConfigs;
-use crate::exported::ConfigFile;
+use crate::config::finder::ConfigFinder;
 use crate::metadata::RuntimeMetadata;
 use crate::module::module_info::SourceRange;
 use crate::module::module_name::ModuleName;
@@ -24,6 +25,7 @@ use crate::state::handle::Handle;
 use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
+use crate::util::arc_id::ArcId;
 use crate::util::prelude::VecExt;
 
 #[derive(Serialize)]
@@ -118,13 +120,14 @@ impl Playground {
         config.python_environment.set_empty_to_default();
         config.search_path = Vec::new();
         config.configure();
+        let config = ArcId::new(config);
 
-        let state = State::new(None);
+        let state = State::new(Some(ConfigFinder::new_constant(config.dupe())));
         let handle = Handle::new(
             ModuleName::from_str("test"),
             ModulePath::memory(PathBuf::from("test.py")),
             RuntimeMetadata::default(),
-            LoaderId::new(config),
+            LoaderId::new_arc_id(config),
         );
         let mut me = Self { state, handle };
         me.update_source("".to_owned());
