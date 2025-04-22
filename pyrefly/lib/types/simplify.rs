@@ -43,6 +43,7 @@ fn try_collapse(mut xs: Vec<Type>) -> Result<Type, Vec<Type>> {
     }
 }
 
+/// Union a set of types together, simplifying as much as you can.
 pub fn unions(xs: Vec<Type>) -> Type {
     try_collapse(xs).unwrap_or_else(|xs| {
         let res = flatten_and_dedup(xs);
@@ -51,7 +52,14 @@ pub fn unions(xs: Vec<Type>) -> Type {
     })
 }
 
-pub fn replace_literal_true_false_with_bool(types: &mut Vec<Type>, stdlib: &Stdlib) {
+/// Like `unions`, but also simplify away things regarding literals if you can,
+/// e.g. `Literal[True, False] ==> bool`.
+pub fn unions_with_literals(mut xs: Vec<Type>, stdlib: &Stdlib) -> Type {
+    replace_literal_true_false_with_bool(&mut xs, stdlib);
+    unions(xs)
+}
+
+fn replace_literal_true_false_with_bool(types: &mut Vec<Type>, stdlib: &Stdlib) {
     let mut has_true = false;
     let mut has_false = false;
 

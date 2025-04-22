@@ -25,9 +25,9 @@ use crate::types::callable::Function;
 use crate::types::callable::Params;
 use crate::types::module::Module;
 use crate::types::quantified::QuantifiedInfo;
-use crate::types::simplify::replace_literal_true_false_with_bool;
 use crate::types::simplify::simplify_tuples;
 use crate::types::simplify::unions;
+use crate::types::simplify::unions_with_literals;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::Var;
@@ -433,9 +433,7 @@ impl Solver {
             })
             .collect::<Vec<_>>();
         branches.extend(modules.into_values().map(Type::Module));
-
-        replace_literal_true_false_with_bool(&mut branches, type_order.stdlib());
-        unions(branches)
+        unions_with_literals(branches, type_order.stdlib())
     }
 
     /// Record a variable that is used recursively.
