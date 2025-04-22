@@ -523,10 +523,10 @@ impl<'a> BindingsBuilder<'a> {
                     self.bind_key(name, idx, FlowStyle::Import(builtins_module, name.clone()));
                 }
             }
-            Err(FindError::NotFound(err)) => {
+            Err(err @ FindError::NotFound(..)) => {
                 self.error(
                     TextRange::default(),
-                    FindError::display(err, builtins_module),
+                    err.display(),
                     ErrorKind::InternalError,
                 );
             }

@@ -22,7 +22,7 @@ use crate::util::locked_map::LockedMap;
 #[derive(Debug, Clone, Dupe)]
 pub enum FindError {
     /// This module could not be found, and we should emit an error
-    NotFound(Arc<anyhow::Error>),
+    NotFound(Arc<anyhow::Error>, ModuleName),
     /// This import could not be found, but the user configured it to be ignored
     Ignored,
     /// This site package path entry was found, but does not have a py.typed entry
@@ -31,27 +31,39 @@ pub enum FindError {
 }
 
 impl FindError {
-    pub const NO_PY_TYPED_ERROR_MESSAGE: &'static str = "Imported package does not contain a py.typed file, \
-        and therefore cannot be typed. See `use_untyped_imports` to import anyway.";
-
-    pub fn not_found(err: anyhow::Error) -> Self {
-        Self::NotFound(Arc::new(err))
+    pub fn not_found(err: anyhow::Error, module: ModuleName) -> Self {
+        Self::NotFound(Arc::new(err), module)
     }
 
-    pub fn search_path(search_roots: &[PathBuf], site_package_path: &[PathBuf]) -> FindError {
+    pub fn search_path(
+        search_roots: &[PathBuf],
+        site_package_path: &[PathBuf],
+        module: ModuleName,
+    ) -> FindError {
         if search_roots.is_empty() && site_package_path.is_empty() {
-            Self::not_found(anyhow!("no search roots or site package path"))
+            Self::not_found(anyhow!("no search roots or site package path"), module)
         } else {
-            Self::not_found(anyhow!(
-                "looked at search roots ({}) and site package path ({})",
-                commas_iter(|| search_roots.iter().map(|x| x.display())),
-                commas_iter(|| site_package_path.iter().map(|x| x.display())),
-            ))
+            Self::not_found(
+                anyhow!(
+                    "looked at search roots ({}) and site package path ({})",
+                    commas_iter(|| search_roots.iter().map(|x| x.display())),
+                    commas_iter(|| site_package_path.iter().map(|x| x.display())),
+                ),
+                module,
+            )
         }
     }
 
-    pub fn display(err: Arc<anyhow::Error>, module: ModuleName) -> String {
-        format!("Could not find import of `{module}`, {:#}", err)
+    pub fn display(&self) -> String {
+        match self {
+            Self::NotFound(err, module) => {
+                format!("Could not find import of `{module}`, {:#}", err)
+            }
+            Self::Ignored => "Ignored import".to_owned(),
+            Self::NoPyTyped => "Imported package does not contain a py.typed file, \
+                and therefore cannot be typed. See `use_untyped_imports` to import anyway."
+                .to_owned(),
+        }
     }
 }
 

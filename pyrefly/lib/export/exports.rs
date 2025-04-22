@@ -161,7 +161,7 @@ mod tests {
         fn get(&self, module: ModuleName) -> Result<Exports, FindError> {
             match self.get(&module) {
                 Some(x) => Ok(x.dupe()),
-                None => Err(FindError::not_found(anyhow!("Error"))),
+                None => Err(FindError::not_found(anyhow!("Error"), module)),
             }
         }
     }

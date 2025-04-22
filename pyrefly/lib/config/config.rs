@@ -153,7 +153,10 @@ impl ConfigFile {
             Err(FindError::Ignored)
         } else if let Some(path) = find_module_in_search_path(module, &self.search_path) {
             Ok(path)
-        } else if let Some(path) = typeshed().map_err(FindError::not_found)?.find(module) {
+        } else if let Some(path) = typeshed()
+            .map_err(|err| FindError::not_found(err, module))?
+            .find(module)
+        {
             Ok(path)
         } else if let Some(path) = find_module_in_site_package_path(
             module,
@@ -165,6 +168,7 @@ impl ConfigFile {
             Err(FindError::search_path(
                 &self.search_path,
                 self.site_package_path(),
+                module,
             ))
         }
     }

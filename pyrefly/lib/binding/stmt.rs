@@ -790,8 +790,8 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::Import(x) => {
                 for x in x.names {
                     let m = ModuleName::from_name(&x.name.id);
-                    if let Err(FindError::NotFound(err)) = self.lookup.get(m) {
-                        self.error(x.range, FindError::display(err, m), ErrorKind::ImportError);
+                    if let Err(err @ FindError::NotFound(..)) = self.lookup.get(m) {
+                        self.error(x.range, err.display(), ErrorKind::ImportError);
                     }
                     match x.asname {
                         Some(asname) => {
@@ -893,17 +893,9 @@ impl<'a> BindingsBuilder<'a> {
                                 }
                             }
                         }
-                        Err(FindError::NotFound(err)) => {
-                            self.error(x.range, FindError::display(err, m), ErrorKind::ImportError);
-                            self.bind_unimportable_names(&x);
-                        }
                         Err(FindError::Ignored) => self.bind_unimportable_names(&x),
-                        Err(FindError::NoPyTyped) => {
-                            self.error(
-                                x.range,
-                                FindError::NO_PY_TYPED_ERROR_MESSAGE.to_owned(),
-                                ErrorKind::ImportError,
-                            );
+                        Err(err @ (FindError::NoPyTyped | FindError::NotFound(..))) => {
+                            self.error(x.range, err.display(), ErrorKind::ImportError);
                             self.bind_unimportable_names(&x);
                         }
                     }
