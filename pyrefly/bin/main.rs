@@ -154,7 +154,9 @@ async fn run_check_on_project(
         None => {
             let current_dir = std::env::current_dir().context("cannot identify current dir")?;
             let config_finder = config_finder(args.clone());
-            config_finder.directory(&current_dir)
+            config_finder
+                .directory(&current_dir)
+                .unwrap_or_else(|| ArcId::new(args.override_config(ConfigFile::default())))
         }
     };
     // We want our config_finder to never actually

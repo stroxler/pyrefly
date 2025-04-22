@@ -91,11 +91,8 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     }
 
     /// Get the config file associated with a directory.
-    pub fn directory(&self, dir: &Path) -> T {
-        self.search
-            .directory(dir)
-            .flatten()
-            .unwrap_or_else(&self.fallback)
+    pub fn directory(&self, dir: &Path) -> Option<T> {
+        self.search.directory(dir).flatten()
     }
 
     /// Get the config file given a Python file.
