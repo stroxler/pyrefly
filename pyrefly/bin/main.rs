@@ -123,7 +123,7 @@ async fn run_check(
 fn config_finder(args: pyrefly::exported::run::CheckArgs) -> ConfigFinder {
     let args = Arc::new(args);
     let args2 = args.dupe();
-    let default = move || ArcId::new(args.override_config(ConfigFile::default()));
+    let fallback = move || ArcId::new(args.override_config(ConfigFile::default()));
     // The Box is a bit annoying here, but otherwise I can't persuade it that the `&Path` has a good enough lifetime.
     let load: Box<dyn Fn(&Path) -> anyhow::Result<ArcId<ConfigFile>> + Send + Sync> =
         Box::new(move |config_path| {
@@ -132,7 +132,7 @@ fn config_finder(args: pyrefly::exported::run::CheckArgs) -> ConfigFinder {
                 true,
             )?)))
         });
-    ConfigFinder::new(default, load)
+    ConfigFinder::new(load, fallback)
 }
 
 async fn run_check_on_project(

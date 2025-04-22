@@ -20,11 +20,19 @@ use crate::config::config::ConfigFile;
 use crate::util::arc_id::ArcId;
 use crate::util::lock::RwLock;
 
+/// A way to find a config file given a directory or Python file.
+/// Uses a lot of caching.
 pub struct ConfigFinder<T = ArcId<ConfigFile>> {
-    custom: Box<dyn Fn(&Path) -> anyhow::Result<Option<T>> + Send + Sync>,
-    default: LazyLock<T, Box<dyn FnOnce() -> T + Send + Sync>>,
-    load: Box<dyn Fn(&Path) -> anyhow::Result<T> + Send + Sync>,
+    /// The cached state, with previously found entries.
     state: RwLock<ConfigFinderState<T>>,
+
+    /// Function to run before checking the state. If this returns a value, it is _not_ cached.
+    /// If this returns anything other than `Ok`, the rest of the functions are used.
+    before: Box<dyn Fn(&Path) -> anyhow::Result<Option<T>> + Send + Sync>,
+    /// Given a config file that exists on disk, load it.
+    load: Box<dyn Fn(&Path) -> anyhow::Result<T> + Send + Sync>,
+    /// If there is no config file, or loading it fails, use this fallback.
+    fallback: LazyLock<T, Box<dyn FnOnce() -> T + Send + Sync>>,
 }
 
 struct ConfigFinderState<T> {
@@ -46,25 +54,26 @@ impl<T> Default for ConfigFinderState<T> {
 }
 
 impl<T: Dupe + Debug> ConfigFinder<T> {
-    /// Create a new ConfigFinder a way to produce a default, and to load a given file.
+    /// Create a new ConfigFinder a way to load a config file, and a default if that errors or there is no file.
     pub fn new(
-        default: impl FnOnce() -> T + Send + Sync + 'static,
         load: impl Fn(&Path) -> anyhow::Result<T> + Send + Sync + 'static,
+        fallback: impl FnOnce() -> T + Send + Sync + 'static,
     ) -> Self {
-        Self::new_custom(|_| Ok(None), default, load)
+        Self::new_custom(|_| Ok(None), load, fallback)
     }
 
     /// Create a new ConfigFinder, but with a custom way to produce a result from a Python file.
-    /// If the custom function fails to produce a config, then the other methods will be used.
+    /// If the `before` function fails to produce a config, then the other methods will be used.
+    /// The `before` function is not cached in any way.
     pub fn new_custom(
-        custom: impl Fn(&Path) -> anyhow::Result<Option<T>> + Send + Sync + 'static,
-        default: impl FnOnce() -> T + Send + Sync + 'static,
+        before: impl Fn(&Path) -> anyhow::Result<Option<T>> + Send + Sync + 'static,
         load: impl Fn(&Path) -> anyhow::Result<T> + Send + Sync + 'static,
+        fallback: impl FnOnce() -> T + Send + Sync + 'static,
     ) -> Self {
         Self {
-            custom: Box::new(custom),
-            default: LazyLock::new(Box::new(default)),
+            before: Box::new(before),
             load: Box::new(load),
+            fallback: LazyLock::new(Box::new(fallback)),
             state: RwLock::new(ConfigFinderState::default()),
         }
     }
@@ -80,8 +89,8 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
 
         Self::new_custom(
             move |_| Ok(Some(c1.dupe())),
-            move || c2.dupe(),
             move |_| Ok(c3.dupe()),
+            move || c2.dupe(),
         )
     }
 
@@ -124,7 +133,7 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
                         Ok(v) => v,
                         Err(e) => {
                             self.state.write().errors.push(e);
-                            self.default.dupe()
+                            self.fallback.dupe()
                         }
                     };
                     found_answer = Some((i + 1, c));
@@ -139,7 +148,7 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
 
         let (applicable, result) = found_answer
             .or(cache_answer)
-            .unwrap_or_else(|| (FULL_PATH, self.default.dupe()));
+            .unwrap_or_else(|| (FULL_PATH, self.fallback.dupe()));
 
         let mut lock = self.state.write();
         for (i, x) in dir.ancestors().take(applicable).enumerate() {
@@ -168,7 +177,7 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
 
     /// Get the config file given a Python file.
     pub fn python_file(&self, path: &Path) -> T {
-        match (self.custom)(path) {
+        match (self.before)(path) {
             Ok(Some(x)) => return x,
             Ok(None) => {}
             Err(e) => {
@@ -180,7 +189,7 @@ impl<T: Dupe + Debug> ConfigFinder<T> {
         let parent = absolute.as_ref().and_then(|x| x.parent());
         match parent {
             Some(parent) => self.directory(parent),
-            None => self.default.dupe(),
+            None => self.fallback.dupe(),
         }
     }
 }
@@ -214,7 +223,6 @@ mod tests {
         let loaded3 = loaded.dupe();
         let root_path = root.path().to_string_lossy().into_owned();
         let finder = ConfigFinder::new(
-            move || loaded2.lock().push(DEFAULT.to_owned()),
             move |file| {
                 if let Some(file) = file.to_string_lossy().strip_prefix(&root_path) {
                     let mut file = file.chars();
@@ -223,6 +231,7 @@ mod tests {
                 }
                 Ok(())
             },
+            move || loaded2.lock().push(DEFAULT.to_owned()),
         );
 
         for a in ask {
