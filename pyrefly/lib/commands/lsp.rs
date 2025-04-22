@@ -217,21 +217,20 @@ impl Workspace {
         }
     }
 
+    fn make_handle(&self, path: &Path) -> Handle {
+        Handle::new(
+            module_from_path(path, &self.search_path),
+            ModulePath::memory(path.to_owned()),
+            self.runtime_metadata.dupe(),
+            self.loader.dupe(),
+        )
+    }
+
     fn open_file_handles(&self) -> Vec<(Handle, Require)> {
         self.open_files
             .lock()
             .keys()
-            .map(|x| {
-                (
-                    Handle::new(
-                        module_from_path(x, &self.search_path),
-                        ModulePath::memory(x.clone()),
-                        self.runtime_metadata.dupe(),
-                        self.loader.dupe(),
-                    ),
-                    Require::Everything,
-                )
-            })
+            .map(|x| (self.make_handle(x), Require::Everything))
             .collect::<Vec<_>>()
     }
 
