@@ -15,6 +15,8 @@ use dupe::Dupe;
 use path_absolutize::Absolutize;
 
 use crate::config::config::ConfigFile;
+use crate::module::module_path::ModulePath;
+use crate::module::module_path::ModulePathDetails;
 use crate::util::arc_id::ArcId;
 use crate::util::lock::Mutex;
 use crate::util::prelude::SliceExt;
@@ -30,7 +32,7 @@ pub struct ConfigFinder<T = ArcId<ConfigFile>> {
 
     /// Function to run before checking the state. If this returns a value, it is _not_ cached.
     /// If this returns anything other than `Ok`, the rest of the functions are used.
-    before: Box<dyn Fn(&Path) -> anyhow::Result<Option<T>> + Send + Sync>,
+    before: Box<dyn Fn(&ModulePath) -> anyhow::Result<Option<T>> + Send + Sync>,
     /// If there is no config file, or loading it fails, use this fallback.
     fallback: Box<dyn Fn() -> T + Send + Sync>,
 }
@@ -48,7 +50,7 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     /// If the `before` function fails to produce a config, then the other methods will be used.
     /// The `before` function is not cached in any way.
     pub fn new_custom(
-        before: impl Fn(&Path) -> anyhow::Result<Option<T>> + Send + Sync + 'static,
+        before: impl Fn(&ModulePath) -> anyhow::Result<Option<T>> + Send + Sync + 'static,
         load: impl Fn(&Path) -> anyhow::Result<T> + Send + Sync + 'static,
         fallback: impl Fn() -> T + Send + Sync + 'static,
     ) -> Self {
@@ -96,7 +98,7 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     }
 
     /// Get the config file given a Python file.
-    pub fn python_file(&self, path: &Path) -> T {
+    pub fn python_file(&self, path: &ModulePath) -> T {
         match (self.before)(path) {
             Ok(Some(x)) => return x,
             Ok(None) => {}
@@ -105,15 +107,22 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
             }
         }
 
-        let absolute = path.absolutize().ok();
-        let parent = absolute.as_ref().and_then(|x| x.parent());
-        match parent {
+        let f = |dir: Option<&Path>| match dir {
             Some(parent) => self
                 .search
                 .directory_absolute(parent)
                 .flatten()
                 .unwrap_or_else(&self.fallback),
             None => (self.fallback)(),
+        };
+
+        match path.details() {
+            ModulePathDetails::FileSystem(x) | ModulePathDetails::Memory(x) => {
+                let absolute = x.absolutize().ok();
+                f(absolute.as_ref().and_then(|x| x.parent()))
+            }
+            ModulePathDetails::Namespace(x) => f(x.absolutize().ok().as_deref()),
+            ModulePathDetails::BundledTypeshed(_) => f(None),
         }
     }
 }
