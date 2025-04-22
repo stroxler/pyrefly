@@ -173,7 +173,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         None
                     }
                     BaseClass::CollectionsNamedTuple(range) => {
-                        Some((self.stdlib.named_tuple().clone().to_type(), *range))
+                        Some((self.stdlib.named_tuple_fallback().clone().to_type(), *range))
                     }
                     _ => None,
                 };
@@ -402,7 +402,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Note that this also makes those attributes available on *instances* of said subclasses; this is
             // desirable for methods but problematic for fields like `__total__` that should be available on the class
             // but not the instance. For now, we make all fields available on both classes and instances.
-            let td_fallback = self.stdlib.typed_dict();
+            let td_fallback = self.stdlib.typed_dict_fallback();
             vec![(
                 td_fallback.clone(),
                 self.get_metadata_for_class(td_fallback.class_object()),

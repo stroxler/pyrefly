@@ -75,8 +75,13 @@ pub struct Stdlib {
     method_type: StdlibResult<ClassType>,
     enum_meta: StdlibResult<ClassType>,
     enum_flag: StdlibResult<ClassType>,
-    named_tuple: StdlibResult<ClassType>,
-    typed_dict: StdlibResult<ClassType>,
+    /// A fallback class that contains attributes that all NamedTuple subclasses share. Note that
+    /// this class has no direct runtime equivalent; typing.NamedTuple is a class in some Python
+    /// versions and a function in others.
+    named_tuple_fallback: StdlibResult<ClassType>,
+    /// A fallback class that contains attributes that all TypedDict subclasses share. Note that
+    /// this class does not exist at runtime.
+    typed_dict_fallback: StdlibResult<ClassType>,
     property: StdlibResult<ClassType>,
     object: StdlibResult<ClassType>,
 }
@@ -171,8 +176,8 @@ impl Stdlib {
             mapping: lookup_generic(typing, "Mapping", 2),
             enum_meta: lookup_concrete(enum_, "EnumMeta"),
             enum_flag: lookup_concrete(enum_, "Flag"),
-            named_tuple: lookup_concrete(typing, "NamedTuple"),
-            typed_dict: lookup_concrete(typing, "_TypedDict"),
+            named_tuple_fallback: lookup_concrete(typing, "NamedTuple"),
+            typed_dict_fallback: lookup_concrete(typing, "_TypedDict"),
             property: lookup_concrete(builtins, "property"),
             object: lookup_concrete(builtins, "object"),
         }
@@ -230,12 +235,12 @@ impl Stdlib {
         Self::primitive(&self.enum_flag)
     }
 
-    pub fn named_tuple(&self) -> &ClassType {
-        Self::primitive(&self.named_tuple)
+    pub fn named_tuple_fallback(&self) -> &ClassType {
+        Self::primitive(&self.named_tuple_fallback)
     }
 
-    pub fn typed_dict(&self) -> &ClassType {
-        Self::primitive(&self.typed_dict)
+    pub fn typed_dict_fallback(&self) -> &ClassType {
+        Self::primitive(&self.typed_dict_fallback)
     }
 
     pub fn ellipsis_type(&self) -> Option<&ClassType> {

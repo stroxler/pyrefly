@@ -1352,7 +1352,7 @@ impl<'a, Ans: LookupAnswer + LookupExport> AnswersSolver<'a, Ans> {
             match &base {
                 AttributeBase::ClassInstance(class) => self.completions_class_type(class, &mut res),
                 AttributeBase::TypedDict(_) => {
-                    self.completions_class_type(self.stdlib.typed_dict(), &mut res)
+                    self.completions_class_type(self.stdlib.typed_dict_fallback(), &mut res)
                 }
                 AttributeBase::SuperInstance(class, _) => {
                     self.completions_class_type(class, &mut res)
