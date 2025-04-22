@@ -28,11 +28,18 @@ pub enum FindError {
     /// This site package path entry was found, but does not have a py.typed entry
     /// and ignore_py_typed_package_errors is disabled
     NoPyTyped,
+    /// We found stubs, but no source files were found. This means it's likely stubs
+    /// are installed for a project, but the library is not actually importable
+    NoSource(ModuleName),
 }
 
 impl FindError {
     pub fn not_found(err: anyhow::Error, module: ModuleName) -> Self {
         Self::NotFound(Arc::new(err), module)
+    }
+
+    pub fn no_source(module: ModuleName) -> Self {
+        Self::NoSource(module)
     }
 
     pub fn search_path(
@@ -63,6 +70,12 @@ impl FindError {
             Self::NoPyTyped => "Imported package does not contain a py.typed file, \
                 and therefore cannot be typed. See `use_untyped_imports` to import anyway."
                 .to_owned(),
+            Self::NoSource(module) => {
+                format!(
+                    "Found stubs for `{module}`, but no source. This means it's likely not \
+                    installed/unimportable. See `ignore_missing_source` to disable this error."
+                )
+            }
         }
     }
 }

@@ -530,7 +530,7 @@ impl<'a> BindingsBuilder<'a> {
                     ErrorKind::InternalError,
                 );
             }
-            Err(FindError::Ignored | FindError::NoPyTyped) => (),
+            Err(FindError::Ignored | FindError::NoPyTyped | FindError::NoSource(_)) => (),
         }
     }
 

@@ -894,7 +894,11 @@ impl<'a> BindingsBuilder<'a> {
                             }
                         }
                         Err(FindError::Ignored) => self.bind_unimportable_names(&x),
-                        Err(err @ (FindError::NoPyTyped | FindError::NotFound(..))) => {
+                        Err(
+                            err @ (FindError::NoPyTyped
+                            | FindError::NoSource(_)
+                            | FindError::NotFound(..)),
+                        ) => {
                             self.error(x.range, err.display(), ErrorKind::ImportError);
                             self.bind_unimportable_names(&x);
                         }
