@@ -584,12 +584,30 @@ y = 42
 );
 
 testcase!(
-    test_undefined_targets,
+    test_invalid_walrus_target,
     r#"
-[1 for x.y in []]  # E: Could not find name `x`
-[1 for z[0] in []]  # E: Could not find name `z`
-a.b += 1  # E: Could not find name `a`
-(c.d := 1)  # E: Could not find name `c`  # E: Parse error: Assignment expression target must be an identifier
+class C:
+    d: int
+def foo(c: C):
+    (c.d := 1)  # E: Parse error: Assignment expression target must be an identifier
+    "#,
+);
+
+testcase!(
+    test_side_effecting_comprehension_targets,
+    r#"
+class C:
+    d: int
+    def __setitem__(self, idx: int, value: int) -> None: ...
+    def __init__(self):
+        self.d = 0
+def foo(c: C):
+    # Perhaps surprisingly, this is actually legal (and is a side-effect at runtime)
+    [1 for c.d in [1, 2, 3]]
+    [1 for c[0] in [1, 2, 3]]
+    # We expect type errors if the side-effect is a type error.
+    [1 for c.d in ["1", "2", "3"]]  # E: `str` is not assignable to attribute `d` with type `int`
+    [1 for c[0] in ["1", "2", "3"]]  # E: Argument `str` is not assignable to parameter `value` with type `int` in function `C.__setitem__`
     "#,
 );
 
