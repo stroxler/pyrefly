@@ -12,6 +12,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use dupe::Dupe;
 
+use crate::config::config::ConfigFile;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::util::arc_id::ArcId;
@@ -61,14 +62,8 @@ pub trait Loader: Sync + Debug {
     fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError>;
 }
 
-impl<T: Loader + Send> Loader for ArcId<T> {
-    fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        (**self).find_import(module)
-    }
-}
-
 #[derive(Clone, Dupe, Debug, Hash, PartialEq, Eq)]
-pub struct LoaderId(ArcId<dyn Loader + Send>);
+pub struct LoaderId(ArcId<ConfigFile>);
 
 impl Loader for LoaderId {
     fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
@@ -77,8 +72,12 @@ impl Loader for LoaderId {
 }
 
 impl LoaderId {
-    pub fn new(loader: impl Loader + Send + 'static) -> Self {
-        Self(ArcId::from_arc(Arc::new(loader)))
+    pub fn new(loader: ConfigFile) -> Self {
+        Self(ArcId::new(loader))
+    }
+
+    pub fn new_arc_id(loader: ArcId<ConfigFile>) -> Self {
+        Self(loader)
     }
 }
 
