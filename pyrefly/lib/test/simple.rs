@@ -1265,7 +1265,7 @@ assert_type(A()["":"":""], slice[str, str, str])
 );
 
 testcase!(
-    test_bool_and_literal_true_fals,
+    test_bool_and_literal_true_false,
     r#"
 from typing import Literal
 def f0(x: bool) -> Literal[True, False]:
@@ -1284,5 +1284,21 @@ from typing import Literal, reveal_type
 
 def f(b: bool, x: int | Literal[True], y: int | Literal[False]):
     reveal_type(x if b else y) # E: revealed type: bool | int
+"#,
+);
+
+testcase!(
+    test_literal_union,
+    r#"
+from typing import Literal, LiteralString, reveal_type
+
+reveal_type(Literal[True, False])  # E: revealed type: type[bool]
+reveal_type(Literal[4] | int)  # E: revealed type: type[int]
+reveal_type(LiteralString | Literal["test"]) # E: revealed type: type[LiteralString]
+reveal_type(LiteralString | str) # E: revealed type: type[str]
+reveal_type(Literal[True] | bool) # E: revealed type: type[bool]
+
+def f(cond: bool, x: LiteralString, y: str):
+    reveal_type(x if cond else y)  # E: revealed type: str
 "#,
 );

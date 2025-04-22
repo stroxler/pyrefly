@@ -514,6 +514,8 @@ pub enum SuperObj {
     Class(Class),
 }
 
+// Note: The fact that Literal and LiteralString are at the front is important for
+// optimisations in `unions_with_literals`.
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
 pub enum Type {
     Literal(Lit),

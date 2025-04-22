@@ -239,3 +239,23 @@ class E(Enum):
 assert_type(E.X._name_, Literal["X"])
     "#,
 );
+
+testcase!(
+    test_enum_union,
+    r#"
+from typing import assert_type, Literal
+from enum import Enum
+
+class MyEnum(Enum):
+    X = 1
+    Y = 2
+
+def f(cond: bool, a: MyEnum, b: Literal[MyEnum.X]):
+    if cond:
+        return a
+    else:
+        return b
+
+assert_type(f(True, MyEnum.X, MyEnum.X), MyEnum)
+"#,
+);

@@ -625,7 +625,7 @@ match point():
         x = 8
     case q:
         x = q
-assert_type(x, int)  # E: assert_type(Literal[8] | int, int) failed
+assert_type(x, int)
 "#,
 );
 
@@ -901,7 +901,7 @@ def f(cond: bool):
     n = 1
     while cond:
         n += 1
-    assert_type(n, Literal[1] | int)
+    assert_type(n, int)
 "#,
 );
 
@@ -914,7 +914,7 @@ def f(cond: bool):
     n = 1
     while n < 10:
         n += 1
-    assert_type(n, Literal[1] | int)
+    assert_type(n, int)
 "#,
 );
 
@@ -929,7 +929,7 @@ def f(cond: bool):
         n += 1
     return n
 
-assert_type(f(True), Literal[1] | int)
+assert_type(f(True), int)
 "#,
 );
 
@@ -967,7 +967,7 @@ def f(cond1: bool, cond2: bool):
             n += 1
     return n
 
-assert_type(f(True, True), Literal[0] | int)
+assert_type(f(True, True), int)
 "#,
 );
 
@@ -983,7 +983,7 @@ def f(args, cond):
             n += 1
     return n
 
-assert_type(f([1, 2, 3], True), Literal[0] | int)
+assert_type(f([1, 2, 3], True), int)
 "#,
 );
 
@@ -1002,6 +1002,6 @@ def f(cond1: bool, cond2: bool, cond3: bool, cond4: bool):
                 i += 1
     return i
 
-assert_type(f(True, True, True, True), Literal[0] | int)
+assert_type(f(True, True, True, True), int)
 "#,
 );

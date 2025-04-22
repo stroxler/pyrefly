@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use starlark_map::small_map::SmallMap;
+
 use crate::types::literal::Lit;
 use crate::types::stdlib::Stdlib;
 use crate::types::tuple::Tuple;
@@ -47,7 +49,7 @@ fn unions_internal(xs: Vec<Type>, stdlib: Option<&Stdlib>) -> Type {
     try_collapse(xs).unwrap_or_else(|xs| {
         let mut res = flatten_and_dedup(xs);
         if let Some(stdlib) = stdlib {
-            replace_literal_true_false_with_bool(&mut res, stdlib);
+            collapse_literals(&mut res, stdlib);
         }
         // `res` is collapsable again if `flatten_and_dedup` drops `xs` to 0 or 1 elements
         try_collapse(res).unwrap_or_else(Type::Union)
@@ -65,27 +67,75 @@ pub fn unions_with_literals(xs: Vec<Type>, stdlib: &Stdlib) -> Type {
     unions_internal(xs, Some(stdlib))
 }
 
-/// Replace `Literal[True, False]` with `bool`, in a sorted Vec.
-fn replace_literal_true_false_with_bool(types: &mut Vec<Type>, stdlib: &Stdlib) {
+/// Perform all literal transformations we can think of.
+///
+/// 1. Literal[True, False] ==> bool
+/// 2. Literal[0] | int => int (and for bool, int, str, bytes, enums)
+/// 3. LiteralString | str => str
+/// 3. LiteralString | Literal["x"] => LiteralString
+fn collapse_literals(types: &mut Vec<Type>, stdlib: &Stdlib) {
+    // All literal types we see, plus `true` to indicate they are found
+    let mut literal_types = SmallMap::new();
+    // Specific flags to watch out for
+    let mut has_literal_string = false;
+    let mut has_specific_str = false;
     let mut has_true = false;
     let mut has_false = false;
 
+    // Invariant (from the sorting order) is that all Literal/Lit values occur
+    // before any instances of the types.
+    // Therefore we only need to check if a ClassType is already in the map, rather than
+    // inserting them all.
     for t in types.iter() {
         match t {
-            Type::Literal(Lit::Bool(true)) => {
-                has_true = true;
+            Type::LiteralString => {
+                has_literal_string = true;
+                literal_types.insert(stdlib.str().clone(), false);
             }
-            Type::Literal(Lit::Bool(false)) => {
-                has_false = true;
+            Type::Literal(x) => {
+                match x {
+                    Lit::Bool(true) => has_true = true,
+                    Lit::Bool(false) => has_false = true,
+                    Lit::Str(_) => has_specific_str = true,
+                    _ => {}
+                }
+                literal_types.insert(x.general_class_type(stdlib).clone(), false);
+            }
+            Type::ClassType(class)
+                if !literal_types.is_empty()
+                    && let Some(found) = literal_types.get_mut(class) =>
+            {
+                // Note: Check if literal_types is empty first, and if so, avoid hashing the class object.
+                *found = true;
             }
             _ => {}
         }
     }
 
-    if has_true && has_false {
-        types.retain(|t| !matches!(t, Type::Literal(Lit::Bool(_))));
-        let bool = stdlib.bool().clone().to_type();
-        if let Err(new_pos) = types.binary_search(&bool) {
+    if literal_types.values().any(|x| *x)
+        || (has_true && has_false)
+        || (has_literal_string && has_specific_str)
+    {
+        // We actually have some things to delete
+        types.retain(|x| match x {
+            Type::LiteralString => literal_types.get(stdlib.str()) == Some(&false),
+            Type::Literal(x) => {
+                match x {
+                    Lit::Bool(_) if has_true && has_false => return false,
+                    Lit::Str(_) if has_literal_string => return false,
+                    _ => {}
+                }
+                literal_types.get(x.general_class_type(stdlib)) == Some(&false)
+            }
+            _ => true,
+        });
+
+        if (has_true && has_false)
+            && let bool = stdlib.bool()
+            && literal_types.get(bool) == Some(&false)
+            && let bool = bool.clone().to_type()
+            && let Err(new_pos) = types.binary_search(&bool)
+        {
             types.insert(new_pos, bool);
         }
     }
