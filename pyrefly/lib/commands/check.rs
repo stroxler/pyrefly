@@ -139,9 +139,6 @@ pub struct Args {
     /// Generated code is defined as code that contains the marker string `@` immediately followed by `generated`.
     #[clap(long, env = clap_env("IGNORE_ERRORS_IN_GENERATED_CODE"))]
     ignore_errors_in_generated_code: Option<bool>,
-    /// Unconditinally uses imports, even if their py.typed files are missing
-    #[clap(long, env = clap_env("USE_UNTYPED_IMPORTS"))]
-    use_untyped_imports: Option<bool>,
 }
 
 impl OutputFormat {
@@ -387,10 +384,6 @@ impl Args {
         set_option_if_some(
             &mut config.root.ignore_errors_in_generated_code,
             self.ignore_errors_in_generated_code.as_ref(),
-        );
-        set_if_some(
-            &mut config.use_untyped_imports,
-            self.use_untyped_imports.as_ref(),
         );
         config.configure();
         config.validate();
