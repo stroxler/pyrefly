@@ -603,24 +603,27 @@ impl Server {
                 workspace_with_handles.push((workspace, handles));
             });
         transaction.run(&all_handles);
+
+        let publish = |transaction| {
+            for (workspace, handles) in workspace_with_handles {
+                self.publish_diagnostics(workspace.compute_diagnostics(transaction, handles));
+            }
+        };
+
         match possibly_committable_transaction {
             Ok(transaction) => {
                 self.state.commit_transaction(transaction);
                 // In the case where we can commit transactions, `State` already has latest updates.
                 // Therefore, we can compute errors from transactions freshly created from `State``.
                 let transaction = self.state.transaction();
-                for (workspace, handles) in workspace_with_handles {
-                    self.publish_diagnostics(workspace.compute_diagnostics(&transaction, handles));
-                }
+                publish(&transaction);
             }
             Err(transaction) => {
                 // In the case where transaction cannot be committed because there is an ongoing
                 // recheck, we still want to update the diagnostics. In this case, we compute them
                 // from the transactions that won't be committed. It will still contain all the
                 // up-to-date in-memory content, but can have stale main `State` content.
-                for (workspace, handles) in workspace_with_handles {
-                    self.publish_diagnostics(workspace.compute_diagnostics(&transaction, handles));
-                }
+                publish(&transaction);
                 ide_transaction_manager.save(transaction);
             }
         }
