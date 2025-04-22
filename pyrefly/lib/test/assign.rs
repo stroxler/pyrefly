@@ -599,15 +599,15 @@ testcase!(
     r#"
 from typing import assert_type, Literal
 
-a1+a2 = 7 # E: Could not find name `a1` # E: Could not find name `a2` # E: Parse error # E: Invalid assignment target
-f() = 12 # E: Could not find name `f` # E: Parse error # E: Invalid assignment target
+a1+a2 = 7 # E: Could not find name `a1` # E: Could not find name `a2` # E: Parse error: Invalid assignment target
+f() = 12 # E: Could not find name `f` # E: Parse error: Invalid assignment target
 
-type (b) = int # E: Could not find name `b` # E: Parse error # E: Invalid assignment target
+type (b) = int # E: Could not find name `b` # E: Parse error: Invalid assignment target
 
 # Type annotations on list/tuple are invalid, so ignore them
-c1, c2: (bool, str) = 1, 2 # E: Parse error # E: Invalid annotated assignment target
+c1, c2: (bool, str) = 1, 2 # E: Parse error: Only single target (not tuple) can be annotated # E: Invalid annotated assignment target
 assert_type(c1, Literal[1])
-[d1, d2]: list[int] = ["test", "more"] # E: Parse error # E: Invalid annotated assignment target
+[d1, d2]: list[int] = ["test", "more"] # E: Parse error: Only single target (not list) can be annotated # E: Invalid annotated assignment target
 assert_type(d1, str)
 
 *e = ["test"] # E: Starred assignment target must be in a list or tuple

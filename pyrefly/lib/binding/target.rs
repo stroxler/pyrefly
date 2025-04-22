@@ -6,7 +6,6 @@
  */
 
 use ruff_python_ast::Expr;
-use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
 use crate::binding::binding::Binding;
@@ -146,13 +145,8 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_target_controlling_errors(&x.value, make_binding, value, add_error);
             }
             _ => {
-                if add_error {
-                    self.error(
-                        target.range(),
-                        "Invalid assignment target".to_owned(),
-                        ErrorKind::InvalidSyntax,
-                    )
-                }
+                // Most structurally invalid targets become errors in the parser, which we propagate.
+                // There's no need for a duplicate error here, and there's no work to do.
             }
         }
     }
