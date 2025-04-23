@@ -888,17 +888,6 @@ impl<'a> Transaction<'a> {
         self.data.state.threads.spawn_many(|| self.work());
     }
 
-    fn ensure_loaders(&mut self, handles: &[(Handle, Require)]) {
-        for (h, _) in handles {
-            if !self.readable.loaders.contains_key(h.loader()) {
-                self.data.updated_loaders.insert(
-                    h.loader().dupe(),
-                    Arc::new(LoaderFindCache::new(h.loader().dupe())),
-                );
-            }
-        }
-    }
-
     fn invalidate_rdeps(&mut self, changed: &[ArcId<ModuleDataMut>]) {
         // We need to invalidate all modules that depend on anything in changed, including transitively.
         fn f(
@@ -962,7 +951,6 @@ impl<'a> Transaction<'a> {
         // everything in the cycle and force it to compute.
         let mut changed_twice = SmallSet::new();
 
-        self.ensure_loaders(handles);
         for i in 1.. {
             debug!("Running epoch {i}");
             // The first version we use the old require. We use this to trigger require changes,
