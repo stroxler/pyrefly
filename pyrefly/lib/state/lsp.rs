@@ -11,6 +11,7 @@ use lsp_types::CompletionItemKind;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::Identifier;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
@@ -34,6 +35,13 @@ use crate::util::prelude::VecExt;
 use crate::util::visit::Visit;
 
 const INITIAL_GAS: Gas = Gas::new(20);
+
+pub enum DefinitionMetadata {
+    #[expect(dead_code)]
+    Attribute(Name),
+    Module,
+    Variable,
+}
 
 impl<'a> Transaction<'a> {
     fn get_type(&self, handle: &Handle, key: &Key) -> Option<Type> {
@@ -194,12 +202,16 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    /// Find the definition and optionally the docstring for the given position.
+    /// Find the definition, metadata and optionally the docstring for the given position.
     fn find_definition(
         &self,
         handle: &Handle,
         position: TextSize,
-    ) -> Option<(TextRangeWithModuleInfo, Option<DocString>)> {
+    ) -> Option<(
+        DefinitionMetadata,
+        TextRangeWithModuleInfo,
+        Option<DocString>,
+    )> {
         if let Some(key) = self.definition_at(handle, position) {
             let (
                 handle,
@@ -209,6 +221,7 @@ impl<'a> Transaction<'a> {
                 },
             ) = self.key_to_export(handle, &key, INITIAL_GAS)?;
             return Some((
+                DefinitionMetadata::Variable,
                 TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
                 docstring,
             ));
@@ -225,6 +238,7 @@ impl<'a> Transaction<'a> {
                 },
             ) = self.key_to_export(handle, &Key::Usage(ShortIdentifier::new(&id)), INITIAL_GAS)?;
             return Some((
+                DefinitionMetadata::Variable,
                 TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
                 docstring,
             ));
@@ -232,6 +246,7 @@ impl<'a> Transaction<'a> {
         if let Some(m) = self.import_at(handle, position) {
             let handle = self.import_handle(handle, m, None).ok()?;
             return Some((
+                DefinitionMetadata::Module,
                 TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, TextRange::default()),
                 self.get_module_docstring(&handle),
             ));
@@ -245,7 +260,11 @@ impl<'a> Transaction<'a> {
             items.into_iter().find_map(|x| {
                 if x.name == attribute.attr.id {
                     // TODO(kylei): attribute docstrings
-                    Some(((TextRangeWithModuleInfo::new(x.module?, x.range?)), None))
+                    Some((
+                        DefinitionMetadata::Attribute(x.name),
+                        TextRangeWithModuleInfo::new(x.module?, x.range?),
+                        None,
+                    ))
                 } else {
                     None
                 }
@@ -259,11 +278,11 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
     ) -> Option<TextRangeWithModuleInfo> {
-        self.find_definition(handle, position).map(|x| x.0)
+        self.find_definition(handle, position).map(|x| x.1)
     }
 
     pub fn docstring(&self, handle: &Handle, position: TextSize) -> Option<DocString> {
-        self.find_definition(handle, position).map(|x| x.1)?
+        self.find_definition(handle, position).map(|x| x.2)?
     }
 
     pub fn completion(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
