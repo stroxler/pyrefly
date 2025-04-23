@@ -111,7 +111,7 @@ struct ModuleData {
 #[derive(Debug)]
 struct ModuleDataMut {
     handle: Handle,
-    config: ArcId<ConfigFile>,
+    config: RwLock<ArcId<ConfigFile>>,
     state: UpgradeLock<Step, ModuleDataInner>,
     deps: RwLock<HashMap<ModuleName, Handle, BuildNoHash>>,
     /// The reverse dependencies of this module. This is used to invalidate on change.
@@ -145,7 +145,7 @@ impl ModuleData {
     fn clone_for_mutation(&self) -> ModuleDataMut {
         ModuleDataMut {
             handle: self.handle.dupe(),
-            config: self.config.dupe(),
+            config: RwLock::new(self.config.dupe()),
             state: UpgradeLock::new(self.state.clone()),
             deps: RwLock::new(self.deps.clone()),
             rdeps: Mutex::new(self.rdeps.clone()),
@@ -157,7 +157,7 @@ impl ModuleDataMut {
     fn new(handle: Handle, config: ArcId<ConfigFile>, now: Epoch) -> Self {
         Self {
             handle,
-            config,
+            config: RwLock::new(config),
             state: UpgradeLock::new(ModuleDataInner::new(now)),
             deps: Default::default(),
             rdeps: Default::default(),
@@ -179,7 +179,7 @@ impl ModuleDataMut {
         let state = state.read().clone();
         ModuleData {
             handle: handle.dupe(),
-            config: config.dupe(),
+            config: config.read().dupe(),
             state,
             deps,
             rdeps,
@@ -1066,8 +1066,36 @@ impl<'a> Transaction<'a> {
         // This is reasonable, because we will cache the result on ModuleData.
         self.data.state.config_finder.clear();
 
-        // Once we are storing ConfigFile values in ModuleData, we should only wipe our
-        // copy of that per-module resolved values.
+        // Wipe the copy of ConfigFile on each module that has changed.
+        // If they change, set find to dirty.
+        let mut dirty_set = self.data.dirty.lock();
+        for (handle, module_data) in self.data.updated_modules.iter_unordered() {
+            let config2 = self
+                .data
+                .state
+                .config_finder
+                .python_file(handle.module(), handle.path());
+            if config2 != *module_data.config.read() {
+                *module_data.config.write() = config2;
+                module_data.state.write(Step::Load).unwrap().dirty.find = true;
+                dirty_set.insert(module_data.dupe());
+            }
+        }
+        for (handle, module_data) in self.readable.modules.iter() {
+            if self.data.updated_modules.get(handle).is_none() {
+                let config2 = self
+                    .data
+                    .state
+                    .config_finder
+                    .python_file(handle.module(), handle.path());
+                if module_data.config != config2 {
+                    let module_data = self.get_module(handle);
+                    *module_data.config.write() = config2;
+                    module_data.state.write(Step::Load).unwrap().dirty.find = true;
+                    dirty_set.insert(module_data.dupe());
+                }
+            }
+        }
     }
 
     /// Called if the `load_from_memory` portion of loading might have changed.
