@@ -180,7 +180,6 @@ impl Definitions {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct DocString(Arc<String>);
 impl DocString {
     pub fn from_stmts(xs: &[Stmt]) -> Option<Self> {
@@ -192,6 +191,10 @@ impl DocString {
             }
             None
         })
+    }
+
+    pub fn as_string(&self) -> String {
+        self.0.to_string()
     }
 }
 

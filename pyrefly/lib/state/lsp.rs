@@ -18,6 +18,7 @@ use starlark_map::ordered_set::OrderedSet;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
+use crate::export::definitions::DocString;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::module::module_info::TextRangeWithModuleInfo;
@@ -193,22 +194,23 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    pub fn goto_definition(
+    /// Find the definition and optionally the docstring for the given position.
+    fn find_definition(
         &self,
         handle: &Handle,
         position: TextSize,
-    ) -> Option<TextRangeWithModuleInfo> {
+    ) -> Option<(TextRangeWithModuleInfo, Option<DocString>)> {
         if let Some(key) = self.definition_at(handle, position) {
             let (
                 handle,
                 Export {
                     location,
-                    docstring: _,
+                    docstring,
                 },
             ) = self.key_to_export(handle, &key, INITIAL_GAS)?;
-            return Some(TextRangeWithModuleInfo::new(
-                self.get_module_info(&handle)?,
-                location,
+            return Some((
+                TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
+                docstring,
             ));
         }
         if let Some(id) = self.identifier_at(handle, position) {
@@ -219,19 +221,19 @@ impl<'a> Transaction<'a> {
                 handle,
                 Export {
                     location,
-                    docstring: _,
+                    docstring,
                 },
             ) = self.key_to_export(handle, &Key::Usage(ShortIdentifier::new(&id)), INITIAL_GAS)?;
-            return Some(TextRangeWithModuleInfo::new(
-                self.get_module_info(&handle)?,
-                location,
+            return Some((
+                TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
+                docstring,
             ));
         }
         if let Some(m) = self.import_at(handle, position) {
             let handle = self.import_handle(handle, m, None).ok()?;
-            return Some(TextRangeWithModuleInfo::new(
-                self.get_module_info(&handle)?,
-                TextRange::default(),
+            return Some((
+                TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, TextRange::default()),
+                None,
             ));
         }
         let attribute = self.attribute_at(handle, position)?;
@@ -242,13 +244,26 @@ impl<'a> Transaction<'a> {
             let items = solver.completions(base_type.arc_clone(), false);
             items.into_iter().find_map(|x| {
                 if x.name == attribute.attr.id {
-                    Some(TextRangeWithModuleInfo::new(x.module?, x.range?))
+                    // TODO(kylei): attribute docstrings
+                    Some(((TextRangeWithModuleInfo::new(x.module?, x.range?)), None))
                 } else {
                     None
                 }
             })
         })
         .flatten()
+    }
+
+    pub fn goto_definition(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+    ) -> Option<TextRangeWithModuleInfo> {
+        self.find_definition(handle, position).map(|x| x.0)
+    }
+
+    pub fn docstring(&self, handle: &Handle, position: TextSize) -> Option<DocString> {
+        self.find_definition(handle, position).map(|x| x.1)?
     }
 
     pub fn completion(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {

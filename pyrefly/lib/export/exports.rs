@@ -36,7 +36,6 @@ pub trait LookupExport {
 #[derive(Debug, Clone)]
 pub struct Export {
     pub location: TextRange,
-    #[allow(dead_code)]
     pub docstring: Option<DocString>,
 }
 
