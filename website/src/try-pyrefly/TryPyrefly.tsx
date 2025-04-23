@@ -204,25 +204,14 @@ export default function TryPyrefly({
                 )}
                 {!isCodeSnippet && (
                     <div {...stylex.props(styles.buttonContainer)}>
-                        <MonacoEditorButton
-                            id="share-url-button"
-                            onClick={() => {
-                                const currentURL = window.location.href;
-                                return navigator.clipboard.writeText(
-                                    currentURL
-                                );
-                            }}
-                            defaultLabel="📋 Share URL"
-                            runningLabel="✓ URL Copied!" // we reuse the running label to indicate that the URL has been copied
-                            ariaLabel="share URL button"
-                        />
-                        <RunPythonButton
-                            model={model}
-                            onActiveTabChange={setActiveTab}
-                            isRunning={isRunning}
-                            setIsRunning={setIsRunning}
-                            setPythonOutput={setPythonOutput}
-                        />
+                        {getShareUrlButton()}
+                        {getRunPythonButton(
+                            model,
+                            setActiveTab,
+                            isRunning,
+                            setIsRunning,
+                            setPythonOutput
+                        )}
                     </div>
                 )}
             </div>
@@ -348,6 +337,40 @@ function getPyreflyEditor(
             />
         );
     }
+}
+
+// Monaco Editor Buttons
+function getShareUrlButton(): React.ReactElement {
+    return (
+        <MonacoEditorButton
+            id="share-url-button"
+            onClick={() => {
+                const currentURL = window.location.href;
+                return navigator.clipboard.writeText(currentURL);
+            }}
+            defaultLabel="📋 Share URL"
+            runningLabel="✓ URL Copied!" // we reuse the running label to indicate that the URL has been copied
+            ariaLabel="share URL button"
+        />
+    );
+}
+
+function getRunPythonButton(
+    model: editor.ITextModel,
+    setActiveTab: React.Dispatch<React.SetStateAction<string>>,
+    isRunning: boolean,
+    setIsRunning: React.Dispatch<React.SetStateAction<boolean>>,
+    setPythonOutput: React.Dispatch<React.SetStateAction<string>>
+): React.ReactElement {
+    return (
+        <RunPythonButton
+            model={model}
+            onActiveTabChange={setActiveTab}
+            isRunning={isRunning}
+            setIsRunning={setIsRunning}
+            setPythonOutput={setPythonOutput}
+        />
+    );
 }
 
 /**
