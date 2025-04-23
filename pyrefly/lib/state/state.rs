@@ -1035,18 +1035,17 @@ impl<'a> Transaction<'a> {
 
     /// Called if the `find` portion of loading might have changed.
     /// E.g. you have include paths, and a new file appeared earlier on the path.
-    pub fn invalidate_find(&mut self, loader: &LoaderId) {
-        if let Some(cache) = self.data.additional_loaders.get_mut(loader) {
+    pub fn invalidate_find(&mut self) {
+        for (loader, cache) in self.data.additional_loaders.iter_mut() {
             *cache = Arc::new(LoaderFindCache::new(loader.dupe()));
-        } else if self.readable.loaders.contains_key(loader) {
+        }
+        for loader in self.readable.loaders.keys() {
             self.data
                 .additional_loaders
                 .insert(loader.dupe(), Arc::new(LoaderFindCache::new(loader.dupe())));
         }
-        self.invalidate(
-            |handle| handle.loader() == loader,
-            |dirty| dirty.find = true,
-        );
+
+        self.invalidate(|_| true, |dirty| dirty.find = true);
     }
 
     /// The data returned by the ConfigFinder might have changed.

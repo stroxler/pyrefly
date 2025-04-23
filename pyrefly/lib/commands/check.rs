@@ -18,7 +18,6 @@ use anyhow::Context as _;
 use clap::Parser;
 use clap::ValueEnum;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -255,10 +254,6 @@ impl Handles {
             .collect()
     }
 
-    fn loaders(&self) -> Vec<LoaderId> {
-        self.loader_factory.values().duped().collect()
-    }
-
     fn error_configs(&self) -> ErrorConfigs {
         ErrorConfigs::new(self.module_to_error_config.clone())
     }
@@ -369,9 +364,7 @@ impl Args {
                 events.removed.iter().filter(|p| files_to_check.covers(p)),
                 state.config_finder(),
             );
-            for loader in handles.loaders() {
-                new_transaction_mut.invalidate_find(&loader);
-            }
+            new_transaction_mut.invalidate_find();
         }
     }
 
