@@ -836,9 +836,9 @@ impl Server {
         let t = transaction.get_type_at(&handle, range)?;
         let docstring = transaction.docstring(&handle, range);
         let value = match docstring {
-            None => format!(r#"```python\n{}\n```"#, t),
+            None => format!("```python\n{}\n```", t),
             Some(docstring) => format!(
-                r#"```python\n{}\n```\n---\n{}"#,
+                "```python\n{}\n```\n---\n{}",
                 t,
                 docstring.as_string().trim()
             ),

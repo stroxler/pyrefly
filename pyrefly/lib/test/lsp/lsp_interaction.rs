@@ -397,6 +397,46 @@ fn test_go_to_def_no_folder_capability() {
 }
 
 #[test]
+fn test_hover() {
+    let mut test_messages = get_initialize_messages(None, false);
+    let mut expected_responses = get_initialize_responses();
+    let root = get_test_files_root();
+
+    test_messages.push(Message::from(build_did_open_notification(
+        root.join("foo.py"),
+    )));
+
+    test_messages.push(Message::from(Request {
+        id: RequestId::from(2),
+        method: "textDocument/hover".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(root.join("foo.py")).unwrap().to_string()
+            },
+            "position": {
+                "line": 5,
+                "character": 16
+            }
+        }),
+    }));
+
+    expected_responses.push(Message::Response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({"contents": {
+            "kind": "markdown",
+            "value": "```python\nError\n```",
+        }})),
+        error: None,
+    }));
+
+    run_test_lsp(TestCase {
+        messages_from_language_client: test_messages,
+        expected_messages_from_language_server: expected_responses,
+        search_path: Vec::new(),
+    });
+}
+
+#[test]
 fn test_did_change_configuration() {
     let scope_uri = Url::from_file_path(get_test_files_root()).unwrap();
     let mut messages_from_language_client =
