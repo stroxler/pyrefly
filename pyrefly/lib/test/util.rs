@@ -191,7 +191,7 @@ impl TestEnv {
             .rev()
             .map(|(x, (path, _))| Handle::new(*x, path.clone(), config.dupe(), loader.dupe()))
             .collect::<Vec<_>>();
-        let state = State::new(Some(self.config_finder()));
+        let state = State::new(self.config_finder());
         let subscriber = TestSubscriber::new();
         let mut transaction =
             state.new_committable_transaction(Require::Exports, Some(Box::new(subscriber.dupe())));

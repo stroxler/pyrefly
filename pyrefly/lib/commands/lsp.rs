@@ -535,7 +535,7 @@ impl Server {
             send,
             immediately_handled_events: Default::default(),
             initialize_params,
-            state: Arc::new(State::new(Some(config_finder))),
+            state: Arc::new(State::new(config_finder)),
             open_files: RwLock::new(HashMap::new()),
             workspaces,
             search_path,

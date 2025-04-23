@@ -1033,11 +1033,10 @@ impl<'a> Transaction<'a> {
 
     /// The data returned by the ConfigFinder might have changed.
     pub fn invalidate_config(&mut self) {
-        if let Some(config_finder) = &self.data.state.config_finder {
-            // We clear the global config cache, rather than making a dedicated copy.
-            // This is reasonable, because we will cache the result on ModuleData.
-            config_finder.clear();
-        }
+        // We clear the global config cache, rather than making a dedicated copy.
+        // This is reasonable, because we will cache the result on ModuleData.
+        self.data.state.config_finder.clear();
+
         // Once we are storing ConfigFile values in ModuleData, we should only wipe our
         // copy of that per-module resolved values.
     }
@@ -1252,13 +1251,13 @@ impl<'a> AsMut<Transaction<'a>> for CommittingTransaction<'a> {
 pub struct State {
     threads: ThreadPool,
     uniques: UniqueFactory,
-    config_finder: Option<ConfigFinder>,
+    config_finder: ConfigFinder,
     state: RwLock<StateInner>,
     committing_transaction_lock: Mutex<()>,
 }
 
 impl State {
-    pub fn new(config_finder: Option<ConfigFinder>) -> Self {
+    pub fn new(config_finder: ConfigFinder) -> Self {
         Self {
             threads: ThreadPool::new(),
             uniques: UniqueFactory::new(),
@@ -1268,8 +1267,8 @@ impl State {
         }
     }
 
-    pub fn config_finder(&self) -> Option<&ConfigFinder> {
-        self.config_finder.as_ref()
+    pub fn config_finder(&self) -> &ConfigFinder {
+        &self.config_finder
     }
 
     pub fn new_transaction<'a>(

@@ -122,7 +122,7 @@ impl Playground {
         config.configure();
         let config = ArcId::new(config);
 
-        let state = State::new(Some(ConfigFinder::new_constant(config.dupe())));
+        let state = State::new(ConfigFinder::new_constant(config.dupe()));
         let handle = Handle::new(
             ModuleName::from_str("test"),
             ModulePath::memory(PathBuf::from("test.py")),

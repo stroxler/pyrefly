@@ -54,7 +54,7 @@ else:
         "main",
         "import lib; x: str = lib.value  # E: `Literal[42]` is not assignable to `str`",
     );
-    let state = State::new(Some(test_env.config_finder()));
+    let state = State::new(test_env.config_finder());
     let loader = test_env.loader();
 
     let f = |name: &str, config: &RuntimeMetadata| {
@@ -111,7 +111,7 @@ fn test_multiple_path() {
 
     let runtime = RuntimeMetadata::default();
 
-    let state = State::new(Some(ConfigFinder::new_constant(config)));
+    let state = State::new(ConfigFinder::new_constant(config));
     let handles = FILES.map(|(name, path, _)| {
         Handle::new(
             ModuleName::from_str(name),
@@ -169,7 +169,7 @@ impl Incremental {
         Self {
             data: data.dupe(),
             loader: LoaderId::new_arc_id(config.dupe()),
-            state: State::new(Some(ConfigFinder::new_constant(config))),
+            state: State::new(ConfigFinder::new_constant(config)),
             to_set: Vec::new(),
         }
     }
@@ -371,7 +371,7 @@ class C[R]:
 #[test]
 fn test_change_require() {
     let t = TestEnv::one("foo", "x: str = 1");
-    let state = State::new(Some(t.config_finder()));
+    let state = State::new(t.config_finder());
     let handle = Handle::new(
         ModuleName::from_str("foo"),
         ModulePath::memory(PathBuf::from("foo")),
