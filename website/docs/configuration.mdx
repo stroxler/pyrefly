@@ -139,95 +139,80 @@ determine how to import it.
   - We automatically append `"."` (the directory containing the
     configuration file) to the `search_roots` when type checking as a sensible
     default and last attempt at an import.
-- `site_package_path`: a file path describing a root from which imports should
-  be found and imported from. This takes the lowest priority in import
-  resolution, after `project_includes`, `typeshed`, and `search_roots`.
-  - Type: list of directories
-  - Default: result from [Environment Autoconfiguration](#environment-autoconfiguration) or `[]`
-  - Flag equivalent: `--site-package-path`
-  - ENV equivalent: `PYREFLY_SITE_PACKAGE_PATH`
-  - Equivalent configs: none
-- `python_platform`: the value used with conditions based on type checking
-  against
-  [`sys.platform`](https://docs.python.org/3/library/sys.html#sys.platform)
-  values.
-  - Type: string
-  - Default: result from [Environment Autoconfiguration](#environment-autoconfiguration) or "linux"
-  - Flag equivalent: `--python-platform`
-  - ENV equivalent: `PYREFLY_PYTHON_PLATFORM`
-  - Equivalent configs: `pythonPlatform` in Pyright, `platform` in mypy
-- `python_version`: the value used with conditions based on type checking
-  against
-  [`sys.version`](https://docs.python.org/3/library/sys.html#sys.version)
-  values. The format should be `<major>[.<minor>[.<micro>]]`, where minor and
-  micro can be omitted to take the default positional value.
-  - Type: string
-  - Default: result from [Environment Autoconfiguration](#environment-autoconfiguration) or `3.13.0`
-  - Flag equivalent: `--python-version`
-  - ENV equivalent: `PYREFLY_PYTHON_VERSION`
-  - Equivalent configs: `pythonVersion` in Pyright, `python_version` in mypy
-- `python_interpreter`: the Python interpreter to query when attempting to autoconfigure
-  Python environment values (`site_package_path`, `python_platform`, `python_version`).
-  See the [Environment Autoconfiguration section](#environment-autoconfiguration) for more information.
-  - Type: string of executable or path to executable
-  - Default: `python3`
-  - Flag equivalent: `--python-interpreter`
-  - ENV equivalent: `PYREFLY_PYTHON_INTERPRETER`
-  - Equivalent configs: `python_executable` in mypy
-  - Notes:
-    - This executes the value present in the `python_interpreter` field without any checks. It could
-      be a security risk if your `python_interpreter` executes an arbitrary executable.
-    - If you are working on a project shared between multiple people, it is likely best not to use this
-      option, since there might be different Python interpreter versions used on different systems. Instead,
-      we recommend explicitly setting `python_version`, `python_platform`, and `site_package_path`, or using
-      alternative methods of environment autoconfiguration (coming soon).
-- `errors`: configure (enable and disable) the errors Pyrefly shows
-  - Type: Table of error code name to boolean representing enabled status
-  - Default: `errors = {}`
-  - Flag equivalent: none
-  - ENV equivalent: none
-  - Equivalent configs:
-    [type check rule overrides](https://microsoft.github.io/pyright/#/configuration?id=type-check-rule-overrides)
-    and [type evaluation settings](https://microsoft.github.io/pyright/#/configuration?id=type-evaluation-settings)
-    in Pyright,
-    [`enable_error_code`](https://mypy.readthedocs.io/en/stable/config_file.html#confval-enable_error_code) and
-    [`disable_error_code`](https://mypy.readthedocs.io/en/stable/config_file.html#confval-disable_error_code)
-    in mypy
-  - Notes: setting `<error-code> = true` is the same as having no error code configuration present, which means
-    the error will be shown. Setting `<error-code> = false` will disable the error for type checking.
-- `replace_imports_with_any`: [`ModuleGlob`](#module-globbing)s of modules from which import errors should be
-  ignored, and the module should be replaced with `typing.Any`. For example, with
-  `from x.y import z` in a file, adding `x.*`, `*.y`, or `x.y` to this config will
-  silence those import errors and replace the module with `typing.Any`. If the module can be found, its type
-  information will still be replaced with `typing.Any`.
-  - Type: list of regex
-  - Default: `[]`
-  - Flag equivalent: none
-  - ENV equivalent: none
-  - Equivalent configs: `ignore_missing_imports` in mypy
-  - Notes:
-    - `errors = {import-error = false}` (TOML inline table for `errors`) has similar behavior in Pyrefly, but ignores
-      *all* import errors instead of import errors from specific modules, and won't replace findable modules with `typing.Any`.
-- `ignore_errors_in_generated_code`: whether to ignore type errors in generated code. If enabled, generated files
-  will be treated as if they are included in `project_excludes`.
-  Generated code are determined by checking if the file contents contain the substring `{'@' + 'generated'}`.
-  - Type: bool
-  - Default: false
-  - Flag equivalent: `--ignore-errors-in-generated-code`
-  - ENV equivalent: `IGNORE_ERRORS_IN_GENERATED_CODE`
-  - Equivalent configs: none
-- `use_untyped_imports`: whether to search imports in `site_package_path` that do not have a `py.typed` unconditionally.
-  - Type: bool
-  - Default: false
-  - Flag equivalent: none
-  - ENV equivalent: `PYREFLY_USE_UNTYPED_IMPORTS`
-  - Equivalent configs: `useLibraryCodeForTypes` in Pyright, `follow_untyped_imports` in mypy
-  - Notes: if a `<library>-stubs` package exists in `site_package_path`, we will search that first. If an import can't be
-    found, we only fall back to a regular `<library>` package if no relevant `-stubs` package exists, or any package contains a
-    `py.typed` file with `partial\n` in accordance with
-    [the typing spec](https://typing.python.org/en/latest/spec/distributing.html#partial-stub-packages). For all non-`-stubs`
-    packages, a `py.typed` file is required to use the types, unless a `-stubs` package specifies partial, or
-    `use_untyped_imports` is true.
+  - Libraries should not be listed here, since they may override `typeshed`
+    values for your whole project, and have different import semantics with
+    respect to typing. See
+    [Import Resolution](./import-resolution.mdx)
+    for more information about how modules are imported.
+
+## `site_package_path`
+
+A file path describing a root from which imports should
+be found and imported from. This takes the lowest priority in import
+resolution, after [`search_path`](#search_path) and `typeshed`.
+
+`site_package_path` entries have special rules around when they can be imported,
+according to the typing specification. See
+Site Package Path Typing Rules
+for more information, and [`use_untyped_imports`](#use_untyped_imports) and
+[`ignore_missing_source`](#ignore_missing_source) for details on how to configure
+that behavior.
+
+- Type: list of directories
+- Default: result from [Environment Autoconfiguration](#environment-autoconfiguration), or
+  `[]` if the Python interpreter cannot be queried
+- Flag equivalent: `--site-package-path`
+- ENV equivalent: `PYREFLY_SITE_PACKAGE_PATH`
+- Equivalent configs: none
+
+NOTE: Ideally, this should not be set manually, unless you're using a venv, running one-off tests,
+testing specific behavior, or having trouble with [Environment Autoconfiguration](#environment-autoconfiguration).
+Setting this explicitly, especially when not using a venv, will make it difficult for your configuration
+to be reused between different systems and platforms.
+
+## `python_platform`
+
+The value used with conditions based on type checking
+against
+[`sys.platform`](https://docs.python.org/3/library/sys.html#sys.platform)
+values.
+
+- Type: string
+- Default: result from [Environment Autoconfiguration](#environment-autoconfiguration), or
+  "linux" if the Python interpreter cannot be queried
+- Flag equivalent: `--python-platform`
+- ENV equivalent: `PYREFLY_PYTHON_PLATFORM`
+- Equivalent configs: `pythonPlatform` in Pyright, `platform` in mypy
+
+## `python_version`
+
+The value used with conditions based on type checking
+against
+[`sys.version`](https://docs.python.org/3/library/sys.html#sys.version)
+values. The format should be `<major>[.<minor>[.<micro>]]`, where minor and
+micro can be omitted to take the default positional value.
+
+- Type: string of the format `<major>[.<minor>[.<micro>]]`
+- Default: result from [Environment Autoconfiguration](#environment-autoconfiguration), or
+  `3.13.0` if the Python interpreter cannot be queried
+- Flag equivalent: `--python-version`
+- ENV equivalent: `PYREFLY_PYTHON_VERSION`
+- Equivalent configs: `pythonVersion` in Pyright, `python_version` in mypy
+
+## `python_interpreter`
+
+The Python interpreter to query when attempting to autoconfigure
+Python environment values (`site_package_path`, `python_platform`, `python_version`).
+See the [Environment Autoconfiguration section](#environment-autoconfiguration) for more information.
+
+- Type: path to executable
+- Default: `$(which python3)`, then `$(which python)`, or none
+- Flag equivalent: `--python-interpreter`
+- ENV equivalent: `PYREFLY_PYTHON_INTERPRETER`
+- Equivalent configs: `python_executable` in mypy
+- Notes:
+  - This executes the value present in the `python_interpreter` field without any checks. It could
+    be a security risk if your `python_interpreter` is an arbitrary executable.
 
 
 ## Environment Autoconfiguration
