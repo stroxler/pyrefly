@@ -223,3 +223,20 @@ class A:
 reveal_type(A.f.fset)  # E: revealed type: ((Any, Any) -> None) | None
     "#,
 );
+
+testcase!(
+    test_builtin_descriptors_on_awaitable_func,
+    r#"
+from typing import assert_type, Coroutine, Any
+class A:
+    async def f(self) -> int: return 0
+    @classmethod
+    async def g(cls) -> int: return 0
+    @staticmethod
+    async def h() -> int: return 0
+def f(a: A):
+    assert_type(a.f(), Coroutine[Any, Any, int])
+    assert_type(A.g(), Coroutine[Any, Any, int])
+    assert_type(A.h(), Coroutine[Any, Any, int])
+    "#,
+);
