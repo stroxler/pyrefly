@@ -18,6 +18,16 @@
 # Fail if we have any errors
 set -e
 
+# Check for --internal-docs flag
+INTERNAL_DOCS=false
+for arg in "$@"; do
+  if [ "$arg" == "--internal-docs" ]; then
+    echo "true"
+    INTERNAL_DOCS=true
+    break
+  fi
+done
+
 # Change to `pyrefly` directory
 cd -- "$(dirname -- "$0")/.."
 
@@ -26,4 +36,10 @@ echo "copying wasm files from pyrefly_wasm/ to website/"
 cp ../pyrefly_wasm/target/pyrefly_wasm.js src/try-pyrefly/pyrefly_wasm.js
 cp ../pyrefly_wasm/target/pyrefly_wasm_bg.wasm.opt src/try-pyrefly/pyrefly_wasm_bg.wasm
 echo "finished copying wasm files"
-yarn start --port 3000
+# Run yarn start with appropriate environment variables
+if [ "$INTERNAL_DOCS" = true ]; then
+  echo "Starting with internal documentation enabled"
+  yarn start-internal-docs --port 3000
+else
+  yarn start --port 3000
+fi

@@ -10,22 +10,26 @@ The website is a combination of static content (built using
 Install dependencies:
 
 ```bash
-scripts/install.sh
+yarn install-with-wasm-deps
 ```
 
+This builds the wasm dependencies and installs the yarn dependencies.
 If you are running into issues with compiling zstd on your mac when running `build.sh` or `start.sh`, you'll need to install
 clang following the instructions here: https://github.com/briansmith/ring/issues/1824.
 
 ### Running the Website
 
-Compile it:
+**Running the External Site**
 
 ```bash
-./scripts/start.sh
+yarn start-with-wasm
 ```
 
-This would automatically perform the wasm pack and start the server. Make sure to use `scripts/start.sh` instead of `yarn start`
-to avoid running into issues with a missing wasm file.
+If you don't need to rebuild the wasm, you can use the following command instead:
+
+```bash
+yarn start
+```
 
 To see the website, go to the following URI in your browser:
 
@@ -35,10 +39,16 @@ localhost:3000
 
 Most changes are reflected live without having to restart the server.
 
-### For Meta Employees
+**Running the Internal Docs Site (for Meta Employees)**
 
 If you want to run the static docs website, run the following command:
 
+```bash
+yarn start-internal-docs
 ```
-./static_docs_build_script
+
+Similar to above, if you don't need to rebuild the wasm, you can use the following command instead:
+
+```bash
+yarn start-internal-docs-with-wasm
 ```
