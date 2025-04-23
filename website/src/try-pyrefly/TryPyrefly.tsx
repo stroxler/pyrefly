@@ -204,7 +204,6 @@ export default function TryPyrefly({
                 )}
                 {!isCodeSnippet && (
                     <div {...stylex.props(styles.buttonContainer)}>
-                        {getShareUrlButton()}
                         {getRunPythonButton(
                             model,
                             setActiveTab,
@@ -212,6 +211,7 @@ export default function TryPyrefly({
                             setIsRunning,
                             setPythonOutput
                         )}
+                        {getShareUrlButton()}
                     </div>
                 )}
             </div>
@@ -407,7 +407,7 @@ const styles = stylex.create({
     buttonContainer: {
         position: 'absolute',
         display: 'flex',
-        flexDirection: 'row-reverse', // Buttons start from right and go left
+        flexDirection: 'row', // Buttons start from left and go right
         zIndex: 1000,
         // Mobile styles (max-width: 768px)
         '@media (max-width: 768px)': {

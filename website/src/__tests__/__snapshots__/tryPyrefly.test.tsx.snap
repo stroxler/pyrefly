@@ -42,19 +42,19 @@ reveal_type(test(42))
       </div>
       <div>
         <button
-          aria-label="share URL button"
-          id="share-url-button"
-        >
-          <span>
-            📋 Share URL
-          </span>
-        </button>
-        <button
           aria-label="run Python code button"
           id="run-python-button"
         >
           <span>
             ▶️ Run
+          </span>
+        </button>
+        <button
+          aria-label="share URL button"
+          id="share-url-button"
+        >
+          <span>
+            📋 Share URL
           </span>
         </button>
       </div>
