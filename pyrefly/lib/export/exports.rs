@@ -19,6 +19,7 @@ use starlark_map::small_set::SmallSet;
 
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
+use crate::export::definitions::DocString;
 use crate::export::definitions::DunderAllEntry;
 use crate::graph::calculation::Calculation;
 use crate::metadata::RuntimeMetadata;
@@ -32,11 +33,18 @@ pub trait LookupExport {
     fn get(&self, module: ModuleName) -> Result<Exports, FindError>;
 }
 
+#[derive(Debug, Clone)]
+pub struct Export {
+    pub location: TextRange,
+    #[allow(dead_code)]
+    pub docstring: Option<DocString>,
+}
+
 /// Where is this export defined?
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum ExportLocation {
     // This export is defined in this module.
-    ThisModule(TextRange),
+    ThisModule(Export),
     // Exported from another module. Module optional in case
     // we could not find it.
     OtherModule(ModuleName),
@@ -116,20 +124,20 @@ impl Exports {
         let f = || {
             let mut result: SmallMap<Name, ExportLocation> = SmallMap::new();
             for (name, definition) in self.0.definitions.definitions.iter_hashed() {
-                let location = match definition.style {
+                let export = match definition.style {
                     DefinitionStyle::Local
                     | DefinitionStyle::Nonlocal
                     | DefinitionStyle::Global
                     // If the import is invalid, the final location is this module.
                     | DefinitionStyle::ImportInvalidRelative => {
-                        ExportLocation::ThisModule(definition.range)
+                        ExportLocation::ThisModule(Export {location: definition.range, docstring: definition.docstring.clone() })
                     }
                     DefinitionStyle::ImportAs(from)
                     | DefinitionStyle::ImportAsEq(from)
                     | DefinitionStyle::Import(from)
                     | DefinitionStyle::ImportModule(from) => ExportLocation::OtherModule(from),
                 };
-                result.insert_hashed(name.cloned(), location);
+                result.insert_hashed(name.cloned(), export);
             }
             for m in self.0.definitions.import_all.keys() {
                 if let Ok(exports) = lookup.get(*m) {

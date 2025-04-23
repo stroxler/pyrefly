@@ -6,6 +6,7 @@
  */
 
 use std::cmp;
+use std::sync::Arc;
 
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
@@ -62,6 +63,9 @@ pub struct Definition {
     pub annot: Option<ShortIdentifier>,
     /// The number is the distinct times this variable was defined.
     pub count: usize,
+    /// If the first statement in a definition (class, function) is a string literal, PEP 257 convention
+    /// states that is is the docstring.
+    pub docstring: Option<DocString>,
 }
 
 /// Find the definitions available in a scope. Does not traverse inside classes/functions,
@@ -175,6 +179,22 @@ impl Definitions {
     }
 }
 
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct DocString(Arc<String>);
+impl DocString {
+    pub fn from_stmts(xs: &[Stmt]) -> Option<Self> {
+        xs.first().and_then(|stmt| {
+            if let Stmt::Expr(expr_stmt) = stmt {
+                if let ruff_python_ast::Expr::StringLiteral(string_lit) = &*expr_stmt.value {
+                    return Some(DocString(Arc::new(string_lit.value.to_string())));
+                }
+            }
+            None
+        })
+    }
+}
+
 impl<'a> DefinitionsBuilder<'a> {
     fn stmts(&mut self, xs: &[Stmt]) {
         for x in xs {
@@ -182,12 +202,13 @@ impl<'a> DefinitionsBuilder<'a> {
         }
     }
 
-    fn add_name(
+    fn add_name_with_body(
         &mut self,
         x: &Name,
         range: TextRange,
         style: DefinitionStyle,
         annot: Option<ShortIdentifier>,
+        body: Option<&[Stmt]>,
     ) {
         match self.inner.definitions.entry(x.clone()) {
             Entry::Occupied(mut e) => {
@@ -203,13 +224,33 @@ impl<'a> DefinitionsBuilder<'a> {
                     style,
                     annot,
                     count: 1,
+                    docstring: body.map(DocString::from_stmts).flatten(),
                 });
             }
         }
     }
 
+    fn add_name(
+        &mut self,
+        x: &Name,
+        range: TextRange,
+        style: DefinitionStyle,
+        annot: Option<ShortIdentifier>,
+    ) {
+        self.add_name_with_body(x, range, style, annot, None)
+    }
+
     fn add_identifier(&mut self, x: &Identifier, style: DefinitionStyle) {
         self.add_name(&x.id, x.range, style, None);
+    }
+
+    fn add_identifier_with_body(
+        &mut self,
+        x: &Identifier,
+        style: DefinitionStyle,
+        body: Option<&[Stmt]>,
+    ) {
+        self.add_name_with_body(&x.id, x.range, style, None, body);
     }
 
     fn expr_lvalue(&mut self, x: &Expr) {
@@ -280,7 +321,7 @@ impl<'a> DefinitionsBuilder<'a> {
                 }
             }
             Stmt::ClassDef(x) => {
-                self.add_identifier(&x.name, DefinitionStyle::Local);
+                self.add_identifier_with_body(&x.name, DefinitionStyle::Local, Some(&x.body));
                 return; // These things are inside a scope
             }
             Stmt::Nonlocal(x) => {
@@ -359,7 +400,7 @@ impl<'a> DefinitionsBuilder<'a> {
             },
             Stmt::TypeAlias(x) if matches!(&*x.name, Expr::Name(_)) => self.expr_lvalue(&x.name),
             Stmt::FunctionDef(x) => {
-                self.add_identifier(&x.name, DefinitionStyle::Local);
+                self.add_identifier_with_body(&x.name, DefinitionStyle::Local, Some(&x.body));
                 return; // don't recurse because a separate scope
             }
             Stmt::For(x) => self.expr_lvalue(&x.target),

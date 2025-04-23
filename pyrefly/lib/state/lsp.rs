@@ -18,6 +18,7 @@ use starlark_map::ordered_set::OrderedSet;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
+use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::module::module_name::ModuleName;
@@ -115,50 +116,57 @@ impl<'a> Transaction<'a> {
         self.get_type_trace(handle, attribute.range)
     }
 
-    fn key_to_definition(
-        &self,
-        handle: &Handle,
-        key: &Key,
-        gas: Gas,
-    ) -> Option<(Handle, TextRange)> {
+    fn key_to_export(&self, handle: &Handle, key: &Key, gas: Gas) -> Option<(Handle, Export)> {
         let bindings = self.get_bindings(handle)?;
         let idx = bindings.key_to_idx(key);
-        let res = self.binding_to_definition(handle, bindings.get(idx), gas);
+        let res = self.binding_to_export(handle, bindings.get(idx), gas);
         if res.is_none()
             && let Key::Definition(x) = key
         {
-            return Some((handle.dupe(), x.range()));
+            return Some((
+                handle.dupe(),
+                Export {
+                    location: x.range(),
+                    docstring: None,
+                },
+            ));
         }
         if res.is_none()
             && let Key::Anywhere(_, range) = key
         {
-            return Some((handle.dupe(), *range));
+            return Some((
+                handle.dupe(),
+                Export {
+                    location: *range,
+                    docstring: None,
+                },
+            ));
         }
         res
     }
 
-    fn binding_to_definition(
+    fn binding_to_export(
         &self,
         handle: &Handle,
         binding: &Binding,
         mut gas: Gas,
-    ) -> Option<(Handle, TextRange)> {
+    ) -> Option<(Handle, Export)> {
         if gas.stop() {
             return None;
         }
         let bindings = self.get_bindings(handle)?;
         match binding {
-            Binding::Forward(k) => self.key_to_definition(handle, bindings.idx_to_key(*k), gas),
-            Binding::Default(_, m) => self.binding_to_definition(handle, m, gas),
+            Binding::Forward(k) => self.key_to_export(handle, bindings.idx_to_key(*k), gas),
+            Binding::Default(_, m) => self.binding_to_export(handle, m, gas),
             Binding::Phi(ks) if !ks.is_empty() => {
-                self.key_to_definition(handle, bindings.idx_to_key(*ks.iter().next().unwrap()), gas)
+                self.key_to_export(handle, bindings.idx_to_key(*ks.iter().next().unwrap()), gas)
             }
             Binding::Import(mut m, name) => {
                 while !gas.stop() {
                     let handle = self.import_handle(handle, m, None).ok()?;
                     match self.get_exports(&handle).get(name) {
-                        Some(ExportLocation::ThisModule(range)) => {
-                            return Some((handle.clone(), *range));
+                        Some(ExportLocation::ThisModule(export)) => {
+                            return Some((handle.clone(), export.clone()));
                         }
                         Some(ExportLocation::OtherModule(module)) => m = *module,
                         None => return None,
@@ -166,13 +174,20 @@ impl<'a> Transaction<'a> {
                 }
                 None
             }
-            Binding::Module(name, _, _) => Some((
-                self.import_handle(handle, *name, None).ok()?,
-                TextRange::default(),
-            )),
+            Binding::Module(name, _, _) => {
+                let handle = self.import_handle(handle, *name, None).ok()?;
+                self.get_exports(&handle);
+                Some((
+                    handle,
+                    Export {
+                        location: TextRange::default(),
+                        docstring: None,
+                    },
+                ))
+            }
             Binding::CheckLegacyTypeParam(k, _) => {
                 let binding = bindings.get(*k);
-                self.key_to_definition(handle, bindings.idx_to_key(binding.0), gas)
+                self.key_to_export(handle, bindings.idx_to_key(binding.0), gas)
             }
             _ => None,
         }
@@ -184,24 +199,32 @@ impl<'a> Transaction<'a> {
         position: TextSize,
     ) -> Option<TextRangeWithModuleInfo> {
         if let Some(key) = self.definition_at(handle, position) {
-            let (handle, range) = self.key_to_definition(handle, &key, INITIAL_GAS)?;
+            let (
+                handle,
+                Export {
+                    location,
+                    docstring: _,
+                },
+            ) = self.key_to_export(handle, &key, INITIAL_GAS)?;
             return Some(TextRangeWithModuleInfo::new(
                 self.get_module_info(&handle)?,
-                range,
+                location,
             ));
         }
         if let Some(id) = self.identifier_at(handle, position) {
             if !self.get_bindings(handle)?.is_valid_usage(&id) {
                 return None;
             }
-            let (handle, range) = self.key_to_definition(
+            let (
                 handle,
-                &Key::Usage(ShortIdentifier::new(&id)),
-                INITIAL_GAS,
-            )?;
+                Export {
+                    location,
+                    docstring: _,
+                },
+            ) = self.key_to_export(handle, &Key::Usage(ShortIdentifier::new(&id)), INITIAL_GAS)?;
             return Some(TextRangeWithModuleInfo::new(
                 self.get_module_info(&handle)?,
-                range,
+                location,
             ));
         }
         if let Some(m) = self.import_at(handle, position) {
