@@ -12,8 +12,6 @@ that an error is related to. Every error has exactly one kind.
 The main use of error kinds is as short names ("slugs") that can be used in
 error suppression comments.
 
-placeholder for error kinds
-
 ## annotation-mismatch
 
 This error indicates a mismatch between multiple annotations for a single
@@ -185,14 +183,9 @@ Attempting to specialize a generic class with incorrect type arguments. e.g.
 An error caused by unpacking. e.g. attempting to unpack an iterable into the
 wrong number of variables.
 
-## match-error
+## delete-error
 
-An error caused by a bad match statement. e.g. Writing a Foo(x, y, z) pattern
-when Foo only matches on (x, y).
-
-## missing-attribute
-
-Attempting to access an attribute that does not exist.
+Attempting to `del` something that cannot be deleted.
 
 ## import-error
 
@@ -238,6 +231,10 @@ An error related to ParamSpec definition or usage.
 Attempting to call `super()` in a way that is not allowed. e.g. calling
 `super(Y, x)` on an object `x` that does not match the class `Y`.
 
+## invalid-syntax
+
+Incorrect Python syntax, construct is not allowed in this position.
+
 ## invalid-type-var
 
 An error caused by incorrect usage or definition of a TypeVar.
@@ -251,10 +248,19 @@ An error caused by incorrect usage or definition of a TypeVarTuple.
 Attempting to use `yield` in a way that is not allowed. e.g. `yield from` with
 something that's not an iterable.
 
+## match-error
+
+An error caused by a bad match statement. e.g. Writing a Foo(x, y, z) pattern
+when Foo only matches on (x, y).
+
 ## missing-argument
 
 An error caused by calling a function without all the required arguments. Should
 be used when we can name the specific arguments that are missing.
+
+## missing-attribute
+
+Attempting to access an attribute that does not exist.
 
 ## missing-module-attribute
 
@@ -301,6 +307,10 @@ An error related to type alias usage or definition.
 
 An error related to TypedDict keys. e.g. attempting to access a TypedDict with a
 key that does not exist.
+
+## unbound-name
+
+Attempting to use a name that may be unbound or uninitialized.
 
 ## unexpected-keyword
 
