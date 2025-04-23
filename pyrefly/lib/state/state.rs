@@ -50,6 +50,7 @@ use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
 use crate::binding::table::TableKeyed;
+use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
 use crate::error::kind::ErrorKind;
 use crate::export::definitions::DocString;
@@ -101,6 +102,7 @@ use crate::util::upgrade_lock::UpgradeLockWriteGuard;
 #[derive(Debug)]
 struct ModuleData {
     handle: Handle,
+    config: ArcId<ConfigFile>,
     state: ModuleDataInner,
     deps: HashMap<ModuleName, Handle, BuildNoHash>,
     rdeps: HashSet<Handle>,
@@ -109,6 +111,7 @@ struct ModuleData {
 #[derive(Debug)]
 struct ModuleDataMut {
     handle: Handle,
+    config: ArcId<ConfigFile>,
     state: UpgradeLock<Step, ModuleDataInner>,
     deps: RwLock<HashMap<ModuleName, Handle, BuildNoHash>>,
     /// The reverse dependencies of this module. This is used to invalidate on change.
@@ -142,6 +145,7 @@ impl ModuleData {
     fn clone_for_mutation(&self) -> ModuleDataMut {
         ModuleDataMut {
             handle: self.handle.dupe(),
+            config: self.config.dupe(),
             state: UpgradeLock::new(self.state.clone()),
             deps: RwLock::new(self.deps.clone()),
             rdeps: Mutex::new(self.rdeps.clone()),
@@ -150,9 +154,10 @@ impl ModuleData {
 }
 
 impl ModuleDataMut {
-    fn new(handle: Handle, now: Epoch) -> Self {
+    fn new(handle: Handle, config: ArcId<ConfigFile>, now: Epoch) -> Self {
         Self {
             handle,
+            config,
             state: UpgradeLock::new(ModuleDataInner::new(now)),
             deps: Default::default(),
             rdeps: Default::default(),
@@ -164,6 +169,7 @@ impl ModuleDataMut {
     fn take_and_freeze(&self) -> ModuleData {
         let ModuleDataMut {
             handle,
+            config,
             state,
             deps,
             rdeps,
@@ -173,6 +179,7 @@ impl ModuleDataMut {
         let state = state.read().clone();
         ModuleData {
             handle: handle.dupe(),
+            config: config.dupe(),
             state,
             deps,
             rdeps,
@@ -677,7 +684,12 @@ impl<'a> Transaction<'a> {
                 if let Some(m) = self.readable.modules.get(handle) {
                     ArcId::new(m.clone_for_mutation())
                 } else {
-                    let res = ArcId::new(ModuleDataMut::new(handle.dupe(), self.data.now));
+                    let config = self
+                        .data
+                        .state
+                        .config_finder
+                        .python_file(handle.module(), handle.path());
+                    let res = ArcId::new(ModuleDataMut::new(handle.dupe(), config, self.data.now));
                     created = Some(res.dupe());
                     res
                 }
