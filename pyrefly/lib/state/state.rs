@@ -1024,6 +1024,17 @@ impl<'a> Transaction<'a> {
         Some(result)
     }
 
+    fn invalidate(&mut self, pred: impl Fn(&Handle) -> bool, dirty: impl Fn(&mut Dirty)) {
+        let mut dirty_set = self.data.dirty.lock();
+        for handle in self.readable.modules.keys() {
+            if pred(handle) {
+                let module_data = self.get_module(handle);
+                dirty(&mut module_data.state.write(Step::Load).unwrap().dirty);
+                dirty_set.insert(module_data.dupe());
+            }
+        }
+    }
+
     /// Called if the `find` portion of loading might have changed.
     /// E.g. you have include paths, and a new file appeared earlier on the path.
     pub fn invalidate_find(&mut self, loader: &LoaderId) {
@@ -1034,14 +1045,10 @@ impl<'a> Transaction<'a> {
                 .additional_loaders
                 .insert(loader.dupe(), Arc::new(LoaderFindCache::new(loader.dupe())));
         }
-        let mut dirty_set = self.data.dirty.lock();
-        for handle in self.readable.modules.keys() {
-            if handle.loader() == loader {
-                let module_data = self.get_module(handle);
-                module_data.state.write(Step::Load).unwrap().dirty.find = true;
-                dirty_set.insert(module_data.dupe());
-            }
-        }
+        self.invalidate(
+            |handle| handle.loader() == loader,
+            |dirty| dirty.find = true,
+        );
     }
 
     /// The data returned by the ConfigFinder might have changed.
@@ -1067,14 +1074,10 @@ impl<'a> Transaction<'a> {
         if changed.is_empty() {
             return;
         }
-        let mut dirty_set = self.data.dirty.lock();
-        for handle in self.readable.modules.keys() {
-            if changed.contains(handle.path()) {
-                let module_data = self.get_module(handle);
-                module_data.state.write(Step::Load).unwrap().dirty.load = true;
-                dirty_set.insert(module_data.dupe());
-            }
-        }
+        self.invalidate(
+            |handle| changed.contains(handle.path()),
+            |dirty| dirty.load = true,
+        );
     }
 
     /// Called if the files read from the disk might have changed.
@@ -1090,14 +1093,10 @@ impl<'a> Transaction<'a> {
             .iter()
             .map(|x| ModulePath::filesystem(x.clone()))
             .collect::<SmallSet<_>>();
-        let mut dirty_set = self.data.dirty.lock();
-        for handle in self.readable.modules.keys() {
-            if files.contains(handle.path()) {
-                let module_data = self.get_module(handle);
-                module_data.state.write(Step::Load).unwrap().dirty.load = true;
-                dirty_set.insert(module_data.dupe());
-            }
-        }
+        self.invalidate(
+            |handle| files.contains(handle.path()),
+            |dirty| dirty.load = true,
+        );
     }
 
     pub fn report_timings(&self, path: &Path) -> anyhow::Result<()> {
