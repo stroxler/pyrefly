@@ -40,5 +40,5 @@ Most changes are reflected live without having to restart the server.
 If you want to run the static docs website, run the following command:
 
 ```
-./static_docs_build_script.sh
+./static_docs_build_script
 ```
