@@ -33,7 +33,7 @@ impl BundledTypeshed {
         let mut archive = Archive::new(decoder);
         let entries = archive
             .entries()
-            .context("Cannot query all entries in typehsed archive")?;
+            .context("Cannot query all entries in typeshed archive")?;
 
         let mut items = SmallMap::new();
         for maybe_entry in entries {
