@@ -18,7 +18,7 @@ import { fbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 
 const docsSidebar = [
-    // TODO (T221099224):Release getting started and installation doc pages to public
+    // TODO (T221099224): Release getting started and installation doc pages to public
     {
         type: 'category' as const,
         label: 'Introduction',
