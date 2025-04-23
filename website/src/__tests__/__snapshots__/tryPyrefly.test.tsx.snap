@@ -120,6 +120,14 @@ exports[`Try Pyrefly Component renders in code snippet mode without error panel 
       </div>
       <div>
         <button
+          aria-label="open in sandbox"
+          id="open-sandbox-button"
+        >
+          <span>
+            🧪 Open in Sandbox
+          </span>
+        </button>
+        <button
           aria-label="reset to default code"
           id="reset-button"
         >

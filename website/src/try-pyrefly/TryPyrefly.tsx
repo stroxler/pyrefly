@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 import MonacoEditorButton from './MonacoEditorButton';
 import RunPythonButton from './RunPythonButton';
 import Editor from '@monaco-editor/react';
@@ -214,6 +215,7 @@ export default function TryPyrefly({
                               )
                             : null}
                         {!isCodeSnippet ? getShareUrlButton() : null}
+                        {isCodeSnippet ? <OpenSandboxButton model={model} /> : null}
                         {getResetButton(
                             model,
                             forceRecheck,
@@ -359,6 +361,31 @@ function getShareUrlButton(): React.ReactElement {
             defaultLabel="📋 Share URL"
             runningLabel="✓ URL Copied!" // we reuse the running label to indicate that the URL has been copied
             ariaLabel="share URL button"
+        />
+    );
+}
+
+function OpenSandboxButton({ model }: { model: editor.ITextModel }): React.ReactElement {
+    // This call is a react hook that must be called inside the function body rather than the return statement
+    const sandboxBaseUrl = useBaseUrl('try/');
+
+    return (
+        <MonacoEditorButton
+            id="open-sandbox-button"
+            onClick={async () => {
+                if (model) {
+                    const currentCode = model.getValue();
+                    const compressed = LZString.compressToEncodedURIComponent(currentCode);
+                    // Navigate to the sandbox URL with the compressed code as a query parameter
+                    const sandboxURL = sandboxBaseUrl + `?code=${compressed}`;
+                    window.location.href = sandboxURL;
+                }
+
+                return Promise.resolve();
+            }}
+            defaultLabel="🧪 Open in Sandbox"
+            runningLabel="⏳ Opening Sandbox..."
+            ariaLabel="open in sandbox"
         />
     );
 }
