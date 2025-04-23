@@ -48,9 +48,15 @@ impl BundledTypeshed {
                 .context("Cannot extract path from archive entry")?;
             let mut relative_path_components = relative_path_context.components();
             let first_component = relative_path_components.next();
-            // We bundle only the stdlib/ portion of typeshed.
-            assert!(first_component.is_some_and(|component| component.as_os_str() == "stdlib"));
+            if first_component.is_none_or(|component| component.as_os_str() != "stdlib") {
+                // We bundle only the stdlib/ portion of typeshed.
+                continue;
+            }
             let relative_path = relative_path_components.collect::<PathBuf>();
+            if relative_path.extension().is_none_or(|ext| ext != "pyi") {
+                // typeshed/stdlib/ contains non-.pyi files like VERSIONS that we don't care about.
+                continue;
+            }
             let size = entry.size();
             let mut contents = String::with_capacity(size as usize);
             entry
