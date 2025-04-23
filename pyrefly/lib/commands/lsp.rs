@@ -174,7 +174,7 @@ struct Server {
     immediately_handled_events: Arc<Mutex<Vec<ImmediatelyHandledEvent>>>,
     initialize_params: InitializeParams,
     state: Arc<State>,
-    open_files: Mutex<HashMap<PathBuf, Arc<String>>>,
+    open_files: RwLock<HashMap<PathBuf, Arc<String>>>,
     workspaces: Arc<RwLock<SmallMap<PathBuf, Workspace>>>,
     default_workspace: Arc<Workspace>,
     search_path: Vec<PathBuf>,
@@ -488,7 +488,7 @@ impl Server {
             immediately_handled_events: Default::default(),
             initialize_params,
             state: Arc::new(State::new(None)),
-            open_files: Mutex::new(HashMap::new()),
+            open_files: RwLock::new(HashMap::new()),
             workspaces: Arc::new(RwLock::new(SmallMap::new())),
             default_workspace: Arc::new(Workspace::new(
                 search_path.clone(),
@@ -543,7 +543,7 @@ impl Server {
         };
         let handles = self
             .open_files
-            .lock()
+            .read()
             .keys()
             .map(|x| {
                 (
@@ -554,7 +554,7 @@ impl Server {
             .collect::<Vec<_>>();
         transaction.set_memory(
             self.open_files
-                .lock()
+                .read()
                 .iter()
                 .map(|x| (x.0.clone(), Some(x.1.dupe())))
                 .collect::<Vec<_>>(),
@@ -563,7 +563,7 @@ impl Server {
 
         let publish = |transaction: &Transaction| {
             let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
-            let open_files = self.open_files.lock();
+            let open_files = self.open_files.read();
             for x in open_files.keys() {
                 diags.insert(x.as_path().to_owned(), Vec::new());
             }
@@ -640,7 +640,7 @@ impl Server {
     ) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
         self.open_files
-            .lock()
+            .write()
             .insert(uri, Arc::new(params.text_document.text));
         self.validate_in_memory(ide_transaction_manager)
     }
@@ -653,13 +653,13 @@ impl Server {
         // We asked for Sync full, so can just grab all the text from params
         let change = params.content_changes.into_iter().next().unwrap();
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.open_files.lock().insert(uri, Arc::new(change.text));
+        self.open_files.write().insert(uri, Arc::new(change.text));
         self.validate_in_memory(ide_transaction_manager)
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.open_files.lock().remove(&uri);
+        self.open_files.write().remove(&uri);
         self.publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
         Ok(())
     }
@@ -688,7 +688,7 @@ impl Server {
         let path = uri.to_file_path().unwrap();
         self.get_workspace_with(path.clone(), |workspace| {
             let module = module_from_path(&path, &workspace.search_path);
-            let module_path = if self.open_files.lock().contains_key(&path) {
+            let module_path = if self.open_files.read().contains_key(&path) {
                 ModulePath::memory(path)
             } else {
                 ModulePath::filesystem(path)
