@@ -220,3 +220,30 @@ Docstring Result: `Test docstring`
         report.trim(),
     );
 }
+
+#[test]
+fn module_binding_test() {
+    let lib = r#"
+"""Test docstring"""
+print("test")"#;
+    let code = r#"
+import lib
+print(lib)
+#     ^
+"#;
+    let report =
+        get_batched_lsp_operations_report(&[("main", code), ("lib", lib)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+3 | print(lib)
+          ^
+Docstring Result: `Test docstring`
+
+
+# lib.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}

@@ -177,12 +177,12 @@ impl<'a> Transaction<'a> {
             }
             Binding::Module(name, _, _) => {
                 let handle = self.import_handle(handle, *name, None).ok()?;
-                self.get_exports(&handle);
+                let docstring = self.get_module_docstring(&handle);
                 Some((
                     handle,
                     Export {
                         location: TextRange::default(),
-                        docstring: None,
+                        docstring,
                     },
                 ))
             }
