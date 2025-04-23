@@ -62,6 +62,9 @@ impl<K: Eq + Hash + 'static, V: Dupe + 'static> LockedMap<K, V> {
         a.0.hash()
     }
 
+    /// If `key` doesn't exist, insert it and return `None`.
+    /// If `key` does exist, do not change the map and return the argument `value`,
+    /// which is different to what a standard `HashMap` does.
     pub fn insert(&self, key: K, value: V) -> Option<V> {
         let x = Box::new((WithHash::new(key), value));
         self.map
@@ -107,5 +110,18 @@ impl<K: Eq + Hash + 'static, V: Dupe + 'static> LockedMap<K, V> {
 
     pub fn values(&self) -> impl Iterator<Item = &V> {
         self.map.iter().map(|x| &x.1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_insert_twice() {
+        let mp = LockedMap::new();
+        assert_eq!(mp.insert(1, "foo"), None);
+        assert_eq!(mp.insert(1, "bar"), Some("bar"));
+        assert_eq!(mp.get(&1), Some(&"foo"))
     }
 }
