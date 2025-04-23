@@ -118,6 +118,16 @@ exports[`Try Pyrefly Component renders in code snippet mode without error panel 
           def hello(): pass
         </textarea>
       </div>
+      <div>
+        <button
+          aria-label="reset to default code"
+          id="reset-button"
+        >
+          <span>
+            🔄 Reset
+          </span>
+        </button>
+      </div>
     </div>
   </div>
 </div>

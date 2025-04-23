@@ -202,19 +202,26 @@ export default function TryPyrefly({
                     onEditorMount,
                     editorHeightforCodeSnippet
                 )}
-                {!isCodeSnippet && (
+                {
                     <div {...stylex.props(styles.buttonContainer)}>
-                        {getRunPythonButton(
+                        {!isCodeSnippet
+                            ? getRunPythonButton(
+                                  model,
+                                  setActiveTab,
+                                  isRunning,
+                                  setIsRunning,
+                                  setPythonOutput
+                              )
+                            : null}
+                        {!isCodeSnippet ? getShareUrlButton() : null}
+                        {getResetButton(
                             model,
-                            setActiveTab,
-                            isRunning,
-                            setIsRunning,
-                            setPythonOutput
+                            forceRecheck,
+                            codeSample,
+                            isCodeSnippet
                         )}
-                        {getShareUrlButton()}
-                        {getResetButton(model, forceRecheck, codeSample)}
                     </div>
-                )}
+                }
             </div>
             {!isCodeSnippet && (
                 <TryPyreflyResults
@@ -377,7 +384,8 @@ function getRunPythonButton(
 function getResetButton(
     model: editor.ITextModel | null,
     forceRecheck: () => void,
-    codeSample: string
+    codeSample: string,
+    isCodeSnippet: boolean
 ): React.ReactElement {
     return (
         <MonacoEditorButton
@@ -385,7 +393,9 @@ function getResetButton(
             onClick={async () => {
                 if (model) {
                     model.setValue(codeSample);
-                    updateURL(codeSample);
+                    if (!isCodeSnippet) {
+                        updateURL(codeSample);
+                    }
                     forceRecheck();
                 }
             }}
