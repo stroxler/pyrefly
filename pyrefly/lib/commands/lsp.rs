@@ -373,6 +373,12 @@ fn to_real_path(path: &ModulePath) -> Option<&Path> {
     }
 }
 
+fn module_info_to_uri(module_info: &ModuleInfo) -> Option<Url> {
+    let path = to_real_path(module_info.path())?;
+    let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_owned());
+    Some(Url::from_file_path(path).unwrap())
+}
+
 fn publish_diagnostics_for_uri(
     send: &Arc<dyn Fn(Message) + Send + Sync + 'static>,
     uri: Url,
@@ -775,10 +781,8 @@ impl Server {
             module_info: definition_module_info,
             range,
         } = transaction.goto_definition(&handle, range)?;
-        let path = to_real_path(definition_module_info.path())?;
-        let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_owned());
         Some(GotoDefinitionResponse::Scalar(Location {
-            uri: Url::from_file_path(path).unwrap(),
+            uri: module_info_to_uri(&definition_module_info)?,
             range: source_range_to_range(&definition_module_info.source_range(range)),
         }))
     }
