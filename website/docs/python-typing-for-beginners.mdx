@@ -1,0 +1,161 @@
+---
+id: python-typing-for-beginners
+title: Python Typing for Beginners
+description: A gentle, example‑driven introduction to static type hints in Python.
+---
+
+import TryPyreflyBrowserOnly from '@site/src/try-pyrefly/TryPyreflyBrowserOnly'
+
+# Python Types for Python Beginners
+
+*A beginner‑friendly guide to adding type hints in Python.*
+
+**Note:** This tutorial assumes you understand some basic Python syntax, but are new to type hints. To learn more about Python, see the [Python Tutorial](https://docs.python.org/3/tutorial/) and [Getting Started Guide](https://www.python.org/about/gettingstarted/)
+
+## 1. What is a Type Hint in Python?
+
+A type hint in Python is a way to indicate the expected data type of a variable, function parameter, or return value. It's a hint to other developers (and to tools like type checkers and IDEs) about what type of data should be used with a particular piece of code.
+
+Type hints are **not enforced at runtime by Python itself,** but they can be used by third-party tools (like Pyrefly) to catch type-related errors before your code runs. They also serve as documentation, making it easier for others to understand how to use your code.
+Here's an example of a simple function with type hints:
+
+```
+def greet(name: str) -> None:
+    print(f"Hello, {name}!")
+```
+
+## 2. Why Bother with Type Hints?
+
+Python is a dynamically typed language, which means you can write code without declaring types. However, this can lead to bugs or ambiguity in your code.
+
+_TL;DR_
+* Catch bugs **before** running the code.
+* Improve editor autocomplete & refactors.
+* Turn your code into living documentation.
+
+
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="why_hints.py"
+  isCodeSnippet={true}
+  codeSample={`# Without hints – is "times" a str, int, or list?
+def repeat(text, times):
+    return text * times
+
+# With hints – intent is crystal clear.
+def repeat(text: str, times: int) -> str:
+    return text * times
+`}
+  />
+</pre>
+
+
+
+## 3. Primitive Types
+
+Since Python 3.9 you can use all the [primitive types](https://docs.python.org/3/library/stdtypes.html) directly as annotations.
+
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="primitives_types.py"
+  isCodeSnippet={true}
+  codeSample={`age: int = 30
+height: float = 1.85
+name: str = "Tyler Typer"
+is_admin: bool = False
+`}
+/>
+</pre>
+
+You can also specify a parameter as optional by using `Optional` type, or now with the `| None` syntax.
+
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="primitive2_types.py"
+  isCodeSnippet={true}
+  codeSample={`from typing import Optional
+
+middle_name: Optional[str] = None        # classic
+nickname: str | None = None              # 3.10+ shorthand
+`}
+/>
+</pre>
+
+## 4. Collections
+
+### Syntax	Examples
+- List of numbers	`list[int]	scores: list[int] = [98, 87, 91]`
+- Tuple of two floats	`tuple[float, float]	point: tuple[float, float] = (3.0, 4.0)`
+- Dict of str -> int	`dict[str, int]	inventory: dict[str, int] = {"apples": 5}`
+- Set of strings	`set[str]	authors: set[str] = {"Bob", "Eve"}`
+
+Since Python 3.9 you can subscript built‑ins directly—no need for `from typing import List`.
+
+## 5. Functions
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="basic_function_types.py"
+  isCodeSnippet={true}
+  codeSample={`# Simple function
+def add(a: int, b: int) -> int:
+    return a + b
+  `}
+  />
+</pre>
+Default values keep their annotation:
+
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="defaul_value_types.py"
+  isCodeSnippet={true}
+  codeSample={`# Function with default value
+def greet(name: str, polite: bool = True) -> str:
+    return "Hello!" if polite else f"Yo {name}"
+    `}
+  />
+</pre>
+Variable‑length arguments:
+
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="variable_length_types.py"
+  isCodeSnippet={true}
+  codeSample={`# Variable length functions
+from collections.abc import Callable
+
+Logger = Callable[[str], None]
+
+def debug(*msgs: str, log: Logger | None = print) -> None:
+    for m in msgs:
+        log(m)
+    `}
+  />
+</pre>
+
+## 5. Get Type Hint Signals Directly in Your Editor
+
+You can download the [Pyrefly extension for VSCode](https://marketplace.visualstudio.com/items?itemName=meta.pyrefly) to get type hint signals directly in your IDE.
+
+Next, install [Pyrefly](https://pypi.org/project/pyrefly/) and check some code:
+```
+# Fast, zero‑config
+pip install pyrefly
+
+pyrefly check ./my_sample.py
+
+# Check you whole project
+pyrefly check my_project/
+```
+
+Create a pyrefly.toml to configure your project for Pyrefly. Instructions [here](../configuration).
+
+## 6. Next Steps
+<ol>
+  <li>Install the [Pyrefly extension](https://marketplace.visualstudio.com/items?itemName=meta.pyrefly) and require it in your project.</li>
+  <li>Annotate one small file in your project.</li>
+  <li>Fix the first few warnings—don’t chase perfection yet.</li>
+  <li>Increase coverage gradually; enjoy calmer coding.</li>
+</ol>
+Happy hacking 🐍✨
+
+### Next: [Learn Advanced Typing Features](../python-typing-5-minutes#advanced-types)

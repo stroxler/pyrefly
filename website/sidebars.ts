@@ -42,9 +42,13 @@ const docsSidebar = [
             },
         ]),
     {
-        type: 'doc' as const,
-        id: 'learn-python-typing',
+        type: 'category' as const,
         label: 'Learn Python Typing',
+        link: {
+            type: 'generated-index' as const,
+        },
+        description: "Never used a type system before or just new to Pyrefly? Start here!",
+        items: ['python-typing-5-minutes', 'python-typing-for-beginners']
     },
     {
         type: 'doc' as const,

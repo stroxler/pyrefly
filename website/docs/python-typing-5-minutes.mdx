@@ -1,0 +1,307 @@
+---
+title: Typing for Python Developers
+slug: /python-typing-5-minutes
+
+description: Get to know Python's Type System with working examples
+---
+
+import TryPyreflyBrowserOnly from '@site/src/try-pyrefly/TryPyreflyBrowserOnly'
+
+# Type Hints for Python Developers
+
+*5‑Minute Tour with Pyrefly*
+
+**Goal:** In five minutes you’ll know how Python’s static type system _infers_, _defines_, and _composes_ types—and you’ll have copy‑paste snippets to start using right away.
+
+If you are new to Python, check out our [Python Types for Newcomers guide](../python-typing-for-beginners/).
+
+Python's type system allow you to annotate variables so you, your teammates and your type checker can find bugs before you run your code. Think of it as documentation that's automatically validated and will help your IDE help you.
+
+_TL;DR_
+* Catch bugs **before** running the code.
+* Improve editor autocomplete & refactors.
+* Turn your code into living documentation.
+
+### Types with Inference
+
+Static analyzers can often _infer_ types from your code—no annotations required. Pyrefly takes this a step further.
+
+Python's built-in types can be used to write many simple type hints.
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="basic_types.py"
+  isCodeSnippet={true}
+  codeSample={`TOTAL = 42
+PI = 3.14159
+
+def double(x): # x: int | float inferred from usage
+    return x * 2
+`}
+  />
+</pre>
+
+### Where Inference Shines ✨
+- Constant assignments (`answer = 42 -> int`)
+- List/tuple/dict literals with uniform elements (`names = ["A", "B"] -> list[str]`)
+- Return types if parameter types are annotated:
+
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="basic_inference.py"
+  isCodeSnippet={true}
+  codeSample={`def add(a: int, b: int):   # ✅ param annotations
+    return a + b             # 🔍 return inferred -> int
+`}
+  />
+</pre>
+
+### When to Add Hints
+- Public APIs (library or service boundaries)
+- Mixed collections (`list[int | str]`)
+- Callable signatures (decorators, callbacks)
+
+## Define Types Inline
+
+### The Basics
+
+Python's built-in types can be used to write many simple type hints.
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="basic_types.py"
+  isCodeSnippet={true}
+  codeSample={`# Example: Basic Types
+
+from typing import reveal_type
+
+age: int = 5
+reveal_type(age) # revealed type: Literal[5]
+
+age = "oops"
+
+name: str = "John"
+reveal_type(name) # revealed type: Literal['John']
+
+numbers: list[int] = [1, 2, 3]
+reveal_type(numbers) # revealed type: list[int]
+
+names: list[str] = ["John", "Jane"]
+reveal_type(names) # revealed type: list[str]
+
+person: dict[str, str] = {"name": "John", "age": "30"}
+reveal_type(person) # revealed type: dict[str, str]
+
+is_admin: bool = True
+reveal_type(is_admin) # revealed type: Literal[True]
+`}
+  />
+</pre>
+
+### Functions
+Defining the parameter and return types for a function doesn't just help prevent bugs, but it makes it easier to navigate in other files. You don't always need to define a return type - we'll do our best to infer it for you! We can't always get it right and an explicit return type will help your IDE navigate faster and more accurately.
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="functions_types.py"
+  isCodeSnippet={true}
+  codeSample={`# Example: Functions
+
+from typing import reveal_type
+
+def greet(name: str) -> str:
+    return f"Hello , {name}!"
+
+greet("Pyrefly")
+
+def whatDoesThisFunctionReturnAgain(a: int, b: int):
+    return a + b
+
+reveal_type(whatDoesThisFunctionReturnAgain(2, 3)) # revealed type: int
+`}
+  />
+</pre>
+
+## Advanced Types
+
+### Composing Types
+The real power comes from composing smaller pieces into richer shapes.
+
+### Unions & Optional
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="unions_types.py"
+  isCodeSnippet={true}
+  codeSample={`
+from typing import Optional
+
+def to_int(data: str | bytes | None) -> Optional[int]:
+    if data is None:
+        return None
+    if isinstance(data, bytes):
+        data = data.decode()
+    return int(data)
+`}
+  />
+</pre>
+
+### Generics
+
+Generics allow you to define reusable functions and classes that work with multiple types. This feature enables you to write more flexible and adaptable code.
+
+<pre>
+  <TryPyreflyBrowserOnly
+    sampleFilename="generics.py"
+    isCodeSnippet={true}
+    codeSample={`# Example: Generic Classes
+
+from typing import reveal_type
+
+class C[T]:
+    def __init__(self, x: T):
+        self.x = x
+    def box(self) -> list[T]:
+        return [self.x]
+
+c = C(0)
+reveal_type(c.box())  # revealed type: list[int]
+`}
+  />
+</pre>
+
+### Protocols
+
+Protocols enable structural typing, which allows you to define interfaces without explicit inheritance. This feature helps you write more modular and composable code.
+
+<pre>
+  <TryPyreflyBrowserOnly
+    sampleFilename="protocols.py"
+    isCodeSnippet={true}
+    codeSample={`# Example: Structural Typing with Protocols
+
+from typing import Iterable, Protocol
+
+class Writer(Protocol):
+    def write(self) -> None: ...
+
+class GoodWorld:
+    def write(self) -> None:
+        print("Hello world!")
+
+class BadWorld:
+    pass
+
+def f(writer: Writer):
+    pass
+
+f(GoodWorld()) # OK
+f(BadWorld())  # ERROR!
+`}
+  />
+</pre>
+
+## Structural Types
+Python also employs a structural type system, often referred to as "duck typing." This concept is based on the idea that if two objects have the same shape or attributes, they can be treated as being of the same type.
+
+### Dataclasses
+
+Dataclasses allow you to create type-safe data structures while minimizing boilerplate.
+
+<pre>
+  <TryPyreflyBrowserOnly
+    sampleFilename="data_classes.py"
+    isCodeSnippet={true}
+    codeSample={`# Example: Dataclasses
+
+from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: float
+    y: float
+
+Point(x=0.0, y=0.0)    # OK
+Point(x=0.0, y="oops") # ERROR!
+`}
+  />
+</pre>
+
+
+### TypedDict
+
+Typed dictionaries enable you to define dictionaries with specific key-value types. This feature lets you bring type safety to ad-hoc dictionary structures without major refactoring.
+
+<pre>
+  <TryPyreflyBrowserOnly
+    sampleFilename="typed_dict.py"
+    isCodeSnippet={true}
+    codeSample={`# Example: TypedDict
+
+from typing import TypedDict
+
+class Movie(TypedDict):
+    name: str
+    year: int
+
+good_movie: Movie = {"name": "Toy Story", "year": 1995} # OK
+bad_movie: Movie = {"name": "The Room", "year": "2003"}  # ERROR!
+`}
+  />
+</pre>
+
+### Overloads
+
+Overloads allow you to define multiple function signatures for a single function. Like generics, this feature helps you write more flexible and adaptable code.
+
+<pre>
+  <TryPyreflyBrowserOnly
+    sampleFilename="overloads.py"
+    isCodeSnippet={true}
+    codeSample={`# Example: Overloads
+
+from typing import overload, reveal_type
+
+@overload
+def f(x: int) -> int: ...
+
+@overload
+def f(x: str) -> str: ...
+
+def f(x: int | str) -> int | str:
+    return x
+
+reveal_type(f(0))  # revealed type: int
+reveal_type(f("")) # revealed type: str
+`}
+  />
+</pre>
+
+## Typing Features, PEPS available in each Python Version
+
+| Feature (click PEP for details) | What it adds / looks like | Introduced in |
+| --- | --- | --- |
+| [PEP 484](https://peps.python.org/pep-0484/) -- Core **type hints** & `typing` module | `def add(a: int, b: int) -> int:` | **3.5** |
+| [PEP 526](https://peps.python.org/pep-0526/) -- **Variable annotations** | `count: int = 0` | **3.6** |
+| [PEP 563](https://peps.python.org/pep-0563/) -- `from __future__ import annotations` (lazy eval) | Annotations stored as **strings** | **3.7** (future‑flag) |
+| [PEP 544](https://peps.python.org/pep-0544/) -- **Protocols** (structural typing) | `class Jsonable(Protocol): ...` | **3.8** |
+| [PEP 589](https://peps.python.org/pep-0589/) -- **TypedDict** | `class User(TypedDict): ...` | **3.8** |
+| [PEP 586](https://peps.python.org/pep-0586/) -- **Literal** types | `def log(level: Literal["info","warn"]): ...` | **3.8** |
+| [PEP 591](https://peps.python.org/pep-0591/) -- **Final** qualifier | `TOKEN: Final[str] = "..."` | **3.8** |
+| [PEP 585](https://peps.python.org/pep-0585/) -- **Built‑in generics** | `list[int]`, `dict[str, Any]` | **3.9** |
+| [PEP 593](https://peps.python.org/pep-0593/) -- **Annotated** | `x: Annotated[int, "units=px"]` | **3.9** |
+| [PEP 604](https://peps.python.org/pep-0604/) -- **Union** syntax | `int \| None` | **3.10** |
+| [PEP 612](https://peps.python.org/pep-0612/) -- **ParamSpec / Concatenate** | decorator‑safe generics | **3.10** |
+| [PEP 613](https://peps.python.org/pep-0613/) -- `TypeAlias` qualifier | `Vector: TypeAlias = list[float]` | **3.10** |
+| [PEP 647](https://peps.python.org/pep-0647/) -- **TypeGuard** for narrowing | `def is_str(x) -> TypeGuard[str]: ...` | **3.10** |
+| [PEP 655](https://peps.python.org/pep-0655/) -- `Required` / `NotRequired` for **TypedDict** | optional vs. mandatory keys | **3.11** |
+| [PEP 646](https://peps.python.org/pep-0646/) -- **Variadic generics** (`TypeVarTuple`, `Unpack`) | tensor shapes, 2‑D arrays, ... | **3.11** |
+| [PEP 673](https://peps.python.org/pep-0673/) -- **Self** type | fluent APIs: `def set(...) -> Self:` | **3.11** |
+| [PEP 681](https://peps.python.org/pep-0681/) -- **dataclass_transform** helper | libraries like Pydantic, attrs | **3.11** |
+| [PEP 695](https://peps.python.org/pep-0695/) -- **Class‑level generics syntax** | `class Box[T]: ...` | **3.12** |
+| [PEP 649](https://peps.python.org/pep-0649/) -- *New* deferred‑eval algorithm (replaces PEP 563) | becomes the default | **3.13** |
+| [PEP 698](https://peps.python.org/pep-0698/) -- `@override` decorator | flag intentional overrides | **3.13** (planned) |
+
+### Key Highlights Summary:
+- **Inference:** Python's static analyzers can infer types from your code, reducing the need for explicit annotations. This feature enhances code readability and helps catch bugs early.
+- **Defining Types:** You can define types inline using Python's built-in types, which aids in documentation and improves IDE support.
+- **Advanced Types:** The guide covers advanced concepts like composing types, using unions and optionals, generics, protocols, and structural types like dataclasses and TypedDict.
+- **Practical Examples:** The guide includes examples of functions, generic classes, structural typing with protocols, and more, demonstrating how to apply these concepts in real-world scenarios.
+
+## Next: [Getting Started With Pyrefly](../fb/getting-started/)

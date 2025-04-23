@@ -24,8 +24,8 @@ function getNavBarItems() {
             position: 'left' as const,
         },
         {
-            to: 'en/docs/learn-python-typing/',
-            activeBasePath: 'en/docs/learn-python-typing',
+            to: 'en/docs/python-typing-5-minutes/',
+            activeBasePath: 'en/docs/python-typing-5-minutes',
             label: 'Learn Python Typing',
             position: 'left' as const,
         },
@@ -150,6 +150,17 @@ const config: Config = {
                 },
             };
         },
+        [
+            '@docusaurus/plugin-client-redirects',
+            {
+                redirects: [
+                    {
+                        from: '/en/docs/learn-python-typing',
+                        to: '/en/docs/category/learn-python-typing',
+                    },
+                ],
+            },
+        ],
     ],
     themeConfig: {
         prism: {
