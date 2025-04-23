@@ -72,67 +72,71 @@ section if it exists, otherwise it will assume a default config.
 The same errors will be returned as when loading a `pyrefly.toml` if
 the config is invalid.
 
-## Configuration Options
+# Configuration Options
 
-- `project_includes`: the glob patterns used to describe which files to type
-  check, typically understood as user-space files. This takes highest precedence
-  in import resolution.
-  - Type: list of Unix Glob patterns
-  - Default: `["**/*.py", "**/*.pyi"]`
-  - Flag equivalent: `FILES...` argument
-  - Equivalent configs: `include` in Pyright, `files`/`modules`/`packages` in
-    mypy
-  - Notes:
-    - When overridden by passing in `FILES...`, we do not consult the
-      relevant config file for what to use for `project_excludes`. If
-      `project_excludes` should not use the default value, override it with the flag as
-      well.
-    - When a `project_includes` pattern does not match any files, we will return
-      an error.
-    - If you get an error about no matches for a directory when passing a glob as a CLI
-      argument, try wrapping the glob in quotes to prevent eager shell glob expansion.
-    - We recognize the following wildcards:
-      - `*`, which matches zero or more characters in a single directory component
-      - `**`, which matches the current and any sub directories
-      - `?`, which matches any one character
-- `project_excludes`: the glob patterns used to describe which files to avoid
-  type checking, usually as a more fine-grained way of controlling the files you
-  get type errors on.
-  - Type: list of Unix Glob patterns
-  - Default: `["**/__pycache__/**", "**/.*"]`
-  - Flag equivalent: `--project-excludes`
-  - Equivalent configs: `exclude` in Pyright and mypy
-  - Notes:
-    - We match on these patterns, unlike `project_includes`, where we
-      enumerate all (Python) files under the directory. Because of this,
-      `project_excludes` does not do directory matching unless a `/` is added at
-      the end of your glob pattern. `**/__pycache__/` will only match files under
-      a directory named `__pycache__/`, but not a file named `__pycache__`.
-      Likewise, `**/__pycache__` will only match files named `__pycache__`, but
-      not files under a directory named `__pycache__/`.
-    - It is an error if no files are returned from any `project_includes` because
-      they are filtered out by `project_excludes` entries.
-    - When passing in `FILES...`, we also do not consult the config file for
-      what to use for `project_excludes`. If `project_excludes` should not use
-      the default value, override it with a flag as well.
-    - If you get an error about no matches for a directory when passing a glob as a CLI
-      argument, try wrapping the glob in quotes to prevent eager shell glob expansion.
-    - We recognize the following wildcards:
-      - `*`, which matches zero or more characters in a single directory component
-      - `**`, which matches the current and any sub directories
-      - `?`, which matches any one character
-- `search_path`: a file path describing a root from which imports should be
-  found and imported from (including modules in `project_includes`). This takes
-  the highest precedence in import order, before `typeshed` and
-  `site_package_path`. When a `project_includes` type checked file is imported
-  by another type checked file, we check all search roots to determine how to
-  import it.
-  - Type: list of directories
-  - Default: `["."]`
-  - Flag equivalent: `--search-path`
-  - ENV equivalent: `PYREFLY_SEARCH_PATH`
-  - Equivalent configs: `extraPaths` in Pyright, `mypy_path` in mypy
-  - Notes: we automatically append `"."` (the directory containing the
+The following section lists all recognized options that can be specified in a config
+file or `pyproject.toml` Pyrefly config section.
+
+## `project_includes`
+
+The glob patterns used to describe which files to type
+check, typically understood as user-space files.
+
+This does not specify
+[Import Resolution](./import-resolution.mdx) priority or the path an
+import should be resolved from. See [`search_path`](#search_path) instead.
+
+- Type: list of [filesystem glob patterns](#filesystem-globbing)
+- Default: `["**/*.py", "**/*.pyi"]`
+- Flag equivalent: `FILES...` argument
+- Equivalent configs: `include` in Pyright, `files`/`modules`/`packages` in
+  mypy
+- Notes:
+  - When overridden by passing in `FILES...`, we do not consult the
+    relevant config file for what to use for `project_excludes`. If
+    `project_excludes` should not use the default value, override it with the flag as
+    well.
+  - When a `project_includes` pattern does not match any files, we will return
+    an error.
+  - If you get an error about no matches for a directory when passing a glob as a CLI
+    argument, try wrapping the glob in quotes to prevent eager shell glob expansion.
+
+## `project_excludes`
+
+The glob patterns used to describe which files to avoid
+type checking as way to filter files that match `project_includes`,
+but we don't want to type check.
+
+- Type: list of [filesystem glob patterns](#filesystem-globbing)
+- Default: `["**/__pycache__/**", "**/.[!/.]*"]`
+- Flag equivalent: `--project-excludes`
+- Equivalent configs: `exclude` in Pyright and mypy
+- Notes:
+  - It is an error if no files are returned from any `project_includes` because
+    they are filtered out by `project_excludes` entries. We differentiate between
+    an error from a `project_includes` that doesn't match any files, and an error
+    from all `project_includes` getting filtered by `project_excludes`.
+  - When passing in `FILES...`, we also do not consult the config file for
+    what to use for `project_excludes`. If `project_excludes` should not use
+    the default value, override it with a flag as well. When no `FILES...` are passed,
+    `project_excludes` overrides the config's value.
+
+## `search_path`
+
+A file path describing the roots from which imports should be
+found and imported from (including modules in [`project_includes`](#project-includes)). This takes
+the highest precedence in import order,
+before `typeshed` and [`site_package_path`](#site_package_path). When a `project_includes`
+type checked file is imported by another type checked file, we check all search roots to
+determine how to import it.
+
+- Type: list of directories specifying the root
+- Default: `["."]`
+- Flag equivalent: `--search-path`
+- ENV equivalent: `PYREFLY_SEARCH_PATH`
+- Equivalent configs: `extraPaths` in Pyright, `mypy_path` in mypy
+- Notes:
+  - We automatically append `"."` (the directory containing the
     configuration file) to the `search_roots` when type checking as a sensible
     default and last attempt at an import.
 - `site_package_path`: a file path describing a root from which imports should
