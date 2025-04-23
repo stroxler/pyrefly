@@ -52,6 +52,7 @@ use crate::binding::bindings::Bindings;
 use crate::binding::table::TableKeyed;
 use crate::config::finder::ConfigFinder;
 use crate::error::kind::ErrorKind;
+use crate::export::definitions::DocString;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
@@ -1166,6 +1167,11 @@ impl<'a> Transaction<'a> {
         let module_data = self.get_module(handle);
         self.lookup_export(&module_data)
             .exports(&self.lookup(module_data))
+    }
+
+    pub fn get_module_docstring(&self, handle: &Handle) -> Option<DocString> {
+        let module_data = self.get_module(handle);
+        self.lookup_export(&module_data).docstring().cloned()
     }
 }
 

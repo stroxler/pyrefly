@@ -63,6 +63,8 @@ struct ExportsInner {
     wildcard: Calculation<Arc<SmallSet<Name>>>,
     /// Names that are available via `from <this_module> import <name>` along with their locations
     exports: Calculation<Arc<SmallMap<Name, ExportLocation>>>,
+    /// If this module has a docstring, it's stored here. Docstrings for exports themselves are stored in exports.
+    docstring: Option<DocString>,
 }
 
 impl Display for Exports {
@@ -87,6 +89,7 @@ impl Exports {
             definitions,
             wildcard: Calculation::new(),
             exports: Calculation::new(),
+            docstring: DocString::from_stmts(x),
         }))
     }
 
@@ -117,6 +120,11 @@ impl Exports {
             Arc::new(result)
         };
         self.0.wildcard.calculate(f).unwrap_or_default()
+    }
+
+    /// Get the docstring for this module.
+    pub fn docstring(&self) -> Option<&DocString> {
+        self.0.docstring.as_ref()
     }
 
     pub fn exports(&self, lookup: &dyn LookupExport) -> Arc<SmallMap<Name, ExportLocation>> {

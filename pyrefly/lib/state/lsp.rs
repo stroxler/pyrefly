@@ -233,7 +233,7 @@ impl<'a> Transaction<'a> {
             let handle = self.import_handle(handle, m, None).ok()?;
             return Some((
                 TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, TextRange::default()),
-                None,
+                self.get_module_docstring(&handle),
             ));
         }
         let attribute = self.attribute_at(handle, position)?;
