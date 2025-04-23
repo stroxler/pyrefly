@@ -304,6 +304,7 @@ function getPyreflyEditor(
                 height={editorHeightforCodeSnippet}
                 options={{
                     readOnly: isMobile(),
+                    domReadOnly: isMobile(),
                     minimap: { enabled: false },
                     hover: { enabled: true, above: false },
                     scrollBeyondLastLine: false,
