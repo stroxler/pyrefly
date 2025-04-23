@@ -394,7 +394,9 @@ impl<'a> Transaction<'a> {
     ) -> Result<Handle, FindError> {
         let path = match path {
             Some(path) => path.dupe(),
-            None => self.get_cached_find_dependency(handle.loader(), module)?,
+            None => self
+                .get_cached_loader(handle.loader())
+                .find_import(module)?,
         };
         Ok(Handle::new(
             module,
@@ -807,14 +809,6 @@ impl<'a> Transaction<'a> {
 
     fn memory_lookup<'b>(&'b self) -> MemoryFilesLookup<'b> {
         MemoryFilesLookup::new(&self.readable.memory, &self.data.memory_overlay)
-    }
-
-    fn get_cached_find_dependency(
-        &self,
-        loader: &LoaderId,
-        module: ModuleName,
-    ) -> Result<ModulePath, FindError> {
-        self.get_cached_loader(loader).find_import(module)
     }
 
     fn get_cached_loader(&self, loader: &LoaderId) -> Arc<LoaderFindCache> {
