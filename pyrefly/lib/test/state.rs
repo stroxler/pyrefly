@@ -107,7 +107,7 @@ fn test_multiple_path() {
     }
     config.configure();
     let config = ArcId::new(config);
-    let loader = LoaderId::new_arc_id(config.dupe());
+    let loader = LoaderId::new(config.dupe());
 
     let runtime = RuntimeMetadata::default();
 
@@ -168,7 +168,7 @@ impl Incremental {
 
         Self {
             data: data.dupe(),
-            loader: LoaderId::new_arc_id(config.dupe()),
+            loader: LoaderId::new(config.dupe()),
             state: State::new(ConfigFinder::new_constant(config)),
             to_set: Vec::new(),
         }

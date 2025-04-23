@@ -177,7 +177,7 @@ impl TestEnv {
     }
 
     pub fn loader(&self) -> LoaderId {
-        LoaderId::new_arc_id(ArcId::new(self.config()))
+        LoaderId::new(ArcId::new(self.config()))
     }
 
     pub fn to_state(self) -> (State, impl Fn(&str) -> Handle) {

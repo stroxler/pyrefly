@@ -220,7 +220,7 @@ impl Handles {
         if let Some(loader) = self.loader_factory.get(config) {
             loader.dupe()
         } else {
-            let loader = LoaderId::new_arc_id(config.dupe());
+            let loader = LoaderId::new(config.dupe());
             self.loader_factory.insert(config.dupe(), loader.dupe());
             loader
         }

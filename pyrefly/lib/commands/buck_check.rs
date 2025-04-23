@@ -71,7 +71,7 @@ fn compute_errors(metadata: RuntimeMetadata, sourcedb: BuckSourceDatabase) -> Ve
     config.custom_module_paths = sourcedb.list();
     config.configure();
     let config = ArcId::new(config);
-    let loader = LoaderId::new_arc_id(config.dupe());
+    let loader = LoaderId::new(config.dupe());
 
     let modules_to_check = modules.into_map(|(name, path)| {
         (

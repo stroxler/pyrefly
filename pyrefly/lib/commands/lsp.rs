@@ -213,7 +213,7 @@ impl Workspace {
         Self {
             runtime_metadata,
             search_path: search_path.clone(),
-            loader: LoaderId::new_arc_id(config_file.dupe()),
+            loader: LoaderId::new(config_file.dupe()),
             config_file,
             disable_language_services: false,
         }

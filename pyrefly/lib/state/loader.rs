@@ -84,7 +84,7 @@ impl FindError {
 pub struct LoaderId(ArcId<ConfigFile>);
 
 impl LoaderId {
-    pub fn new_arc_id(loader: ArcId<ConfigFile>) -> Self {
+    pub fn new(loader: ArcId<ConfigFile>) -> Self {
         Self(loader)
     }
 

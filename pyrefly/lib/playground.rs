@@ -127,7 +127,7 @@ impl Playground {
             ModuleName::from_str("test"),
             ModulePath::memory(PathBuf::from("test.py")),
             RuntimeMetadata::default(),
-            LoaderId::new_arc_id(config),
+            LoaderId::new(config),
         );
         let mut me = Self { state, handle };
         me.update_source("".to_owned());
