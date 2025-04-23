@@ -10,6 +10,8 @@
 import React, { useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 
+export const BUTTON_HEIGHT = 40;
+
 interface MonacoEditorButtonProps {
     id: string;
     onClick: () => Promise<void>;
@@ -88,7 +90,7 @@ const styles = stylex.create({
         transition: 'all 0.2s ease',
         zIndex: 1000,
         backdropFilter: 'blur(4px)',
-        height: '40px',
+        height: `${BUTTON_HEIGHT}px`,
         margin: '0 0 0 8px', // Add margin to separate buttons
         // Mobile styles (max-width: 768px)
         '@media (max-width: 768px)': {

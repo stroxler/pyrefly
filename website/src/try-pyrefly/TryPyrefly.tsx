@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import useBaseUrl from '@docusaurus/useBaseUrl';
-import MonacoEditorButton from './MonacoEditorButton';
+import MonacoEditorButton, { BUTTON_HEIGHT } from './MonacoEditorButton';
 import RunPythonButton from './RunPythonButton';
 import Editor from '@monaco-editor/react';
 import * as LZString from 'lz-string';
@@ -161,8 +161,10 @@ export default function TryPyrefly({
         setModel(model);
 
         if (isCodeSnippet) {
+            // Add extra space for buttons on mobile devices
+            const extraSpace = isMobile() ? BUTTON_HEIGHT + 5 : 0; // Add 5px as buffer on top of button height
             setEditorHeightforCodeSnippet(
-                Math.max(50, editor.getContentHeight())
+                Math.max(50, editor.getContentHeight() + extraSpace)
             );
         }
         editorRef.current = editor;
@@ -215,13 +217,16 @@ export default function TryPyrefly({
                               )
                             : null}
                         {!isCodeSnippet ? getShareUrlButton() : null}
-                        {isCodeSnippet ? <OpenSandboxButton model={model} /> : null}
-                        {getResetButton(
+                        {isCodeSnippet ? (
+                            <OpenSandboxButton model={model} />
+                        ) : null}
+                        {/* Hide reset button if it's readonly, which is when it's a code snippet on mobile */}
+                        {!(isCodeSnippet && isMobile()) ? getResetButton(
                             model,
                             forceRecheck,
                             codeSample,
                             isCodeSnippet
-                        )}
+                        ): null}
                     </div>
                 }
             </div>
@@ -366,7 +371,11 @@ function getShareUrlButton(): React.ReactElement {
     );
 }
 
-function OpenSandboxButton({ model }: { model: editor.ITextModel }): React.ReactElement {
+function OpenSandboxButton({
+    model,
+}: {
+    model: editor.ITextModel;
+}): React.ReactElement {
     // This call is a react hook that must be called inside the function body rather than the return statement
     const sandboxBaseUrl = useBaseUrl('try/');
 
@@ -376,7 +385,8 @@ function OpenSandboxButton({ model }: { model: editor.ITextModel }): React.React
             onClick={async () => {
                 if (model) {
                     const currentCode = model.getValue();
-                    const compressed = LZString.compressToEncodedURIComponent(currentCode);
+                    const compressed =
+                        LZString.compressToEncodedURIComponent(currentCode);
                     // Navigate to the sandbox URL with the compressed code as a query parameter
                     const sandboxURL = sandboxBaseUrl + `?code=${compressed}`;
                     window.location.href = sandboxURL;
