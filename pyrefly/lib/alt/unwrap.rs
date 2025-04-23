@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::iter;
-
 use ruff_python_ast::name::Name;
 
 use crate::alt::answers::AnswersSolver;
@@ -149,22 +147,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn decompose_lambda(&self, ty: &Type, param_vars: &[(&Name, Var)]) -> Option<Type> {
         let return_ty = self.fresh_var();
-        // Note that parameters are optional and we add a `*args: Any`. This is to ensure that
-        // our callable_ty is compatible with _any_ callable type hint. This is because we want
-        // contextual typing for lambda params even if the callable signature doesn't match the
-        // hint.
-        //
-        // For example, `f: Callable[[int], None] = lambda x y: ...` should give a contextual
-        // hint for `x`, even though the number of params doesn't line up.
-        //
-        // Why? Well, this behavior gives more stability for transiently-invalid code. For example,
-        // imagine you have a contextually typed lambda, and you add a parameter to it, which
-        // causes an error. Without this permissiveness, the checking of the body of the lambda
-        // will be affected, because we lose contextual type information for the existing params.
         let params = param_vars
             .iter()
-            .map(|(name, var)| Param::Pos((*name).clone(), var.to_type(), Required::Optional))
-            .chain(iter::once(Param::VarArg(None, Type::any_implicit())))
+            .map(|(name, var)| Param::Pos((*name).clone(), var.to_type(), Required::Required))
             .collect::<Vec<_>>();
         let callable_ty = Type::callable(params, return_ty.to_type());
 

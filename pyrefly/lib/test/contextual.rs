@@ -261,6 +261,16 @@ g: Callable[[int, int], None] = lambda x: None # E: `(x: int) -> None` is not as
 "#,
 );
 
+testcase!(
+    test_context_lambda_generic,
+    r#"
+from typing import assert_type, Callable
+def foo[T](x: T) -> T: ...
+assert_type(foo(lambda: None), Callable[[], None])
+assert_type(foo(lambda x: str(x))(1), str)
+"#,
+);
+
 // This case is tricky. The call to `f` uses `g` to determine the paramspec `P`
 // We then use `P` to contextually type the lambda. Importantly, the lambda's params
 // need to match, including stuff like parameter name.
