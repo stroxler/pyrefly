@@ -220,7 +220,7 @@ pub struct TransactionData<'a> {
     state: &'a State,
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleDataMut>>,
-    additional_loaders: SmallMap<LoaderId, Arc<LoaderFindCache>>,
+    updated_loaders: SmallMap<LoaderId, Arc<LoaderFindCache>>,
     memory_overlay: MemoryFilesOverlay,
     require: RequireDefault,
     /// The current epoch, gets incremented every time we recompute
@@ -812,7 +812,7 @@ impl<'a> Transaction<'a> {
     }
 
     fn get_cached_loader(&self, loader: &LoaderId) -> Arc<LoaderFindCache> {
-        if let Some(loader) = self.data.additional_loaders.get(loader) {
+        if let Some(loader) = self.data.updated_loaders.get(loader) {
             return loader.dupe();
         }
         // Safe because we always fill these in before starting
@@ -889,7 +889,7 @@ impl<'a> Transaction<'a> {
     fn ensure_loaders(&mut self, handles: &[(Handle, Require)]) {
         for (h, _) in handles {
             if !self.readable.loaders.contains_key(h.loader()) {
-                self.data.additional_loaders.insert(
+                self.data.updated_loaders.insert(
                     h.loader().dupe(),
                     Arc::new(LoaderFindCache::new(h.loader().dupe())),
                 );
@@ -1036,12 +1036,12 @@ impl<'a> Transaction<'a> {
     /// Called if the `find` portion of loading might have changed.
     /// E.g. you have include paths, and a new file appeared earlier on the path.
     pub fn invalidate_find(&mut self) {
-        for (loader, cache) in self.data.additional_loaders.iter_mut() {
+        for (loader, cache) in self.data.updated_loaders.iter_mut() {
             *cache = Arc::new(LoaderFindCache::new(loader.dupe()));
         }
         for loader in self.readable.loaders.keys() {
             self.data
-                .additional_loaders
+                .updated_loaders
                 .insert(loader.dupe(), Arc::new(LoaderFindCache::new(loader.dupe())));
         }
 
@@ -1327,7 +1327,7 @@ impl State {
                 state: self,
                 stdlib,
                 updated_modules: Default::default(),
-                additional_loaders: Default::default(),
+                updated_loaders: Default::default(),
                 memory_overlay: Default::default(),
                 now,
                 require: RequireDefault::new(require),
@@ -1381,7 +1381,7 @@ impl State {
                         TransactionData {
                             stdlib,
                             updated_modules,
-                            additional_loaders,
+                            updated_loaders,
                             memory_overlay,
                             now,
                             require,
@@ -1407,7 +1407,7 @@ impl State {
                 .insert(handle.dupe(), new_module_data.take_and_freeze());
         }
         state.memory.apply_overlay(memory_overlay);
-        for (loader_id, additional_loader) in additional_loaders {
+        for (loader_id, additional_loader) in updated_loaders {
             state.loaders.insert(loader_id, additional_loader);
         }
         drop(committing_transaction_guard)
