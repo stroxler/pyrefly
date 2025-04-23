@@ -812,11 +812,13 @@ impl<'a> Transaction<'a> {
     }
 
     fn get_cached_loader(&self, loader: &LoaderId) -> Arc<LoaderFindCache> {
-        if let Some(loader) = self.data.updated_loaders.get(loader) {
-            return loader.dupe();
-        }
-        // Safe because we always fill these in before starting
-        self.readable.loaders.get(loader).unwrap().dupe()
+        self.data
+            .updated_loaders
+            .ensure(loader, || match self.readable.loaders.get(loader) {
+                Some(v) => v.dupe(),
+                None => Arc::new(LoaderFindCache::new(loader.dupe())),
+            })
+            .dupe()
     }
 
     fn get_stdlib(&self, handle: &Handle) -> Arc<Stdlib> {
