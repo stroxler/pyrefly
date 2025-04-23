@@ -1026,6 +1026,15 @@ impl<'a> Transaction<'a> {
 
     fn invalidate(&mut self, pred: impl Fn(&Handle) -> bool, dirty: impl Fn(&mut Dirty)) {
         let mut dirty_set = self.data.dirty.lock();
+        // We need to mark as dirty all those in updated_modules, and lift those in readable.modules up if they are dirty.
+        // Most things in updated are also in readable, so we are likely to set them twice - but it's not too expensive.
+        // Make sure we do updated first, as doing readable will cause them all to move to dirty.
+        for (handle, module_data) in self.data.updated_modules.iter_unordered() {
+            if pred(handle) {
+                dirty(&mut module_data.state.write(Step::Load).unwrap().dirty);
+                dirty_set.insert(module_data.dupe());
+            }
+        }
         for handle in self.readable.modules.keys() {
             if pred(handle) {
                 let module_data = self.get_module(handle);
