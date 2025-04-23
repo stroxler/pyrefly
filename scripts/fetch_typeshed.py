@@ -122,19 +122,19 @@ def should_include_member(info: tarfile.TarInfo) -> bool:
     return True
 
 
-def relative_path_for_stdlib(info: tarfile.TarInfo) -> pathlib.Path:
+def relative_path(info: tarfile.TarInfo) -> pathlib.Path:
     """
     Convert a filename within a typeshed tarball into a path relative to the
-    top of typeshed/stdlib.
+    top of typeshed/.
     """
-    return pathlib.Path(*pathlib.Path(info.name).parts[2:])
+    return pathlib.Path(*pathlib.Path(info.name).parts[1:])
 
 
 def trim_typeshed(input_tar: tarfile.TarFile) -> list[TypeshedEntry]:
     LOG.info("Trimming down typeshed tarfile...")
     entries = (
         (
-            relative_path_for_stdlib(member),
+            relative_path(member),
             input_tar.extractfile(member),
         )
         for member in input_tar.getmembers()

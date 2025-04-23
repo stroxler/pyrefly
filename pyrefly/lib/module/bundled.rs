@@ -43,11 +43,14 @@ impl BundledTypeshed {
                 // Skip directories
                 continue;
             }
-            let relative_path = entry
+            let relative_path_context = entry
                 .path()
-                .context("Cannot extract path from archive entry")?
-                .components()
-                .collect::<PathBuf>();
+                .context("Cannot extract path from archive entry")?;
+            let mut relative_path_components = relative_path_context.components();
+            let first_component = relative_path_components.next();
+            // We bundle only the stdlib/ portion of typeshed.
+            assert!(first_component.is_some_and(|component| component.as_os_str() == "stdlib"));
+            let relative_path = relative_path_components.collect::<PathBuf>();
             let size = entry.size();
             let mut contents = String::with_capacity(size as usize);
             entry
