@@ -825,12 +825,7 @@ impl Server {
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: format!(
-                    r#"```python
-{}
-```"#,
-                    t
-                ),
+                value: format!("```python\n{t}\n```"),
             }),
             range: None,
         })
