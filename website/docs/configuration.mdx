@@ -302,19 +302,52 @@ can fit under a single config option description.
 
 ## Environment Autoconfiguration
 
-If any of `python_platform`, `python_version`, or `site_package_path` are empty, we attempt to query an interpreter
-for the missing values. By default we query `python3` if it's available on the path, but the interpreter can be
-overridden with the `python_interpreter` config option and flag. If the interpreter does not exist, we fall back to
-Pyrefly's defaults for all unspecified values.
+If any of [`python_platform`](#python_platform), [`python_version`](#python_version), or
+[`site_package_path`](#site_package_path) are empty, we attempt to query an interpreter
+for the missing values. By default we query `$(which python3)` or `$(which python)` if they're available on the path,
+but the interpreter can be overridden with the [`python_interpreter`](#python_interpreter) config option and flag.
+If the interpreter does not exist, we fall back to Pyrefly's defaults for all unspecified values.
 
 The values queried from the interpreter are:
 * `python_platform`: `sys.platform`
 * `python_version`: `sys.version_info[:3]`
-* `site_package_path`: `site.getsitepackages()`
+* `site_package_path`: `site.getsitepackages() + [site.getusersitepackages()]`
 
-## Module globbing
+## Filesystem Globbing
 
-In some functionality, we've added globbing for module paths. This is different from both path globs and regex,
+We use a standard Unix-style glob, which allows for wildcard matching when specifying a fileset. It is similar
+to regex, but more restricted given the subset of allowed syntax for paths on a filesystem. We currently only
+allow matching files with a `.py` or `.pyi` suffix.
+
+The globs provided are relative to the config, if one is found, or the current working directory otherwise.
+Absolute path globs can also be provided, though this is generally not recommended, since it may not
+be compatible with other systems type checking your project.
+
+- We recognize the following wildcards:
+  - `*`, which matches zero or more characters in a single directory component
+  - `**`, which matches the current and any sub directories/files in those sub directories
+  - `?`, which matches any one character
+  - `[<pattern>]`, which matches any character or character range between the brackets (character range separated by `-`)
+  - `[!<pattern>]`, which excludes any character or character range between the brackets and after the `!`
+  - `[]` can be used to match `?`, `*`, `[`, `]` literally (e.g. `[?]`), although these are invalid as part of a Python path.
+
+We also support non-wildcard paths, so a relative (or absolute) path like `src/` will match all Python files under `src/`
+or `src/my_file.py` will match `src/my_file.py` exactly.
+
+Any directories matched will also have their `.py` and `.pyi` files recursively matched. `src/*` will match all files and
+directories under `src/`, so therefore, we will recursively match everything under `src/`.
+
+Examples:
+- `src/**/*.py`: only match `.py` files under `src/`
+- `src`, `src/`, `src/*`, `src/**`, and `src/**/*`: match all `.py` and `.pyi` files under `src/
+- `?.py` and `[A-z].py`: match any file that looks like `<letter>.py`
+- `src/path/to/my/file.py`: only match `src/path/to/my/file.py`
+- `src/**/tests`, `src/**/tests/`, `src/**/tests/**`, and `src/**/tests/**/*`: match all `.py` and `.pyi` files in `src/`
+  under a directory named `tests`
+
+## Module Globbing
+
+In some config options, we've added globbing for module paths. This is different from both path globs and regex,
 in the sense that we're performing a match on a Python dotted import, such as `this.is.any.module`.
 The only wildcard we recognize is `*`, which represents zero or more segments of a module path, unless it starts a glob,
 in which case it must match one or more segments. The wildcard must be surrounded
