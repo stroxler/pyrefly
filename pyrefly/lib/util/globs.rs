@@ -15,6 +15,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context;
+use glob::Pattern;
 use itertools::Itertools;
 use path_absolutize::Absolutize;
 use serde::Deserialize;
@@ -57,12 +58,15 @@ impl Glob {
 
     fn contains_glob_char(part: &OsStr) -> bool {
         let bytes = part.as_encoded_bytes();
-        bytes.contains(&b'*') || bytes.contains(&b'?')
+        bytes.contains(&b'*') || bytes.contains(&b'?') || bytes.contains(&b'[')
     }
 
     fn pattern_relative_to_root(root: &Path, pattern: &Path) -> PathBuf {
         // absolutize_from always returns `Ok()`
-        pattern.absolutize_from(root).unwrap().into_owned()
+        pattern
+            .absolutize_from(Pattern::escape(root.to_string_lossy().as_ref()))
+            .unwrap()
+            .into_owned()
     }
 
     fn get_glob_root(&self) -> PathBuf {
@@ -128,7 +132,7 @@ impl Glob {
     pub fn matches(&self, file: &Path) -> anyhow::Result<bool> {
         let pattern_path = &self.0;
         let mut pattern_str = pattern_path.to_string_lossy().to_string();
-        let pattern = glob::Pattern::new(&pattern_str)
+        let pattern = Pattern::new(&pattern_str)
             .with_context(|| format!("When resolving pattern `{pattern_str}`"))?;
         if pattern.matches_path(file) {
             return Ok(true);
@@ -369,6 +373,10 @@ mod tests {
         assert!(Glob::contains_glob_char(&OsString::from("?a")));
         assert!(Glob::contains_glob_char(&OsString::from("a?")));
         assert!(Glob::contains_glob_char(&OsString::from("asdf?fdsa")));
+        assert!(Glob::contains_glob_char(&OsString::from("[")));
+        assert!(Glob::contains_glob_char(&OsString::from("[ab]")));
+        assert!(Glob::contains_glob_char(&OsString::from("a[]")));
+        assert!(Glob::contains_glob_char(&OsString::from("asdf[abcd]fdsa")));
     }
 
     #[test]
@@ -555,9 +563,13 @@ mod tests {
     #[test]
     fn test_globs_match_file() {
         fn glob_matches(pattern: &str, equal: bool) {
-            let file_to_match = Path::new("path/to/my/file.py").absolutize().unwrap();
             let root = std::env::current_dir().unwrap();
             let root = root.absolutize().unwrap();
+            let escaped_root = Pattern::escape(root.to_string_lossy().as_ref());
+            let escaped_root = Path::new(&escaped_root);
+
+            let file_to_match = escaped_root.join("path/to/my/file.py");
+
             let glob = Glob::new_with_root(&root, pattern.to_owned());
             assert!(
                 glob.matches(file_to_match.as_ref()).unwrap() == equal,
