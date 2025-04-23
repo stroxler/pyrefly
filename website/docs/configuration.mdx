@@ -125,7 +125,7 @@ but we don't want to type check.
 
 A file path describing the roots from which imports should be
 found and imported from (including modules in [`project_includes`](#project-includes)). This takes
-the highest precedence in import order,
+the [highest precedence in import order](./import-resolution.mdx#absolute-imports),
 before `typeshed` and [`site_package_path`](#site_package_path). When a `project_includes`
 type checked file is imported by another type checked file, we check all search roots to
 determine how to import it.
@@ -153,7 +153,7 @@ resolution, after [`search_path`](#search_path) and `typeshed`.
 
 `site_package_path` entries have special rules around when they can be imported,
 according to the typing specification. See
-Site Package Path Typing Rules
+[Site Package Path Typing Rules](./import-resolution.mdx#site-package-path-typing-rules)
 for more information, and [`use_untyped_imports`](#use_untyped_imports) and
 [`ignore_missing_source`](#ignore_missing_source) for details on how to configure
 that behavior.
@@ -273,7 +273,7 @@ the substring '<span>&#64;</span>generated'.
 Whether to search imports in [`site_package_path`](#site_package_path) that do not have a
 `py.typed` file unconditionally. When this is true, we skip any checks for `py.typed` files,
 and return the first valid import we can find. See
-Site Package Path Typing Rules for
+[Site Package Path Typing Rules](./import-resolution.mdx#site-package-path-typing-rules) for
 more information on when a `site_package_path` cannot be used for typing information.
 
 - Type: bool
@@ -292,7 +292,7 @@ The check for a non-stubs package exists to ensure you have an importable packag
 in your project. When this check returns an import error, it means we couldn't find a package,
 and that at runtime you may not actually be able to import the given package, even if its
 type stubs could be found. See
-Stub Files vs Source Files for more information.
+[Stub Files vs Source Files](./import-resolution.mdx#stub-files-vs-source-files) for more information.
 
 # Configuration Details
 
