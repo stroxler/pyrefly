@@ -60,10 +60,19 @@ impl Ignore {
     }
 
     fn get_suppression_kind(line: &str) -> Option<SuppressionKind> {
+        fn match_pyrefly_ignore(line: &str) -> bool {
+            let mut words = line.split_whitespace();
+            if let Some("pyrefly:") = words.next() {
+                words.next() == Some("ignore")
+            } else {
+                false
+            }
+        }
+
         for l in line.split("# ").skip(1) {
             if l.starts_with("type: ignore") {
                 return Some(SuppressionKind::Ignore);
-            } else if l.starts_with("pyrefly: ignore") {
+            } else if match_pyrefly_ignore(l) {
                 return Some(SuppressionKind::Pyrefly);
             } else if l.starts_with("pyre-ignore") || l.starts_with("pyre-fixme") {
                 return Some(SuppressionKind::Pyre);
