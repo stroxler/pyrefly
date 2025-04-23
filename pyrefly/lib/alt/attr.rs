@@ -991,7 +991,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn lookup_getattr(&self, base: AttributeBase) -> LookupResult {
-        self.lookup_attr_from_attribute_base(base, &dunder::GETATTR)
+        match base {
+            AttributeBase::ClassObject(class) => {
+                // A `__getattr__` method defined on a class never impacts lookups directly
+                // on the class itself - those will only use a metaclass `__getattr__`. But
+                // the class-defined `__getattr__` *exists* on the class (it can be accessed
+                // directly), so we cannot use the default lookup logic for this case.
+                self.get_metadata_for_class(&class)
+                    .metaclass()
+                    .and_then(|metaclass| self.get_instance_attribute(metaclass, &dunder::GETATTR))
+                    .map(LookupResult::Found)
+                    .unwrap_or(LookupResult::NotFound(NotFound::Attribute(class)))
+            }
+            base => self.lookup_attr_from_attribute_base(base, &dunder::GETATTR),
+        }
     }
 
     // This function is intended as a low-level building block
