@@ -571,8 +571,8 @@ impl Server {
         transaction.run(&all_handles);
 
         let publish = |transaction: &Transaction| {
+            let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
             for (workspace, handles) in workspace_with_handles {
-                let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
                 let open_files = workspace.open_files.lock();
                 for x in open_files.keys() {
                     diags.insert(x.as_path().to_owned(), Vec::new());
@@ -598,8 +598,8 @@ impl Server {
                         }
                     }
                 }
-                self.publish_diagnostics(diags);
             }
+            self.publish_diagnostics(diags);
         };
 
         match possibly_committable_transaction {
