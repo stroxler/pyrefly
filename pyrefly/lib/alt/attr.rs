@@ -990,6 +990,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn lookup_getattr(&self, base: AttributeBase) -> LookupResult {
+        self.lookup_attr_from_attribute_base(base, &dunder::GETATTR)
+    }
+
     // This function is intended as a low-level building block
     // Unions or intersections should be handled by callers
     fn lookup_attr_no_union(&self, base: &Type, attr_name: &Name) -> LookupResult {
@@ -1003,8 +1007,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 match direct_lookup_result {
                     LookupResult::Found(_) | LookupResult::InternalError(_) => direct_lookup_result,
                     LookupResult::NotFound(not_found) => {
-                        let getattr_lookup_result =
-                            self.lookup_attr_from_attribute_base(base, &dunder::GETATTR);
+                        let getattr_lookup_result = self.lookup_getattr(base);
                         match getattr_lookup_result {
                             LookupResult::NotFound(_) | LookupResult::InternalError(_) => {
                                 LookupResult::NotFound(not_found)
