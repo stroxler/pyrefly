@@ -60,7 +60,7 @@ for section in cp.sections():
     cfg[section] = {}
     for key, value in cp.items(section):
         if key == 'ignore_missing_imports' and section.startswith('mypy-') and value:
-            replace_imports.append(section[5:])
+            replace_imports.extend(section[5:].split(','))
             continue
         if key in ('files', 'packages', 'modules'):
             value = [x.strip() for x in value.split(',') if x.strip()]
@@ -167,6 +167,9 @@ check_untyped_defs = True
 
 [mypy-do.follow.*]
 follow_untyped_imports = True
+
+[mypy-comma,separated,projects]
+ignore_missing_imports = True
 "#;
         fs_anyhow::write(&input_path, mypy)?;
 
@@ -195,7 +198,7 @@ follow_untyped_imports = True
         ]);
         assert_eq!(cfg.project_excludes, expected_excludes);
 
-        assert_eq!(cfg.replace_imports_with_any().len(), 2);
+        assert_eq!(cfg.replace_imports_with_any().len(), 5);
         assert!(cfg.use_untyped_imports);
         Ok(())
     }
