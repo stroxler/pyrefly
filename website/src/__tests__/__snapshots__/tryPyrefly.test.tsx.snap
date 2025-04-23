@@ -57,6 +57,14 @@ reveal_type(test(42))
             📋 Share URL
           </span>
         </button>
+        <button
+          aria-label="reset to default code"
+          id="reset-button"
+        >
+          <span>
+            🔄 Reset
+          </span>
+        </button>
       </div>
     </div>
     <div

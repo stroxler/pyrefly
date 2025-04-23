@@ -212,6 +212,7 @@ export default function TryPyrefly({
                             setPythonOutput
                         )}
                         {getShareUrlButton()}
+                        {getResetButton(model, forceRecheck, codeSample)}
                     </div>
                 )}
             </div>
@@ -369,6 +370,28 @@ function getRunPythonButton(
             isRunning={isRunning}
             setIsRunning={setIsRunning}
             setPythonOutput={setPythonOutput}
+        />
+    );
+}
+
+function getResetButton(
+    model: editor.ITextModel | null,
+    forceRecheck: () => void,
+    codeSample: string
+): React.ReactElement {
+    return (
+        <MonacoEditorButton
+            id="reset-button"
+            onClick={async () => {
+                if (model) {
+                    model.setValue(codeSample);
+                    updateURL(codeSample);
+                    forceRecheck();
+                }
+            }}
+            defaultLabel="🔄 Reset"
+            runningLabel="✓ Reset!"
+            ariaLabel="reset to default code"
         />
     );
 }
