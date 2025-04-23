@@ -41,19 +41,19 @@ pub struct ConfigFinder<T = ArcId<ConfigFile>> {
 impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     /// Create a new ConfigFinder a way to load a config file, and a default if that errors or there is no file.
     pub fn new(
-        load: impl Fn(&Path) -> anyhow::Result<T> + Send + Sync + 'static,
-        fallback: impl Fn(ModuleName, &ModulePath) -> T + Send + Sync + 'static,
+        load: Box<dyn Fn(&Path) -> anyhow::Result<T> + Send + Sync>,
+        fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
     ) -> Self {
-        Self::new_custom(|_, _| Ok(None), load, fallback)
+        Self::new_custom(Box::new(|_, _| Ok(None)), load, fallback)
     }
 
     /// Create a new ConfigFinder, but with a custom way to produce a result from a Python file.
     /// If the `before` function fails to produce a config, then the other methods will be used.
     /// The `before` function is not cached in any way.
     pub fn new_custom(
-        before: impl Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<T>> + Send + Sync + 'static,
-        load: impl Fn(&Path) -> anyhow::Result<T> + Send + Sync + 'static,
-        fallback: impl Fn(ModuleName, &ModulePath) -> T + Send + Sync + 'static,
+        before: Box<dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<T>> + Send + Sync>,
+        load: Box<dyn Fn(&Path) -> anyhow::Result<T> + Send + Sync>,
+        fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
     ) -> Self {
         let errors = Arc::new(Mutex::new(Vec::new()));
         let errors2 = errors.dupe();
@@ -70,8 +70,8 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
                 },
             ),
             errors,
-            before: Box::new(before),
-            fallback: Box::new(fallback),
+            before,
+            fallback,
         }
     }
 
@@ -82,9 +82,9 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
         let c3 = constant;
 
         Self::new_custom(
-            move |_, _| Ok(Some(c1.dupe())),
-            move |_| Ok(c2.dupe()),
-            move |_, _| c3.dupe(),
+            Box::new(move |_, _| Ok(Some(c1.dupe()))),
+            Box::new(move |_| Ok(c2.dupe())),
+            Box::new(move |_, _| c3.dupe()),
         )
     }
 

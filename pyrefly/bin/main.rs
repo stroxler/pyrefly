@@ -127,7 +127,6 @@ fn config_finder(args: pyrefly::exported::run::CheckArgs) -> ConfigFinder {
     let args = Arc::new(args);
     let args2 = args.dupe();
     let default = LazyLock::new(move || ArcId::new(args.override_config(ConfigFile::default())));
-    // The Box's are a bit annoying here, but otherwise I can't persuade it that the argument has a good enough lifetime.
     let fallback: Box<dyn Fn(ModuleName, &ModulePath) -> ArcId<ConfigFile> + Send + Sync> =
         Box::new(move |_, _| default.dupe());
     let load: Box<dyn Fn(&Path) -> anyhow::Result<ArcId<ConfigFile>> + Send + Sync> =
