@@ -770,3 +770,39 @@ def f(d: D):
     assert_type(d.x, Any)
     "#,
 );
+
+testcase!(
+    test_getattr_dispatch_for_metaclass,
+    r#"
+from typing import assert_type
+class EMeta(type):
+    def __getattr__(self, attr: str) -> int: ...
+class E(int, metaclass=EMeta):
+    pass
+assert_type(E.EXAMPLE_VALUE, int)
+    "#,
+);
+
+testcase!(
+    bug = "TODO(stroxler) We are selecting the wrong `__getattr__` for class object access - it comes from the metaclass",
+    test_getattr_selection_for_class_object_w_metaclass,
+    r#"
+from typing import assert_type
+class EMeta(type):
+    def __getattr__(self, attr: str) -> int: ...
+class E(metaclass=EMeta):
+    def __getattr__(self, attr: str) -> str: ...
+assert_type(E.EXAMPLE_VALUE, int)  # E: assert_type(str, int) # E: Missing argument `attr` in function `E.__getattr__`  # E: Argument `Literal['EXAMPLE_VALUE']` is not assignable to parameter `self` with type `Self@E` in function `E.__getattr__` 
+    "#,
+);
+
+testcase!(
+    bug = "TODO(stroxler) We should be complaining about a missing attribute here, not throwing errors analyzing a call.",
+    test_getattr_selection_for_class_object_no_metaclass,
+    r#"
+from typing import assert_type
+class E:
+    def __getattr__(self, attr: str) -> str: ...
+E.EXAMPLE_VALUE # E: Missing argument `attr` in function `E.__getattr__`  # E: Argument `Literal['EXAMPLE_VALUE']` is not assignable to parameter `self` with type `Self@E` in function `E.__getattr__` 
+    "#,
+);
