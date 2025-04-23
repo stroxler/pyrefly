@@ -471,7 +471,7 @@ def f(c: C):
 );
 
 testcase!(
-    bug = "Updating a TypedDict with a dict with the wrong keys or non-literal keys should not be allowed",
+    bug = "Omitting keys should be allowed",
     test_update,
     r#"
 from typing import TypedDict
@@ -481,9 +481,9 @@ class C(TypedDict):
 def f(c1: C, c2: C, c3: dict[str, int]):
     c1.update(c2)
     c1.update(c3)  # E: `dict[str, int]` is not assignable to parameter with type `TypedDict[C]`
-    c1.update({"x": 1, "y": 1})  # Should be OK  # E: `dict[str, int]` is not assignable to parameter with type `TypedDict[C]`
-    c1.update({"x": 1})  # Should be OK  # E: `dict[str, int]` is not assignable to parameter with type `TypedDict[C]`
-    c1.update({"z": 1})  # E: `dict[str, int]` is not assignable to parameter with type `TypedDict[C]`
+    c1.update({"x": 1, "y": 1})
+    c1.update({"x": 1})  # Should be OK  # E: Missing required key `y`
+    c1.update({"z": 1})  # E: Missing required key `x`  # E: Missing required key `y`  # E: Key `z` is not defined
     "#,
 );
 
