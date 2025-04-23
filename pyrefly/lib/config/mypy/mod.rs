@@ -99,18 +99,20 @@ print(json.dumps({'mypy': mypy, 'per_module': cfg, 'replace_imports': replace_im
 
         let mut cfg = ConfigFile::default();
 
-        let project_includes = Globs::new(
-            [mypy.files, mypy.packages, mypy.modules]
-                .into_iter()
-                .flatten()
-                .flatten()
-                .collect::<Vec<_>>(),
-        );
-        cfg.project_includes = project_includes;
+        let project_includes = [mypy.files, mypy.packages, mypy.modules]
+            .into_iter()
+            .flatten()
+            .flatten()
+            .collect::<Vec<_>>();
+        if !project_includes.is_empty() {
+            cfg.project_includes = Globs::new(project_includes);
+        }
 
         if let Some(exclude_regex) = mypy.exclude_regex {
             let patterns = regex_converter::convert(&exclude_regex)?;
-            cfg.project_excludes = Globs::new(patterns);
+            if !patterns.is_empty() {
+                cfg.project_excludes = Globs::new(patterns);
+            }
         }
 
         if let Some(search_path) = mypy.search_path {
@@ -195,6 +197,23 @@ follow_untyped_imports = True
 
         assert_eq!(cfg.replace_imports_with_any().len(), 2);
         assert!(cfg.use_untyped_imports);
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_overwrite_missing_includes() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("mypy.ini");
+        // This config is derived from the pytorch mypy.ini.
+        let mypy = br#"[mypy]
+unknown_option = True
+"#;
+        fs_anyhow::write(&input_path, mypy)?;
+
+        let cfg = MypyConfig::parse_mypy_config(&input_path)?;
+        let default = ConfigFile::default();
+        assert_eq!(cfg.project_includes, default.project_includes);
+        assert_eq!(cfg.project_excludes, default.project_excludes);
         Ok(())
     }
 }
