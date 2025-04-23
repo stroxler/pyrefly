@@ -655,12 +655,14 @@ impl Server {
         Ok(())
     }
 
-    fn validate_with_disk_invalidation(&self, invalidate_disk: Vec<PathBuf>) -> anyhow::Result<()> {
+    /// Perform an invalidation of elements on `State` and commit them.
+    /// Runs asyncronously. Returns immediately and may wait a while for a commitable transaction.
+    fn invalidate(&self, f: impl FnOnce(&mut Transaction) + Send + 'static) {
         let state = self.state.dupe();
         let immediately_handled_events = self.immediately_handled_events.dupe();
         std::thread::spawn(move || {
             let mut transaction = state.new_committable_transaction(Require::Exports, None);
-            transaction.as_mut().invalidate_disk(&invalidate_disk);
+            f(transaction.as_mut());
             state.commit_transaction(transaction);
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
@@ -669,6 +671,12 @@ impl Server {
                 .lock()
                 .push(ImmediatelyHandledEvent::RecheckFinished);
         });
+    }
+
+    fn validate_with_disk_invalidation(&self, invalidate_disk: Vec<PathBuf>) -> anyhow::Result<()> {
+        if !invalidate_disk.is_empty() {
+            self.invalidate(move |t| t.invalidate_disk(&invalidate_disk));
+        }
         Ok(())
     }
 
@@ -940,6 +948,10 @@ impl Server {
         }
     }
 
+    fn invalidate_config(&self) {
+        self.invalidate(|t| t.invalidate_config());
+    }
+
     fn update_pythonpath(&self, modified: &mut bool, scope_uri: &Url, python_path: &str) {
         let mut workspaces = self.workspaces.workspaces.write();
         let workspace_path = scope_uri.to_file_path().unwrap();
@@ -959,20 +971,7 @@ impl Server {
             );
             workspaces.insert(workspace_path, new_workspace);
         }
-
-        let state = self.state.dupe();
-        let immediately_handled_events = self.immediately_handled_events.dupe();
-        std::thread::spawn(move || {
-            let mut transaction = state.new_committable_transaction(Require::Exports, None);
-            transaction.as_mut().invalidate_config();
-            state.commit_transaction(transaction);
-            // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
-            // the main event loop of the server. As a result, the server can do a revalidation of
-            // all the in-memory files based on the fresh main State as soon as possible.
-            immediately_handled_events
-                .lock()
-                .push(ImmediatelyHandledEvent::RecheckFinished);
-        });
+        self.invalidate_config();
     }
 }
 
