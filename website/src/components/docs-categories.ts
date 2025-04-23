@@ -9,12 +9,42 @@
 
 import { docsSidebar } from '../../sidebars';
 
-interface SidebarItem {
-    type: string;
+// Union type for all sidebar items
+type SidebarItem = SidebarDocItem | SidebarCategoryItem;
+
+// Define proper types for sidebar items
+interface SidebarItemBase {
     label: string;
-    id?: string;
-    items?: string[];
     description?: string;
+}
+
+// Type for doc items
+interface SidebarDocItem extends SidebarItemBase {
+    type: 'doc';
+    id: string;
+}
+
+// Type for category items
+interface SidebarCategoryItem extends SidebarItemBase {
+    type: 'category';
+    items: string[] | any[]; // Can be an array of strings or other sidebar items
+    link?: SidebarCategoryLink;
+}
+
+// Type for category links
+type SidebarCategoryLink =
+    | SidebarCategoryLinkDoc
+    | SidebarCategoryLinkGeneratedIndex;
+
+// Type for document links in category items
+interface SidebarCategoryLinkDoc {
+    type: 'doc';
+    id: string;
+}
+
+// Type for generated index links in category items
+interface SidebarCategoryLinkGeneratedIndex {
+    type: 'generated-index';
 }
 
 interface DocsCategory {

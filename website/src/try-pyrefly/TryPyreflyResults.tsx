@@ -172,11 +172,11 @@ export default function TryPyreflyResults({
                                     {internalError
                                         ? `Pyrefly encountered an internal error: ${internalError}.`
                                         : errors === undefined ||
-                                          errors === null
-                                        ? 'Pyrefly failed to fetch errors.'
-                                        : errors?.length === 0
-                                        ? 'No errors!'
-                                        : null}
+                                            errors === null
+                                          ? 'Pyrefly failed to fetch errors.'
+                                          : errors?.length === 0
+                                            ? 'No errors!'
+                                            : null}
                                 </li>
                             )}
                         </ul>
