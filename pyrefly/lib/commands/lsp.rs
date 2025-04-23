@@ -80,10 +80,13 @@ use crate::commands::util::module_from_path;
 use crate::config::config::ConfigFile;
 use crate::config::environment::PythonEnvironment;
 use crate::config::error::ErrorConfigs;
+use crate::config::finder::ConfigFinder;
+use crate::exported::ArcId;
 use crate::metadata::RuntimeMetadata;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::SourceRange;
 use crate::module::module_info::TextRangeWithModuleInfo;
+use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::state::handle::Handle;
@@ -188,6 +191,8 @@ struct Workspace {
     runtime_metadata: RuntimeMetadata,
     search_path: Vec<PathBuf>,
     loader: LoaderId,
+    /// The config implied by these settings
+    config_file: ArcId<ConfigFile>,
     disable_language_services: bool,
 }
 
@@ -203,11 +208,13 @@ impl Workspace {
         config_file.python_environment.site_package_path = Some(site_package_path);
         config_file.search_path = search_path.clone();
         config_file.configure();
+        let config_file = ArcId::new(config_file);
 
         Self {
             runtime_metadata,
             search_path: search_path.clone(),
-            loader: LoaderId::new(config_file),
+            loader: LoaderId::new_arc_id(config_file.dupe()),
+            config_file,
             disable_language_services: false,
         }
     }
@@ -247,6 +254,35 @@ impl Workspaces {
             .max_by(|(key1, _), (key2, _)| key2.ancestors().count().cmp(&key1.ancestors().count()))
             .map_or(&self.default, |(_, workspace)| workspace);
         f(workspace)
+    }
+
+    fn config_finder(workspaces: &Arc<Workspaces>) -> ConfigFinder {
+        let workspaces1 = workspaces.dupe();
+        let workspaces2 = workspaces.dupe();
+
+        let load: Box<dyn Fn(&Path) -> anyhow::Result<ArcId<ConfigFile>> + Send + Sync> =
+            Box::new(move |path| {
+                let mut config = ConfigFile::from_file(path, false)?;
+                workspaces1.get_with(path.to_owned(), |w| {
+                    // TODO: Should integrate and fill in defaults, but not override always
+                    config.python_environment = w.config_file.python_environment.clone();
+                    config.search_path = w.config_file.search_path.clone();
+                });
+                config.configure();
+                Ok(ArcId::new(config))
+            });
+        let fallback: Box<dyn Fn(ModuleName, &ModulePath) -> ArcId<ConfigFile> + Send + Sync> =
+            Box::new(move |_, path: &ModulePath| {
+                let path = match path.details() {
+                    ModulePathDetails::BundledTypeshed(x)
+                    | ModulePathDetails::FileSystem(x)
+                    | ModulePathDetails::Memory(x)
+                    | ModulePathDetails::Namespace(x) => x,
+                };
+                workspaces2.get_with(path.clone(), |w| w.config_file.dupe())
+            });
+
+        ConfigFinder::new(load, fallback)
     }
 }
 
@@ -488,17 +524,20 @@ impl Server {
             Vec::new()
         };
 
+        let workspaces = Arc::new(Workspaces::new(Workspace::new(
+            search_path.clone(),
+            site_package_path.clone(),
+            RuntimeMetadata::default(),
+        )));
+
+        let config_finder = Workspaces::config_finder(&workspaces);
         let s = Self {
             send,
             immediately_handled_events: Default::default(),
             initialize_params,
-            state: Arc::new(State::new(None)),
+            state: Arc::new(State::new(Some(config_finder))),
             open_files: RwLock::new(HashMap::new()),
-            workspaces: Arc::new(Workspaces::new(Workspace::new(
-                search_path.clone(),
-                site_package_path.clone(),
-                RuntimeMetadata::default(),
-            ))),
+            workspaces,
             search_path,
             site_package_path,
             outgoing_request_id: Arc::new(AtomicI32::new(1)),

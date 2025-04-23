@@ -84,6 +84,7 @@ impl FindError {
 pub struct LoaderId(ArcId<ConfigFile>);
 
 impl LoaderId {
+    #[allow(dead_code)] // Used in tests
     pub fn new(loader: ConfigFile) -> Self {
         Self(ArcId::new(loader))
     }
