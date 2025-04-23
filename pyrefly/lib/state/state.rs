@@ -220,7 +220,7 @@ pub struct TransactionData<'a> {
     state: &'a State,
     stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleDataMut>>,
-    updated_loaders: SmallMap<LoaderId, Arc<LoaderFindCache>>,
+    updated_loaders: LockedMap<LoaderId, Arc<LoaderFindCache>>,
     memory_overlay: MemoryFilesOverlay,
     require: RequireDefault,
     /// The current epoch, gets incremented every time we recompute
@@ -1036,14 +1036,14 @@ impl<'a> Transaction<'a> {
     /// Called if the `find` portion of loading might have changed.
     /// E.g. you have include paths, and a new file appeared earlier on the path.
     pub fn invalidate_find(&mut self) {
-        for (loader, cache) in self.data.updated_loaders.iter_mut() {
-            *cache = Arc::new(LoaderFindCache::new(loader.dupe()));
+        let new_loaders = LockedMap::new();
+        for loader in self.data.updated_loaders.keys() {
+            new_loaders.insert(loader.dupe(), Arc::new(LoaderFindCache::new(loader.dupe())));
         }
         for loader in self.readable.loaders.keys() {
-            self.data
-                .updated_loaders
-                .insert(loader.dupe(), Arc::new(LoaderFindCache::new(loader.dupe())));
+            new_loaders.insert(loader.dupe(), Arc::new(LoaderFindCache::new(loader.dupe())));
         }
+        self.data.updated_loaders = new_loaders;
 
         self.invalidate(|_| true, |dirty| dirty.find = true);
     }
@@ -1407,8 +1407,10 @@ impl State {
                 .insert(handle.dupe(), new_module_data.take_and_freeze());
         }
         state.memory.apply_overlay(memory_overlay);
-        for (loader_id, additional_loader) in updated_loaders {
-            state.loaders.insert(loader_id, additional_loader);
+        for (loader_id, additional_loader) in updated_loaders.iter_unordered() {
+            state
+                .loaders
+                .insert(loader_id.dupe(), additional_loader.dupe());
         }
         drop(committing_transaction_guard)
     }
