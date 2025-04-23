@@ -49,8 +49,9 @@ config flag can be passed into Pyrefly in single file checking mode.
 If a `pyrefly.toml` is found, it is parsed and used for type checking, and will
 return an error to the user on invalid types, syntax, or values.
 
-If a `pyproject.toml` is found, Pyrefly will stop searching, even if no `[tool.pyrefly]`
-section is found. The same errors will be returned as when loading a `pyrefly.toml` if
+If a `pyproject.toml` is found, Pyrefly will use the `[tool.pyrefly]`
+section if it exists, otherwise it will assume a default config.
+The same errors will be returned as when loading a `pyrefly.toml` if
 the config is invalid.
 
 ## Configuration Options
