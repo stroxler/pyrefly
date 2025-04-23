@@ -227,7 +227,7 @@ impl<'a> DefinitionsBuilder<'a> {
                     style,
                     annot,
                     count: 1,
-                    docstring: body.map(DocString::from_stmts).flatten(),
+                    docstring: body.and_then(DocString::from_stmts),
                 });
             }
         }
