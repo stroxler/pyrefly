@@ -155,7 +155,7 @@ impl PythonVersion {
 }
 
 /// The platform on which Python is running, e.g. "linux", "darwin", "win32".
-/// See <https://stackoverflow.com/questions/446209/possible-values-from-sys-platform> for examples.
+/// See <https://docs.python.org/3/library/sys.html#sys.platform> for examples.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Display)]
 pub struct PythonPlatform(String);
 
@@ -175,9 +175,9 @@ impl Default for PythonPlatform {
 
 impl PythonPlatform {
     pub fn new(platform: &str) -> Self {
-        // Try and normalise common names, particularly those that Pyright allows
+        // Try and normalise common names, particularly those that Pyright allows (All, Linux, Darwin, Windows)
         match platform {
-            "Linux" | "linux" => Self::linux(),
+            "Linux" | "linux" | "All" => Self::linux(),
             "Darwin" | "darwin" | "mac" | "macos" => Self::mac(),
             "Windows" | "windows" | "win32" | "Win32" => Self::windows(),
             _ => Self(platform.to_owned()),
