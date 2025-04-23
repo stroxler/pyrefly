@@ -57,14 +57,36 @@ interface DocsCategory {
 
 const docsCategories: DocsCategory[] = docsSidebar.map((item: SidebarItem) => {
     const label = item.label;
-    const id = item.type === 'doc' ? item.id! : item.items![0];
-    let href = `/en/docs/${id}`;
+
+    // Determine the document ID to use
+    let docId: string;
+    if (item.type === 'doc') {
+        // For doc type items, use the item's id
+        docId = item.id;
+    } else if (item.type === 'category') {
+        const categoryItem = item;
+        // For category type, check if it has a link property with an id
+        if (item.link) {
+            if (categoryItem.link.type === 'doc') {
+                // Use the link's id if available
+                docId = (categoryItem.link as SidebarCategoryLinkDoc).id;
+            } else if (categoryItem.link.type === 'generated-index') {
+                // Use the first item if link is generated index
+                docId = `category/${categoryItem.label.toLowerCase().replace(/\s+/g, '-')}`;
+            }
+        } else {
+            // Fall back to the first item if no link or link has no id
+            docId = categoryItem.items[0];
+        }
+    }
+
+    let href = `/en/docs/${docId}`;
     if (href.endsWith('/index')) href = href.substring(0, href.length - 6);
 
     if (item.type === 'category' && item.description !== undefined) {
         return { type: 'link', href, label, description: item.description };
     }
-    return { type: 'link', docId: id, href, label };
+    return { type: 'link', docId, href, label };
 });
 
 export default docsCategories;
