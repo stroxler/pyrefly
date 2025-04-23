@@ -38,12 +38,16 @@ static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonE
 /// should we always look at a venv/conda environment instead?)
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct PythonEnvironment {
+    /// The platform any `sys.platform` check should evaluate against.
     #[serde(default)]
     pub python_platform: Option<PythonPlatform>,
 
+    /// The platform any `sys.version` check should evaluate against.
     #[serde(default)]
     pub python_version: Option<PythonVersion>,
 
+    /// Directories containing third-party package imports, searched
+    /// after first checking `search_path` and `typeshed`.
     #[serde(default)]
     pub site_package_path: Option<Vec<PathBuf>>,
 

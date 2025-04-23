@@ -73,26 +73,12 @@ enum OutputFormat {
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
+    // how/what should Pyrefly output
     /// Write the errors to a file, instead of printing them.
     #[arg(long, short = 'o', env = clap_env("OUTPUT"))]
     output: Option<PathBuf>,
-    #[clap(long, env = clap_env("SEARCH_PATH"))]
-    search_path: Option<Vec<PathBuf>>,
     #[clap(long, value_enum, default_value_t, env = clap_env("OUTPUT_FORMAT"))]
     output_format: OutputFormat,
-    /// Check all reachable modules, not just the ones that are passed in explicitly on CLI positional arguments.
-    #[clap(long, short = 'a', env = clap_env("CHECK_ALL"))]
-    check_all: bool,
-    #[clap(long, env = clap_env("PYTHON_VERSION"))]
-    python_version: Option<PythonVersion>,
-    #[clap(long, env = clap_env("PLATFORM"))]
-    python_platform: Option<PythonPlatform>,
-    #[clap(long, env = clap_env("SITE_PACKAGE_PATH"))]
-    site_package_path: Option<Vec<PathBuf>>,
-    /// The Python executable that will be queried for Python version, platform, or site package path info
-    /// if the values are missing
-    #[clap(long, env = clap_env("PYTHON_INTERPRETER"))]
-    python_interpreter: Option<PathBuf>,
     /// Produce debugging information about the type checking process.
     #[clap(long, env = clap_env("DEBUG_INFO"))]
     debug_info: Option<PathBuf>,
@@ -126,6 +112,11 @@ pub struct Args {
         env = clap_env("SUMMARIZE_ERRORS")
     )]
     summarize_errors: Option<usize>,
+
+    // non-config type checker behavior
+    /// Check all reachable modules, not just the ones that are passed in explicitly on CLI positional arguments.
+    #[clap(long, short = 'a', env = clap_env("CHECK_ALL"))]
+    check_all: bool,
     /// Suppress errors found in the input files.
     #[clap(long, env = clap_env("SUPPRESS_ERRORS"))]
     suppress_errors: bool,
@@ -135,8 +126,29 @@ pub struct Args {
     /// Remove unused ignores from the input files.
     #[clap(long, env = clap_env("REMOVE_UNUSED_IGNORES"))]
     remove_unused_ignores: bool,
+
+    // config overrides
+    /// The list of directories where imports are imported from, including
+    /// type checked files.
+    #[clap(long, env = clap_env("SEARCH_PATH"))]
+    search_path: Option<Vec<PathBuf>>,
+    /// The Python version any `sys.version` checks should evaluate against.
+    #[clap(long, env = clap_env("PYTHON_VERSION"))]
+    python_version: Option<PythonVersion>,
+    /// The platform any `sys.platform` checks should evaluate against.
+    #[clap(long, env = clap_env("PLATFORM"))]
+    python_platform: Option<PythonPlatform>,
+    /// Directories containing third-party package imports, searched
+    /// after first checking `search_path` and `typeshed`.
+    #[clap(long, env = clap_env("SITE_PACKAGE_PATH"))]
+    site_package_path: Option<Vec<PathBuf>>,
+    /// The Python executable that will be queried for `python_version`
+    /// `python_platform`, or `site_package_path` if any of the values are missing.
+    #[clap(long, env = clap_env("PYTHON_INTERPRETER"))]
+    python_interpreter: Option<PathBuf>,
     /// Whether to ignore type errors in generated code.
-    /// Generated code is defined as code that contains the marker string `@` immediately followed by `generated`.
+    /// Generated code is defined as code that contains the marker string
+    /// `@` immediately followed by `generated`.
     #[clap(long, env = clap_env("IGNORE_ERRORS_IN_GENERATED_CODE"))]
     ignore_errors_in_generated_code: Option<bool>,
 }

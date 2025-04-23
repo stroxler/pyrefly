@@ -54,28 +54,32 @@ impl SubConfig {
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct ConfigFile {
     /// Files that should be counted as sources (e.g. user-space code).
-    /// NOTE: this is never replaced with CLI args in this config, but may be overridden by CLI args where used.
+    /// NOTE: unlike other args, this is never replaced with CLI arg overrides
+    /// in this config, but may be overridden by CLI args where used.
     #[serde(default = "ConfigFile::default_project_includes")]
     pub project_includes: Globs,
 
     /// Files that should be excluded as sources (e.g. user-space code). These take
     /// precedence over `project_includes`.
-    /// NOTE: this is never replaced with CLI args in this config, but may be overridden by CLI args where used.
+    /// NOTE: unlike other configs, this is never replaced with CLI arg overrides
+    /// in this config, but may be overridden by CLI args where used.
     #[serde(default = "ConfigFile::default_project_excludes")]
     pub project_excludes: Globs,
 
-    /// corresponds to --search-path in Args, the list of directories where imports are
-    /// found (including type checked files).
+    /// The list of directories where imports are
+    /// imported from, including type checked files.
     #[serde(default = "ConfigFile::default_search_path")]
     pub search_path: Vec<PathBuf>,
 
     // TODO(connernilsen): make this mutually exclusive with venv/conda env
+    /// The python executable that will be queried for `python_version`,
+    /// `python_platform`, or `site_package_path` if any of the values are missing.
     #[serde(default = "PythonEnvironment::get_default_interpreter")]
     pub python_interpreter: Option<PathBuf>,
 
     /// Values representing the environment of the Python interpreter
     /// (which platform, Python version, ...). When we parse, these values
-    /// are set to false so we know to query the `python_interpreter` before falling
+    /// are default to false so we know to query the `python_interpreter` before falling
     /// back to Pyrefly's defaults.
     #[serde(flatten)]
     pub python_environment: PythonEnvironment,
@@ -84,10 +88,12 @@ pub struct ConfigFile {
     #[serde(default, flatten)]
     pub root: ConfigBase,
 
+    /// Sub-configs that can override specific `ConfigBase` settings
+    /// based on path matching.
     #[serde(default)]
     pub sub_configs: Vec<SubConfig>,
 
-    /// Ignores issues with packages missing py.typed files
+    /// Skips any `py.typed` checks we do when resolving `site_package_path` imports.
     #[serde(default)]
     pub use_untyped_imports: bool,
 
@@ -95,6 +101,8 @@ pub struct ConfigFile {
     #[serde(skip)]
     pub custom_module_paths: SmallMap<ModuleName, ModulePath>,
 
+    /// Skips the check to ensure any `-stubs` `site_package_path` entries have an
+    /// installed non-stubs package.
     #[serde(default)]
     pub ignore_missing_source: bool,
 }
