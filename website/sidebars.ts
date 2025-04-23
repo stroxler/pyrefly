@@ -18,6 +18,12 @@ import { fbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 
 const docsSidebar = [
+    {
+        type: 'category' as const,
+        label: 'Learn Python Typing',
+        description: "Never used a type system before or just new to Pyrefly? Start here!",
+        items: ['python-typing-5-minutes', 'python-typing-for-beginners']
+    },
     // TODO (T221099224): Release getting started and installation doc pages to public
     {
         type: 'category' as const,
@@ -40,16 +46,8 @@ const docsSidebar = [
                 description: "Never used a type system before or just new to Pyrefly? Start here!",
                 items: ['fb/migrating-from-mypy',  'fb/migrating-from-pyright']
             },
-        ]),
-    {
-        type: 'category' as const,
-        label: 'Learn Python Typing',
-        link: {
-            type: 'generated-index' as const,
-        },
-        description: "Never used a type system before or just new to Pyrefly? Start here!",
-        items: ['python-typing-5-minutes', 'python-typing-for-beginners']
-    },
+        ]
+    ),
     {
         type: 'doc' as const,
         id: 'pyrefly-faq',
