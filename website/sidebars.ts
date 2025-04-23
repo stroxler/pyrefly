@@ -19,6 +19,11 @@ import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 
 const docsSidebar = [
     {
+        type: 'doc' as const,
+        id: 'index',
+        label: 'Introduction',
+    },
+    {
         type: 'category' as const,
         label: 'Learn Python Typing',
         description: "Never used a type system before or just new to Pyrefly? Start here!",
@@ -27,12 +32,9 @@ const docsSidebar = [
     // TODO (T221099224): Release getting started and installation doc pages to public
     {
         type: 'category' as const,
-        label: 'Introduction',
-        link: {
-            type: 'generated-index' as const,
-        },
+        label: 'Getting Started',
         description: "Never used a type system before or just new to Pyrefly? Start here!",
-        items: [...fbInternalOnly(['fb/getting-started',  'fb/installation']), 'configuration'],
+        items: [...fbInternalOnly(['fb/installation']), 'configuration'],
     },
     ...fbInternalOnly(
         [

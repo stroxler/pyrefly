@@ -42,7 +42,7 @@ export default function LandingPageHeader(): React.ReactElement {
                     Demo{' '}
                 </a>
                 <a
-                    href={useBaseUrl('en/docs/category/learn-python-typing/')}
+                    href={useBaseUrl('en/docs/')}
                     {...stylex.props(styles.button, typography.p)}
                 >
                     {' '}
