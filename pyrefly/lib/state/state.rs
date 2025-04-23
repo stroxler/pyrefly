@@ -812,11 +812,6 @@ impl<'a> Transaction<'a> {
     }
 
     fn get_cached_loader(&self, loader: &LoaderId) -> Arc<LoaderFindCache> {
-        if self.readable.loaders.len() == 1 {
-            // Since we know our one must exist, we can shortcut
-            return self.readable.loaders.first().unwrap().1.dupe();
-        }
-
         if let Some(loader) = self.data.additional_loaders.get(loader) {
             return loader.dupe();
         }
