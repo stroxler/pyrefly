@@ -175,8 +175,7 @@ struct Server {
     initialize_params: InitializeParams,
     state: Arc<State>,
     open_files: RwLock<HashMap<PathBuf, Arc<String>>>,
-    workspaces: Arc<RwLock<SmallMap<PathBuf, Workspace>>>,
-    default_workspace: Arc<Workspace>,
+    workspaces: Arc<Workspaces>,
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
     outgoing_request_id: Arc<AtomicI32>,
@@ -221,6 +220,41 @@ impl Workspace {
             self.runtime_metadata.dupe(),
             self.loader.dupe(),
         )
+    }
+}
+
+struct Workspaces {
+    default: Workspace,
+    workspaces: RwLock<SmallMap<PathBuf, Workspace>>,
+}
+
+impl Workspaces {
+    fn new(default: Workspace) -> Self {
+        Self {
+            default,
+            workspaces: RwLock::new(SmallMap::new()),
+        }
+    }
+
+    /// Finds a workspace for a file path: longest workspace which is a prefix of the file wins
+    fn get<'a>(
+        &self,
+        workspaces: Iter<'a, PathBuf, Workspace>,
+        default: &'a Workspace,
+        uri: &Path,
+    ) -> &'a Workspace {
+        workspaces
+            .filter(|(key, _)| uri.starts_with(key))
+            .max_by(|(key1, _), (key2, _)| key2.ancestors().count().cmp(&key1.ancestors().count()))
+            .map_or(default, |(_, workspace)| workspace)
+    }
+
+    /// TODO(connernilsen): replace with real config logic
+    fn get_with<F, R>(&self, uri: PathBuf, f: F) -> R
+    where
+        F: FnOnce(&Workspace) -> R,
+    {
+        f(self.get(self.workspaces.read().iter(), &self.default, &uri))
     }
 }
 
@@ -444,27 +478,6 @@ impl Server {
         }
     }
 
-    /// Finds a workspace for a file path: longest workspace which is a prefix of the file wins
-    fn get_workspace<'a>(
-        &self,
-        workspaces: Iter<'a, PathBuf, Workspace>,
-        default: &'a Workspace,
-        uri: &Path,
-    ) -> &'a Workspace {
-        workspaces
-            .filter(|(key, _)| uri.starts_with(key))
-            .max_by(|(key1, _), (key2, _)| key2.ancestors().count().cmp(&key1.ancestors().count()))
-            .map_or(default, |(_, workspace)| workspace)
-    }
-
-    /// TODO(connernilsen): replace with real config logic
-    fn get_workspace_with<F, R>(&self, uri: PathBuf, f: F) -> R
-    where
-        F: FnOnce(&Workspace) -> R,
-    {
-        f(self.get_workspace(self.workspaces.read().iter(), &self.default_workspace, &uri))
-    }
-
     fn new(
         send: Arc<dyn Fn(Message) + Send + Sync + 'static>,
         initialize_params: InitializeParams,
@@ -483,18 +496,17 @@ impl Server {
             Vec::new()
         };
 
-        let mut s = Self {
+        let s = Self {
             send,
             immediately_handled_events: Default::default(),
             initialize_params,
             state: Arc::new(State::new(None)),
             open_files: RwLock::new(HashMap::new()),
-            workspaces: Arc::new(RwLock::new(SmallMap::new())),
-            default_workspace: Arc::new(Workspace::new(
+            workspaces: Arc::new(Workspaces::new(Workspace::new(
                 search_path.clone(),
                 site_package_path.clone(),
                 RuntimeMetadata::default(),
-            )),
+            ))),
             search_path,
             site_package_path,
             outgoing_request_id: Arc::new(AtomicI32::new(1)),
@@ -547,7 +559,8 @@ impl Server {
             .keys()
             .map(|x| {
                 (
-                    self.get_workspace_with(x.clone(), |workspace| workspace.make_handle(x)),
+                    self.workspaces
+                        .get_with(x.clone(), |workspace| workspace.make_handle(x)),
                     Require::Everything,
                 )
             })
@@ -665,7 +678,7 @@ impl Server {
     }
 
     /// Configure the server with a new set of workspace folders
-    fn configure(&mut self, workspace_paths: Vec<PathBuf>) {
+    fn configure(&self, workspace_paths: Vec<PathBuf>) {
         let mut new_workspaces = SmallMap::new();
         for x in &workspace_paths {
             new_workspaces.insert(
@@ -681,12 +694,12 @@ impl Server {
             // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
             self.request_settings_for_workspace(&Url::from_file_path(x).unwrap());
         }
-        self.workspaces = Arc::new(RwLock::new(new_workspaces));
+        *self.workspaces.workspaces.write() = new_workspaces;
     }
 
     fn make_handle(&self, uri: &Url) -> Handle {
         let path = uri.to_file_path().unwrap();
-        self.get_workspace_with(path.clone(), |workspace| {
+        self.workspaces.get_with(path.clone(), |workspace| {
             let module = module_from_path(&path, &workspace.search_path);
             let module_path = if self.open_files.read().contains_key(&path) {
                 ModulePath::memory(path)
@@ -708,9 +721,12 @@ impl Server {
         params: GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self.get_workspace_with(uri.to_file_path().unwrap(), |workspace| {
-            workspace.disable_language_services
-        }) {
+        if self
+            .workspaces
+            .get_with(uri.to_file_path().unwrap(), |workspace| {
+                workspace.disable_language_services
+            })
+        {
             return None;
         }
         let handle = self.make_handle(uri);
@@ -734,9 +750,12 @@ impl Server {
         params: CompletionParams,
     ) -> anyhow::Result<CompletionResponse> {
         let uri = &params.text_document_position.text_document.uri;
-        if self.get_workspace_with(uri.to_file_path().unwrap(), |workspace| {
-            workspace.disable_language_services
-        }) {
+        if self
+            .workspaces
+            .get_with(uri.to_file_path().unwrap(), |workspace| {
+                workspace.disable_language_services
+            })
+        {
             return Ok(CompletionResponse::List(CompletionList {
                 is_incomplete: false,
                 items: Vec::new(),
@@ -760,9 +779,12 @@ impl Server {
 
     fn hover(&self, transaction: &Transaction<'_>, params: HoverParams) -> Option<Hover> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self.get_workspace_with(uri.to_file_path().unwrap(), |workspace| {
-            workspace.disable_language_services
-        }) {
+        if self
+            .workspaces
+            .get_with(uri.to_file_path().unwrap(), |workspace| {
+                workspace.disable_language_services
+            })
+        {
             return None;
         }
         let handle = self.make_handle(uri);
@@ -789,9 +811,12 @@ impl Server {
         params: InlayHintParams,
     ) -> Option<Vec<InlayHint>> {
         let uri = &params.text_document.uri;
-        if self.get_workspace_with(uri.to_file_path().unwrap(), |workspace| {
-            workspace.disable_language_services
-        }) {
+        if self
+            .workspaces
+            .get_with(uri.to_file_path().unwrap(), |workspace| {
+                workspace.disable_language_services
+            })
+        {
             return None;
         }
         let handle = self.make_handle(uri);
@@ -816,9 +841,13 @@ impl Server {
     }
 
     fn change_workspace(&self) {
-        self.workspaces.read().keys().for_each(|scope_uri| {
-            self.request_settings_for_workspace(&Url::from_file_path(scope_uri).unwrap())
-        });
+        self.workspaces
+            .workspaces
+            .read()
+            .keys()
+            .for_each(|scope_uri| {
+                self.request_settings_for_workspace(&Url::from_file_path(scope_uri).unwrap())
+            });
     }
 
     fn request_settings_for_workspace(&self, scope_uri: &Url) {
@@ -878,7 +907,7 @@ impl Server {
     }
 
     fn update_disable_language_services(&self, scope_uri: &Url, disable_language_services: bool) {
-        let mut workspaces = self.workspaces.write();
+        let mut workspaces = self.workspaces.workspaces.write();
         let workspace_path = scope_uri.to_file_path().unwrap();
         if let Some(workspace) = workspaces.get_mut(&workspace_path) {
             workspace.disable_language_services = disable_language_services;
@@ -886,7 +915,7 @@ impl Server {
     }
 
     fn update_pythonpath(&self, modified: &mut bool, scope_uri: &Url, python_path: &str) {
-        let mut workspaces = self.workspaces.write();
+        let mut workspaces = self.workspaces.workspaces.write();
         let workspace_path = scope_uri.to_file_path().unwrap();
         // Currently uses the default interpreter if the pythonPath is invalid
         let env = PythonEnvironment::get_interpreter_env(Path::new(python_path));
