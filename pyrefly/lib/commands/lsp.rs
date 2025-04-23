@@ -8,7 +8,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter;
-use std::iter::once;
 use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
@@ -175,6 +174,7 @@ struct Server {
     immediately_handled_events: Arc<Mutex<Vec<ImmediatelyHandledEvent>>>,
     initialize_params: InitializeParams,
     state: Arc<State>,
+    open_files: Mutex<HashMap<PathBuf, Arc<String>>>,
     workspaces: Arc<RwLock<SmallMap<PathBuf, Workspace>>>,
     default_workspace: Arc<Workspace>,
     search_path: Vec<PathBuf>,
@@ -187,7 +187,6 @@ struct Server {
 /// TODO(connernilsel): replace with real config logic
 #[derive(Debug)]
 struct Workspace {
-    open_files: Mutex<HashMap<PathBuf, Arc<String>>>,
     runtime_metadata: RuntimeMetadata,
     search_path: Vec<PathBuf>,
     loader: LoaderId,
@@ -199,7 +198,6 @@ impl Workspace {
         search_path: Vec<PathBuf>,
         site_package_path: Vec<PathBuf>,
         runtime_metadata: RuntimeMetadata,
-        open_files: HashMap<PathBuf, Arc<String>>,
     ) -> Self {
         let mut config_file = ConfigFile::default();
         config_file.python_environment.python_version = Some(runtime_metadata.version());
@@ -209,7 +207,6 @@ impl Workspace {
         config_file.configure();
 
         Self {
-            open_files: Mutex::new(open_files),
             runtime_metadata,
             search_path: search_path.clone(),
             loader: LoaderId::new(config_file),
@@ -491,12 +488,12 @@ impl Server {
             immediately_handled_events: Default::default(),
             initialize_params,
             state: Arc::new(State::new(None)),
+            open_files: Mutex::new(HashMap::new()),
             workspaces: Arc::new(RwLock::new(SmallMap::new())),
             default_workspace: Arc::new(Workspace::new(
                 search_path.clone(),
                 site_package_path.clone(),
                 RuntimeMetadata::default(),
-                HashMap::new(),
             )),
             search_path,
             site_package_path,
@@ -544,58 +541,50 @@ impl Server {
             Ok(transaction) => transaction.as_mut(),
             Err(transaction) => transaction,
         };
-        let mut all_handles = Vec::new();
-        let mut workspace_with_handles = Vec::new();
-        let workspaces = self.workspaces.read();
-        workspaces
-            .values()
-            .chain(once(self.default_workspace.as_ref()))
-            .for_each(|workspace| {
-                let handles = workspace
-                    .open_files
-                    .lock()
-                    .keys()
-                    .map(|x| (workspace.make_handle(x), Require::Everything))
-                    .collect::<Vec<_>>();
-                transaction.set_memory(
-                    workspace
-                        .open_files
-                        .lock()
-                        .iter()
-                        .map(|x| (x.0.clone(), Some(x.1.dupe())))
-                        .collect::<Vec<_>>(),
-                );
-                all_handles.extend(handles.clone());
-                workspace_with_handles.push((workspace, handles));
-            });
-        transaction.run(&all_handles);
+        let handles = self
+            .open_files
+            .lock()
+            .keys()
+            .map(|x| {
+                (
+                    self.get_workspace_with(x.clone(), |workspace| workspace.make_handle(x)),
+                    Require::Everything,
+                )
+            })
+            .collect::<Vec<_>>();
+        transaction.set_memory(
+            self.open_files
+                .lock()
+                .iter()
+                .map(|x| (x.0.clone(), Some(x.1.dupe())))
+                .collect::<Vec<_>>(),
+        );
+        transaction.run(&handles);
 
         let publish = |transaction: &Transaction| {
             let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
-            for (workspace, handles) in workspace_with_handles {
-                let open_files = workspace.open_files.lock();
-                for x in open_files.keys() {
-                    diags.insert(x.as_path().to_owned(), Vec::new());
-                }
-                // TODO(connernilsen): replace with real error config from config file
-                for e in transaction
-                    .get_loads(handles.iter().map(|(handle, _)| handle))
-                    .collect_errors(&ErrorConfigs::default())
-                    .shown
-                {
-                    if let Some(path) = to_real_path(e.path()) {
-                        if open_files.contains_key(path) {
-                            diags.entry(path.to_owned()).or_default().push(Diagnostic {
-                                range: source_range_to_range(e.source_range()),
-                                severity: Some(lsp_types::DiagnosticSeverity::ERROR),
-                                source: Some("Pyrefly".to_owned()),
-                                message: e.msg().to_owned(),
-                                code: Some(lsp_types::NumberOrString::String(
-                                    e.error_kind().to_name().to_owned(),
-                                )),
-                                ..Default::default()
-                            });
-                        }
+            let open_files = self.open_files.lock();
+            for x in open_files.keys() {
+                diags.insert(x.as_path().to_owned(), Vec::new());
+            }
+            // TODO(connernilsen): replace with real error config from config file
+            for e in transaction
+                .get_loads(handles.iter().map(|(handle, _)| handle))
+                .collect_errors(&ErrorConfigs::default())
+                .shown
+            {
+                if let Some(path) = to_real_path(e.path()) {
+                    if open_files.contains_key(path) {
+                        diags.entry(path.to_owned()).or_default().push(Diagnostic {
+                            range: source_range_to_range(e.source_range()),
+                            severity: Some(lsp_types::DiagnosticSeverity::ERROR),
+                            source: Some("Pyrefly".to_owned()),
+                            message: e.msg().to_owned(),
+                            code: Some(lsp_types::NumberOrString::String(
+                                e.error_kind().to_name().to_owned(),
+                            )),
+                            ..Default::default()
+                        });
                     }
                 }
             }
@@ -650,12 +639,9 @@ impl Server {
         params: DidOpenTextDocumentParams,
     ) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.get_workspace_with(uri.clone(), |workspace| {
-            workspace
-                .open_files
-                .lock()
-                .insert(uri, Arc::new(params.text_document.text));
-        });
+        self.open_files
+            .lock()
+            .insert(uri, Arc::new(params.text_document.text));
         self.validate_in_memory(ide_transaction_manager)
     }
 
@@ -667,23 +653,13 @@ impl Server {
         // We asked for Sync full, so can just grab all the text from params
         let change = params.content_changes.into_iter().next().unwrap();
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.get_workspace_with(uri.clone(), |workspace| {
-            workspace
-                .open_files
-                .lock()
-                .insert(uri, Arc::new(change.text));
-        });
+        self.open_files.lock().insert(uri, Arc::new(change.text));
         self.validate_in_memory(ide_transaction_manager)
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
-        self.get_workspace_with(uri.clone(), |workspace| {
-            workspace
-                .open_files
-                .lock()
-                .remove(&params.text_document.uri.to_file_path().unwrap());
-        });
+        self.open_files.lock().remove(&uri);
         self.publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
         Ok(())
     }
@@ -700,7 +676,6 @@ impl Server {
                         .collect(),
                     self.site_package_path.clone(),
                     RuntimeMetadata::default(),
-                    HashMap::new(),
                 ),
             );
             // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
@@ -713,7 +688,7 @@ impl Server {
         let path = uri.to_file_path().unwrap();
         self.get_workspace_with(path.clone(), |workspace| {
             let module = module_from_path(&path, &workspace.search_path);
-            let module_path = if workspace.open_files.lock().contains_key(&path) {
+            let module_path = if self.open_files.lock().contains_key(&path) {
                 ModulePath::memory(path)
             } else {
                 ModulePath::filesystem(path)
@@ -926,7 +901,6 @@ impl Server {
                 site_package_path.clone(),
                 // this is okay, since `get_interpreter_env()` must return an environment with all values as `Some()`
                 RuntimeMetadata::new(env.python_version.unwrap(), env.python_platform.unwrap()),
-                workspace.open_files.lock().clone(),
             );
             workspaces.insert(workspace_path, new_workspace);
         }
