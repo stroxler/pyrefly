@@ -831,14 +831,18 @@ impl Server {
         let range = position_to_text_size(&info, params.text_document_position_params.position);
         let t = transaction.get_type_at(&handle, range)?;
         let docstring = transaction.docstring(&handle, range);
+        let value = match docstring {
+            None => format!(r#"```python\n{}\n```"#, t),
+            Some(docstring) => format!(
+                r#"```python\n{}\n```\n---\n{}"#,
+                t,
+                docstring.as_string().trim()
+            ),
+        };
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: format!(
-                    r#"```python\n{}\n{}\n```"#,
-                    t,
-                    docstring.map_or("".to_owned(), |x| x.as_string()),
-                ),
+                value,
             }),
             range: None,
         })
