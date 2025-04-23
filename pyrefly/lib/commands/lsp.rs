@@ -225,40 +225,6 @@ impl Workspace {
             self.loader.dupe(),
         )
     }
-
-    fn compute_diagnostics(
-        &self,
-        transaction: &Transaction,
-        handles: Vec<(Handle, Require)>,
-    ) -> SmallMap<PathBuf, Vec<Diagnostic>> {
-        let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
-        let open_files = self.open_files.lock();
-        for x in open_files.keys() {
-            diags.insert(x.as_path().to_owned(), Vec::new());
-        }
-        // TODO(connernilsen): replace with real error config from config file
-        for e in transaction
-            .get_loads(handles.iter().map(|(handle, _)| handle))
-            .collect_errors(&ErrorConfigs::default())
-            .shown
-        {
-            if let Some(path) = to_real_path(e.path()) {
-                if open_files.contains_key(path) {
-                    diags.entry(path.to_owned()).or_default().push(Diagnostic {
-                        range: source_range_to_range(e.source_range()),
-                        severity: Some(lsp_types::DiagnosticSeverity::ERROR),
-                        source: Some("Pyrefly".to_owned()),
-                        message: e.msg().to_owned(),
-                        code: Some(lsp_types::NumberOrString::String(
-                            e.error_kind().to_name().to_owned(),
-                        )),
-                        ..Default::default()
-                    });
-                }
-            }
-        }
-        diags
-    }
 }
 
 pub fn run_lsp(
@@ -604,9 +570,35 @@ impl Server {
             });
         transaction.run(&all_handles);
 
-        let publish = |transaction| {
+        let publish = |transaction: &Transaction| {
             for (workspace, handles) in workspace_with_handles {
-                self.publish_diagnostics(workspace.compute_diagnostics(transaction, handles));
+                let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
+                let open_files = workspace.open_files.lock();
+                for x in open_files.keys() {
+                    diags.insert(x.as_path().to_owned(), Vec::new());
+                }
+                // TODO(connernilsen): replace with real error config from config file
+                for e in transaction
+                    .get_loads(handles.iter().map(|(handle, _)| handle))
+                    .collect_errors(&ErrorConfigs::default())
+                    .shown
+                {
+                    if let Some(path) = to_real_path(e.path()) {
+                        if open_files.contains_key(path) {
+                            diags.entry(path.to_owned()).or_default().push(Diagnostic {
+                                range: source_range_to_range(e.source_range()),
+                                severity: Some(lsp_types::DiagnosticSeverity::ERROR),
+                                source: Some("Pyrefly".to_owned()),
+                                message: e.msg().to_owned(),
+                                code: Some(lsp_types::NumberOrString::String(
+                                    e.error_kind().to_name().to_owned(),
+                                )),
+                                ..Default::default()
+                            });
+                        }
+                    }
+                }
+                self.publish_diagnostics(diags);
             }
         };
 
