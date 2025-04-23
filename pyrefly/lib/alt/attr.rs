@@ -1214,10 +1214,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// - If the base type is a union and at least one case has a descriptor that cannot be narrowed,
     ///   return UnionPropertyOrDescriptor({read_type}), which will allow us to make error messages
     ///   clearer for this case.
-    /// - If the attribute is soundly narrowable (up to data races, which we do not currently attempt
+    /// - If the attribute is safely narrowable (up to data races, which we do not currently attempt
     ///   to model) - which is true for normal attributes and may eventually for known-to-be-sound
     ///   built-in descriptors, return `Simple({read_type})`
-    /// - If the attribute comes from `__getattr__`, treat it as soundly narrowable. This is unsound but
+    /// - If the attribute comes from `__getattr__`, treat it as safely narrowable. This is unsound but
     ///   pragmatic, because `__getattr__` stubs are often used to indicate gradual typing.
     /// - If the attribute cannot be found or read return `Simple(ClassType({object}))`. There will
     ///   still be a type error on the narrow, but we should treat it as a valid narrow starting
