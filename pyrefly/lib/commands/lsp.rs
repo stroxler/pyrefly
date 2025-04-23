@@ -73,7 +73,6 @@ use lsp_types::request::WorkspaceConfiguration;
 use ruff_source_file::SourceLocation;
 use ruff_text_size::TextSize;
 use serde::de::DeserializeOwned;
-use starlark_map::small_map::Iter;
 use starlark_map::small_map::SmallMap;
 
 use crate::commands::run::CommandExitStatus;
@@ -236,25 +235,18 @@ impl Workspaces {
         }
     }
 
-    /// Finds a workspace for a file path: longest workspace which is a prefix of the file wins
-    fn get<'a>(
-        &self,
-        workspaces: Iter<'a, PathBuf, Workspace>,
-        default: &'a Workspace,
-        uri: &Path,
-    ) -> &'a Workspace {
-        workspaces
-            .filter(|(key, _)| uri.starts_with(key))
-            .max_by(|(key1, _), (key2, _)| key2.ancestors().count().cmp(&key1.ancestors().count()))
-            .map_or(default, |(_, workspace)| workspace)
-    }
-
     /// TODO(connernilsen): replace with real config logic
     fn get_with<F, R>(&self, uri: PathBuf, f: F) -> R
     where
         F: FnOnce(&Workspace) -> R,
     {
-        f(self.get(self.workspaces.read().iter(), &self.default, &uri))
+        let workspaces = self.workspaces.read();
+        let workspace = workspaces
+            .iter()
+            .filter(|(key, _)| uri.starts_with(key))
+            .max_by(|(key1, _), (key2, _)| key2.ancestors().count().cmp(&key1.ancestors().count()))
+            .map_or(&self.default, |(_, workspace)| workspace);
+        f(workspace)
     }
 }
 
