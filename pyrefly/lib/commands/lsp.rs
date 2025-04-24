@@ -73,6 +73,7 @@ use lsp_types::request::GotoDefinition;
 use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
 use lsp_types::request::WorkspaceConfiguration;
+use path_absolutize::Absolutize;
 use ruff_source_file::SourceLocation;
 use ruff_text_size::TextSize;
 use serde::de::DeserializeOwned;
@@ -371,8 +372,9 @@ fn to_real_path(path: &ModulePath) -> Option<&Path> {
 
 fn module_info_to_uri(module_info: &ModuleInfo) -> Option<Url> {
     let path = to_real_path(module_info.path())?;
-    let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_owned());
-    Some(Url::from_file_path(path).unwrap())
+    let abs_path = path.absolutize();
+    let abs_path = abs_path.as_deref().unwrap_or(path);
+    Some(Url::from_file_path(abs_path).unwrap())
 }
 
 fn publish_diagnostics_for_uri(
