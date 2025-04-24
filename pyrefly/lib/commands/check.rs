@@ -27,8 +27,6 @@ use crate::commands::run::CommandExitStatus;
 use crate::commands::suppress;
 use crate::commands::util::module_from_path;
 use crate::config::config::ConfigFile;
-use crate::config::error::ErrorConfig;
-use crate::config::error::ErrorConfigs;
 use crate::config::finder::ConfigFinder;
 use crate::config::util::set_if_some;
 use crate::config::util::set_option_if_some;
@@ -184,15 +182,12 @@ struct Handles {
     /// A mapping from a file to all other information needed to create a `Handle`.
     /// The value type is basically everything else in `Handle` except for the file path.
     path_data: HashMap<PathBuf, (ModuleName, SysInfo)>,
-    /// A the underlying HashMap that will be used to create an `ErrorConfigs` when requested.
-    module_to_error_config: HashMap<ModulePath, ErrorConfig>,
 }
 
 impl Handles {
     fn new(files: Vec<PathBuf>, config_finder: &ConfigFinder) -> Self {
         let mut handles = Self {
             path_data: HashMap::new(),
-            module_to_error_config: HashMap::new(),
         };
         for file in files {
             handles.register_file(file, config_finder);
@@ -207,13 +202,6 @@ impl Handles {
     ) -> &(ModuleName, SysInfo) {
         let module_path = ModulePath::filesystem(path.clone());
         let config = config_finder.python_file(ModuleName::unknown(), &module_path);
-        self.module_to_error_config.insert(
-            module_path,
-            ErrorConfig::new(
-                config.errors().clone(),
-                config.ignore_errors_in_generated_code(),
-            ),
-        );
         let module_name = module_from_path(&path, &config.search_path);
         self.path_data
             .entry(path)
@@ -236,10 +224,6 @@ impl Handles {
             .collect()
     }
 
-    fn error_configs(&self) -> ErrorConfigs {
-        ErrorConfigs::new(self.module_to_error_config.clone())
-    }
-
     fn update<'a>(
         &mut self,
         created_files: impl Iterator<Item = &'a PathBuf>,
@@ -251,9 +235,6 @@ impl Handles {
         }
         for file in removed_files {
             self.path_data.remove(file);
-            self.module_to_error_config
-                .remove(&ModulePath::filesystem(file.to_path_buf()));
-            // NOTE: Need to garbage-collect unreachable Loaders at some point
         }
     }
 }
@@ -299,11 +280,7 @@ impl Args {
                 .new_transaction(require_levels.default, None),
             allow_forget,
         );
-        self.run_inner(
-            transaction.as_mut(),
-            &handles.all(require_levels.specified),
-            &handles.error_configs(),
-        )
+        self.run_inner(transaction.as_mut(), &handles.all(require_levels.specified))
     }
 
     pub async fn run_watch(
@@ -320,11 +297,7 @@ impl Args {
         let state = State::new(config_finder);
         let mut transaction = state.new_committable_transaction(require_levels.default, None);
         loop {
-            let res = self.run_inner(
-                transaction.as_mut(),
-                &handles.all(require_levels.specified),
-                &handles.error_configs(),
-            );
+            let res = self.run_inner(transaction.as_mut(), &handles.all(require_levels.specified));
             state.commit_transaction(transaction);
             if let Err(e) = res {
                 eprintln!("{e:#}");
@@ -402,7 +375,6 @@ impl Args {
         &self,
         transaction: &mut Transaction,
         handles: &[(Handle, Require)],
-        #[allow(unused_variables)] error_configs: &ErrorConfigs,
     ) -> anyhow::Result<CommandExitStatus> {
         let mut memory_trace = MemoryUsageTrace::start(Duration::from_secs_f32(0.1));
         let start = Instant::now();
