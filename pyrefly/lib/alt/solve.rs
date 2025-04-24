@@ -46,7 +46,6 @@ use crate::binding::binding::BindingLegacyTypeParam;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::EmptyAnswer;
-use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::FunctionSource;
 use crate::binding::binding::Initialized;
 use crate::binding::binding::IsAsync;
@@ -1183,29 +1182,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
             }
-            BindingExpect::CheckAssignToAttribute(box (attr, ExprOrBinding::Binding(got))) => {
+            BindingExpect::CheckAssignToAttribute(box (attr, got)) => {
                 let base = self.expr_infer(&attr.value, errors);
-                let got = self.solve_binding(got, errors);
-                self.check_and_infer_attr_set_with_type(
-                    base,
+                self.check_assign_to_attribute_and_infer_narrow(
+                    &base,
                     &attr.attr.id,
-                    got.ty(),
+                    got,
                     attr.range,
                     errors,
-                    None,
-                    "Answers::solve_expectation::CheckAssignTypeToAttribute",
-                );
-            }
-            BindingExpect::CheckAssignToAttribute(box (attr, ExprOrBinding::Expr(value))) => {
-                let base = self.expr_infer(&attr.value, errors);
-                self.check_and_infer_attr_set_with_expr(
-                    base,
-                    &attr.attr.id,
-                    value,
-                    attr.range,
-                    errors,
-                    None,
-                    "Answers::solve_expectation::CheckAssignExprToAttribute",
                 );
             }
         }

@@ -18,6 +18,7 @@ use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::callable::CallArg;
 use crate::alt::types::class_metadata::EnumMetadata;
+use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyExport;
 use crate::dunder;
 use crate::error::collector::ErrorCollector;
@@ -408,16 +409,41 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    /// Here `got` can be either an Expr or a Type so that we can support contextually
-    /// typing whenever the expression is available.
+    /// Check whether a type or expression is assignable to an attribute, using contextual
+    /// typing in the expression case.
     ///
     /// If (and only if) an attribute is a simple read-write attribute, returns the
     /// type of the term to which we set it which may be used for narrowing.
-    fn check_and_infer_attr_set(
+    pub fn check_assign_to_attribute_and_infer_narrow(
+        &self,
+        base: &Type,
+        name: &Name,
+        got: &ExprOrBinding,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Option<Type> {
+        let got = match got {
+            ExprOrBinding::Expr(value) => Either::Left(value),
+            ExprOrBinding::Binding(got) => {
+                Either::Right(self.solve_binding(got, errors).arc_clone_ty())
+            }
+        };
+        self.check_attr_set_and_infer_narrow(
+            base,
+            name,
+            got,
+            range,
+            errors,
+            None,
+            "attr::check_assign_to_attribute_and_infer_narrow",
+        )
+    }
+
+    fn check_attr_set_and_infer_narrow(
         &self,
         base: &Type,
         attr_name: &Name,
-        got: Either<&Expr, &Type>,
+        got: Either<&Expr, Type>,
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
@@ -428,7 +454,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match self.lookup_attr_no_union(base, attr_name) {
                 LookupResult::Found(attr) => match attr.inner {
                     AttributeInner::Simple(want, Visibility::ReadWrite) => {
-                        let ty = match got {
+                        let ty = match &got {
                             Either::Left(got) => self.expr(
                                 got,
                                 Some((&want, &|| TypeCheckContext {
@@ -557,48 +583,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             narrowed_types = None;
         });
         narrowed_types.map(|ts| self.unions(ts))
-    }
-
-    pub fn check_and_infer_attr_set_with_expr(
-        &self,
-        base: Type,
-        attr_name: &Name,
-        got: &Expr,
-        range: TextRange,
-        errors: &ErrorCollector,
-        context: Option<&dyn Fn() -> ErrorContext>,
-        todo_ctx: &str,
-    ) -> Option<Type> {
-        self.check_and_infer_attr_set(
-            &base,
-            attr_name,
-            Either::Left(got),
-            range,
-            errors,
-            context,
-            todo_ctx,
-        )
-    }
-
-    pub fn check_and_infer_attr_set_with_type(
-        &self,
-        base: Type,
-        attr_name: &Name,
-        got: &Type,
-        range: TextRange,
-        errors: &ErrorCollector,
-        context: Option<&dyn Fn() -> ErrorContext>,
-        todo_ctx: &str,
-    ) -> Option<Type> {
-        self.check_and_infer_attr_set(
-            &base,
-            attr_name,
-            Either::Right(got),
-            range,
-            errors,
-            context,
-            todo_ctx,
-        )
     }
 
     pub fn check_attr_delete(
