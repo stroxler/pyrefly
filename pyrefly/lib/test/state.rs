@@ -369,7 +369,7 @@ fn test_change_require() {
     let handle = Handle::new(
         ModuleName::from_str("foo"),
         ModulePath::memory(PathBuf::from("foo")),
-        t.metadata(),
+        t.sys_info(),
     );
     state.run(&[(handle.dupe(), Require::Exports)], Require::Exports, None);
     assert_eq!(

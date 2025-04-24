@@ -145,7 +145,7 @@ impl TestEnv {
             .insert(module_name, (ModulePath::filesystem(path), None));
     }
 
-    pub fn metadata(&self) -> SysInfo {
+    pub fn sys_info(&self) -> SysInfo {
         SysInfo::new(self.version, PythonPlatform::linux())
     }
 
@@ -176,7 +176,7 @@ impl TestEnv {
     }
 
     pub fn to_state(self) -> (State, impl Fn(&str) -> Handle) {
-        let config = self.metadata();
+        let config = self.sys_info();
         let config_file = self.config();
         let handles = self
             .modules
