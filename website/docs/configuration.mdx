@@ -77,7 +77,7 @@ the config is invalid.
 The following section lists all recognized options that can be specified in a config
 file or `pyproject.toml` Pyrefly config section.
 
-## `project_includes`
+## `project_includes`  {#project_includes}
 
 The glob patterns used to describe which files to type
 check, typically understood as user-space files.
@@ -124,7 +124,7 @@ but we don't want to type check.
 ## `search_path`
 
 A file path describing the roots from which imports should be
-found and imported from (including modules in [`project_includes`](#project-includes)). This takes
+found and imported from (including modules in [`project_includes`](#project_includes)). This takes
 the [highest precedence in import order](./import-resolution.mdx#absolute-imports),
 before `typeshed` and [`site_package_path`](#site_package_path). When a `project_includes`
 type checked file is imported by another type checked file, we check all search roots to
@@ -292,7 +292,7 @@ The check for a non-stubs package exists to ensure you have an importable packag
 in your project. When this check returns an import error, it means we couldn't find a package,
 and that at runtime you may not actually be able to import the given package, even if its
 type stubs could be found. See
-[Stub Files vs Source Files](./import-resolution.mdx#stub-files-vs-source-files) for more information.
+[Stub Files vs Source Files](../import-resolution#stub-files-vs-source-files) for more information.
 
 # Configuration Details
 
