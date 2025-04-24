@@ -33,14 +33,17 @@ impl ErrorDisplayConfig {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct ErrorConfig {
-    pub display_config: ErrorDisplayConfig,
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ErrorConfig<'a> {
+    pub display_config: &'a ErrorDisplayConfig,
     pub ignore_errors_in_generated_code: bool,
 }
 
-impl ErrorConfig {
-    pub fn new(display_config: ErrorDisplayConfig, ignore_errors_in_generated_code: bool) -> Self {
+impl<'a> ErrorConfig<'a> {
+    pub fn new(
+        display_config: &'a ErrorDisplayConfig,
+        ignore_errors_in_generated_code: bool,
+    ) -> Self {
         Self {
             display_config,
             ignore_errors_in_generated_code,

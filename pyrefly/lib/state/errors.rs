@@ -35,10 +35,8 @@ impl Errors {
     pub fn collect_errors(&self) -> CollectedErrors {
         let mut errors = CollectedErrors::default();
         for (load, config) in &self.loads {
-            let error_config = ErrorConfig::new(
-                config.errors().clone(),
-                config.ignore_errors_in_generated_code(),
-            );
+            let error_config =
+                ErrorConfig::new(config.errors(), config.ignore_errors_in_generated_code());
             load.errors.collect_into(&error_config, &mut errors);
         }
         errors
@@ -56,10 +54,8 @@ impl Errors {
 
     pub fn check_against_expectations(&self) -> anyhow::Result<()> {
         for (load, config) in &self.loads {
-            let error_config = ErrorConfig::new(
-                config.errors().clone(),
-                config.ignore_errors_in_generated_code(),
-            );
+            let error_config =
+                ErrorConfig::new(config.errors(), config.ignore_errors_in_generated_code());
             Expectation::parse(load.module_info.dupe(), load.module_info.contents())
                 .check(&load.errors.collect(&error_config).shown)?;
         }
