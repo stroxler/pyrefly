@@ -57,9 +57,11 @@ use crate::export::definitions::DocString;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
+use crate::module::bundled::BundledTypeshed;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
+use crate::module::module_path::ModulePathDetails;
 use crate::state::dirty::Dirty;
 use crate::state::epoch::Epoch;
 use crate::state::epoch::Epochs;
@@ -680,11 +682,7 @@ impl<'a> Transaction<'a> {
                 if let Some(m) = self.readable.modules.get(handle) {
                     ArcId::new(m.clone_for_mutation())
                 } else {
-                    let config = self
-                        .data
-                        .state
-                        .config_finder
-                        .python_file(handle.module(), handle.path());
+                    let config = self.data.state.get_config(handle.module(), handle.path());
                     let res = ArcId::new(ModuleDataMut::new(handle.dupe(), config, self.data.now));
                     created = Some(res.dupe());
                     res
@@ -825,7 +823,7 @@ impl<'a> Transaction<'a> {
     }
 
     fn compute_stdlib(&mut self, sys_infos: SmallSet<SysInfo>) {
-        let loader = self.get_cached_loader(&ConfigFile::empty());
+        let loader = self.get_cached_loader(&BundledTypeshed::config());
         for k in sys_infos.into_iter_hashed() {
             self.data
                 .stdlib
@@ -1038,11 +1036,7 @@ impl<'a> Transaction<'a> {
         // If they change, set find to dirty.
         let mut dirty_set = self.data.dirty.lock();
         for (handle, module_data) in self.data.updated_modules.iter_unordered() {
-            let config2 = self
-                .data
-                .state
-                .config_finder
-                .python_file(handle.module(), handle.path());
+            let config2 = self.data.state.get_config(handle.module(), handle.path());
             if config2 != *module_data.config.read() {
                 *module_data.config.write() = config2;
                 module_data.state.write(Step::Load).unwrap().dirty.find = true;
@@ -1051,11 +1045,7 @@ impl<'a> Transaction<'a> {
         }
         for (handle, module_data) in self.readable.modules.iter() {
             if self.data.updated_modules.get(handle).is_none() {
-                let config2 = self
-                    .data
-                    .state
-                    .config_finder
-                    .python_file(handle.module(), handle.path());
+                let config2 = self.data.state.get_config(handle.module(), handle.path());
                 if module_data.config != config2 {
                     let module_data = self.get_module(handle);
                     *module_data.config.write() = config2;
@@ -1293,6 +1283,14 @@ impl State {
 
     pub fn config_finder(&self) -> &ConfigFinder {
         &self.config_finder
+    }
+
+    fn get_config(&self, name: ModuleName, path: &ModulePath) -> ArcId<ConfigFile> {
+        if matches!(path.details(), ModulePathDetails::BundledTypeshed(_)) {
+            BundledTypeshed::config()
+        } else {
+            self.config_finder.python_file(name, path)
+        }
     }
 
     pub fn new_transaction<'a>(

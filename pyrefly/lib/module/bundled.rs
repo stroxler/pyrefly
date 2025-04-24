@@ -12,12 +12,15 @@ use std::sync::LazyLock;
 
 use anyhow::Context as _;
 use anyhow::anyhow;
+use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 use tar::Archive;
 use zstd::stream::read::Decoder;
 
+use crate::config::config::ConfigFile;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
+use crate::util::arc_id::ArcId;
 
 const BUNDLED_TYPESHED_BYTES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/typeshed.tar.zst"));
 
@@ -89,6 +92,17 @@ impl BundledTypeshed {
 
     pub fn load(&self, path: &PathBuf) -> Option<Arc<String>> {
         self.load.get(path).cloned()
+    }
+
+    pub fn config() -> ArcId<ConfigFile> {
+        static CONFIG: LazyLock<ArcId<ConfigFile>> = LazyLock::new(|| {
+            let mut config_file = ConfigFile::default();
+            config_file.python_environment.site_package_path = Some(Vec::new());
+            config_file.search_path = Vec::new();
+            config_file.configure();
+            ArcId::new(config_file)
+        });
+        CONFIG.dupe()
     }
 }
 
