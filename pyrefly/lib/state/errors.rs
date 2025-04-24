@@ -11,6 +11,7 @@ use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
+use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorConfigs;
 use crate::error::collector::CollectedErrors;
 use crate::error::expectation::Expectation;
@@ -32,12 +33,17 @@ impl Errors {
         Self { loads }
     }
 
-    pub fn collect_errors(&self, error_configs: &ErrorConfigs) -> CollectedErrors {
+    pub fn collect_errors(
+        &self,
+        #[allow(unused_variables)] error_configs: &ErrorConfigs,
+    ) -> CollectedErrors {
         let mut errors = CollectedErrors::default();
-        for (load, _) in &self.loads {
-            let module_path = load.module_info.path();
-            let error_config = error_configs.get(module_path);
-            load.errors.collect_into(error_config, &mut errors);
+        for (load, config) in &self.loads {
+            let error_config = ErrorConfig::new(
+                config.errors().clone(),
+                config.ignore_errors_in_generated_code(),
+            );
+            load.errors.collect_into(&error_config, &mut errors);
         }
         errors
     }
@@ -52,12 +58,17 @@ impl Errors {
         ignore_collection
     }
 
-    pub fn check_against_expectations(&self, error_configs: &ErrorConfigs) -> anyhow::Result<()> {
-        for (load, _) in &self.loads {
-            let module_info = &load.module_info;
-            let error_config = error_configs.get(module_info.path());
-            Expectation::parse(module_info.dupe(), module_info.contents())
-                .check(&load.errors.collect(error_config).shown)?;
+    pub fn check_against_expectations(
+        &self,
+        #[allow(unused_variables)] error_configs: &ErrorConfigs,
+    ) -> anyhow::Result<()> {
+        for (load, config) in &self.loads {
+            let error_config = ErrorConfig::new(
+                config.errors().clone(),
+                config.ignore_errors_in_generated_code(),
+            );
+            Expectation::parse(load.module_info.dupe(), load.module_info.contents())
+                .check(&load.errors.collect(&error_config).shown)?;
         }
         Ok(())
     }
