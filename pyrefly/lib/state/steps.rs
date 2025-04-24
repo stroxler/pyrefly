@@ -20,13 +20,13 @@ use crate::binding::bindings::Bindings;
 use crate::error::style::ErrorStyle;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
-use crate::metadata::SysInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::solver::solver::Solver;
 use crate::state::load::Load;
 use crate::state::memory::MemoryFilesLookup;
 use crate::state::require::Require;
+use crate::sys_info::SysInfo;
 use crate::types::stdlib::Stdlib;
 use crate::util::uniques::UniqueFactory;
 

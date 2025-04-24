@@ -17,13 +17,13 @@ use serde::Serialize;
 use crate::config::config::ConfigFile;
 use crate::config::error::ErrorConfigs;
 use crate::config::finder::ConfigFinder;
-use crate::metadata::SysInfo;
 use crate::module::module_info::SourceRange;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::state::handle::Handle;
 use crate::state::require::Require;
 use crate::state::state::State;
+use crate::sys_info::SysInfo;
 use crate::util::arc_id::ArcId;
 use crate::util::prelude::VecExt;
 

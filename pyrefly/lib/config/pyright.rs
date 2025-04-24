@@ -10,8 +10,8 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 use crate::config::config::ConfigFile;
-use crate::metadata::PythonPlatform;
-use crate::metadata::PythonVersion;
+use crate::sys_info::PythonPlatform;
+use crate::sys_info::PythonVersion;
 use crate::util::globs::Globs;
 
 #[derive(Clone, Debug, Deserialize)]

@@ -7,9 +7,9 @@
 
 use dupe::Dupe;
 
-use crate::metadata::SysInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
+use crate::sys_info::SysInfo;
 
 #[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash)]
 pub struct Handle {

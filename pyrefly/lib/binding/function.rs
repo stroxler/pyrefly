@@ -42,9 +42,9 @@ use crate::binding::scope::FlowStyle;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
 use crate::graph::index::Idx;
-use crate::metadata::SysInfo;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
+use crate::sys_info::SysInfo;
 use crate::util::prelude::VecExt;
 
 impl<'a> BindingsBuilder<'a> {

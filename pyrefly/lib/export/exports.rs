@@ -22,10 +22,10 @@ use crate::export::definitions::Definitions;
 use crate::export::definitions::DocString;
 use crate::export::definitions::DunderAllEntry;
 use crate::graph::calculation::Calculation;
-use crate::metadata::SysInfo;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::state::loader::FindError;
+use crate::sys_info::SysInfo;
 
 /// Find the exports of a given module.
 pub trait LookupExport {

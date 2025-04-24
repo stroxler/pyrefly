@@ -24,11 +24,11 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 
 use crate::dunder;
-use crate::metadata::SysInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModuleStyle;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
+use crate::sys_info::SysInfo;
 use crate::util::visit::Visit;
 
 /// How a name is defined. If a name is defined outside of this

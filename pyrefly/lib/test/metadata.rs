@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use crate::metadata::PythonVersion;
+use crate::sys_info::PythonVersion;
 use crate::test::util::TestEnv;
 use crate::testcase;
 

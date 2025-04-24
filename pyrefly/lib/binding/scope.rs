@@ -36,11 +36,11 @@ use crate::export::definitions::Definitions;
 use crate::export::exports::LookupExport;
 use crate::export::special::SpecialEntry;
 use crate::graph::index::Idx;
-use crate::metadata::SysInfo;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
+use crate::sys_info::SysInfo;
 use crate::types::class::ClassIndex;
 
 /// Many names may map to the same TextRange (e.g. from foo import *).
