@@ -402,7 +402,7 @@ impl Args {
         &self,
         transaction: &mut Transaction,
         handles: &[(Handle, Require)],
-        error_configs: &ErrorConfigs,
+        #[allow(unused_variables)] error_configs: &ErrorConfigs,
     ) -> anyhow::Result<CommandExitStatus> {
         let mut memory_trace = MemoryUsageTrace::start(Duration::from_secs_f32(0.1));
         let start = Instant::now();
@@ -455,7 +455,6 @@ impl Args {
                 report::debug_info::debug_info(
                     transaction,
                     &handles.map(|x| x.0.dupe()),
-                    error_configs,
                     is_javascript,
                 )
                 .as_bytes(),

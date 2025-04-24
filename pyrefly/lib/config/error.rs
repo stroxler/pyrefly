@@ -69,6 +69,7 @@ impl ErrorConfigs {
 
     /// Gets a reference to the `ErrorConfig` for the given path, or returns a reference to
     /// the 'default' error config if none could be found.
+    #[allow(dead_code)]
     pub fn get(&self, path: &ModulePath) -> &ErrorConfig {
         self.overrides.get(path).unwrap_or(&self.default_config)
     }

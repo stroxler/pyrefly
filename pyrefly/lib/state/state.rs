@@ -287,6 +287,11 @@ impl<'a> Transaction<'a> {
         self.with_module_inner(handle, |x| x.steps.ast.dupe())
     }
 
+    pub fn get_config(&self, handle: &Handle) -> Option<ArcId<ConfigFile>> {
+        // We ignore the ModuleDataInner, but no worries, this is not on a critical path
+        self.with_module_config_inner(handle, |c, _| Some(c.dupe()))
+    }
+
     pub fn get_load(&self, handle: &Handle) -> Option<Arc<Load>> {
         self.with_module_inner(handle, |x| x.steps.load.dupe())
     }
