@@ -117,7 +117,6 @@ def f(foo: Foo):
 );
 
 testcase!(
-    bug = "Assignment does not introduce attribute narrows",
     test_attr_assignment_introduction,
     r#"
 from typing import Any, Literal, assert_type
@@ -132,14 +131,13 @@ def test_introduce_narrow_with_assignment(c0: C, c1: C):
     c0.x = 42
     c0.y = 43
     c0.z = c1
-    assert_type(c0.x, Literal[42])  # E: assert_type(Any, Literal[42])
-    assert_type(c0.y, Literal[43])  # E: assert_type(int | None, Literal[43])
-    assert_type(c0.z, C)  # E: assert_type(C | None, C)
+    assert_type(c0.x, Literal[42])
+    assert_type(c0.y, Literal[43])
+    assert_type(c0.z, C)
 "#,
 );
 
 testcase!(
-    bug = "Assignment does not invalidate attribute narrows",
     test_attr_assignment_invalidation,
     r#"
 from typing import Any, Literal, assert_type
@@ -159,12 +157,12 @@ def test_invalidate_narrow_with_assignment(c0: C, c1: C):
     assert_type(c0.z, C)
     assert_type(c0.z.x, int)
     assert_type(c0.z.z, C)
-    assert_type(c0.z.z.x, Any)  # E: assert_type(int, Any)
+    assert_type(c0.z.z.x, Any)
     c0.z = c1
     assert_type(c0.z, C)
-    assert_type(c0.z.x, Any)  # E: assert_type(int, Any)
-    assert_type(c0.z.z, C | None)  # E: assert_type(C, C | None)
-    print(c0.z.z.x)  # missing error here: Object of class `NoneType` has no attribute `x`
+    assert_type(c0.z.x, Any)
+    assert_type(c0.z.z, C | None)
+    print(c0.z.z.x)  # E: Object of class `NoneType` has no attribute `x`
 "#,
 );
 

@@ -1516,18 +1516,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Binding::AssignToAttribute(box (attr, got)) => {
                 let base = self.expr_infer(&attr.value, errors);
-                self.check_assign_to_attribute_and_infer_narrow(
+                let narrowed = self.check_assign_to_attribute_and_infer_narrow(
                     &base,
                     &attr.attr.id,
                     got,
                     attr.range,
                     errors,
                 );
-                if let Some((identifier, _)) = identifier_and_chain_for_attribute(attr) {
-                    // TODO(stroxler): Actually perform narrowing here; for now we just propagate
-                    // existing type info.
-                    self.get(&Key::Usage(ShortIdentifier::new(&identifier)))
-                        .arc_clone()
+                if let Some((identifier, chain)) = identifier_and_chain_for_attribute(attr) {
+                    let mut type_info = self
+                        .get(&Key::Usage(ShortIdentifier::new(&identifier)))
+                        .arc_clone();
+                    type_info.update_for_assignment(chain.names(), narrowed);
+                    type_info
                 } else {
                     // Placeholder: in this case, we're assigning to an anonymous base and the
                     // type info will not propagate anywhere.
