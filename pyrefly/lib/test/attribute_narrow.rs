@@ -167,6 +167,30 @@ def test_invalidate_narrow_with_assignment(c0: C, c1: C):
 );
 
 testcase!(
+    bug = "TODO(stroxler) We should fine-tune descriptor narrowing more; this is not high-priority",
+    test_descriptor_narrowing,
+    r#"
+from typing import Any, Literal, assert_type
+class C:
+    @property
+    def x(self) -> int | None: ...
+    @x.setter
+    def x(self, value: int) -> None: ...
+def f(c: C):
+    assert_type(c.x, int | None)
+    # No narrowing occurs on assignment to a descriptor. This is debateable, although
+    # in the case where the set type is mismatched vs get it would be absurd to narrow,
+    # and it could be very difficult in the presence of overloads.
+    c.x = 42
+    assert_type(c.x, int | None)
+    # Narrowing does occur on conditional checks. Ideally we would produce
+    # a strict-mode error on reads, that is not yet implemented.
+    assert isinstance(c.x, int)
+    assert_type(c.x, int)
+"#,
+);
+
+testcase!(
     bug = "PyTorch TODO: Implement gettitem narrowing",
     test_attr_arg,
     r#"
