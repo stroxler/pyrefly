@@ -161,7 +161,7 @@ impl<'a> BindingsBuilder<'a> {
         let return_ann = return_ann_range.as_ref().map(|(_, key)| *key);
 
         // Collect the keys of terminal expressions. Used to determine the implicit return type.
-        let last_exprs = function_last_expressions(&body, self.config);
+        let last_exprs = function_last_expressions(&body, self.sys_info);
         let last_expr_keys = last_exprs.map(|x| {
             x.into_map(|(last, x)| {
                 (
@@ -300,9 +300,9 @@ impl<'a> BindingsBuilder<'a> {
 /// * Return Some(xs) to say this set might be the last expression.
 fn function_last_expressions<'a>(
     x: &'a [Stmt],
-    config: &SysInfo,
+    sys_info: &SysInfo,
 ) -> Option<Vec<(LastStmt, &'a Expr)>> {
-    fn f<'a>(config: &SysInfo, x: &'a [Stmt], res: &mut Vec<(LastStmt, &'a Expr)>) -> Option<()> {
+    fn f<'a>(sys_info: &SysInfo, x: &'a [Stmt], res: &mut Vec<(LastStmt, &'a Expr)>) -> Option<()> {
         match x.last()? {
             Stmt::Expr(x) => res.push((LastStmt::Expr, &x.value)),
             Stmt::Return(_) | Stmt::Raise(_) => {}
@@ -311,13 +311,13 @@ fn function_last_expressions<'a>(
                 for y in &x.items {
                     res.push((LastStmt::With(kind), &y.context_expr));
                 }
-                f(config, &x.body, res)?;
+                f(sys_info, &x.body, res)?;
             }
             Stmt::If(x) => {
                 let mut last_test = None;
-                for (test, body) in config.pruned_if_branches(x) {
+                for (test, body) in sys_info.pruned_if_branches(x) {
                     last_test = test;
-                    f(config, body, res)?;
+                    f(sys_info, body, res)?;
                 }
                 if last_test.is_some() {
                     // The final `if` can fall through, so the `if` itself might be the last statement.
@@ -326,16 +326,16 @@ fn function_last_expressions<'a>(
             }
             Stmt::Try(x) => {
                 if !x.finalbody.is_empty() {
-                    f(config, &x.finalbody, res)?;
+                    f(sys_info, &x.finalbody, res)?;
                 } else {
                     if x.orelse.is_empty() {
-                        f(config, &x.body, res)?;
+                        f(sys_info, &x.body, res)?;
                     } else {
-                        f(config, &x.orelse, res)?;
+                        f(sys_info, &x.orelse, res)?;
                     }
                     for handler in &x.handlers {
                         match handler {
-                            ExceptHandler::ExceptHandler(x) => f(config, &x.body, res)?,
+                            ExceptHandler::ExceptHandler(x) => f(sys_info, &x.body, res)?,
                         }
                     }
                     // If we don't have a matching handler, we raise an exception, which is fine.
@@ -347,7 +347,7 @@ fn function_last_expressions<'a>(
     }
 
     let mut res = Vec::new();
-    f(config, x, &mut res)?;
+    f(sys_info, x, &mut res)?;
     Some(res)
 }
 

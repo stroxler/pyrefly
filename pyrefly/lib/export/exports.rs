@@ -81,9 +81,13 @@ impl Display for Exports {
 }
 
 impl Exports {
-    pub fn new(x: &[Stmt], module_info: &ModuleInfo, config: &SysInfo) -> Self {
-        let mut definitions =
-            Definitions::new(x, module_info.name(), module_info.path().is_init(), config);
+    pub fn new(x: &[Stmt], module_info: &ModuleInfo, sys_info: &SysInfo) -> Self {
+        let mut definitions = Definitions::new(
+            x,
+            module_info.name(),
+            module_info.path().is_init(),
+            sys_info,
+        );
         definitions.ensure_dunder_all(module_info.path().style());
         Self(Arc::new(ExportsInner {
             definitions,

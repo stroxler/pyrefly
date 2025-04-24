@@ -111,13 +111,13 @@ impl Args {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         let input_file = read_input_file(self.input_path.as_path())?;
         let python_version = PythonVersion::from_str(&input_file.py_version)?;
-        let config = SysInfo::new(python_version, PythonPlatform::linux());
+        let sys_info = SysInfo::new(python_version, PythonPlatform::linux());
         let sourcedb = BuckSourceDatabase::from_manifest_files(
             input_file.sources.as_slice(),
             input_file.dependencies.as_slice(),
             input_file.typeshed.as_slice(),
         )?;
-        let type_errors = compute_errors(config, sourcedb);
+        let type_errors = compute_errors(sys_info, sourcedb);
         info!("Found {} type errors", type_errors.len());
         write_output(&type_errors, self.output_path.as_deref())?;
         Ok(CommandExitStatus::Success)

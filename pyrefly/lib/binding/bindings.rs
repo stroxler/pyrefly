@@ -131,7 +131,7 @@ impl Display for Bindings {
 pub struct BindingsBuilder<'a> {
     pub module_info: ModuleInfo,
     pub lookup: &'a dyn LookupExport,
-    pub config: &'a SysInfo,
+    pub sys_info: &'a SysInfo,
     pub class_count: u32,
     pub loop_depth: u32,
     errors: &'a ErrorCollector,
@@ -291,7 +291,7 @@ impl Bindings {
         exports: Exports,
         solver: &Solver,
         lookup: &dyn LookupExport,
-        config: &SysInfo,
+        sys_info: &SysInfo,
         errors: &ErrorCollector,
         uniques: &UniqueFactory,
         enable_trace: bool,
@@ -299,7 +299,7 @@ impl Bindings {
         let mut builder = BindingsBuilder {
             module_info: module_info.dupe(),
             lookup,
-            config,
+            sys_info,
             errors,
             solver,
             uniques,
@@ -493,7 +493,7 @@ impl<'a> BindingsBuilder<'a> {
             &self.module_info,
             top_level,
             self.lookup,
-            self.config,
+            self.sys_info,
             |x| {
                 self.table
                     .annotations

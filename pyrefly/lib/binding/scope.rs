@@ -114,10 +114,15 @@ impl Static {
         module_info: &ModuleInfo,
         top_level: bool,
         lookup: &dyn LookupExport,
-        config: &SysInfo,
+        sys_info: &SysInfo,
         mut get_annotation_idx: impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
     ) {
-        let mut d = Definitions::new(x, module_info.name(), module_info.path().is_init(), config);
+        let mut d = Definitions::new(
+            x,
+            module_info.name(),
+            module_info.path().is_init(),
+            sys_info,
+        );
         if top_level && module_info.name() != ModuleName::builtins() {
             d.inject_builtins();
         }

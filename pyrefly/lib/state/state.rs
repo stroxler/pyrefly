@@ -397,7 +397,7 @@ impl<'a> Transaction<'a> {
                 .get_cached_loader(&self.get_module(handle).config.read())
                 .find_import(module)?,
         };
-        Ok(Handle::new(module, path, handle.config().dupe()))
+        Ok(Handle::new(module, path, handle.sys_info().dupe()))
     }
 
     fn clean(
@@ -561,7 +561,7 @@ impl<'a> Transaction<'a> {
                 require,
                 module: module_data.handle.module(),
                 path: module_data.handle.path(),
-                config: module_data.handle.config(),
+                sys_info: module_data.handle.sys_info(),
                 memory: &self.memory_lookup(),
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
@@ -821,12 +821,12 @@ impl<'a> Transaction<'a> {
             return self.data.stdlib.first().unwrap().1.dupe();
         }
 
-        self.data.stdlib.get(handle.config()).unwrap().dupe()
+        self.data.stdlib.get(handle.sys_info()).unwrap().dupe()
     }
 
-    fn compute_stdlib(&mut self, configs: SmallSet<SysInfo>) {
+    fn compute_stdlib(&mut self, sys_infos: SmallSet<SysInfo>) {
         let loader = self.get_cached_loader(&ConfigFile::empty());
-        for k in configs.into_iter_hashed() {
+        for k in sys_infos.into_iter_hashed() {
             self.data
                 .stdlib
                 .insert_hashed(k.to_owned(), Arc::new(Stdlib::for_bootstrapping()));
@@ -849,7 +849,7 @@ impl<'a> Transaction<'a> {
         self.data.now.next();
         let configs = handles
             .iter()
-            .map(|(x, _)| x.config().dupe())
+            .map(|(x, _)| x.sys_info().dupe())
             .collect::<SmallSet<_>>();
         self.compute_stdlib(configs);
 
@@ -1134,7 +1134,7 @@ impl<'a> Transaction<'a> {
                 require: lock.require.get(self.data.require),
                 module: m.handle.module(),
                 path: m.handle.path(),
-                config: m.handle.config(),
+                sys_info: m.handle.sys_info(),
                 memory: &self.memory_lookup(),
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,

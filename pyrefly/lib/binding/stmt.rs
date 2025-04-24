@@ -650,7 +650,7 @@ impl<'a> BindingsBuilder<'a> {
                 let mut negated_prev_ops = NarrowOps::new();
                 let mut implicit_else = true;
                 for (range, test, body) in Ast::if_branches_owned(x) {
-                    let b = self.config.evaluate_bool_opt(test.as_ref());
+                    let b = self.sys_info.evaluate_bool_opt(test.as_ref());
                     if b == Some(false) {
                         continue; // We won't pick this branch
                     }

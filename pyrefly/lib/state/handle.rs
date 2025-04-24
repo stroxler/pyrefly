@@ -15,15 +15,15 @@ use crate::sys_info::SysInfo;
 pub struct Handle {
     module: ModuleName,
     path: ModulePath,
-    config: SysInfo,
+    sys_info: SysInfo,
 }
 
 impl Handle {
-    pub fn new(module: ModuleName, path: ModulePath, config: SysInfo) -> Self {
+    pub fn new(module: ModuleName, path: ModulePath, sys_info: SysInfo) -> Self {
         Self {
             module,
             path,
-            config,
+            sys_info,
         }
     }
 
@@ -35,7 +35,7 @@ impl Handle {
         &self.path
     }
 
-    pub fn config(&self) -> &SysInfo {
-        &self.config
+    pub fn sys_info(&self) -> &SysInfo {
+        &self.sys_info
     }
 }

@@ -34,7 +34,7 @@ pub struct Context<'a, Lookup> {
     pub require: Require,
     pub module: ModuleName,
     pub path: &'a ModulePath,
-    pub config: &'a SysInfo,
+    pub sys_info: &'a SysInfo,
     pub memory: &'a MemoryFilesLookup<'a>,
     pub uniques: &'a UniqueFactory,
     pub stdlib: &'a Stdlib,
@@ -153,7 +153,7 @@ impl Step {
         load: Arc<Load>,
         ast: Arc<ModModule>,
     ) -> Exports {
-        Exports::new(&ast.body, &load.module_info, ctx.config)
+        Exports::new(&ast.body, &load.module_info, ctx.sys_info)
     }
 
     #[inline(never)]
@@ -172,7 +172,7 @@ impl Step {
             exports,
             &solver,
             ctx.lookup,
-            ctx.config,
+            ctx.sys_info,
             &load.errors,
             ctx.uniques,
             enable_trace,

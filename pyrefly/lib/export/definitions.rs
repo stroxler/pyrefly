@@ -124,7 +124,7 @@ impl DunderAllEntry {
 struct DefinitionsBuilder<'a> {
     module_name: ModuleName,
     is_init: bool,
-    config: &'a SysInfo,
+    sys_info: &'a SysInfo,
     inner: Definitions,
 }
 
@@ -133,10 +133,10 @@ fn is_private_name(name: &Name) -> bool {
 }
 
 impl Definitions {
-    pub fn new(x: &[Stmt], module_name: ModuleName, is_init: bool, config: &SysInfo) -> Self {
+    pub fn new(x: &[Stmt], module_name: ModuleName, is_init: bool, sys_info: &SysInfo) -> Self {
         let mut builder = DefinitionsBuilder {
             module_name,
-            config,
+            sys_info,
             is_init,
             inner: Definitions::default(),
         };
@@ -426,7 +426,7 @@ impl<'a> DefinitionsBuilder<'a> {
                 }
             }
             Stmt::If(x) => {
-                for (_, body) in self.config.pruned_if_branches(x) {
+                for (_, body) in self.sys_info.pruned_if_branches(x) {
                     self.stmts(body);
                 }
                 return; // We went through the relevant branches already

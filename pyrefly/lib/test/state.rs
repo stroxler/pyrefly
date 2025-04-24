@@ -56,10 +56,13 @@ else:
     let config_file = test_env.config();
     let state = State::new(test_env.config_finder());
 
-    let f = |name: &str, config: &SysInfo| {
+    let f = |name: &str, sys_info: &SysInfo| {
         let name = ModuleName::from_str(name);
         let path = config_file.find_import(name).unwrap();
-        (Handle::new(name, path, config.dupe()), Require::Everything)
+        (
+            Handle::new(name, path, sys_info.dupe()),
+            Require::Everything,
+        )
     };
 
     let handles = [
