@@ -117,19 +117,54 @@ def f(foo: Foo):
 );
 
 testcase!(
-    bug = "PyTorch TODO: implement attribute narrowing",
-    test_attr_refine,
+    bug = "Assignment does not introduce attribute narrows",
+    test_attr_assignment_introduction,
     r#"
-from typing import Any, Optional, reveal_type
+from typing import Any, Literal, assert_type
+class C:
+    x: Any
+    y: int | None
+    z: C | None
+def test_introduce_narrow_with_assignment(c0: C, c1: C):
+    assert_type(c0.x, Any)
+    assert_type(c0.y, int | None)
+    assert_type(c0.z, C | None)
+    c0.x = 42
+    c0.y = 43
+    c0.z = c1
+    assert_type(c0.x, Literal[42])  # E: assert_type(Any, Literal[42])
+    assert_type(c0.y, Literal[43])  # E: assert_type(int | None, Literal[43])
+    assert_type(c0.z, C)  # E: assert_type(C | None, C)
+"#,
+);
 
-class N:
-    type: Optional[Any]
-
-def add_inference_rule(n: N):
-    reveal_type(n) # E: revealed type: N
-    reveal_type(n.type) # E: revealed type: Any | None
-    n.type = 3
-    reveal_type(n.type + 3) # E: revealed type: int | Unknown # E: `+` is not supported between `None` and `Literal[3]`
+testcase!(
+    bug = "Assignment does not invalidate attribute narrows",
+    test_attr_assignment_invalidation,
+    r#"
+from typing import Any, Literal, assert_type
+class C:
+    x: Any
+    z: C | None
+def test_invalidate_narrow_with_assignment(c0: C, c1: C):
+    assert isinstance(c0.z, C)
+    assert isinstance(c0.z.x, int)
+    assert isinstance(c0.z.z, C)
+    assert isinstance(c0.z.z.x, int)
+    assert_type(c0.z, C)
+    assert_type(c0.z.x, int)
+    assert_type(c0.z.z, C)
+    assert_type(c0.z.z.x, int)
+    c0.z.z = c1
+    assert_type(c0.z, C)
+    assert_type(c0.z.x, int)
+    assert_type(c0.z.z, C)
+    assert_type(c0.z.z.x, Any)  # E: assert_type(int, Any)
+    c0.z = c1
+    assert_type(c0.z, C)
+    assert_type(c0.z.x, Any)  # E: assert_type(int, Any)
+    assert_type(c0.z.z, C | None)  # E: assert_type(C, C | None)
+    print(c0.z.z.x)  # missing error here: Object of class `NoneType` has no attribute `x`
 "#,
 );
 
