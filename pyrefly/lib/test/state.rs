@@ -53,12 +53,12 @@ else:
         "main",
         "import lib; x: str = lib.value  # E: `Literal[42]` is not assignable to `str`",
     );
+    let config_file = test_env.config();
     let state = State::new(test_env.config_finder());
-    let loader = test_env.loader();
 
     let f = |name: &str, config: &RuntimeMetadata| {
         let name = ModuleName::from_str(name);
-        let path = loader.find_import(name).unwrap();
+        let path = config_file.find_import(name).unwrap();
         (Handle::new(name, path, config.dupe()), Require::Everything)
     };
 

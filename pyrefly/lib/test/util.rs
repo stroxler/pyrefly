@@ -36,7 +36,6 @@ use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::state::handle::Handle;
-use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::subscriber::TestSubscriber;
@@ -160,7 +159,7 @@ impl TestEnv {
             .collect()
     }
 
-    fn config(&self) -> ConfigFile {
+    pub fn config(&self) -> ArcId<ConfigFile> {
         let mut config = ConfigFile::default();
         config.python_environment.python_version = Some(self.version);
         config.python_environment.python_platform = Some(PythonPlatform::linux());
@@ -169,20 +168,16 @@ impl TestEnv {
             config.custom_module_paths.insert(*name, path.clone());
         }
         config.configure();
-        config
+        ArcId::new(config)
     }
 
     pub fn config_finder(&self) -> ConfigFinder {
-        ConfigFinder::new_constant(ArcId::new(self.config()))
-    }
-
-    pub fn loader(&self) -> LoaderId {
-        LoaderId::new(ArcId::new(self.config()))
+        ConfigFinder::new_constant(self.config())
     }
 
     pub fn to_state(self) -> (State, impl Fn(&str) -> Handle) {
         let config = self.metadata();
-        let loader = self.loader();
+        let config_file = self.config();
         let handles = self
             .modules
             .iter()
@@ -210,7 +205,7 @@ impl TestEnv {
         );
         (state, move |module| {
             let name = ModuleName::from_str(module);
-            Handle::new(name, loader.find_import(name).unwrap(), config.dupe())
+            Handle::new(name, config_file.find_import(name).unwrap(), config.dupe())
         })
     }
 }
