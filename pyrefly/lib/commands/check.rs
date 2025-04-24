@@ -406,10 +406,9 @@ impl Args {
         let shown_errors_count = errors.shown.len();
         let printing = start.elapsed();
         info!(
-            "{} errors shown, {} errors disabled, {} errors suppressed, {} modules, {} lines, took {printing:.2?} ({computing:.2?} without printing errors), peak memory {}",
+            "{} errors shown, {} errors ignored, {} modules, {} lines, took {printing:.2?} ({computing:.2?} without printing errors), peak memory {}",
             number_thousands(shown_errors_count),
-            number_thousands(errors.disabled.len()),
-            number_thousands(errors.suppressed.len()),
+            number_thousands(errors.disabled.len() + errors.suppressed.len()),
             number_thousands(transaction.module_count()),
             number_thousands(transaction.line_count()),
             memory_trace.peak()
