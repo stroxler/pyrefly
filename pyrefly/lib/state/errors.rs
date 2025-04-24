@@ -22,19 +22,19 @@ use crate::util::arc_id::ArcId;
 /// The errors from a collection of modules.
 #[derive(Debug)]
 pub struct Errors {
+    // Sorted by module name (so deterministic display order)
     loads: Vec<(Arc<Load>, ArcId<ConfigFile>)>,
 }
 
 impl Errors {
-    pub fn new(loads: Vec<(Arc<Load>, ArcId<ConfigFile>)>) -> Self {
+    pub fn new(mut loads: Vec<(Arc<Load>, ArcId<ConfigFile>)>) -> Self {
+        loads.sort_by_key(|x| x.0.module_info.name());
         Self { loads }
     }
 
     pub fn collect_errors(&self, error_configs: &ErrorConfigs) -> CollectedErrors {
         let mut errors = CollectedErrors::default();
-        let mut sorted_loads = self.loads.clone();
-        sorted_loads.sort_by_key(|x| x.0.module_info.name());
-        for (load, _) in &sorted_loads {
+        for (load, _) in &self.loads {
             let module_path = load.module_info.path();
             let error_config = error_configs.get(module_path);
             load.errors.collect_into(error_config, &mut errors);
