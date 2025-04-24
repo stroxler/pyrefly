@@ -6,6 +6,7 @@
  */
 
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprAttribute;
 use ruff_text_size::TextRange;
 
 use crate::binding::binding::Binding;
@@ -70,11 +71,18 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
+    pub fn bind_attr_assign(&mut self, attr: ExprAttribute, value: ExprOrBinding) {
+        self.table.insert(
+            Key::Anon(attr.range),
+            Binding::AssignToAttribute(Box::new((attr, value))),
+        );
+    }
+
     /// Bind the LHS of a target in a syntactic form (e.g. assignments, variables
     /// bound in a `for`` loop header, variables defined by a `with` statement header).
     ///
     /// The `target` is the LHS. It is an `Expr`, but in fact only a handful of forms
-    /// are legal because targets can only be names, attributes, subscripts, or unpackings. An
+    /// are legal because targets can only be names, attributes, subscripts, or unpackngs. An
     /// example target illustrating all of the cases is `(x.y, d["k"], [z, *w, q])`
     ///
     /// The `make_binding` function is a callback to the caller, who is responsible for constructing
@@ -122,11 +130,9 @@ impl<'a> BindingsBuilder<'a> {
                         } else {
                             ExprOrBinding::Binding(make_binding(None))
                         };
-                        // Create a check binding to verify that the assignment is valid.
-                        self.table.insert(
-                            Key::Anon(x.range),
-                            Binding::AssignToAttribute(Box::new((x.clone(), attr_value.clone()))),
-                        );
+                        // Create a binding to verify that the assignment is valid and potentially narrow
+                        // the name assigned to.
+                        self.bind_attr_assign(x.clone(), attr_value.clone());
                         // If this is a self-assignment, record it because we may use it to infer
                         // the existence of an instance-only attribute.
                         self.record_self_attr_assign(x, attr_value, None);
