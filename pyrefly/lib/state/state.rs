@@ -69,7 +69,6 @@ use crate::state::load::Load;
 use crate::state::load::Loads;
 use crate::state::loader::FindError;
 use crate::state::loader::LoaderFindCache;
-use crate::state::loader::LoaderId;
 use crate::state::memory::MemoryFiles;
 use crate::state::memory::MemoryFilesLookup;
 use crate::state::memory::MemoryFilesOverlay;
@@ -191,7 +190,7 @@ impl ModuleDataMut {
 struct StateInner {
     stdlib: SmallMap<RuntimeMetadata, Arc<Stdlib>>,
     modules: HashMap<Handle, ModuleData>,
-    loaders: SmallMap<LoaderId, Arc<LoaderFindCache>>,
+    loaders: SmallMap<ArcId<ConfigFile>, Arc<LoaderFindCache>>,
     /// The contents for ModulePath::memory values
     memory: MemoryFiles,
     /// The current epoch, gets incremented every time we recompute
@@ -220,7 +219,7 @@ pub struct TransactionData<'a> {
     state: &'a State,
     stdlib: SmallMap<RuntimeMetadata, Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleDataMut>>,
-    updated_loaders: LockedMap<LoaderId, Arc<LoaderFindCache>>,
+    updated_loaders: LockedMap<ArcId<ConfigFile>, Arc<LoaderFindCache>>,
     memory_overlay: MemoryFilesOverlay,
     require: RequireDefault,
     /// The current epoch, gets incremented every time we recompute
@@ -395,7 +394,7 @@ impl<'a> Transaction<'a> {
         let path = match path {
             Some(path) => path.dupe(),
             None => self
-                .get_cached_loader(&LoaderId::new(self.get_module(handle).config.read().dupe()))
+                .get_cached_loader(&self.get_module(handle).config.read())
                 .find_import(module)?,
         };
         Ok(Handle::new(module, path, handle.config().dupe()))
@@ -492,7 +491,7 @@ impl<'a> Transaction<'a> {
 
         // Validate the find flag.
         if exclusive.dirty.find {
-            let loader = self.get_cached_loader(&LoaderId::new(module_data.config.read().dupe()));
+            let loader = self.get_cached_loader(&module_data.config.read());
             let mut is_dirty = false;
             for dependency_handle in module_data.deps.read().values() {
                 match loader.find_import(dependency_handle.module()) {
@@ -806,7 +805,7 @@ impl<'a> Transaction<'a> {
         MemoryFilesLookup::new(&self.readable.memory, &self.data.memory_overlay)
     }
 
-    fn get_cached_loader(&self, loader: &LoaderId) -> Arc<LoaderFindCache> {
+    fn get_cached_loader(&self, loader: &ArcId<ConfigFile>) -> Arc<LoaderFindCache> {
         self.data
             .updated_loaders
             .ensure(loader, || match self.readable.loaders.get(loader) {
@@ -826,14 +825,13 @@ impl<'a> Transaction<'a> {
     }
 
     fn compute_stdlib(&mut self, configs: SmallSet<RuntimeMetadata>) {
-        let loader = LoaderId::new(ConfigFile::empty());
-        let loader_cache = self.get_cached_loader(&loader);
+        let loader = self.get_cached_loader(&ConfigFile::empty());
         for k in configs.into_iter_hashed() {
             self.data
                 .stdlib
                 .insert_hashed(k.to_owned(), Arc::new(Stdlib::for_bootstrapping()));
             let v = Arc::new(Stdlib::new(k.version(), &|module, name| {
-                let path = loader_cache.find_import(module).ok()?;
+                let path = loader.find_import(module).ok()?;
                 self.lookup_stdlib(&Handle::new(module, path, (*k).dupe()), name)
             }));
             self.data.stdlib.insert_hashed(k, v);

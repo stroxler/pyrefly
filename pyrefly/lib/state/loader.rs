@@ -88,6 +88,7 @@ impl LoaderId {
         Self(loader)
     }
 
+    #[allow(dead_code)] // Only used in test
     pub fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
         self.0.find_import(module)
     }
@@ -95,21 +96,21 @@ impl LoaderId {
 
 #[derive(Debug)]
 pub struct LoaderFindCache {
-    loader: LoaderId,
+    config: ArcId<ConfigFile>,
     cache: LockedMap<ModuleName, Result<ModulePath, FindError>>,
 }
 
 impl LoaderFindCache {
-    pub fn new(loader: LoaderId) -> Self {
+    pub fn new(config: ArcId<ConfigFile>) -> Self {
         Self {
-            loader,
+            config,
             cache: Default::default(),
         }
     }
 
     pub fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
         self.cache
-            .ensure(&module, || self.loader.find_import(module))
+            .ensure(&module, || self.config.find_import(module))
             .dupe()
     }
 }
