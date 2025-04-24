@@ -59,6 +59,7 @@ use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::SuperStyle;
 use crate::binding::binding::TypeParameter;
 use crate::binding::binding::UnpackedPosition;
+use crate::binding::narrow::identifier_and_chain_for_attribute;
 use crate::dunder;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -1522,7 +1523,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     attr.range,
                     errors,
                 );
-                TypeInfo::of_ty(Type::never())
+                if let Some((identifier, _)) = identifier_and_chain_for_attribute(attr) {
+                    // TODO(stroxler): Actually perform narrowing here; for now we just propagate
+                    // existing type info.
+                    self.get(&Key::Usage(ShortIdentifier::new(&identifier)))
+                        .arc_clone()
+                } else {
+                    // Placeholder: in this case, we're assigning to an anonymous base and the
+                    // type info will not propagate anywhere.
+                    TypeInfo::of_ty(Type::never())
+                }
             }
             _ => {
                 // All other Bindings model `Type` level operations where we do not

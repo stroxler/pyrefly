@@ -15,6 +15,7 @@ use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprCompare;
 use ruff_python_ast::ExprNamed;
 use ruff_python_ast::ExprUnaryOp;
+use ruff_python_ast::Identifier;
 use ruff_python_ast::UnaryOp;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -293,13 +294,21 @@ impl NarrowOps {
     }
 }
 
-fn name_and_chain_for_attribute(expr: &ExprAttribute) -> Option<(Name, AttributeChain)> {
-    fn f(expr: &ExprAttribute, mut rev_attr_chain: Vec<Name>) -> Option<(Name, AttributeChain)> {
+pub fn identifier_and_chain_for_attribute(
+    expr: &ExprAttribute,
+) -> Option<(Identifier, AttributeChain)> {
+    fn f(
+        expr: &ExprAttribute,
+        mut rev_attr_chain: Vec<Name>,
+    ) -> Option<(Identifier, AttributeChain)> {
         match &*expr.value {
             Expr::Name(name) => {
                 let mut final_chain = Vec1::from_vec_push(rev_attr_chain, expr.attr.id.clone());
                 final_chain.reverse();
-                Some((name.id.clone(), AttributeChain::new(final_chain)))
+                Some((
+                    Identifier::new(name.id.clone(), name.range),
+                    AttributeChain::new(final_chain),
+                ))
             }
             Expr::Attribute(x) => {
                 rev_attr_chain.push(expr.attr.id.clone());
@@ -312,7 +321,8 @@ fn name_and_chain_for_attribute(expr: &ExprAttribute) -> Option<(Name, Attribute
 }
 
 fn subject_for_attribute(expr: &ExprAttribute) -> Option<NarrowingSubject> {
-    name_and_chain_for_attribute(expr).map(|(name, attr)| NarrowingSubject::Attribute(name, attr))
+    identifier_and_chain_for_attribute(expr)
+        .map(|(identifier, attr)| NarrowingSubject::Attribute(identifier.id, attr))
 }
 
 fn expr_to_subjects(expr: &Expr) -> Vec<NarrowingSubject> {
