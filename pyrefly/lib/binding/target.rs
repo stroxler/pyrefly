@@ -124,11 +124,8 @@ impl<'a> BindingsBuilder<'a> {
                         };
                         // Create a check binding to verify that the assignment is valid.
                         self.table.insert(
-                            KeyExpect(x.range),
-                            BindingExpect::CheckAssignToAttribute(Box::new((
-                                x.clone(),
-                                attr_value.clone(),
-                            ))),
+                            Key::Anon(x.range),
+                            Binding::AssignToAttribute(Box::new((x.clone(), attr_value.clone()))),
                         );
                         // If this is a self-assignment, record it because we may use it to infer
                         // the existence of an instance-only attribute.

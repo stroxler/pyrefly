@@ -562,8 +562,8 @@ impl<'a> BindingsBuilder<'a> {
                     if let Some(box mut v) = x.value {
                         self.ensure_expr(&mut v);
                         self.table.insert(
-                            KeyExpect(v.range()),
-                            BindingExpect::CheckAssignToAttribute(Box::new((attr, value))),
+                            Key::Anon(x.range),
+                            Binding::AssignToAttribute(Box::new((attr, value))),
                         );
                     }
                 }

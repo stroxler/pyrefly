@@ -1182,16 +1182,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
             }
-            BindingExpect::CheckAssignToAttribute(box (attr, got)) => {
-                let base = self.expr_infer(&attr.value, errors);
-                self.check_assign_to_attribute_and_infer_narrow(
-                    &base,
-                    &attr.attr.id,
-                    got,
-                    attr.range,
-                    errors,
-                );
-            }
         }
         Arc::new(EmptyAnswer)
     }
@@ -1523,6 +1513,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.get_idx(*default);
                 self.binding_to_type_info(binding, errors)
             }
+            Binding::AssignToAttribute(box (attr, got)) => {
+                let base = self.expr_infer(&attr.value, errors);
+                self.check_assign_to_attribute_and_infer_narrow(
+                    &base,
+                    &attr.attr.id,
+                    got,
+                    attr.range,
+                    errors,
+                );
+                TypeInfo::of_ty(Type::never())
+            }
             _ => {
                 // All other Bindings model `Type` level operations where we do not
                 // propagate any attribute narrows.
@@ -1536,7 +1537,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::Forward(..)
             | Binding::Default(..)
             | Binding::Phi(..)
-            | Binding::Narrow(..) => {
+            | Binding::Narrow(..)
+            | Binding::AssignToAttribute(..) => {
                 // These forms require propagating attribute narrowing information, so they
                 // are handled in `binding_to_type_info`
                 self.binding_to_type_info(binding, errors).into_ty()
