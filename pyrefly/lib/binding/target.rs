@@ -8,6 +8,7 @@
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_text_size::TextRange;
+use starlark_map::Hashed;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingExpect;
@@ -18,9 +19,12 @@ use crate::binding::binding::KeyExpect;
 use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
+use crate::binding::bindings::LookupKind;
+use crate::binding::narrow::identifier_and_chain_for_attribute;
 use crate::binding::scope::FlowStyle;
 use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
+use crate::module::short_identifier::ShortIdentifier;
 
 impl<'a> BindingsBuilder<'a> {
     fn bind_unpacking(
@@ -72,10 +76,22 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn bind_attr_assign(&mut self, attr: ExprAttribute, value: ExprOrBinding) {
-        self.table.insert(
-            Key::Anon(attr.range),
-            Binding::AssignToAttribute(Box::new((attr, value))),
-        );
+        if let Some((identifier, _)) = identifier_and_chain_for_attribute(&attr) {
+            let idx = self.table.insert(
+                Key::AttrAssign(ShortIdentifier::new(&identifier)),
+                Binding::AssignToAttribute(Box::new((attr, value))),
+            );
+            let name = Hashed::new(&identifier.id);
+            if self.lookup_name_hashed(name, LookupKind::Regular).is_ok() {
+                self.scopes
+                    .update_flow_info_hashed(self.loop_depth, name, idx, FlowStyle::None);
+            }
+        } else {
+            self.table.insert(
+                Key::Anon(attr.range),
+                Binding::AssignToAttribute(Box::new((attr, value))),
+            );
+        }
     }
 
     /// Bind the LHS of a target in a syntactic form (e.g. assignments, variables

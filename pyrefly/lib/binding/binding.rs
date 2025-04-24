@@ -159,6 +159,9 @@ pub enum Key {
     Import(Name, TextRange),
     /// I am defined in this module at this location.
     Definition(ShortIdentifier),
+    /// I am a name with possible attribute narrowing coming from an attribute
+    /// assignment at this location.
+    AttrAssign(ShortIdentifier),
     /// The type at a specific return point.
     ReturnExplicit(TextRange),
     /// The implicit return type of a function, either Type::None or Type::Never.
@@ -197,6 +200,7 @@ impl Ranged for Key {
         match self {
             Self::Import(_, r) => *r,
             Self::Definition(x) => x.range(),
+            Self::AttrAssign(x) => x.range(),
             Self::ReturnExplicit(r) => *r,
             Self::ReturnImplicit(x) => x.range(),
             Self::ReturnType(x) => x.range(),
@@ -218,6 +222,9 @@ impl DisplayWith<ModuleInfo> for Key {
         match self {
             Self::Import(n, r) => write!(f, "import {n} {r:?}"),
             Self::Definition(x) => write!(f, "{} {:?}", ctx.display(x), x.range()),
+            Self::AttrAssign(x) => {
+                write!(f, "attr assign {}._ = _ {:?}", ctx.display(x), x.range())
+            }
             Self::Usage(x) => write!(f, "use {} {:?}", ctx.display(x), x.range()),
             Self::Anon(r) => write!(f, "anon {r:?}"),
             Self::StmtExpr(r) => write!(f, "stmt expr {r:?}"),
