@@ -80,7 +80,7 @@ fn compute_errors(sys_info: SysInfo, sourcedb: BuckSourceDatabase) -> Vec<Error>
     state.run(&modules_to_check, Require::Exports, None);
     let transaction = state.transaction();
     transaction
-        .get_loads(modules_to_check.iter().map(|(handle, _)| handle))
+        .get_errors(modules_to_check.iter().map(|(handle, _)| handle))
         .collect_errors()
         .shown
 }

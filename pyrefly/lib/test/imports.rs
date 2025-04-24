@@ -550,7 +550,7 @@ fn test_import_fail_to_load() {
     let (state, handle) = env.to_state();
     let errs = state
         .transaction()
-        .get_loads([&handle("foo")])
+        .get_errors([&handle("foo")])
         .collect_errors()
         .shown;
     assert_eq!(errs.len(), 1);

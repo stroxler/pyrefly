@@ -73,7 +73,7 @@ else:
     transaction.set_memory(test_env.get_memory());
     transaction.run(&handles);
     transaction
-        .get_loads(handles.iter().map(|(handle, _)| handle))
+        .get_errors(handles.iter().map(|(handle, _)| handle))
         .check_against_expectations()
         .unwrap();
 }
@@ -123,7 +123,7 @@ fn test_multiple_path() {
         }),
     );
     transaction.run(&handles.map(|x| (x.dupe(), Require::Everything)));
-    let loads = transaction.get_loads(handles.iter());
+    let loads = transaction.get_errors(handles.iter());
     print_errors(&loads.collect_errors().shown);
     loads.check_against_expectations().unwrap();
     assert_eq!(loads.collect_errors().shown.len(), 3);
@@ -198,7 +198,7 @@ impl Incremental {
             transaction,
             &handles.map(|x| (x.dupe(), Require::Everything)),
         );
-        let loads = self.state.transaction().get_loads(handles.iter());
+        let loads = self.state.transaction().get_errors(handles.iter());
         print_errors(&loads.collect_errors().shown);
         loads.check_against_expectations().unwrap();
 
@@ -367,7 +367,7 @@ fn test_change_require() {
     assert_eq!(
         state
             .transaction()
-            .get_loads([&handle])
+            .get_errors([&handle])
             .collect_errors()
             .shown
             .len(),
@@ -378,7 +378,7 @@ fn test_change_require() {
     assert_eq!(
         state
             .transaction()
-            .get_loads([&handle])
+            .get_errors([&handle])
             .collect_errors()
             .shown
             .len(),
@@ -393,7 +393,7 @@ fn test_change_require() {
     assert_eq!(
         state
             .transaction()
-            .get_loads([&handle])
+            .get_errors([&handle])
             .collect_errors()
             .shown
             .len(),

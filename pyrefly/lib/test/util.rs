@@ -198,7 +198,7 @@ impl TestEnv {
         print_errors(
             &state
                 .transaction()
-                .get_loads(handles.iter())
+                .get_errors(handles.iter())
                 .collect_errors()
                 .shown,
         );
@@ -294,7 +294,7 @@ pub fn mk_multi_file_state(
         assert_eq!(
             state
                 .transaction()
-                .get_loads(handles.values())
+                .get_errors(handles.values())
                 .collect_errors()
                 .shown
                 .len(),
@@ -386,7 +386,7 @@ pub fn testcase_for_macro(
         let (state, handle) = env.clone().to_state();
         state
             .transaction()
-            .get_loads([&handle("main")])
+            .get_errors([&handle("main")])
             .check_against_expectations()?;
         if start.elapsed().as_secs() <= limit {
             return Ok(());

@@ -624,7 +624,7 @@ impl Server {
             }
             // TODO(connernilsen): replace with real error config from config file
             for e in transaction
-                .get_loads(handles.iter().map(|(handle, _)| handle))
+                .get_errors(handles.iter().map(|(handle, _)| handle))
                 .collect_errors()
                 .shown
             {

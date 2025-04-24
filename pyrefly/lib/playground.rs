@@ -148,7 +148,7 @@ impl Playground {
     pub fn get_errors(&self) -> Vec<Diagnostic> {
         self.state
             .transaction()
-            .get_loads([&self.handle])
+            .get_errors([&self.handle])
             .collect_errors()
             .shown
             .into_iter()

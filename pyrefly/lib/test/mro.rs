@@ -37,7 +37,7 @@ fn assert_no_errors(handle: &Handle, state: &State) {
     assert_eq!(
         state
             .transaction()
-            .get_loads([handle])
+            .get_errors([handle])
             .collect_errors()
             .shown
             .len(),
@@ -49,7 +49,7 @@ fn assert_no_errors(handle: &Handle, state: &State) {
 fn assert_has_error(handle: &Handle, state: &State, error_msg: &str, assertion_msg: &str) {
     state
         .transaction()
-        .get_loads([handle])
+        .get_errors([handle])
         .collect_errors()
         .shown
         .iter()

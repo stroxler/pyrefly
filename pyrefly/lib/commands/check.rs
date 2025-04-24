@@ -384,9 +384,9 @@ impl Args {
         transaction.set_subscriber(None);
 
         let loads = if self.check_all {
-            transaction.get_all_loads()
+            transaction.get_all_errors()
         } else {
-            transaction.get_loads(handles.iter().map(|(handle, _)| handle))
+            transaction.get_errors(handles.iter().map(|(handle, _)| handle))
         };
         let computing = start.elapsed();
         let errors = loads.collect_errors();

@@ -296,7 +296,7 @@ impl<'a> Transaction<'a> {
         self.with_module_inner(handle, |x| x.steps.load.dupe())
     }
 
-    pub fn get_loads<'b>(&self, handles: impl IntoIterator<Item = &'b Handle>) -> Errors {
+    pub fn get_errors<'b>(&self, handles: impl IntoIterator<Item = &'b Handle>) -> Errors {
         Errors::new(
             handles
                 .into_iter()
@@ -309,7 +309,7 @@ impl<'a> Transaction<'a> {
         )
     }
 
-    pub fn get_all_loads(&self) -> Errors {
+    pub fn get_all_errors(&self) -> Errors {
         if self.data.updated_modules.is_empty() {
             // Optimised path
             return Errors::new(
