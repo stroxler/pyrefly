@@ -189,7 +189,7 @@ impl ModuleDataMut {
 
 /// A subset of State that contains readable information for various systems (e.g. IDE, error reporting, etc).
 struct StateInner {
-    stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
+    stdlib: SmallMap<RuntimeMetadata, Arc<Stdlib>>,
     modules: HashMap<Handle, ModuleData>,
     loaders: SmallMap<LoaderId, Arc<LoaderFindCache>>,
     /// The contents for ModulePath::memory values
@@ -218,7 +218,7 @@ impl StateInner {
 /// It is used to store uncommitted transaction state in between transaction runs.
 pub struct TransactionData<'a> {
     state: &'a State,
-    stdlib: SmallMap<(RuntimeMetadata, LoaderId), Arc<Stdlib>>,
+    stdlib: SmallMap<RuntimeMetadata, Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleDataMut>>,
     updated_loaders: LockedMap<LoaderId, Arc<LoaderFindCache>>,
     memory_overlay: MemoryFilesOverlay,
@@ -398,12 +398,7 @@ impl<'a> Transaction<'a> {
                 .get_cached_loader(&LoaderId::new(self.get_module(handle).config.read().dupe()))
                 .find_import(module)?,
         };
-        Ok(Handle::new(
-            module,
-            path,
-            handle.config().dupe(),
-            handle.loader().dupe(),
-        ))
+        Ok(Handle::new(module, path, handle.config().dupe()))
     }
 
     fn clean(
@@ -827,22 +822,19 @@ impl<'a> Transaction<'a> {
             return self.data.stdlib.first().unwrap().1.dupe();
         }
 
-        self.data
-            .stdlib
-            .get(&(handle.config().dupe(), handle.loader().dupe()))
-            .unwrap()
-            .dupe()
+        self.data.stdlib.get(handle.config()).unwrap().dupe()
     }
 
-    fn compute_stdlib(&mut self, configs: SmallSet<(RuntimeMetadata, LoaderId)>) {
+    fn compute_stdlib(&mut self, configs: SmallSet<RuntimeMetadata>) {
+        let loader = LoaderId::new(ConfigFile::empty());
+        let loader_cache = self.get_cached_loader(&loader);
         for k in configs.into_iter_hashed() {
-            let loader = self.get_cached_loader(&LoaderId::new(ConfigFile::empty()));
             self.data
                 .stdlib
                 .insert_hashed(k.to_owned(), Arc::new(Stdlib::for_bootstrapping()));
-            let v = Arc::new(Stdlib::new(k.0.version(), &|module, name| {
-                let path = loader.find_import(module).ok()?;
-                self.lookup_stdlib(&Handle::new(module, path, k.0.dupe(), k.1.dupe()), name)
+            let v = Arc::new(Stdlib::new(k.version(), &|module, name| {
+                let path = loader_cache.find_import(module).ok()?;
+                self.lookup_stdlib(&Handle::new(module, path, (*k).dupe()), name)
             }));
             self.data.stdlib.insert_hashed(k, v);
         }
@@ -859,7 +851,7 @@ impl<'a> Transaction<'a> {
         self.data.now.next();
         let configs = handles
             .iter()
-            .map(|(x, _)| (x.config().dupe(), x.loader().dupe()))
+            .map(|(x, _)| x.config().dupe())
             .collect::<SmallSet<_>>();
         self.compute_stdlib(configs);
 

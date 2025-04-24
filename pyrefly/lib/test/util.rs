@@ -189,7 +189,7 @@ impl TestEnv {
             // Reverse so we start at the last file, which is likely to be what the user
             // would have opened, so make it most faithful.
             .rev()
-            .map(|(x, (path, _))| Handle::new(*x, path.clone(), config.dupe(), loader.dupe()))
+            .map(|(x, (path, _))| Handle::new(*x, path.clone(), config.dupe()))
             .collect::<Vec<_>>();
         let state = State::new(self.config_finder());
         let subscriber = TestSubscriber::new();
@@ -210,12 +210,7 @@ impl TestEnv {
         );
         (state, move |module| {
             let name = ModuleName::from_str(module);
-            Handle::new(
-                name,
-                loader.find_import(name).unwrap(),
-                config.dupe(),
-                loader.dupe(),
-            )
+            Handle::new(name, loader.find_import(name).unwrap(), config.dupe())
         })
     }
 }

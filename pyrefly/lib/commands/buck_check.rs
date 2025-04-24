@@ -27,7 +27,6 @@ use crate::metadata::RuntimeMetadata;
 use crate::module::module_path::ModulePath;
 use crate::module::source_db::BuckSourceDatabase;
 use crate::state::handle::Handle;
-use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::util::arc_id::ArcId;
@@ -71,16 +70,10 @@ fn compute_errors(metadata: RuntimeMetadata, sourcedb: BuckSourceDatabase) -> Ve
     config.custom_module_paths = sourcedb.list();
     config.configure();
     let config = ArcId::new(config);
-    let loader = LoaderId::new(config.dupe());
 
     let modules_to_check = modules.into_map(|(name, path)| {
         (
-            Handle::new(
-                name,
-                ModulePath::filesystem(path),
-                metadata.dupe(),
-                loader.dupe(),
-            ),
+            Handle::new(name, ModulePath::filesystem(path), metadata.dupe()),
             Require::Errors,
         )
     });

@@ -24,7 +24,6 @@ use crate::metadata::RuntimeMetadata;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::state::handle::Handle;
-use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::subscriber::TestSubscriber;
@@ -60,10 +59,7 @@ else:
     let f = |name: &str, config: &RuntimeMetadata| {
         let name = ModuleName::from_str(name);
         let path = loader.find_import(name).unwrap();
-        (
-            Handle::new(name, path, config.dupe(), loader.dupe()),
-            Require::Everything,
-        )
+        (Handle::new(name, path, config.dupe()), Require::Everything)
     };
 
     let handles = [
@@ -107,7 +103,6 @@ fn test_multiple_path() {
     }
     config.configure();
     let config = ArcId::new(config);
-    let loader = LoaderId::new(config.dupe());
 
     let runtime = RuntimeMetadata::default();
 
@@ -117,7 +112,6 @@ fn test_multiple_path() {
             ModuleName::from_str(name),
             ModulePath::memory(PathBuf::from(path)),
             runtime.dupe(),
-            loader.dupe(),
         )
     });
     let mut transaction = state.new_transaction(Require::Exports, None);
@@ -144,7 +138,6 @@ struct IncrementalData(Arc<Mutex<SmallMap<ModuleName, Arc<String>>>>);
 /// Helper for writing incrementality tests.
 struct Incremental {
     data: IncrementalData,
-    loader: LoaderId,
     state: State,
     to_set: Vec<(String, String)>,
 }
@@ -168,7 +161,6 @@ impl Incremental {
 
         Self {
             data: data.dupe(),
-            loader: LoaderId::new(config.dupe()),
             state: State::new(ConfigFinder::new_constant(config)),
             to_set: Vec::new(),
         }
@@ -184,7 +176,6 @@ impl Incremental {
             ModuleName::from_str(x),
             ModulePath::memory(PathBuf::from(x)),
             RuntimeMetadata::default(),
-            self.loader.dupe(),
         )
     }
 
@@ -376,7 +367,6 @@ fn test_change_require() {
         ModuleName::from_str("foo"),
         ModulePath::memory(PathBuf::from("foo")),
         t.metadata(),
-        t.loader(),
     );
     state.run(&[(handle.dupe(), Require::Exports)], Require::Exports, None);
     assert_eq!(

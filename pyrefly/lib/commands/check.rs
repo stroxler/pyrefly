@@ -240,13 +240,12 @@ impl Handles {
     fn all(&self, specified_require: Require) -> Vec<(Handle, Require)> {
         self.path_data
             .iter()
-            .map(|(path, (module_name, runtime_metadata, loader))| {
+            .map(|(path, (module_name, runtime_metadata, _))| {
                 (
                     Handle::new(
                         module_name.dupe(),
                         ModulePath::filesystem(path.to_path_buf()),
                         runtime_metadata.dupe(),
-                        loader.dupe(),
                     ),
                     specified_require,
                 )

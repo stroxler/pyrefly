@@ -90,7 +90,6 @@ use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::state::handle::Handle;
-use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
@@ -190,7 +189,6 @@ struct Server {
 struct Workspace {
     runtime_metadata: RuntimeMetadata,
     search_path: Vec<PathBuf>,
-    loader: LoaderId,
     /// The config implied by these settings
     config_file: ArcId<ConfigFile>,
     disable_language_services: bool,
@@ -213,7 +211,6 @@ impl Workspace {
         Self {
             runtime_metadata,
             search_path: search_path.clone(),
-            loader: LoaderId::new(config_file.dupe()),
             config_file,
             disable_language_services: false,
         }
@@ -224,7 +221,6 @@ impl Workspace {
             module_from_path(path, &self.search_path),
             ModulePath::memory(path.to_owned()),
             self.runtime_metadata.dupe(),
-            self.loader.dupe(),
         )
     }
 }
@@ -751,12 +747,7 @@ impl Server {
             } else {
                 ModulePath::filesystem(path)
             };
-            Handle::new(
-                module,
-                module_path,
-                workspace.runtime_metadata.dupe(),
-                workspace.loader.dupe(),
-            )
+            Handle::new(module, module_path, workspace.runtime_metadata.dupe())
         })
     }
 

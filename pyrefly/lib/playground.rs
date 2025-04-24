@@ -22,7 +22,6 @@ use crate::module::module_info::SourceRange;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::state::handle::Handle;
-use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::util::arc_id::ArcId;
@@ -127,7 +126,6 @@ impl Playground {
             ModuleName::from_str("test"),
             ModulePath::memory(PathBuf::from("test.py")),
             RuntimeMetadata::default(),
-            LoaderId::new(config),
         );
         let mut me = Self { state, handle };
         me.update_source("".to_owned());
