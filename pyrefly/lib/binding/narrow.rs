@@ -293,16 +293,13 @@ impl NarrowOps {
     }
 }
 
-fn subject_for_attribute(expr: &ExprAttribute) -> Option<NarrowingSubject> {
-    fn f(expr: &ExprAttribute, mut rev_attr_chain: Vec<Name>) -> Option<NarrowingSubject> {
+fn name_and_chain_for_attribute(expr: &ExprAttribute) -> Option<(Name, AttributeChain)> {
+    fn f(expr: &ExprAttribute, mut rev_attr_chain: Vec<Name>) -> Option<(Name, AttributeChain)> {
         match &*expr.value {
             Expr::Name(name) => {
                 let mut final_chain = Vec1::from_vec_push(rev_attr_chain, expr.attr.id.clone());
                 final_chain.reverse();
-                Some(NarrowingSubject::Attribute(
-                    name.id.clone(),
-                    AttributeChain::new(final_chain),
-                ))
+                Some((name.id.clone(), AttributeChain::new(final_chain)))
             }
             Expr::Attribute(x) => {
                 rev_attr_chain.push(expr.attr.id.clone());
@@ -312,6 +309,10 @@ fn subject_for_attribute(expr: &ExprAttribute) -> Option<NarrowingSubject> {
         }
     }
     f(expr, Vec::new())
+}
+
+fn subject_for_attribute(expr: &ExprAttribute) -> Option<NarrowingSubject> {
+    name_and_chain_for_attribute(expr).map(|(name, attr)| NarrowingSubject::Attribute(name, attr))
 }
 
 fn expr_to_subjects(expr: &Expr) -> Vec<NarrowingSubject> {
