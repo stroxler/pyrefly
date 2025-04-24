@@ -16,8 +16,8 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::attr::Narrowable;
 use crate::alt::callable::CallArg;
 use crate::binding::narrow::AtomicNarrowOp;
+use crate::binding::narrow::AttributeChain;
 use crate::binding::narrow::NarrowOp;
-use crate::binding::narrow::NarrowedAttribute;
 use crate::error::collector::ErrorCollector;
 use crate::error::style::ErrorStyle;
 use crate::types::callable::FunctionKind;
@@ -329,14 +329,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_attribute_type(
         &self,
         base: &TypeInfo,
-        attr: &NarrowedAttribute,
+        attr: &AttributeChain,
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
         // We don't want to throw any attribute access errors when narrowing - the same code is traversed
         // separately for type checking, and there might be error context then we don't have here.
         let ignore_errors = ErrorCollector::new(errors.module_info().clone(), ErrorStyle::Never);
-        let NarrowedAttribute(box names) = attr.clone();
+        let AttributeChain(box names) = attr.clone();
         let (first_name, remaining_names) = names.split_off_first();
         match self.narrowable_for_attr_chain(
             base,

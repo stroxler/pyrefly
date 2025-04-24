@@ -59,9 +59,9 @@ pub enum AtomicNarrowOp {
 }
 
 #[derive(Clone, Debug)]
-pub struct NarrowedAttribute(pub Box<Vec1<Name>>);
+pub struct AttributeChain(pub Box<Vec1<Name>>);
 
-impl NarrowedAttribute {
+impl AttributeChain {
     pub fn new(chain: Vec1<Name>) -> Self {
         Self(Box::new(chain))
     }
@@ -75,7 +75,7 @@ impl NarrowedAttribute {
 
 #[derive(Clone, Debug)]
 pub enum NarrowOp {
-    Atomic(Option<NarrowedAttribute>, AtomicNarrowOp),
+    Atomic(Option<AttributeChain>, AtomicNarrowOp),
     And(Vec<NarrowOp>),
     Or(Vec<NarrowOp>),
 }
@@ -107,7 +107,7 @@ impl AtomicNarrowOp {
 #[derive(Clone, Debug)]
 enum NarrowingSubject {
     Name(Name),
-    Attribute(Name, NarrowedAttribute),
+    Attribute(Name, AttributeChain),
 }
 
 impl NarrowOp {
@@ -301,7 +301,7 @@ fn subject_for_attribute(expr: &ExprAttribute) -> Option<NarrowingSubject> {
                 final_chain.reverse();
                 Some(NarrowingSubject::Attribute(
                     name.id.clone(),
-                    NarrowedAttribute::new(final_chain),
+                    AttributeChain::new(final_chain),
                 ))
             }
             Expr::Attribute(x) => {
