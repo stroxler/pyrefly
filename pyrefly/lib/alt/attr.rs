@@ -410,7 +410,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Here `got` can be either an Expr or a Type so that we can support contextually
     /// typing whenever the expression is available.
-    fn check_attr_set(
+    ///
+    /// If (and only if) an attribute is a simple read-write attribute, returns the
+    /// type of the term to which we set it which may be used for narrowing.
+    fn check_and_infer_attr_set(
         &self,
         base: &Type,
         attr_name: &Name,
@@ -419,10 +422,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
         todo_ctx: &str,
-    ) {
+    ) -> Option<Type> {
+        let mut narrowed_types = Some(Vec::new());
         self.map_over_union(base, |base| {
             match self.lookup_attr_no_union(base, attr_name) {
                 LookupResult::Found(attr) => match attr.inner {
+                    AttributeInner::Simple(want, Visibility::ReadWrite) => {
+                        let ty = match got {
+                            Either::Left(got) => self.expr(
+                                got,
+                                Some((&want, &|| TypeCheckContext {
+                                    kind: TypeCheckKind::Attribute(attr_name.clone()),
+                                    context: context.map(|ctx| ctx()),
+                                })),
+                                errors,
+                            ),
+                            Either::Right(got) => {
+                                self.check_type(&want, got, range, errors, &|| TypeCheckContext {
+                                    kind: TypeCheckKind::Attribute(attr_name.clone()),
+                                    context: context.map(|ctx| ctx()),
+                                });
+                                got.clone()
+                            }
+                        };
+                        if let Some(narrowed_types) = &mut narrowed_types {
+                            narrowed_types.push(ty)
+                        }
+                        // Exit early to avoid the hook where we wipe `narrowed_types` in all other cases.
+                        return;
+                    }
                     AttributeInner::NoAccess(e) => {
                         self.error(
                             errors,
@@ -432,24 +460,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             e.to_error_msg(attr_name),
                         );
                     }
-                    AttributeInner::Simple(want, Visibility::ReadWrite) => match got {
-                        Either::Left(got) => {
-                            self.expr(
-                                got,
-                                Some((&want, &|| TypeCheckContext {
-                                    kind: TypeCheckKind::Attribute(attr_name.clone()),
-                                    context: context.map(|ctx| ctx()),
-                                })),
-                                errors,
-                            );
-                        }
-                        Either::Right(got) => {
-                            self.check_type(&want, got, range, errors, &|| TypeCheckContext {
-                                kind: TypeCheckKind::Attribute(attr_name.clone()),
-                                context: context.map(|ctx| ctx()),
-                            });
-                        }
-                    },
                     AttributeInner::Simple(_, Visibility::ReadOnly) => {
                         self.error(
                             errors,
@@ -542,10 +552,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
             }
+            // If we hit anything other than a simple, read-write attribute then we will not infer
+            // a type for narrowing.
+            narrowed_types = None;
         });
+        narrowed_types.map(|ts| self.unions(ts))
     }
 
-    pub fn check_attr_set_with_expr(
+    pub fn check_and_infer_attr_set_with_expr(
         &self,
         base: Type,
         attr_name: &Name,
@@ -554,8 +568,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
         todo_ctx: &str,
-    ) {
-        self.check_attr_set(
+    ) -> Option<Type> {
+        self.check_and_infer_attr_set(
             &base,
             attr_name,
             Either::Left(got),
@@ -566,7 +580,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
-    pub fn check_attr_set_with_type(
+    pub fn check_and_infer_attr_set_with_type(
         &self,
         base: Type,
         attr_name: &Name,
@@ -575,8 +589,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
         todo_ctx: &str,
-    ) {
-        self.check_attr_set(
+    ) -> Option<Type> {
+        self.check_and_infer_attr_set(
             &base,
             attr_name,
             Either::Right(got),

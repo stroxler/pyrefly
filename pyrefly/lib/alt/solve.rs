@@ -1186,7 +1186,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BindingExpect::CheckAssignToAttribute(box (attr, ExprOrBinding::Binding(got))) => {
                 let base = self.expr_infer(&attr.value, errors);
                 let got = self.solve_binding(got, errors);
-                self.check_attr_set_with_type(
+                self.check_and_infer_attr_set_with_type(
                     base,
                     &attr.attr.id,
                     got.ty(),
@@ -1198,7 +1198,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             BindingExpect::CheckAssignToAttribute(box (attr, ExprOrBinding::Expr(value))) => {
                 let base = self.expr_infer(&attr.value, errors);
-                self.check_attr_set_with_expr(
+                self.check_and_infer_attr_set_with_expr(
                     base,
                     &attr.attr.id,
                     value,
