@@ -388,7 +388,7 @@ pub fn testcase_for_macro(
         state
             .transaction()
             .get_loads([&handle("main")])
-            .check_against_expectations(&ErrorConfigs::default())?;
+            .check_against_expectations()?;
         if start.elapsed().as_secs() <= limit {
             return Ok(());
         }

@@ -513,7 +513,7 @@ impl Args {
             suppress::remove_unused_ignores(unused_ignores);
         }
         if self.expectations {
-            loads.check_against_expectations(error_configs)?;
+            loads.check_against_expectations()?;
             Ok(CommandExitStatus::Success)
         } else if shown_errors_count > 0 {
             Ok(CommandExitStatus::UserError)

@@ -75,7 +75,7 @@ else:
     transaction.run(&handles);
     transaction
         .get_loads(handles.iter().map(|(handle, _)| handle))
-        .check_against_expectations(&ErrorConfigs::default())
+        .check_against_expectations()
         .unwrap();
 }
 
@@ -126,9 +126,7 @@ fn test_multiple_path() {
     transaction.run(&handles.map(|x| (x.dupe(), Require::Everything)));
     let loads = transaction.get_loads(handles.iter());
     print_errors(&loads.collect_errors(&ErrorConfigs::default()).shown);
-    loads
-        .check_against_expectations(&ErrorConfigs::default())
-        .unwrap();
+    loads.check_against_expectations().unwrap();
     assert_eq!(
         loads.collect_errors(&ErrorConfigs::default()).shown.len(),
         3
@@ -206,9 +204,7 @@ impl Incremental {
         );
         let loads = self.state.transaction().get_loads(handles.iter());
         print_errors(&loads.collect_errors(&ErrorConfigs::default()).shown);
-        loads
-            .check_against_expectations(&ErrorConfigs::default())
-            .unwrap();
+        loads.check_against_expectations().unwrap();
 
         let mut recompute = recompute.map(|x| (*x).to_owned());
         recompute.sort();

@@ -58,10 +58,7 @@ impl Errors {
         ignore_collection
     }
 
-    pub fn check_against_expectations(
-        &self,
-        #[allow(unused_variables)] error_configs: &ErrorConfigs,
-    ) -> anyhow::Result<()> {
+    pub fn check_against_expectations(&self) -> anyhow::Result<()> {
         for (load, config) in &self.loads {
             let error_config = ErrorConfig::new(
                 config.errors().clone(),
