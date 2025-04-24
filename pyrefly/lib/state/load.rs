@@ -28,14 +28,16 @@ use crate::module::module_path::ModulePathDetails;
 use crate::state::memory::MemoryFilesLookup;
 use crate::util::fs_anyhow;
 
+/// The result of loading a module, including its `ModuleInfo` and `ErrorCollector`.
 #[derive(Debug)]
 pub struct Load {
     pub errors: ErrorCollector,
     pub module_info: ModuleInfo,
 }
 
+/// The errors from a collection of modules.
 #[derive(Debug)]
-pub struct Loads {
+pub struct Errors {
     loads: Vec<Arc<Load>>,
 }
 
@@ -90,7 +92,7 @@ impl Load {
     }
 }
 
-impl Loads {
+impl Errors {
     pub fn new(loads: Vec<Arc<Load>>) -> Self {
         Self { loads }
     }

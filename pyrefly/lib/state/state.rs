@@ -66,8 +66,8 @@ use crate::state::dirty::Dirty;
 use crate::state::epoch::Epoch;
 use crate::state::epoch::Epochs;
 use crate::state::handle::Handle;
+use crate::state::load::Errors;
 use crate::state::load::Load;
-use crate::state::load::Loads;
 use crate::state::loader::FindError;
 use crate::state::loader::LoaderFindCache;
 use crate::state::memory::MemoryFiles;
@@ -291,8 +291,8 @@ impl<'a> Transaction<'a> {
         self.with_module_inner(handle, |x| x.steps.load.dupe())
     }
 
-    pub fn get_loads<'b>(&self, handles: impl IntoIterator<Item = &'b Handle>) -> Loads {
-        Loads::new(
+    pub fn get_loads<'b>(&self, handles: impl IntoIterator<Item = &'b Handle>) -> Errors {
+        Errors::new(
             handles
                 .into_iter()
                 .filter_map(|handle| self.with_module_inner(handle, |x| x.steps.load.dupe()))
@@ -300,10 +300,10 @@ impl<'a> Transaction<'a> {
         )
     }
 
-    pub fn get_all_loads(&self) -> Loads {
+    pub fn get_all_loads(&self) -> Errors {
         if self.data.updated_modules.is_empty() {
             // Optimised path
-            return Loads::new(
+            return Errors::new(
                 self.readable
                     .modules
                     .values()
@@ -322,7 +322,7 @@ impl<'a> Transaction<'a> {
                 res.extend(v.state.steps.load.dupe());
             }
         }
-        Loads::new(res)
+        Errors::new(res)
     }
 
     pub fn get_module_info(&self, handle: &Handle) -> Option<ModuleInfo> {
