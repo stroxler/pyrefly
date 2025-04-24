@@ -164,7 +164,7 @@ const config: Config = {
                 redirects: [
                     {
                         from: '/en/docs/learn-python-typing',
-                        to: '/en/docs/category/learn-python-typing',
+                        to: '/en/docs/python-typing-for-beginners',
                     },
                 ],
             },
