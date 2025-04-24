@@ -295,7 +295,8 @@ impl<'a> Transaction<'a> {
         Loads::new(
             handles
                 .into_iter()
-                .filter_map(|handle| self.with_module_inner(handle, |x| x.steps.load.dupe())),
+                .filter_map(|handle| self.with_module_inner(handle, |x| x.steps.load.dupe()))
+                .collect(),
         )
     }
 
@@ -306,7 +307,8 @@ impl<'a> Transaction<'a> {
                 self.readable
                     .modules
                     .values()
-                    .filter_map(|x| x.state.steps.load.dupe()),
+                    .filter_map(|x| x.state.steps.load.dupe())
+                    .collect(),
             );
         }
         let mut res = self

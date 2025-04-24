@@ -91,10 +91,8 @@ impl Load {
 }
 
 impl Loads {
-    pub fn new(loads: impl IntoIterator<Item = Arc<Load>>) -> Self {
-        Self {
-            loads: loads.into_iter().collect(),
-        }
+    pub fn new(loads: Vec<Arc<Load>>) -> Self {
+        Self { loads }
     }
 
     pub fn collect_errors(&self, error_configs: &ErrorConfigs) -> CollectedErrors {
