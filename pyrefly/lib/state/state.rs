@@ -395,7 +395,7 @@ impl<'a> Transaction<'a> {
         let path = match path {
             Some(path) => path.dupe(),
             None => self
-                .get_cached_loader(handle.loader())
+                .get_cached_loader(&LoaderId::new(self.get_module(handle).config.read().dupe()))
                 .find_import(module)?,
         };
         Ok(Handle::new(
@@ -497,7 +497,7 @@ impl<'a> Transaction<'a> {
 
         // Validate the find flag.
         if exclusive.dirty.find {
-            let loader = self.get_cached_loader(module_data.handle.loader());
+            let loader = self.get_cached_loader(&LoaderId::new(module_data.config.read().dupe()));
             let mut is_dirty = false;
             for dependency_handle in module_data.deps.read().values() {
                 match loader.find_import(dependency_handle.module()) {
@@ -836,7 +836,7 @@ impl<'a> Transaction<'a> {
 
     fn compute_stdlib(&mut self, configs: SmallSet<(RuntimeMetadata, LoaderId)>) {
         for k in configs.into_iter_hashed() {
-            let loader = self.get_cached_loader(&k.1);
+            let loader = self.get_cached_loader(&LoaderId::new(ConfigFile::empty()));
             self.data
                 .stdlib
                 .insert_hashed(k.to_owned(), Arc::new(Stdlib::for_bootstrapping()));

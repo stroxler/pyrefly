@@ -10,9 +10,11 @@ use std::fmt;
 use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use anyhow::Context;
 use anyhow::anyhow;
+use dupe::Dupe;
 use itertools::Itertools;
 use path_absolutize::Absolutize;
 use serde::Deserialize;
@@ -34,6 +36,7 @@ use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::wildcard::ModuleWildcard;
 use crate::state::loader::FindError;
+use crate::util::arc_id::ArcId;
 use crate::util::fs_anyhow;
 use crate::util::globs::Glob;
 use crate::util::globs::Globs;
@@ -187,6 +190,19 @@ impl ConfigFile {
     pub const CONFIG_FILE_NAME: &str = "pyrefly.toml";
     pub const PYPROJECT_FILE_NAME: &str = "pyproject.toml";
     pub const CONFIG_FILE_NAMES: &[&str] = &[Self::CONFIG_FILE_NAME, Self::PYPROJECT_FILE_NAME];
+
+    /// An empty `ConfigFile` with no search path at all. Always returns the same `ArcId`.
+    #[allow(clippy::field_reassign_with_default)] // Default doesn't do what a normal Default does
+    pub fn empty() -> ArcId<Self> {
+        static EMPTY: LazyLock<ArcId<ConfigFile>> = LazyLock::new(|| {
+            let mut config = ConfigFile::default();
+            config.search_path = Vec::new();
+            config.python_environment.site_package_path = Some(Vec::new());
+            config.configure();
+            ArcId::new(config)
+        });
+        EMPTY.dupe()
+    }
 
     pub fn default_project_includes() -> Globs {
         Globs::new(vec!["**/*".to_owned()])
