@@ -1202,7 +1202,9 @@ impl<'a> TransactionHandle<'a> {
         module: ModuleName,
         path: Option<&ModulePath>,
     ) -> Result<ArcId<ModuleDataMut>, FindError> {
-        if let Some(res) = self.module_data.deps.read().get(&module) {
+        if let Some(res) = self.module_data.deps.read().get(&module)
+            && path.is_none_or(|path| path == res.path())
+        {
             return Ok(self.transaction.get_module(res));
         }
 

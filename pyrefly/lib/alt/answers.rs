@@ -506,7 +506,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
         SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
     {
-        if module == self.module_info().name() {
+        if module == self.module_info().name()
+            && path.is_none_or(|path| path == self.module_info().path())
+        {
             self.get(k)
         } else {
             self.answers.get(module, path, k)
