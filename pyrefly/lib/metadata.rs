@@ -201,21 +201,20 @@ impl PythonPlatform {
     }
 }
 
+/// Information available from the Python library `sys`, namely
+/// `version` and `platform`.
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, Hash, Default)]
-pub struct RuntimeMetadata(Arc<WithHash<RuntimeMetadataInner>>);
+pub struct SysInfo(Arc<WithHash<SysInfoInner>>);
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
-struct RuntimeMetadataInner {
+struct SysInfoInner {
     version: PythonVersion,
     platform: PythonPlatform,
 }
 
-impl RuntimeMetadata {
+impl SysInfo {
     pub fn new(version: PythonVersion, platform: PythonPlatform) -> Self {
-        Self(Arc::new(WithHash::new(RuntimeMetadataInner {
-            version,
-            platform,
-        })))
+        Self(Arc::new(WithHash::new(SysInfoInner { version, platform })))
     }
 
     pub fn version(&self) -> PythonVersion {
@@ -271,7 +270,7 @@ impl Value {
     }
 }
 
-impl RuntimeMetadata {
+impl SysInfo {
     /// Return true/false if we can statically evaluate it, and None if we can't.
     pub fn evaluate_bool(&self, x: &Expr) -> Option<bool> {
         Some(self.evaluate(x)?.to_bool())

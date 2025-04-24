@@ -82,7 +82,7 @@ use crate::config::environment::PythonEnvironment;
 use crate::config::error::ErrorConfigs;
 use crate::config::finder::ConfigFinder;
 use crate::exported::ArcId;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::SourceRange;
 use crate::module::module_info::TextRangeWithModuleInfo;
@@ -187,7 +187,7 @@ struct Server {
 /// TODO(connernilsel): replace with real config logic
 #[derive(Debug)]
 struct Workspace {
-    runtime_metadata: RuntimeMetadata,
+    runtime_metadata: SysInfo,
     search_path: Vec<PathBuf>,
     /// The config implied by these settings
     config_file: ArcId<ConfigFile>,
@@ -198,7 +198,7 @@ impl Workspace {
     fn new(
         search_path: Vec<PathBuf>,
         site_package_path: Vec<PathBuf>,
-        runtime_metadata: RuntimeMetadata,
+        runtime_metadata: SysInfo,
     ) -> Self {
         let mut config_file = ConfigFile::default();
         config_file.python_environment.python_version = Some(runtime_metadata.version());
@@ -529,7 +529,7 @@ impl Server {
         let workspaces = Arc::new(Workspaces::new(Workspace::new(
             search_path.clone(),
             site_package_path.clone(),
-            RuntimeMetadata::default(),
+            SysInfo::default(),
         )));
 
         let config_finder = Workspaces::config_finder(&workspaces);
@@ -729,7 +729,7 @@ impl Server {
                         .chain(self.search_path.clone())
                         .collect(),
                     self.site_package_path.clone(),
-                    RuntimeMetadata::default(),
+                    SysInfo::default(),
                 ),
             );
             // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
@@ -971,7 +971,7 @@ impl Server {
                 search_path,
                 site_package_path.clone(),
                 // this is okay, since `get_interpreter_env()` must return an environment with all values as `Some()`
-                RuntimeMetadata::new(env.python_version.unwrap(), env.python_platform.unwrap()),
+                SysInfo::new(env.python_version.unwrap(), env.python_platform.unwrap()),
             );
             workspaces.insert(workspace_path, new_workspace);
         }

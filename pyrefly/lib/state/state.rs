@@ -57,7 +57,7 @@ use crate::export::definitions::DocString;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
@@ -188,7 +188,7 @@ impl ModuleDataMut {
 
 /// A subset of State that contains readable information for various systems (e.g. IDE, error reporting, etc).
 struct StateInner {
-    stdlib: SmallMap<RuntimeMetadata, Arc<Stdlib>>,
+    stdlib: SmallMap<SysInfo, Arc<Stdlib>>,
     modules: HashMap<Handle, ModuleData>,
     loaders: SmallMap<ArcId<ConfigFile>, Arc<LoaderFindCache>>,
     /// The contents for ModulePath::memory values
@@ -217,7 +217,7 @@ impl StateInner {
 /// It is used to store uncommitted transaction state in between transaction runs.
 pub struct TransactionData<'a> {
     state: &'a State,
-    stdlib: SmallMap<RuntimeMetadata, Arc<Stdlib>>,
+    stdlib: SmallMap<SysInfo, Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleDataMut>>,
     updated_loaders: LockedMap<ArcId<ConfigFile>, Arc<LoaderFindCache>>,
     memory_overlay: MemoryFilesOverlay,
@@ -824,7 +824,7 @@ impl<'a> Transaction<'a> {
         self.data.stdlib.get(handle.config()).unwrap().dupe()
     }
 
-    fn compute_stdlib(&mut self, configs: SmallSet<RuntimeMetadata>) {
+    fn compute_stdlib(&mut self, configs: SmallSet<SysInfo>) {
         let loader = self.get_cached_loader(&ConfigFile::empty());
         for k in configs.into_iter_hashed() {
             self.data

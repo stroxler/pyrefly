@@ -39,7 +39,7 @@ use crate::error::legacy::LegacyErrors;
 use crate::error::summarise::print_error_summary;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::ignore::SuppressionKind;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
@@ -183,7 +183,7 @@ impl OutputFormat {
 struct Handles {
     /// A mapping from a file to all other information needed to create a `Handle`.
     /// The value type is basically everything else in `Handle` except for the file path.
-    path_data: HashMap<PathBuf, (ModuleName, RuntimeMetadata)>,
+    path_data: HashMap<PathBuf, (ModuleName, SysInfo)>,
     /// A the underlying HashMap that will be used to create an `ErrorConfigs` when requested.
     module_to_error_config: HashMap<ModulePath, ErrorConfig>,
 }
@@ -204,7 +204,7 @@ impl Handles {
         &mut self,
         path: PathBuf,
         config_finder: &ConfigFinder,
-    ) -> &(ModuleName, RuntimeMetadata) {
+    ) -> &(ModuleName, SysInfo) {
         let module_path = ModulePath::filesystem(path.clone());
         let config = config_finder.python_file(ModuleName::unknown(), &module_path);
         self.module_to_error_config.insert(

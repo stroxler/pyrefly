@@ -24,7 +24,7 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 
 use crate::dunder;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModuleStyle;
 use crate::module::short_identifier::ShortIdentifier;
@@ -124,7 +124,7 @@ impl DunderAllEntry {
 struct DefinitionsBuilder<'a> {
     module_name: ModuleName,
     is_init: bool,
-    config: &'a RuntimeMetadata,
+    config: &'a SysInfo,
     inner: Definitions,
 }
 
@@ -133,12 +133,7 @@ fn is_private_name(name: &Name) -> bool {
 }
 
 impl Definitions {
-    pub fn new(
-        x: &[Stmt],
-        module_name: ModuleName,
-        is_init: bool,
-        config: &RuntimeMetadata,
-    ) -> Self {
+    pub fn new(x: &[Stmt], module_name: ModuleName, is_init: bool, config: &SysInfo) -> Self {
         let mut builder = DefinitionsBuilder {
             module_name,
             config,
@@ -463,7 +458,7 @@ mod tests {
             &ast.body,
             ModuleName::from_str("main"),
             false,
-            &RuntimeMetadata::default(),
+            &SysInfo::default(),
         );
         assert_eq!(
             import_all,

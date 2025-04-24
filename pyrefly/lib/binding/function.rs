@@ -42,7 +42,7 @@ use crate::binding::scope::FlowStyle;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
 use crate::graph::index::Idx;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::util::prelude::VecExt;
@@ -300,13 +300,9 @@ impl<'a> BindingsBuilder<'a> {
 /// * Return Some(xs) to say this set might be the last expression.
 fn function_last_expressions<'a>(
     x: &'a [Stmt],
-    config: &RuntimeMetadata,
+    config: &SysInfo,
 ) -> Option<Vec<(LastStmt, &'a Expr)>> {
-    fn f<'a>(
-        config: &RuntimeMetadata,
-        x: &'a [Stmt],
-        res: &mut Vec<(LastStmt, &'a Expr)>,
-    ) -> Option<()> {
+    fn f<'a>(config: &SysInfo, x: &'a [Stmt], res: &mut Vec<(LastStmt, &'a Expr)>) -> Option<()> {
         match x.last()? {
             Stmt::Expr(x) => res.push((LastStmt::Expr, &x.value)),
             Stmt::Return(_) | Stmt::Raise(_) => {}

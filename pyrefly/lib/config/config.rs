@@ -28,7 +28,7 @@ use crate::config::environment::PythonEnvironment;
 use crate::config::error::ErrorDisplayConfig;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::bundled::typeshed;
 use crate::module::finder::find_module_in_search_path;
 use crate::module::finder::find_module_in_site_package_path;
@@ -241,8 +241,8 @@ impl ConfigFile {
             .unwrap()
     }
 
-    pub fn get_runtime_metadata(&self) -> RuntimeMetadata {
-        RuntimeMetadata::new(self.python_version(), self.python_platform().clone())
+    pub fn get_runtime_metadata(&self) -> SysInfo {
+        SysInfo::new(self.python_version(), self.python_platform().clone())
     }
 
     pub fn errors(&self) -> &ErrorDisplayConfig {

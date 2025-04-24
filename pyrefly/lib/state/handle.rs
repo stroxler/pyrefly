@@ -7,7 +7,7 @@
 
 use dupe::Dupe;
 
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 
@@ -15,11 +15,11 @@ use crate::module::module_path::ModulePath;
 pub struct Handle {
     module: ModuleName,
     path: ModulePath,
-    config: RuntimeMetadata,
+    config: SysInfo,
 }
 
 impl Handle {
-    pub fn new(module: ModuleName, path: ModulePath, config: RuntimeMetadata) -> Self {
+    pub fn new(module: ModuleName, path: ModulePath, config: SysInfo) -> Self {
         Self {
             module,
             path,
@@ -35,7 +35,7 @@ impl Handle {
         &self.path
     }
 
-    pub fn config(&self) -> &RuntimeMetadata {
+    pub fn config(&self) -> &SysInfo {
         &self.config
     }
 }

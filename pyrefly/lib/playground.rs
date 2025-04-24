@@ -17,7 +17,7 @@ use serde::Serialize;
 use crate::config::config::ConfigFile;
 use crate::config::error::ErrorConfigs;
 use crate::config::finder::ConfigFinder;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_info::SourceRange;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
@@ -125,7 +125,7 @@ impl Playground {
         let handle = Handle::new(
             ModuleName::from_str("test"),
             ModulePath::memory(PathBuf::from("test.py")),
-            RuntimeMetadata::default(),
+            SysInfo::default(),
         );
         let mut me = Self { state, handle };
         me.update_source("".to_owned());

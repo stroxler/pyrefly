@@ -31,7 +31,7 @@ use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
@@ -145,8 +145,8 @@ impl TestEnv {
             .insert(module_name, (ModulePath::filesystem(path), None));
     }
 
-    pub fn metadata(&self) -> RuntimeMetadata {
-        RuntimeMetadata::new(self.version, PythonPlatform::linux())
+    pub fn metadata(&self) -> SysInfo {
+        SysInfo::new(self.version, PythonPlatform::linux())
     }
 
     pub fn get_memory(&self) -> Vec<(PathBuf, Option<Arc<String>>)> {

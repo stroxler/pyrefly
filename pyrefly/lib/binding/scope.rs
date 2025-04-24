@@ -36,7 +36,7 @@ use crate::export::definitions::Definitions;
 use crate::export::exports::LookupExport;
 use crate::export::special::SpecialEntry;
 use crate::graph::index::Idx;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
@@ -114,7 +114,7 @@ impl Static {
         module_info: &ModuleInfo,
         top_level: bool,
         lookup: &dyn LookupExport,
-        config: &RuntimeMetadata,
+        config: &SysInfo,
         mut get_annotation_idx: impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
     ) {
         let mut d = Definitions::new(x, module_info.name(), module_info.path().is_init(), config);

@@ -22,7 +22,7 @@ use crate::export::definitions::Definitions;
 use crate::export::definitions::DocString;
 use crate::export::definitions::DunderAllEntry;
 use crate::graph::calculation::Calculation;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::state::loader::FindError;
@@ -81,7 +81,7 @@ impl Display for Exports {
 }
 
 impl Exports {
-    pub fn new(x: &[Stmt], module_info: &ModuleInfo, config: &RuntimeMetadata) -> Self {
+    pub fn new(x: &[Stmt], module_info: &ModuleInfo, config: &SysInfo) -> Self {
         let mut definitions =
             Definitions::new(x, module_info.name(), module_info.path().is_init(), config);
         definitions.ensure_dunder_all(module_info.path().style());
@@ -193,7 +193,7 @@ mod tests {
             path,
             Arc::new(contents.to_owned()),
         );
-        Exports::new(&ast.body, &module_info, &RuntimeMetadata::default())
+        Exports::new(&ast.body, &module_info, &SysInfo::default())
     }
 
     fn eq_wildcards(exports: &Exports, lookup: &dyn LookupExport, all: &[&str]) {

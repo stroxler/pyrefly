@@ -74,7 +74,7 @@ use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::graph::index::Index;
 use crate::graph::index_map::IndexMap;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
@@ -131,7 +131,7 @@ impl Display for Bindings {
 pub struct BindingsBuilder<'a> {
     pub module_info: ModuleInfo,
     pub lookup: &'a dyn LookupExport,
-    pub config: &'a RuntimeMetadata,
+    pub config: &'a SysInfo,
     pub class_count: u32,
     pub loop_depth: u32,
     errors: &'a ErrorCollector,
@@ -291,7 +291,7 @@ impl Bindings {
         exports: Exports,
         solver: &Solver,
         lookup: &dyn LookupExport,
-        config: &RuntimeMetadata,
+        config: &SysInfo,
         errors: &ErrorCollector,
         uniques: &UniqueFactory,
         enable_trace: bool,

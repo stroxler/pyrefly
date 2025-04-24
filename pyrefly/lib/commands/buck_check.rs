@@ -23,7 +23,7 @@ use crate::error::error::Error;
 use crate::error::legacy::LegacyErrors;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_path::ModulePath;
 use crate::module::source_db::BuckSourceDatabase;
 use crate::state::handle::Handle;
@@ -59,7 +59,7 @@ fn read_input_file(path: &Path) -> anyhow::Result<InputFile> {
     Ok(input_file)
 }
 
-fn compute_errors(metadata: RuntimeMetadata, sourcedb: BuckSourceDatabase) -> Vec<Error> {
+fn compute_errors(metadata: SysInfo, sourcedb: BuckSourceDatabase) -> Vec<Error> {
     let modules = sourcedb.modules_to_check();
 
     let mut config = ConfigFile::default();
@@ -111,7 +111,7 @@ impl Args {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         let input_file = read_input_file(self.input_path.as_path())?;
         let python_version = PythonVersion::from_str(&input_file.py_version)?;
-        let config = RuntimeMetadata::new(python_version, PythonPlatform::linux());
+        let config = SysInfo::new(python_version, PythonPlatform::linux());
         let sourcedb = BuckSourceDatabase::from_manifest_files(
             input_file.sources.as_slice(),
             input_file.dependencies.as_slice(),

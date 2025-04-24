@@ -20,7 +20,7 @@ use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
 use crate::metadata::PythonPlatform;
 use crate::metadata::PythonVersion;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::state::handle::Handle;
@@ -35,8 +35,8 @@ use crate::util::prelude::SliceExt;
 
 #[test]
 fn test_multiple_config() {
-    let linux = RuntimeMetadata::new(PythonVersion::default(), PythonPlatform::linux());
-    let windows = RuntimeMetadata::new(PythonVersion::default(), PythonPlatform::windows());
+    let linux = SysInfo::new(PythonVersion::default(), PythonPlatform::linux());
+    let windows = SysInfo::new(PythonVersion::default(), PythonPlatform::windows());
 
     const LIB: &str = r#"
 import sys
@@ -56,7 +56,7 @@ else:
     let config_file = test_env.config();
     let state = State::new(test_env.config_finder());
 
-    let f = |name: &str, config: &RuntimeMetadata| {
+    let f = |name: &str, config: &SysInfo| {
         let name = ModuleName::from_str(name);
         let path = config_file.find_import(name).unwrap();
         (Handle::new(name, path, config.dupe()), Require::Everything)
@@ -104,7 +104,7 @@ fn test_multiple_path() {
     config.configure();
     let config = ArcId::new(config);
 
-    let runtime = RuntimeMetadata::default();
+    let runtime = SysInfo::default();
 
     let state = State::new(ConfigFinder::new_constant(config));
     let handles = FILES.map(|(name, path, _)| {
@@ -175,7 +175,7 @@ impl Incremental {
         Handle::new(
             ModuleName::from_str(x),
             ModulePath::memory(PathBuf::from(x)),
-            RuntimeMetadata::default(),
+            SysInfo::default(),
         )
     }
 

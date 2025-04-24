@@ -20,7 +20,7 @@ use crate::binding::bindings::Bindings;
 use crate::error::style::ErrorStyle;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
-use crate::metadata::RuntimeMetadata;
+use crate::metadata::SysInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::solver::solver::Solver;
@@ -34,7 +34,7 @@ pub struct Context<'a, Lookup> {
     pub require: Require,
     pub module: ModuleName,
     pub path: &'a ModulePath,
-    pub config: &'a RuntimeMetadata,
+    pub config: &'a SysInfo,
     pub memory: &'a MemoryFilesLookup<'a>,
     pub uniques: &'a UniqueFactory,
     pub stdlib: &'a Stdlib,
