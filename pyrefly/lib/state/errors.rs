@@ -12,7 +12,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
 use crate::config::error::ErrorConfig;
-use crate::config::error::ErrorConfigs;
 use crate::error::collector::CollectedErrors;
 use crate::error::expectation::Expectation;
 use crate::module::ignore::Ignore;
@@ -33,10 +32,7 @@ impl Errors {
         Self { loads }
     }
 
-    pub fn collect_errors(
-        &self,
-        #[allow(unused_variables)] error_configs: &ErrorConfigs,
-    ) -> CollectedErrors {
+    pub fn collect_errors(&self) -> CollectedErrors {
         let mut errors = CollectedErrors::default();
         for (load, config) in &self.loads {
             let error_config = ErrorConfig::new(

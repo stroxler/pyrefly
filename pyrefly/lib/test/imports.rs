@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use crate::config::error::ErrorConfigs;
 use crate::test::util::TestEnv;
 use crate::testcase;
 
@@ -552,7 +551,7 @@ fn test_import_fail_to_load() {
     let errs = state
         .transaction()
         .get_loads([&handle("foo")])
-        .collect_errors(&ErrorConfigs::default())
+        .collect_errors()
         .shown;
     assert_eq!(errs.len(), 1);
     let msg = errs[0].to_string();

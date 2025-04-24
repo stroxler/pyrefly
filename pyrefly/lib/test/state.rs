@@ -15,7 +15,6 @@ use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
-use crate::config::error::ErrorConfigs;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
 use crate::module::module_name::ModuleName;
@@ -125,12 +124,9 @@ fn test_multiple_path() {
     );
     transaction.run(&handles.map(|x| (x.dupe(), Require::Everything)));
     let loads = transaction.get_loads(handles.iter());
-    print_errors(&loads.collect_errors(&ErrorConfigs::default()).shown);
+    print_errors(&loads.collect_errors().shown);
     loads.check_against_expectations().unwrap();
-    assert_eq!(
-        loads.collect_errors(&ErrorConfigs::default()).shown.len(),
-        3
-    );
+    assert_eq!(loads.collect_errors().shown.len(), 3);
 }
 
 #[derive(Default, Clone, Dupe, Debug)]
@@ -203,7 +199,7 @@ impl Incremental {
             &handles.map(|x| (x.dupe(), Require::Everything)),
         );
         let loads = self.state.transaction().get_loads(handles.iter());
-        print_errors(&loads.collect_errors(&ErrorConfigs::default()).shown);
+        print_errors(&loads.collect_errors().shown);
         loads.check_against_expectations().unwrap();
 
         let mut recompute = recompute.map(|x| (*x).to_owned());
@@ -372,7 +368,7 @@ fn test_change_require() {
         state
             .transaction()
             .get_loads([&handle])
-            .collect_errors(&ErrorConfigs::default())
+            .collect_errors()
             .shown
             .len(),
         0
@@ -383,7 +379,7 @@ fn test_change_require() {
         state
             .transaction()
             .get_loads([&handle])
-            .collect_errors(&ErrorConfigs::default())
+            .collect_errors()
             .shown
             .len(),
         1
@@ -398,7 +394,7 @@ fn test_change_require() {
         state
             .transaction()
             .get_loads([&handle])
-            .collect_errors(&ErrorConfigs::default())
+            .collect_errors()
             .shown
             .len(),
         1

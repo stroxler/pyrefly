@@ -26,7 +26,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::binding::binding::KeyExport;
 use crate::config::config::ConfigFile;
-use crate::config::error::ErrorConfigs;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
 use crate::module::module_name::ModuleName;
@@ -200,7 +199,7 @@ impl TestEnv {
             &state
                 .transaction()
                 .get_loads(handles.iter())
-                .collect_errors(&ErrorConfigs::default())
+                .collect_errors()
                 .shown,
         );
         (state, move |module| {
@@ -296,7 +295,7 @@ pub fn mk_multi_file_state(
             state
                 .transaction()
                 .get_loads(handles.values())
-                .collect_errors(&ErrorConfigs::default())
+                .collect_errors()
                 .shown
                 .len(),
             0

@@ -83,7 +83,6 @@ use crate::commands::run::CommandExitStatus;
 use crate::commands::util::module_from_path;
 use crate::config::config::ConfigFile;
 use crate::config::environment::PythonEnvironment;
-use crate::config::error::ErrorConfigs;
 use crate::config::finder::ConfigFinder;
 use crate::exported::ArcId;
 use crate::module::module_info::ModuleInfo;
@@ -626,7 +625,7 @@ impl Server {
             // TODO(connernilsen): replace with real error config from config file
             for e in transaction
                 .get_loads(handles.iter().map(|(handle, _)| handle))
-                .collect_errors(&ErrorConfigs::default())
+                .collect_errors()
                 .shown
             {
                 if let Some(path) = to_real_path(e.path()) {

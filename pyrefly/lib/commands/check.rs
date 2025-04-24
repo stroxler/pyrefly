@@ -417,7 +417,7 @@ impl Args {
             transaction.get_loads(handles.iter().map(|(handle, _)| handle))
         };
         let computing = start.elapsed();
-        let errors = loads.collect_errors(error_configs);
+        let errors = loads.collect_errors();
         if let Some(path) = &self.output {
             self.output_format
                 .write_errors_to_file(path, &errors.shown)?;
