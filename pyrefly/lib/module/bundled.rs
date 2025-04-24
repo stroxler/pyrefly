@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::HashMap;
 use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -18,6 +19,8 @@ use tar::Archive;
 use zstd::stream::read::Decoder;
 
 use crate::config::config::ConfigFile;
+use crate::config::error::ErrorDisplayConfig;
+use crate::error::kind::ErrorKind;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::util::arc_id::ArcId;
@@ -99,6 +102,10 @@ impl BundledTypeshed {
             let mut config_file = ConfigFile::default();
             config_file.python_environment.site_package_path = Some(Vec::new());
             config_file.search_path = Vec::new();
+            config_file.root.errors = Some(ErrorDisplayConfig::new(HashMap::from([(
+                ErrorKind::BadOverride, // The stdlib is full of deliberately incorrect overrides, so ignore them
+                false,
+            )])));
             config_file.configure();
             ArcId::new(config_file)
         });
