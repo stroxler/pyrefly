@@ -295,7 +295,11 @@ impl<'a> Transaction<'a> {
         Errors::new(
             handles
                 .into_iter()
-                .filter_map(|handle| self.with_module_inner(handle, |x| x.steps.load.dupe()))
+                .filter_map(|handle| {
+                    self.with_module_config_inner(handle, |config, x| {
+                        Some((x.steps.load.dupe()?, config.dupe()))
+                    })
+                })
                 .collect(),
         )
     }
@@ -307,7 +311,7 @@ impl<'a> Transaction<'a> {
                 self.readable
                     .modules
                     .values()
-                    .filter_map(|x| x.state.steps.load.dupe())
+                    .filter_map(|x| Some((x.state.steps.load.dupe()?, x.config.dupe())))
                     .collect(),
             );
         }
@@ -315,11 +319,18 @@ impl<'a> Transaction<'a> {
             .data
             .updated_modules
             .iter_unordered()
-            .filter_map(|x| x.1.state.read().steps.load.dupe())
+            .filter_map(|x| {
+                Some((
+                    x.1.state.read().steps.load.dupe()?,
+                    x.1.config.read().dupe(),
+                ))
+            })
             .collect::<Vec<_>>();
         for (k, v) in self.readable.modules.iter() {
             if self.data.updated_modules.get(k).is_none() {
-                res.extend(v.state.steps.load.dupe());
+                if let Some(load) = v.state.steps.load.dupe() {
+                    res.push((load, v.config.dupe()));
+                }
             }
         }
         Errors::new(res)
@@ -665,6 +676,21 @@ impl<'a> Transaction<'a> {
             f(&v.state.read())
         } else if let Some(v) = self.readable.modules.get(handle) {
             f(&v.state)
+        } else {
+            None
+        }
+    }
+
+    /// Like `with_module_inner`, but also gives access to the config.
+    fn with_module_config_inner<R>(
+        &self,
+        handle: &Handle,
+        f: impl FnOnce(&ArcId<ConfigFile>, &ModuleDataInner) -> Option<R>,
+    ) -> Option<R> {
+        if let Some(v) = self.data.updated_modules.get(handle) {
+            f(&v.config.read(), &v.state.read())
+        } else if let Some(v) = self.readable.modules.get(handle) {
+            f(&v.config, &v.state)
         } else {
             None
         }
