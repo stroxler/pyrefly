@@ -217,7 +217,7 @@ impl Handles {
         let module_name = module_from_path(&path, &config.search_path);
         self.path_data
             .entry(path)
-            .or_insert((module_name, config.get_runtime_metadata()))
+            .or_insert((module_name, config.get_sys_info()))
     }
 
     fn all(&self, specified_require: Require) -> Vec<(Handle, Require)> {

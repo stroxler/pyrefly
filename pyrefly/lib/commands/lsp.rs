@@ -187,7 +187,7 @@ struct Server {
 /// TODO(connernilsel): replace with real config logic
 #[derive(Debug)]
 struct Workspace {
-    runtime_metadata: SysInfo,
+    sys_info: SysInfo,
     search_path: Vec<PathBuf>,
     /// The config implied by these settings
     config_file: ArcId<ConfigFile>,
@@ -195,21 +195,17 @@ struct Workspace {
 }
 
 impl Workspace {
-    fn new(
-        search_path: Vec<PathBuf>,
-        site_package_path: Vec<PathBuf>,
-        runtime_metadata: SysInfo,
-    ) -> Self {
+    fn new(search_path: Vec<PathBuf>, site_package_path: Vec<PathBuf>, sys_info: SysInfo) -> Self {
         let mut config_file = ConfigFile::default();
-        config_file.python_environment.python_version = Some(runtime_metadata.version());
-        config_file.python_environment.python_platform = Some(runtime_metadata.platform().clone());
+        config_file.python_environment.python_version = Some(sys_info.version());
+        config_file.python_environment.python_platform = Some(sys_info.platform().clone());
         config_file.python_environment.site_package_path = Some(site_package_path);
         config_file.search_path = search_path.clone();
         config_file.configure();
         let config_file = ArcId::new(config_file);
 
         Self {
-            runtime_metadata,
+            sys_info,
             search_path: search_path.clone(),
             config_file,
             disable_language_services: false,
@@ -220,7 +216,7 @@ impl Workspace {
         Handle::new(
             module_from_path(path, &self.search_path),
             ModulePath::memory(path.to_owned()),
-            self.runtime_metadata.dupe(),
+            self.sys_info.dupe(),
         )
     }
 }
@@ -747,7 +743,7 @@ impl Server {
             } else {
                 ModulePath::filesystem(path)
             };
-            Handle::new(module, module_path, workspace.runtime_metadata.dupe())
+            Handle::new(module, module_path, workspace.sys_info.dupe())
         })
     }
 

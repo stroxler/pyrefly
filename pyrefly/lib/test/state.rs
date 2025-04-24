@@ -107,14 +107,14 @@ fn test_multiple_path() {
     config.configure();
     let config = ArcId::new(config);
 
-    let runtime = SysInfo::default();
+    let sys_info = SysInfo::default();
 
     let state = State::new(ConfigFinder::new_constant(config));
     let handles = FILES.map(|(name, path, _)| {
         Handle::new(
             ModuleName::from_str(name),
             ModulePath::memory(PathBuf::from(path)),
-            runtime.dupe(),
+            sys_info.dupe(),
         )
     });
     let mut transaction = state.new_transaction(Require::Exports, None);

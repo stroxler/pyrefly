@@ -241,7 +241,7 @@ impl ConfigFile {
             .unwrap()
     }
 
-    pub fn get_runtime_metadata(&self) -> SysInfo {
+    pub fn get_sys_info(&self) -> SysInfo {
         SysInfo::new(self.python_version(), self.python_platform().clone())
     }
 
