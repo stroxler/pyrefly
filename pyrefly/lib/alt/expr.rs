@@ -201,6 +201,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::SpecialForm(SpecialForm::Callable) => {
                 *ty = Type::callable_ellipsis(Type::Any(AnyStyle::Implicit))
             }
+            Type::SpecialForm(SpecialForm::Type) => {
+                *ty = Type::type_form(Type::Any(AnyStyle::Implicit))
+            }
             Type::ClassDef(cls) => {
                 if cls.is_builtin("tuple") {
                     *ty = Type::type_form(Type::Tuple(Tuple::unbounded(Type::Any(
