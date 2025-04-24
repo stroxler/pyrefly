@@ -80,20 +80,6 @@ impl FindError {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Hash, PartialEq, Eq)]
-pub struct LoaderId(ArcId<ConfigFile>);
-
-impl LoaderId {
-    pub fn new(loader: ArcId<ConfigFile>) -> Self {
-        Self(loader)
-    }
-
-    #[allow(dead_code)] // Only used in test
-    pub fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
-        self.0.find_import(module)
-    }
-}
-
 #[derive(Debug)]
 pub struct LoaderFindCache {
     config: ArcId<ConfigFile>,

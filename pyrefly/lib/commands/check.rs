@@ -46,12 +46,10 @@ use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::report;
 use crate::state::handle::Handle;
-use crate::state::loader::LoaderId;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::subscriber::ProgressBarSubscriber;
-use crate::util::arc_id::ArcId;
 use crate::util::args::clap_env;
 use crate::util::display;
 use crate::util::display::number_thousands;
@@ -183,12 +181,9 @@ impl OutputFormat {
 
 /// A data structure to facilitate the creation of handles for all the files we want to check.
 struct Handles {
-    /// We want to have different handles to share the same loader if the corresponding files share the same search path.
-    /// This field keeps track of the loaders we've created so far and what search paths they correspond to.
-    loader_factory: SmallMap<ArcId<ConfigFile>, LoaderId>,
     /// A mapping from a file to all other information needed to create a `Handle`.
     /// The value type is basically everything else in `Handle` except for the file path.
-    path_data: HashMap<PathBuf, (ModuleName, RuntimeMetadata, LoaderId)>,
+    path_data: HashMap<PathBuf, (ModuleName, RuntimeMetadata)>,
     /// A the underlying HashMap that will be used to create an `ErrorConfigs` when requested.
     module_to_error_config: HashMap<ModulePath, ErrorConfig>,
 }
@@ -196,7 +191,6 @@ struct Handles {
 impl Handles {
     fn new(files: Vec<PathBuf>, config_finder: &ConfigFinder) -> Self {
         let mut handles = Self {
-            loader_factory: SmallMap::new(),
             path_data: HashMap::new(),
             module_to_error_config: HashMap::new(),
         };
@@ -210,7 +204,7 @@ impl Handles {
         &mut self,
         path: PathBuf,
         config_finder: &ConfigFinder,
-    ) -> &(ModuleName, RuntimeMetadata, LoaderId) {
+    ) -> &(ModuleName, RuntimeMetadata) {
         let module_path = ModulePath::filesystem(path.clone());
         let config = config_finder.python_file(ModuleName::unknown(), &module_path);
         self.module_to_error_config.insert(
@@ -220,27 +214,16 @@ impl Handles {
                 config.ignore_errors_in_generated_code(),
             ),
         );
-        let loader = self.get_or_register_loader(&config);
         let module_name = module_from_path(&path, &config.search_path);
         self.path_data
             .entry(path)
-            .or_insert((module_name, config.get_runtime_metadata(), loader))
-    }
-
-    fn get_or_register_loader(&mut self, config: &ArcId<ConfigFile>) -> LoaderId {
-        if let Some(loader) = self.loader_factory.get(config) {
-            loader.dupe()
-        } else {
-            let loader = LoaderId::new(config.dupe());
-            self.loader_factory.insert(config.dupe(), loader.dupe());
-            loader
-        }
+            .or_insert((module_name, config.get_runtime_metadata()))
     }
 
     fn all(&self, specified_require: Require) -> Vec<(Handle, Require)> {
         self.path_data
             .iter()
-            .map(|(path, (module_name, runtime_metadata, _))| {
+            .map(|(path, (module_name, runtime_metadata))| {
                 (
                     Handle::new(
                         module_name.dupe(),
