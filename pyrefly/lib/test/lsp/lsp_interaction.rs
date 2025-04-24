@@ -27,10 +27,12 @@ use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
 use lsp_types::request::WorkspaceConfiguration;
 use pretty_assertions::assert_eq;
+use tempfile::TempDir;
 
 use crate::commands::lsp::Args;
 use crate::commands::lsp::run_lsp;
 use crate::test::util::init_test;
+use crate::util::fs_anyhow;
 
 struct TestCase {
     messages_from_language_client: Vec<Message>,
@@ -281,11 +283,21 @@ fn build_did_open_notification(path: PathBuf) -> lsp_server::Notification {
     }
 }
 
-fn get_test_files_root() -> PathBuf {
-    let current_dir = std::env::current_dir().expect("std:env::current_dir() unavailable for test");
+fn get_test_files_root() -> TempDir {
+    let mut source_files =
+        std::env::current_dir().expect("std:env::current_dir() unavailable for test");
     let test_files_path = std::env::var("TEST_FILES_PATH")
         .expect("TEST_FILES_PATH env var not set: cargo or buck should set this automatically");
-    current_dir.join(test_files_path)
+    source_files.push(test_files_path);
+
+    // We copy all files over to a separate temp directory so we are consistent between Cargo and Buck.
+    // In particular, given the current directory, Cargo is likely to find a pyproject.toml, but Buck won't.
+    let t = TempDir::new().unwrap();
+    for x in fs_anyhow::read_dir(&source_files).unwrap() {
+        let name = x.unwrap().file_name();
+        std::fs::copy(source_files.join(&name), t.path().join(&name)).unwrap();
+    }
+    t
 }
 
 #[test]
@@ -327,13 +339,16 @@ fn test_initialize_with_python_path() {
     });
 }
 
-fn test_go_to_def(workspace_folders: Option<Vec<(&str, Url)>>, search_path: Vec<PathBuf>) {
+fn test_go_to_def(
+    root: &TempDir,
+    workspace_folders: Option<Vec<(&str, Url)>>,
+    search_path: Vec<PathBuf>,
+) {
     let mut test_messages = get_initialize_messages(workspace_folders, false);
     let mut expected_responses = get_initialize_responses();
-    let root = get_test_files_root();
 
     test_messages.push(Message::from(build_did_open_notification(
-        root.join("foo.py"),
+        root.path().join("foo.py"),
     )));
 
     test_messages.push(Message::from(Request {
@@ -341,7 +356,7 @@ fn test_go_to_def(workspace_folders: Option<Vec<(&str, Url)>>, search_path: Vec<
         method: "textDocument/definition".to_owned(),
         params: serde_json::json!({
             "textDocument": {
-                "uri": Url::from_file_path(root.join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
             "position": {
                 "line": 5,
@@ -353,7 +368,7 @@ fn test_go_to_def(workspace_folders: Option<Vec<(&str, Url)>>, search_path: Vec<
     expected_responses.push(Message::Response(Response {
         id: RequestId::from(2),
         result: Some(serde_json::json!({
-            "uri": Url::from_file_path(root.join("bar.py")).unwrap().to_string(),
+            "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string(),
             "range": {
                 "start": {
                     "line": 6,
@@ -377,23 +392,24 @@ fn test_go_to_def(workspace_folders: Option<Vec<(&str, Url)>>, search_path: Vec<
 
 #[test]
 fn test_go_to_def_single_root() {
+    let root = get_test_files_root();
     test_go_to_def(
-        Some(vec![(
-            "test",
-            Url::from_file_path(get_test_files_root()).unwrap(),
-        )]),
+        &root,
+        Some(vec![("test", Url::from_file_path(root.path()).unwrap())]),
         Vec::new(), // should use search_path from workspace root
     );
 }
 
 #[test]
 fn test_go_to_def_no_root() {
-    test_go_to_def(Some(vec![]), vec![get_test_files_root()]);
+    let root = get_test_files_root();
+    test_go_to_def(&root, Some(vec![]), vec![root.path().to_owned()]);
 }
 
 #[test]
 fn test_go_to_def_no_folder_capability() {
-    test_go_to_def(None, vec![get_test_files_root()]);
+    let root = get_test_files_root();
+    test_go_to_def(&root, None, vec![root.path().to_owned()]);
 }
 
 #[test]
@@ -403,7 +419,7 @@ fn test_hover() {
     let root = get_test_files_root();
 
     test_messages.push(Message::from(build_did_open_notification(
-        root.join("foo.py"),
+        root.path().join("foo.py"),
     )));
 
     test_messages.push(Message::from(Request {
@@ -411,7 +427,7 @@ fn test_hover() {
         method: "textDocument/hover".to_owned(),
         params: serde_json::json!({
             "textDocument": {
-                "uri": Url::from_file_path(root.join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
             "position": {
                 "line": 5,
@@ -438,7 +454,8 @@ fn test_hover() {
 
 #[test]
 fn test_did_change_configuration() {
-    let scope_uri = Url::from_file_path(get_test_files_root()).unwrap();
+    let root = get_test_files_root();
+    let scope_uri = Url::from_file_path(root.path()).unwrap();
     let mut messages_from_language_client =
         get_initialize_messages(Some(vec![("test", scope_uri.clone())]), true);
     messages_from_language_client.push(Message::Notification(Notification {
@@ -486,8 +503,8 @@ fn test_did_change_configuration() {
 #[test]
 fn test_disable_language_services() {
     let test_files_root = get_test_files_root();
-    let scope_uri = Url::from_file_path(test_files_root.clone()).unwrap();
-    let file_path = test_files_root.join("foo.py");
+    let scope_uri = Url::from_file_path(test_files_root.path()).unwrap();
+    let file_path = test_files_root.path().join("foo.py");
     let mut messages_from_language_client =
         get_initialize_messages(Some(vec![("test", scope_uri.clone())]), true);
     messages_from_language_client.push(Message::Response(Response {
@@ -541,7 +558,7 @@ fn test_disable_language_services() {
     expected_messages_from_language_server.push(Message::Response(Response {
         id: RequestId::from(2),
         result: Some(serde_json::json!({
-            "uri": Url::from_file_path(test_files_root.join("bar.py")).unwrap().to_string(),
+            "uri": Url::from_file_path(test_files_root.path().join("bar.py")).unwrap().to_string(),
             "range": {
                 "start": {
                     "line": 6,
