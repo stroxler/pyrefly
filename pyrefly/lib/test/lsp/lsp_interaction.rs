@@ -259,6 +259,7 @@ fn get_initialize_responses() -> Vec<Message> {
             "capabilities": {
                 "completionProvider": { "triggerCharacters": ["."]},
                 "definitionProvider": true,
+                "documentHighlightProvider":true,
                 "hoverProvider": true,
                 "inlayHintProvider": true,
                 "textDocumentSync": 1

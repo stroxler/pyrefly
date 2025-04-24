@@ -36,6 +36,8 @@ use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidCloseTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
 use lsp_types::DidSaveTextDocumentParams;
+use lsp_types::DocumentHighlight;
+use lsp_types::DocumentHighlightParams;
 use lsp_types::GotoDefinitionParams;
 use lsp_types::GotoDefinitionResponse;
 use lsp_types::Hover;
@@ -66,6 +68,7 @@ use lsp_types::notification::DidOpenTextDocument;
 use lsp_types::notification::DidSaveTextDocument;
 use lsp_types::notification::PublishDiagnostics;
 use lsp_types::request::Completion;
+use lsp_types::request::DocumentHighlightRequest;
 use lsp_types::request::GotoDefinition;
 use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
@@ -291,6 +294,7 @@ pub fn run_lsp(
             trigger_characters: Some(vec![".".to_owned()]),
             ..Default::default()
         }),
+        document_highlight_provider: Some(OneOf::Left(true)),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
         ..Default::default()
@@ -443,6 +447,14 @@ impl Server {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(x.id, self.completion(&transaction, params)));
+                    ide_transaction_manager.save(transaction);
+                } else if let Some(params) = as_request::<DocumentHighlightRequest>(&x) {
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(self.document_highlight(&transaction, params)),
+                    ));
                     ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<HoverRequest>(&x) {
                     let default_response = Hover {
@@ -805,6 +817,33 @@ impl Server {
             is_incomplete: false,
             items,
         }))
+    }
+
+    fn document_highlight(
+        &self,
+        transaction: &Transaction<'_>,
+        params: DocumentHighlightParams,
+    ) -> Option<Vec<DocumentHighlight>> {
+        let uri = &params.text_document_position_params.text_document.uri;
+        if self
+            .workspaces
+            .get_with(uri.to_file_path().unwrap(), |workspace| {
+                workspace.disable_language_services
+            })
+        {
+            return None;
+        }
+        let handle = self.make_handle(uri);
+        let info = transaction.get_module_info(&handle)?;
+        let position = position_to_text_size(&info, params.text_document_position_params.position);
+        Some(
+            transaction
+                .find_local_references(&handle, position)
+                .into_map(|range| DocumentHighlight {
+                    range: source_range_to_range(&info.source_range(range)),
+                    kind: None,
+                }),
+        )
     }
 
     fn hover(&self, transaction: &Transaction<'_>, params: HoverParams) -> Option<Hover> {

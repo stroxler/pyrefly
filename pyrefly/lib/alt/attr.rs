@@ -1361,6 +1361,7 @@ impl<'a, Ans: LookupAnswer + LookupExport> AnswersSolver<'a, Ans> {
     }
 
     /// List all the attributes available from a type. Used to power completion.
+    /// Not all usages need types, so we can skip type computation with `include_types=false`.
     pub fn completions(&self, base: Type, include_types: bool) -> Vec<AttrInfo> {
         let mut res = Vec::new();
         // TODO: expose attributes shared across all union members

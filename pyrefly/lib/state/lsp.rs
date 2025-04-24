@@ -17,6 +17,7 @@ use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use starlark_map::ordered_set::OrderedSet;
 
+use crate::alt::attr::AttrInfo;
 use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
 use crate::export::definitions::DocString;
@@ -37,7 +38,6 @@ use crate::util::visit::Visit;
 const INITIAL_GAS: Gas = Gas::new(20);
 
 pub enum DefinitionMetadata {
-    #[expect(dead_code)]
     Attribute(Name),
     Module,
     Variable,
@@ -283,6 +283,120 @@ impl<'a> Transaction<'a> {
 
     pub fn docstring(&self, handle: &Handle, position: TextSize) -> Option<DocString> {
         self.find_definition(handle, position).map(|x| x.2)?
+    }
+
+    pub fn find_local_references(&self, handle: &Handle, position: TextSize) -> Vec<TextRange> {
+        if let Some((definition_kind, definition, _docstring)) =
+            self.find_definition(handle, position)
+        {
+            self.local_references_from_definition(handle, definition_kind, definition)
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn local_references_from_definition(
+        &self,
+        handle: &Handle,
+        definition_metadata: DefinitionMetadata,
+        definition: TextRangeWithModuleInfo,
+    ) -> Vec<TextRange> {
+        let mut references = match definition_metadata {
+            DefinitionMetadata::Attribute(expected_name) => {
+                self.local_attribute_references_from_definition(handle, &definition, &expected_name)
+            }
+            DefinitionMetadata::Module => Vec::new(),
+            DefinitionMetadata::Variable => {
+                self.local_variable_references_from_definition(handle, &definition)
+            }
+        };
+        if definition.module_info.path() == handle.path() {
+            references.push(definition.range);
+        }
+        references.sort_by_key(|range| range.start());
+        references.dedup();
+        references
+    }
+
+    fn local_attribute_references_from_definition(
+        &self,
+        handle: &Handle,
+        definition: &TextRangeWithModuleInfo,
+        expected_name: &Name,
+    ) -> Vec<TextRange> {
+        // We first find all the attributes of the form `<expr>.<expected_name>`.
+        // These are candidates for the references of `definition`.
+        let relevant_attributes = if let Some(mod_module) = self.get_ast(handle) {
+            fn f(x: &Expr, expected_name: &Name, res: &mut Vec<ExprAttribute>) {
+                if let Expr::Attribute(x) = x
+                    && x.attr.id == *expected_name
+                {
+                    res.push(x.clone());
+                }
+                x.recurse(&mut |x| f(x, expected_name, res));
+            }
+            let mut res = Vec::new();
+            mod_module.visit(&mut |x| f(x, expected_name, &mut res));
+            res
+        } else {
+            Vec::new()
+        };
+        // For each attribute we found above, we will test whether it actually will jump to the
+        // given `definition`.
+        self.ad_hoc_solve(handle, |solver| {
+            let mut references = Vec::new();
+            for attribute in relevant_attributes {
+                if let Some(answers) = self.get_answers(handle)
+                    && let Some(base_type) = answers.get_type_trace(attribute.value.range())
+                {
+                    for AttrInfo {
+                        name,
+                        ty: _,
+                        module,
+                        range,
+                    } in solver.completions(base_type.arc_clone(), false)
+                    {
+                        if let Some(module) = module
+                            && let Some(range) = range
+                            && &name == expected_name
+                            && module.path() == definition.module_info.path()
+                            && range == definition.range
+                        {
+                            references.push(attribute.attr.range());
+                        }
+                    }
+                }
+            }
+            references
+        })
+        .unwrap_or_default()
+    }
+
+    fn local_variable_references_from_definition(
+        &self,
+        handle: &Handle,
+        definition: &TextRangeWithModuleInfo,
+    ) -> Vec<TextRange> {
+        let Some(bindings) = self.get_bindings(handle) else {
+            return Vec::new();
+        };
+        let mut references = Vec::new();
+        for idx in bindings.keys::<Key>() {
+            let binding = bindings.get(idx);
+            if let Some((
+                definition_handle,
+                Export {
+                    location,
+                    docstring: _,
+                },
+            )) = self.binding_to_export(handle, binding, INITIAL_GAS)
+                && definition_handle.path() == definition.module_info.path()
+                && definition.range == location
+            {
+                references.push(bindings.idx_to_key(idx).range());
+            }
+        }
+        references
     }
 
     pub fn completion(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
