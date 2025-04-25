@@ -25,6 +25,7 @@ use crate::util::globs::Globs;
 // - Any of the fields may be a string, a list of strings, or a string that needs to be split (possibly with a delimiter besides `,`.)
 // This means it's hard to share code with the INI parsing implementation.
 
+#[allow(dead_code)]
 #[serde_as]
 #[derive(Debug, Deserialize)]
 struct ModuleSection {

@@ -6,8 +6,6 @@
  */
 
 mod ini;
-// **TEMPORARY** until this module gets all wired up.
-#[allow(dead_code)]
 mod pyproject;
 mod regex_converter;
 
