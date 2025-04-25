@@ -313,7 +313,13 @@ pub fn run_lsp(
     let search_path = args.search_path;
     let site_package_path = args.site_package_path;
     let connection_for_send = connection.dupe();
-    let send = move |msg| connection_for_send.sender.send(msg).unwrap();
+    let send = move |msg| {
+        if connection_for_send.sender.send(msg).is_err() {
+            // On error, we know the channel is closed.
+            // https://docs.rs/crossbeam/latest/crossbeam/channel/struct.Sender.html#method.send
+            eprintln!("Connection closed.");
+        };
+    };
     let server = Server::new(
         Arc::new(send),
         initialization_params,
