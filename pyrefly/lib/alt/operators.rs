@@ -21,6 +21,7 @@ use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
+use crate::alt::solve::Iterable;
 use crate::binding::binding::KeyAnnotation;
 use crate::dunder;
 use crate::error::collector::ErrorCollector;
@@ -225,7 +226,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     self.stdlib.bool().clone().to_type()
                                 }
                                 CmpOp::In | CmpOp::NotIn => {
-                                    // `x in y` desugars to `y.__contains__(x)`
+                                    // See https://docs.python.org/3/reference/expressions.html#membership-test-operations.
+                                    // `x in y` first tries `y.__contains__(x)`, then checks if `x` matches an element
+                                    // obtained by iterating over `y`.
                                     if let Some(ret) = self.call_method(
                                         right,
                                         &dunder::CONTAINS,
@@ -238,13 +241,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         // Comparison method called.
                                         ret
                                     } else {
-                                        self.error(
-                                            errors,
-                                            x.range,
-                                            ErrorKind::UnsupportedOperand,
-                                            None,
-                                            context().format(),
+                                        let iteration_errors = ErrorCollector::new(
+                                            self.module_info().dupe(),
+                                            ErrorStyle::Delayed,
                                         );
+                                        let iterables =
+                                            self.iterate(right, x.range, &iteration_errors);
+                                        if !iteration_errors.is_empty()
+                                            || !iterables.iter().any(|iterable| match iterable {
+                                                Iterable::OfType(ty) => self.solver().is_subset_eq(
+                                                    left,
+                                                    ty,
+                                                    self.type_order(),
+                                                ),
+                                                Iterable::FixedLen(ts) => ts.iter().any(|t| {
+                                                    self.solver().is_subset_eq(
+                                                        left,
+                                                        t,
+                                                        self.type_order(),
+                                                    )
+                                                }),
+                                            })
+                                        {
+                                            // Iterating `y` failed, or `x` does not match any of the produced types.
+                                            self.error(
+                                                errors,
+                                                x.range,
+                                                ErrorKind::UnsupportedOperand,
+                                                None,
+                                                context().format(),
+                                            );
+                                        }
                                         self.stdlib.bool().clone().to_type()
                                     }
                                 }
