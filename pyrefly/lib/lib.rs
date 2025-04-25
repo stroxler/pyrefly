@@ -51,6 +51,8 @@ mod test;
 mod types;
 mod util;
 
+/// This interface is NOT stable and should not be relied upon.
+/// It will change during minor version increments.
 pub mod exported {
     #[cfg(not(target_arch = "wasm32"))]
     pub use crate::commands::run;
