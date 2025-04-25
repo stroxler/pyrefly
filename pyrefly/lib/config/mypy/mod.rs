@@ -12,3 +12,4 @@ mod pyproject;
 mod regex_converter;
 
 pub use ini::MypyConfig;
+pub use pyproject::parse_pyrproject_config;

@@ -54,7 +54,6 @@ impl PyrightConfig {
 #[error("No [tool.pyright] section found in pyproject.toml")]
 pub struct PyrightNotFoundError {}
 
-#[allow(dead_code)]
 pub fn parse_pyproject_toml(raw_file: &str) -> anyhow::Result<ConfigFile> {
     #[derive(Deserialize)]
     struct Tool {
