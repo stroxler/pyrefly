@@ -249,18 +249,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             self.iterate(right, x.range, &iteration_errors);
                                         if !iteration_errors.is_empty()
                                             || !iterables.iter().any(|iterable| match iterable {
-                                                Iterable::OfType(ty) => self.solver().is_subset_eq(
-                                                    left,
-                                                    ty,
-                                                    self.type_order(),
-                                                ),
-                                                Iterable::FixedLen(ts) => ts.iter().any(|t| {
-                                                    self.solver().is_subset_eq(
-                                                        left,
-                                                        t,
-                                                        self.type_order(),
-                                                    )
-                                                }),
+                                                Iterable::OfType(ty) => self.is_subset_eq(left, ty),
+                                                Iterable::FixedLen(ts) => {
+                                                    ts.iter().any(|t| self.is_subset_eq(left, t))
+                                                }
                                             })
                                         {
                                             // Iterating `y` failed, or `x` does not match any of the produced types.

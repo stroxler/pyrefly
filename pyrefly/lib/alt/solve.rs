@@ -241,6 +241,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    pub fn is_subset_eq(&self, got: &Type, want: &Type) -> bool {
+        self.solver().is_subset_eq(got, want, self.type_order())
+    }
+
     fn expr_qualifier(
         &self,
         x: &Expr,
@@ -605,11 +609,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let base_exception_class_type = Type::ClassDef(base_exception_class.class_object().dupe());
         let base_exception_type = base_exception_class.clone().to_type();
         let expected_types = vec![base_exception_type, base_exception_class_type];
-        if !self.solver().is_subset_eq(
-            &actual_type,
-            &Type::Union(expected_types),
-            self.type_order(),
-        ) {
+        if !self.is_subset_eq(&actual_type, &Type::Union(expected_types)) {
             self.error(
                 errors,
                 range,
@@ -1406,10 +1406,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Restriction::Constraints(constraints) => {
                 // Default must exactly match one of the constraints
-                if !constraints.iter().any(|c| {
-                    self.solver().is_subset_eq(c, default, self.type_order())
-                        && self.solver().is_subset_eq(default, c, self.type_order())
-                }) {
+                if !constraints
+                    .iter()
+                    .any(|c| self.is_subset_eq(c, default) && self.is_subset_eq(default, c))
+                {
                     let formatted_constraints = constraints
                         .iter()
                         .map(|x| format!("`{}`", x))
@@ -1982,11 +1982,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if let Some(base_exception_group_any_type) =
                         base_exception_group_any_type.as_ref()
                         && !exception.is_any()
-                        && self.solver().is_subset_eq(
-                            &exception,
-                            base_exception_group_any_type,
-                            self.type_order(),
-                        )
+                        && self.is_subset_eq(&exception, base_exception_group_any_type)
                     {
                         self.error(
                             errors,
@@ -2114,11 +2110,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         typed_dict.name(),
                                     ),
                                 )
-                            } else if !self.solver().is_subset_eq(
-                                &value_ty,
-                                &field.ty,
-                                self.type_order(),
-                            ) {
+                            } else if !self.is_subset_eq(&value_ty, &field.ty) {
                                 self.error(
                                     errors,
                                     x.range(),

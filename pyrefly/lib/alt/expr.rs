@@ -1400,7 +1400,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .expr_infer_type_info_with_hint(x, hint, errors)
             .into_ty();
         if let Some(want) = hint
-            && self.solver().is_subset_eq(&ty, want, self.type_order())
+            && self.is_subset_eq(&ty, want)
         {
             want.clone()
         } else {

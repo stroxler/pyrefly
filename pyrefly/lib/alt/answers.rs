@@ -662,7 +662,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         tcc: &dyn Fn() -> TypeCheckContext,
     ) -> bool {
-        if got.is_error() || self.solver().is_subset_eq(got, want, self.type_order()) {
+        if got.is_error() || self.is_subset_eq(got, want) {
             true
         } else {
             self.solver().error(want, got, errors, loc, tcc);

@@ -65,9 +65,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn intersect(&self, left: &Type, right: &Type) -> Type {
         // Get our best approximation of ty & right.
         self.distribute_over_union(left, |t| {
-            if self.solver().is_subset_eq(right, t, self.type_order()) {
+            if self.is_subset_eq(right, t) {
                 right.clone()
-            } else if self.solver().is_subset_eq(t, right, self.type_order()) {
+            } else if self.is_subset_eq(t, right) {
                 t.clone()
             } else {
                 Type::never()
@@ -87,7 +87,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn subtract(&self, left: &Type, right: &Type) -> Type {
         self.distribute_over_union(left, |left| {
             // Special is_any check because `Any <: int` as a special case, but would mess up this.
-            if !left.is_any() && self.solver().is_subset_eq(left, right, self.type_order()) {
+            if !left.is_any() && self.is_subset_eq(left, right) {
                 Type::never()
             } else {
                 left.clone()

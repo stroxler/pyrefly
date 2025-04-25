@@ -1018,7 +1018,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             let attr_check =
                 self.is_attr_subset(got_attr.as_ref().unwrap(), &want_attr, &mut |got, want| {
-                    self.solver().is_subset_eq(got, want, self.type_order())
+                    self.is_subset_eq(got, want)
                 });
             if !attr_check {
                 self.error(
