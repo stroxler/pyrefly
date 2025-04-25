@@ -900,7 +900,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // Classes are instances of their metaclass, which defaults to `builtins.type`.
                         // NOTE(grievejia): This lookup serves as fallback for normal class attribute lookup for regular
                         // attributes, but for magic dunder methods it needs to supersede normal class attribute lookup.
-                        // See `lookup_getattr()`.
+                        // See `lookup_magic_dunder_attr()`.
                         let metadata = self.get_metadata_for_class(&class);
                         let instance_attr = match metadata.metaclass() {
                             Some(meta) => self.get_instance_attribute(meta, attr_name),
@@ -995,20 +995,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn lookup_getattr(&self, base: AttributeBase) -> LookupResult {
+    /// A magic dunder attribute differs from a normal attribute in one crucial aspect:
+    /// if looked up from a base of `type[A]` directly, the attribute needs to be defined
+    /// on the metaclass instead of class `A` (i.e. we are looking for `type.__magic_dunder_attr__`
+    /// instead of `A.__magic_dunder_attr__`).
+    fn lookup_magic_dunder_attr(&self, base: AttributeBase, dunder_name: &Name) -> LookupResult {
         match base {
-            AttributeBase::ClassObject(class) => {
-                // A `__getattr__` method defined on a class never impacts lookups directly
-                // on the class itself - those will only use a metaclass `__getattr__`. But
-                // the class-defined `__getattr__` *exists* on the class (it can be accessed
-                // directly), so we cannot use the default lookup logic for this case.
-                self.get_metadata_for_class(&class)
-                    .metaclass()
-                    .and_then(|metaclass| self.get_instance_attribute(metaclass, &dunder::GETATTR))
-                    .map(LookupResult::Found)
-                    .unwrap_or(LookupResult::NotFound(NotFound::Attribute(class)))
-            }
-            base => self.lookup_attr_from_attribute_base(base, &dunder::GETATTR),
+            AttributeBase::ClassObject(class) => self
+                .get_metadata_for_class(&class)
+                .metaclass()
+                .and_then(|metaclass| self.get_instance_attribute(metaclass, dunder_name))
+                .map(LookupResult::Found)
+                .unwrap_or(LookupResult::NotFound(NotFound::Attribute(class))),
+            base => self.lookup_attr_from_attribute_base(base, dunder_name),
         }
     }
 
@@ -1021,7 +1020,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match direct_lookup_result {
             LookupResult::Found(_) | LookupResult::InternalError(_) => direct_lookup_result,
             LookupResult::NotFound(not_found) => {
-                let getattr_lookup_result = self.lookup_getattr(base);
+                let getattr_lookup_result = self.lookup_magic_dunder_attr(base, &dunder::GETATTR);
                 match getattr_lookup_result {
                     LookupResult::NotFound(_) | LookupResult::InternalError(_) => {
                         LookupResult::NotFound(not_found)
