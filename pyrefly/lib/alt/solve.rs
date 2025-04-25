@@ -489,7 +489,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .or_else(|| {
                 let int_ty = self.stdlib.int().clone().to_type();
                 let arg = CallArg::Type(&int_ty, range);
-                self.call_method(
+                self.call_magic_dunder_method(
                     iterable,
                     &dunder::GETITEM,
                     range,

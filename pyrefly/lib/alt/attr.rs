@@ -344,10 +344,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
-    /// Compute the get (i.e. read) type of an attribute, if it can be found. If read is not
-    /// permitted, error and return `Some(Any)`. If no attribute is found, return `None`. Use this
-    /// to infer special methods where we can fall back if it is missing (for example binary operators).
-    pub fn type_of_attr_get_if_found(
+    /// Compute the get (i.e., read) type of a magic dunder attribute, if it can be found. If reading is not
+    /// permitted, return an error and `Some(Any)`. If no attribute is found, return `None`.
+    ///
+    /// Note that this method is only expected to be used for magic attr lookups and is not expected to
+    /// produce correct results for arbitrary kinds of attributes. If you don't know whether an attribute lookup
+    /// is magic or not, it's highly likely that this method isn't the right thing to do for you.
+    ///
+    /// Magic attrs are almost always dunder names, e.g. `__getattr__`, `__eq__`, `__contains__`, etc.
+    pub fn type_of_magic_dunder_attr(
         &self,
         base: &Type,
         attr_name: &Name,
@@ -893,6 +898,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Some(attr) => LookupResult::Found(attr),
                     None => {
                         // Classes are instances of their metaclass, which defaults to `builtins.type`.
+                        // NOTE(grievejia): This lookup serves as fallback for normal class attribute lookup for regular
+                        // attributes, but for magic dunder methods it needs to supersede normal class attribute lookup.
+                        // See `lookup_getattr()`.
                         let metadata = self.get_metadata_for_class(&class);
                         let instance_attr = match metadata.metaclass() {
                             Some(meta) => self.get_instance_attribute(meta, attr_name),

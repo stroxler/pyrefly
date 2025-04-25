@@ -68,7 +68,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Type {
         let mut first_call = None;
         for (dunder, target, arg) in calls {
-            let method_type_dunder = self.type_of_attr_get_if_found(
+            let method_type_dunder = self.type_of_magic_dunder_attr(
                 target,
                 dunder,
                 range,
@@ -227,7 +227,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     // See https://docs.python.org/3/reference/expressions.html#membership-test-operations.
                                     // `x in y` first tries `y.__contains__(x)`, then checks if `x` matches an element
                                     // obtained by iterating over `y`.
-                                    if let Some(ret) = self.call_method(
+                                    if let Some(ret) = self.call_magic_dunder_method(
                                         right,
                                         &dunder::CONTAINS,
                                         x.range,

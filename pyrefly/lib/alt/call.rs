@@ -255,8 +255,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.call_infer(call_target, args, keywords, range, errors, context)
     }
 
-    /// Calls a method. If no attribute exists with the given method name, returns None without attempting the call.
-    pub fn call_method(
+    /// Calls a magic dunder method. If no attribute exists with the given method name, returns None without attempting the call.
+    ///
+    /// Note that this method is only expected to be used for magic dunder methods and is not expected to
+    /// produce correct results for arbitrary kinds of attributes. If you don't know whether an attribute is a magic
+    /// dunder attribute, it's highly likely that this method isn't the right thing to do for you. Examples of
+    /// magic dunder methods include: `__getattr__`, `__eq__`, `__contains__`, etc. Also see [`Self::type_of_magic_dunder_attr`].
+    pub fn call_magic_dunder_method(
         &self,
         ty: &Type,
         method_name: &Name,
@@ -266,7 +271,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Option<Type> {
-        let callee_ty = self.type_of_attr_get_if_found(
+        let callee_ty = self.type_of_magic_dunder_attr(
             ty,
             method_name,
             range,
