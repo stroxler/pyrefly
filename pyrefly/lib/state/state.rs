@@ -12,6 +12,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::Entry;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::BufWriter;
@@ -90,6 +91,7 @@ use crate::util::lock::RwLock;
 use crate::util::locked_map::LockedMap;
 use crate::util::no_hash::BuildNoHash;
 use crate::util::recurser::Recurser;
+use crate::util::small_set1::SmallSet1;
 use crate::util::task_heap::TaskHeap;
 use crate::util::thread_pool::ThreadPool;
 use crate::util::uniques::UniqueFactory;
@@ -105,7 +107,9 @@ struct ModuleData {
     handle: Handle,
     config: ArcId<ConfigFile>,
     state: ModuleDataInner,
-    deps: HashMap<ModuleName, Handle, BuildNoHash>,
+    /// The dependencies of this module.
+    /// Most modules exist in exactly one place, but it can be possible to load the same module multiple times with different paths.
+    deps: HashMap<ModuleName, SmallSet1<Handle>, BuildNoHash>,
     rdeps: HashSet<Handle>,
 }
 
@@ -114,7 +118,7 @@ struct ModuleDataMut {
     handle: Handle,
     config: RwLock<ArcId<ConfigFile>>,
     state: UpgradeLock<Step, ModuleDataInner>,
-    deps: RwLock<HashMap<ModuleName, Handle, BuildNoHash>>,
+    deps: RwLock<HashMap<ModuleName, SmallSet1<Handle>, BuildNoHash>>,
     /// The reverse dependencies of this module. This is used to invalidate on change.
     /// Note that if we are only running once, e.g. on the command line, this isn't valuable.
     /// But we create it anyway for simplicity, since it doesn't seem to add much overhead.
@@ -461,7 +465,7 @@ impl<'a> Transaction<'a> {
                 // Downgrade to exclusive, so other people can read from us, or we lock up.
                 // But don't give up the lock entirely, so we don't recompute anything
                 let _exclusive = w.exclusive();
-                for dep_handle in deps.values() {
+                for dep_handle in deps.values().flatten() {
                     let removed = self
                         .get_module(dep_handle)
                         .rdeps
@@ -513,7 +517,7 @@ impl<'a> Transaction<'a> {
         if exclusive.dirty.find {
             let loader = self.get_cached_loader(&module_data.config.read());
             let mut is_dirty = false;
-            for dependency_handle in module_data.deps.read().values() {
+            for dependency_handle in module_data.deps.read().values().flatten() {
                 match loader.find_import(dependency_handle.module()) {
                     Ok(path) if &path == dependency_handle.path() => {}
                     _ => {
@@ -924,7 +928,7 @@ impl<'a> Transaction<'a> {
                 false
             } else {
                 stack.insert(x.handle.dupe());
-                let res = x.deps.values().any(|y| {
+                let res = x.deps.values().flatten().any(|y| {
                     f(
                         state,
                         dirty_handles,
@@ -1225,7 +1229,7 @@ impl<'a> TransactionHandle<'a> {
         module: ModuleName,
         path: Option<&ModulePath>,
     ) -> Result<ArcId<ModuleDataMut>, FindError> {
-        if let Some(res) = self.module_data.deps.read().get(&module)
+        if let Some(res) = self.module_data.deps.read().get(&module).map(|x| x.first())
             && path.is_none_or(|path| path == res.path())
         {
             return Ok(self.transaction.get_module(res));
@@ -1236,7 +1240,13 @@ impl<'a> TransactionHandle<'a> {
             .import_handle(&self.module_data.handle, module, path)?;
         let res = self.transaction.get_module(&handle);
         let mut write = self.module_data.deps.write();
-        let did_insert = write.insert(module, handle).is_none();
+        let did_insert = match write.entry(module) {
+            Entry::Vacant(e) => {
+                e.insert(SmallSet1::new(handle));
+                true
+            }
+            Entry::Occupied(mut e) => e.get_mut().insert(handle),
+        };
         drop(write);
         if did_insert {
             res.rdeps.lock().insert(self.module_data.handle.dupe());
