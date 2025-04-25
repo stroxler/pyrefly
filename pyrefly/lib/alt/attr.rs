@@ -1001,12 +1001,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// instead of `A.__magic_dunder_attr__`).
     fn lookup_magic_dunder_attr(&self, base: AttributeBase, dunder_name: &Name) -> LookupResult {
         match base {
-            AttributeBase::ClassObject(class) => self
-                .get_metadata_for_class(&class)
-                .metaclass()
-                .and_then(|metaclass| self.get_instance_attribute(metaclass, dunder_name))
-                .map(LookupResult::Found)
-                .unwrap_or(LookupResult::NotFound(NotFound::Attribute(class))),
+            AttributeBase::ClassObject(class) => {
+                let metadata = self.get_metadata_for_class(&class);
+                let metaclass = metadata.metaclass().unwrap_or(self.stdlib.builtins_type());
+                match self.get_instance_attribute(metaclass, dunder_name) {
+                    Some(attr) => LookupResult::Found(attr),
+                    None => LookupResult::NotFound(NotFound::Attribute(
+                        metaclass.class_object().clone(),
+                    )),
+                }
+            }
             base => self.lookup_attr_from_attribute_base(base, dunder_name),
         }
     }
