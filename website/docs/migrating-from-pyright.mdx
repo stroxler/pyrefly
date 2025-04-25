@@ -4,7 +4,7 @@ title: Migrating from Pyright
 description: How to switch from Pyright to Pyrefly
 ---
 
-# Running Pyrefly
+## Running Pyrefly
 
 Like pyright, pyrefly can be given a list of files to check:
 
@@ -22,7 +22,7 @@ $ pyrefly check
 Pyrefly doesn't need a config file to start checking your code. Its sensible defaults are designed to work well for most projects.
 However, projects with existing pyright configs may want to configure pyrefly to suit their own needs.
 
-# Pyright Config Migration
+## Pyright Config Migration
 
 To make it as easy as possible to get started with pyrefly, we've provided a script for automatically migrating a pyright config to pyrefly.
 
@@ -42,7 +42,7 @@ When it comes to listing files, pyright uses just paths, while pyrefly supports 
 
 Pyright supports four platforms: Windows, Linux, Darwin (macOS), and All. Since pyrefly only supports Python's [supported platforms](https://docs.python.org/3/library/sys.html#sys.platform), we choose to treat "All" as "linux".
 
-# Silencing Errors
+## Silencing Errors
 
 Like pyright, pyrefly has ways to silence specific error codes. Full details can be found in the [Error Suppression docs](../error-suppresions).
 

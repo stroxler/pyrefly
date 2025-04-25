@@ -4,7 +4,7 @@ title: Migrating from Mypy
 description: How to switch from Mypy to Pyrefly
 ---
 
-# Running Pyrefly
+## Running Pyrefly
 
 Like mypy, pyrefly can be given a list of files to check:
 
@@ -22,7 +22,7 @@ $ pyrefly check
 Pyrefly is designed to have sensible defaults, and you may not need to configure it at all.
 However, projects with existing mypy configs may want to configure pyrefly to suit their own needs.
 
-# Mypy Config Migration
+## Mypy Config Migration
 
 To make it as easy as possible to get started with pyrefly, we've provided a script for automatically migrating a mypy config to pyrefly.
 
@@ -36,7 +36,7 @@ We do recommend checking the resulting config for errors. While there is some ov
 
 If you'd rather start fresh with a hand-written config, please see the [pyrefly configuration docs](../configuration). If you run into any issues with config migration, please [let us know](https://github.com/facebook/pyrefly/issues)!
 
-## Config Migration Details
+### Config Migration Details
 
 `files`, `modules`, and `packages` are combined into `project_includes`. This should work exactly the same for `files` and `packages`. Mypy doesn't recurse into `modules`, but pyrefly will.
 
@@ -59,7 +59,7 @@ Pyrefly does support mypy's [module name pattern syntax](https://mypy.readthedoc
 
 Mypy's `follow_untyped_imports` option is allowed to be global or per-module. The pyrefly equivalent, `use_untyped_imports`, is only global. If any per-module section in the mypy config has `follow_untyped_imports = True`, then `use_untyped_imports` will be `true` in the pyrefly config.
 
-# Silencing Errors
+## Silencing Errors
 
 Like mypy, pyrefly has ways to silence specific error codes. Full details can be found in the [Error Suppression docs](../error-suppresions)
 

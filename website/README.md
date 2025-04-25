@@ -3,6 +3,10 @@
 The website is a combination of static content (built using
 [Docusaurus 2](https://docusaurus.io/)) and a sandbox built with Rust/WASM.
 
+## Docs
+
+The docs are written in markdown (with JSX) and are located in the `docs` directory. Note that you should not explicitly add H1 headers to the docs, because docusaurus does not support this by default (https://github.com/facebook/docusaurus/issues/5036).
+
 ## Development
 
 ### Prerequisites
