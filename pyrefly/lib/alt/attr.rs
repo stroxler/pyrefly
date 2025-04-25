@@ -364,7 +364,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut not_found = false;
         let mut attr_tys = Vec::new();
         self.map_over_union(base, |base| {
-            match self.lookup_attr_no_union(base, attr_name) {
+            match self.lookup_magic_dunder_attr_no_union(base, attr_name) {
                 LookupResult::Found(attr) => attr_tys.push(
                     self.resolve_get_access(attr, range, errors, context)
                         .unwrap_or_else(|e| {
@@ -1044,6 +1044,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> LookupResult {
         let direct_lookup_result = self.lookup_attr_from_attribute_base(base.clone(), attr_name);
         self.lookup_attr_from_base_getattr_fallback(base, attr_name, direct_lookup_result)
+    }
+
+    // This function is intended as a low-level building block
+    // Unions or intersections should be handled by callers
+    fn lookup_magic_dunder_attr_no_union(&self, base: &Type, attr_name: &Name) -> LookupResult {
+        match self.as_attribute_base_no_union(base.clone()) {
+            None => {
+                LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone()))
+            }
+            Some(base) => {
+                let direct_lookup_result = self.lookup_magic_dunder_attr(base.clone(), attr_name);
+                self.lookup_attr_from_base_getattr_fallback(base, attr_name, direct_lookup_result)
+            }
+        }
     }
 
     // This function is intended as a low-level building block
