@@ -94,6 +94,7 @@ mod tests {
     use serde::Deserialize;
 
     use super::*;
+    use crate::util::globs::Globs;
 
     #[test]
     fn test_run_pyright() -> anyhow::Result<()> {
@@ -181,7 +182,6 @@ check_untyped_defs = True
             input_path: tmp.path().join("pyproject.toml"),
             output_path: None,
         };
-        // This config is derived from the pytorch mypy.ini.
         let pyproject = br#"[tool.mypy]
 files = ["a.py"]
 "#;
@@ -198,7 +198,6 @@ files = ["a.py"]
             input_path: tmp.path().join("pyproject.toml"),
             output_path: None,
         };
-        // This config is derived from the pytorch mypy.ini.
         let pyproject = br#"[tool.pyright]
 include = ["a.py"]
 "#;
@@ -215,7 +214,6 @@ include = ["a.py"]
             input_path: tmp.path().join("pyproject.toml"),
             output_path: None,
         };
-        // This config is derived from the pytorch mypy.ini.
         let pyproject = br#"[tool.pyright]
 include = ["a.py"]
 
@@ -225,6 +223,21 @@ files = 1
         fs_anyhow::write(&args.input_path, pyproject)?;
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
+        Ok(())
+    }
+
+    #[test]
+    fn test_run_pyproject_mypy_over_pyright() -> anyhow::Result<()> {
+        // The current implementation favors mypy over pyright. This test documents that.
+        // However, we may want to change this in the future, so it's OK to break this test.
+        let pyproject = r#"[tool.pyright]
+include = ["pyright.py"]
+
+[tool.mypy]
+files = ["mypy.py"]
+"#;
+        let cfg = Args::load_from_pyproject(pyproject)?;
+        assert_eq!(cfg.project_includes, Globs::new(vec!["mypy.py".to_owned()]));
         Ok(())
     }
 }
