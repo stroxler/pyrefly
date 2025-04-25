@@ -26,7 +26,6 @@ use crate::error::context::ErrorContext;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
-use crate::error::style::ErrorStyle;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
 use crate::module::module_info::ModuleInfo;
@@ -1390,14 +1389,13 @@ impl<'a, Ans: LookupAnswer + LookupExport> AnswersSolver<'a, Ans> {
                 }
             }
             if include_types {
-                let errors = ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Never);
                 for info in &mut res {
                     if let Some(range) = info.range {
                         info.ty =
                             match self.lookup_attr_from_attribute_base(base.clone(), &info.name) {
-                                LookupResult::Found(attr) => {
-                                    self.resolve_get_access(attr, range, &errors, None).ok()
-                                }
+                                LookupResult::Found(attr) => self
+                                    .resolve_get_access(attr, range, &self.error_swallower(), None)
+                                    .ok(),
                                 _ => None,
                             };
                     }

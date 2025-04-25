@@ -66,7 +66,6 @@ use crate::error::context::ErrorContext;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
-use crate::error::style::ErrorStyle;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::types::annotation::Annotation;
@@ -1933,10 +1932,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         e.ty(),
                                         *kind,
                                         TextRange::default(),
-                                        &ErrorCollector::new(
-                                            self.module_info().dupe(),
-                                            ErrorStyle::Never,
-                                        ),
+                                        &self.error_swallower(),
                                         None,
                                     );
                                     !context_catch(&res)

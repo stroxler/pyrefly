@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use dupe::Dupe;
 use ruff_python_ast::CmpOp;
 use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprCompare;
@@ -29,7 +28,6 @@ use crate::error::context::ErrorContext;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
-use crate::error::style::ErrorStyle;
 use crate::graph::index::Idx;
 use crate::types::literal::Lit;
 use crate::types::types::Type;
@@ -81,7 +79,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let Some(method_type_dunder) = method_type_dunder else {
                 continue;
             };
-            let dunder_errors = ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Delayed);
+            let dunder_errors = self.error_collector();
             let ret = self.callable_dunder_helper(
                 method_type_dunder,
                 range,
@@ -241,10 +239,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         // Comparison method called.
                                         ret
                                     } else {
-                                        let iteration_errors = ErrorCollector::new(
-                                            self.module_info().dupe(),
-                                            ErrorStyle::Delayed,
-                                        );
+                                        let iteration_errors = self.error_collector();
                                         let iterables =
                                             self.iterate(right, x.range, &iteration_errors);
                                         if !iteration_errors.is_empty()

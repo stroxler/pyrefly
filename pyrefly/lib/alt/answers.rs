@@ -746,4 +746,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors.add(range, msg, kind, context);
         Type::any_error()
     }
+
+    /// Create a new error collector. Useful when a caller wants to decide whether or not to report
+    /// errors from an operation.
+    pub fn error_collector(&self) -> ErrorCollector {
+        ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Delayed)
+    }
+
+    /// Create an error collector that simply swallows errors. Useful when a caller wants to try an
+    /// operation that may error but never report errors from it.
+    pub fn error_swallower(&self) -> ErrorCollector {
+        ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Never)
+    }
 }

@@ -20,7 +20,6 @@ use crate::dunder;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
 use crate::error::kind::ErrorKind;
-use crate::error::style::ErrorStyle;
 use crate::types::callable::BoolKeywords;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncFlags;
@@ -371,8 +370,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let cls_ty = Type::type_form(instance_ty.clone());
                 let mut full_args = vec![CallArg::Type(&cls_ty, range)];
                 full_args.extend_from_slice(args);
-                let dunder_new_errors =
-                    ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Delayed);
+                let dunder_new_errors = self.error_collector();
                 let ret = self.call_infer(
                     self.as_call_target_or_error(
                         new_method,
@@ -400,8 +398,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // If the class overrides `object.__new__` but not `object.__init__`, the `__init__` call
         // always succeeds at runtime, so we skip analyzing it.
         if let Some(init_method) = self.get_dunder_init(&cls, !overrides_new) {
-            let dunder_init_errors =
-                ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Delayed);
+            let dunder_init_errors = self.error_collector();
             self.call_infer(
                 self.as_call_target_or_error(
                     init_method,
@@ -582,8 +579,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut closest_overload = None;
         let mut fewest_errors: Option<ErrorCollector> = None;
         for callable in overloads {
-            let arg_errors = ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Delayed);
-            let call_errors = ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Delayed);
+            let arg_errors = self.error_collector();
+            let call_errors = self.error_collector();
             let res = self.callable_infer(
                 callable.clone(),
                 Some(metadata.kind.as_func_id()),

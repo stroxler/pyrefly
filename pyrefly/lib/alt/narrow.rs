@@ -19,7 +19,6 @@ use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::AttributeChain;
 use crate::binding::narrow::NarrowOp;
 use crate::error::collector::ErrorCollector;
-use crate::error::style::ErrorStyle;
 use crate::types::callable::FunctionKind;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
@@ -326,16 +325,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn get_attribute_type(
-        &self,
-        base: &TypeInfo,
-        attr: &AttributeChain,
-        range: TextRange,
-        errors: &ErrorCollector,
-    ) -> Type {
+    fn get_attribute_type(&self, base: &TypeInfo, attr: &AttributeChain, range: TextRange) -> Type {
         // We don't want to throw any attribute access errors when narrowing - the same code is traversed
         // separately for type checking, and there might be error context then we don't have here.
-        let ignore_errors = ErrorCollector::new(errors.module_info().clone(), ErrorStyle::Never);
+        let ignore_errors = self.error_swallower();
         let AttributeChain(box names) = attr.clone();
         let (first_name, remaining_names) = names.split_off_first();
         match self.narrowable_for_attr_chain(
@@ -392,7 +385,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             NarrowOp::Atomic(Some(attr), op) => {
                 let ty = self.atomic_narrow(
-                    &self.get_attribute_type(type_info, attr, range, errors),
+                    &self.get_attribute_type(type_info, attr, range),
                     op,
                     range,
                     errors,
