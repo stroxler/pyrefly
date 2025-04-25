@@ -98,6 +98,7 @@ use crate::util::uniques::UniqueFactory;
 use crate::util::upgrade_lock::UpgradeLock;
 use crate::util::upgrade_lock::UpgradeLockExclusiveGuard;
 use crate::util::upgrade_lock::UpgradeLockWriteGuard;
+use crate::util::watcher::CategorizedEvents;
 
 /// `ModuleData` is a snapshot of `ArcId<ModuleDataMut>` in the main state.
 /// The snapshot is readonly most of the times. It will only be overwritten with updated information
@@ -1045,6 +1046,27 @@ impl<'a> Transaction<'a> {
                 dirty(&mut module_data.state.write(Step::Load).unwrap().dirty);
                 dirty_set.insert(module_data.dupe());
             }
+        }
+    }
+
+    /// Invalidate based on what a watcher told you.
+    pub fn invalidate_events(&mut self, events: &CategorizedEvents) {
+        // If any files were added or removed, we need to invalidate the find step.
+        if !events.created.is_empty() && !events.removed.is_empty() && !events.unknown.is_empty() {
+            self.invalidate_find();
+        }
+
+        // Any files that change need to be invalidated
+        let files = events.iter().cloned().collect::<Vec<_>>();
+        self.invalidate_disk(&files);
+
+        // If any config files changed, we need to invalidate the config step.
+        if events.iter().any(|x| {
+            x.file_name()
+                .and_then(|x| x.to_str())
+                .is_some_and(|x| ConfigFile::CONFIG_FILE_NAMES.contains(&x))
+        }) {
+            self.invalidate_config();
         }
     }
 

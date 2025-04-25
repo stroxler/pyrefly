@@ -308,10 +308,7 @@ impl Args {
                 Some(Box::new(ProgressBarSubscriber::new())),
             );
             let new_transaction_mut = transaction.as_mut();
-            new_transaction_mut.invalidate_disk(&events.modified);
-
-            new_transaction_mut.invalidate_disk(&events.created);
-            new_transaction_mut.invalidate_disk(&events.removed);
+            new_transaction_mut.invalidate_events(&events);
             // File addition and removal may affect the list of files/handles to check. Update
             // the handles accordingly.
             handles.update(
@@ -319,7 +316,6 @@ impl Args {
                 events.removed.iter().filter(|p| files_to_check.covers(p)),
                 state.config_finder(),
             );
-            new_transaction_mut.invalidate_find();
         }
     }
 
