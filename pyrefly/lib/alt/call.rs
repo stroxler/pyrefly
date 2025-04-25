@@ -158,9 +158,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::ClassDef(cls) => {
                 self.as_call_target(Type::type_form(self.instantiate_fresh(&cls)))
             }
-            Type::Type(box Type::ClassType(cls))
-            | Type::Type(box Type::SelfType(cls))
-            | Type::SelfType(cls) => Some(CallTarget::new(Target::Class(cls))),
+            Type::Type(box Type::ClassType(cls)) | Type::Type(box Type::SelfType(cls)) => {
+                Some(CallTarget::new(Target::Class(cls)))
+            }
             Type::Type(box Type::Quantified(quantified)) => {
                 Some(CallTarget::new(Target::Callable(Callable {
                     // TODO: use upper bound to determine input parameters
@@ -193,7 +193,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::Any(style) => Some(CallTarget::new(Target::Any(style))),
             Type::TypeAlias(ta) => self.as_call_target(ta.as_value(self.stdlib)),
-            Type::ClassType(cls) => self
+            Type::ClassType(cls) | Type::SelfType(cls) => self
                 .instance_to_method(&cls)
                 .and_then(|ty| self.as_call_target(ty)),
             Type::Type(box Type::TypedDict(typed_dict)) => {
