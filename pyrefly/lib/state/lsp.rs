@@ -8,9 +8,11 @@
 use dupe::Dupe;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
+use lsp_types::DocumentSymbol;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::Identifier;
+use ruff_python_ast::Stmt;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -23,12 +25,14 @@ use crate::binding::binding::Key;
 use crate::export::definitions::DocString;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
+use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::state::handle::Handle;
 use crate::state::state::Transaction;
+use crate::types::lsp::source_range_to_range;
 use crate::types::module::Module;
 use crate::types::types::Type;
 use crate::util::gas::Gas;
@@ -502,5 +506,64 @@ impl<'a> Transaction<'a> {
             }
         }
         Some(res)
+    }
+
+    #[allow(dead_code)]
+    pub fn symbols(&self, handle: &Handle) -> Option<Vec<DocumentSymbol>> {
+        let ast = self.get_ast(handle)?;
+        let module_info = self.get_module_info(handle)?;
+        fn find_symbols_for_stmts(stmts: &[Stmt], module_info: &ModuleInfo) -> Vec<DocumentSymbol> {
+            let mut symbols = Vec::new();
+            for stmt in stmts {
+                match stmt {
+                    Stmt::FunctionDef(stmt_function_def) => {
+                        symbols.push(DocumentSymbol {
+                            name: stmt_function_def.name.to_string(),
+                            detail: None,
+                            kind: lsp_types::SymbolKind::FUNCTION,
+                            tags: None,
+                            #[expect(deprecated)]
+                            deprecated: None,
+                            range: source_range_to_range(
+                                &module_info.source_range(stmt_function_def.range),
+                            ),
+                            selection_range: source_range_to_range(
+                                &module_info.source_range(stmt_function_def.name.range),
+                            ),
+                            children: Some(find_symbols_for_stmts(
+                                &stmt_function_def.body,
+                                module_info,
+                            )),
+                        });
+                    }
+                    Stmt::ClassDef(_)
+                    | Stmt::Return(_)
+                    | Stmt::Delete(_)
+                    | Stmt::TypeAlias(_)
+                    | Stmt::Assign(_)
+                    | Stmt::AugAssign(_)
+                    | Stmt::AnnAssign(_)
+                    | Stmt::For(_)
+                    | Stmt::While(_)
+                    | Stmt::If(_)
+                    | Stmt::With(_)
+                    | Stmt::Match(_)
+                    | Stmt::Raise(_)
+                    | Stmt::Try(_)
+                    | Stmt::Assert(_)
+                    | Stmt::Import(_)
+                    | Stmt::ImportFrom(_)
+                    | Stmt::Global(_)
+                    | Stmt::Nonlocal(_)
+                    | Stmt::Expr(_)
+                    | Stmt::Pass(_)
+                    | Stmt::Break(_)
+                    | Stmt::Continue(_)
+                    | Stmt::IpyEscapeCommand(_) => {}
+                }
+            }
+            symbols
+        }
+        Some(find_symbols_for_stmts(&ast.body, &module_info))
     }
 }

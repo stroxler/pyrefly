@@ -355,6 +355,26 @@ pub fn get_batched_lsp_operations_report_allow_error(
     get_batched_lsp_operations_report_helper(files, false, get_report)
 }
 
+pub fn get_batched_lsp_operations_report_no_cursor(
+    files: &[(&'static str, &str)],
+    get_report: impl Fn(&State, &Handle) -> String,
+) -> String {
+    let (handles, state) = mk_multi_file_state(files, true);
+    let mut report = String::new();
+    for (name, _code) in files {
+        report.push_str("# ");
+        report.push_str(name);
+        report.push_str(".py\n");
+        let handle = handles.get(name).unwrap();
+        report.push('\n');
+        report.push_str(&get_report(&state, handle));
+        report.push_str("\n\n");
+        report.push('\n');
+    }
+
+    report
+}
+
 pub fn init_test() {
     init_tracing(true, true, true);
     // Enough threads to see parallelism bugs, but not too many to debug through.
