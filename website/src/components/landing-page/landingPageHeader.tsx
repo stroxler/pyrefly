@@ -35,11 +35,11 @@ export default function LandingPageHeader(): React.ReactElement {
                     Github{' '}
                 </a>
                 <a
-                    href={useBaseUrl('try/')}
+                    href={useBaseUrl('sandbox/')}
                     {...stylex.props(styles.button, typography.p)}
                 >
                     {' '}
-                    Demo{' '}
+                    Sandbox{' '}
                 </a>
                 <a
                     href={useBaseUrl('en/docs/')}

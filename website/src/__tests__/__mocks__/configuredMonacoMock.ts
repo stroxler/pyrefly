@@ -7,6 +7,8 @@
 
 // Mock implementation of configured-monaco module for testing
 
+import { SANDBOX_FILE_NAME } from '../../pages/sandbox';
+
 /**
  * Mock editor model interface
  */
@@ -26,7 +28,7 @@ const monaco = {
         setModelMarkers: jest.fn(),
         getModels: (): MockEditorModel[] => [
             {
-                uri: { path: '/playground.py' },
+                uri: { path: SANDBOX_FILE_NAME },
                 getValue: () => 'mock code',
                 setValue: () => {},
                 updateOptions: () => {},

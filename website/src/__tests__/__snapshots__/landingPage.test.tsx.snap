@@ -31,10 +31,10 @@ exports[`Home page renders external site correctly 1`] = `
              
           </a>
           <a
-            href="/try/"
+            href="/sandbox/"
           >
              
-            Demo
+            Sandbox
              
           </a>
           <a
@@ -104,10 +104,10 @@ exports[`Home page renders internal site correctly 1`] = `
              
           </a>
           <a
-            href="/try/"
+            href="/sandbox/"
           >
              
-            Demo
+            Sandbox
              
           </a>
           <a

@@ -11,13 +11,13 @@ import '@testing-library/jest-dom';
 import { act } from 'react';
 import { render } from '@testing-library/react';
 import TryPyrefly, { DEFAULT_PYTHON_PROGRAM } from '../try-pyrefly/TryPyrefly';
-import { PLAYGROUND_FILE_NAME } from '../pages/try';
+import { SANDBOX_FILE_NAME } from '../pages/sandbox';
 
 describe('Try Pyrefly Component', () => {
     test('render sandbox correctly', async () => {
         const container = await act(async () => {
             const { container } = render(
-                <TryPyrefly sampleFilename={PLAYGROUND_FILE_NAME} />
+                <TryPyrefly sampleFilename={SANDBOX_FILE_NAME} />
             );
 
             await Promise.resolve(); // Let any promises from timers resolve
@@ -26,7 +26,7 @@ describe('Try Pyrefly Component', () => {
 
         expectMonacoEditorLoadedWithContent(
             container,
-            PLAYGROUND_FILE_NAME,
+            SANDBOX_FILE_NAME,
             DEFAULT_PYTHON_PROGRAM,
             false
         );

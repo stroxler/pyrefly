@@ -34,8 +34,8 @@ function getNavBarItems() {
             position: 'left' as const,
         },
         {
-            to: 'try/',
-            activeBasePath: 'try',
+            to: 'sandbox/',
+            activeBasePath: 'sandbox',
             label: 'Sandbox',
             position: 'left' as const,
         },

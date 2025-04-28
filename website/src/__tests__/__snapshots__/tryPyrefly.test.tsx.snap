@@ -22,7 +22,7 @@ reveal_type(test(42))
         id="monaco-editor"
       >
         <div>
-          Monaco Editor (Path: playground.py)
+          Monaco Editor (Path: sandbox.py)
         </div>
         <textarea
           id="editor-textarea"

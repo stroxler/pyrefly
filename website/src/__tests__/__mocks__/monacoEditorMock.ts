@@ -7,6 +7,7 @@
 
 // Mock implementation of @monaco-editor/react library for testing
 import * as React from 'react';
+import { SANDBOX_FILE_NAME } from '../../pages/sandbox';
 
 interface EditorProps {
     value?: string;
@@ -16,12 +17,12 @@ interface EditorProps {
     language?: string;
     theme?: string;
     options?: {
-        path?: string;
-        readOnly?: boolean;
-        minimap?: { enabled: boolean };
-        hover?: { enabled: boolean; above: boolean };
-        scrollBeyondLastLine?: boolean;
-        overviewRulerBorder?: boolean;
+        path?: string,
+        readOnly?: boolean,
+        minimap?: { enabled: boolean },
+        hover?: { enabled: boolean, above: boolean },
+        scrollBeyondLastLine?: boolean,
+        overviewRulerBorder?: boolean,
     };
     onChange?: (value: string | undefined) => void;
     onMount?: (editor: any) => void;
@@ -43,7 +44,7 @@ const MonacoEditor = jest.fn((props: EditorProps) => {
     // Use value or defaultValue, with defaultValue taking precedence if both are provided
     const editorValue = value || defaultValue || '';
     const editorLanguage = language || defaultLanguage || 'python';
-    const editorPath = options?.path || defaultPath || 'playground.py';
+    const editorPath = options?.path || defaultPath || SANDBOX_FILE_NAME;
 
     // Simple mock implementation that renders a div
     return React.createElement(
