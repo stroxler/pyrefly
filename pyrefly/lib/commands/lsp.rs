@@ -104,7 +104,6 @@ use crate::types::lsp::text_size_to_position;
 use crate::util::arc_id::ArcId;
 use crate::util::args::clap_env;
 use crate::util::globs::Globs;
-use crate::util::listing::FileList;
 use crate::util::lock::Mutex;
 use crate::util::lock::RwLock;
 use crate::util::prelude::VecExt;

@@ -182,7 +182,7 @@ impl<'de> Deserialize<'de> for Glob {
     }
 }
 
-impl FileList for Glob {
+impl Glob {
     fn files(&self) -> anyhow::Result<Vec<PathBuf>> {
         let pattern = &self.0;
         let pattern_str = pattern.to_string_lossy().to_string();
@@ -195,10 +195,6 @@ impl FileList for Glob {
             ));
         }
         Ok(result)
-    }
-
-    fn covers(&self, path: &Path) -> bool {
-        self.matches(path).unwrap_or(false)
     }
 }
 
@@ -258,8 +254,8 @@ impl Display for Globs {
     }
 }
 
-impl FileList for Globs {
-    fn files(&self) -> anyhow::Result<Vec<PathBuf>> {
+impl Globs {
+    pub fn files(&self) -> anyhow::Result<Vec<PathBuf>> {
         let mut result = SmallSet::new();
         for pattern in &self.0 {
             result.extend(pattern.files()?);
