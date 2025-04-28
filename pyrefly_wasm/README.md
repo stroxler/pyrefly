@@ -12,3 +12,10 @@ Pyrefly's WASM build is used in browser-based applications like the
 ## Building Pyrefly for WASM
 
 Run `./build.sh`
+
+## Common issues with the build
+
+Certain features that are allowed in the other builds are unavailable in the
+wasm build. You might errors like `could not find \`<>\` in the crate
+root`. This can be because we've excluded that package from the wasm build with `#[cfg(not(target_arch
+= "wasm32"))]`in the`lib.rs`/`mod.rs` file.
