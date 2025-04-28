@@ -62,6 +62,8 @@ pub mod library {
         pub mod library {
             pub mod library {
                 #[cfg(not(target_arch = "wasm32"))]
+                pub use crate::commands::config_finder::standard_config_finder;
+                #[cfg(not(target_arch = "wasm32"))]
                 pub use crate::commands::run;
                 pub use crate::config::base::ConfigBase;
                 pub use crate::config::config::ConfigFile;

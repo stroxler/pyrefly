@@ -7,11 +7,9 @@
 
 use std::backtrace::Backtrace;
 use std::env::args_os;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
-use std::sync::LazyLock;
 
 use anyhow::Context as _;
 use anyhow::anyhow;
@@ -20,8 +18,6 @@ use clap::Subcommand;
 use dupe::Dupe;
 use library::ArcId;
 use library::ConfigFile;
-use library::ModuleName;
-use library::ModulePath;
 use library::NotifyWatcher;
 use library::clap_env;
 use library::finder::ConfigFinder;
@@ -34,6 +30,7 @@ use library::run::CommandExitStatus;
 use library::run::CommonGlobalArgs;
 use library::run::ConfigMigrationArgs;
 use library::run::LspArgs;
+use library::standard_config_finder;
 use path_absolutize::Absolutize;
 use pyrefly::library::library::library::library;
 use tracing::debug;
@@ -125,19 +122,7 @@ async fn run_check(
 }
 
 fn config_finder(args: library::run::CheckArgs) -> ConfigFinder {
-    let args = Arc::new(args);
-    let args2 = args.dupe();
-    let default = LazyLock::new(move || ArcId::new(args.override_config(ConfigFile::default())));
-    let fallback: Box<dyn Fn(ModuleName, &ModulePath) -> ArcId<ConfigFile> + Send + Sync> =
-        Box::new(move |_, _| default.dupe());
-    let load: Box<dyn Fn(&Path) -> anyhow::Result<ArcId<ConfigFile>> + Send + Sync> =
-        Box::new(move |config_path| {
-            Ok(ArcId::new(args2.override_config(ConfigFile::from_file(
-                config_path,
-                true,
-            )?)))
-        });
-    ConfigFinder::new(load, fallback)
+    standard_config_finder(Arc::new(move |x| args.override_config(x)))
 }
 
 async fn run_check_on_project(
