@@ -99,6 +99,8 @@ use crate::state::state::TransactionData;
 use crate::sys_info::SysInfo;
 use crate::util::arc_id::ArcId;
 use crate::util::args::clap_env;
+use crate::util::globs::Globs;
+use crate::util::listing::FileList;
 use crate::util::lock::Mutex;
 use crate::util::lock::RwLock;
 use crate::util::prelude::VecExt;
@@ -109,6 +111,11 @@ pub struct Args {
     pub(crate) search_path: Vec<PathBuf>,
     #[clap(long = "site-package-path", env = clap_env("SITE_PACKAGE_PATH"))]
     pub(crate) site_package_path: Vec<PathBuf>,
+    /// Temporary way to obtain the list of all the files belong to a project.
+    /// This is necessary to know what files should be considered during find references.
+    /// The information should eventually come from configs. TODO(@connernilsen)
+    #[clap(long = "experimental_project-path", env = clap_env("EXPERIMENTAL_PROJECT_PATH"))]
+    pub(crate) experimental_project_path: Vec<PathBuf>,
 }
 
 /// `IDETransactionManager` aims to always produce a transaction that contains the up-to-date
@@ -295,6 +302,12 @@ pub fn run_lsp(
             ..Default::default()
         }),
         document_highlight_provider: Some(OneOf::Left(true)),
+        // Find references won't work properly if we don't know all the files.
+        references_provider: if args.experimental_project_path.is_empty() {
+            None
+        } else {
+            Some(OneOf::Left(true))
+        },
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
         ..Default::default()
@@ -326,6 +339,7 @@ pub fn run_lsp(
         search_path,
         site_package_path,
     );
+    server.populate_all_project_files(&args.experimental_project_path);
     eprintln!("Reading messages");
     let mut ide_transaction_manager = IDETransactionManager::default();
     let mut canceled_requests = HashSet::new();
@@ -695,6 +709,51 @@ impl Server {
             self.invalidate(move |t| t.invalidate_disk(&invalidate_disk));
         }
         Ok(())
+    }
+
+    /// Certain IDE features (e.g. find-references) require us to know the dependency graph of the
+    /// entire project to work. This blocking function should be called during server initialization
+    /// time if we intend to provide features like find-references, and should be called when config
+    /// changes (currently this is a TODO).
+    fn populate_all_project_files(&self, search_paths: &[PathBuf]) {
+        if search_paths.is_empty() {
+            return;
+        }
+        let immediately_handled_events = self.immediately_handled_events.dupe();
+        eprintln!(
+            "Populating all files in the project path ({:?}).",
+            search_paths
+        );
+        let mut transaction = self
+            .state
+            .new_committable_transaction(Require::Exports, None);
+        let mut handles = Vec::new();
+        for search_path in search_paths {
+            let paths = Globs::new_with_root(search_path, vec![".".to_owned()])
+                .files()
+                .unwrap_or_default();
+            for path in paths {
+                let module_name = module_from_path(&path, search_paths);
+                handles.push((
+                    Handle::new(
+                        module_name,
+                        ModulePath::filesystem(path),
+                        SysInfo::default(),
+                    ),
+                    Require::Exports,
+                ));
+            }
+        }
+        eprintln!("Prepare to check {} files.", handles.len());
+        transaction.as_mut().run(&handles);
+        self.state.commit_transaction(transaction);
+        // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
+        // the main event loop of the server. As a result, the server can do a revalidation of
+        // all the in-memory files based on the fresh main State as soon as possible.
+        immediately_handled_events
+            .lock()
+            .push(ImmediatelyHandledEvent::RecheckFinished);
+        eprintln!("Populated all files in the project path.");
     }
 
     fn did_save(&self, params: DidSaveTextDocumentParams) -> anyhow::Result<()> {
