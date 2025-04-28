@@ -430,8 +430,20 @@ impl Param {
         wrap: impl Fn(&'a Type) -> D,
     ) -> fmt::Result {
         match self {
-            Param::PosOnly(ty, _required) => write!(f, "{}", wrap(ty)),
-            Param::Pos(name, ty, _required) => write!(f, "{}: {}", name, wrap(ty)),
+            Param::PosOnly(ty, Required::Required) => write!(f, "{}", wrap(ty)),
+            Param::PosOnly(ty, Required::Optional) => write!(f, "_: {} = ...", wrap(ty)),
+            Param::Pos(name, ty, required) => {
+                write!(
+                    f,
+                    "{}: {}{}",
+                    name,
+                    wrap(ty),
+                    match required {
+                        Required::Required => "",
+                        Required::Optional => " = ...",
+                    }
+                )
+            }
             Param::VarArg(Some(name), ty) => write!(f, "*{}: {}", name, wrap(ty)),
             Param::VarArg(None, ty) => write!(f, "*{}", wrap(ty)),
             Param::KwOnly(name, ty, _required) => write!(f, "{}: {}", name, wrap(ty)),

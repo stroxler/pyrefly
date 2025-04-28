@@ -544,6 +544,21 @@ pub mod tests {
     }
 
     #[test]
+    fn test_display_optional_parameter() {
+        let param1 = Param::PosOnly(Type::any_explicit(), Required::Optional);
+        let param2 = Param::Pos(
+            Name::new_static("x"),
+            Type::any_explicit(),
+            Required::Optional,
+        );
+        let callable = Callable::list(ParamList::new(vec![param1, param2]), Type::None);
+        assert_eq!(
+            Type::Callable(Box::new(callable)).to_string(),
+            "(_: Any = ..., x: Any = ...) -> None"
+        );
+    }
+
+    #[test]
     fn test_display_generic_typeddict() {
         let cls = fake_class("C", "test", 0, Vec::new());
         let t = Type::None;
