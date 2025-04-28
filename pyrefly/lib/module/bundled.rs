@@ -102,10 +102,13 @@ impl BundledTypeshed {
             let mut config_file = ConfigFile::default();
             config_file.python_environment.site_package_path = Some(Vec::new());
             config_file.search_path = Vec::new();
-            config_file.root.errors = Some(ErrorDisplayConfig::new(HashMap::from([(
-                ErrorKind::BadOverride, // The stdlib is full of deliberately incorrect overrides, so ignore them
-                false,
-            )])));
+            config_file.root.errors = Some(ErrorDisplayConfig::new(HashMap::from([
+                // The stdlib is full of deliberately incorrect overrides, so ignore them
+                (ErrorKind::BadOverride, false),
+                // These two are bugs, https://github.com/facebook/pyrefly/issues/137 to fix them
+                (ErrorKind::BadAssignment, false),
+                (ErrorKind::InvalidAnnotation, false),
+            ])));
             config_file.configure();
             ArcId::new(config_file)
         });
