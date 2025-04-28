@@ -8,19 +8,19 @@
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import * as React from 'react';
 
-const TryPyrefly = React.lazy(() => import('./TryPyrefly'));
+const Sandbox = React.lazy(() => import('./Sandbox'));
 
-interface TryPyreflyBrowserOnlyProps {
+interface SandboxBrowserOnlyProps {
     sampleFilename: string;
     isCodeSnippet?: boolean;
     codeSample?: string;
 }
 
-export default function TryPyreflyBrowserOnly({
+export default function SandboxBrowserOnly({
     sampleFilename,
     isCodeSnippet = false,
     codeSample = '',
-}: TryPyreflyBrowserOnlyProps): JSX.Element {
+}: SandboxBrowserOnlyProps): JSX.Element {
     if (sampleFilename == null) {
         throw "Missing sampleFilename. IDE services won't work properly.";
     }
@@ -28,7 +28,7 @@ export default function TryPyreflyBrowserOnly({
         <BrowserOnly>
             {() => (
                 <React.Suspense fallback={<div>Loading...</div>}>
-                    <TryPyrefly
+                    <Sandbox
                         sampleFilename={sampleFilename}
                         isCodeSnippet={isCodeSnippet}
                         codeSample={codeSample}

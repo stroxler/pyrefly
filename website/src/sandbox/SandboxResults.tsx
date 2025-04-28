@@ -33,7 +33,7 @@ interface ErrorMessageProps {
     goToDef: GoToDefFromError;
 }
 
-interface TryPyreflyResultsProps {
+interface SandboxResultsProps {
     loading: boolean;
     goToDef: GoToDefFromError;
     errors?: ReadonlyArray<PyreflyErrorMessage> | null;
@@ -104,7 +104,7 @@ function LoadingAnimation(): React.ReactElement {
         </div>
     );
 }
-export default function TryPyreflyResults({
+export default function SandboxResults({
     loading,
     goToDef,
     errors,
@@ -113,7 +113,7 @@ export default function TryPyreflyResults({
     isRunning = false,
     activeTab = 'errors',
     setActiveTab = () => {},
-}: TryPyreflyResultsProps): React.ReactElement {
+}: SandboxResultsProps): React.ReactElement {
     const activeToolbarTab = activeTab;
 
     const hasTypecheckErrors =
@@ -121,7 +121,7 @@ export default function TryPyreflyResults({
 
     return (
         <div
-            id="tryPyrefly-results-container"
+            id="sandbox-results-container"
             {...stylex.props(styles.resultsContainer)}
         >
             <div {...stylex.props(styles.resultsToolbar)}>
@@ -172,11 +172,11 @@ export default function TryPyreflyResults({
                                     {internalError
                                         ? `Pyrefly encountered an internal error: ${internalError}.`
                                         : errors === undefined ||
-                                            errors === null
-                                          ? 'Pyrefly failed to fetch errors.'
-                                          : errors?.length === 0
-                                            ? 'No errors!'
-                                            : null}
+                                          errors === null
+                                        ? 'Pyrefly failed to fetch errors.'
+                                        : errors?.length === 0
+                                        ? 'No errors!'
+                                        : null}
                                 </li>
                             )}
                         </ul>
@@ -206,7 +206,7 @@ const skBounceDelayKeyframes = stylex.keyframes({
     '40%': { transform: 'scale(1)' },
 });
 
-// Styles for TryPyreflyResults component
+// Styles for SandboxResults component
 const styles = stylex.create({
     resultsContainer: {
         height: 'calc(25vh - var(--ifm-navbar-height) / 4)', // 25% of screen height - nav bar

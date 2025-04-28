@@ -12,11 +12,11 @@ import BrowserOnly from '@docusaurus/BrowserOnly';
 import Layout from '@theme/Layout';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
-const TryPyrefly = React.lazy(() => import('../try-pyrefly/TryPyrefly'));
+const Sandbox = React.lazy(() => import('../sandbox/Sandbox'));
 
 export const SANDBOX_FILE_NAME = 'sandbox.py';
 
-export default function TryPyreflyPage(): JSX.Element {
+export default function SandboxPage(): JSX.Element {
     const { siteConfig = {} } = useDocusaurusContext();
     return (
         <Layout
@@ -27,7 +27,7 @@ export default function TryPyreflyPage(): JSX.Element {
             <BrowserOnly>
                 {() => (
                     <React.Suspense fallback={<div>Loading...</div>}>
-                        <TryPyrefly sampleFilename={SANDBOX_FILE_NAME} />
+                        <Sandbox sampleFilename={SANDBOX_FILE_NAME} />
                     </React.Suspense>
                 )}
             </BrowserOnly>

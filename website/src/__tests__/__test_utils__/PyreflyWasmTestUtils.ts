@@ -9,8 +9,8 @@
 
 'use strict';
 
-import { PyreflyState } from '../../try-pyrefly/TryPyrefly';
-import { PyreflyErrorMessage } from '../../try-pyrefly/TryPyreflyResults';
+import { PyreflyState } from '../../sandbox/Sandbox';
+import { PyreflyErrorMessage } from '../../sandbox/SandboxResults';
 
 /**
  * Create and initialize the pyrefly_wasm module

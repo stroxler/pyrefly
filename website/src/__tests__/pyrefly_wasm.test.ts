@@ -8,10 +8,7 @@
  */
 
 import '@testing-library/jest-dom';
-import {
-    PyreflyState,
-    DEFAULT_PYTHON_PROGRAM,
-} from '../try-pyrefly/TryPyrefly';
+import { PyreflyState, DEFAULT_PYTHON_PROGRAM } from '../sandbox/Sandbox';
 import {
     createPyreflyState,
     findError,

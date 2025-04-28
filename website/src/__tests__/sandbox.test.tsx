@@ -10,14 +10,14 @@
 import '@testing-library/jest-dom';
 import { act } from 'react';
 import { render } from '@testing-library/react';
-import TryPyrefly, { DEFAULT_PYTHON_PROGRAM } from '../try-pyrefly/TryPyrefly';
+import Sandbox, { DEFAULT_PYTHON_PROGRAM } from '../sandbox/Sandbox';
 import { SANDBOX_FILE_NAME } from '../pages/sandbox';
 
-describe('Try Pyrefly Component', () => {
+describe('Sandbox Component', () => {
     test('render sandbox correctly', async () => {
         const container = await act(async () => {
             const { container } = render(
-                <TryPyrefly sampleFilename={SANDBOX_FILE_NAME} />
+                <Sandbox sampleFilename={SANDBOX_FILE_NAME} />
             );
 
             await Promise.resolve(); // Let any promises from timers resolve
@@ -41,7 +41,7 @@ describe('Try Pyrefly Component', () => {
         const programContent = 'def hello(): pass';
         const container = await act(async () => {
             const { container } = render(
-                <TryPyrefly
+                <Sandbox
                     sampleFilename={fileName}
                     isCodeSnippet={true}
                     codeSample={programContent}
@@ -70,18 +70,18 @@ describe('Try Pyrefly Component', () => {
         programContent: string,
         isCodeSnippet: boolean
     ) {
-        const tryEditorElement = container.querySelector('#tryPyrefly-editor');
-        expect(tryEditorElement).toBeInTheDocument();
+        const sandboxEditorElement = container.querySelector('#sandbox-editor');
+        expect(sandboxEditorElement).toBeInTheDocument();
 
-        // Verify that the code editor container is a child of tryPyrefly-editor
-        const codeEditorContainer = tryEditorElement?.querySelector(
-            '#tryPyrefly-code-editor-container'
+        // Verify that the code editor container is a child of sandbox-editor
+        const codeEditorContainer = sandboxEditorElement?.querySelector(
+            '#sandbox-code-editor-container'
         );
         expect(codeEditorContainer).toBeInTheDocument();
 
-        // Verify that the results container is a child of tryPyrefly-editor
-        const resultsContainer = tryEditorElement?.querySelector(
-            '#tryPyrefly-results-container'
+        // Verify that the results container is a child of sandbox-editor
+        const resultsContainer = sandboxEditorElement?.querySelector(
+            '#sandbox-results-container'
         );
         if (isCodeSnippet) {
             expect(resultsContainer).not.toBeInTheDocument();

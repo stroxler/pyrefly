@@ -14,7 +14,7 @@ import RunPythonButton from './RunPythonButton';
 import Editor from '@monaco-editor/react';
 import * as LZString from 'lz-string';
 import * as stylex from '@stylexjs/stylex';
-import TryPyreflyResults from './TryPyreflyResults';
+import SandboxResults from './SandboxResults';
 import {
     monaco,
     setAutoCompleteFunction,
@@ -23,7 +23,7 @@ import {
     setInlayHintFunctionForMonaco,
 } from './configured-monaco';
 import type { editor } from 'monaco-editor';
-import type { PyreflyErrorMessage } from './TryPyreflyResults';
+import type { PyreflyErrorMessage } from './SandboxResults';
 
 export const DEFAULT_PYTHON_PROGRAM = `
 from typing import *
@@ -50,7 +50,7 @@ export interface PyreflyState {
 export async function initializePyreflyWasm(): Promise<any> {
     const pyreflyWasmUninitializedPromise =
         typeof window !== 'undefined'
-            ? import('./pyrefly_wasm')
+            ? import('../sandbox/pyrefly_wasm')
             : new Promise<any>((_resolve) => {});
 
     try {
@@ -66,17 +66,17 @@ export async function initializePyreflyWasm(): Promise<any> {
 // This will be used in the component
 let pyreflyWasmInitializedPromise: Promise<any> | null = null;
 
-interface TryPyreflyProps {
+interface SandboxProps {
     sampleFilename: string;
     isCodeSnippet?: boolean;
     codeSample?: string;
 }
 
-export default function TryPyrefly({
+export default function Sandbox({
     sampleFilename,
     isCodeSnippet = false,
     codeSample = DEFAULT_PYTHON_PROGRAM,
-}: TryPyreflyProps): React.ReactElement {
+}: SandboxProps): React.ReactElement {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const [errors, setErrors] =
         useState<ReadonlyArray<PyreflyErrorMessage> | null>([]);
@@ -193,9 +193,9 @@ export default function TryPyrefly({
     };
 
     return (
-        <div id="tryPyrefly-editor" {...stylex.props(styles.tryEditor)}>
+        <div id="sandbox-editor" {...stylex.props(styles.tryEditor)}>
             <div
-                id="tryPyrefly-code-editor-container"
+                id="sandbox-code-editor-container"
                 {...stylex.props(styles.codeEditorContainer)}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
@@ -249,7 +249,7 @@ export default function TryPyrefly({
                 }
             </div>
             {!isCodeSnippet && (
-                <TryPyreflyResults
+                <SandboxResults
                     loading={loading}
                     goToDef={handleGoToDefFromErrors}
                     errors={errors}
@@ -496,7 +496,7 @@ function mapPyreflyErrorsToMarkerData(
     }));
 }
 
-// Styles for TryPyrefly component
+// Styles for Sandbox component
 const styles = stylex.create({
     tryEditor: {
         display: 'flex',
@@ -515,7 +515,7 @@ const styles = stylex.create({
         position: 'absolute',
         display: 'flex',
         flexDirection: 'row', // Buttons start from left and go right
-        zIndex: 10,
+        zIndex: 10, // used to ensure it's beneath the navbar
     },
     // Style for mobile buttons (always visible)
     mobileButtonContainer: {

@@ -23,8 +23,8 @@ cd -- "$(dirname -- "$0")/.."
 
 ../pyrefly_wasm/build.sh
 echo "copying wasm files from pyrefly_wasm/ to website/"
-cp ../pyrefly_wasm/target/pyrefly_wasm.js src/try-pyrefly/pyrefly_wasm.js
-cp ../pyrefly_wasm/target/pyrefly_wasm_bg.wasm.opt src/try-pyrefly/pyrefly_wasm_bg.wasm
+cp ../pyrefly_wasm/target/pyrefly_wasm.js src/sandbox/pyrefly_wasm.js
+cp ../pyrefly_wasm/target/pyrefly_wasm_bg.wasm.opt src/sandbox/pyrefly_wasm_bg.wasm
 echo "finished copying wasm files"
 
 export USE_SIMPLE_CSS_MINIFIER=true
