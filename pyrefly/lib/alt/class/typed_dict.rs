@@ -307,6 +307,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn get_typed_dict_synthesized_fields(&self, cls: &Class) -> Option<ClassSynthesizedFields> {
+        // TODO: we're still missing pop, update, __delitem__, __or__, __ror__, and __ior__
         let metadata = self.get_metadata_for_class(cls);
         let td = metadata.typed_dict_metadata()?;
         let mut fields = smallmap! {
