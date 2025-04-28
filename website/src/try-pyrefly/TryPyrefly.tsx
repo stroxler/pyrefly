@@ -220,6 +220,7 @@ export default function TryPyrefly({
                         {isCodeSnippet ? (
                             <OpenSandboxButton model={model} />
                         ) : null}
+                        {isCodeSnippet ? getCopyButton(model) : null}
                         {/* Hide reset button if it's readonly, which is when it's a code snippet on mobile */}
                         {!(isCodeSnippet && isMobile()) ? getResetButton(
                             model,
@@ -415,6 +416,26 @@ function getRunPythonButton(
             isRunning={isRunning}
             setIsRunning={setIsRunning}
             setPythonOutput={setPythonOutput}
+        />
+    );
+}
+
+function getCopyButton(
+    model: editor.ITextModel
+): React.ReactElement {
+    return (
+        <MonacoEditorButton
+            id="copy-code-button"
+            onClick={async () => {
+                if (model) {
+                    const currentCode = model.getValue();
+                    await navigator.clipboard.writeText(currentCode);
+                }
+                return Promise.resolve();
+            }}
+            defaultLabel="📋 Copy"
+            runningLabel="✓ Copied!"
+            ariaLabel="copy code to clipboard"
         />
     );
 }
