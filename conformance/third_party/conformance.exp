@@ -10685,8 +10685,8 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "assert_type(object | None, str | None) failed",
-      "description": "assert_type(object | None, str | None) failed",
+      "concise_description": "assert_type(str, str | None) failed",
+      "description": "assert_type(str, str | None) failed",
       "line": 60,
       "name": "assert-type",
       "stop_column": 52,
@@ -11045,76 +11045,6 @@
       "name": "bad-assignment",
       "stop_column": 27,
       "stop_line": 82
-    },
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "`object | @_` is not assignable to `str`",
-      "description": "`object | @_` is not assignable to `str`",
-      "line": 91,
-      "name": "bad-assignment",
-      "stop_column": 38,
-      "stop_line": 91
-    },
-    {
-      "code": -2,
-      "column": 13,
-      "concise_description": "`object | @_` is not assignable to `int`",
-      "description": "`object | @_` is not assignable to `int`",
-      "line": 92,
-      "name": "bad-assignment",
-      "stop_column": 33,
-      "stop_line": 92
-    },
-    {
-      "code": -2,
-      "column": 21,
-      "concise_description": "`object | None` is not assignable to `str | None`",
-      "description": "`object | None` is not assignable to `str | None`",
-      "line": 97,
-      "name": "bad-assignment",
-      "stop_column": 38,
-      "stop_line": 97
-    },
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "`object | None` is not assignable to `str`",
-      "description": "`object | None` is not assignable to `str`",
-      "line": 101,
-      "name": "bad-assignment",
-      "stop_column": 31,
-      "stop_line": 101
-    },
-    {
-      "code": -2,
-      "column": 13,
-      "concise_description": "`object | @_` is not assignable to `int`",
-      "description": "`object | @_` is not assignable to `int`",
-      "line": 103,
-      "name": "bad-assignment",
-      "stop_column": 33,
-      "stop_line": 103
-    },
-    {
-      "code": -2,
-      "column": 19,
-      "concise_description": "`object | @_` is not assignable to `int | str`",
-      "description": "`object | @_` is not assignable to `int | str`",
-      "line": 105,
-      "name": "bad-assignment",
-      "stop_column": 41,
-      "stop_line": 105
-    },
-    {
-      "code": -2,
-      "column": 13,
-      "concise_description": "`object | @_` is not assignable to `int`",
-      "description": "`object | @_` is not assignable to `int`",
-      "line": 107,
-      "name": "bad-assignment",
-      "stop_column": 35,
-      "stop_line": 107
     },
     {
       "code": -2,

@@ -432,18 +432,16 @@ assert_type(X, type[X])
 );
 
 testcase!(
-    bug = "Wrong return type from get()",
     test_assign_get_result,
     r#"
 from typing import TypedDict
 UserType1 = TypedDict("UserType1", {"name": str, "age": int}, total=False)
 user1: UserType1 = {"name": "Bob", "age": 40}
-name: str = user1.get("name", "n/a")  # E: `object | @_` is not assignable to `str`
+name: str = user1.get("name", "n/a")
     "#,
 );
 
 testcase!(
-    bug = "get() with a literal string key should return the type of the corresponding TypedDict field",
     test_get,
     r#"
 from typing import Any, Literal, TypedDict, assert_type
@@ -451,10 +449,10 @@ class C(TypedDict):
     x: int
     y: str
 def f(c: C, k1: str, k2: int):
-    assert_type(c.get("x"), int)  # E: object | None
-    assert_type(c.get(k1), object | None)
-    assert_type(c.get(k1, 0), object | Any)
-    c.get(k2)  # E: No matching overload  # E: `int` is not assignable to parameter with type `str`
+    assert_type(c.get("x"), int)
+    assert_type(c.get(k1), object)
+    assert_type(c.get(k1, 0), object)
+    c.get(k2)  # E: No matching overload  # E: `int` is not assignable to parameter `key`
     "#,
 );
 

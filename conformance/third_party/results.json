@@ -3,7 +3,7 @@
   "pass": 48,
   "fail": 88,
   "pass_rate": 0.35,
-  "differences": 449,
+  "differences": 444,
   "passing": [
     "aliases_newtype.py",
     "annotations_coroutines.py",
@@ -141,7 +141,7 @@
     "typeddicts_readonly_inheritance.py": 7,
     "typeddicts_readonly_update.py": 2,
     "typeddicts_required.py": 3,
-    "typeddicts_type_consistency.py": 7,
+    "typeddicts_type_consistency.py": 2,
     "typeddicts_usage.py": 2
   },
   "comment": "@generated"

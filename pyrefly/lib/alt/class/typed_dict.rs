@@ -14,6 +14,7 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_map::smallmap;
+use vec1::Vec1;
 
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
@@ -36,7 +37,12 @@ use crate::types::class::Substitution;
 use crate::types::literal::Lit;
 use crate::types::typed_dict::TypedDict;
 use crate::types::typed_dict::TypedDictField;
+use crate::types::types::Overload;
+use crate::types::types::OverloadType;
 use crate::types::types::Type;
+use crate::util::prelude::SliceExt;
+
+const GET_METHOD: Name = Name::new_static("get");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn check_dict_items_against_typed_dict(
@@ -213,12 +219,63 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassSynthesizedField::new(ty)
     }
 
+    fn get_typed_dict_get(
+        &self,
+        cls: &Class,
+        fields: &SmallMap<Name, bool>,
+    ) -> ClassSynthesizedField {
+        // Synthesizes a `(self, key: Literal["key"], default: object = ...) -> ValueType` signature
+        // for each field and a fallback `(self, key: str, default: object = ...) -> object` signature.
+        let self_param = self.class_self_param(cls);
+        let key = Name::new_static("key");
+        let default = Name::new_static("default");
+        let object_ty = self.stdlib.object().clone().to_type();
+        let literal_signatures = self.names_to_fields(cls, fields).map(|(name, field)| {
+            Callable::list(
+                ParamList::new(vec![
+                    self_param.clone(),
+                    Param::Pos(
+                        key.clone(),
+                        Type::Literal(Lit::Str(name.as_str().into())),
+                        Required::Required,
+                    ),
+                    Param::Pos(default.clone(), object_ty.clone(), Required::Optional),
+                ]),
+                field.ty.clone(),
+            )
+        });
+        let signatures = Vec1::from_vec_push(
+            literal_signatures,
+            Callable::list(
+                ParamList::new(vec![
+                    self_param.clone(),
+                    Param::Pos(
+                        key.clone(),
+                        self.stdlib.str().clone().to_type(),
+                        Required::Required,
+                    ),
+                    Param::Pos(default.clone(), object_ty.clone(), Required::Optional),
+                ]),
+                object_ty.clone(),
+            ),
+        );
+        ClassSynthesizedField::new(Type::Overload(Overload {
+            signatures: signatures.mapped(OverloadType::Callable),
+            metadata: Box::new(FuncMetadata::def(
+                self.module_info().name(),
+                cls.name().clone(),
+                GET_METHOD,
+            )),
+        }))
+    }
+
     pub fn get_typed_dict_synthesized_fields(&self, cls: &Class) -> Option<ClassSynthesizedFields> {
         let metadata = self.get_metadata_for_class(cls);
         let td = metadata.typed_dict_metadata()?;
-        Some(ClassSynthesizedFields::new(
-            smallmap! { dunder::INIT => self.get_typed_dict_init(cls, &td.fields) },
-        ))
+        Some(ClassSynthesizedFields::new(smallmap! {
+            dunder::INIT => self.get_typed_dict_init(cls, &td.fields),
+            GET_METHOD => self.get_typed_dict_get(cls, &td.fields),
+        }))
     }
 
     pub fn typed_dict_kw_param_info(&self, typed_dict: &TypedDict) -> Vec<(Name, Type, Required)> {
