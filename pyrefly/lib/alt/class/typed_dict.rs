@@ -15,6 +15,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_map::smallmap;
 use vec1::Vec1;
+use vec1::vec1;
 
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
@@ -43,6 +44,7 @@ use crate::types::types::Type;
 use crate::util::prelude::SliceExt;
 
 const GET_METHOD: Name = Name::new_static("get");
+const SETDEFAULT_METHOD: Name = Name::new_static("setdefault");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn check_dict_items_against_typed_dict(
@@ -234,11 +236,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
-                    Param::Pos(
-                        key.clone(),
-                        Type::Literal(Lit::Str(name.as_str().into())),
-                        Required::Required,
-                    ),
+                    Param::Pos(key.clone(), name_to_literal_type(name), Required::Required),
                     Param::Pos(default.clone(), object_ty.clone(), Required::Optional),
                 ]),
                 field.ty.clone(),
@@ -269,13 +267,56 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }))
     }
 
+    fn get_typed_dict_setdefault(
+        &self,
+        cls: &Class,
+        fields: &SmallMap<Name, bool>,
+    ) -> Option<ClassSynthesizedField> {
+        // Synthesizes a `(self, k: Literal["key"], default: ValueType) -> ValueType` signature for each field.
+        let mut fields_iter = self.names_to_fields(cls, fields).into_iter();
+        let first_field = fields_iter.next()?;
+        let self_param = self.class_self_param(cls);
+        let make_overload = |(name, field): (Name, TypedDictField)| {
+            OverloadType::Callable(Callable::list(
+                ParamList::new(vec![
+                    self_param.clone(),
+                    Param::Pos(
+                        Name::new_static("k"),
+                        name_to_literal_type(&name),
+                        Required::Required,
+                    ),
+                    Param::Pos(
+                        Name::new_static("default"),
+                        field.ty.clone(),
+                        Required::Required,
+                    ),
+                ]),
+                field.ty.clone(),
+            ))
+        };
+        let mut overloads = vec1![make_overload(first_field)];
+        overloads.extend(fields_iter.map(make_overload));
+        Some(ClassSynthesizedField::new(Type::Overload(Overload {
+            signatures: overloads,
+            metadata: Box::new(FuncMetadata::def(
+                self.module_info().name(),
+                cls.name().clone(),
+                SETDEFAULT_METHOD,
+            )),
+        })))
+    }
+
     pub fn get_typed_dict_synthesized_fields(&self, cls: &Class) -> Option<ClassSynthesizedFields> {
         let metadata = self.get_metadata_for_class(cls);
         let td = metadata.typed_dict_metadata()?;
-        Some(ClassSynthesizedFields::new(smallmap! {
+        let mut fields = smallmap! {
             dunder::INIT => self.get_typed_dict_init(cls, &td.fields),
             GET_METHOD => self.get_typed_dict_get(cls, &td.fields),
-        }))
+        };
+        if let Some(m) = self.get_typed_dict_setdefault(cls, &td.fields) {
+            fields.insert(SETDEFAULT_METHOD, m);
+        }
+        Some(ClassSynthesizedFields::new(fields))
     }
 
     pub fn typed_dict_kw_param_info(&self, typed_dict: &TypedDict) -> Vec<(Name, Type, Required)> {
@@ -294,4 +335,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect()
     }
+}
+
+fn name_to_literal_type(name: &Name) -> Type {
+    Type::Literal(Lit::Str(name.as_str().into()))
 }

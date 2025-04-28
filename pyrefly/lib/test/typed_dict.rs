@@ -505,3 +505,17 @@ def f(c: C):
     c.__total__  # This should be an error
     "#,
 );
+
+testcase!(
+    test_setdefault,
+    r#"
+from typing import TypedDict, assert_type
+class C(TypedDict):
+    x: int
+def f(c: C, s: str):
+    assert_type(c.setdefault("x", 0), int)
+    c.setdefault("x", 0.0)  # E: No matching overload  # E: `float` is not assignable to parameter `default` with type `int`
+    c.setdefault("x")  # E: No matching overload  # E: Missing argument `default`
+    c.setdefault(s, 0)  # E: No matching overload  # E: `str` is not assignable to parameter `k` with type `Literal['x']`
+    "#,
+);
