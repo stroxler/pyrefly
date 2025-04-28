@@ -38,6 +38,9 @@ use lsp_types::DidOpenTextDocumentParams;
 use lsp_types::DidSaveTextDocumentParams;
 use lsp_types::DocumentHighlight;
 use lsp_types::DocumentHighlightParams;
+use lsp_types::DocumentSymbol;
+use lsp_types::DocumentSymbolParams;
+use lsp_types::DocumentSymbolResponse;
 use lsp_types::GotoDefinitionParams;
 use lsp_types::GotoDefinitionResponse;
 use lsp_types::Hover;
@@ -69,6 +72,7 @@ use lsp_types::notification::DidSaveTextDocument;
 use lsp_types::notification::PublishDiagnostics;
 use lsp_types::request::Completion;
 use lsp_types::request::DocumentHighlightRequest;
+use lsp_types::request::DocumentSymbolRequest;
 use lsp_types::request::GotoDefinition;
 use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
@@ -310,6 +314,7 @@ pub fn run_lsp(
         },
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
+        document_symbol_provider: Some(OneOf::Left(true)),
         ..Default::default()
     })
     .unwrap();
@@ -495,6 +500,17 @@ impl Server {
                     self.send_response(new_response(
                         x.id,
                         Ok(self.inlay_hints(&transaction, params).unwrap_or_default()),
+                    ));
+                    ide_transaction_manager.save(transaction);
+                } else if let Some(params) = as_request::<DocumentSymbolRequest>(&x) {
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(DocumentSymbolResponse::Nested(
+                            self.hierarchical_document_symbols(&transaction, params)
+                                .unwrap_or_default(),
+                        )),
                     ));
                     ide_transaction_manager.save(transaction);
                 } else {
@@ -977,6 +993,32 @@ impl Server {
                 data: None,
             }
         }))
+    }
+
+    fn hierarchical_document_symbols(
+        &self,
+        transaction: &Transaction<'_>,
+        params: DocumentSymbolParams,
+    ) -> Option<Vec<DocumentSymbol>> {
+        let uri = &params.text_document.uri;
+        if self
+            .workspaces
+            .get_with(uri.to_file_path().unwrap(), |workspace| {
+                workspace.disable_language_services
+            })
+            || !self
+                .initialize_params
+                .capabilities
+                .text_document
+                .as_ref()?
+                .document_symbol
+                .as_ref()?
+                .hierarchical_document_symbol_support?
+        {
+            return None;
+        }
+        let handle = self.make_handle(uri);
+        transaction.symbols(&handle)
     }
 
     fn change_workspace(&self) {
