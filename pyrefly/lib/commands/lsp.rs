@@ -74,8 +74,6 @@ use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
 use lsp_types::request::WorkspaceConfiguration;
 use path_absolutize::Absolutize;
-use ruff_source_file::SourceLocation;
-use ruff_text_size::TextSize;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
 
@@ -85,7 +83,6 @@ use crate::config::config::ConfigFile;
 use crate::config::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
-use crate::module::module_info::SourceRange;
 use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
@@ -97,6 +94,9 @@ use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionData;
 use crate::sys_info::SysInfo;
+use crate::types::lsp::position_to_text_size;
+use crate::types::lsp::source_range_to_range;
+use crate::types::lsp::text_size_to_position;
 use crate::util::arc_id::ArcId;
 use crate::util::args::clap_env;
 use crate::util::globs::Globs;
@@ -1078,28 +1078,6 @@ impl Server {
         }
         self.invalidate_config();
     }
-}
-
-fn source_range_to_range(x: &SourceRange) -> lsp_types::Range {
-    lsp_types::Range::new(
-        source_location_to_position(&x.start),
-        source_location_to_position(&x.end),
-    )
-}
-
-fn source_location_to_position(x: &SourceLocation) -> lsp_types::Position {
-    lsp_types::Position {
-        line: x.row.to_zero_indexed() as u32,
-        character: x.column.to_zero_indexed() as u32,
-    }
-}
-
-fn text_size_to_position(info: &ModuleInfo, x: TextSize) -> lsp_types::Position {
-    source_location_to_position(&info.source_location(x))
-}
-
-fn position_to_text_size(info: &ModuleInfo, position: lsp_types::Position) -> TextSize {
-    info.to_text_size(position.line, position.character)
 }
 
 fn as_notification<T>(x: &Notification) -> Option<T::Params>
