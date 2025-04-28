@@ -148,3 +148,30 @@ References:
         report.trim(),
     );
 }
+
+#[test]
+fn synthetic_reference_regression_test() {
+    let code = r#"
+foo = 3
+# ^
+try:
+  pass
+except Exception:
+  foo
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+2 | foo = 3
+      ^
+References:
+2 | foo = 3
+    ^^^
+7 |   foo
+      ^^^
+"#
+        .trim(),
+        report.trim(),
+    );
+}

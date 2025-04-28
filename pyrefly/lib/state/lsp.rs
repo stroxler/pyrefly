@@ -310,9 +310,9 @@ impl<'a> Transaction<'a> {
                 self.local_attribute_references_from_definition(handle, &definition, &expected_name)
             }
             DefinitionMetadata::Module => Vec::new(),
-            DefinitionMetadata::Variable => {
-                self.local_variable_references_from_definition(handle, &definition)
-            }
+            DefinitionMetadata::Variable => self
+                .local_variable_references_from_definition(handle, &definition)
+                .unwrap_or_default(),
         };
         if definition.module_info.path() == handle.path() {
             references.push(definition.range);
@@ -380,10 +380,10 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         definition: &TextRangeWithModuleInfo,
-    ) -> Vec<TextRange> {
-        let Some(bindings) = self.get_bindings(handle) else {
-            return Vec::new();
-        };
+    ) -> Option<Vec<TextRange>> {
+        let bindings = self.get_bindings(handle)?;
+        let reference_module_info = self.get_module_info(handle)?;
+        let definition_code = definition.module_info.code_at(definition.range);
         let mut references = Vec::new();
         for idx in bindings.keys::<Key>() {
             let binding = bindings.get(idx);
@@ -397,10 +397,16 @@ impl<'a> Transaction<'a> {
                 && definition_handle.path() == definition.module_info.path()
                 && definition.range == location
             {
-                references.push(bindings.idx_to_key(idx).range());
+                let reference_range = bindings.idx_to_key(idx).range();
+                let reference_code = reference_module_info.code_at(reference_range);
+                // Sanity check: the reference should have the same text as the definition.
+                // This check helps to filter out from synthetic bindings.
+                if reference_code == definition_code {
+                    references.push(reference_range);
+                }
             }
         }
-        references
+        Some(references)
     }
 
     pub fn completion(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
