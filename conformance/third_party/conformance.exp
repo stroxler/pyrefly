@@ -1576,6 +1576,16 @@
     },
     {
       "code": -2,
+      "column": 14,
+      "concise_description": "Callable types can only have `ParamSpec` in this position, got `int`",
+      "description": "Callable types can only have `ParamSpec` in this position, got `int`",
+      "line": 56,
+      "name": "bad-specialization",
+      "stop_column": 17,
+      "stop_line": 56
+    },
+    {
+      "code": -2,
       "column": 18,
       "concise_description": "Expected a type form, got instance of `list[type[int]]`",
       "description": "Expected a type form, got instance of `list[type[int]]`",

@@ -99,7 +99,6 @@
     "Line 94: Expected 1 errors"
   ],
   "callables_annotation.py": [
-    "Line 56: Expected 1 errors",
     "Line 156: Unexpected errors ['`Proto4[Ellipsis]` is not assignable to `Proto3`']",
     "Line 157: Unexpected errors ['`Proto7` is not assignable to `Proto6`']"
   ],

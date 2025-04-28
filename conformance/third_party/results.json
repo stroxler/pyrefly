@@ -3,7 +3,7 @@
   "pass": 48,
   "fail": 88,
   "pass_rate": 0.35,
-  "differences": 450,
+  "differences": 449,
   "passing": [
     "aliases_newtype.py",
     "annotations_coroutines.py",
@@ -64,7 +64,7 @@
     "annotations_forward_refs.py": 8,
     "annotations_generators.py": 4,
     "annotations_typeexpr.py": 1,
-    "callables_annotation.py": 3,
+    "callables_annotation.py": 2,
     "callables_kwargs.py": 2,
     "classes_override.py": 1,
     "constructors_call_init.py": 3,
