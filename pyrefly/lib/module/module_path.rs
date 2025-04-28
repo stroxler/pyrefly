@@ -16,6 +16,7 @@ use serde::Serialize;
 use serde::Serializer;
 
 use crate::dunder;
+use crate::module::module_name::ModuleName;
 use crate::util::with_hash::WithHash;
 
 #[derive(Debug, Clone, Dupe, Copy, PartialEq, Eq, Hash, Default)]
@@ -123,6 +124,27 @@ impl ModulePath {
         self.style() == ModuleStyle::Interface
     }
 
+    /// Given a module, find the path that must have been on the search path to find it.
+    pub fn root_of(&self, name: ModuleName) -> Option<PathBuf> {
+        if matches!(self.details(), ModulePathDetails::BundledTypeshed(_)) {
+            return None;
+        }
+        let mut path = self.as_path()?.to_path_buf();
+        path.set_extension("");
+
+        if path.file_name() == Some(dunder::INIT.as_str().as_ref()) {
+            path.pop();
+        }
+
+        for part in name.components().iter().rev() {
+            if path.file_name() != Some(part.as_str().as_ref()) {
+                return None;
+            }
+            path.pop();
+        }
+        Some(path)
+    }
+
     /// Convert to a path, that may not exist on disk.
     fn as_path(&self) -> Option<&Path> {
         match &**self.0 {
@@ -135,5 +157,30 @@ impl ModulePath {
 
     pub fn details(&self) -> &ModulePathDetails {
         &self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_root_of() {
+        let path = ModulePath::filesystem(PathBuf::from("hello/foo/bar/baz.py"));
+        assert_eq!(
+            path.root_of(ModuleName::from_str("foo.bar.baz")),
+            Some(PathBuf::from("hello"))
+        );
+        assert_eq!(
+            path.root_of(ModuleName::from_str("baz")),
+            Some(PathBuf::from("hello/foo/bar"))
+        );
+        assert_eq!(path.root_of(ModuleName::from_str("baaz")), None);
+
+        let path = ModulePath::filesystem(PathBuf::from("hello/foo/bar/__init__.pyi"));
+        assert_eq!(
+            path.root_of(ModuleName::from_str("foo.bar")),
+            Some(PathBuf::from("hello"))
+        );
     }
 }
