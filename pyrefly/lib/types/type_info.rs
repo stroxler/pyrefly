@@ -208,16 +208,20 @@ impl NarrowedAttrs {
 
     fn update_for_assignment(&mut self, name: &Name, more_names: &[Name], ty: Option<Type>) {
         let attrs = &mut self.0;
-        if more_names.is_empty() {
-            if let Some(ty) = ty {
-                attrs.insert(name.clone(), NarrowedAttr::new(more_names, ty));
-            } else {
-                attrs.shift_remove(name);
+        match more_names {
+            [] => {
+                if let Some(ty) = ty {
+                    attrs.insert(name.clone(), NarrowedAttr::new(more_names, ty));
+                } else {
+                    attrs.shift_remove(name);
+                }
             }
-        } else if let Some(attr) = attrs.get_mut(name) {
-            // (Note that the requirement that more_names be nonempty is satisfied here)
-            attr.update_for_assignment(more_names, ty);
-        } // ... else there is no existing narrow and no narrow type, so do nothing.
+            [name, more_names @ ..] => {
+                if let Some(attr) = attrs.get_mut(name) {
+                    attr.update_for_assignment(name, more_names, ty);
+                } // ... else there is no existing narrow and no narrow type, so do nothing.
+            }
+        }
     }
 
     fn get(&self, name: &Name) -> Option<&NarrowedAttr> {
@@ -402,22 +406,12 @@ impl NarrowedAttr {
         }
     }
 
-    fn update_for_assignment(&mut self, names: &[Name], ty: Option<Type>) {
-        match names {
-            [] => {
-                // This case can't be modeled with mutation, it *has* to be handled one layer up
-                // where we either create a fresh `Leaf` or delete the existing `NarrowedAttr`
-                // (because assignment invalidates subtrees).
-                unreachable!(
-                    "NarrowedAttrs::update_for_assignment should not be called with empty `names`"
-                )
+    fn update_for_assignment(&mut self, name: &Name, more_names: &[Name], ty: Option<Type>) {
+        match self {
+            Self::Leaf(..) => {}
+            Self::WithoutRoot(attrs) | Self::WithRoot(_, attrs) => {
+                attrs.update_for_assignment(name, more_names, ty);
             }
-            [name, more_names @ ..] => match self {
-                Self::Leaf(..) => {}
-                Self::WithoutRoot(attrs) | Self::WithRoot(_, attrs) => {
-                    attrs.update_for_assignment(name, more_names, ty);
-                }
-            },
         }
     }
 
