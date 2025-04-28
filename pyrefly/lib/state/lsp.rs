@@ -508,7 +508,7 @@ impl<'a> Transaction<'a> {
         Some(res)
     }
 
-    #[allow(dead_code)]
+    #[allow(deprecated)] // The `deprecated` field
     pub fn symbols(&self, handle: &Handle) -> Option<Vec<DocumentSymbol>> {
         let ast = self.get_ast(handle)?;
         let module_info = self.get_module_info(handle)?;
@@ -531,7 +531,6 @@ impl<'a> Transaction<'a> {
                         detail: None,
                         kind: lsp_types::SymbolKind::FUNCTION,
                         tags: None,
-                        #[expect(deprecated)]
                         deprecated: None,
                         range: source_range_to_range(
                             &module_info.source_range(stmt_function_def.range),
@@ -550,7 +549,6 @@ impl<'a> Transaction<'a> {
                         detail: None,
                         kind: lsp_types::SymbolKind::CLASS,
                         tags: None,
-                        #[expect(deprecated)]
                         deprecated: None,
                         range: source_range_to_range(
                             &module_info.source_range(stmt_class_def.range),
