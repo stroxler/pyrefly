@@ -28,7 +28,6 @@ use starlark_map::small_set::SmallSet;
 use tracing::debug;
 
 use crate::util::fs_anyhow;
-use crate::util::listing::FileList;
 use crate::util::prelude::SliceExt;
 use crate::util::prelude::VecExt;
 
@@ -348,10 +347,8 @@ impl FilteredGlobs {
     pub fn roots(&self) -> Vec<PathBuf> {
         self.includes.roots()
     }
-}
 
-impl FileList for FilteredGlobs {
-    fn files(&self) -> anyhow::Result<Vec<PathBuf>> {
+    pub fn files(&self) -> anyhow::Result<Vec<PathBuf>> {
         let mut result = Vec::new();
         for file in self.includes.files()? {
             if !self.excludes.matches(&file)? {
@@ -368,7 +365,7 @@ impl FileList for FilteredGlobs {
         Ok(result)
     }
 
-    fn covers(&self, path: &Path) -> bool {
+    pub fn covers(&self, path: &Path) -> bool {
         self.includes.covers(path) && !self.excludes.covers(path)
     }
 }

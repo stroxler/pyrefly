@@ -53,7 +53,7 @@ use crate::util::display;
 use crate::util::display::number_thousands;
 use crate::util::forgetter::Forgetter;
 use crate::util::fs_anyhow;
-use crate::util::listing::FileList;
+use crate::util::globs::FilteredGlobs;
 use crate::util::memory::MemoryUsageTrace;
 use crate::util::prelude::SliceExt;
 use crate::util::watcher::CategorizedEvents;
@@ -262,7 +262,7 @@ async fn get_watcher_events(watcher: &mut impl Watcher) -> anyhow::Result<Catego
 impl Args {
     pub fn run_once(
         self,
-        files_to_check: impl FileList,
+        files_to_check: FilteredGlobs,
         config_finder: ConfigFinder,
         allow_forget: bool,
     ) -> anyhow::Result<CommandExitStatus> {
@@ -286,7 +286,7 @@ impl Args {
     pub async fn run_watch(
         self,
         mut watcher: impl Watcher,
-        files_to_check: impl FileList,
+        files_to_check: FilteredGlobs,
         config_finder: ConfigFinder,
     ) -> anyhow::Result<()> {
         // TODO: We currently make 1 unrealistic assumptions, which should be fixed in the future:

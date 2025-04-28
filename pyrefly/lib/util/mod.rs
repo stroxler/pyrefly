@@ -16,7 +16,6 @@ pub mod forgetter;
 pub mod fs_anyhow;
 pub mod gas;
 pub mod globs;
-pub mod listing;
 pub mod lock;
 pub mod locked_map;
 pub mod memory;
