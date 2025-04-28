@@ -165,29 +165,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
+    fn names_to_fields(
+        &self,
+        cls: &Class,
+        fields: &SmallMap<Name, bool>,
+    ) -> Vec<(Name, TypedDictField)> {
+        // TODO(stroxler): Look into whether we can re-wire the code so that it is not possible to
+        // have the typed dict think a field exists that cannot be converted to a `TypedDictField`
+        // (this can happen for any unannotated field - e.g. a classmethod or staticmethod).
+        fields
+            .iter()
+            .filter_map(|(name, is_total)| {
+                self.get_class_member(cls, name).and_then(|member| {
+                    Arc::unwrap_or_clone(member.value)
+                        .as_typed_dict_field_info(*is_total)
+                        .map(|field| (name.clone(), field))
+                })
+            })
+            .collect()
+    }
+
     fn get_typed_dict_init(
         &self,
         cls: &Class,
         fields: &SmallMap<Name, bool>,
     ) -> ClassSynthesizedField {
         let mut params = vec![self.class_self_param(cls)];
-        for (name, is_total) in fields {
-            // TODO(stroxler): Look into whether we can re-wire the code so that it is not possible to
-            // have the typed dict think a field exists that cannot be converted to a `TypedDictField`
-            // (this can happen for any unannotated field - e.g. a classmethod or staticmethod).
-            if let Some(field) = self.get_class_member(cls, name).and_then(|member| {
-                Arc::unwrap_or_clone(member.value).as_typed_dict_field_info(*is_total)
-            }) {
-                params.push(Param::Pos(
-                    name.clone(),
-                    field.ty,
-                    if field.required {
-                        Required::Required
-                    } else {
-                        Required::Optional
-                    },
-                ));
-            }
+        for (name, field) in self.names_to_fields(cls, fields) {
+            params.push(Param::Pos(
+                name.clone(),
+                field.ty,
+                if field.required {
+                    Required::Required
+                } else {
+                    Required::Optional
+                },
+            ));
         }
         let ty = Type::Function(Box::new(Function {
             signature: Callable::list(ParamList::new(params), Type::None),
