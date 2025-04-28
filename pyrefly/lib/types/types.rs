@@ -969,9 +969,9 @@ impl Type {
         }
     }
 
-    // This doesn't handle generics currently
-    pub fn callable_return_type(&self) -> Option<Type> {
+    fn transform_callable(&mut self, mut f: impl FnMut(&mut Callable)) {
         match self {
+            Type::Callable(box callable) => f(callable),
             Type::Function(box func)
             | Type::Forall(box Forall {
                 body: Forallable::Function(func),
@@ -984,53 +984,43 @@ impl Type {
             | Type::BoundMethod(box BoundMethod {
                 func: BoundMethodType::Forall(Forall { body: func, .. }),
                 ..
-            }) => Some(func.signature.ret.clone()),
+            }) => f(&mut func.signature),
             Type::Overload(overload)
             | Type::BoundMethod(box BoundMethod {
                 func: BoundMethodType::Overload(overload),
                 ..
-            }) => Some(unions(
-                overload
-                    .signatures
-                    .iter()
-                    .map(|x| match x {
-                        OverloadType::Callable(callable) => callable.ret.clone(),
-                        OverloadType::Forall(forall) => forall.body.signature.ret.clone(),
-                    })
-                    .collect(),
-            )),
-            _ => None,
+            }) => {
+                for x in overload.signatures.iter_mut() {
+                    match x {
+                        OverloadType::Callable(callable) => f(callable),
+                        OverloadType::Forall(forall) => f(&mut forall.body.signature),
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // This doesn't handle generics currently
+    pub fn callable_return_type(&mut self) -> Option<Type> {
+        let mut rets = Vec::new();
+        let mut get_ret = |callable: &mut Callable| {
+            rets.push(callable.ret.clone());
+        };
+        self.transform_callable(&mut get_ret);
+        if rets.is_empty() {
+            None
+        } else {
+            Some(unions(rets))
         }
     }
 
     // This doesn't handle generics currently
     pub fn set_callable_return_type(&mut self, ret: Type) {
-        match self {
-            Type::Function(box func)
-            | Type::Forall(box Forall {
-                body: Forallable::Function(func),
-                ..
-            })
-            | Type::BoundMethod(box BoundMethod {
-                func: BoundMethodType::Function(func),
-                ..
-            })
-            | Type::BoundMethod(box BoundMethod {
-                func: BoundMethodType::Forall(Forall { body: func, .. }),
-                ..
-            }) => {
-                func.signature.ret = ret;
-            }
-            Type::Overload(overload)
-            | Type::BoundMethod(box BoundMethod {
-                func: BoundMethodType::Overload(overload),
-                ..
-            }) => overload.signatures.iter_mut().for_each(|x| match x {
-                OverloadType::Callable(callable) => callable.ret = ret.clone(),
-                OverloadType::Forall(forall) => forall.body.signature.ret = ret.clone(),
-            }),
-            _ => {}
-        }
+        let mut set_ret = |callable: &mut Callable| {
+            callable.ret = ret.clone();
+        };
+        self.transform_callable(&mut set_ret);
     }
 
     pub fn promote_literals(self, stdlib: &Stdlib) -> Type {

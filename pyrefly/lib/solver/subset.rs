@@ -320,7 +320,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         if self.type_order.is_protocol(cls.class_object()) {
             // If it's a protocol, always use the __call__ method
             return self.try_lookup_attr_from_class(&class_type, &dunder::CALL);
-        } else if let Some(metaclass_call_attr_ty) = self.type_order.get_metaclass_dunder_call(cls)
+        } else if let Some(mut metaclass_call_attr_ty) =
+            self.type_order.get_metaclass_dunder_call(cls)
         {
             // If the class has a custom metaclass and the return type of the metaclass's __call__
             // is not a subclass of the current class, use that and ignore __new__ and __init__
@@ -343,7 +344,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             )))
         };
         // Check the __new__ method and whether it comes from object or has been overridden
-        let (new_attr_ty, overrides_new) = if let Some(t) = self
+        let (new_attr_ty, overrides_new) = if let Some(mut t) = self
             .type_order
             .get_dunder_new(cls)
             .and_then(|t| t.to_unbound_callable())
