@@ -536,8 +536,27 @@ impl<'a> Transaction<'a> {
                             )),
                         });
                     }
-                    Stmt::ClassDef(_)
-                    | Stmt::Return(_)
+                    Stmt::ClassDef(stmt_class_def) => {
+                        symbols.push(DocumentSymbol {
+                            name: stmt_class_def.name.to_string(),
+                            detail: None,
+                            kind: lsp_types::SymbolKind::CLASS,
+                            tags: None,
+                            #[expect(deprecated)]
+                            deprecated: None,
+                            range: source_range_to_range(
+                                &module_info.source_range(stmt_class_def.range),
+                            ),
+                            selection_range: source_range_to_range(
+                                &module_info.source_range(stmt_class_def.name.range),
+                            ),
+                            children: Some(find_symbols_for_stmts(
+                                &stmt_class_def.body,
+                                module_info,
+                            )),
+                        });
+                    }
+                    Stmt::Return(_)
                     | Stmt::Delete(_)
                     | Stmt::TypeAlias(_)
                     | Stmt::Assign(_)
