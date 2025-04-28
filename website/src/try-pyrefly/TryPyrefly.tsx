@@ -515,7 +515,7 @@ const styles = stylex.create({
         position: 'absolute',
         display: 'flex',
         flexDirection: 'row', // Buttons start from left and go right
-        zIndex: 1000,
+        zIndex: 10,
     },
     // Style for mobile buttons (always visible)
     mobileButtonContainer: {
