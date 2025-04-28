@@ -13,8 +13,10 @@ use std::path::MAIN_SEPARATOR;
 use std::path::MAIN_SEPARATOR_STR;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 
 use anyhow::Context;
+use bstr::ByteSlice;
 use glob::Pattern;
 use itertools::Itertools;
 use path_absolutize::Absolutize;
@@ -23,6 +25,7 @@ use serde::Serialize;
 use serde::de;
 use serde::de::Visitor;
 use starlark_map::small_set::SmallSet;
+use tracing::debug;
 
 use crate::util::fs_anyhow;
 use crate::util::listing::FileList;
@@ -254,8 +257,70 @@ impl Display for Globs {
     }
 }
 
+/// If `eden` is likely to be available, we can resolve the globs faster.
+/// For a 100K file project, with a warm disk, non-Eden = 1.6s, Eden = 1.1s.
+/// For a cold disk, Eden is likely to win by a much larger margin.
+/// Currently `eden` is only likely available inside Meta.
+const USE_EDEN: bool = cfg!(fbcode_build);
+
 impl Globs {
+    pub fn files_eden(&self) -> anyhow::Result<Vec<PathBuf>> {
+        fn hg_root() -> anyhow::Result<PathBuf> {
+            let output = Command::new("hg")
+                .arg("root")
+                .output()
+                .context("Failed to run `hg root`")?;
+            if !output.status.success() {
+                return Err(anyhow::anyhow!(
+                    "Failed to run `hg root`, stderr: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                ));
+            }
+            Ok(PathBuf::from(std::str::from_utf8(
+                output.stdout.trim_ascii(),
+            )?))
+        }
+
+        fn eden_glob(root: PathBuf, patterns: Vec<&Path>) -> anyhow::Result<Vec<PathBuf>> {
+            let mut command = Command::new("eden");
+            command.arg("glob");
+            command.args(patterns);
+            command.current_dir(&root);
+            let output = command.output().context("Failed to run `eden glob`")?;
+            if !output.status.success() {
+                // Last line of stderr of `eden glob` is usually a good indicator of what happened
+                let stderr_text = String::from_utf8_lossy(&output.stderr);
+                return Err(
+                    anyhow::anyhow!("{}", stderr_text.lines().last().unwrap_or(""))
+                        .context("Failure when running `eden glob`"),
+                );
+            }
+            let mut result: Vec<PathBuf> = Vec::new();
+            for line in output.stdout.lines() {
+                let path = line.to_path().with_context(|| {
+                    format!(
+                        "Failed to convert line `{}` into a valid path",
+                        line.to_str_lossy()
+                    )
+                })?;
+                result.push(root.join(path))
+            }
+            Ok(result)
+        }
+
+        let root = hg_root()?;
+        let globs = self.0.try_map(|g| g.0.strip_prefix(&root))?;
+        eden_glob(root, globs)
+    }
+
     pub fn files(&self) -> anyhow::Result<Vec<PathBuf>> {
+        if USE_EDEN {
+            match self.files_eden() {
+                Ok(files) => return Ok(files),
+                Err(e) => debug!("Failed to use `eden` for glob: {e:#}"),
+            }
+        }
+
         let mut result = SmallSet::new();
         for pattern in &self.0 {
             result.extend(pattern.files()?);
