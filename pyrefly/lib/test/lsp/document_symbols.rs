@@ -329,3 +329,47 @@ result = y.method()
         report.trim(),
     );
 }
+
+#[test]
+fn nested_class_test() {
+    let code = r#"
+while True:
+    class Foo: pass
+    print(str(Foo))
+"#;
+    let report = get_batched_lsp_operations_report_no_cursor(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+
+[
+  {
+    "name": "Foo",
+    "kind": 5,
+    "range": {
+      "start": {
+        "line": 2,
+        "character": 4
+      },
+      "end": {
+        "line": 2,
+        "character": 19
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 2,
+        "character": 10
+      },
+      "end": {
+        "line": 2,
+        "character": 13
+      }
+    },
+    "children": []
+  }
+]"#
+        .trim(),
+        report.trim(),
+    );
+}

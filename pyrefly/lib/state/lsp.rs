@@ -512,77 +512,62 @@ impl<'a> Transaction<'a> {
     pub fn symbols(&self, handle: &Handle) -> Option<Vec<DocumentSymbol>> {
         let ast = self.get_ast(handle)?;
         let module_info = self.get_module_info(handle)?;
-        fn find_symbols_for_stmts(stmts: &[Stmt], module_info: &ModuleInfo) -> Vec<DocumentSymbol> {
-            let mut symbols = Vec::new();
-            for stmt in stmts {
-                match stmt {
-                    Stmt::FunctionDef(stmt_function_def) => {
-                        symbols.push(DocumentSymbol {
-                            name: stmt_function_def.name.to_string(),
-                            detail: None,
-                            kind: lsp_types::SymbolKind::FUNCTION,
-                            tags: None,
-                            #[expect(deprecated)]
-                            deprecated: None,
-                            range: source_range_to_range(
-                                &module_info.source_range(stmt_function_def.range),
-                            ),
-                            selection_range: source_range_to_range(
-                                &module_info.source_range(stmt_function_def.name.range),
-                            ),
-                            children: Some(find_symbols_for_stmts(
-                                &stmt_function_def.body,
-                                module_info,
-                            )),
-                        });
-                    }
-                    Stmt::ClassDef(stmt_class_def) => {
-                        symbols.push(DocumentSymbol {
-                            name: stmt_class_def.name.to_string(),
-                            detail: None,
-                            kind: lsp_types::SymbolKind::CLASS,
-                            tags: None,
-                            #[expect(deprecated)]
-                            deprecated: None,
-                            range: source_range_to_range(
-                                &module_info.source_range(stmt_class_def.range),
-                            ),
-                            selection_range: source_range_to_range(
-                                &module_info.source_range(stmt_class_def.name.range),
-                            ),
-                            children: Some(find_symbols_for_stmts(
-                                &stmt_class_def.body,
-                                module_info,
-                            )),
-                        });
-                    }
-                    Stmt::Return(_)
-                    | Stmt::Delete(_)
-                    | Stmt::TypeAlias(_)
-                    | Stmt::Assign(_)
-                    | Stmt::AugAssign(_)
-                    | Stmt::AnnAssign(_)
-                    | Stmt::For(_)
-                    | Stmt::While(_)
-                    | Stmt::If(_)
-                    | Stmt::With(_)
-                    | Stmt::Match(_)
-                    | Stmt::Raise(_)
-                    | Stmt::Try(_)
-                    | Stmt::Assert(_)
-                    | Stmt::Import(_)
-                    | Stmt::ImportFrom(_)
-                    | Stmt::Global(_)
-                    | Stmt::Nonlocal(_)
-                    | Stmt::Expr(_)
-                    | Stmt::Pass(_)
-                    | Stmt::Break(_)
-                    | Stmt::Continue(_)
-                    | Stmt::IpyEscapeCommand(_) => {}
+        fn recurse_stmt_adding_symbols<'a>(
+            stmt: &'a Stmt,
+            symbols: &'a mut Vec<DocumentSymbol>,
+            module_info: &ModuleInfo,
+        ) {
+            let mut recursed_symbols = Vec::new();
+            stmt.recurse(&mut |stmt| {
+                recurse_stmt_adding_symbols(stmt, &mut recursed_symbols, module_info)
+            });
+
+            match stmt {
+                Stmt::FunctionDef(stmt_function_def) => {
+                    let mut children = Vec::new();
+                    children.append(&mut recursed_symbols);
+                    symbols.push(DocumentSymbol {
+                        name: stmt_function_def.name.to_string(),
+                        detail: None,
+                        kind: lsp_types::SymbolKind::FUNCTION,
+                        tags: None,
+                        #[expect(deprecated)]
+                        deprecated: None,
+                        range: source_range_to_range(
+                            &module_info.source_range(stmt_function_def.range),
+                        ),
+                        selection_range: source_range_to_range(
+                            &module_info.source_range(stmt_function_def.name.range),
+                        ),
+                        children: Some(children),
+                    });
                 }
-            }
-            symbols
+                Stmt::ClassDef(stmt_class_def) => {
+                    let mut children = Vec::new();
+                    children.append(&mut recursed_symbols);
+                    symbols.push(DocumentSymbol {
+                        name: stmt_class_def.name.to_string(),
+                        detail: None,
+                        kind: lsp_types::SymbolKind::CLASS,
+                        tags: None,
+                        #[expect(deprecated)]
+                        deprecated: None,
+                        range: source_range_to_range(
+                            &module_info.source_range(stmt_class_def.range),
+                        ),
+                        selection_range: source_range_to_range(
+                            &module_info.source_range(stmt_class_def.name.range),
+                        ),
+                        children: Some(children),
+                    });
+                }
+                _ => {}
+            };
+            symbols.append(&mut recursed_symbols);
         }
-        Some(find_symbols_for_stmts(&ast.body, &module_info))
+        let mut result = Vec::new();
+        ast.body
+            .visit(&mut |stmt| recurse_stmt_adding_symbols(stmt, &mut result, &module_info));
+        Some(result)
     }
 }
