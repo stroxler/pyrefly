@@ -18,8 +18,7 @@ yarn install-with-wasm-deps
 ```
 
 This builds the wasm dependencies and installs the yarn dependencies.
-If you are running into issues with compiling zstd on your mac when running `build.sh` or `start.sh`, you'll need to install
-clang following the instructions here: https://github.com/briansmith/ring/issues/1824.
+If you are running into issues with compiling zstd on your mac when running `build.sh` or `start.sh`, see the readme in that directory.
 
 ### Running the Website
 
