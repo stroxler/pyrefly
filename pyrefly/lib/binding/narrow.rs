@@ -25,6 +25,7 @@ use starlark_map::smallmap;
 use vec1::Vec1;
 
 use crate::assert_words;
+use crate::ruff::ast::Ast;
 use crate::types::types::Type;
 use crate::util::prelude::SliceExt;
 
@@ -306,7 +307,7 @@ pub fn identifier_and_chain_for_attribute(
                 let mut final_chain = Vec1::from_vec_push(rev_attr_chain, expr.attr.id.clone());
                 final_chain.reverse();
                 Some((
-                    Identifier::new(name.id.clone(), name.range),
+                    Ast::expr_name_identifier(name.clone()),
                     AttributeChain::new(final_chain),
                 ))
             }
