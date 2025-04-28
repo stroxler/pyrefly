@@ -2,8 +2,8 @@
 
 ## No errors on the empty file
 
-```scrut
-$ echo "" > $TMPDIR/empty.py && $PYREFLY check --python-version 3.13.0 $TMPDIR/empty.py --search-path $TMPDIR -a  2>&1 | grep -v "overrides"
+```scrut {output_stream: stderr}
+$ echo "" > $TMPDIR/empty.py && $PYREFLY check --python-version 3.13.0 $TMPDIR/empty.py --search-path $TMPDIR -a
 * INFO * errors* (glob)
 [0]
 ```
@@ -41,14 +41,14 @@ ERROR */hidden2.py:1:26-35: `str` is not assignable to `int` [bad-assignment] (g
 
 ## We do report from nested with --check-all
 
-```scrut
+```scrut {output_stream: stderr}
 $ echo "x: str = 12" > $TMPDIR/shown1.py && \
 > echo "import shown1; y: int = shown1.x" > $TMPDIR/shown2.py && \
-> $PYREFLY check --python-version 3.13.0 $TMPDIR/shown2.py --search-path=$TMPDIR --check-all 2>&1 | grep -v "overrides"
+> $PYREFLY check --python-version 3.13.0 $TMPDIR/shown2.py --search-path=$TMPDIR --check-all
 ERROR */shown*.py:1:* (glob)
 ERROR */shown*.py:1:* (glob)
 * INFO * errors* (glob)
-[0]
+[1]
 ```
 
 ## We can do our own globbing
