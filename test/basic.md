@@ -84,3 +84,11 @@ $ echo "" > $TMPDIR/empty.py && $PYREFLY check --python-version 3.13.0 $TMPDIR/e
 * INFO * errors* (glob)
 [0]
 ```
+
+## --search-path takes precedence over default typeshed
+
+```scrut
+$ export PYREFLY_STDLIB_SEARCH_PATH=$TYPESHED_ROOT/typeshed/stdlib && $PYREFLY check --python-version 3.13.0 $TYPESHED_ROOT/typeshed/stdlib/builtins.pyi --search-path $TYPESHED_ROOT/typeshed/stdlib 2>&1 | grep -v "overrides"
+* INFO * errors* (glob)
+[0]
+```

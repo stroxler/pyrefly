@@ -35,6 +35,7 @@ use crate::error::error::print_error_counts;
 use crate::error::error::print_errors;
 use crate::error::legacy::LegacyErrors;
 use crate::error::summarise::print_error_summary;
+use crate::module::bundled::stdlib_search_path;
 use crate::module::ignore::SuppressionKind;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
@@ -359,7 +360,7 @@ impl Args {
             },
             default: if retain {
                 Require::Everything
-            } else if self.check_all {
+            } else if self.check_all || stdlib_search_path().is_some() {
                 Require::Errors
             } else {
                 Require::Exports
