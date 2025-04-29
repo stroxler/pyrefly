@@ -26,7 +26,7 @@ pub enum FindError {
     /// This import could not be found, but the user configured it to be ignored
     Ignored,
     /// This site package path entry was found, but does not have a py.typed entry
-    /// and ignore_py_typed_package_errors is disabled
+    /// and use_untyped_imports is disabled
     NoPyTyped,
     /// We found stubs, but no source files were found. This means it's likely stubs
     /// are installed for a project, but the library is not actually importable
@@ -68,7 +68,9 @@ impl FindError {
             }
             Self::Ignored => "Ignored import".to_owned(),
             Self::NoPyTyped => "Imported package does not contain a py.typed file, \
-                and therefore cannot be typed. See `use_untyped_imports` to import anyway."
+                and therefore cannot be typed. Try installing a `<package name>-stubs` version
+                of your package to get the released stubs, or enable `use_untyped_imports` to
+                disable this error."
                 .to_owned(),
             Self::NoSource(module) => {
                 format!(

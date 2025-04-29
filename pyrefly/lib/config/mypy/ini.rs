@@ -34,7 +34,10 @@ pub struct MypyConfig {
     python_version: Option<PythonVersion>,
     #[serde(rename = "python_executable")]
     python_interpreter: Option<PathBuf>,
-    #[serde(rename = "follow_untyped_imports")]
+    #[serde(
+        rename = "follow_untyped_imports",
+        default = "ConfigFile::default_true"
+    )]
     use_untyped_imports: bool,
 }
 

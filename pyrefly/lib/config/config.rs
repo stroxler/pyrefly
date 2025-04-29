@@ -108,7 +108,7 @@ pub struct ConfigFile {
     pub sub_configs: Vec<SubConfig>,
 
     /// Skips any `py.typed` checks we do when resolving `site_package_path` imports.
-    #[serde(default)]
+    #[serde(default = "ConfigFile::default_true")]
     pub use_untyped_imports: bool,
 
     /// Completely custom module to path mappings. Currently not exposed to the user.
@@ -159,7 +159,7 @@ impl ConfigFile {
             root: Default::default(),
             sub_configs: Default::default(),
             custom_module_paths: Default::default(),
-            use_untyped_imports: false,
+            use_untyped_imports: true,
             ignore_missing_source: false,
         }
     }
@@ -231,6 +231,10 @@ impl ConfigFile {
 
     pub fn default_search_path() -> Vec<PathBuf> {
         vec![PathBuf::from("")]
+    }
+
+    pub fn default_true() -> bool {
+        true
     }
 
     pub fn python_version(&self) -> PythonVersion {
