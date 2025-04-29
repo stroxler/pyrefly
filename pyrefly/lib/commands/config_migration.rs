@@ -19,6 +19,7 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use clap::Parser;
+use tracing::error;
 use tracing::info;
 
 use crate::commands::run::CommandExitStatus;
@@ -32,7 +33,9 @@ use crate::util::upward_search::UpwardSearch;
 
 #[derive(Clone, Debug, Parser)]
 pub struct Args {
-    /// The path to the mypy or pyright config file to convert. Optional. If not provided, pyrefly will search upwards for a mypy.ini, pyrightconfig.json, or pyproject.toml.
+    /// The path to the mypy or pyright config file to convert. Optional.
+    /// If not provided, or if it's a directory, pyrefly will search upwards for a
+    /// mypy.ini, pyrightconfig.json, or pyproject.toml.
     input_path: Option<PathBuf>,
     /// Optional path to write the converted pyre.toml config file to. If not provided, the config will be written to the same directory as the input file.
     output_path: Option<PathBuf>,
@@ -75,10 +78,20 @@ impl Args {
     }
 
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
+        if let Some(path) = self.input_path.as_ref() {
+            if !path.exists() {
+                error!("Could not find or cannot access `{}`", path.display());
+                return Ok(CommandExitStatus::InfraError);
+            }
+        }
         let input_path = match &self.input_path {
-            Some(path) => {
-                info!("Looking for {}", path.display());
+            Some(path) if path.is_file() => {
+                println!("Looking for {}", path.display());
                 path
+            }
+            Some(path) => {
+                println!("Looking for configs to migrate in {}", path.display());
+                &Self::find_config(path)?
             }
             None => {
                 let cwd = std::env::current_dir()
@@ -104,7 +117,8 @@ impl Args {
             Self::load_from_pyproject(&raw_file)?
         } else {
             eprintln!(
-                "Currently only migration from pyrightconfig.json, mypy.ini, and pyproject.toml is supported"
+                "Currently only migration from pyrightconfig.json, mypy.ini, and pyproject.toml is supported, not {}",
+                input_path.display(),
             );
             return Ok(CommandExitStatus::UserError);
         };
@@ -292,6 +306,22 @@ files = ["mypy.py"]
         fs_anyhow::write(&tmp.path().join("a/pyproject.toml"), b"")?;
         let found = Args::find_config(&bottom)?;
         assert!(found.ends_with("mypy.ini"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_find_config_find_from_dir() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let bottom = tmp.path().join("a/b/c/");
+        std::fs::create_dir_all(&bottom)?;
+        fs_anyhow::write(&tmp.path().join("a/mypy.ini"), b"[mypy]\n")?;
+        let status = Args {
+            input_path: Some(bottom),
+            output_path: None,
+        }
+        .run()?;
+        assert!(matches!(status, CommandExitStatus::Success));
+        assert!(tmp.path().join("a/pyrefly.toml").try_exists()?);
         Ok(())
     }
 }
