@@ -24,26 +24,28 @@ exports[`Home page renders external site correctly 1`] = `
         </p>
         <section>
           <a
-            href="https://github.com/facebook/pyrefly/milestone/1"
+            href="/try/"
           >
              
-            Github
+            Try Demo
              
           </a>
-          <a
-            href="/sandbox/"
-          >
-             
-            Sandbox
-             
-          </a>
-          <a
-            href="/en/docs/"
-          >
-             
-            Docs
-             
-          </a>
+          <div>
+            <a
+              href="/en/docs/"
+            >
+               
+              Read Docs
+               
+            </a>
+            <a
+              href="https://github.com/facebook/pyrefly/milestone/1"
+            >
+               
+              Github ↗
+               
+            </a>
+          </div>
         </section>
         <section>
           <p>
@@ -97,26 +99,28 @@ exports[`Home page renders internal site correctly 1`] = `
         </p>
         <section>
           <a
-            href="https://github.com/facebook/pyrefly/milestone/1"
+            href="/try/"
           >
              
-            Github
+            Try Demo
              
           </a>
-          <a
-            href="/sandbox/"
-          >
-             
-            Sandbox
-             
-          </a>
-          <a
-            href="/en/docs/"
-          >
-             
-            Docs
-             
-          </a>
+          <div>
+            <a
+              href="/en/docs/"
+            >
+               
+              Read Docs
+               
+            </a>
+            <a
+              href="https://github.com/facebook/pyrefly/milestone/1"
+            >
+               
+              Github ↗
+               
+            </a>
+          </div>
         </section>
         <section>
           <p>

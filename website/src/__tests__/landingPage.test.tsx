@@ -94,7 +94,7 @@ describe('Home page', () => {
         const comingSoonLink = header?.querySelector('a');
         expect(comingSoonLink).toBeInTheDocument();
         expect(comingSoonLink?.getAttribute('href')).toBe(
-            'https://github.com/facebook/pyrefly/milestone/1'
+            '/try/'
         );
     }
 });

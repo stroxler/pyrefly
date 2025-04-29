@@ -143,6 +143,7 @@
     /* color palette */
     --color-background: #384048;
     --color-primary: #fe9801;
+    --color-primary-hover: #fe8801;
     --color-secondary: #ff7701;
     --color-accent: #ff4300;
     --color-text: #efefef;

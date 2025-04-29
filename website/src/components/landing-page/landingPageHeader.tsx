@@ -26,28 +26,30 @@ export default function LandingPageHeader(): React.ReactElement {
             <p {...stylex.props(styles.subtitle, typography.h3)}>
                 <span>A faster Python type checker written in Rust</span>
             </p>
-            <section {...stylex.props(styles.buttonGroup)}>
+            <section {...stylex.props(styles.buttonGroupVertical)}>
                 <a
-                    href="https://github.com/facebook/pyrefly/milestone/1"
-                    {...stylex.props(styles.button, typography.p)}
+                    href={useBaseUrl('try/')}
+                    {...stylex.props(styles.buttonFullWidth, typography.p)}
                 >
                     {' '}
-                    Github{' '}
+                    Try Demo{' '}
                 </a>
-                <a
-                    href={useBaseUrl('sandbox/')}
-                    {...stylex.props(styles.button, typography.p)}
-                >
-                    {' '}
-                    Sandbox{' '}
-                </a>
-                <a
-                    href={useBaseUrl('en/docs/')}
-                    {...stylex.props(styles.button, typography.p)}
-                >
-                    {' '}
-                    Docs{' '}
-                </a>
+                <div {...stylex.props(styles.buttonRow)}>
+                    <a
+                        href={useBaseUrl('en/docs/')}
+                        {...stylex.props(styles.button, typography.p)}
+                    >
+                        {' '}
+                        Read Docs{' '}
+                    </a>
+                    <a
+                        href="https://github.com/facebook/pyrefly/milestone/1"
+                        {...stylex.props(styles.button, typography.p)}
+                    >
+                        {' '}
+                        Github ↗{' '}
+                    </a>
+                </div>
             </section>
             <section {...stylex.props(styles.buttonGroup)}>
                 <p {...stylex.props(typography.p, typography.italic)}>
@@ -111,11 +113,45 @@ const styles = stylex.create({
             textDecoration: 'var(--ifm-link-decoration)',
         },
     },
+    buttonGroupVertical: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: '20px',
+        width: '100%',
+        maxWidth: '400px', // Adjust this value based on your design needs
+        marginLeft: 'auto',
+        marginRight: 'auto',
+    },
+    buttonRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginTop: '10px',
+    },
     buttonGroup: {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         marginTop: '20px',
+    },
+    buttonFullWidth: {
+        padding: '0.75rem 1.5rem',
+        borderRadius: '4px',
+        border: '1px solid var(--color-text)',
+        backgroundColor: 'var(--color-primary)',
+        color: 'var(--color-background)',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+        width: '100%',
+        textAlign: 'center',
+        ':hover': {
+            backgroundColor: 'var(--color-primary-hover)',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+            transform: 'translateY(-1px)',
+        },
     },
     button: {
         padding: '0.75rem 1.5rem',
@@ -125,7 +161,8 @@ const styles = stylex.create({
         color: 'var(--color-text)',
         cursor: 'pointer',
         transition: 'all 0.2s',
-        marginLeft: '10px',
-        MarginRight: '10px',
+        fontWeight: 'bold',
+        width: 'calc(50% - 5px)', // Each button takes up half the space minus a small gap
+        textAlign: 'center',
     },
 });
