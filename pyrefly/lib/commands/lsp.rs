@@ -224,14 +224,6 @@ impl Workspace {
             disable_language_services: false,
         }
     }
-
-    fn make_handle(&self, path: &Path) -> Handle {
-        Handle::new(
-            module_from_path(path, &self.search_path).unwrap_or_else(ModuleName::unknown),
-            ModulePath::memory(path.to_owned()),
-            self.sys_info.dupe(),
-        )
-    }
 }
 
 struct Workspaces {
@@ -634,13 +626,7 @@ impl Server {
             .open_files
             .read()
             .keys()
-            .map(|x| {
-                (
-                    self.workspaces
-                        .get_with(x.clone(), |workspace| workspace.make_handle(x)),
-                    Require::Everything,
-                )
-            })
+            .map(|x| (self.make_open_handle(x), Require::Everything))
             .collect::<Vec<_>>();
         transaction.set_memory(
             self.open_files
@@ -826,6 +812,16 @@ impl Server {
             self.request_settings_for_workspace(&Url::from_file_path(x).unwrap());
         }
         *self.workspaces.workspaces.write() = new_workspaces;
+    }
+
+    fn make_open_handle(&self, path: &Path) -> Handle {
+        self.workspaces.get_with(path.to_owned(), |workspace| {
+            Handle::new(
+                module_from_path(path, &workspace.search_path).unwrap_or_else(ModuleName::unknown),
+                ModulePath::memory(path.to_owned()),
+                workspace.sys_info.dupe(),
+            )
+        })
     }
 
     /// Create a handle. Return None if the workspace has language services disabled (and thus you shouldn't do anything).
