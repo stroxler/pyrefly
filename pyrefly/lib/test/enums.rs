@@ -7,6 +7,8 @@
 
 use itertools::Itertools;
 
+use crate::sys_info::PythonVersion;
+use crate::test::util::TestEnv;
 use crate::test::util::get_class;
 use crate::test::util::mk_state;
 use crate::testcase;
@@ -258,4 +260,40 @@ def f(cond: bool, a: MyEnum, b: Literal[MyEnum.X]):
 
 assert_type(f(True, MyEnum.X, MyEnum.X), MyEnum)
 "#,
+);
+
+testcase!(
+    bug = "In 3.10 and lower versions, _magic_enum_attr is a different type than in 3.11+",
+    test_magic_enum_attr_3_10,
+    TestEnv::new_with_version(PythonVersion::new(3, 10, 0)),
+    r#"
+from typing_extensions import assert_type
+import enum
+class E(enum.Enum):
+    _value_: int
+    E0 = 0
+    E1 = 1
+    @enum._magic_enum_attr
+    def foo(self) -> str: ...  # E: The value for enum member `foo` must match the annotation of the _value_ attribute
+e = E.E0
+assert_type(e.foo, str)
+    "#,
+);
+
+testcase!(
+    bug = "We correctly understand that `foo` is a property but it isn't resolving at attribute access time",
+    test_magic_enum_attr_3_11,
+    TestEnv::new_with_version(PythonVersion::new(3, 11, 0)),
+    r#"
+from typing_extensions import reveal_type
+import enum
+class E(enum.Enum):
+    _value_: int
+    E0 = 0
+    E1 = 1
+    @enum._magic_enum_attr
+    def foo(self) -> str: ...
+e = E.E0
+reveal_type(e.foo)  # E: revealed type: property
+    "#,
 );
