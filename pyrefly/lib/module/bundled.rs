@@ -110,9 +110,6 @@ impl BundledTypeshed {
             config_file.root.errors = Some(ErrorDisplayConfig::new(HashMap::from([
                 // The stdlib is full of deliberately incorrect overrides, so ignore them
                 (ErrorKind::BadOverride, false),
-                // These two are bugs, https://github.com/facebook/pyrefly/issues/137 to fix them
-                (ErrorKind::BadAssignment, false),
-                (ErrorKind::InvalidAnnotation, false),
             ])));
             config_file.configure();
             ArcId::new(config_file)
