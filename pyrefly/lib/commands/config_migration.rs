@@ -81,16 +81,9 @@ impl Args {
     fn write_pyproject(pyproject_path: &Path, config: ConfigFile) -> anyhow::Result<()> {
         // TODO: Use toml_edit to replace the existing tool.pyrefly config, if one exists.
         // This merely appends the new config to the end of the file.
-        use std::io::Write;
-        let mut pyproject = std::fs::File::options()
-            .create(true)
-            .append(true)
-            .open(pyproject_path)?;
-
         let config = PyProject::new(config);
         let serialized = toml::to_string_pretty(&config)?;
-        pyproject
-            .write_all(serialized.as_bytes())
+        fs_anyhow::append(pyproject_path, serialized.as_bytes())
             .with_context(|| "While trying to write the pyrefly config to the pyproject.toml file")
     }
 
