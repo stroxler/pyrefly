@@ -3,7 +3,7 @@
 ## No errors on the empty file
 
 ```scrut {output_stream: stderr}
-$ echo "" > $TMPDIR/empty.py && $PYREFLY check --python-version 3.13.0 $TMPDIR/empty.py --search-path $TMPDIR -a
+$ echo "" > $TMPDIR/empty.py && $PYREFLY check --python-version 3.13.0 $TMPDIR/empty.py -a
 * INFO * errors* (glob)
 [0]
 ```
@@ -21,7 +21,7 @@ No files matched pattern `*/does_not_exist` (glob)
 ```scrut {output_stream: stderr}
 $ echo "x: str = 12" > $TMPDIR/same_name.py && \
 > echo "x: str = True" > $TMPDIR/same_name.pyi && \
-> $PYREFLY check --python-version 3.13.0 $TMPDIR/same_name.py $TMPDIR/same_name.pyi --search-path $TMPDIR
+> $PYREFLY check --python-version 3.13.0 $TMPDIR/same_name.py $TMPDIR/same_name.pyi
 ERROR */same_name.py*:1:10-* (glob)
 ERROR */same_name.py*:1:10-* (glob)
  INFO 2 errors* (glob)
@@ -33,7 +33,7 @@ ERROR */same_name.py*:1:10-* (glob)
 ```scrut {output_stream: stderr}
 $ echo "x: str = 12" > $TMPDIR/hidden1.py && \
 > echo "import hidden1; y: int = hidden1.x" > $TMPDIR/hidden2.py && \
-> $PYREFLY check --python-version 3.13.0 $TMPDIR/hidden2.py --search-path=$TMPDIR
+> $PYREFLY check --python-version 3.13.0 $TMPDIR/hidden2.py
 ERROR */hidden2.py:1:26-35: `str` is not assignable to `int` [bad-assignment] (glob)
  INFO 1 errors* (glob)
 [1]
@@ -44,7 +44,7 @@ ERROR */hidden2.py:1:26-35: `str` is not assignable to `int` [bad-assignment] (g
 ```scrut {output_stream: stderr}
 $ echo "x: str = 12" > $TMPDIR/shown1.py && \
 > echo "import shown1; y: int = shown1.x" > $TMPDIR/shown2.py && \
-> $PYREFLY check --python-version 3.13.0 $TMPDIR/shown2.py --search-path=$TMPDIR --check-all
+> $PYREFLY check --python-version 3.13.0 $TMPDIR/shown2.py --check-all
 ERROR */shown*.py:1:* (glob)
 ERROR */shown*.py:1:* (glob)
 * INFO * errors* (glob)
@@ -56,7 +56,7 @@ ERROR */shown*.py:1:* (glob)
 ```scrut {output_stream: stderr}
 $ echo "x: str = 12" > $TMPDIR/glob1.py && \
 > echo "x: str = 12" > $TMPDIR/glob2.py && \
-> $PYREFLY check --python-version 3.13.0 "$TMPDIR/glob*.py" --search-path $TMPDIR
+> $PYREFLY check --python-version 3.13.0 "$TMPDIR/glob*.py"
 ERROR */glob*.py:1:* (glob)
 ERROR */glob*.py:1:* (glob)
  INFO 2 errors* (glob)

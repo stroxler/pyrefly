@@ -10,11 +10,11 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use dupe::Dupe;
-use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
+use crate::module::module_path::ModulePathDetails;
 use crate::util::arc_id::ArcId;
 use crate::util::lock::Mutex;
 
@@ -27,7 +27,11 @@ pub fn standard_config_finder(
     let configure2 = configure.dupe();
     let configure3 = configure.dupe();
 
-    let cache: Mutex<SmallMap<PathBuf, ArcId<ConfigFile>>> = Mutex::new(SmallMap::new());
+    // A cache where path `p` maps to config file with `search_path = [p]`. If we can find the root.
+    let cache_one: Mutex<SmallMap<PathBuf, ArcId<ConfigFile>>> = Mutex::new(SmallMap::new());
+    // A cache where path `p` maps to config file with `search_path = [p, p/.., p/../.., ...]`.
+    let cache_parents: Mutex<SmallMap<PathBuf, ArcId<ConfigFile>>> = Mutex::new(SmallMap::new());
+
     let empty = LazyLock::new(move || ArcId::new(configure3(ConfigFile::default())));
 
     ConfigFinder::new(
@@ -36,15 +40,38 @@ pub fn standard_config_finder(
             Ok(ArcId::new(configure(config)))
         }),
         Box::new(move |name, path| match path.root_of(name) {
-            Some(path) => match cache.lock().entry(path.clone()) {
-                Entry::Occupied(e) => e.get().dupe(),
-                Entry::Vacant(e) => {
+            Some(path) => cache_one
+                .lock()
+                .entry(path.clone())
+                .or_insert_with(|| {
                     let mut config = ConfigFile::default();
                     config.search_path = vec![path];
-                    e.insert(ArcId::new(configure2(config))).dupe()
+                    ArcId::new(configure2(config))
+                })
+                .dupe(),
+
+            None => {
+                let path = match path.details() {
+                    ModulePathDetails::FileSystem(x) | ModulePathDetails::Memory(x) => {
+                        Some(x.as_path())
+                    }
+                    ModulePathDetails::Namespace(x) => x.parent(),
+                    ModulePathDetails::BundledTypeshed(_) => None,
+                };
+                match path {
+                    None => empty.dupe(),
+                    Some(path) => cache_parents
+                        .lock()
+                        .entry(path.to_owned())
+                        .or_insert_with(|| {
+                            let mut config = ConfigFile::default();
+                            config.search_path =
+                                path.ancestors().skip(1).map(|x| x.to_owned()).collect();
+                            ArcId::new(configure2(config))
+                        })
+                        .dupe(),
                 }
-            },
-            None => empty.dupe(),
+            }
         }),
     )
 }
