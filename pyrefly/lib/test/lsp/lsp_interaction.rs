@@ -591,3 +591,77 @@ fn test_disable_language_services() {
         search_path: Vec::new(),
     });
 }
+
+#[test]
+fn test_edits_while_recheck() {
+    let mut test_messages = get_initialize_messages(None, false);
+    let mut expected_responses = get_initialize_responses();
+    let root = get_test_files_root();
+
+    let path = root.path().join("foo.py");
+    test_messages.push(Message::from(build_did_open_notification(path.clone())));
+    // In this test, we trigger didSave and didChange to try to exercise the behavior
+    // where we have concurrent in-memory recheck and on-disk recheck.
+    test_messages.push(Message::from(Notification {
+        method: "textDocument/didSave".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 1,
+                "text": std::fs::read_to_string(path.clone()).unwrap()
+            }
+        }),
+    }));
+    test_messages.push(Message::from(Notification {
+        method: "textDocument/didChange".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 2
+            },
+            "contentChanges": [
+                {"text": format!("{}\n\nextra_stuff", std::fs::read_to_string(path).unwrap())}
+            ],
+        }),
+    }));
+
+    test_messages.push(Message::from(Request {
+        id: RequestId::from(2),
+        method: "textDocument/definition".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            "position": {
+                "line": 5,
+                "character": 18
+            }
+        }),
+    }));
+
+    expected_responses.push(Message::Response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({
+            "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string(),
+            "range": {
+                "start": {
+                    "line": 6,
+                    "character": 6
+                },
+                "end": {
+                    "line": 6,
+                    "character": 9
+                }
+            }
+        })),
+        error: None,
+    }));
+
+    run_test_lsp(TestCase {
+        messages_from_language_client: test_messages,
+        expected_messages_from_language_server: expected_responses,
+        search_path: vec![root.path().to_path_buf()],
+    });
+}
