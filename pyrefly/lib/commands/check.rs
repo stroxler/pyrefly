@@ -142,11 +142,6 @@ pub struct Args {
     /// `python_platform`, or `site_package_path` if any of the values are missing.
     #[clap(long, env = clap_env("PYTHON_INTERPRETER"))]
     python_interpreter: Option<PathBuf>,
-    /// Whether to ignore type errors in generated code.
-    /// Generated code is defined as code that contains the marker string
-    /// `@` immediately followed by `generated`.
-    #[clap(long, env = clap_env("IGNORE_ERRORS_IN_GENERATED_CODE"))]
-    ignore_errors_in_generated_code: Option<bool>,
 }
 
 impl OutputFormat {
@@ -346,9 +341,6 @@ impl Args {
         }
         if let Some(x) = &self.python_interpreter {
             config.python_interpreter = Some(x.clone());
-        }
-        if let Some(x) = &self.ignore_errors_in_generated_code {
-            config.root.ignore_errors_in_generated_code = Some(*x);
         }
         config.configure();
         config.validate();
