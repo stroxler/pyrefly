@@ -12,21 +12,43 @@ import * as stylex from '@stylexjs/stylex';
 import Firefly from './firefly';
 import typography from './typography';
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import { useEffect, useState } from 'react';
 
 export default function LandingPageHeader(): React.ReactElement {
+    const [isLoaded, setIsLoaded] = useState(false);
+
+    useEffect(() => {
+        // Trigger animation after component mounts
+        setIsLoaded(true);
+    }, []);
+
     return (
         <header {...stylex.props(styles.featureHero)}>
             <section {...stylex.props(styles.logoContainer)}>
                 <img
                     src={useBaseUrl('img/Pyrefly-Brandmark-Invert.svg')}
                     alt="Pyrefly Logo"
-                    {...stylex.props(styles.logo)}
+                    {...stylex.props(
+                        styles.logo,
+                        isLoaded && styles.logoVisible
+                    )}
                 />
             </section>
-            <p {...stylex.props(styles.subtitle, typography.h3)}>
+            <p
+                {...stylex.props(
+                    styles.subtitle,
+                    typography.h3,
+                    isLoaded && styles.subtitleVisible
+                )}
+            >
                 <span>A faster Python type checker written in Rust</span>
             </p>
-            <section {...stylex.props(styles.buttonGroupVertical)}>
+            <section
+                {...stylex.props(
+                    styles.buttonGroupVertical,
+                    isLoaded && styles.buttonGroupVerticalVisible
+                )}
+            >
                 <a
                     href={useBaseUrl('try/')}
                     {...stylex.props(styles.buttonFullWidth, typography.p)}
@@ -51,7 +73,12 @@ export default function LandingPageHeader(): React.ReactElement {
                     </a>
                 </div>
             </section>
-            <section {...stylex.props(styles.buttonGroup)}>
+            <section
+                {...stylex.props(
+                    styles.buttonGroup,
+                    isLoaded && styles.buttonGroupVisible
+                )}
+            >
                 <p {...stylex.props(typography.p, typography.italic)}>
                     Launching Spring 2025
                 </p>
@@ -77,9 +104,20 @@ const styles = stylex.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: '0.5rem',
+        perspective: '1000px', // Add perspective for 3D effect
     },
     logo: {
         height: '100px',
+        opacity: 0,
+        filter: 'blur(10px)',
+        transform: 'rotateX(30deg) scale(0.9)',
+        transformOrigin: 'center center',
+        transition: 'all 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+    },
+    logoVisible: {
+        opacity: 1,
+        filter: 'blur(0px)',
+        transform: 'rotateX(0deg) scale(1)',
     },
 
     featureHero: {
@@ -102,6 +140,39 @@ const styles = stylex.create({
     subtitle: {
         textAlign: 'center',
         marginBottom: '1rem',
+        opacity: 0,
+        filter: 'blur(8px)',
+        transform: 'rotateX(-20deg) translateY(20px)',
+        transformOrigin: 'center center',
+        transition: 'all 1.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        transitionDelay: '0.2s', // Reduced delay for subtitle animation
+    },
+    subtitleVisible: {
+        opacity: 1,
+        filter: 'blur(0px)',
+        transform: 'rotateX(0deg) translateY(0)',
+    },
+    buttonGroupVertical: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: '20px',
+        width: '100%',
+        maxWidth: '400px',
+        marginLeft: 'auto',
+        marginRight: 'auto',
+        opacity: 0,
+        filter: 'blur(6px)',
+        transform: 'rotateX(15deg) translateY(15px)',
+        transformOrigin: 'center center',
+        transition: 'all 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        transitionDelay: '0.4s', // delay for button group
+    },
+    buttonGroupVerticalVisible: {
+        opacity: 1,
+        filter: 'blur(0px)',
+        transform: 'rotateX(0deg) translateY(0)',
     },
     link: {
         color: 'var(--color-primary)',
@@ -112,17 +183,6 @@ const styles = stylex.create({
             color: '#BA8E23',
             textDecoration: 'var(--ifm-link-decoration)',
         },
-    },
-    buttonGroupVertical: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: '20px',
-        width: '100%',
-        maxWidth: '400px', // Adjust this value based on your design needs
-        marginLeft: 'auto',
-        marginRight: 'auto',
     },
     buttonRow: {
         display: 'flex',
@@ -135,6 +195,17 @@ const styles = stylex.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginTop: '20px',
+        opacity: 0,
+        filter: 'blur(6px)',
+        transform: 'rotateX(15deg) translateY(15px)',
+        transformOrigin: 'center center',
+        transition: 'all 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        transitionDelay: '0.6s', // delay for bottom button group
+    },
+    buttonGroupVisible: {
+        opacity: 1,
+        filter: 'blur(0px)',
+        transform: 'rotateX(0deg) translateY(0)',
     },
     buttonFullWidth: {
         padding: '0.75rem 1.5rem',
