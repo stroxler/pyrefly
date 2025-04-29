@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -20,9 +21,10 @@ use crate::util::lock::Mutex;
 
 /// Create a standard `ConfigFinder`. The `configure` function is expected to set any additional options,
 /// then call `configure` and `valiate`.
+/// The `path` to `configure` is a directory, either to the python file or the config file.
 #[allow(clippy::field_reassign_with_default)] // ConfigFile default is dubious
 pub fn standard_config_finder(
-    configure: Arc<dyn Fn(ConfigFile) -> ConfigFile + Send + Sync>,
+    configure: Arc<dyn Fn(Option<&Path>, ConfigFile) -> ConfigFile + Send + Sync>,
 ) -> ConfigFinder {
     let configure2 = configure.dupe();
     let configure3 = configure.dupe();
@@ -32,12 +34,12 @@ pub fn standard_config_finder(
     // A cache where path `p` maps to config file with `search_path = [p, p/.., p/../.., ...]`.
     let cache_parents: Mutex<SmallMap<PathBuf, ArcId<ConfigFile>>> = Mutex::new(SmallMap::new());
 
-    let empty = LazyLock::new(move || ArcId::new(configure3(ConfigFile::default())));
+    let empty = LazyLock::new(move || ArcId::new(configure3(None, ConfigFile::default())));
 
     ConfigFinder::new(
         Box::new(move |file| {
             let config = ConfigFile::from_file(file, false)?;
-            Ok(ArcId::new(configure(config)))
+            Ok(ArcId::new(configure(file.parent(), config)))
         }),
         Box::new(move |name, path| match path.root_of(name) {
             Some(path) => cache_one
@@ -45,8 +47,8 @@ pub fn standard_config_finder(
                 .entry(path.clone())
                 .or_insert_with(|| {
                     let mut config = ConfigFile::default();
-                    config.search_path = vec![path];
-                    ArcId::new(configure2(config))
+                    config.search_path = vec![path.clone()];
+                    ArcId::new(configure2(path.parent(), config))
                 })
                 .dupe(),
 
@@ -67,7 +69,7 @@ pub fn standard_config_finder(
                             let mut config = ConfigFile::default();
                             config.search_path =
                                 path.ancestors().skip(1).map(|x| x.to_owned()).collect();
-                            ArcId::new(configure2(config))
+                            ArcId::new(configure2(path.parent(), config))
                         })
                         .dupe(),
                 }

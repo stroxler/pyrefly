@@ -122,7 +122,7 @@ async fn run_check(
 }
 
 fn config_finder(args: library::run::CheckArgs) -> ConfigFinder {
-    standard_config_finder(Arc::new(move |x| args.override_config(x)))
+    standard_config_finder(Arc::new(move |_, x| args.override_config(x)))
 }
 
 async fn run_check_on_project(
