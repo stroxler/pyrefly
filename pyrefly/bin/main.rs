@@ -76,7 +76,7 @@ enum Command {
         /// pyrefly.toml or 'pyproject.toml with `tool.pyre` section'. If no config is found, Pyre exits with error.
         /// If both a pyrefly.toml and valid pyproject.toml are found, pyrefly.toml takes precedence.
         #[clap(long, short, env = clap_env("CONFIG"))]
-        config: Option<std::path::PathBuf>,
+        config: Option<PathBuf>,
 
         #[clap(flatten)]
         args: CheckArgs,
