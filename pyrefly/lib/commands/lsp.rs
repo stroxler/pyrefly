@@ -842,18 +842,20 @@ impl Server {
         })
     }
 
+    fn is_disabled(&self, uri: &Url) -> bool {
+        self.workspaces
+            .get_with(uri.to_file_path().unwrap(), |workspace| {
+                workspace.disable_language_services
+            })
+    }
+
     fn goto_definition(
         &self,
         transaction: &Transaction<'_>,
         params: GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self
-            .workspaces
-            .get_with(uri.to_file_path().unwrap(), |workspace| {
-                workspace.disable_language_services
-            })
-        {
+        if self.is_disabled(uri) {
             return None;
         }
         let handle = self.make_handle(uri);
@@ -875,12 +877,7 @@ impl Server {
         params: CompletionParams,
     ) -> anyhow::Result<CompletionResponse> {
         let uri = &params.text_document_position.text_document.uri;
-        if self
-            .workspaces
-            .get_with(uri.to_file_path().unwrap(), |workspace| {
-                workspace.disable_language_services
-            })
-        {
+        if self.is_disabled(uri) {
             return Ok(CompletionResponse::List(CompletionList {
                 is_incomplete: false,
                 items: Vec::new(),
@@ -908,12 +905,7 @@ impl Server {
         params: DocumentHighlightParams,
     ) -> Option<Vec<DocumentHighlight>> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self
-            .workspaces
-            .get_with(uri.to_file_path().unwrap(), |workspace| {
-                workspace.disable_language_services
-            })
-        {
+        if self.is_disabled(uri) {
             return None;
         }
         let handle = self.make_handle(uri);
@@ -931,12 +923,7 @@ impl Server {
 
     fn hover(&self, transaction: &Transaction<'_>, params: HoverParams) -> Option<Hover> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self
-            .workspaces
-            .get_with(uri.to_file_path().unwrap(), |workspace| {
-                workspace.disable_language_services
-            })
-        {
+        if self.is_disabled(uri) {
             return None;
         }
         let handle = self.make_handle(uri);
@@ -967,12 +954,7 @@ impl Server {
         params: InlayHintParams,
     ) -> Option<Vec<InlayHint>> {
         let uri = &params.text_document.uri;
-        if self
-            .workspaces
-            .get_with(uri.to_file_path().unwrap(), |workspace| {
-                workspace.disable_language_services
-            })
-        {
+        if self.is_disabled(uri) {
             return None;
         }
         let handle = self.make_handle(uri);
