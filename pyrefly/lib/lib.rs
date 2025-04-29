@@ -80,11 +80,7 @@ pub mod library {
                 pub use crate::util::thread_pool::init_thread_pool;
                 pub use crate::util::trace::init_tracing;
                 #[cfg(not(target_arch = "wasm32"))]
-                pub use crate::util::watcher::NotifyWatcher;
-                #[cfg(not(target_arch = "wasm32"))]
                 pub use crate::util::watcher::Watcher;
-                #[cfg(not(target_arch = "wasm32"))]
-                pub use crate::util::watcher::Watchman;
             }
         }
     }

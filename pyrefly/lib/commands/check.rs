@@ -257,7 +257,7 @@ struct RequireLevels {
     default: Require,
 }
 
-async fn get_watcher_events(watcher: &mut impl Watcher) -> anyhow::Result<CategorizedEvents> {
+async fn get_watcher_events(watcher: &mut Watcher) -> anyhow::Result<CategorizedEvents> {
     loop {
         let events = CategorizedEvents::new(watcher.wait().await?);
         if !events.is_empty() {
@@ -312,7 +312,7 @@ impl Args {
 
     pub async fn run_watch(
         self,
-        mut watcher: impl Watcher,
+        mut watcher: Watcher,
         files_to_check: FilteredGlobs,
         config_finder: ConfigFinder,
     ) -> anyhow::Result<()> {

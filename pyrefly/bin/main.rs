@@ -18,7 +18,7 @@ use clap::Subcommand;
 use dupe::Dupe;
 use library::ArcId;
 use library::ConfigFile;
-use library::NotifyWatcher;
+use library::Watcher;
 use library::clap_env;
 use library::finder::ConfigFinder;
 use library::get_args_expanded;
@@ -109,7 +109,7 @@ async fn run_check(
     allow_forget: bool,
 ) -> anyhow::Result<CommandExitStatus> {
     if watch {
-        let watcher = NotifyWatcher::new(&files_to_check.roots())?;
+        let watcher = Watcher::notify(&files_to_check.roots())?;
         args.run_watch(watcher, files_to_check, config_finder)
             .await?;
         Ok(CommandExitStatus::Success)

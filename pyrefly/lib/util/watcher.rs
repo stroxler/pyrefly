@@ -13,7 +13,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context as _;
-use async_trait::async_trait;
 use notify::Event;
 use notify::RecursiveMode;
 use notify::Watcher as _;
@@ -30,17 +29,36 @@ use watchman_client::pdu::FileType;
 use watchman_client::pdu::SubscribeRequest;
 use watchman_client::pdu::SyncTimeout;
 
-#[async_trait]
-pub trait Watcher {
-    async fn wait(&mut self) -> anyhow::Result<Vec<Event>>;
+pub struct Watcher(WatcherInner);
+
+enum WatcherInner {
+    Watchman(Watchman),
+    Notify(NotifyWatcher),
 }
 
-pub struct NotifyWatcher {
+impl Watcher {
+    pub async fn wait(&mut self) -> anyhow::Result<Vec<Event>> {
+        match &mut self.0 {
+            WatcherInner::Watchman(w) => w.wait().await,
+            WatcherInner::Notify(w) => w.wait().await,
+        }
+    }
+
+    pub async fn watchman(path: &Path) -> anyhow::Result<Self> {
+        Ok(Self(WatcherInner::Watchman(Watchman::new(path).await?)))
+    }
+
+    pub fn notify(paths: &[PathBuf]) -> anyhow::Result<Self> {
+        Ok(Self(WatcherInner::Notify(NotifyWatcher::new(paths)?)))
+    }
+}
+
+struct NotifyWatcher {
     receiver: Receiver<notify::Result<Event>>,
 }
 
 impl NotifyWatcher {
-    pub fn new(paths: &[PathBuf]) -> anyhow::Result<Self> {
+    fn new(paths: &[PathBuf]) -> anyhow::Result<Self> {
         let (sender, receiver) = channel();
         let mut watcher = recommended_watcher(sender)?;
         for path in paths {
@@ -48,10 +66,7 @@ impl NotifyWatcher {
         }
         Ok(Self { receiver })
     }
-}
 
-#[async_trait]
-impl Watcher for NotifyWatcher {
     async fn wait(&mut self) -> anyhow::Result<Vec<Event>> {
         let mut res = Vec::new();
         res.push(self.receiver.recv()??);
@@ -122,13 +137,12 @@ mod watchman_query {
     }
 }
 
-pub struct Watchman {
+struct Watchman {
     root: PathBuf,
     subscription: Subscription<watchman_query::SubscriptionFields>,
 }
 
-#[async_trait]
-impl Watcher for Watchman {
+impl Watchman {
     async fn wait(&mut self) -> anyhow::Result<Vec<Event>> {
         loop {
             match self
@@ -157,10 +171,8 @@ impl Watcher for Watchman {
             }
         }
     }
-}
 
-impl Watchman {
-    pub async fn new(path: &Path) -> anyhow::Result<Self> {
+    async fn new(path: &Path) -> anyhow::Result<Self> {
         let root = CanonicalPath::canonicalize(path)?;
         let watchman_client = Connector::new()
             .connect()
