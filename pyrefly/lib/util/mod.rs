@@ -21,8 +21,6 @@ pub mod lock;
 pub mod locked_map;
 pub mod memory;
 pub mod no_hash;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod notify_watcher;
 pub mod prelude;
 pub mod recurser;
 pub mod small_set1;
@@ -35,6 +33,4 @@ pub mod upward_search;
 pub mod visit;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod watcher;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod watchman;
 pub mod with_hash;
