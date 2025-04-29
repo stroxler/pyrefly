@@ -157,9 +157,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match arg {
                 Type::Unpack(box Type::Tuple(Tuple::Concrete(elts))) => {
                     if middle.is_empty() {
-                        prefix.extend(elts.clone());
+                        prefix.extend_from_slice(elts);
                     } else {
-                        suffix.extend(elts.clone());
+                        suffix.extend_from_slice(elts);
                     }
                 }
                 Type::Unpack(box t) => {

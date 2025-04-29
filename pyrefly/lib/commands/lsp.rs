@@ -810,7 +810,7 @@ impl Server {
         if config.source != ConfigSource::Synthetic {
             search_path = config.search_path.clone();
         }
-        search_path.extend(workspace.search_path.clone());
+        search_path.extend_from_slice(&workspace.search_path);
         to_real_path(path)
             .and_then(|path| module_from_path(path, &search_path))
             .unwrap_or(unknown)
