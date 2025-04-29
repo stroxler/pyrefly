@@ -41,7 +41,6 @@ use crate::types::typed_dict::TypedDictField;
 use crate::types::types::Overload;
 use crate::types::types::OverloadType;
 use crate::types::types::Type;
-use crate::util::prelude::SliceExt;
 
 const GET_METHOD: Name = Name::new_static("get");
 const SETDEFAULT_METHOD: Name = Name::new_static("setdefault");
@@ -173,24 +172,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
-    fn names_to_fields(
-        &self,
-        cls: &Class,
-        fields: &SmallMap<Name, bool>,
-    ) -> Vec<(Name, TypedDictField)> {
+    fn names_to_fields<'b>(
+        &'b self,
+        cls: &'b Class,
+        fields: &'b SmallMap<Name, bool>,
+    ) -> impl Iterator<Item = (&'b Name, TypedDictField)> + 'b {
         // TODO(stroxler): Look into whether we can re-wire the code so that it is not possible to
         // have the typed dict think a field exists that cannot be converted to a `TypedDictField`
         // (this can happen for any unannotated field - e.g. a classmethod or staticmethod).
-        fields
-            .iter()
-            .filter_map(|(name, is_total)| {
-                self.get_class_member(cls, name).and_then(|member| {
-                    Arc::unwrap_or_clone(member.value)
-                        .as_typed_dict_field_info(*is_total)
-                        .map(|field| (name.clone(), field))
-                })
+        fields.iter().filter_map(|(name, is_total)| {
+            self.get_class_member(cls, name).and_then(|member| {
+                Arc::unwrap_or_clone(member.value)
+                    .as_typed_dict_field_info(*is_total)
+                    .map(|field| (name, field))
             })
-            .collect()
+        })
     }
 
     fn get_typed_dict_init(
@@ -241,7 +237,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )
         });
         let signatures = Vec1::from_vec_push(
-            literal_signatures,
+            literal_signatures.collect(),
             Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
@@ -267,14 +263,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         fields: &SmallMap<Name, bool>,
     ) -> Option<ClassSynthesizedField> {
         // Synthesizes a `(self, k: Literal["key"], default: ValueType) -> ValueType` signature for each field.
-        let mut fields_iter = self.names_to_fields(cls, fields).into_iter();
+        let mut fields_iter = self.names_to_fields(cls, fields);
         let first_field = fields_iter.next()?;
         let self_param = self.class_self_param(cls, false);
-        let make_overload = |(name, field): (Name, TypedDictField)| {
+        let make_overload = |(name, field): (&Name, TypedDictField)| {
             OverloadType::Callable(Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
-                    Param::PosOnly(name_to_literal_type(&name), Required::Required),
+                    Param::PosOnly(name_to_literal_type(name), Required::Required),
                     Param::PosOnly(field.ty.clone(), Required::Required),
                 ]),
                 field.ty.clone(),
