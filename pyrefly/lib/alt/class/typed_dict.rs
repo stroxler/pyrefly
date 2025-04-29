@@ -228,16 +228,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> ClassSynthesizedField {
         // Synthesizes a `(self, key: Literal["key"], default: object = ...) -> ValueType` signature
         // for each field and a fallback `(self, key: str, default: object = ...) -> object` signature.
-        let self_param = self.class_self_param(cls, true);
-        let key = Name::new_static("key");
-        let default = Name::new_static("default");
+        let self_param = self.class_self_param(cls, false);
         let object_ty = self.stdlib.object().clone().to_type();
         let literal_signatures = self.names_to_fields(cls, fields).map(|(name, field)| {
             Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
-                    Param::Pos(key.clone(), name_to_literal_type(name), Required::Required),
-                    Param::Pos(default.clone(), object_ty.clone(), Required::Optional),
+                    Param::PosOnly(name_to_literal_type(name), Required::Required),
+                    Param::PosOnly(object_ty.clone(), Required::Optional),
                 ]),
                 field.ty.clone(),
             )
@@ -247,12 +245,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
-                    Param::Pos(
-                        key.clone(),
-                        self.stdlib.str().clone().to_type(),
-                        Required::Required,
-                    ),
-                    Param::Pos(default.clone(), object_ty.clone(), Required::Optional),
+                    Param::PosOnly(self.stdlib.str().clone().to_type(), Required::Required),
+                    Param::PosOnly(object_ty.clone(), Required::Optional),
                 ]),
                 object_ty.clone(),
             ),
@@ -275,21 +269,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Synthesizes a `(self, k: Literal["key"], default: ValueType) -> ValueType` signature for each field.
         let mut fields_iter = self.names_to_fields(cls, fields).into_iter();
         let first_field = fields_iter.next()?;
-        let self_param = self.class_self_param(cls, true);
+        let self_param = self.class_self_param(cls, false);
         let make_overload = |(name, field): (Name, TypedDictField)| {
             OverloadType::Callable(Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
-                    Param::Pos(
-                        Name::new_static("k"),
-                        name_to_literal_type(&name),
-                        Required::Required,
-                    ),
-                    Param::Pos(
-                        Name::new_static("default"),
-                        field.ty.clone(),
-                        Required::Required,
-                    ),
+                    Param::PosOnly(name_to_literal_type(&name), Required::Required),
+                    Param::PosOnly(field.ty.clone(), Required::Required),
                 ]),
                 field.ty.clone(),
             ))

@@ -452,7 +452,7 @@ def f(c: C, k1: str, k2: int):
     assert_type(c.get("x"), int)
     assert_type(c.get(k1), object)
     assert_type(c.get(k1, 0), object)
-    c.get(k2)  # E: No matching overload  # E: `int` is not assignable to parameter `key`
+    c.get(k2)  # E: No matching overload  # E: `int` is not assignable to parameter with type `Literal['x']`
     "#,
 );
 
@@ -526,8 +526,21 @@ class C(TypedDict):
     x: int
 def f(c: C, s: str):
     assert_type(c.setdefault("x", 0), int)
-    c.setdefault("x", 0.0)  # E: No matching overload  # E: `float` is not assignable to parameter `default` with type `int`
-    c.setdefault("x")  # E: No matching overload  # E: Missing argument `default`
-    c.setdefault(s, 0)  # E: No matching overload  # E: `str` is not assignable to parameter `k` with type `Literal['x']`
+    c.setdefault("x", 0.0)  # E: No matching overload  # E: `float` is not assignable to parameter with type `int`
+    c.setdefault("x")  # E: No matching overload  # E: Expected 1 more positional argument
+    c.setdefault(s, 0)  # E: No matching overload  # E: `str` is not assignable to parameter with type `Literal['x']`
+    "#,
+);
+
+testcase!(
+    test_posonly_params,
+    r#"
+from typing import TypedDict
+class C(TypedDict):
+    x: int
+def f(c: C):
+    # Both of these methods take only positional arguments.
+    c.get(key="x")  # E: No matching overload  # E: Expected 1 more positional argument  # E: Unexpected keyword argument
+    c.setdefault("x", default=0)  # E: No matching overload  # E: Expected 1 more positional argument  # E: Unexpected keyword argument
     "#,
 );
