@@ -319,39 +319,24 @@ impl Args {
     }
 
     pub fn override_config(&self, mut config: ConfigFile) -> ConfigFile {
-        fn set_if_some<T: Clone>(config_field: &mut T, value: Option<&T>) {
-            if let Some(value) = value {
-                *config_field = value.clone();
-            }
+        if let Some(x) = &self.python_platform {
+            config.python_environment.python_platform = Some(x.clone());
         }
-
-        fn set_option_if_some<T: Clone>(config_field: &mut Option<T>, value: Option<&T>) {
-            if value.is_some() {
-                *config_field = value.cloned();
-            }
+        if let Some(x) = &self.python_version {
+            config.python_environment.python_version = Some(*x);
         }
-
-        set_option_if_some(
-            &mut config.python_environment.python_platform,
-            self.python_platform.as_ref(),
-        );
-        set_option_if_some(
-            &mut config.python_environment.python_version,
-            self.python_version.as_ref(),
-        );
-        set_if_some(&mut config.search_path, self.search_path.as_ref());
-        set_option_if_some(
-            &mut config.python_environment.site_package_path,
-            self.site_package_path.as_ref(),
-        );
-        set_option_if_some(
-            &mut config.python_interpreter,
-            self.python_interpreter.as_ref(),
-        );
-        set_option_if_some(
-            &mut config.root.ignore_errors_in_generated_code,
-            self.ignore_errors_in_generated_code.as_ref(),
-        );
+        if let Some(x) = &self.search_path {
+            config.search_path = x.clone();
+        }
+        if let Some(x) = &self.site_package_path {
+            config.python_environment.site_package_path = Some(x.clone());
+        }
+        if let Some(x) = &self.python_interpreter {
+            config.python_interpreter = Some(x.clone());
+        }
+        if let Some(x) = &self.ignore_errors_in_generated_code {
+            config.root.ignore_errors_in_generated_code = Some(*x);
+        }
         config.configure();
         config.validate();
         config
