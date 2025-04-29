@@ -20,14 +20,14 @@ import { loadPyodide, PyodideInterface } from 'pyodide';
 export type WorkerResponse = stdoutResponseOrStderrResponse | RunPythonResponse;
 
 type stdoutResponseOrStderrResponse = {
-    type: 'stdout' | 'stderr',
-    output: string,
+    type: 'stdout' | 'stderr';
+    output: string;
 };
 
 type RunPythonResponse = {
-    type: 'runPython',
-    success: boolean,
-    error?: string,
+    type: 'runPython';
+    success: boolean;
+    error?: string;
 };
 
 let pyodideInstance: PyodideInterface = null;

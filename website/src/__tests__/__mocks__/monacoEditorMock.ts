@@ -17,12 +17,12 @@ interface EditorProps {
     language?: string;
     theme?: string;
     options?: {
-        path?: string,
-        readOnly?: boolean,
-        minimap?: { enabled: boolean },
-        hover?: { enabled: boolean, above: boolean },
-        scrollBeyondLastLine?: boolean,
-        overviewRulerBorder?: boolean,
+        path?: string;
+        readOnly?: boolean;
+        minimap?: { enabled: boolean };
+        hover?: { enabled: boolean; above: boolean };
+        scrollBeyondLastLine?: boolean;
+        overviewRulerBorder?: boolean;
     };
     onChange?: (value: string | undefined) => void;
     onMount?: (editor: any) => void;
