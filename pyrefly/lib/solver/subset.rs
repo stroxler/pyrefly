@@ -7,6 +7,7 @@
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::iter;
 
 use itertools::EitherOrBoth;
 use itertools::Itertools;
@@ -872,15 +873,17 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 ))),
                 _,
             ) => {
-                let mut elts = prefix.clone();
-                elts.push(middle.clone());
-                elts.extend(suffix.clone());
+                let elts = prefix
+                    .iter()
+                    .chain(iter::once(middle))
+                    .chain(suffix)
+                    .cloned()
+                    .collect::<Vec<_>>();
                 let tuple_type = self.type_order.stdlib().tuple(unions(elts)).to_type();
                 self.is_subset_eq(&tuple_type, want)
             }
             (Type::Tuple(Tuple::Unpacked(box (prefix, middle, suffix))), _) => {
-                let mut elts = prefix.clone();
-                elts.extend(suffix.clone());
+                let elts = prefix.iter().chain(suffix).cloned().collect::<Vec<_>>();
                 let tuple_type = self.type_order.stdlib().tuple(unions(elts)).to_type();
                 self.is_subset_eq(&tuple_type, want) && self.is_subset_eq(middle, want)
             }
