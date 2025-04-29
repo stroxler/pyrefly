@@ -828,25 +828,23 @@ impl Server {
         *self.workspaces.workspaces.write() = new_workspaces;
     }
 
-    fn make_handle(&self, uri: &Url) -> Handle {
+    /// Create a handle. Return None if the workspace has language services disabled (and thus you shouldn't do anything).
+    fn make_handle_if_enabled(&self, uri: &Url) -> Option<Handle> {
         let path = uri.to_file_path().unwrap();
         self.workspaces.get_with(path.clone(), |workspace| {
-            let module =
-                module_from_path(&path, &workspace.search_path).unwrap_or_else(ModuleName::unknown);
-            let module_path = if self.open_files.read().contains_key(&path) {
-                ModulePath::memory(path)
+            if workspace.disable_language_services {
+                None
             } else {
-                ModulePath::filesystem(path)
-            };
-            Handle::new(module, module_path, workspace.sys_info.dupe())
+                let module = module_from_path(&path, &workspace.search_path)
+                    .unwrap_or_else(ModuleName::unknown);
+                let module_path = if self.open_files.read().contains_key(&path) {
+                    ModulePath::memory(path)
+                } else {
+                    ModulePath::filesystem(path)
+                };
+                Some(Handle::new(module, module_path, workspace.sys_info.dupe()))
+            }
         })
-    }
-
-    fn is_disabled(&self, uri: &Url) -> bool {
-        self.workspaces
-            .get_with(uri.to_file_path().unwrap(), |workspace| {
-                workspace.disable_language_services
-            })
     }
 
     fn goto_definition(
@@ -855,10 +853,7 @@ impl Server {
         params: GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self.is_disabled(uri) {
-            return None;
-        }
-        let handle = self.make_handle(uri);
+        let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
         let TextRangeWithModuleInfo {
@@ -877,13 +872,15 @@ impl Server {
         params: CompletionParams,
     ) -> anyhow::Result<CompletionResponse> {
         let uri = &params.text_document_position.text_document.uri;
-        if self.is_disabled(uri) {
-            return Ok(CompletionResponse::List(CompletionList {
-                is_incomplete: false,
-                items: Vec::new(),
-            }));
-        }
-        let handle = self.make_handle(uri);
+        let handle = match self.make_handle_if_enabled(uri) {
+            None => {
+                return Ok(CompletionResponse::List(CompletionList {
+                    is_incomplete: false,
+                    items: Vec::new(),
+                }));
+            }
+            Some(x) => x,
+        };
         let items = transaction
             .get_module_info(&handle)
             .map(|info| {
@@ -905,10 +902,7 @@ impl Server {
         params: DocumentHighlightParams,
     ) -> Option<Vec<DocumentHighlight>> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self.is_disabled(uri) {
-            return None;
-        }
-        let handle = self.make_handle(uri);
+        let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
         let position = position_to_text_size(&info, params.text_document_position_params.position);
         Some(
@@ -923,10 +917,7 @@ impl Server {
 
     fn hover(&self, transaction: &Transaction<'_>, params: HoverParams) -> Option<Hover> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self.is_disabled(uri) {
-            return None;
-        }
-        let handle = self.make_handle(uri);
+        let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
         let t = transaction.get_type_at(&handle, range)?;
@@ -954,10 +945,7 @@ impl Server {
         params: InlayHintParams,
     ) -> Option<Vec<InlayHint>> {
         let uri = &params.text_document.uri;
-        if self.is_disabled(uri) {
-            return None;
-        }
-        let handle = self.make_handle(uri);
+        let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
         let t = transaction.inlay_hints(&handle)?;
         Some(t.into_map(|x| {
@@ -1000,7 +988,7 @@ impl Server {
         {
             return None;
         }
-        let handle = self.make_handle(uri);
+        let handle = self.make_handle_if_enabled(uri)?;
         transaction.symbols(&handle)
     }
 
