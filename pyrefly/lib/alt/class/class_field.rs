@@ -554,7 +554,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("TypedDict item `{}` may not be initialized", name),
             );
         }
-        if metadata.is_typed_dict() || metadata.is_named_tuple() {
+        if metadata.is_typed_dict()
+            || metadata
+                .named_tuple_metadata()
+                .is_some_and(|m| m.elements.contains(name))
+        {
             for q in &[Qualifier::Final, Qualifier::ClassVar] {
                 if annotation.is_some_and(|ann| ann.has_qualifier(q)) {
                     self.error(

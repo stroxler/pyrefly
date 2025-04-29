@@ -704,3 +704,17 @@ for x in [1, 2, 3]:
     pass
 "#,
 );
+
+// This test was introduced after a regression caused us not to be able to resolve
+// these specific names.
+testcase!(
+    test_some_stdlib_imports,
+    r#"
+import sys
+import time
+from typing import assert_type, Never
+def f():
+    assert_type(time.time(), float)
+    assert_type(sys.exit(1), Never)
+"#,
+);

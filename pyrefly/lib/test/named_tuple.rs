@@ -230,16 +230,17 @@ C = namedtuple("C", ["a", "b", "_c"], rename=True)  # OK
 );
 
 testcase!(
-    bug = "ClassVar and Final are not allowed on NamedTuple members, but subclasses can use them in fields",
     test_named_tuple_subclass_with_qualified_annotations,
     r#"
 from typing import NamedTuple, ClassVar, Final, assert_type
 class Foo(NamedTuple):
     x: int
     y: str
+# Named tuple members (defined directly in a NamedTuple class) cannot use these
+# qualifiers, but subclasses can have fields that do.
 class Bar(Foo):
-    z: ClassVar[int] = 7  # E: `ClassVar` may not be used for TypedDict or NamedTuple members
-    w: Final[int] = 7  # E: `Final` may not be used for TypedDict or NamedTuple members
+    z: ClassVar[int] = 7
+    w: Final[int] = 7
 assert_type(Bar.z, int)
 assert_type(Bar(1, "y").w, int)
 "#,
