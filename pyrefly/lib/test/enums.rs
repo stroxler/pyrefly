@@ -262,8 +262,8 @@ assert_type(f(True, MyEnum.X, MyEnum.X), MyEnum)
 "#,
 );
 
+// In 3.10 and lower versions, _magic_enum_attr is a different type than in 3.11+"
 testcase!(
-    bug = "In 3.10 and lower versions, _magic_enum_attr is a different type than in 3.11+",
     test_magic_enum_attr_3_10,
     TestEnv::new_with_version(PythonVersion::new(3, 10, 0)),
     r#"
@@ -274,7 +274,7 @@ class E(enum.Enum):
     E0 = 0
     E1 = 1
     @enum._magic_enum_attr
-    def foo(self) -> str: ...  # E: The value for enum member `foo` must match the annotation of the _value_ attribute
+    def foo(self) -> str: ...
 e = E.E0
 assert_type(e.foo, str)
     "#,

@@ -56,6 +56,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if cls.has_qname("enum", "nonmember")
                     || cls.is_builtin("staticmethod")
                     || cls.is_builtin("classmethod")
+                    || cls.has_qname("types", "DynamicClassAttribute")
                     || cls.has_qname("enum", "property") =>
             {
                 false
