@@ -53,12 +53,12 @@ use crate::sys_info::SysInfo;
 use crate::util::args::clap_env;
 use crate::util::display;
 use crate::util::display::number_thousands;
+use crate::util::events::CategorizedEvents;
 use crate::util::forgetter::Forgetter;
 use crate::util::fs_anyhow;
 use crate::util::globs::FilteredGlobs;
 use crate::util::memory::MemoryUsageTrace;
 use crate::util::prelude::SliceExt;
-use crate::util::watcher::CategorizedEvents;
 use crate::util::watcher::Watcher;
 
 #[derive(Debug, Clone, ValueEnum, Default)]

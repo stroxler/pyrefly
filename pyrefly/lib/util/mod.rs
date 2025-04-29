@@ -11,6 +11,7 @@ pub mod arc_id;
 pub mod args;
 pub mod assert_size;
 pub mod display;
+pub mod events;
 pub mod exclusive_lock;
 pub mod forgetter;
 pub mod fs_anyhow;
@@ -32,6 +33,7 @@ pub mod uniques;
 pub mod upgrade_lock;
 pub mod upward_search;
 pub mod visit;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod watcher;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod watchman;

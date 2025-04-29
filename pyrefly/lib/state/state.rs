@@ -86,6 +86,7 @@ use crate::types::class::Class;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::Type;
 use crate::util::arc_id::ArcId;
+use crate::util::events::CategorizedEvents;
 use crate::util::lock::Mutex;
 use crate::util::lock::RwLock;
 use crate::util::locked_map::LockedMap;
@@ -98,7 +99,6 @@ use crate::util::uniques::UniqueFactory;
 use crate::util::upgrade_lock::UpgradeLock;
 use crate::util::upgrade_lock::UpgradeLockExclusiveGuard;
 use crate::util::upgrade_lock::UpgradeLockWriteGuard;
-use crate::util::watcher::CategorizedEvents;
 
 /// `ModuleData` is a snapshot of `ArcId<ModuleDataMut>` in the main state.
 /// The snapshot is readonly most of the times. It will only be overwritten with updated information
