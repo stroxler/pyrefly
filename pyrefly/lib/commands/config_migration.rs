@@ -13,8 +13,11 @@
 // - extract configs from pyproject.toml
 // - write configs to pyproject.toml
 // This script does not otherwise invoke pyrefly. This gives the user time to change anything by hand if needed.
+
+use std::path::Path;
 use std::path::PathBuf;
 
+use anyhow::Context as _;
 use clap::Parser;
 use tracing::info;
 
@@ -25,11 +28,12 @@ use crate::config::mypy::MypyConfig;
 use crate::config::pyright;
 use crate::config::pyright::PyrightConfig;
 use crate::util::fs_anyhow;
+use crate::util::upward_search::UpwardSearch;
 
 #[derive(Clone, Debug, Parser)]
 pub struct Args {
-    /// The path to the mypy or pyright config file to convert.
-    input_path: PathBuf,
+    /// The path to the mypy or pyright config file to convert. Optional. If not provided, pyrefly will search upwards for a mypy.ini, pyrightconfig.json, or pyproject.toml.
+    input_path: Option<PathBuf>,
     /// Optional path to write the converted pyre.toml config file to. If not provided, the config will be written to the same directory as the input file.
     output_path: Option<PathBuf>,
 }
@@ -54,18 +58,48 @@ impl Args {
             })
     }
 
+    fn find_config(start: &Path) -> anyhow::Result<PathBuf> {
+        let searcher = UpwardSearch::new(
+            // Search for pyproject.toml last, because we're only going to find 1 config.
+            vec![
+                "mypy.ini".into(),
+                "pyrightconfig.json".into(),
+                "pyproject.toml".into(),
+            ],
+            |p| std::sync::Arc::new(p.to_path_buf()),
+        );
+        searcher.directory(start).map_or_else(
+            || Err(anyhow::anyhow!("Failed to find config")),
+            |p| Ok(std::sync::Arc::unwrap_or_clone(p)),
+        )
+    }
+
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
-        info!("Looking for {}", self.input_path.display());
-        let config = if self.input_path.file_name() == Some("pyrightconfig.json".as_ref()) {
-            let raw_file = fs_anyhow::read_to_string(&self.input_path)?;
+        let input_path = match &self.input_path {
+            Some(path) => {
+                info!("Looking for {}", path.display());
+                path
+            }
+            None => {
+                let cwd = std::env::current_dir()
+                    .context("Could not find dir to start search for configs from")?;
+                info!(
+                    "No config path provided. Searching for configs, starting in {}",
+                    cwd.display()
+                );
+                &Self::find_config(&cwd)?
+            }
+        };
+        let config = if input_path.file_name() == Some("pyrightconfig.json".as_ref()) {
+            let raw_file = fs_anyhow::read_to_string(input_path)?;
             info!("Detected pyright config file");
             let pyr = serde_json::from_str::<PyrightConfig>(&raw_file)?;
             pyr.convert()
-        } else if self.input_path.file_name() == Some("mypy.ini".as_ref()) {
+        } else if input_path.file_name() == Some("mypy.ini".as_ref()) {
             info!("Detected mypy config file");
-            MypyConfig::parse_mypy_config(&self.input_path)?
-        } else if self.input_path.file_name() == Some("pyproject.toml".as_ref()) {
-            let raw_file = fs_anyhow::read_to_string(&self.input_path)?;
+            MypyConfig::parse_mypy_config(input_path)?
+        } else if input_path.file_name() == Some("pyproject.toml".as_ref()) {
+            let raw_file = fs_anyhow::read_to_string(input_path)?;
             info!("Detected pyproject.toml file.");
             Self::load_from_pyproject(&raw_file)?
         } else {
@@ -81,7 +115,7 @@ impl Args {
             fs_anyhow::write(output_path, serialized.as_bytes())?;
             info!("New config written to {}", output_path.display());
         } else {
-            let output_path = self.input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
+            let output_path = input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
             fs_anyhow::write(&output_path, serialized.as_bytes())?;
             info!("New config written to {}", output_path.display());
         }
@@ -99,18 +133,21 @@ mod tests {
     #[test]
     fn test_run_pyright() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
-        let args = Args {
-            input_path: tmp.path().join("pyrightconfig.json"),
-            output_path: None,
-        };
+        let input_path = tmp.path().join("pyrightconfig.json");
         let pyr = br#"{
     "include": ["src/**/*.py"]
 }
 "#;
-        fs_anyhow::write(&args.input_path, pyr)?;
+        fs_anyhow::write(&input_path, pyr)?;
+        let output_path = input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
+
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: None,
+        };
         let status = args.run()?;
+
         assert!(matches!(status, CommandExitStatus::Success));
-        let output_path = args.input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
         let output = fs_anyhow::read_to_string(&output_path)?;
         // We're not going to check the whole output because most of it will be default values, which may change.
         // We only actually care about the includes.
@@ -124,10 +161,8 @@ mod tests {
     #[test]
     fn test_run_mypy() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
-        let args = Args {
-            input_path: tmp.path().join("mypy.ini"),
-            output_path: None,
-        };
+        let input_path = tmp.path().join("mypy.ini");
+        let output_path = input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
         // This config is derived from the pytorch mypy.ini.
         let mypy = br#"[mypy]
 files =
@@ -150,7 +185,12 @@ ignore_missing_imports = True
 [mypy-stricter.on.this.*]
 check_untyped_defs = True
 "#;
-        fs_anyhow::write(&args.input_path, mypy)?;
+        fs_anyhow::write(&input_path, mypy)?;
+
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: None,
+        };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
 
@@ -161,7 +201,6 @@ check_untyped_defs = True
             project_includes: Vec<String>,
             search_path: Vec<String>,
         }
-        let output_path = args.input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
         let raw_output = fs_anyhow::read_to_string(&output_path)?;
         let CheckConfig {
             project_includes,
@@ -178,14 +217,15 @@ check_untyped_defs = True
     #[test]
     fn test_run_pyproject_mypy() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
-        let args = Args {
-            input_path: tmp.path().join("pyproject.toml"),
-            output_path: None,
-        };
+        let input_path = tmp.path().join("pyproject.toml");
         let pyproject = br#"[tool.mypy]
 files = ["a.py"]
 "#;
-        fs_anyhow::write(&args.input_path, pyproject)?;
+        fs_anyhow::write(&input_path, pyproject)?;
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: None,
+        };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
         Ok(())
@@ -194,14 +234,15 @@ files = ["a.py"]
     #[test]
     fn test_run_pyproject_pyright() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
-        let args = Args {
-            input_path: tmp.path().join("pyproject.toml"),
-            output_path: None,
-        };
+        let input_path = tmp.path().join("pyproject.toml");
         let pyproject = br#"[tool.pyright]
 include = ["a.py"]
 "#;
-        fs_anyhow::write(&args.input_path, pyproject)?;
+        fs_anyhow::write(&input_path, pyproject)?;
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: None,
+        };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
         Ok(())
@@ -210,17 +251,18 @@ include = ["a.py"]
     #[test]
     fn test_run_pyproject_bad_mypy_into_pyright() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
-        let args = Args {
-            input_path: tmp.path().join("pyproject.toml"),
-            output_path: None,
-        };
+        let input_path = tmp.path().join("pyproject.toml");
         let pyproject = br#"[tool.pyright]
 include = ["a.py"]
 
 [tool.mypy]
 files = 1
 "#;
-        fs_anyhow::write(&args.input_path, pyproject)?;
+        fs_anyhow::write(&input_path, pyproject)?;
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: None,
+        };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
         Ok(())
@@ -238,6 +280,18 @@ files = ["mypy.py"]
 "#;
         let cfg = Args::load_from_pyproject(pyproject)?;
         assert_eq!(cfg.project_includes, Globs::new(vec!["mypy.py".to_owned()]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_find_config_find_mypy() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let bottom = tmp.path().join("a/b/c/");
+        std::fs::create_dir_all(&bottom)?;
+        fs_anyhow::write(&tmp.path().join("a/mypy.ini"), b"[mypy]\n")?;
+        fs_anyhow::write(&tmp.path().join("a/pyproject.toml"), b"")?;
+        let found = Args::find_config(&bottom)?;
+        assert!(found.ends_with("mypy.ini"));
         Ok(())
     }
 }
