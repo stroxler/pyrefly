@@ -50,6 +50,46 @@ def repeat(text: str, times: int) -> str:
 </pre>
 
 
+### Can you spot the bug?
+
+```
+class Rectangle:
+    width: int
+    height: int
+
+    def __init__(self, width: int, height: int) -> None:
+        self.width = width
+        self.height = height
+
+rect = Rectangle(width=100, height=50)
+
+area = rect.width * rect.hieght
+
+print(area)
+```
+
+
+**Spelling is hard!** Let's add the `dataclass` decorator to our class definition. This will generate a constructor for us, and also add a few other useful methods.
+
+<pre>
+  <TryPyreflyBrowserOnly
+  sampleFilename="misspelled.py"
+  isCodeSnippet={true}
+  codeSample={`#Pyrefly will catch this spelling error before you run the code
+from dataclasses import dataclass
+
+@dataclass
+class Rectangle:
+    width: int
+    height: int
+
+rect = Rectangle(width=100, height=50)
+
+area = rect.width * rect.hieght
+`}
+  />
+</pre>
+
 
 ## 3. Primitive Types
 
@@ -73,7 +113,9 @@ You can also specify a parameter as optional by using `Optional` type, or now wi
   <SandboxBrowserOnly
   sampleFilename="primitive2_types.py"
   isCodeSnippet={true}
-  codeSample={`from typing import Optional
+  codeSample={`# Optional typing example
+
+from typing import Optional
 
 middle_name: Optional[str] = None        # classic
 nickname: str | None = None              # 3.10+ shorthand
@@ -109,6 +151,8 @@ Default values keep their annotation:
   sampleFilename="defaul_value_types.py"
   isCodeSnippet={true}
   codeSample={`# Function with default value
+
+
 def greet(name: str, polite: bool = True) -> str:
     return "Hello!" if polite else f"Yo {name}"
     `}
@@ -126,8 +170,11 @@ from collections.abc import Callable
 Logger = Callable[[str], None]
 
 def debug(*msgs: str, log: Logger | None = print) -> None:
-    for m in msgs:
-        log(m)
+  for m in msgs:
+    if log is not None:
+      log(m)
+    else:
+      print(m)
     `}
   />
 </pre>
@@ -136,15 +183,15 @@ def debug(*msgs: str, log: Logger | None = print) -> None:
 
 You can download the [Pyrefly extension for VSCode](https://marketplace.visualstudio.com/items?itemName=meta.pyrefly) to get type hint signals directly in your IDE.
 
-Next, install [Pyrefly](https://pypi.org/project/pyrefly/) and check some code:
+Next, install [Pyrefly](../installation/) and check some code:
 ```
 # Fast, zero‑config
 pip install pyrefly
 
 pyrefly check ./my_sample.py
 
-# Check you whole project
-pyrefly check my_project/
+# Check whole directories
+pyrefly check app/ tests/
 ```
 
-Create a pyrefly.toml to configure your project for Pyrefly. Instructions [here](../configuration).
+Create a `pyrefly.toml` file to configure your project. Instructions [here](../configuration).
