@@ -13,10 +13,6 @@ import NewLandingPage from './newLandingPage';
 import LandingPageHeader from '../components/landing-page/landingPageHeader';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
-// This import serves no runtime purposes, but we import it to force webpack to run babel on it,
-// so we can test whether babel can handle newer syntax.
-import '../js/parser-playground';
-
 export default function Home(): React.ReactElement {
     const { siteConfig } = useDocusaurusContext();
 
