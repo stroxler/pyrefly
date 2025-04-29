@@ -19,7 +19,6 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use clap::Parser;
-use serde::Serialize;
 use tracing::error;
 use tracing::info;
 
@@ -29,6 +28,7 @@ use crate::config::mypy;
 use crate::config::mypy::MypyConfig;
 use crate::config::pyright;
 use crate::config::pyright::PyrightConfig;
+use crate::config::util::PyProject;
 use crate::util::fs_anyhow;
 use crate::util::upward_search::UpwardSearch;
 
@@ -87,17 +87,7 @@ impl Args {
             .append(true)
             .open(pyproject_path)?;
 
-        #[derive(Serialize)]
-        struct Tool {
-            pyrefly: ConfigFile,
-        }
-        #[derive(Serialize)]
-        struct PyProject {
-            tool: Tool,
-        }
-        let config = PyProject {
-            tool: Tool { pyrefly: config },
-        };
+        let config = PyProject::new(config);
         let serialized = toml::to_string_pretty(&config)?;
         pyproject
             .write_all(serialized.as_bytes())

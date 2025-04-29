@@ -471,22 +471,9 @@ impl ConfigFile {
     }
 
     fn parse_pyproject_toml(config_str: &str) -> anyhow::Result<ConfigFile> {
-        #[derive(Debug, Deserialize)]
-        struct PyProject {
-            #[serde(default)]
-            pub tool: Option<Tool>,
-        }
-
-        #[derive(Debug, Deserialize)]
-        struct Tool {
-            #[serde(default)]
-            pub pyrefly: Option<ConfigFile>,
-        }
-
-        let maybe_config = toml::from_str::<PyProject>(config_str)
+        let maybe_config = toml::from_str::<super::util::PyProject>(config_str)
             .map_err(|err| anyhow::Error::msg(err.to_string()))?
-            .tool
-            .and_then(|c| c.pyrefly);
+            .pyrefly();
         Ok(maybe_config.unwrap_or_else(ConfigFile::default))
     }
 }
