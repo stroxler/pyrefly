@@ -6,6 +6,7 @@
  */
 
 use ruff_python_ast::name::Name;
+use starlark_map::small_set::SmallSet;
 use starlark_map::smallmap;
 
 use crate::alt::answers::AnswersSolver;
@@ -24,10 +25,9 @@ use crate::types::class::ClassType;
 use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
-use crate::util::prelude::SliceExt;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    pub fn get_named_tuple_elements(&self, cls: &Class) -> Vec<Name> {
+    pub fn get_named_tuple_elements(&self, cls: &Class) -> SmallSet<Name> {
         let mut elements = Vec::new();
         for name in cls.fields() {
             if !cls.is_field_annotated(name) {
@@ -57,18 +57,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
-    fn get_named_tuple_field_params(&self, cls: &Class, elements: &[Name]) -> Vec<Param> {
-        elements.map(|name| {
-            let member = &*self.get_class_member(cls, name).unwrap().value;
-            Param::Pos(
-                name.clone(),
-                member.as_named_tuple_type(),
-                member.as_named_tuple_requiredness(),
-            )
-        })
+    fn get_named_tuple_field_params(&self, cls: &Class, elements: &SmallSet<Name>) -> Vec<Param> {
+        elements
+            .iter()
+            .map(|name| {
+                let member = &*self.get_class_member(cls, name).unwrap().value;
+                Param::Pos(
+                    name.clone(),
+                    member.as_named_tuple_type(),
+                    member.as_named_tuple_requiredness(),
+                )
+            })
+            .collect()
     }
 
-    fn get_named_tuple_new(&self, cls: &Class, elements: &[Name]) -> ClassSynthesizedField {
+    fn get_named_tuple_new(&self, cls: &Class, elements: &SmallSet<Name>) -> ClassSynthesizedField {
         let mut params = vec![Param::Pos(
             Name::new_static("cls"),
             Type::type_form(self.instantiate(cls)),
@@ -82,7 +85,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassSynthesizedField::new(ty)
     }
 
-    fn get_named_tuple_init(&self, cls: &Class, elements: &[Name]) -> ClassSynthesizedField {
+    fn get_named_tuple_init(
+        &self,
+        cls: &Class,
+        elements: &SmallSet<Name>,
+    ) -> ClassSynthesizedField {
         let mut params = vec![self.class_self_param(cls, true)];
         params.extend(self.get_named_tuple_field_params(cls, elements));
         let ty = Type::Function(Box::new(Function {
@@ -96,7 +103,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassSynthesizedField::new(ty)
     }
 
-    fn get_named_tuple_iter(&self, cls: &Class, elements: &[Name]) -> ClassSynthesizedField {
+    fn get_named_tuple_iter(
+        &self,
+        cls: &Class,
+        elements: &SmallSet<Name>,
+    ) -> ClassSynthesizedField {
         let params = vec![self.class_self_param(cls, true)];
         let element_types: Vec<Type> = elements
             .iter()
@@ -116,7 +127,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassSynthesizedField::new(ty)
     }
 
-    fn get_named_tuple_match_args(&self, elements: &[Name]) -> ClassSynthesizedField {
+    fn get_named_tuple_match_args(&self, elements: &SmallSet<Name>) -> ClassSynthesizedField {
         let ty = Type::Tuple(Tuple::Concrete(
             elements
                 .iter()

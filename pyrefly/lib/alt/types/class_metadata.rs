@@ -291,7 +291,7 @@ pub struct EnumMetadata {
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
 pub struct NamedTupleMetadata {
-    pub elements: Vec<Name>,
+    pub elements: SmallSet<Name>,
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
