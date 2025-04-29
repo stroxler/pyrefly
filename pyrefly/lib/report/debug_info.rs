@@ -21,7 +21,6 @@ use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
 use crate::binding::table::TableKeyed;
 use crate::config::config::ConfigFile;
-use crate::config::error::ErrorConfig;
 use crate::error::collector::ErrorCollector;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
@@ -126,8 +125,7 @@ impl DebugInfo {
                 .iter()
                 .map(|(config, module_info, errors, bindings, answers)| {
                     let mut res = Vec::new();
-                    let error_config =
-                        ErrorConfig::new(config.errors(), config.ignore_errors_in_generated_code());
+                    let error_config = config.get_error_config(None);
                     table_for_each!(answers.table(), |t| f(t, module_info, bindings, &mut res));
                     let errors = errors.collect(&error_config).shown.map(|e| Error {
                         location: e.source_range().to_string(),

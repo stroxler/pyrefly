@@ -11,7 +11,6 @@ use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
-use crate::config::error::ErrorConfig;
 use crate::error::collector::CollectedErrors;
 use crate::error::expectation::Expectation;
 use crate::module::ignore::Ignore;
@@ -35,8 +34,7 @@ impl Errors {
     pub fn collect_errors(&self) -> CollectedErrors {
         let mut errors = CollectedErrors::default();
         for (load, config) in &self.loads {
-            let error_config =
-                ErrorConfig::new(config.errors(), config.ignore_errors_in_generated_code());
+            let error_config = config.get_error_config(None);
             load.errors.collect_into(&error_config, &mut errors);
         }
         errors
@@ -54,8 +52,7 @@ impl Errors {
 
     pub fn check_against_expectations(&self) -> anyhow::Result<()> {
         for (load, config) in &self.loads {
-            let error_config =
-                ErrorConfig::new(config.errors(), config.ignore_errors_in_generated_code());
+            let error_config = config.get_error_config(None);
             Expectation::parse(load.module_info.dupe(), load.module_info.contents())
                 .check(&load.errors.collect(&error_config).shown)?;
         }

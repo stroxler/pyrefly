@@ -25,6 +25,7 @@ use tracing::warn;
 
 use crate::config::base::ConfigBase;
 use crate::config::environment::PythonEnvironment;
+use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::module::bundled::typeshed;
 use crate::module::finder::find_module_in_search_path;
@@ -295,6 +296,10 @@ impl ConfigFile {
                 // we can use unwrap here, because the value in the root config must
                 // be set in `ConfigFile::configure()`.
                 self.root.ignore_errors_in_generated_code.unwrap())
+    }
+
+    pub fn get_error_config(&self, _path: Option<&Path>) -> ErrorConfig {
+        ErrorConfig::new(self.errors(), self.ignore_errors_in_generated_code())
     }
 
     /// Filter to sub configs whose matches succeed for the given `path`,
