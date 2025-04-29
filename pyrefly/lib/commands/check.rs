@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
+use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -337,7 +338,8 @@ impl Args {
             config.python_environment.python_version = Some(*x);
         }
         if let Some(x) = &self.search_path {
-            config.search_path = x.clone();
+            let old = mem::take(&mut config.search_path);
+            config.search_path = x.iter().cloned().chain(old).collect();
         }
         if let Some(x) = &self.site_package_path {
             config.python_environment.site_package_path = Some(x.clone());
