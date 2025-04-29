@@ -15,7 +15,6 @@ use std::time::Instant;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use notify::Event;
-use notify::RecommendedWatcher;
 use notify::RecursiveMode;
 use notify::Watcher as _;
 use notify::recommended_watcher;
@@ -38,18 +37,16 @@ pub trait Watcher {
 
 pub struct NotifyWatcher {
     receiver: Receiver<notify::Result<Event>>,
-    watcher: RecommendedWatcher,
 }
 
 impl NotifyWatcher {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new(paths: &[PathBuf]) -> anyhow::Result<Self> {
         let (sender, receiver) = channel();
-        let watcher = recommended_watcher(sender)?;
-        Ok(Self { receiver, watcher })
-    }
-
-    pub fn watch_dir(&mut self, path: &Path) -> anyhow::Result<()> {
-        Ok(self.watcher.watch(path, RecursiveMode::Recursive)?)
+        let mut watcher = recommended_watcher(sender)?;
+        for path in paths {
+            watcher.watch(path, RecursiveMode::Recursive)?;
+        }
+        Ok(Self { receiver })
     }
 }
 

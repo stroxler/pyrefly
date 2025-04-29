@@ -109,10 +109,7 @@ async fn run_check(
     allow_forget: bool,
 ) -> anyhow::Result<CommandExitStatus> {
     if watch {
-        let mut watcher = NotifyWatcher::new()?;
-        for path in files_to_check.roots() {
-            watcher.watch_dir(&path)?;
-        }
+        let watcher = NotifyWatcher::new(&files_to_check.roots())?;
         args.run_watch(watcher, files_to_check, config_finder)
             .await?;
         Ok(CommandExitStatus::Success)
