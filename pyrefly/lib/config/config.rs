@@ -163,12 +163,13 @@ impl ConfigFile {
         }
     }
 
-    /// Return `Err` to indicate the module could not be found.
+    /// Get the given [`ModuleName`] from this config's search and site package paths.
+    /// Return `Err` when indicating the module could not be found.
     pub fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
         if let Some(path) = self.custom_module_paths.get(&module) {
             Ok(path.clone())
         } else if self
-            .replace_imports_with_any()
+            .replace_imports_with_any(None)
             .iter()
             .any(|p| p.matches(module))
         {
@@ -257,30 +258,45 @@ impl ConfigFile {
     }
 
     pub fn errors(&self) -> &ErrorDisplayConfig {
-        // we can use unwrap here, because the value in the root config must
-        // be set in `ConfigFile::configure()`.
-        self.root.errors.as_ref().unwrap()
+        // TODO(connernilsen): replace path below with actual path
+        self.get_from_sub_configs(ConfigBase::get_errors, Path::new(""))
+            .unwrap_or_else(||
+                // we can use unwrap here, because the value in the root config must
+                // be set in `ConfigFile::configure()`.
+                self.root.errors.as_ref().unwrap())
     }
 
-    pub fn replace_imports_with_any(&self) -> &[ModuleWildcard] {
-        // we can use unwrap here, because the value in the root config must
-        // be set in `ConfigFile::configure()`.
-        self.root.replace_imports_with_any.as_deref().unwrap()
+    pub fn replace_imports_with_any(&self, path: Option<&Path>) -> &[ModuleWildcard] {
+        path.and_then(|path| {
+            self.get_from_sub_configs(ConfigBase::get_replace_imports_with_any, path)
+        })
+        .unwrap_or_else(||
+                // we can use unwrap here, because the value in the root config must
+                // be set in `ConfigFile::configure()`.
+                self.root.replace_imports_with_any.as_deref().unwrap())
     }
 
     pub fn skip_untyped_functions(&self) -> bool {
-        // we can use unwrap here, because the value in the root config must
-        // be set in `ConfigFile::configure()`.
-        self.root.skip_untyped_functions.unwrap()
+        // TODO(connernilsen): replace path with actual path
+        self.get_from_sub_configs(ConfigBase::get_skip_untyped_functions, Path::new(""))
+            .unwrap_or_else(||
+                // we can use unwrap here, because the value in the root config must
+                // be set in `ConfigFile::configure()`.
+                self.root.skip_untyped_functions.unwrap())
     }
 
     pub fn ignore_errors_in_generated_code(&self) -> bool {
-        // we can use unwrap here, because the value in the root config must
-        // be set in `ConfigFile::configure()`.
-        self.root.ignore_errors_in_generated_code.unwrap()
+        // TODO(connernilsen): replace path with actual path
+        self.get_from_sub_configs(
+            ConfigBase::get_ignore_errors_in_generated_code,
+            Path::new(""),
+        )
+        .unwrap_or_else(||
+                // we can use unwrap here, because the value in the root config must
+                // be set in `ConfigFile::configure()`.
+                self.root.ignore_errors_in_generated_code.unwrap())
     }
 
-    #[expect(dead_code)]
     /// Filter to sub configs whose matches succeed for the given `path`,
     /// then return the first non-None value the getter returns, or None
     /// if a non-empty value can't be found.
@@ -835,5 +851,65 @@ mod tests {
         assert!(!config.python_environment.site_package_path_from_interpreter);
         config.configure();
         assert!(!config.python_environment.site_package_path_from_interpreter);
+    }
+
+    #[test]
+    fn test_get_from_sub_configs() {
+        let config = ConfigFile {
+            root: ConfigBase {
+                errors: Some(Default::default()),
+                replace_imports_with_any: Some(vec![ModuleWildcard::new("root").unwrap()]),
+                skip_untyped_functions: Some(false),
+                ignore_errors_in_generated_code: Some(false),
+                extras: Default::default(),
+            },
+            sub_configs: vec![
+                SubConfig {
+                    matches: Glob::new("**/highest/**".to_owned()),
+                    settings: ConfigBase {
+                        replace_imports_with_any: Some(vec![
+                            ModuleWildcard::new("highest").unwrap(),
+                        ]),
+                        ignore_errors_in_generated_code: None,
+                        ..Default::default()
+                    },
+                },
+                SubConfig {
+                    matches: Glob::new("**/priority*".to_owned()),
+                    settings: ConfigBase {
+                        replace_imports_with_any: Some(vec![
+                            ModuleWildcard::new("second").unwrap(),
+                        ]),
+                        ignore_errors_in_generated_code: Some(true),
+                        ..Default::default()
+                    },
+                },
+            ],
+            ..Default::default()
+        };
+
+        // test precedence (two configs match, one higher priority)
+        assert_eq!(
+            config.replace_imports_with_any(Some(Path::new("this/is/highest/priority"))),
+            &[ModuleWildcard::new("highest").unwrap()]
+        );
+
+        // test find fallback match
+        assert_eq!(
+            config.replace_imports_with_any(Some(Path::new("this/is/second/priority"))),
+            &[ModuleWildcard::new("second").unwrap()]
+        );
+
+        // test no pattern match
+        assert_eq!(
+            config.replace_imports_with_any(Some(Path::new("this/does/not/match/any"))),
+            &[ModuleWildcard::new("root").unwrap()],
+        );
+
+        // test replace_imports_with_any special case None path
+        assert_eq!(
+            config.replace_imports_with_any(None),
+            &[ModuleWildcard::new("root").unwrap()],
+        )
     }
 }

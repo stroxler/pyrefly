@@ -196,7 +196,7 @@ ignore_missing_imports = True
         ]);
         assert_eq!(cfg.project_excludes, expected_excludes);
 
-        assert_eq!(cfg.replace_imports_with_any().len(), 5);
+        assert_eq!(cfg.replace_imports_with_any(None).len(), 5);
         assert!(cfg.use_untyped_imports);
         Ok(())
     }
