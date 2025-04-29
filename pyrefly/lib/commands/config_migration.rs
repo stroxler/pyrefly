@@ -19,6 +19,7 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use clap::Parser;
+use serde::Serialize;
 use tracing::error;
 use tracing::info;
 
@@ -77,6 +78,32 @@ impl Args {
         )
     }
 
+    fn write_pyproject(pyproject_path: &Path, config: ConfigFile) -> anyhow::Result<()> {
+        // TODO: Use toml_edit to replace the existing tool.pyrefly config, if one exists.
+        // This merely appends the new config to the end of the file.
+        use std::io::Write;
+        let mut pyproject = std::fs::File::options()
+            .create(true)
+            .append(true)
+            .open(pyproject_path)?;
+
+        #[derive(Serialize)]
+        struct Tool {
+            pyrefly: ConfigFile,
+        }
+        #[derive(Serialize)]
+        struct PyProject {
+            tool: Tool,
+        }
+        let config = PyProject {
+            tool: Tool { pyrefly: config },
+        };
+        let serialized = toml::to_string_pretty(&config)?;
+        pyproject
+            .write_all(serialized.as_bytes())
+            .with_context(|| "While trying to write the pyrefly config to the pyproject.toml file")
+    }
+
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
         if let Some(path) = self.input_path.as_ref() {
             if !path.exists() {
@@ -86,11 +113,11 @@ impl Args {
         }
         let input_path = match &self.input_path {
             Some(path) if path.is_file() => {
-                println!("Looking for {}", path.display());
+                info!("Looking for {}", path.display());
                 path
             }
             Some(path) => {
-                println!("Looking for configs to migrate in {}", path.display());
+                info!("Looking for configs to migrate in {}", path.display());
                 &Self::find_config(path)?
             }
             None => {
@@ -116,7 +143,7 @@ impl Args {
             info!("Detected pyproject.toml file.");
             Self::load_from_pyproject(&raw_file)?
         } else {
-            eprintln!(
+            error!(
                 "Currently only migration from pyrightconfig.json, mypy.ini, and pyproject.toml is supported, not {}",
                 input_path.display(),
             );
@@ -124,13 +151,22 @@ impl Args {
         };
         info!("Conversion finished");
 
-        let serialized = toml::to_string_pretty(&config)?;
-        if let Some(output_path) = &self.output_path {
-            fs_anyhow::write(output_path, serialized.as_bytes())?;
-            info!("New config written to {}", output_path.display());
+        let output_path = match &self.output_path {
+            Some(path) => path,
+            None => {
+                if input_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
+                    input_path
+                } else {
+                    &input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME)
+                }
+            }
+        };
+        if output_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
+            Args::write_pyproject(output_path, config)?;
+            info!("Config written to {}", output_path.display());
         } else {
-            let output_path = input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
-            fs_anyhow::write(&output_path, serialized.as_bytes())?;
+            let serialized = toml::to_string_pretty(&config)?;
+            fs_anyhow::write(output_path, serialized.as_bytes())?;
             info!("New config written to {}", output_path.display());
         }
         Ok(CommandExitStatus::Success)
@@ -242,6 +278,10 @@ files = ["a.py"]
         };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
+        let input_path = args.input_path.unwrap();
+        let pyproject = fs_anyhow::read_to_string(&input_path)?;
+        assert_eq!(pyproject.lines().next().unwrap(), "[tool.mypy]");
+        assert!(pyproject.contains("[tool.pyrefly]"));
         Ok(())
     }
 
@@ -259,6 +299,11 @@ include = ["a.py"]
         };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
+        let input_path = args.input_path.unwrap();
+        let pyproject = fs_anyhow::read_to_string(&input_path)?;
+        assert_eq!(pyproject.lines().next().unwrap(), "[tool.pyright]");
+        assert!(pyproject.contains("[tool.pyrefly]"));
+        assert!(!tmp.path().join("pyrefly.toml").exists());
         Ok(())
     }
 
@@ -322,6 +367,92 @@ files = ["mypy.py"]
         .run()?;
         assert!(matches!(status, CommandExitStatus::Success));
         assert!(tmp.path().join("a/pyrefly.toml").try_exists()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_existing_file_to_new_pyproject() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("pyrightconfig.json");
+        let pyr = br#"{
+    "include": ["src/**/*.py"]
+}
+"#;
+        fs_anyhow::write(&input_path, pyr)?;
+        let output_path = input_path.with_file_name(ConfigFile::PYPROJECT_FILE_NAME);
+
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: Some(output_path.clone()),
+        };
+        let status = args.run()?;
+
+        assert!(matches!(status, CommandExitStatus::Success));
+        let output = fs_anyhow::read_to_string(&output_path)?;
+        assert!(output.contains("[tool.pyrefly]"));
+        assert!(output.contains(r#"src/**/*.py"#));
+        assert!(!tmp.path().join("pyrefly.toml").exists());
+        Ok(())
+    }
+
+    #[ignore = "Cannot edit toml files in a way that preserves order and comments"]
+    #[test]
+    fn test_overwrite_existing_toolpyrefly() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("pyrightconfig.json");
+        fs_anyhow::write(&input_path, b"{}")?;
+        let output_path = tmp.path().join("pyproject.toml");
+        fs_anyhow::write(
+            &output_path,
+            br#"[project]
+name = "test"
+
+[tool.a]
+test = true
+
+[tool.z]
+test = true
+
+# I'm a comment!
+
+[tool.pyrefly]
+incomplete = true
+
+[tool.b]
+test = true
+"#,
+        )?;
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: Some(output_path.clone()),
+        };
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::Success));
+
+        let output = fs_anyhow::read_to_string(&output_path)?;
+        let headers = output
+            .lines()
+            .filter(|l| l.starts_with(['[', '#']))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            headers,
+            vec![
+                "[project]",
+                "[tool.a]",
+                "[tool.z]",
+                "# I'm a comment!",
+                "[tool.pyrefly]",
+                "[tool.b]",
+            ]
+        );
+
+        let config = toml::from_str::<toml::Table>(&output)?;
+        assert!(
+            !config["tool"]["pyrefly"]
+                .as_table()
+                .is_some_and(|table| table.contains_key("incomplete"))
+        );
+
         Ok(())
     }
 }
