@@ -54,8 +54,18 @@ impl SubConfig {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub enum ConfigSource {
+    File(PathBuf),
+    #[default]
+    Synthetic,
+}
+
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct ConfigFile {
+    #[serde(skip)]
+    pub source: ConfigSource,
+
     /// Files that should be counted as sources (e.g. user-space code).
     /// NOTE: unlike other args, this is never replaced with CLI arg overrides
     /// in this config, but may be overridden by CLI args where used.
@@ -134,6 +144,7 @@ impl ConfigFile {
     /// since it may have strange runtime behavior. Prefer to use `ConfigFile::default()` instead.
     fn default_no_path_rewrite() -> Self {
         ConfigFile {
+            source: ConfigSource::Synthetic,
             project_includes: Self::default_project_includes(),
             project_excludes: Self::default_project_excludes(),
             python_interpreter: PythonEnvironment::get_default_interpreter(),
@@ -404,6 +415,7 @@ impl ConfigFile {
                 } else {
                     ConfigFile::parse_config(&config_str)
                 }?;
+            config.source = ConfigSource::File(config_path.to_owned());
 
             if error_on_extras {
                 if !config.root.extras.0.is_empty() {
@@ -522,6 +534,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigFile {
+                source: ConfigSource::Synthetic,
                 project_includes: Globs::new(vec![
                     "tests".to_owned(),
                     "./implementation".to_owned()
@@ -697,6 +710,7 @@ mod tests {
         };
         let interpreter = "venv/bin/python3".to_owned();
         let mut config = ConfigFile {
+            source: ConfigSource::Synthetic,
             project_includes: Globs::new(vec!["path1/**".to_owned(), "path2/path3".to_owned()]),
             project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]),
             search_path: vec![PathBuf::from("../..")],
@@ -729,6 +743,7 @@ mod tests {
         config.rewrite_with_path_to_config(&test_path);
 
         let expected_config = ConfigFile {
+            source: ConfigSource::Synthetic,
             project_includes: Globs::new(project_includes_vec),
             project_excludes: Globs::new(project_excludes_vec),
             python_interpreter: Some(test_path.join(interpreter)),
