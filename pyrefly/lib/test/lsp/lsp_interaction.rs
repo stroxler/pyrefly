@@ -443,7 +443,7 @@ fn test_hover() {
         id: RequestId::from(2),
         result: Some(serde_json::json!({"contents": {
             "kind": "markdown",
-            "value": "```python\nError\n```",
+            "value": "```python\ntype[Bar]\n```",
         }})),
         error: None,
     }));

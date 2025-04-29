@@ -81,6 +81,7 @@ use path_absolutize::Absolutize;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
 
+use crate::commands::config_finder::standard_config_finder;
 use crate::commands::run::CommandExitStatus;
 use crate::commands::util::module_from_path;
 use crate::config::config::ConfigFile;
@@ -255,32 +256,19 @@ impl Workspaces {
     }
 
     fn config_finder(workspaces: &Arc<Workspaces>) -> ConfigFinder {
-        let workspaces1 = workspaces.dupe();
-        let workspaces2 = workspaces.dupe();
-
-        let load: Box<dyn Fn(&Path) -> anyhow::Result<ArcId<ConfigFile>> + Send + Sync> =
-            Box::new(move |path| {
-                let mut config = ConfigFile::from_file(path, false)?;
-                workspaces1.get_with(path.to_owned(), |w| {
-                    // TODO: Should integrate and fill in defaults, but not override always
+        let workspaces = workspaces.dupe();
+        standard_config_finder(Arc::new(move |dir, mut config| {
+            if let Some(dir) = dir {
+                workspaces.get_with(dir.to_owned(), |w| {
                     config.python_environment = w.config_file.python_environment.clone();
-                    config.search_path = w.config_file.search_path.clone();
-                });
-                config.configure();
-                Ok(ArcId::new(config))
-            });
-        let fallback: Box<dyn Fn(ModuleName, &ModulePath) -> ArcId<ConfigFile> + Send + Sync> =
-            Box::new(move |_, path: &ModulePath| {
-                let path = match path.details() {
-                    ModulePathDetails::BundledTypeshed(x)
-                    | ModulePathDetails::FileSystem(x)
-                    | ModulePathDetails::Memory(x)
-                    | ModulePathDetails::Namespace(x) => x,
-                };
-                workspaces2.get_with(path.clone(), |w| w.config_file.dupe())
-            });
-
-        ConfigFinder::new(load, fallback)
+                    config
+                        .search_path
+                        .extend_from_slice(&w.config_file.search_path);
+                })
+            };
+            config.configure();
+            config
+        }))
     }
 }
 
