@@ -228,3 +228,19 @@ B = namedtuple("B", ["a", "b", "_c"])  # E: NamedTuple field name may not start 
 C = namedtuple("C", ["a", "b", "_c"], rename=True)  # OK
 "#,
 );
+
+testcase!(
+    bug = "ClassVar and Final are not allowed on NamedTuple members, but subclasses can use them in fields",
+    test_named_tuple_subclass_with_qualified_annotations,
+    r#"
+from typing import NamedTuple, ClassVar, Final, assert_type
+class Foo(NamedTuple):
+    x: int
+    y: str
+class Bar(Foo):
+    z: ClassVar[int] = 7  # E: `ClassVar` may not be used for TypedDict or NamedTuple members
+    w: Final[int] = 7  # E: `Final` may not be used for TypedDict or NamedTuple members
+assert_type(Bar.z, int)
+assert_type(Bar(1, "y").w, int)
+"#,
+);
