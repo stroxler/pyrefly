@@ -193,13 +193,14 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             project_excludes,
             watch,
             config,
-            args,
+            mut args,
         } => {
             if !files.is_empty() && config.is_some() {
                 return Err(anyhow!(
                     "Can either supply `FILES...` OR `--config/-c`, not both."
                 ));
             }
+            args.absolute_search_path();
             if files.is_empty() {
                 run_check_on_project(watch, config, project_excludes, args, allow_forget).await
             } else {

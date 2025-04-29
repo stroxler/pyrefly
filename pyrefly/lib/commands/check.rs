@@ -18,6 +18,7 @@ use anyhow::Context as _;
 use clap::Parser;
 use clap::ValueEnum;
 use dupe::Dupe;
+use path_absolutize::Absolutize;
 use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -259,6 +260,16 @@ async fn get_watcher_events(watcher: &mut impl Watcher) -> anyhow::Result<Catego
 }
 
 impl Args {
+    pub fn absolute_search_path(&mut self) {
+        if let Some(paths) = self.search_path.as_mut() {
+            for x in paths.iter_mut() {
+                if let Ok(v) = x.absolutize() {
+                    *x = v.into_owned();
+                }
+            }
+        }
+    }
+
     pub fn run_once(
         self,
         files_to_check: FilteredGlobs,
