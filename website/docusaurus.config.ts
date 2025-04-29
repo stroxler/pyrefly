@@ -233,6 +233,12 @@ const config: Config = {
         },
         navbar: {
             title: 'Pyrefly',
+            logo: {
+                alt: 'Pyrefly Logo',
+                src: 'img/Pyrefly-Symbol-Invert.svg',
+                height: 24, // Set a smaller height for the header logo
+                width: 24,  // Maintain aspect ratio
+            },
             items: getNavBarItems(),
         },
         footer: {
