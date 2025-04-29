@@ -30,6 +30,7 @@ export default function NewLandingPage(): React.ReactElement {
                 id="why-pyrefly-section"
                 child={<WhyPyrefly />}
                 isFirstSection={true}
+                hasBrownBackground={true}
             />
             <LandingPageSection
                 id="performance-comparison-section"
@@ -42,6 +43,7 @@ export default function NewLandingPage(): React.ReactElement {
                 title="Don't just take our word for it"
                 child={<QuotesGrid />}
                 isLastSection={true}
+                hasBrownBackground={true}
             />
         </Layout>
     );

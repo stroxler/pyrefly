@@ -10,18 +10,46 @@
 import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import typography from './typography';
+import { useEffect, useState } from 'react';
 interface WhyPyreflyGridItemProps {
     title: string;
     content: string;
+    index: number;
+    startAnimation: boolean;
 }
 
 export default function WhyPyreflyGridItem({
     title,
     content,
+    index,
+    startAnimation,
 }: WhyPyreflyGridItemProps): React.ReactElement {
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        // Only start animation when parent signals it's time
+        if (startAnimation) {
+            // Stagger the animations based on index
+            const timer = setTimeout(() => {
+                setIsVisible(true);
+            }, index * 80); // Reduced from 150ms to 80ms delay between each card
+
+            return () => clearTimeout(timer);
+        }
+    }, [startAnimation, index]);
+
     return (
-        <div {...stylex.props(styles.whyPyreflyCard)}>
-            <h3 {...stylex.props(typography.h5, typography.bold)}>{title}</h3>
+        <div
+            {...stylex.props(
+                styles.whyPyreflyCard,
+                isVisible && styles.whyPyreflyCardVisible
+            )}
+            style={{
+                // Apply dynamic delay based on index
+                transitionDelay: `${index * 0.05}s`, // Reduced from 0.1s to 0.05s
+            }}
+        >
+            <h3 {...stylex.props(typography.h5, styles.cardTitle)}>{title}</h3>
             <p {...stylex.props(styles.contentText, typography.p)}>{content}</p>
         </div>
     );
@@ -29,11 +57,42 @@ export default function WhyPyreflyGridItem({
 
 const styles = stylex.create({
     whyPyreflyCard: {
-        padding: '1.5rem',
+        padding: '1.75rem',
+        background: 'rgba(255, 255, 255, 0.05)',
+        backdropFilter: 'blur(10px)',
+        borderRadius: '8px',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        boxShadow:
+            '0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)',
+        transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', // Reduced from 1.2s to 0.8s
+        transform: 'rotateX(15deg) translateY(20px)',
+        opacity: 0,
+        filter: 'blur(6px)',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        ':hover': {
+            transform: 'translateY(-5px)',
+            boxShadow:
+                '0 10px 20px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.1)',
+            background: 'rgba(255, 255, 255, 0.08)',
+        },
+    },
+    whyPyreflyCardVisible: {
+        opacity: 1,
+        transform: 'rotateX(0deg) translateY(0)',
+        filter: 'blur(0px)',
+    },
+    cardTitle: {
+        fontWeight: 700,
+        marginBottom: '0.75rem',
+        color: 'var(--color-text)',
     },
     contentText: {
         fontSize: '1rem',
         lineHeight: '1.6',
         marginBottom: '0rem',
+        flex: 1,
+        color: 'var(--color-text)',
     },
 });

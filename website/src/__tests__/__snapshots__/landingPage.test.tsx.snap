@@ -154,55 +154,78 @@ exports[`Home page renders internal site correctly 1`] = `
         >
           <div>
             <div>
-              <h3>
-                Scale with Confidence
-              </h3>
-              <p>
-                 Typecheck 1.8 million lines of code per second
-              </p>
+              <div
+                style="transition-delay: 0s;"
+              >
+                <h3>
+                  Scale with Confidence
+                </h3>
+                <p>
+                  Typecheck 1.8 million lines of code per second
+                </p>
+              </div>
+              <div
+                style="transition-delay: 0.05s;"
+              >
+                <h3>
+                  Developer Delight
+                </h3>
+                <p>
+                  Catch errors as you write code, and get instant feedback right in your favorite editor
+                </p>
+              </div>
+              <div
+                style="transition-delay: 0.1s;"
+              >
+                <h3>
+                  Easy Onboarding
+                </h3>
+                <p>
+                  Start type checking your code in minutes
+                </p>
+              </div>
+              <div
+                style="transition-delay: 0.15000000000000002s;"
+              >
+                <h3>
+                  Codebase Clarity
+                </h3>
+                <p>
+                  Improve code readability and maintainability with precise type annotations
+                </p>
+              </div>
+              <div
+                style="transition-delay: 0.2s;"
+              >
+                <h3>
+                  Tooling for Improving Types
+                </h3>
+                <p>
+                  Comes packaged with tools to elevate your type coverage from 0 to 100
+                </p>
+              </div>
+              <div
+                style="transition-delay: 0.25s;"
+              >
+                <h3>
+                  Fully Featured
+                </h3>
+                <p>
+                  Actively under development. Follows the official Python typing specification.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3>
-                Developer Delight
-              </h3>
-              <p>
-                 Catch errors as you write code, and get instant feedback right in your favorite editor
-              </p>
-            </div>
-            <div>
-              <h3>
-                Easy Onboarding
-              </h3>
-              <p>
-                 Start type checking your code in minutes
-              </p>
-            </div>
-            <div>
-              <h3>
-                Codebase Clarity
-              </h3>
-              <p>
-                Improve code readability and maintainability with precise type
-          annotations
-              </p>
-            </div>
-            <div>
-              <h3>
-                Tooling for Improving Types
-              </h3>
-              <p>
-                Comes packaged with tools to elevate your type coverage
-          from 0 to 100
-              </p>
-            </div>
-            <div>
-              <h3>
-                Fully Featured
-              </h3>
-              <p>
-                 Actively under development. Follows the official Python typing specification.
-              </p>
-            </div>
+            <section>
+              <li
+                id="firefly"
+              />
+              <li
+                id="firefly"
+              />
+              <li
+                id="firefly"
+              />
+            </section>
           </div>
         </div>
       </section>
@@ -353,47 +376,57 @@ exports[`Home page renders internal site correctly 1`] = `
           </h2>
           <div>
             <div>
-              <p>
-                Pyre and Lint are hands down the most important investments Instagram has made into engineering productivity for our Python codebase. We could not have maintained our product dev velocity with so many people working in the codebase, all while serving 2 billion active users, without the safety and security of static analysis.
-              </p>
               <div>
-                <strong>
-                  &lt;TO BE ADDED&gt;
-                </strong>
-                <span>
-                  Instagram Leadership
-                </span>
+                <p>
+                  Pyre and Lint are hands down the most important investments Instagram has made into engineering productivity for our Python codebase. We could not have maintained our product dev velocity with so many people working in the codebase, all while serving 2 billion active users, without the safety and security of static analysis.
+                </p>
+                <div>
+                  <strong>
+                    &lt;TO BE ADDED&gt;
+                  </strong>
+                  <span>
+                    Instagram Leadership
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p>
+                  The enhanced type system and clear error messages have made our codebase more maintainable and easier to debug.
+                </p>
+                <div>
+                  <strong>
+                    &lt;TO BE ADDED&gt;
+                  </strong>
+                  <span>
+                    core Contributor, PyTorch
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p>
+                  As an early adopter, I'm impressed by Pyrefly's extensibility and the active community support. It's the future of Python type checking.
+                </p>
+                <div>
+                  <strong>
+                    &lt;TO BE ADDED&gt;
+                  </strong>
+                  <span>
+                    &lt;Open Source Project Name - TO BE ADDED&gt;
+                  </span>
+                </div>
               </div>
             </div>
-            <div>
-              <p>
-                The enhanced type system and clear error messages have made our
-        codebase more maintainable and easier to debug.
-              </p>
-              <div>
-                <strong>
-                  &lt;TO BE ADDED&gt;
-                </strong>
-                <span>
-                  core Contributor, PyTorch
-                </span>
-              </div>
-            </div>
-            <div>
-              <p>
-                As an early adopter, I'm impressed by Pyrefly's extensibility
-        and the active community support. It's the future of Python type
-        checking.
-              </p>
-              <div>
-                <strong>
-                  &lt;TO BE ADDED&gt;
-                </strong>
-                <span>
-                  &lt;Open Source Project Name - TO BE ADDED&gt;
-                </span>
-              </div>
-            </div>
+            <section>
+              <li
+                id="firefly"
+              />
+              <li
+                id="firefly"
+              />
+              <li
+                id="firefly"
+              />
+            </section>
           </div>
         </div>
       </section>

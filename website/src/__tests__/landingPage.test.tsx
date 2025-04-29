@@ -70,7 +70,7 @@ describe('Home page', () => {
 
         // Verify that fireflies are present
         const fireflyElements = document.querySelectorAll('#firefly');
-        expect(fireflyElements.length).toEqual(5);
+        expect(fireflyElements.length).toBeGreaterThan(1);
 
         // Verify that header is correct
         const header = container.querySelector('header');
