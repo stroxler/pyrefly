@@ -9,18 +9,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use toml::Table;
 
-pub fn set_if_some<T: Clone>(config_field: &mut T, value: Option<&T>) {
-    if let Some(value) = value {
-        *config_field = value.clone();
-    }
-}
-
-pub fn set_option_if_some<T: Clone>(config_field: &mut Option<T>, value: Option<&T>) {
-    if value.is_some() {
-        *config_field = value.cloned();
-    }
-}
-
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(transparent)]
 pub struct ExtraConfigs(pub Table);

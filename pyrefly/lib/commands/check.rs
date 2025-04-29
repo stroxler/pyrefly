@@ -28,8 +28,6 @@ use crate::commands::suppress;
 use crate::commands::util::module_from_path;
 use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
-use crate::config::util::set_if_some;
-use crate::config::util::set_option_if_some;
 use crate::error::error::Error;
 use crate::error::error::print_error_counts;
 use crate::error::error::print_errors;
@@ -321,6 +319,18 @@ impl Args {
     }
 
     pub fn override_config(&self, mut config: ConfigFile) -> ConfigFile {
+        fn set_if_some<T: Clone>(config_field: &mut T, value: Option<&T>) {
+            if let Some(value) = value {
+                *config_field = value.clone();
+            }
+        }
+
+        fn set_option_if_some<T: Clone>(config_field: &mut Option<T>, value: Option<&T>) {
+            if value.is_some() {
+                *config_field = value.cloned();
+            }
+        }
+
         set_option_if_some(
             &mut config.python_environment.python_platform,
             self.python_platform.as_ref(),
