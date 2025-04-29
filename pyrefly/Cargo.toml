@@ -78,14 +78,7 @@ zstd = { version = "0.13", features = ["experimental", "zstdmt"] }
 which = "4.2.4"
 zstd = { version = "0.13", features = ["experimental", "zstdmt"] }
 
-[target.'cfg(not(target_arch = "wasm32"))'.build-dependencies]
-which = "4.2.4"
-zstd = { version = "0.13", features = ["experimental", "zstdmt"] }
-
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-zstd = "0.13"
-
-[target.'cfg(target_arch = "wasm32")'.build-dependencies]
 zstd = "0.13"
 
 [lints]
