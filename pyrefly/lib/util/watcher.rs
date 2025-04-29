@@ -51,11 +51,6 @@ impl NotifyWatcher {
     pub fn watch_dir(&mut self, path: &Path) -> anyhow::Result<()> {
         Ok(self.watcher.watch(path, RecursiveMode::Recursive)?)
     }
-
-    #[allow(unused)] // May be used in the future
-    pub fn unwatch_dir(&mut self, path: &Path) -> anyhow::Result<()> {
-        Ok(self.watcher.unwatch(path)?)
-    }
 }
 
 #[async_trait]
