@@ -12,14 +12,12 @@ use std::path::PathBuf;
 use crate::dunder;
 use crate::module::module_name::ModuleName;
 
-pub fn module_from_path(path: &Path, includes: &[PathBuf]) -> ModuleName {
+/// If the module is on the search path, return its name from that path. Otherwise, return None.
+pub fn module_from_path(path: &Path, includes: &[PathBuf]) -> Option<ModuleName> {
     // Return a module name, and a boolean as to whether it is any good.
-    fn path_to_module(mut path: &Path) -> (ModuleName, bool) {
+    fn path_to_module(mut path: &Path) -> Option<ModuleName> {
         if path.file_stem() == Some(dunder::INIT.as_str().as_ref()) {
-            match path.parent() {
-                Some(parent) => path = parent,
-                None => return (ModuleName::from_name(&dunder::INIT), false),
-            }
+            path = path.parent()?;
         }
         let mut out = Vec::new();
         let path = path.with_extension("");
@@ -31,22 +29,20 @@ pub fn module_from_path(path: &Path, includes: &[PathBuf]) -> ModuleName {
             }
         }
         if out.is_empty() {
-            (ModuleName::from_str("main"), false)
+            None
         } else {
-            (ModuleName::from_parts(out), true)
+            Some(ModuleName::from_parts(out))
         }
     }
 
     for include in includes {
-        if let Ok(x) = path.strip_prefix(include) {
-            let (res, good) = path_to_module(x);
-            if good {
-                return res;
-            }
+        if let Ok(x) = path.strip_prefix(include)
+            && let Some(res) = path_to_module(x)
+        {
+            return Some(res);
         }
     }
-    // TODO: Make this all Option
-    ModuleName::unknown()
+    None
 }
 
 #[cfg(test)]
@@ -58,27 +54,24 @@ mod tests {
         let includes = vec![PathBuf::from("/foo/bar")];
         assert_eq!(
             module_from_path(Path::new("/foo/bar/baz.py"), &includes),
-            ModuleName::from_str("baz")
+            Some(ModuleName::from_str("baz"))
         );
         assert_eq!(
             module_from_path(Path::new("/foo/bar/baz/qux.pyi"), &includes),
-            ModuleName::from_str("baz.qux")
+            Some(ModuleName::from_str("baz.qux"))
         );
         assert_eq!(
             module_from_path(Path::new("/foo/bar/baz/test/magic.py"), &includes),
-            ModuleName::from_str("baz.test.magic")
+            Some(ModuleName::from_str("baz.test.magic"))
         );
         assert_eq!(
             module_from_path(Path::new("/foo/bar/baz/__init__.pyi"), &includes),
-            ModuleName::from_str("baz")
+            Some(ModuleName::from_str("baz"))
         );
-        assert_eq!(
-            module_from_path(Path::new("/test.py"), &includes),
-            ModuleName::unknown()
-        );
+        assert_eq!(module_from_path(Path::new("/test.py"), &includes), None);
         assert_eq!(
             module_from_path(Path::new("/not_foo/test.py"), &includes),
-            ModuleName::unknown()
+            None
         );
     }
 }

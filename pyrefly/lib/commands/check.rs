@@ -203,7 +203,8 @@ impl Handles {
         config_finder: &ConfigFinder,
     ) -> &(ModuleName, SysInfo) {
         let module_path = ModulePath::filesystem(path.clone());
-        let config = config_finder.python_file(ModuleName::unknown(), &module_path);
+        let unknown = ModuleName::unknown();
+        let config = config_finder.python_file(unknown, &module_path);
 
         let mut search_path = Vec::new();
         // We want to find the module name for this path, but if we had to create a synthetic
@@ -212,7 +213,7 @@ impl Handles {
             search_path = config.search_path.clone();
         }
         search_path.extend(args_search_path.iter().cloned());
-        let module_name = module_from_path(&path, &search_path);
+        let module_name = module_from_path(&path, &search_path).unwrap_or(unknown);
 
         self.path_data
             .entry(path)

@@ -227,7 +227,7 @@ impl Workspace {
 
     fn make_handle(&self, path: &Path) -> Handle {
         Handle::new(
-            module_from_path(path, &self.search_path),
+            module_from_path(path, &self.search_path).unwrap_or_else(ModuleName::unknown),
             ModulePath::memory(path.to_owned()),
             self.sys_info.dupe(),
         )
@@ -748,7 +748,8 @@ impl Server {
                 .files()
                 .unwrap_or_default();
             for path in paths {
-                let module_name = module_from_path(&path, search_paths);
+                let module_name =
+                    module_from_path(&path, search_paths).unwrap_or_else(ModuleName::unknown);
                 handles.push((
                     Handle::new(
                         module_name,
@@ -830,7 +831,8 @@ impl Server {
     fn make_handle(&self, uri: &Url) -> Handle {
         let path = uri.to_file_path().unwrap();
         self.workspaces.get_with(path.clone(), |workspace| {
-            let module = module_from_path(&path, &workspace.search_path);
+            let module =
+                module_from_path(&path, &workspace.search_path).unwrap_or_else(ModuleName::unknown);
             let module_path = if self.open_files.read().contains_key(&path) {
                 ModulePath::memory(path)
             } else {
