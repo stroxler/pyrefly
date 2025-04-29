@@ -84,6 +84,7 @@ use starlark_map::small_map::SmallMap;
 use crate::commands::run::CommandExitStatus;
 use crate::commands::util::module_from_path;
 use crate::config::config::ConfigFile;
+use crate::config::config::ConfigSource;
 use crate::config::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
@@ -814,13 +815,24 @@ impl Server {
         *self.workspaces.workspaces.write() = new_workspaces;
     }
 
+    fn module_name(&self, workspace: &Workspace, path: &ModulePath) -> ModuleName {
+        let unknown = ModuleName::unknown();
+        let config = self.state.config_finder().python_file(unknown, path);
+        let mut search_path = Vec::new();
+        if config.source != ConfigSource::Synthetic {
+            search_path = config.search_path.clone();
+        }
+        search_path.extend(workspace.search_path.clone());
+        to_real_path(path)
+            .and_then(|path| module_from_path(path, &search_path))
+            .unwrap_or(unknown)
+    }
+
     fn make_open_handle(&self, path: &Path) -> Handle {
         self.workspaces.get_with(path.to_owned(), |workspace| {
-            Handle::new(
-                module_from_path(path, &workspace.search_path).unwrap_or_else(ModuleName::unknown),
-                ModulePath::memory(path.to_owned()),
-                workspace.sys_info.dupe(),
-            )
+            let path = ModulePath::memory(path.to_owned());
+            let name = self.module_name(workspace, &path);
+            Handle::new(name, path, workspace.sys_info.dupe())
         })
     }
 
@@ -831,14 +843,13 @@ impl Server {
             if workspace.disable_language_services {
                 None
             } else {
-                let module = module_from_path(&path, &workspace.search_path)
-                    .unwrap_or_else(ModuleName::unknown);
                 let module_path = if self.open_files.read().contains_key(&path) {
                     ModulePath::memory(path)
                 } else {
                     ModulePath::filesystem(path)
                 };
-                Some(Handle::new(module, module_path, workspace.sys_info.dupe()))
+                let name = self.module_name(workspace, &module_path);
+                Some(Handle::new(name, module_path, workspace.sys_info.dupe()))
             }
         })
     }
