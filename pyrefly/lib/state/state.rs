@@ -350,6 +350,27 @@ impl<'a> Transaction<'a> {
         self.get_load(handle).map(|x| x.module_info.dupe())
     }
 
+    /// Compute transitive dependency closure for the given handle.
+    /// Note that for IDE services, if the given handle is an in-memory one, then you are probably
+    /// not getting what you want, because the set of rdeps of in-memory file for IDE service will
+    /// only contain itself.
+    pub fn get_transitive_rdeps(&self, handle: Handle) -> HashSet<Handle> {
+        let mut transitive_rdeps = HashSet::new();
+        let mut work_list = vec![handle];
+        loop {
+            let Some(handle) = work_list.pop() else {
+                break;
+            };
+            if !transitive_rdeps.insert(handle.dupe()) {
+                continue;
+            }
+            for rdep in self.get_module(&handle).rdeps.lock().iter() {
+                work_list.push(rdep.dupe());
+            }
+        }
+        transitive_rdeps
+    }
+
     /// Return all handles for which there is data, in a non-deterministic order.
     pub fn handles(&self) -> Vec<Handle> {
         if self.data.updated_modules.is_empty() {

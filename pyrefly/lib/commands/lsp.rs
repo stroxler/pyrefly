@@ -58,6 +58,7 @@ use lsp_types::NumberOrString;
 use lsp_types::OneOf;
 use lsp_types::PublishDiagnosticsParams;
 use lsp_types::Range;
+use lsp_types::ReferenceParams;
 use lsp_types::ServerCapabilities;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
@@ -76,6 +77,7 @@ use lsp_types::request::DocumentSymbolRequest;
 use lsp_types::request::GotoDefinition;
 use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
+use lsp_types::request::References;
 use lsp_types::request::WorkspaceConfiguration;
 use path_absolutize::Absolutize;
 use serde::de::DeserializeOwned;
@@ -460,6 +462,14 @@ impl Server {
                     self.send_response(new_response(
                         x.id,
                         Ok(self.document_highlight(&transaction, params)),
+                    ));
+                    ide_transaction_manager.save(transaction);
+                } else if let Some(params) = as_request::<References>(&x) {
+                    let mut transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(self.references(&mut transaction, params)),
                     ));
                     ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<HoverRequest>(&x) {
@@ -908,6 +918,30 @@ impl Server {
                     kind: None,
                 }),
         )
+    }
+
+    fn references(
+        &self,
+        transaction: &mut Transaction<'_>,
+        params: ReferenceParams,
+    ) -> Option<Vec<Location>> {
+        let uri = &params.text_document_position.text_document.uri;
+        let handle = self.make_handle_if_enabled(uri)?;
+        let info = transaction.get_module_info(&handle)?;
+        let position = position_to_text_size(&info, params.text_document_position.position);
+        let global_references = transaction.find_global_references(&handle, position);
+        let mut locations = Vec::new();
+        for (info, ranges) in global_references {
+            if let Some(uri) = module_info_to_uri(&info) {
+                for range in ranges {
+                    locations.push(Location {
+                        uri: uri.clone(),
+                        range: source_range_to_range(&info.source_range(range)),
+                    });
+                }
+            };
+        }
+        Some(locations)
     }
 
     fn hover(&self, transaction: &Transaction<'_>, params: HoverParams) -> Option<Hover> {

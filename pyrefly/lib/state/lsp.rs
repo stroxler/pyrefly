@@ -6,6 +6,7 @@
  */
 
 use dupe::Dupe;
+use itertools::Itertools;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use lsp_types::DocumentSymbol;
@@ -28,9 +29,12 @@ use crate::export::exports::ExportLocation;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::module::module_name::ModuleName;
+use crate::module::module_path::ModulePath;
+use crate::module::module_path::ModulePathDetails;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::state::handle::Handle;
+use crate::state::require::Require;
 use crate::state::state::Transaction;
 use crate::types::lsp::source_range_to_range;
 use crate::types::module::Module;
@@ -41,6 +45,7 @@ use crate::util::visit::Visit;
 
 const INITIAL_GAS: Gas = Gas::new(20);
 
+#[derive(Clone)]
 pub enum DefinitionMetadata {
     Attribute(Name),
     Module,
@@ -297,6 +302,117 @@ impl<'a> Transaction<'a> {
         } else {
             Vec::new()
         }
+    }
+
+    pub fn find_global_references(
+        &mut self,
+        handle: &Handle,
+        position: TextSize,
+    ) -> Vec<(ModuleInfo, Vec<TextRange>)> {
+        let Some((definition_kind, definition, _docstring)) =
+            self.find_definition(handle, position)
+        else {
+            return Vec::new();
+        };
+        // General strategy:
+        // 1: Compute the set of transitive rdeps and check every one of them under `Require::Everything`.
+        // 2. Find references in each one of them (now populated with relevant traces)
+        //    via `local_references_from_definition`
+        let mut transitive_rdeps = match definition.module_info.path().details() {
+            ModulePathDetails::Memory(path_buf) => {
+                let handle_of_filesystem_counterpart = Handle::new(
+                    definition.module_info.name(),
+                    ModulePath::filesystem(path_buf.clone()),
+                    handle.sys_info().dupe(),
+                );
+                // In-memory files can never be found through import resolution (no rdeps),
+                // so we must compute the transitive rdeps of its filesystem counterpart instead.
+                let mut rdeps = self.get_transitive_rdeps(handle_of_filesystem_counterpart.dupe());
+                // We still add itself to the rdeps set, so that we will still find local references
+                // within the file.
+                rdeps.insert(Handle::new(
+                    definition.module_info.name(),
+                    definition.module_info.path().dupe(),
+                    handle.sys_info().dupe(),
+                ));
+                rdeps
+            }
+            _ => self.get_transitive_rdeps(Handle::new(
+                definition.module_info.name(),
+                definition.module_info.path().dupe(),
+                handle.sys_info().dupe(),
+            )),
+        };
+        // Remove the filesystem counterpart from candidate list,
+        // otherwise we will have results from both filesystem and in-memory version of the file.
+        for fs_counterpart_of_in_memory_handles in transitive_rdeps
+            .iter()
+            .filter_map(|handle| match handle.path().details() {
+                ModulePathDetails::Memory(path_buf) => Some(Handle::new(
+                    handle.module(),
+                    ModulePath::filesystem(path_buf.clone()),
+                    handle.sys_info().dupe(),
+                )),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+        {
+            transitive_rdeps.remove(&fs_counterpart_of_in_memory_handles);
+        }
+        let candidate_handles_for_references = transitive_rdeps
+            .into_iter()
+            .sorted_by_key(|h| h.path().dupe())
+            .map(|h| (h, Require::Everything))
+            .collect::<Vec<_>>();
+        self.run(&candidate_handles_for_references);
+        let mut global_references = Vec::new();
+        for (handle, _) in candidate_handles_for_references {
+            let definition = match definition.module_info.path().details() {
+                // Special-case for definition inside in-memory file
+                // Calling `local_references_from_definition` naively
+                // will find no references outside of the in-memory file because
+                // file systems don't contain in-memory files.
+                ModulePathDetails::Memory(path_buf)
+                    // Why do exclude the case of finding references within the same in-memory file?
+                    // If we are finding references within the same in-memory file, 
+                    // then there is no problem for us to use the in-memory definition location.
+                    if handle.path() != definition.module_info.path() =>
+                {
+                    // Below, we try to patch the definition location to be at the same offset, but
+                    // making the path to be filesystem path instead. In this way, in the happy case
+                    // where the in-memory content is exactly the same as the filesystem content,
+                    // we can successfully find all the references. However, if the content diverge, 
+                    // then we will miss definitions from other files.
+                    // 
+                    // In general, other than checking the reverse dependency against the in-memory
+                    // content, there is not much we can do: the in-memory content can diverge from
+                    // the filesystem content in arbitrary ways.
+                    let TextRangeWithModuleInfo { module_info, range } = &definition;
+                    let module_info = if let Some(info) = self.get_module_info(&Handle::new(
+                        module_info.name(),
+                        ModulePath::filesystem(path_buf.clone()),
+                        handle.sys_info().dupe(),
+                    )) {
+                        info
+                    } else {
+                        module_info.dupe()
+                    };
+                    TextRangeWithModuleInfo {
+                        module_info,
+                        range: *range,
+                    }
+                }
+                _ => definition.clone(),
+            };
+            let references =
+                self.local_references_from_definition(&handle, definition_kind.clone(), definition);
+            if !references.is_empty()
+                && let Some(module_info) = self.get_module_info(&handle)
+            {
+                global_references.push((module_info, references));
+            }
+        }
+        global_references
     }
 
     fn local_references_from_definition(

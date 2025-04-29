@@ -38,6 +38,7 @@ struct TestCase {
     messages_from_language_client: Vec<Message>,
     expected_messages_from_language_server: Vec<Message>,
     search_path: Vec<PathBuf>,
+    experimental_project_path: Vec<PathBuf>,
 }
 fn run_test_lsp(test_case: TestCase) {
     init_test();
@@ -45,7 +46,7 @@ fn run_test_lsp(test_case: TestCase) {
     let args = Args {
         search_path: test_case.search_path,
         site_package_path: Vec::new(),
-        experimental_project_path: Vec::new(),
+        experimental_project_path: test_case.experimental_project_path,
     };
     // language_client_sender is used to send messages to the language client
     // language_client_receiver sees messages sent to the language client
@@ -272,6 +273,26 @@ fn get_initialize_responses() -> Vec<Message> {
     })]
 }
 
+fn get_initialize_responses_with_find_refs_enabled() -> Vec<Message> {
+    vec![Message::Response(Response {
+        id: RequestId::from(1),
+        result: Some(serde_json::json!({
+            "capabilities": {
+                "completionProvider": { "triggerCharacters": ["."]},
+                "definitionProvider": true,
+                "documentHighlightProvider":true,
+                "documentSymbolProvider":true,
+                "hoverProvider": true,
+                "referencesProvider": true,
+                "inlayHintProvider": true,
+                "textDocumentSync": 1
+            }
+        }
+        )),
+        error: None,
+    })]
+}
+
 fn build_did_open_notification(path: PathBuf) -> lsp_server::Notification {
     Notification {
         method: "textDocument/didOpen".to_owned(),
@@ -309,6 +330,7 @@ fn test_initialize() {
         messages_from_language_client: get_initialize_messages(None, false),
         expected_messages_from_language_server: get_initialize_responses(),
         search_path: Vec::new(),
+        experimental_project_path: Vec::new(),
     });
 }
 
@@ -339,6 +361,7 @@ fn test_initialize_with_python_path() {
         messages_from_language_client,
         expected_messages_from_language_server,
         search_path: Vec::new(),
+        experimental_project_path: Vec::new(),
     });
 }
 
@@ -390,6 +413,7 @@ fn test_go_to_def(
         messages_from_language_client: test_messages,
         expected_messages_from_language_server: expected_responses,
         search_path,
+        experimental_project_path: Vec::new(),
     });
 }
 
@@ -452,6 +476,224 @@ fn test_hover() {
         messages_from_language_client: test_messages,
         expected_messages_from_language_server: expected_responses,
         search_path: Vec::new(),
+        experimental_project_path: Vec::new(),
+    });
+}
+
+#[test]
+fn test_references() {
+    let mut test_messages = get_initialize_messages(None, false);
+    let mut expected_responses = get_initialize_responses_with_find_refs_enabled();
+    let root = get_test_files_root();
+
+    test_messages.push(Message::from(build_did_open_notification(
+        root.path().join("bar.py"),
+    )));
+
+    // Find reference from a reference location in the same in-memory file
+    test_messages.push(Message::from(Request {
+        id: RequestId::from(2),
+        method: "textDocument/references".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+            "position": {
+                "line": 9,
+                "character": 1
+            },
+            "context": {
+                "includeDeclaration": true
+            },
+        }),
+    }));
+
+    expected_responses.push(Message::Response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!([
+            {
+                "range": {"start":{"line":5,"character":16},"end":{"line":5, "character":19}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":9,"character":0},"end":{"character":3,"line":9}},
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+        ])),
+        error: None,
+    }));
+
+    // Find reference from a definition location in the same in-memory file
+    test_messages.push(Message::from(Request {
+        id: RequestId::from(3),
+        method: "textDocument/references".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+            "position": {
+                "line": 6,
+                "character": 7
+            },
+            "context": {
+                "includeDeclaration": true
+            },
+        }),
+    }));
+
+    expected_responses.push(Message::Response(Response {
+        id: RequestId::from(3),
+        result: Some(serde_json::json!([
+            {
+                "range": {"start":{"line":5,"character":16},"end":{"line":5, "character":19}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":9,"character":0},"end":{"character":3,"line":9}},
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+        ])),
+        error: None,
+    }));
+
+    test_messages.push(Message::from(build_did_open_notification(
+        root.path().join("foo.py"),
+    )));
+
+    // Find reference from a reference location in a different file
+    test_messages.push(Message::from(Request {
+        id: RequestId::from(4),
+        method: "textDocument/references".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            "position": {
+                "line": 5,
+                "character": 17
+            },
+            "context": {
+                "includeDeclaration": true
+            },
+        }),
+    }));
+
+    expected_responses.push(Message::Response(Response {
+        id: RequestId::from(4),
+        result: Some(serde_json::json!([
+            {
+                "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":9,"character":0},"end":{"character":3,"line":9}},
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":5,"character":16},"end":{"line":5, "character":19}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+        ])),
+        error: None,
+    }));
+
+    // Change the definition file in memory.
+    // However, find ref still reports the stale result based on the filesystem content.
+    test_messages.push(Message::from(Notification {
+        method: "textDocument/didChange".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string(),
+                "languageId": "python",
+                "version": 2
+            },
+            "contentChanges": [{
+                "text": format!("\n\n{}", std::fs::read_to_string(root.path().join("bar.py")).unwrap())
+            }],
+        }),
+    }));
+    test_messages.push(Message::from(Request {
+        id: RequestId::from(5),
+        method: "textDocument/references".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            "position": {
+                "line": 5,
+                "character": 17
+            },
+            "context": {
+                "includeDeclaration": true
+            },
+        }),
+    }));
+    expected_responses.push(Message::Response(Response {
+        id: RequestId::from(5),
+        result: Some(serde_json::json!([
+            {
+                "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":9,"character":0},"end":{"character":3,"line":9}},
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":5,"character":16},"end":{"line":5, "character":19}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+        ])),
+        error: None,
+    }));
+
+    // When we do a find-ref in an in-memory file with changed content,
+    // it will cause us to fail to find references in other files.
+    test_messages.push(Message::from(Request {
+        id: RequestId::from(6),
+        method: "textDocument/references".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+            "position": {
+                "line": 8,
+                "character": 7
+            },
+            "context": {
+                "includeDeclaration": true
+            },
+        }),
+    }));
+
+    expected_responses.push(Message::Response(Response {
+        id: RequestId::from(6),
+        result: Some(serde_json::json!([
+            {
+                "range": {"start":{"line":8,"character":6},"end":{"character":9,"line":8}},
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":11,"character":0},"end":{"character":3,"line":11}},
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+            },
+        ])),
+        error: None,
+    }));
+
+    run_test_lsp(TestCase {
+        messages_from_language_client: test_messages,
+        expected_messages_from_language_server: expected_responses,
+        search_path: vec![root.path().to_path_buf()],
+        experimental_project_path: vec![root.path().to_path_buf()],
     });
 }
 
@@ -500,6 +742,7 @@ fn test_did_change_configuration() {
         messages_from_language_client,
         expected_messages_from_language_server,
         search_path: Vec::new(),
+        experimental_project_path: Vec::new(),
     });
 }
 
@@ -589,6 +832,7 @@ fn test_disable_language_services() {
         messages_from_language_client,
         expected_messages_from_language_server,
         search_path: Vec::new(),
+        experimental_project_path: Vec::new(),
     });
 }
 
@@ -663,5 +907,6 @@ fn test_edits_while_recheck() {
         messages_from_language_client: test_messages,
         expected_messages_from_language_server: expected_responses,
         search_path: vec![root.path().to_path_buf()],
+        experimental_project_path: Vec::new(),
     });
 }
