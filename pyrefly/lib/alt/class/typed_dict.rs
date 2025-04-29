@@ -198,7 +198,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         fields: &SmallMap<Name, bool>,
     ) -> ClassSynthesizedField {
-        let mut params = vec![self.class_self_param(cls)];
+        let mut params = vec![self.class_self_param(cls, true)];
         for (name, field) in self.names_to_fields(cls, fields) {
             params.push(Param::Pos(
                 name.clone(),
@@ -228,7 +228,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> ClassSynthesizedField {
         // Synthesizes a `(self, key: Literal["key"], default: object = ...) -> ValueType` signature
         // for each field and a fallback `(self, key: str, default: object = ...) -> object` signature.
-        let self_param = self.class_self_param(cls);
+        let self_param = self.class_self_param(cls, true);
         let key = Name::new_static("key");
         let default = Name::new_static("default");
         let object_ty = self.stdlib.object().clone().to_type();
@@ -275,7 +275,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Synthesizes a `(self, k: Literal["key"], default: ValueType) -> ValueType` signature for each field.
         let mut fields_iter = self.names_to_fields(cls, fields).into_iter();
         let first_field = fields_iter.next()?;
-        let self_param = self.class_self_param(cls);
+        let self_param = self.class_self_param(cls, true);
         let make_overload = |(name, field): (Name, TypedDictField)| {
             OverloadType::Callable(Callable::list(
                 ParamList::new(vec![

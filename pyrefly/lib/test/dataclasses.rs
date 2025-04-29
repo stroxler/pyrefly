@@ -323,6 +323,16 @@ def f(d: D2, e: D2, f: D3):
 );
 
 testcase!(
+    test_call_comparison_unbound_with_named_args,
+    r#"
+from dataclasses import dataclass
+@dataclass(order=True)
+class D: pass
+D.__lt__(self=D(), other=D())
+    "#,
+);
+
+testcase!(
     test_bad_keyword,
     r#"
 from dataclasses import dataclass

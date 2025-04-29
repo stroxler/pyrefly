@@ -252,11 +252,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.get_metadata_for_class(cls).has_base_any()
     }
 
-    pub fn class_self_param(&self, cls: &Class) -> Param {
-        Param::Pos(
-            Name::new_static("self"),
-            self.instantiate(cls),
-            Required::Required,
-        )
+    pub fn class_self_param(&self, cls: &Class, named: bool) -> Param {
+        let ty = self.instantiate(cls);
+        let req = Required::Required;
+        if named {
+            Param::Pos(Name::new_static("self"), ty, req)
+        } else {
+            Param::PosOnly(ty, req)
+        }
     }
 }
