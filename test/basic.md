@@ -39,6 +39,18 @@ ERROR */hidden2.py:1:26-35: `str` is not assignable to `int` [bad-assignment] (g
 [1]
 ```
 
+## We can find adjacent modules for unknown paths
+
+```scrut {output_stream: stderr}
+$ mkdir -p $TMPDIR/inner/foo && mkdir -p $TMPDIR/inner/baz && \
+> echo "x: str = 12" > $TMPDIR/inner/foo/bar.py && \
+> echo "import foo.bar; y: int = foo.bar.x" > $TMPDIR/inner/baz/quux.py && \
+> $PYREFLY check --python-version 3.13.0 $TMPDIR/inner/baz/quux.py
+ERROR */inner/baz/quux.py:1:26-35: `str` is not assignable to `int` [bad-assignment] (glob)
+ INFO 1 errors* (glob)
+[1]
+```
+
 ## We do report from nested with --check-all
 
 ```scrut {output_stream: stderr}

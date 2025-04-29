@@ -45,7 +45,8 @@ pub fn module_from_path(path: &Path, includes: &[PathBuf]) -> ModuleName {
             }
         }
     }
-    path_to_module(path).0
+    // TODO: Make this all Option
+    ModuleName::unknown()
 }
 
 #[cfg(test)]
@@ -73,11 +74,11 @@ mod tests {
         );
         assert_eq!(
             module_from_path(Path::new("/test.py"), &includes),
-            ModuleName::from_str("test")
+            ModuleName::unknown()
         );
         assert_eq!(
             module_from_path(Path::new("/not_foo/test.py"), &includes),
-            ModuleName::from_str("not_foo.test")
+            ModuleName::unknown()
         );
     }
 }

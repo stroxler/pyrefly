@@ -29,6 +29,7 @@ use crate::commands::run::CommandExitStatus;
 use crate::commands::suppress;
 use crate::commands::util::module_from_path;
 use crate::config::config::ConfigFile;
+use crate::config::config::ConfigSource;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;
 use crate::error::error::print_error_counts;
@@ -181,12 +182,16 @@ struct Handles {
 }
 
 impl Handles {
-    fn new(files: Vec<PathBuf>, config_finder: &ConfigFinder) -> Self {
+    fn new(
+        files: Vec<PathBuf>,
+        args_search_path: &[PathBuf],
+        config_finder: &ConfigFinder,
+    ) -> Self {
         let mut handles = Self {
             path_data: HashMap::new(),
         };
         for file in files {
-            handles.register_file(file, config_finder);
+            handles.register_file(file, args_search_path, config_finder);
         }
         handles
     }
@@ -194,11 +199,21 @@ impl Handles {
     fn register_file(
         &mut self,
         path: PathBuf,
+        args_search_path: &[PathBuf],
         config_finder: &ConfigFinder,
     ) -> &(ModuleName, SysInfo) {
         let module_path = ModulePath::filesystem(path.clone());
         let config = config_finder.python_file(ModuleName::unknown(), &module_path);
-        let module_name = module_from_path(&path, &config.search_path);
+
+        let mut search_path = Vec::new();
+        // We want to find the module name for this path, but if we had to create a synthetic
+        // config then we don't really have any idea, and shouldn't use our approximate guess to figure out a name.
+        if config.source != ConfigSource::Synthetic {
+            search_path = config.search_path.clone();
+        }
+        search_path.extend(args_search_path.iter().cloned());
+        let module_name = module_from_path(&path, &search_path);
+
         self.path_data
             .entry(path)
             .or_insert((module_name, config.get_sys_info()))
@@ -224,10 +239,11 @@ impl Handles {
         &mut self,
         created_files: impl Iterator<Item = &'a PathBuf>,
         removed_files: impl Iterator<Item = &'a PathBuf>,
+        args_search_path: &[PathBuf],
         config_finder: &ConfigFinder,
     ) {
         for file in created_files {
-            self.register_file(file.to_path_buf(), config_finder);
+            self.register_file(file.to_path_buf(), args_search_path, config_finder);
         }
         for file in removed_files {
             self.path_data.remove(file);
@@ -278,7 +294,11 @@ impl Args {
         }
 
         let holder = Forgetter::new(State::new(config_finder), allow_forget);
-        let handles = Handles::new(expanded_file_list, holder.as_ref().config_finder());
+        let handles = Handles::new(
+            expanded_file_list,
+            self.search_path.as_deref().unwrap_or_default(),
+            holder.as_ref().config_finder(),
+        );
         let require_levels = self.get_required_levels();
         let mut transaction = Forgetter::new(
             holder
@@ -299,7 +319,11 @@ impl Args {
         // - Config search is stable across incremental runs.
         let expanded_file_list = files_to_check.files()?;
         let require_levels = self.get_required_levels();
-        let mut handles = Handles::new(expanded_file_list, &config_finder);
+        let mut handles = Handles::new(
+            expanded_file_list,
+            self.search_path.as_deref().unwrap_or_default(),
+            &config_finder,
+        );
         let state = State::new(config_finder);
         let mut transaction = state.new_committable_transaction(require_levels.default, None);
         loop {
@@ -320,6 +344,7 @@ impl Args {
             handles.update(
                 events.created.iter().filter(|p| files_to_check.covers(p)),
                 events.removed.iter().filter(|p| files_to_check.covers(p)),
+                self.search_path.as_deref().unwrap_or_default(),
                 state.config_finder(),
             );
         }
