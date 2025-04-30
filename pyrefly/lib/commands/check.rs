@@ -23,6 +23,7 @@ use path_absolutize::Absolutize;
 use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use tracing::debug;
 use tracing::info;
 
 use crate::commands::run::CommandExitStatus;
@@ -289,7 +290,13 @@ impl Args {
         config_finder: ConfigFinder,
         allow_forget: bool,
     ) -> anyhow::Result<CommandExitStatus> {
+        let start = Instant::now();
         let expanded_file_list = files_to_check.files()?;
+        debug!(
+            "Checking {} files (listing took {:.2?})",
+            expanded_file_list.len(),
+            start.elapsed()
+        );
         if expanded_file_list.is_empty() {
             return Ok(CommandExitStatus::Success);
         }
