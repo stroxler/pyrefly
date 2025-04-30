@@ -126,7 +126,9 @@ table!(
 );
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct Solutions(SolutionsTable);
+pub struct Solutions {
+    table: SolutionsTable,
+}
 
 impl DisplayWith<ModuleInfo> for Solutions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
@@ -144,7 +146,7 @@ impl DisplayWith<ModuleInfo> for Solutions {
             Ok(())
         }
 
-        table_try_for_each!(&self.0, |x| go(x, f, ctx));
+        table_try_for_each!(&self.table, |x| go(x, f, ctx));
         Ok(())
     }
 }
@@ -208,7 +210,7 @@ impl Solutions {
     where
         SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
     {
-        self.0.get().get_hashed(key)
+        self.table.get().get_hashed(key)
     }
 
     /// Find the first key that differs between two solutions, with the two values.
@@ -229,7 +231,7 @@ impl Solutions {
                 return None;
             }
 
-            let y = y.0.get::<K>();
+            let y = y.table.get::<K>();
             if y.len() > x.len() {
                 for (k, v) in y {
                     if !x.contains_key(k) {
@@ -268,7 +270,7 @@ impl Solutions {
         // Important we have a single TypeEqCtx, so that we don't have
         // types used in different ways.
         let mut ctx = TypeEqCtx::default();
-        table_for_each!(self.0, |x| {
+        table_for_each!(self.table, |x| {
             if difference.is_none() {
                 difference = f(x, other, &mut ctx);
             }
@@ -406,7 +408,7 @@ impl Answers {
             }
         }
         table_mut_for_each!(&mut res, |items| post_solve(items, &self.solver));
-        Solutions(res)
+        Solutions { table: res }
     }
 
     pub fn solve_exported_key<Ans: LookupAnswer, K: Solve<Ans> + Keyed<EXPORTED = true>>(
