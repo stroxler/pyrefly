@@ -718,3 +718,20 @@ def f():
     assert_type(sys.exit(1), Never)
 "#,
 );
+
+fn env_import_attribute_init() -> TestEnv {
+    let mut t = TestEnv::new();
+    t.add_with_path("foo", "foo/__init__.py", "import foo.attribute");
+    t.add_with_path("foo.attribute", "foo/attribute.py", "");
+    t
+}
+
+testcase!(
+    bug = "We should find the attribute",
+    test_import_attribute_init,
+    env_import_attribute_init(),
+    r#"
+import foo
+print(foo.attribute) # E: No attribute `attribute` in module `foo` 
+"#,
+);
