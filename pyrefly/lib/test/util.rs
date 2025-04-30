@@ -422,12 +422,12 @@ pub fn mk_state(code: &str) -> (Handle, State) {
     (handle("main"), state)
 }
 
-pub fn get_class(name: &str, handle: &Handle, state: &State) -> Option<Class> {
+pub fn get_class(name: &str, handle: &Handle, state: &State) -> Class {
     let solutions = state.transaction().get_solutions(handle).unwrap();
 
-    match solutions.get(&KeyExport(Name::new(name))).map(|x| &**x) {
-        Some(Type::ClassDef(cls)) => Some(cls.dupe()),
-        _ => None,
+    match &**solutions.get(&KeyExport(Name::new(name))) {
+        Type::ClassDef(cls) => cls.dupe(),
+        _ => unreachable!(),
     }
 }
 

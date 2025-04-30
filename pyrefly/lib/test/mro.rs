@@ -7,6 +7,8 @@
 
 use std::sync::Arc;
 
+use dupe::Dupe;
+
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::binding::binding::KeyClassMetadata;
 use crate::state::handle::Handle;
@@ -18,11 +20,8 @@ use crate::testcase;
 pub fn get_class_metadata(name: &str, handle: &Handle, state: &State) -> Arc<ClassMetadata> {
     let solutions = state.transaction().get_solutions(handle).unwrap();
 
-    let res = get_class(name, handle, state).and_then(|cls| {
-        let x = solutions.get(&KeyClassMetadata(cls.index()));
-        x.cloned()
-    });
-    res.unwrap_or_else(|| panic!("No MRO for {name}"))
+    let cls = get_class(name, handle, state);
+    solutions.get(&KeyClassMetadata(cls.index())).dupe()
 }
 
 fn get_mro_names(name: &str, handle: &Handle, state: &State) -> Vec<String> {

@@ -835,7 +835,7 @@ impl<'a> Transaction<'a> {
         for _ in 0..2 {
             let lock = module_data.state.read();
             if let Some(solutions) = &lock.steps.solutions {
-                return solutions.get_hashed(key).unwrap().dupe();
+                return solutions.get_hashed(key).dupe();
             } else if let Some(answers) = &lock.steps.answers {
                 let load = lock.steps.load.dupe().unwrap();
                 let answers = answers.dupe();

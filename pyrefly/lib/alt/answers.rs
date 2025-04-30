@@ -197,7 +197,7 @@ impl Display for SolutionsDifference<'_> {
 
 impl Solutions {
     #[allow(dead_code)] // Used in tests.
-    pub fn get<K: Keyed<EXPORTED = true>>(&self, key: &K) -> Option<&Arc<<K as Keyed>::Answer>>
+    pub fn get<K: Keyed<EXPORTED = true>>(&self, key: &K) -> &Arc<<K as Keyed>::Answer>
     where
         SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
     {
@@ -207,11 +207,18 @@ impl Solutions {
     pub fn get_hashed<K: Keyed<EXPORTED = true>>(
         &self,
         key: Hashed<&K>,
-    ) -> Option<&Arc<<K as Keyed>::Answer>>
+    ) -> &Arc<<K as Keyed>::Answer>
     where
         SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
     {
-        self.table.get().get_hashed(key)
+        self.table.get().get_hashed(key).unwrap_or_else(|| {
+            panic!(
+                "Internal error: solution not found, module {}, path {}, key {:?}",
+                self.module_info.name(),
+                self.module_info.path(),
+                key.key(),
+            )
+        })
     }
 
     /// Find the first key that differs between two solutions, with the two values.

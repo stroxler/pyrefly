@@ -23,7 +23,7 @@ class E(enum.Enum):
     Y = 2
         "#,
     );
-    let cls = get_class("E", &handle, &state).unwrap();
+    let cls = get_class("E", &handle, &state);
     let fields = cls
         .fields()
         .map(|f| f.as_str())
