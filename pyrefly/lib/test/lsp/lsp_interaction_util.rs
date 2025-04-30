@@ -18,6 +18,12 @@ use lsp_server::Notification;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
+use lsp_types::CompletionOptions;
+use lsp_types::HoverProviderCapability;
+use lsp_types::OneOf;
+use lsp_types::ServerCapabilities;
+use lsp_types::TextDocumentSyncCapability;
+use lsp_types::TextDocumentSyncKind;
 use lsp_types::Url;
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
@@ -125,15 +131,11 @@ pub fn run_test_lsp(test_case: TestCase) {
         });
         // this thread receives messages from the language server and validates responses
         scope.spawn(move || {
-            let initialize_responses = if test_case.experimental_project_path.is_empty() {
-                get_initialize_responses()
-            } else {
-                get_initialize_responses_with_find_refs_enabled()
-            };
-            let mut responses = initialize_responses
-                .into_iter()
-                .chain(test_case.expected_messages_from_language_server)
-                .collect::<Vec<_>>();
+            let mut responses =
+                get_initialize_responses(!test_case.experimental_project_path.is_empty())
+                    .into_iter()
+                    .chain(test_case.expected_messages_from_language_server)
+                    .collect::<Vec<_>>();
 
             loop {
                 if responses.is_empty() {
@@ -240,41 +242,28 @@ fn get_initialize_messages(
     ]
 }
 
-fn get_initialize_responses() -> Vec<Message> {
+fn get_initialize_responses(find_refs: bool) -> Vec<Message> {
     vec![Message::Response(Response {
         id: RequestId::from(1),
-        result: Some(serde_json::json!({
-            "capabilities": {
-                "completionProvider": { "triggerCharacters": ["."]},
-                "definitionProvider": true,
-                "documentHighlightProvider":true,
-                "documentSymbolProvider":true,
-                "hoverProvider": true,
-                "inlayHintProvider": true,
-                "textDocumentSync": 1
-            }
-        }
-        )),
-        error: None,
-    })]
-}
-
-fn get_initialize_responses_with_find_refs_enabled() -> Vec<Message> {
-    vec![Message::Response(Response {
-        id: RequestId::from(1),
-        result: Some(serde_json::json!({
-            "capabilities": {
-                "completionProvider": { "triggerCharacters": ["."]},
-                "definitionProvider": true,
-                "documentHighlightProvider":true,
-                "documentSymbolProvider":true,
-                "hoverProvider": true,
-                "referencesProvider": true,
-                "inlayHintProvider": true,
-                "textDocumentSync": 1
-            }
-        }
-        )),
+        result: Some(serde_json::json!({"capabilities": &ServerCapabilities {
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+            definition_provider: Some(OneOf::Left(true)),
+            completion_provider: Some(CompletionOptions {
+                trigger_characters: Some(vec![".".to_owned()]),
+                ..Default::default()
+            }),
+            document_highlight_provider: Some(OneOf::Left(true)),
+            // Find references won't work properly if we don't know all the files.
+            references_provider: if find_refs {
+                Some(OneOf::Left(true))
+            } else {
+                None
+            },
+            hover_provider: Some(HoverProviderCapability::Simple(true)),
+            inlay_hint_provider: Some(OneOf::Left(true)),
+            document_symbol_provider: Some(OneOf::Left(true)),
+            ..Default::default()
+        }})),
         error: None,
     })]
 }
