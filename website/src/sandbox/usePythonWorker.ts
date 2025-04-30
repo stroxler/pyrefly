@@ -11,14 +11,10 @@ import { useEffect, useCallback, useRef } from 'react';
 import { WorkerResponse } from './pythonWorker';
 
 interface usePythonWorkerProps {
-    setIsRunning: React.Dispatch<React.SetStateAction<boolean>>;
     setPythonOutput: React.Dispatch<React.SetStateAction<string>>;
 }
 
-export const usePythonWorker = ({
-    setIsRunning,
-    setPythonOutput,
-}: usePythonWorkerProps) => {
+export const usePythonWorker = ({ setPythonOutput }: usePythonWorkerProps) => {
     const workerRef = useRef<Worker | null>(null);
     const resolveRef = useRef<
         ((value: void | PromiseLike<void>) => void) | null
@@ -50,7 +46,6 @@ export const usePythonWorker = ({
                             (prev) => prev + '\n' + `Error: ${response.error}`
                         );
                     }
-                    setIsRunning(false);
 
                     // Resolve the promise if there's a pending one
                     if (resolveRef.current) {
@@ -77,7 +72,6 @@ export const usePythonWorker = ({
     const runPython = useCallback(async (code: string): Promise<void> => {
         if (!workerRef.current) return;
 
-        setIsRunning(true);
         setPythonOutput('');
 
         return new Promise((resolve) => {

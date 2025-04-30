@@ -17,8 +17,9 @@ interface MonacoEditorButtonProps {
     onClick: () => Promise<void>;
     defaultLabel: string;
     runningLabel: string;
-    disabled?: boolean;
     ariaLabel?: string;
+    isRunning?: boolean;
+    setIsRunning?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function MonacoEditorButton({
@@ -26,10 +27,16 @@ export default function MonacoEditorButton({
     onClick,
     defaultLabel,
     runningLabel,
-    disabled = false,
     ariaLabel,
+    isRunning = undefined,
+    setIsRunning = undefined,
 }: MonacoEditorButtonProps): React.ReactElement {
-    const [isRunning, setIsRunning] = useState(false);
+    // if isRunning or setIsRunning are not provided, use local state
+    if (isRunning === undefined || setIsRunning === undefined) {
+        [isRunning, setIsRunning] = useState(false);
+    }
+
+    const disabled = isRunning;
 
     async function handleClick(): Promise<void> {
         if (disabled) return;

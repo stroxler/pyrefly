@@ -28,7 +28,6 @@ export default function RunPythonButton({
     setPythonOutput,
 }: RunPythonButtonProps): React.ReactElement {
     const { runPython } = usePythonWorker({
-        setIsRunning,
         setPythonOutput,
     });
 
@@ -50,8 +49,9 @@ export default function RunPythonButton({
             onClick={runPythonCode}
             defaultLabel="▶️ Run"
             runningLabel="⏳ Running..."
-            disabled={isRunning}
             ariaLabel="run Python code button"
+            isRunning={isRunning}
+            setIsRunning={setIsRunning}
         />
     );
 }
