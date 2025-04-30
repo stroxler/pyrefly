@@ -36,6 +36,13 @@ use pyrefly::library::library::library::library;
 use tracing::debug;
 use tracing::info;
 
+// fbcode likes to set its own allocator in fbcode.default_allocator
+// So when we set our own allocator, buck build buck2 or buck2 build buck2 often breaks.
+// Making jemalloc the default only when we do a cargo build.
+#[global_allocator]
+#[cfg(all(any(target_os = "linux", target_os = "macos"), not(fbcode_build)))]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 #[derive(Debug, Parser)]
 #[command(name = "pyrefly")]
 #[command(about = "Next generation of Pyre type checker", long_about = None)]
