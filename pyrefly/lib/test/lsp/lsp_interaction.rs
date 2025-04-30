@@ -111,16 +111,20 @@ fn run_test_lsp(test_case: TestCase) {
                     Message::Notification(_) => send(),
                     // Language client responses need to ensure the request was sent first
                     Message::Response(Response {
-                        id,
+                        id: response_id,
                         result: _,
                         error: _,
                     }) => {
-                        if let Ok(response) = client_request_received_receiver.recv_timeout(timeout)
-                            && response == *id
-                        {
+                        let request_id = client_request_received_receiver
+                            .recv_timeout(timeout)
+                            .unwrap();
+                        if request_id == *response_id {
                             send();
                         } else {
-                            panic!("Did not receive request for intended response {:?}", &msg);
+                            panic!(
+                                "language client received request {}, expecting to send response for {}",
+                                request_id, response_id
+                            );
                         }
                     }
                 }
