@@ -1,9 +1,9 @@
 {
   "total": 136,
-  "pass": 48,
-  "fail": 88,
-  "pass_rate": 0.35,
-  "differences": 444,
+  "pass": 49,
+  "fail": 87,
+  "pass_rate": 0.36,
+  "differences": 443,
   "passing": [
     "aliases_newtype.py",
     "annotations_coroutines.py",
@@ -51,6 +51,7 @@
     "tuples_unpacked.py",
     "typeddicts_alt_syntax.py",
     "typeddicts_final.py",
+    "typeddicts_operations.py",
     "typeddicts_readonly.py",
     "typeddicts_readonly_kwargs.py"
   ],
@@ -136,7 +137,6 @@
     "tuples_type_compat.py": 11,
     "typeddicts_class_syntax.py": 5,
     "typeddicts_inheritance.py": 1,
-    "typeddicts_operations.py": 1,
     "typeddicts_readonly_consistency.py": 3,
     "typeddicts_readonly_inheritance.py": 7,
     "typeddicts_readonly_update.py": 2,

@@ -632,9 +632,7 @@
   "typeddicts_inheritance.py": [
     "Line 65: Expected 1 errors"
   ],
-  "typeddicts_operations.py": [
-    "Line 60: Unexpected errors ['assert_type(str, str | None) failed']"
-  ],
+  "typeddicts_operations.py": [],
   "typeddicts_readonly.py": [],
   "typeddicts_readonly_consistency.py": [
     "Line 38: Expected 1 errors",

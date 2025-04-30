@@ -456,6 +456,17 @@ def f(c: C, k1: str, k2: int):
     "#,
 );
 
+testcase!(
+    test_get_not_required,
+    r#"
+from typing import assert_type, NotRequired, TypedDict
+class C(TypedDict):
+    x: NotRequired[int]
+def f(c: C):
+    assert_type(c.get("x"), int | None)
+    "#,
+);
+
 // Clearing a TypedDict is not allowed, since doing so would remove keys it's expected to have.
 testcase!(
     test_clear,

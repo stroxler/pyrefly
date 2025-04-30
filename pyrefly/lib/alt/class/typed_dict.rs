@@ -36,10 +36,15 @@ use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::Substitution;
 use crate::types::literal::Lit;
+use crate::types::quantified::Quantified;
+use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::typed_dict::TypedDictField;
+use crate::types::types::Forall;
 use crate::types::types::Overload;
 use crate::types::types::OverloadType;
+use crate::types::types::TParamInfo;
+use crate::types::types::TParams;
 use crate::types::types::Type;
 
 const GET_METHOD: Name = Name::new_static("get");
@@ -222,20 +227,55 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         fields: &SmallMap<Name, bool>,
     ) -> ClassSynthesizedField {
-        // Synthesizes a `(self, key: Literal["key"], default: object = ...) -> ValueType` signature
-        // for each field and a fallback `(self, key: str, default: object = ...) -> object` signature.
+        let metadata = FuncMetadata::def(self.module_info().name(), cls.name().clone(), GET_METHOD);
+        // Synthesizes signatures for each field and a fallback `(self, key: str, default: object = ...) -> object` signature.
         let self_param = self.class_self_param(cls, false);
         let object_ty = self.stdlib.object().clone().to_type();
         let mut literal_signatures = Vec::new();
         for (name, field) in self.names_to_fields(cls, fields) {
-            literal_signatures.push(OverloadType::Callable(Callable::list(
-                ParamList::new(vec![
-                    self_param.clone(),
-                    Param::PosOnly(name_to_literal_type(name), Required::Required),
-                    Param::PosOnly(object_ty.clone(), Required::Optional),
-                ]),
-                field.ty.clone(),
-            )));
+            let key_param = Param::PosOnly(name_to_literal_type(name), Required::Required);
+            if field.required {
+                // (self, key: Literal["key"], default: object = ...) -> ValueType
+                literal_signatures.push(OverloadType::Callable(Callable::list(
+                    ParamList::new(vec![
+                        self_param.clone(),
+                        key_param,
+                        Param::PosOnly(object_ty.clone(), Required::Optional),
+                    ]),
+                    field.ty.clone(),
+                )));
+            } else {
+                // (self, key: Literal["key"]) -> ValueType | None
+                literal_signatures.push(OverloadType::Callable(Callable::list(
+                    ParamList::new(vec![self_param.clone(), key_param.clone()]),
+                    Type::Union(vec![field.ty.clone(), Type::None]),
+                )));
+                // (self, key: Literal["key"], default: T) -> ValueType | T
+                let q = Quantified::type_var(
+                    Name::new("_T"),
+                    self.uniques,
+                    None,
+                    Restriction::Unrestricted,
+                );
+                literal_signatures.push(OverloadType::Forall(Forall {
+                    tparams: TParams::new(vec![TParamInfo {
+                        quantified: q.clone(),
+                        variance: None,
+                    }])
+                    .tparams,
+                    body: Function {
+                        signature: Callable::list(
+                            ParamList::new(vec![
+                                self_param.clone(),
+                                key_param.clone(),
+                                Param::PosOnly(q.clone().to_type(), Required::Required),
+                            ]),
+                            Type::Union(vec![field.ty.clone(), q.to_type()]),
+                        ),
+                        metadata: metadata.clone(),
+                    },
+                }));
+            }
         }
         let signatures = Vec1::from_vec_push(
             literal_signatures,
@@ -250,11 +290,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         );
         ClassSynthesizedField::new(Type::Overload(Overload {
             signatures,
-            metadata: Box::new(FuncMetadata::def(
-                self.module_info().name(),
-                cls.name().clone(),
-                GET_METHOD,
-            )),
+            metadata: Box::new(metadata),
         }))
     }
 
