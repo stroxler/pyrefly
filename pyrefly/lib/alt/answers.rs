@@ -125,13 +125,14 @@ table!(
     pub struct SolutionsTable(pub SolutionsEntry)
 );
 
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Solutions {
+    module_info: ModuleInfo,
     table: SolutionsTable,
 }
 
-impl DisplayWith<ModuleInfo> for Solutions {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
+impl Display for Solutions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fn go<K: Keyed>(
             entry: &SolutionsEntry<K>,
             f: &mut fmt::Formatter<'_>,
@@ -146,7 +147,7 @@ impl DisplayWith<ModuleInfo> for Solutions {
             Ok(())
         }
 
-        table_try_for_each!(&self.table, |x| go(x, f, ctx));
+        table_try_for_each!(&self.table, |x| go(x, f, &self.module_info));
         Ok(())
     }
 }
@@ -408,7 +409,10 @@ impl Answers {
             }
         }
         table_mut_for_each!(&mut res, |items| post_solve(items, &self.solver));
-        Solutions { table: res }
+        Solutions {
+            module_info: bindings.module_info().dupe(),
+            table: res,
+        }
     }
 
     pub fn solve_exported_key<Ans: LookupAnswer, K: Solve<Ans> + Keyed<EXPORTED = true>>(
