@@ -5,13 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+// This has been deprecated in favor of `pyrefly init`.
 // The very basic version of this script takes the path to the config file
 // as an argument, reads it, parses it, converts it, and writes it out.
 // Future features:
-// - find the configs to convert rather than taking a path
 // - match up the error configurations (best-effort)
-// - extract configs from pyproject.toml
-// - write configs to pyproject.toml
 // This script does not otherwise invoke pyrefly. This gives the user time to change anything by hand if needed.
 
 use std::path::Path;

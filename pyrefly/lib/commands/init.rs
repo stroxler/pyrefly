@@ -26,6 +26,7 @@ use crate::util::fs_anyhow;
   `pyrefly init path/to/project`: Create a new pyrefly.toml config in the given directory.
   `pyrefly init --migrate`: Migrate a project with an existing mypy or pyright config to pyrefly.
   `pyrefly init path/to/project/mypy.ini --migrate`: Migrate the mypy config at the given path to a pyrefly.toml config in the same directory.
+  `pyrefly init --migrate pyproject.toml`: Searches for a mypy or pyright config in the current directory, and writes the new pyrefly config to pyproject.toml file.
 ")]
 pub struct Args {
     /// The path to the project to initialize. Optional. If not present, will create a new pyrefly.toml config in the current directory.
@@ -36,9 +37,31 @@ pub struct Args {
     /// PATH can point to a project directory with an existing, or directly to a pyproject.toml, mypy.ini, or pyrightconfig.json file.
     #[arg(long, default_value_t = false)]
     migrate: bool,
+    /// [Optional] With --migrate, the path to output the pyrefly config to.
+    /// If not present, will output to the same directory as the input, to a pyrefly.toml file if no pyproject.toml exists.
+    /// If output_path points to a pyproject.toml file or a directory with a pyproject.toml file, the config will be written as a `[tool.pyrefly]` entry in that file.
+    /// Otherwise, the config will be written to a pyrefly.toml file.
+    #[arg(long, requires = "migrate")]
+    output_path: Option<PathBuf>,
 }
 
 impl Args {
+    pub fn new(path: PathBuf) -> Self {
+        Self {
+            path,
+            migrate: false,
+            output_path: None,
+        }
+    }
+
+    pub fn new_migration(path: PathBuf, output_path: Option<PathBuf>) -> Self {
+        Self {
+            path,
+            migrate: true,
+            output_path,
+        }
+    }
+
     fn check_for_existing_config(path: &Path) -> anyhow::Result<bool> {
         if path.ends_with(ConfigFile::CONFIG_FILE_NAME) && path.exists() {
             return Ok(true);
@@ -75,7 +98,7 @@ impl Args {
         if self.migrate {
             let args = config_migration::Args {
                 input_path: Some(path),
-                output_path: None,
+                output_path: self.output_path.clone(),
             };
             return args.run();
         }
@@ -120,10 +143,7 @@ mod test {
         let dir = tmp.path().join("project");
         let outpath = dir.join("pyrefly.toml");
         std::fs::create_dir(&dir)?;
-        let args = Args {
-            path: dir,
-            migrate: false,
-        };
+        let args = Args::new(dir);
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
         assert!(outpath.exists());
@@ -143,10 +163,7 @@ mod test {
 name = "test"
 "#,
         )?;
-        let args = Args {
-            path: dir,
-            migrate: false,
-        };
+        let args = Args::new(dir);
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
         assert!(outpath.exists());
@@ -160,10 +177,7 @@ name = "test"
         let dir = tmp.path().join("project");
         let cfgpath = dir.join("pyrefly.toml");
         std::fs::create_dir(&dir)?;
-        let args = Args {
-            path: cfgpath.clone(),
-            migrate: false,
-        };
+        let args = Args::new(cfgpath.clone());
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
         assert!(cfgpath.exists());
@@ -176,10 +190,7 @@ name = "test"
         let dir = tmp.path().join("project");
         let cfgpath = dir.join("pyproject.toml");
         std::fs::create_dir(&dir)?;
-        let args = Args {
-            path: cfgpath.clone(),
-            migrate: false,
-        };
+        let args = Args::new(cfgpath.clone());
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
         assert!(cfgpath.exists());
@@ -191,10 +202,7 @@ name = "test"
         let tmp = tempfile::tempdir()?;
         let dir = tmp.path().join("project");
         std::fs::create_dir(&dir)?;
-        let args = Args {
-            path: dir.join("personal_configs.json"),
-            migrate: false,
-        };
+        let args = Args::new(dir.join("personal_configs.json"));
         let status = args.run()?;
         assert!(
             matches!(status, CommandExitStatus::UserError),
@@ -215,10 +223,7 @@ name = "test"
 project_includes = ["."]
 "#,
         )?;
-        let args = Args {
-            path: dir,
-            migrate: false,
-        };
+        let args = Args::new(dir);
         let status = args.run()?;
         assert!(
             matches!(status, CommandExitStatus::UserError),
@@ -242,10 +247,7 @@ name = "test"
 project_includes = ["."]
 "#,
         )?;
-        let args = Args {
-            path: dir,
-            migrate: false,
-        };
+        let args = Args::new(dir);
         let status = args.run()?;
         assert!(
             matches!(status, CommandExitStatus::UserError),
@@ -266,10 +268,7 @@ project_includes = ["."]
 name = "test"
 "#,
         )?;
-        let args = Args {
-            path: dir,
-            migrate: false,
-        };
+        let args = Args::new(dir);
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
         Ok(())
@@ -280,10 +279,7 @@ name = "test"
         let tmp = tempfile::tempdir()?;
         let dir = tmp.path().join("project");
         std::fs::create_dir(&dir)?;
-        let args = Args {
-            path: dir,
-            migrate: false,
-        };
+        let args = Args::new(dir);
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
         Ok(())
