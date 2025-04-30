@@ -85,4 +85,13 @@ impl ThreadPool {
             }
         }
     }
+
+    pub fn async_spawn(&self, f: impl FnOnce() + Send + 'static) {
+        match &self.0 {
+            None => f(),
+            Some(pool) => {
+                pool.spawn(f);
+            }
+        }
+    }
 }

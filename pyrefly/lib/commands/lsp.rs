@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter;
 use std::mem;
+use std::num::NonZero;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -113,6 +114,8 @@ use crate::util::globs::Globs;
 use crate::util::lock::Mutex;
 use crate::util::lock::RwLock;
 use crate::util::prelude::VecExt;
+use crate::util::thread_pool::ThreadCount;
+use crate::util::thread_pool::ThreadPool;
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
@@ -191,6 +194,8 @@ enum ImmediatelyHandledEvent {
 
 struct Server {
     send: Arc<dyn Fn(Message) + Send + Sync + 'static>,
+    /// A thread pool of size one for heavy read operations on the State
+    async_state_read_threads: ThreadPool,
     immediately_handled_events: Arc<Mutex<Vec<ImmediatelyHandledEvent>>>,
     initialize_params: InitializeParams,
     state: Arc<State>,
@@ -467,13 +472,7 @@ impl Server {
                     ));
                     ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<References>(&x) {
-                    let mut transaction =
-                        ide_transaction_manager.non_commitable_transaction(&self.state);
-                    self.send_response(new_response(
-                        x.id,
-                        Ok(self.references(&mut transaction, params)),
-                    ));
-                    ide_transaction_manager.save(transaction);
+                    self.references(x.id, ide_transaction_manager, params);
                 } else if let Some(params) = as_request::<HoverRequest>(&x) {
                     let default_response = Hover {
                         contents: HoverContents::Array(Vec::new()),
@@ -574,6 +573,9 @@ impl Server {
         let config_finder = Workspaces::config_finder(&workspaces);
         let s = Self {
             send,
+            async_state_read_threads: ThreadPool::with_thread_count(ThreadCount::NumThreads(
+                NonZero::new(1).unwrap(),
+            )),
             immediately_handled_events: Default::default(),
             initialize_params,
             state: Arc::new(State::new(config_finder)),
@@ -959,28 +961,62 @@ impl Server {
         )
     }
 
-    fn references(
-        &self,
-        transaction: &mut Transaction<'_>,
+    fn references<'a>(
+        &'a self,
+        request_id: RequestId,
+        ide_transaction_manager: &mut IDETransactionManager<'a>,
         params: ReferenceParams,
-    ) -> Option<Vec<Location>> {
+    ) {
         let uri = &params.text_document_position.text_document.uri;
-        let handle = self.make_handle_if_enabled(uri)?;
-        let info = transaction.get_module_info(&handle)?;
+        let Some(handle) = self.make_handle_if_enabled(uri) else {
+            return self.send_response(new_response::<Option<Vec<Location>>>(request_id, Ok(None)));
+        };
+        let transaction = ide_transaction_manager.non_commitable_transaction(&self.state);
+        let Some(info) = transaction.get_module_info(&handle) else {
+            ide_transaction_manager.save(transaction);
+            return self.send_response(new_response::<Option<Vec<Location>>>(request_id, Ok(None)));
+        };
         let position = position_to_text_size(&info, params.text_document_position.position);
-        let global_references = transaction.find_global_references(&handle, position);
-        let mut locations = Vec::new();
-        for (info, ranges) in global_references {
-            if let Some(uri) = module_info_to_uri(&info) {
-                for range in ranges {
-                    locations.push(Location {
-                        uri: uri.clone(),
-                        range: source_range_to_range(&info.source_range(range)),
-                    });
-                }
-            };
-        }
-        Some(locations)
+        let Some((definition_kind, definition, _docstring)) =
+            transaction.find_definition(&handle, position)
+        else {
+            ide_transaction_manager.save(transaction);
+            return self.send_response(new_response::<Option<Vec<Location>>>(request_id, Ok(None)));
+        };
+        ide_transaction_manager.save(transaction);
+        let state = self.state.dupe();
+        let workspaces = self.workspaces.dupe();
+        let open_files = self.open_files.dupe();
+        let send = self.send.dupe();
+        self.async_state_read_threads.async_spawn(move || {
+            let mut transaction = state.transaction();
+            Self::validate_in_memory_for_transaction(
+                &state,
+                &workspaces,
+                &open_files,
+                &mut transaction,
+            );
+            let global_references = transaction.find_global_references_from_definition(
+                handle.sys_info(),
+                definition_kind,
+                definition,
+            );
+            let mut locations = Vec::new();
+            for (info, ranges) in global_references {
+                if let Some(uri) = module_info_to_uri(&info) {
+                    for range in ranges {
+                        locations.push(Location {
+                            uri: uri.clone(),
+                            range: source_range_to_range(&info.source_range(range)),
+                        });
+                    }
+                };
+            }
+            send(Message::Response(new_response(
+                request_id,
+                Ok(Some(locations)),
+            )))
+        });
     }
 
     fn hover(&self, transaction: &Transaction<'_>, params: HoverParams) -> Option<Hover> {

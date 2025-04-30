@@ -213,7 +213,7 @@ impl<'a> Transaction<'a> {
     }
 
     /// Find the definition, metadata and optionally the docstring for the given position.
-    fn find_definition(
+    pub fn find_definition(
         &self,
         handle: &Handle,
         position: TextSize,
@@ -305,20 +305,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    pub fn find_global_references(
-        &mut self,
-        handle: &Handle,
-        position: TextSize,
-    ) -> Vec<(ModuleInfo, Vec<TextRange>)> {
-        let Some((definition_kind, definition, _docstring)) =
-            self.find_definition(handle, position)
-        else {
-            return Vec::new();
-        };
-        self.find_global_references_from_definition(handle.sys_info(), definition_kind, definition)
-    }
-
-    fn find_global_references_from_definition(
+    pub fn find_global_references_from_definition(
         &mut self,
         sys_info: &SysInfo,
         definition_kind: DefinitionMetadata,
