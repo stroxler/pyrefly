@@ -40,6 +40,7 @@ use crate::types::annotation::Qualifier;
 use crate::types::callable::BoolKeywords;
 use crate::types::callable::DataclassKeywords;
 use crate::types::callable::FuncMetadata;
+use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
 use crate::types::callable::Param;
 use crate::types::callable::Required;
@@ -55,6 +56,8 @@ use crate::types::types::BoundMethodType;
 use crate::types::types::CalleeKind;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
+use crate::types::types::Overload;
+use crate::types::types::OverloadType;
 use crate::types::types::SuperObj;
 use crate::types::types::Type;
 
@@ -925,12 +928,72 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             ClassFieldInner::Simple { ty, .. } => {
                 if field.depends_on_class_type_parameter(cls) {
-                    Attribute::no_access(NoAccessReason::ClassAttributeIsGeneric(cls.dupe()))
+                    self.get_function_depending_on_class_type_parameter(cls, ty)
+                        .unwrap_or_else(|| {
+                            Attribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
+                                cls.dupe(),
+                            ))
+                        })
                 } else {
                     bind_class_attribute(cls, ty.clone())
                 }
             }
         }
+    }
+
+    fn get_function_depending_on_class_type_parameter(
+        &self,
+        cls: &Class,
+        ty: &Type,
+    ) -> Option<Attribute> {
+        let mut foralled = match ty {
+            Type::Function(box func) => Type::Forall(Box::new(Forall {
+                tparams: cls.tparams().clone(),
+                body: Forallable::Function(func.clone()),
+            })),
+            Type::Forall(box Forall {
+                tparams,
+                body: body @ Forallable::Function(_),
+            }) => {
+                let mut new_tparams = tparams.clone();
+                new_tparams.extend(cls.tparams());
+                Type::Forall(Box::new(Forall {
+                    tparams: new_tparams,
+                    body: body.clone(),
+                }))
+            }
+            Type::Overload(Overload {
+                signatures,
+                metadata,
+            }) => {
+                let new_signatures = signatures.clone().mapped(|sig| match sig {
+                    OverloadType::Callable(callable) => OverloadType::Forall(Forall {
+                        tparams: cls.tparams().clone(),
+                        body: Function {
+                            signature: callable,
+                            metadata: (**metadata).clone(),
+                        },
+                    }),
+                    OverloadType::Forall(Forall { tparams, body }) => {
+                        let mut new_tparams = tparams.clone();
+                        new_tparams.extend(cls.tparams());
+                        OverloadType::Forall(Forall {
+                            tparams: new_tparams,
+                            body,
+                        })
+                    }
+                });
+                Type::Overload(Overload {
+                    signatures: new_signatures,
+                    metadata: metadata.clone(),
+                })
+            }
+            _ => {
+                return None;
+            }
+        };
+        foralled.subst_self_type_mut(&self.instantiate(cls));
+        Some(bind_class_attribute(cls, foralled))
     }
 
     fn check_class_field_for_override_mismatch(

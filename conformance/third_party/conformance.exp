@@ -5344,21 +5344,11 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "assert_type(Any, (Foo7[int]) -> Foo7[int]) failed",
-      "description": "assert_type(Any, (Foo7[int]) -> Foo7[int]) failed",
+      "concise_description": "assert_type(Forall[DefaultIntT, (Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]]], (Foo7[int]) -> Foo7[int]) failed",
+      "description": "assert_type(Forall[DefaultIntT, (Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]]], (Foo7[int]) -> Foo7[int]) failed",
       "line": 166,
       "name": "assert-type",
       "stop_column": 57,
-      "stop_line": 166
-    },
-    {
-      "code": -2,
-      "column": 13,
-      "concise_description": "Generic attribute `meth` of class `Foo7` is not visible on the class",
-      "description": "Generic attribute `meth` of class `Foo7` is not visible on the class",
-      "line": 166,
-      "name": "missing-attribute",
-      "stop_column": 22,
       "stop_line": 166
     },
     {

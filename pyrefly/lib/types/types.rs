@@ -218,6 +218,10 @@ impl TParams {
     pub fn quantified(&self) -> impl ExactSizeIterator<Item = &Quantified> + '_ {
         self.0.iter().map(|x| &x.quantified)
     }
+
+    pub fn extend(&mut self, other: &TParams) {
+        self.0.extend(other.iter().cloned());
+    }
 }
 
 #[derive(

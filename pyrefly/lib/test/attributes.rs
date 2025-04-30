@@ -826,3 +826,37 @@ def test(x: type[int], y: type[int]) -> None:
     x not in y  # E: `not in` is not supported between `type[int]` and `type[int]`
     "#,
 );
+
+testcase!(
+    test_access_method_using_class_param_on_class,
+    r#"
+from typing import assert_type
+class A[T]:
+    def f(self) -> T: ...
+assert_type(A.f(A[int]()), int)
+    "#,
+);
+
+testcase!(
+    test_access_generic_method_using_class_param_on_class,
+    r#"
+from typing import assert_type
+class A[T]:
+    def f[S](self, x: S) -> tuple[S, T]: ...
+assert_type(A.f(A[int](), ""), tuple[str, int])
+    "#,
+);
+
+testcase!(
+    test_access_overloaded_method_using_class_param_on_class,
+    r#"
+from typing import assert_type, overload
+class A[T]:
+    @overload
+    def f(self) -> T: ...
+    @overload
+    def f(self, x: T | None) -> T: ...
+    def f(self, x=None): ...
+assert_type(A.f(A[int]()), int)
+    "#,
+);
