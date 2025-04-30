@@ -1300,9 +1300,27 @@ impl<'a> TransactionHandle<'a> {
 
 impl<'a> LookupExport for TransactionHandle<'a> {
     fn get(&self, module: ModuleName) -> Result<Exports, FindError> {
-        Ok(self
-            .transaction
-            .lookup_export(&self.get_module(module, None)?))
+        let module_data = self.get_module(module, None)?;
+        let exports = self.transaction.lookup_export(&module_data);
+
+        // TODO: Design this better.
+        //
+        // Currently to resolve Exports we have to recursively look at `import *` to get the full set of exported symbols.
+        // We write `lookup.get("imported").wildcards(lookup)` to do that.
+        // But that's no longer correct, because the module resolver for "imported" might be different to our resolver, so should be:
+        //
+        // `lookup.get("imported").wildcards(lookup_for_imported)`
+        //
+        // Since Bindings gets this right, we might have a mismatch from the exports, leading to a crash.
+        // Temporary band-aid is to just force it with the right lookup, but we probably want a type distinction
+        // between templated and resolved exports, or a different API that gives the pair of exports and lookup.
+        let transaction2 = TransactionHandle {
+            transaction: self.transaction,
+            module_data,
+        };
+        exports.wildcard(&transaction2);
+        exports.exports(&transaction2);
+        Ok(exports)
     }
 }
 
