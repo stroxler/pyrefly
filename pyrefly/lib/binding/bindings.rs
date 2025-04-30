@@ -213,7 +213,7 @@ impl Bindings {
             .key_to_idx_hashed(k)
             .unwrap_or_else(|| {
                 panic!(
-                    "key_to_idx - key not found, module `{}`, path `{}`, key {k:?}",
+                    "Internal error: key not found, module `{}`, path `{}`, key {k:?}",
                     self.0.module_info.name(),
                     self.0.module_info.path(),
                 )

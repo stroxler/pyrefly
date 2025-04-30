@@ -544,9 +544,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Do not fix a panic by removing this error.
             // We should always be sure before calling `get`.
             panic!(
-                "Internal error: Answer not found: {}, {}",
+                "Internal error: answer not found, module {}, path {}, key {:?}",
                 self.module_info().name(),
-                self.module_info().display(self.bindings().idx_to_key(idx)),
+                self.module_info().path(),
+                self.bindings().idx_to_key(idx),
             )
         })
     }
