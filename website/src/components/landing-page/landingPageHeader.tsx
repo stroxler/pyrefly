@@ -13,7 +13,8 @@ import Firefly from './firefly';
 import typography from './typography';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import { useEffect, useState } from 'react';
-
+import MonacoEditorWebpackPlugin from 'monaco-editor-webpack-plugin';
+import CodeSnippet from './codeSnippet';
 export default function LandingPageHeader(): React.ReactElement {
     const [isLoaded, setIsLoaded] = useState(false);
 
@@ -43,35 +44,23 @@ export default function LandingPageHeader(): React.ReactElement {
             >
                 <span>A faster Python type checker written in Rust</span>
             </p>
+
             <section
                 {...stylex.props(
                     styles.buttonGroupVertical,
                     isLoaded && styles.buttonGroupVerticalVisible
                 )}
             >
+
+                <CodeSnippet />
                 <a
-                    href={useBaseUrl('sandbox/')}
+                    href="https://marketplace.visualstudio.com/items?itemName=meta.pyrefly"
+                    target="_blank"
                     {...stylex.props(styles.buttonFullWidth, typography.p)}
                 >
                     {' '}
-                    Try Demo{' '}
+                    Get VSCode Extension{' '}
                 </a>
-                <div {...stylex.props(styles.buttonRow)}>
-                    <a
-                        href={useBaseUrl('en/docs/')}
-                        {...stylex.props(styles.button, typography.p)}
-                    >
-                        {' '}
-                        Read Docs{' '}
-                    </a>
-                    <a
-                        href="https://github.com/facebook/pyrefly/milestone/1"
-                        {...stylex.props(styles.button, typography.p)}
-                    >
-                        {' '}
-                        Github ↗{' '}
-                    </a>
-                </div>
             </section>
             <section
                 {...stylex.props(
@@ -79,9 +68,6 @@ export default function LandingPageHeader(): React.ReactElement {
                     isLoaded && styles.buttonGroupVisible
                 )}
             >
-                <p {...stylex.props(typography.p, typography.italic)}>
-                    Launching Spring 2025
-                </p>
             </section>
             <section>
                 <Firefly />
@@ -236,4 +222,8 @@ const styles = stylex.create({
         width: 'calc(50% - 5px)', // Each button takes up half the space minus a small gap
         textAlign: 'center',
     },
+    pip: {
+        marginTop: '1rem',
+        marginBottom: 0,
+    }
 });

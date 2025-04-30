@@ -19,6 +19,7 @@ const typography = stylex.create({
     small: { fontSize: '0.833rem' },
     italic: { fontStyle: 'italic' },
     bold: { fontWeight: 500 },
+    code: { fontFamily: 'monospace' },
 });
 
 export default typography;

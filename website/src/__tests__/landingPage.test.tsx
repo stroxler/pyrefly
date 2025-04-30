@@ -88,8 +88,5 @@ describe('Home page', () => {
             'A faster Python type checker written in Rust'
         );
 
-        const comingSoonLink = header?.querySelector('a');
-        expect(comingSoonLink).toBeInTheDocument();
-        expect(comingSoonLink?.getAttribute('href')).toBe('/sandbox/');
     }
 });
