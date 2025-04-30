@@ -22,6 +22,8 @@ use crate::util::lock::Mutex;
 /// Create a standard `ConfigFinder`. The `configure` function is expected to set any additional options,
 /// then call `configure` and `validate`.
 /// The `path` to `configure` is a directory, either to the python file or the config file.
+/// In the case we can't find a config by walking up, we create a default config, setting the `search_path`
+/// to a sensible default if possible.
 #[allow(clippy::field_reassign_with_default)] // ConfigFile default is dubious
 pub fn standard_config_finder(
     configure: Arc<dyn Fn(Option<&Path>, ConfigFile) -> ConfigFile + Send + Sync>,
@@ -41,7 +43,11 @@ pub fn standard_config_finder(
             let config = ConfigFile::from_file(file, false)?;
             Ok(ArcId::new(configure(file.parent(), config)))
         }),
+        // Fall back to using a default config, but let's see if we can make the `search_path` somewhat useful
+        // based on a few heuristics.
         Box::new(move |name, path| match path.root_of(name) {
+            // We were able to walk up `path` and match each component of `name` to a directory until we ran out.
+            // That means the resulting path is likely the root of the 'project', and should therefore be its `search_path`.
             Some(path) => cache_one
                 .lock()
                 .entry(path.clone())
@@ -52,6 +58,8 @@ pub fn standard_config_finder(
                 })
                 .dupe(),
 
+            // We couldn't walk up and find a possible root of the project, so let's try to create a search
+            // path that is still useful for this import by including all of its parents.
             None => {
                 let path = match path.details() {
                     ModulePathDetails::FileSystem(x) | ModulePathDetails::Memory(x) => {
