@@ -37,9 +37,9 @@ pub struct Args {
     /// The path to the mypy or pyright config file to convert. Optional.
     /// If not provided, or if it's a directory, pyrefly will search upwards for a
     /// mypy.ini, pyrightconfig.json, or pyproject.toml.
-    input_path: Option<PathBuf>,
+    pub input_path: Option<PathBuf>,
     /// Optional path to write the converted pyre.toml config file to. If not provided, the config will be written to the same directory as the input file.
-    output_path: Option<PathBuf>,
+    pub output_path: Option<PathBuf>,
 }
 
 impl Args {
@@ -76,15 +76,6 @@ impl Args {
             || Err(anyhow::anyhow!("Failed to find config")),
             |p| Ok(std::sync::Arc::unwrap_or_clone(p)),
         )
-    }
-
-    fn write_pyproject(pyproject_path: &Path, config: ConfigFile) -> anyhow::Result<()> {
-        // TODO: Use toml_edit to replace the existing tool.pyrefly config, if one exists.
-        // This merely appends the new config to the end of the file.
-        let config = PyProject::new(config);
-        let serialized = toml::to_string_pretty(&config)?;
-        fs_anyhow::append(pyproject_path, serialized.as_bytes())
-            .with_context(|| "While trying to write the pyrefly config to the pyproject.toml file")
     }
 
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
@@ -145,7 +136,7 @@ impl Args {
             }
         };
         if output_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
-            Args::write_pyproject(output_path, config)?;
+            write_pyproject(output_path, config)?;
             info!("Config written to {}", output_path.display());
         } else {
             let serialized = toml::to_string_pretty(&config)?;
@@ -154,6 +145,15 @@ impl Args {
         }
         Ok(CommandExitStatus::Success)
     }
+}
+
+pub fn write_pyproject(pyproject_path: &Path, config: ConfigFile) -> anyhow::Result<()> {
+    // TODO: Use toml_edit to replace the existing tool.pyrefly config, if one exists.
+    // This merely appends the new config to the end of the file.
+    let config = PyProject::new(config);
+    let serialized = toml::to_string_pretty(&config)?;
+    fs_anyhow::append(pyproject_path, serialized.as_bytes())
+        .with_context(|| "While trying to write the pyrefly config to the pyproject.toml file")
 }
 
 #[cfg(test)]

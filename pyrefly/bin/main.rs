@@ -29,6 +29,7 @@ use library::run::CheckArgs;
 use library::run::CommandExitStatus;
 use library::run::CommonGlobalArgs;
 use library::run::ConfigMigrationArgs;
+use library::run::InitArgs;
 use library::run::LspArgs;
 use library::standard_config_finder;
 use path_absolutize::Absolutize;
@@ -91,6 +92,10 @@ enum Command {
     /// Migrate a mypy or pyright configuration to a pyrefly configuration.
     /// The main argument is the path to the configuration file to migrate.
     ConfigMigration(ConfigMigrationArgs),
+
+    /// Initialize a new pyrefly config in the given directory.
+    /// Can also be used to run pyrefly config-migration on a given project.
+    Init(InitArgs),
 }
 
 fn exit_on_panic() {
@@ -214,6 +219,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
         Command::BuckCheck(args) => args.run(),
         Command::Lsp(args) => args.run(Vec::new()),
         Command::ConfigMigration(args) => args.run(),
+        Command::Init(args) => args.run(),
     }
 }
 
