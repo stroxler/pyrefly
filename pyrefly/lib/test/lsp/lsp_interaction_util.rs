@@ -18,12 +18,7 @@ use lsp_server::Notification;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
-use lsp_types::ConfigurationParams;
 use lsp_types::Url;
-use lsp_types::notification::DidChangeConfiguration;
-use lsp_types::notification::Notification as _;
-use lsp_types::request::Request as _;
-use lsp_types::request::WorkspaceConfiguration;
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
