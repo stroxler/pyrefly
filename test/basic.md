@@ -8,6 +8,14 @@ $ echo "" > $TMPDIR/empty.py && $PYREFLY check --python-version 3.13.0 $TMPDIR/e
 [0]
 ```
 
+## No errors on our test script
+
+```scrut {output_stream: stderr}
+$ $PYREFLY check $TEST_PY -a
+* INFO * errors* (glob)
+[0]
+```
+
 ## Error on a non-existent file
 
 ```scrut {output_stream: stderr}
