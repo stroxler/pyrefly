@@ -33,6 +33,7 @@ use crate::commands::lsp::run_lsp;
 use crate::test::util::init_test;
 use crate::util::fs_anyhow;
 
+#[derive(Default)]
 pub struct TestCase {
     pub(crate) messages_from_language_client: Vec<Message>,
     pub(crate) expected_messages_from_language_server: Vec<Message>,

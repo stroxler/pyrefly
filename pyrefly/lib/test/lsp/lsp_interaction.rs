@@ -28,14 +28,7 @@ use crate::test::lsp::lsp_interaction_util::run_test_lsp;
 
 #[test]
 fn test_initialize_basic() {
-    run_test_lsp(TestCase {
-        messages_from_language_client: Vec::new(),
-        expected_messages_from_language_server: Vec::new(),
-        search_path: Vec::new(),
-        experimental_project_path: Vec::new(),
-        workspace_folders: None,
-        configuration: false,
-    });
+    run_test_lsp(TestCase::default());
 }
 
 #[test]
@@ -59,10 +52,9 @@ fn test_initialize_with_python_path() {
                 }]),
             }),
         })],
-        search_path: Vec::new(),
-        experimental_project_path: Vec::new(),
         workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
         configuration: true,
+        ..Default::default()
     });
 }
 
@@ -106,9 +98,8 @@ fn test_go_to_def(
             error: None,
         })],
         search_path,
-        experimental_project_path: Vec::new(),
         workspace_folders,
-        configuration: false,
+        ..Default::default()
     });
 }
 
@@ -166,10 +157,7 @@ fn test_hover() {
             }})),
             error: None,
         })],
-        search_path: Vec::new(),
-        experimental_project_path: Vec::new(),
-        workspace_folders: None,
-        configuration: false,
+        ..Default::default()
     });
 }
 
@@ -386,8 +374,7 @@ fn test_references() {
         expected_messages_from_language_server: expected_responses,
         search_path: vec![root.path().to_path_buf()],
         experimental_project_path: vec![root.path().to_path_buf()],
-        workspace_folders: None,
-        configuration: false,
+        ..Default::default()
     });
 }
 
@@ -435,10 +422,9 @@ fn test_did_change_configuration() {
     run_test_lsp(TestCase {
         messages_from_language_client,
         expected_messages_from_language_server,
-        search_path: Vec::new(),
-        experimental_project_path: Vec::new(),
         workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
         configuration: true,
+        ..Default::default()
     });
 }
 
@@ -526,10 +512,9 @@ fn test_disable_language_services() {
     run_test_lsp(TestCase {
         messages_from_language_client,
         expected_messages_from_language_server,
-        search_path: Vec::new(),
-        experimental_project_path: Vec::new(),
         workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
         configuration: true,
+        ..Default::default()
     });
 }
 
@@ -604,8 +589,6 @@ fn test_edits_while_recheck() {
         messages_from_language_client: test_messages,
         expected_messages_from_language_server: expected_responses,
         search_path: vec![root.path().to_path_buf()],
-        experimental_project_path: Vec::new(),
-        workspace_folders: None,
-        configuration: false,
+        ..Default::default()
     });
 }
