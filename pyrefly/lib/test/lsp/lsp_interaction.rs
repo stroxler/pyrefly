@@ -314,7 +314,7 @@ fn get_test_files_root() -> TempDir {
 }
 
 #[test]
-fn test_initialize() {
+fn test_initialize_basic() {
     run_test_lsp(TestCase {
         messages_from_language_client: Vec::new(),
         expected_messages_from_language_server: Vec::new(),
