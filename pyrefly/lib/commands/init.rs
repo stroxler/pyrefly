@@ -5,8 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::path::Path;
 use std::path::PathBuf;
 
+use anyhow::Context as _;
 use clap::Parser;
 use path_absolutize::Absolutize;
 use tracing::error;
@@ -37,8 +39,38 @@ pub struct Args {
 }
 
 impl Args {
+    fn check_for_existing_config(path: &Path) -> anyhow::Result<bool> {
+        if path.ends_with(ConfigFile::CONFIG_FILE_NAME) && path.exists() {
+            return Ok(true);
+        }
+        if path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) && path.exists() {
+            let raw_pyproject = fs_anyhow::read_to_string(path).with_context(|| {
+                format!(
+                    "While trying to check for an existing pyrefly config in {}",
+                    path.display()
+                )
+            })?;
+            return Ok(raw_pyproject.contains("[tool.pyrefly]"));
+        }
+        if path.is_dir() {
+            let pyrefly = Args::check_for_existing_config(&path.join(ConfigFile::CONFIG_FILE_NAME));
+            let pyproject =
+                Args::check_for_existing_config(&path.join(ConfigFile::PYPROJECT_FILE_NAME));
+            return Ok(pyrefly? || pyproject?);
+        }
+        Ok(false)
+    }
+
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
         let path = self.path.absolutize()?.to_path_buf();
+
+        if Args::check_for_existing_config(&path)? {
+            error!(
+                "The project at {} has already been initialized for pyrefly",
+                path.display()
+            );
+            return Ok(CommandExitStatus::UserError);
+        }
 
         if self.migrate {
             let args = config_migration::Args {
@@ -168,6 +200,92 @@ name = "test"
             matches!(status, CommandExitStatus::UserError),
             "{status:#?}"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_already_initialized_pyrefly() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let dir = tmp.path().join("project");
+        let cfgpath = dir.join("pyrefly.toml");
+        std::fs::create_dir(&dir)?;
+        fs_anyhow::write(
+            &cfgpath,
+            br#"[pyrefly]
+project_includes = ["."]
+"#,
+        )?;
+        let args = Args {
+            path: dir,
+            migrate: false,
+        };
+        let status = args.run()?;
+        assert!(
+            matches!(status, CommandExitStatus::UserError),
+            "{status:#?}",
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_already_initialized_pyproject() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let dir = tmp.path().join("project");
+        let cfgpath = dir.join("pyproject.toml");
+        std::fs::create_dir(&dir)?;
+        fs_anyhow::write(
+            &cfgpath,
+            br#"[project]
+name = "test"
+
+[tool.pyrefly]
+project_includes = ["."]
+"#,
+        )?;
+        let args = Args {
+            path: dir,
+            migrate: false,
+        };
+        let status = args.run()?;
+        assert!(
+            matches!(status, CommandExitStatus::UserError),
+            "{status:#?}",
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_not_initialized_pyproject() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let dir = tmp.path().join("project");
+        let cfgpath = dir.join("pyproject.toml");
+        std::fs::create_dir(&dir)?;
+        fs_anyhow::write(
+            &cfgpath,
+            br#"[project]
+name = "test"
+"#,
+        )?;
+        let args = Args {
+            path: dir,
+            migrate: false,
+        };
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
+        Ok(())
+    }
+
+    #[test]
+    fn test_not_initialized_no_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let dir = tmp.path().join("project");
+        std::fs::create_dir(&dir)?;
+        let args = Args {
+            path: dir,
+            migrate: false,
+        };
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
         Ok(())
     }
 }
