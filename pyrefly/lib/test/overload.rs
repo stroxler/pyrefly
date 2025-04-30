@@ -325,30 +325,27 @@ assert_type(f(0), int)
 );
 
 testcase!(
-    bug = "wrong overload chosen for defaultdict constructor",
-    test_defaultdict_constructor_overload_,
+    test_defaultdict_constructor_overload_1,
     r#"
 from collections import defaultdict
 from typing import DefaultDict
-x: DefaultDict[int, list[int]] = defaultdict(list)  # E: `defaultdict[str, list[Unknown]]` is not assignable to `defaultdict[int, list[int]]
+x: DefaultDict[int, list[int]] = defaultdict(list)
     "#,
 );
 
 testcase!(
-    bug = "wrong overload chosen for defaultdict constructor",
     test_defaultdict_constructor_overload_2,
     r#"
 from collections import defaultdict
-x: dict[int, int] = defaultdict(int)  # E: `defaultdict[str, Self@int]` is not assignable to `dict[int, int]`
+x: dict[int, int] = defaultdict(int)
     "#,
 );
 
 testcase!(
-    bug = "wrong overload chosen for defaultdict constructor",
     test_defaultdict_constructor_overload_3,
     r#"
 import collections
-std_aggs: dict[int, tuple[list[str], list[str]]] = collections.defaultdict(  # E: `defaultdict[str, tuple[list[@_], list[@_]]]` is not assignable to `dict[int, tuple[list[str], list[str]]]`
+std_aggs: dict[int, tuple[list[str], list[str]]] = collections.defaultdict(
     lambda: ([], [])
 )
 std_aggs[0][1].append('foo')
@@ -356,7 +353,6 @@ std_aggs[0][1].append('foo')
 );
 
 testcase!(
-    bug = "wrong overload chosen",
     test_constructor_overload,
     r#"
 from typing import Callable, overload
@@ -367,6 +363,6 @@ class defaulty[K, V]:
     def __init__(self, default_factory: Callable[[], V] | None, /) -> None: ...
     def __init__() -> None:
         return None
-badge: defaulty[bool, list[str]] = defaulty(list)  # E: `defaulty[str, list[Unknown]]` is not assignable to `defaulty[bool, list[str]]`
+badge: defaulty[bool, list[str]] = defaulty(list)
     "#,
 );

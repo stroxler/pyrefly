@@ -223,6 +223,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         errors,
                         None,
+                        None,
                     );
                     if let Type::TypeGuard(box t) = ret {
                         return t.clone();
@@ -244,6 +245,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         errors,
                         None,
+                        None,
                     );
                     if let Type::TypeIs(box t) = ret {
                         return self.intersect(ty, &t);
@@ -263,6 +265,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &arguments.keywords,
                         range,
                         errors,
+                        None,
                         None,
                     );
                     if let Type::TypeIs(box t) = ret {

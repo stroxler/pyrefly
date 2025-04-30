@@ -6802,8 +6802,8 @@
     {
       "code": -2,
       "column": 34,
-      "concise_description": "Argument `Height` is not assignable to parameter `shape` with type `@_` in function `Array.__init__`",
-      "description": "Argument `Height` is not assignable to parameter `shape` with type `@_` in function `Array.__init__`",
+      "concise_description": "Argument `Height` is not assignable to parameter `shape` with type `tuple[Height, Width]` in function `Array.__init__`",
+      "description": "Argument `Height` is not assignable to parameter `shape` with type `tuple[Height, Width]` in function `Array.__init__`",
       "line": 42,
       "name": "bad-argument-type",
       "stop_column": 43,
@@ -6811,23 +6811,23 @@
     },
     {
       "code": -2,
-      "column": 35,
-      "concise_description": "`Array[tuple[Batch, Width]]` is not assignable to `Array[tuple[Batch, Height, Width]]`",
-      "description": "`Array[tuple[Batch, Width]]` is not assignable to `Array[tuple[Batch, Height, Width]]`",
+      "column": 41,
+      "concise_description": "Argument `tuple[Batch, Width]` is not assignable to parameter `shape` with type `tuple[Batch, Height, Width]` in function `Array.__init__`",
+      "description": "Argument `tuple[Batch, Width]` is not assignable to parameter `shape` with type `tuple[Batch, Height, Width]` in function `Array.__init__`",
       "line": 43,
-      "name": "bad-assignment",
-      "stop_column": 62,
+      "name": "bad-argument-type",
+      "stop_column": 61,
       "stop_line": 43
     },
     {
       "code": -2,
-      "column": 41,
-      "concise_description": "`Array[tuple[Time, Batch, Width, Height]]` is not assignable to `Array[tuple[Time, Batch, Height, Width]]`",
-      "description": "`Array[tuple[Time, Batch, Width, Height]]` is not assignable to `Array[tuple[Time, Batch, Height, Width]]`",
-      "line": 44,
-      "name": "bad-assignment",
-      "stop_column": 2,
-      "stop_line": 46
+      "column": 5,
+      "concise_description": "Argument `tuple[Time, Batch, Width, Height]` is not assignable to parameter `shape` with type `tuple[Time, Batch, Height, Width]` in function `Array.__init__`",
+      "description": "Argument `tuple[Time, Batch, Width, Height]` is not assignable to parameter `shape` with type `tuple[Time, Batch, Height, Width]` in function `Array.__init__`",
+      "line": 45,
+      "name": "bad-argument-type",
+      "stop_column": 45,
+      "stop_line": 45
     },
     {
       "code": -2,
@@ -7671,12 +7671,12 @@
     },
     {
       "code": -2,
-      "column": 41,
-      "concise_description": "`Container[str]` is not assignable to `Container[LiteralString]`",
-      "description": "`Container[str]` is not assignable to `Container[LiteralString]`",
+      "column": 51,
+      "concise_description": "Argument `str` is not assignable to parameter `value` with type `LiteralString` in function `Container.__init__`",
+      "description": "Argument `str` is not assignable to parameter `value` with type `LiteralString` in function `Container.__init__`",
       "line": 134,
-      "name": "bad-assignment",
-      "stop_column": 53,
+      "name": "bad-argument-type",
+      "stop_column": 52,
       "stop_line": 134
     },
     {

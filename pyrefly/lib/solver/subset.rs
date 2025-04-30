@@ -818,6 +818,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 if got.is_builtin("tuple") && got.targs().as_slice().len() == 1 =>
             {
                 let mut tuple_targ = got.targs().as_slice()[0].clone();
+                // TODO: figure out how to get rid of the forcing logic here
                 if let Type::Var(var) = tuple_targ {
                     tuple_targ = self.force_var(var);
                 }

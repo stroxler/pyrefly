@@ -252,7 +252,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
         );
-        self.call_infer(call_target, args, keywords, range, errors, context)
+        self.call_infer(call_target, args, keywords, range, errors, context, None)
     }
 
     /// Calls a magic dunder method. If no attribute exists with the given method name, returns None without attempting the call.
@@ -350,6 +350,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
             context,
+            None,
         ))
     }
 
@@ -389,6 +390,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     &dunder_new_errors,
                     context,
+                    None,
                 );
                 let has_errors = !dunder_new_errors.is_empty();
                 errors.extend(dunder_new_errors);
@@ -417,6 +419,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 &dunder_init_errors,
                 context,
+                None,
             );
             // Report `__init__` errors only when there are no `__new__` errors, to avoid redundant errors.
             if !dunder_new_has_errors {
@@ -450,6 +453,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
             context,
+            None,
         );
         Type::TypedDict(typed_dict)
     }
@@ -462,10 +466,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
+        hint: Option<Type>,
     ) -> Type {
         let is_dataclass = matches!(&call_target.target, Target::FunctionOverload(_, meta) if matches!(meta.kind, FunctionKind::Dataclass(_)));
         let res = match call_target.target {
-            Target::Class(cls) => self.construct_class(cls, args, keywords, range, errors, context),
+            Target::Class(cls) => {
+                if let Some(hint) = hint {
+                    // If a hint is provided, use it to bind any variables in the return type
+                    // We only care about the side effect here, not the result
+                    self.is_subset_eq(&Type::ClassType(cls.clone()), &hint);
+                }
+                self.construct_class(cls, args, keywords, range, errors, context)
+            }
             Target::TypedDict(td) => {
                 self.construct_typed_dict(td, args, keywords, range, errors, context)
             }
@@ -653,7 +665,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
         );
-        self.call_infer(call_target, &[], &[], range, errors, context)
+        self.call_infer(call_target, &[], &[], range, errors, context, None)
     }
 
     /// Helper function hide details of call synthesis from the attribute resolution code.
@@ -672,7 +684,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
         );
-        self.call_infer(call_target, &[got], &[], range, errors, context)
+        self.call_infer(call_target, &[got], &[], range, errors, context, None)
     }
 
     /// Helper function hide details of call synthesis from the attribute resolution code.
@@ -702,7 +714,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
         );
-        self.call_infer(call_target, &args, &[], range, errors, context)
+        self.call_infer(call_target, &args, &[], range, errors, context, None)
     }
 
     /// Helper function hide details of call synthesis from the attribute resolution code.
@@ -727,7 +739,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
         );
-        self.call_infer(call_target, &args, &[], range, errors, context)
+        self.call_infer(call_target, &args, &[], range, errors, context, None)
     }
 
     pub fn call_getattr(
@@ -748,6 +760,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
             context,
+            None,
         )
     }
 }

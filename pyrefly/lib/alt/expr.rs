@@ -715,7 +715,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let call_target =
             self.as_call_target_or_error(ty_decorator, CallStyle::FreeForm, range, errors, None);
         let arg = CallArg::Type(&decoratee, range);
-        self.call_infer(call_target, &[arg], &[], range, errors, None)
+        self.call_infer(call_target, &[arg], &[], range, errors, None, None)
     }
 
     /// Helper to infer element types for a list or set.
@@ -1156,6 +1156,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 func_range,
                                 errors,
                                 None,
+                                hint.cloned(),
                             )
                         }
                     })

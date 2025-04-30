@@ -312,7 +312,6 @@ z: list[A] = y # E: `list[B]` is not assignable to `list[A]`
 );
 
 testcase!(
-    bug = "Push expected return type context through generic constructor call",
     test_context_ctor_return,
     r#"
 class A: ...
@@ -321,7 +320,7 @@ class B(A): ...
 class C[T]:
     def __init__(self, x: T) -> None: ...
 
-x: C[list[A]] = C([B()]) # E: `C[list[B]]` is not assignable to `C[list[A]]`
+x: C[list[A]] = C([B()])
 "#,
 );
 
@@ -350,7 +349,6 @@ xs[0] = [B()] # E: No matching overload found for function `list.__setitem__`  #
 );
 
 testcase!(
-    bug = "Context should be propagated to argument",
     test_generic_get_literal,
     r#"
 from typing import assert_type, TypeVar, Literal
@@ -360,7 +358,7 @@ class Foo[T]:
     def get(self) -> T: ...
 
 # Should propagate the context to the argument 42
-x: Foo[Literal[42]] = Foo(42)  # E: `Foo[int]` is not assignable to `Foo[Literal[42]]`
+x: Foo[Literal[42]] = Foo(42)
 assert_type(x.get(), Literal[42])
 "#,
 );

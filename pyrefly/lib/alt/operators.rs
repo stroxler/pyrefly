@@ -56,6 +56,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
             Some(context),
+            None,
         )
     }
 
