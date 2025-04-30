@@ -226,29 +226,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // for each field and a fallback `(self, key: str, default: object = ...) -> object` signature.
         let self_param = self.class_self_param(cls, false);
         let object_ty = self.stdlib.object().clone().to_type();
-        let literal_signatures = self.names_to_fields(cls, fields).map(|(name, field)| {
-            Callable::list(
+        let mut literal_signatures = Vec::new();
+        for (name, field) in self.names_to_fields(cls, fields) {
+            literal_signatures.push(OverloadType::Callable(Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
                     Param::PosOnly(name_to_literal_type(name), Required::Required),
                     Param::PosOnly(object_ty.clone(), Required::Optional),
                 ]),
                 field.ty.clone(),
-            )
-        });
+            )));
+        }
         let signatures = Vec1::from_vec_push(
-            literal_signatures.collect(),
-            Callable::list(
+            literal_signatures,
+            OverloadType::Callable(Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
                     Param::PosOnly(self.stdlib.str().clone().to_type(), Required::Required),
                     Param::PosOnly(object_ty.clone(), Required::Optional),
                 ]),
                 object_ty.clone(),
-            ),
+            )),
         );
         ClassSynthesizedField::new(Type::Overload(Overload {
-            signatures: signatures.mapped(OverloadType::Callable),
+            signatures,
             metadata: Box::new(FuncMetadata::def(
                 self.module_info().name(),
                 cls.name().clone(),
