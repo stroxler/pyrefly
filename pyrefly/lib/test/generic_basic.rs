@@ -726,3 +726,17 @@ class A:
         return self.f() # E: `A` is not assignable to declared return type `TypeVar[T]`
     "#,
 );
+
+testcase!(
+    bug = "We shouldn't give bad specialisation errors, since we have errors in the base type",
+    test_specialize_error,
+    r#"
+from nowhere import BrokenGeneric, BrokenTypeVar # E: Could not find import of `nowhere`,
+
+class MyClass(BrokenGeneric[BrokenTypeVar]):
+    pass
+
+def f(x: MyClass[int]): # E: Expected 0 type arguments for `MyClass`, got 1
+    pass
+"#,
+);
