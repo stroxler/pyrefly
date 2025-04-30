@@ -67,9 +67,67 @@ fn run_test_lsp(test_case: TestCase) {
     let (client_request_received_sender, client_request_received_receiver) =
         bounded::<RequestId>(0);
 
-    // this thread receives messages from the language server and validates responses
-    let language_server_receiver_thread: thread::JoinHandle<Result<(), std::io::Error>> =
-        thread::spawn(move || {
+    let connection = Connection {
+        sender: language_client_sender,
+        receiver: language_server_receiver,
+    };
+
+    thread::scope(|scope| {
+        // this thread runs the language server
+        scope.spawn(move || {
+            run_lsp(Arc::new(connection), || Ok(()), args)
+                .map(|_| ())
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+        });
+        // this thread sends messages to the language server (from test case)
+        scope.spawn(move || {
+            for msg in
+                get_initialize_messages(&test_case.workspace_folders, test_case.configuration)
+                    .into_iter()
+                    .chain(test_case.messages_from_language_client)
+            {
+                let send = || {
+                    eprintln!("client--->server {}", serde_json::to_string(&msg).unwrap());
+                    if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout) {
+                        panic!("Failed to send message to language server: {:?}", err);
+                    }
+                };
+                match &msg {
+                    Message::Request(Request {
+                        id,
+                        method: _,
+                        params: _,
+                    }) => {
+                        send();
+                        if let Ok(response) =
+                            server_response_received_receiver.recv_timeout(timeout)
+                            && response == *id
+                        {
+                            // continue
+                        } else {
+                            panic!("Did not receive response for request {:?}", id);
+                        }
+                    }
+                    Message::Notification(_) => send(),
+                    // Language client responses need to ensure the request was sent first
+                    Message::Response(Response {
+                        id,
+                        result: _,
+                        error: _,
+                    }) => {
+                        if let Ok(response) = client_request_received_receiver.recv_timeout(timeout)
+                            && response == *id
+                        {
+                            send();
+                        } else {
+                            panic!("Did not receive request for intended response {:?}", &msg);
+                        }
+                    }
+                }
+            }
+        });
+        // this thread receives messages from the language server and validates responses
+        scope.spawn(move || {
             let initialize_responses = if test_case.experimental_project_path.is_empty() {
                 get_initialize_responses()
             } else {
@@ -124,94 +182,8 @@ fn run_test_lsp(test_case: TestCase) {
                     }
                 }
             }
-
-            Ok(())
         });
-
-    // this thread sends messages to the language server (from test case)
-    let language_server_sender_thread: thread::JoinHandle<Result<(), std::io::Error>> =
-        thread::spawn(move || {
-            for msg in
-                get_initialize_messages(&test_case.workspace_folders, test_case.configuration)
-                    .into_iter()
-                    .chain(test_case.messages_from_language_client)
-            {
-                let send = || {
-                    eprintln!("client--->server {}", serde_json::to_string(&msg).unwrap());
-                    if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout) {
-                        panic!("Failed to send message to language server: {:?}", err);
-                    }
-                };
-                match &msg {
-                    Message::Request(Request {
-                        id,
-                        method: _,
-                        params: _,
-                    }) => {
-                        send();
-                        if let Ok(response) =
-                            server_response_received_receiver.recv_timeout(timeout)
-                            && response == *id
-                        {
-                            // continue
-                        } else {
-                            panic!("Did not receive response for request {:?}", id);
-                        }
-                    }
-                    Message::Notification(_) => send(),
-                    // Language client responses need to ensure the request was sent first
-                    Message::Response(Response {
-                        id,
-                        result: _,
-                        error: _,
-                    }) => {
-                        if let Ok(response) = client_request_received_receiver.recv_timeout(timeout)
-                            && response == *id
-                        {
-                            send();
-                        } else {
-                            panic!("Did not receive request for intended response {:?}", &msg);
-                        }
-                    }
-                }
-            }
-            Ok(())
-        });
-
-    let connection = Connection {
-        sender: language_client_sender,
-        receiver: language_server_receiver,
-    };
-
-    // spawn thread to run the language server
-    let lsp_thread: thread::JoinHandle<Result<(), std::io::Error>> = thread::spawn(move || {
-        run_lsp(Arc::new(connection), || Ok(()), args)
-            .map(|_| ())
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
     });
-
-    let threads = vec![
-        (
-            "language_server_sender_thread",
-            language_server_sender_thread,
-        ),
-        (
-            "language_server_receiver_thread",
-            language_server_receiver_thread,
-        ),
-        ("lsp", lsp_thread),
-    ];
-
-    for (name, handle) in threads {
-        match handle.join() {
-            Ok(result) => {
-                if let Err(err) = result {
-                    panic!("{} thread error: {:?}", name, err);
-                }
-            }
-            Err(err) => panic!("{} thread panicked: {:?}", name, err),
-        }
-    }
 }
 
 fn get_initialize_params(
