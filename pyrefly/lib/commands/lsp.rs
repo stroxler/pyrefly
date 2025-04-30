@@ -33,6 +33,7 @@ use lsp_types::ConfigurationItem;
 use lsp_types::ConfigurationParams;
 use lsp_types::Diagnostic;
 use lsp_types::DidChangeTextDocumentParams;
+use lsp_types::DidChangeWatchedFilesParams;
 use lsp_types::DidCloseTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
 use lsp_types::DidSaveTextDocumentParams;
@@ -67,6 +68,7 @@ use lsp_types::Url;
 use lsp_types::notification::Cancel;
 use lsp_types::notification::DidChangeConfiguration;
 use lsp_types::notification::DidChangeTextDocument;
+use lsp_types::notification::DidChangeWatchedFiles;
 use lsp_types::notification::DidCloseTextDocument;
 use lsp_types::notification::DidOpenTextDocument;
 use lsp_types::notification::DidSaveTextDocument;
@@ -525,6 +527,8 @@ impl Server {
                     self.did_close(params)
                 } else if let Some(params) = as_notification::<DidSaveTextDocument>(&x) {
                     self.did_save(params)
+                } else if let Some(params) = as_notification::<DidChangeWatchedFiles>(&x) {
+                    self.did_change_watched_files(params)
                 } else if let Some(params) = as_notification::<Cancel>(&x) {
                     let id = match params.id {
                         NumberOrString::Number(i) => RequestId::from(i),
@@ -784,6 +788,22 @@ impl Server {
         let uri = params.text_document.uri.to_file_path().unwrap();
         self.open_files.write().insert(uri, Arc::new(change.text));
         self.validate_in_memory(ide_transaction_manager)
+    }
+
+    fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) -> anyhow::Result<()> {
+        if !params.changes.is_empty() {
+            self.invalidate(move |t| {
+                t.invalidate_disk(
+                    params
+                        .changes
+                        .iter()
+                        .map(|x| x.uri.to_file_path().unwrap())
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )
+            });
+        }
+        Ok(())
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
