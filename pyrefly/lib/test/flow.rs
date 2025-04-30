@@ -850,6 +850,21 @@ match []:
 );
 
 testcase!(
+    test_match_narrow_generic,
+    r#"
+from typing import assert_type
+class C:
+    x: list[int] | None
+
+    def test(self):
+        x = self.x
+        match x:
+            case list():
+                assert_type(x, list[int])
+"#,
+);
+
+testcase!(
     test_error_in_test_expr,
     r#"
 def f(x: None):

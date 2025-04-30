@@ -209,7 +209,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn unwrap_class_object_silently(&self, ty: &Type) -> Option<Type> {
         match ty {
-            Type::ClassDef(c) => Some(self.promote_silently(c)),
+            Type::ClassDef(c) => Some(self.instantiate_fresh(c)),
             Type::TypeAlias(ta) => self.unwrap_class_object_silently(&ta.as_value(self.stdlib)),
             // Note that for the purposes of type narrowing, we always unwrap Type::Type(Type::ClassType),
             // but it's not always a valid argument to isinstance/issubclass. expr_infer separately checks
