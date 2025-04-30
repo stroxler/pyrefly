@@ -269,7 +269,17 @@ impl Workspaces {
         standard_config_finder(Arc::new(move |dir, mut config| {
             if let Some(dir) = dir {
                 workspaces.get_with(dir.to_owned(), |w| {
+                    let site_package_path = config.python_environment.site_package_path.take();
                     config.python_environment = w.config_file.python_environment.clone();
+                    if let Some(new) = site_package_path {
+                        let mut workspace = config
+                            .python_environment
+                            .site_package_path
+                            .take()
+                            .unwrap_or_default();
+                        workspace.extend(new);
+                        config.python_environment.site_package_path = Some(workspace);
+                    }
                     config
                         .search_path
                         .extend_from_slice(&w.config_file.search_path);

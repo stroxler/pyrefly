@@ -67,8 +67,11 @@ pub fn standard_config_finder(
                         .entry(path.to_owned())
                         .or_insert_with(|| {
                             let mut config = ConfigFile::default();
-                            config.search_path =
-                                path.ancestors().skip(1).map(|x| x.to_owned()).collect();
+                            // We deliberately set `site_package_path` rather than `search_path` here,
+                            // because otherwise a user with `/sys` on their computer (all of them)
+                            // will override `sys.version` in preference to typeshed.
+                            config.python_environment.site_package_path =
+                                Some(path.ancestors().skip(1).map(|x| x.to_owned()).collect());
                             ArcId::new(configure2(path.parent(), config))
                         })
                         .dupe(),
