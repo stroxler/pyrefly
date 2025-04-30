@@ -29,9 +29,6 @@ describe('Home page', () => {
         );
         expect(performanceComparisonSection).toBeInTheDocument();
 
-        const quotesSection = document.getElementById('quotes-section');
-        expect(quotesSection).toBeInTheDocument();
-
         // Run test with --update-snapshot to update the snapshot if the test is failing after
         // you made a intentional change to the home page
         expect(container).toMatchSnapshot();

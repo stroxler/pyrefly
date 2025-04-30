@@ -38,13 +38,6 @@ export default function NewLandingPage(): React.ReactElement {
                 child={<PerformanceComparisonChartSection />}
                 hasBrownBackground={true}
             />
-            <LandingPageSection
-                id="quotes-section"
-                title="Don't just take our word for it"
-                child={<QuotesGrid />}
-                isLastSection={true}
-                hasBrownBackground={true}
-            />
         </Layout>
     );
 }
