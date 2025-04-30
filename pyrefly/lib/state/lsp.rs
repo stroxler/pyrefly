@@ -36,6 +36,7 @@ use crate::ruff::ast::Ast;
 use crate::state::handle::Handle;
 use crate::state::require::Require;
 use crate::state::state::Transaction;
+use crate::sys_info::SysInfo;
 use crate::types::lsp::source_range_to_range;
 use crate::types::module::Module;
 use crate::types::types::Type;
@@ -314,6 +315,15 @@ impl<'a> Transaction<'a> {
         else {
             return Vec::new();
         };
+        self.find_global_references_from_definition(handle.sys_info(), definition_kind, definition)
+    }
+
+    fn find_global_references_from_definition(
+        &mut self,
+        sys_info: &SysInfo,
+        definition_kind: DefinitionMetadata,
+        definition: TextRangeWithModuleInfo,
+    ) -> Vec<(ModuleInfo, Vec<TextRange>)> {
         // General strategy:
         // 1: Compute the set of transitive rdeps and check every one of them under `Require::Everything`.
         // 2. Find references in each one of them (now populated with relevant traces)
@@ -323,7 +333,7 @@ impl<'a> Transaction<'a> {
                 let handle_of_filesystem_counterpart = Handle::new(
                     definition.module_info.name(),
                     ModulePath::filesystem(path_buf.clone()),
-                    handle.sys_info().dupe(),
+                    sys_info.dupe(),
                 );
                 // In-memory files can never be found through import resolution (no rdeps),
                 // so we must compute the transitive rdeps of its filesystem counterpart instead.
@@ -333,14 +343,14 @@ impl<'a> Transaction<'a> {
                 rdeps.insert(Handle::new(
                     definition.module_info.name(),
                     definition.module_info.path().dupe(),
-                    handle.sys_info().dupe(),
+                    sys_info.dupe(),
                 ));
                 rdeps
             }
             _ => self.get_transitive_rdeps(Handle::new(
                 definition.module_info.name(),
                 definition.module_info.path().dupe(),
-                handle.sys_info().dupe(),
+                sys_info.dupe(),
             )),
         };
         // Remove the filesystem counterpart from candidate list,
