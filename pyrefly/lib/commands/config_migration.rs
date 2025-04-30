@@ -376,6 +376,7 @@ files = ["mypy.py"]
         Ok(())
     }
 
+    /*
     #[ignore = "Cannot edit toml files in a way that preserves order and comments"]
     #[test]
     fn test_overwrite_existing_toolpyrefly() -> anyhow::Result<()> {
@@ -436,4 +437,5 @@ test = true
 
         Ok(())
     }
+    */
 }
