@@ -52,6 +52,12 @@ function getNavBarItems() {
             position: 'right' as const,
             className: 'navbar__icon github__link',
         },
+        {
+            href: 'https://discord.gg/Cf7mFQtW7W',
+            'aria-label': 'Discord',
+            position: 'right' as const,
+            className: 'navbar__icon discord__link',
+        },
     ].filter((x): x is NonNullable<typeof x> => x != null);
 }
 
