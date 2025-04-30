@@ -176,6 +176,12 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
             }).ok()
         }).clone().unwrap_or_default()
     }
+
+    pub fn get_default_interpreter_env() -> PythonEnvironment {
+        Self::get_default_interpreter()
+            .map(|interpreter| Self::get_interpreter_env(&interpreter))
+            .unwrap_or_default()
+    }
 }
 
 impl Default for PythonEnvironment {
