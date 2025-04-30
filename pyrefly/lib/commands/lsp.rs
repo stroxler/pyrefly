@@ -194,7 +194,7 @@ struct Server {
     immediately_handled_events: Arc<Mutex<Vec<ImmediatelyHandledEvent>>>,
     initialize_params: InitializeParams,
     state: Arc<State>,
-    open_files: RwLock<HashMap<PathBuf, Arc<String>>>,
+    open_files: Arc<RwLock<HashMap<PathBuf, Arc<String>>>>,
     workspaces: Arc<Workspaces>,
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
@@ -577,7 +577,7 @@ impl Server {
             immediately_handled_events: Default::default(),
             initialize_params,
             state: Arc::new(State::new(config_finder)),
-            open_files: RwLock::new(HashMap::new()),
+            open_files: Arc::new(RwLock::new(HashMap::new())),
             workspaces,
             search_path,
             site_package_path,
@@ -615,6 +615,33 @@ impl Server {
         publish_diagnostics(self.send.dupe(), diags);
     }
 
+    fn validate_in_memory_for_transaction(
+        state: &State,
+        workspaces: &Workspaces,
+        open_files: &RwLock<HashMap<PathBuf, Arc<String>>>,
+        transaction: &mut Transaction<'_>,
+    ) -> Vec<(Handle, Require)> {
+        let handles = open_files
+            .read()
+            .keys()
+            .map(|x| {
+                (
+                    Self::make_open_handle(state, workspaces, x),
+                    Require::Everything,
+                )
+            })
+            .collect::<Vec<_>>();
+        transaction.set_memory(
+            open_files
+                .read()
+                .iter()
+                .map(|x| (x.0.clone(), Some(x.1.dupe())))
+                .collect::<Vec<_>>(),
+        );
+        transaction.run(&handles);
+        handles
+    }
+
     fn validate_in_memory<'a>(
         &'a self,
         ide_transaction_manager: &mut IDETransactionManager<'a>,
@@ -625,20 +652,12 @@ impl Server {
             Ok(transaction) => transaction.as_mut(),
             Err(transaction) => transaction,
         };
-        let handles = self
-            .open_files
-            .read()
-            .keys()
-            .map(|x| (self.make_open_handle(x), Require::Everything))
-            .collect::<Vec<_>>();
-        transaction.set_memory(
-            self.open_files
-                .read()
-                .iter()
-                .map(|x| (x.0.clone(), Some(x.1.dupe())))
-                .collect::<Vec<_>>(),
+        let handles = Self::validate_in_memory_for_transaction(
+            &self.state,
+            &self.workspaces,
+            &self.open_files,
+            transaction,
         );
-        transaction.run(&handles);
 
         let publish = |transaction: &Transaction| {
             let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
@@ -833,9 +852,9 @@ impl Server {
         *self.workspaces.workspaces.write() = new_workspaces;
     }
 
-    fn module_name(&self, workspace: &Workspace, path: &ModulePath) -> ModuleName {
+    fn module_name(state: &State, workspace: &Workspace, path: &ModulePath) -> ModuleName {
         let unknown = ModuleName::unknown();
-        let config = self.state.config_finder().python_file(unknown, path);
+        let config = state.config_finder().python_file(unknown, path);
         let mut search_path = Vec::new();
         if config.source != ConfigSource::Synthetic {
             search_path = config.search_path.clone();
@@ -846,10 +865,10 @@ impl Server {
             .unwrap_or(unknown)
     }
 
-    fn make_open_handle(&self, path: &Path) -> Handle {
-        self.workspaces.get_with(path.to_owned(), |workspace| {
+    fn make_open_handle(state: &State, workspaces: &Workspaces, path: &Path) -> Handle {
+        workspaces.get_with(path.to_owned(), |workspace| {
             let path = ModulePath::memory(path.to_owned());
-            let name = self.module_name(workspace, &path);
+            let name = Self::module_name(state, workspace, &path);
             Handle::new(name, path, workspace.sys_info.dupe())
         })
     }
@@ -866,7 +885,7 @@ impl Server {
                 } else {
                     ModulePath::filesystem(path)
                 };
-                let name = self.module_name(workspace, &module_path);
+                let name = Self::module_name(&self.state, workspace, &module_path);
                 Some(Handle::new(name, module_path, workspace.sys_info.dupe()))
             }
         })
