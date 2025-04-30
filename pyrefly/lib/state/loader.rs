@@ -6,6 +6,7 @@
  */
 
 use std::fmt::Debug;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -96,9 +97,13 @@ impl LoaderFindCache {
         }
     }
 
-    pub fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
+    pub fn find_import(
+        &self,
+        module: ModuleName,
+        path: Option<&Path>,
+    ) -> Result<ModulePath, FindError> {
         self.cache
-            .ensure(&module, || self.config.find_import(module))
+            .ensure(&module, || self.config.find_import(module, path))
             .dupe()
     }
 }

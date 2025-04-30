@@ -441,7 +441,7 @@ impl<'a> Transaction<'a> {
             Some(path) => path.dupe(),
             None => self
                 .get_cached_loader(&self.get_module(handle).config.read())
-                .find_import(module)?,
+                .find_import(module, handle.path().as_path())?,
         };
         Ok(Handle::new(module, path, handle.sys_info().dupe()))
     }
@@ -540,7 +540,10 @@ impl<'a> Transaction<'a> {
             let loader = self.get_cached_loader(&module_data.config.read());
             let mut is_dirty = false;
             for dependency_handle in module_data.deps.read().values().flatten() {
-                match loader.find_import(dependency_handle.module()) {
+                match loader.find_import(
+                    dependency_handle.module(),
+                    module_data.handle.path().as_path(),
+                ) {
                     Ok(path) if &path == dependency_handle.path() => {}
                     _ => {
                         is_dirty = true;
@@ -888,7 +891,7 @@ impl<'a> Transaction<'a> {
                 .stdlib
                 .insert_hashed(k.to_owned(), Arc::new(Stdlib::for_bootstrapping()));
             let v = Arc::new(Stdlib::new(k.version(), &|module, name| {
-                let path = loader.find_import(module).ok()?;
+                let path = loader.find_import(module, None).ok()?;
                 self.lookup_stdlib(&Handle::new(module, path, (*k).dupe()), name)
             }));
             self.data.stdlib.insert_hashed(k, v);

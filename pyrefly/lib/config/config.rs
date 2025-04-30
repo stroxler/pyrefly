@@ -165,12 +165,18 @@ impl ConfigFile {
     }
 
     /// Get the given [`ModuleName`] from this config's search and site package paths.
+    /// We take the `path` of the file we're searching for the module from to determine if
+    /// we should replace imports with `typing.Any`.
     /// Return `Err` when indicating the module could not be found.
-    pub fn find_import(&self, module: ModuleName) -> Result<ModulePath, FindError> {
+    pub fn find_import(
+        &self,
+        module: ModuleName,
+        path: Option<&Path>,
+    ) -> Result<ModulePath, FindError> {
         if let Some(path) = self.custom_module_paths.get(&module) {
             Ok(path.clone())
         } else if self
-            .replace_imports_with_any(None)
+            .replace_imports_with_any(path)
             .iter()
             .any(|p| p.matches(module))
         {
@@ -262,9 +268,8 @@ impl ConfigFile {
         SysInfo::new(self.python_version(), self.python_platform().clone())
     }
 
-    pub fn errors(&self) -> &ErrorDisplayConfig {
-        // TODO(connernilsen): replace path below with actual path
-        self.get_from_sub_configs(ConfigBase::get_errors, Path::new(""))
+    pub fn errors(&self, path: Option<&Path>) -> &ErrorDisplayConfig {
+        path.and_then(|path| self.get_from_sub_configs(ConfigBase::get_errors, path))
             .unwrap_or_else(||
                 // we can use unwrap here, because the value in the root config must
                 // be set in `ConfigFile::configure()`.
@@ -281,29 +286,29 @@ impl ConfigFile {
                 self.root.replace_imports_with_any.as_deref().unwrap())
     }
 
-    pub fn skip_untyped_functions(&self) -> bool {
-        // TODO(connernilsen): replace path with actual path
-        self.get_from_sub_configs(ConfigBase::get_skip_untyped_functions, Path::new(""))
+    pub fn skip_untyped_functions(&self, path: &Path) -> bool {
+        self.get_from_sub_configs(ConfigBase::get_skip_untyped_functions, path)
             .unwrap_or_else(||
                 // we can use unwrap here, because the value in the root config must
                 // be set in `ConfigFile::configure()`.
                 self.root.skip_untyped_functions.unwrap())
     }
 
-    pub fn ignore_errors_in_generated_code(&self) -> bool {
-        // TODO(connernilsen): replace path with actual path
-        self.get_from_sub_configs(
-            ConfigBase::get_ignore_errors_in_generated_code,
-            Path::new(""),
-        )
+    pub fn ignore_errors_in_generated_code(&self, path: Option<&Path>) -> bool {
+        path.and_then(|path| {
+            self.get_from_sub_configs(ConfigBase::get_ignore_errors_in_generated_code, path)
+        })
         .unwrap_or_else(||
                 // we can use unwrap here, because the value in the root config must
                 // be set in `ConfigFile::configure()`.
                 self.root.ignore_errors_in_generated_code.unwrap())
     }
 
-    pub fn get_error_config(&self, _path: Option<&Path>) -> ErrorConfig {
-        ErrorConfig::new(self.errors(), self.ignore_errors_in_generated_code())
+    pub fn get_error_config(&self, path: Option<&Path>) -> ErrorConfig {
+        ErrorConfig::new(
+            self.errors(path),
+            self.ignore_errors_in_generated_code(path),
+        )
     }
 
     /// Filter to sub configs whose matches succeed for the given `path`,
@@ -894,6 +899,11 @@ mod tests {
         assert_eq!(
             config.replace_imports_with_any(Some(Path::new("this/is/second/priority"))),
             &[ModuleWildcard::new("second").unwrap()]
+        );
+
+        // test empty value falls back to next
+        assert!(
+            config.ignore_errors_in_generated_code(Some(Path::new("this/is/highest/priority")))
         );
 
         // test no pattern match

@@ -146,7 +146,7 @@ impl ModulePath {
     }
 
     /// Convert to a path, that may not exist on disk.
-    fn as_path(&self) -> Option<&Path> {
+    pub fn as_path(&self) -> Option<&Path> {
         match &**self.0 {
             ModulePathDetails::FileSystem(path)
             | ModulePathDetails::BundledTypeshed(path)

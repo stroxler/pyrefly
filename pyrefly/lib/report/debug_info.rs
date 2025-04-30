@@ -125,7 +125,7 @@ impl DebugInfo {
                 .iter()
                 .map(|(config, module_info, errors, bindings, answers)| {
                     let mut res = Vec::new();
-                    let error_config = config.get_error_config(None);
+                    let error_config = config.get_error_config(module_info.path().as_path());
                     table_for_each!(answers.table(), |t| f(t, module_info, bindings, &mut res));
                     let errors = errors.collect(&error_config).shown.map(|e| Error {
                         location: e.source_range().to_string(),

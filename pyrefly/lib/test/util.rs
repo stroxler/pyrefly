@@ -204,7 +204,11 @@ impl TestEnv {
         );
         (state, move |module| {
             let name = ModuleName::from_str(module);
-            Handle::new(name, config_file.find_import(name).unwrap(), config.dupe())
+            Handle::new(
+                name,
+                config_file.find_import(name, None).unwrap(),
+                config.dupe(),
+            )
         })
     }
 }

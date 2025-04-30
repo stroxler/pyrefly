@@ -57,7 +57,7 @@ else:
 
     let f = |name: &str, sys_info: &SysInfo| {
         let name = ModuleName::from_str(name);
-        let path = config_file.find_import(name).unwrap();
+        let path = config_file.find_import(name, None).unwrap();
         (
             Handle::new(name, path, sys_info.dupe()),
             Require::Everything,
