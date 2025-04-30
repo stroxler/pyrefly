@@ -215,25 +215,62 @@ struct Workspace {
     search_path: Vec<PathBuf>,
     /// The config implied by these settings
     config_file: ArcId<ConfigFile>,
+    #[expect(dead_code)]
+    root: PathBuf,
+    #[expect(dead_code)]
+    python_environment: PythonEnvironment,
     disable_language_services: bool,
 }
 
 impl Workspace {
-    fn new(search_path: Vec<PathBuf>, site_package_path: Vec<PathBuf>, sys_info: SysInfo) -> Self {
+    fn old(search_path: Vec<PathBuf>, site_package_path: Vec<PathBuf>, sys_info: SysInfo) -> Self {
         let mut config_file = ConfigFile::default();
         config_file.python_environment.python_version = Some(sys_info.version());
         config_file.python_environment.python_platform = Some(sys_info.platform().clone());
-        config_file.python_environment.site_package_path = Some(site_package_path);
+        config_file.python_environment.site_package_path = Some(site_package_path.clone());
         config_file.search_path = search_path.clone();
         config_file.configure();
         let config_file = ArcId::new(config_file);
 
         Self {
-            sys_info,
+            // TODO(connernilsen): we'll be deleting this, so it doesn't matter what these values are for now
+            sys_info: sys_info.clone(),
             search_path: search_path.clone(),
             config_file,
+            root: search_path.first().cloned().unwrap_or(PathBuf::new()),
+            python_environment: PythonEnvironment::new(
+                sys_info.platform().clone(),
+                sys_info.version(),
+                site_package_path,
+            ),
             disable_language_services: false,
         }
+    }
+
+    fn new(workspace_root: &Path, python_environment: PythonEnvironment) -> Self {
+        Self {
+            root: workspace_root.to_path_buf(),
+            python_environment: python_environment.clone(),
+            disable_language_services: false,
+            // TODO(connernilsen): delete these
+            sys_info: SysInfo::new(
+                python_environment.python_version.unwrap_or_default(),
+                python_environment
+                    .python_platform
+                    .clone()
+                    .unwrap_or_default(),
+            ),
+            search_path: vec![workspace_root.to_path_buf()],
+            config_file: ArcId::new(ConfigFile::default()),
+        }
+    }
+
+    #[expect(dead_code)]
+    fn new_with_default_env(workspace_root: &Path) -> Self {
+        Self::new(
+            workspace_root,
+            PythonEnvironment::get_default_interpreter_env(),
+        )
     }
 }
 
@@ -574,7 +611,7 @@ impl Server {
             Vec::new()
         };
 
-        let workspaces = Arc::new(Workspaces::new(Workspace::new(
+        let workspaces = Arc::new(Workspaces::new(Workspace::old(
             search_path.clone(),
             site_package_path.clone(),
             SysInfo::default(),
@@ -850,7 +887,7 @@ impl Server {
         for x in &workspace_paths {
             new_workspaces.insert(
                 x.clone(),
-                Workspace::new(
+                Workspace::old(
                     iter::once(x.clone())
                         .chain(self.search_path.clone())
                         .collect(),
@@ -1195,7 +1232,7 @@ impl Server {
         {
             *modified = true;
             let search_path = workspace.search_path.clone();
-            let new_workspace = Workspace::new(
+            let new_workspace = Workspace::old(
                 search_path,
                 site_package_path.clone(),
                 // this is okay, since `get_interpreter_env()` must return an environment with all values as `Some()`
