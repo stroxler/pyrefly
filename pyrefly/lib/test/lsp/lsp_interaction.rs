@@ -39,14 +39,19 @@ struct TestCase {
     expected_messages_from_language_server: Vec<Message>,
     search_path: Vec<PathBuf>,
     experimental_project_path: Vec<PathBuf>,
+    /// workspace folders open in the client
+    workspace_folders: Option<Vec<(String, Url)>>,
+    /// if client has configuration capability
+    configuration: bool,
 }
+
 fn run_test_lsp(test_case: TestCase) {
     init_test();
     let timeout = Duration::from_secs(25);
     let args = Args {
         search_path: test_case.search_path,
         site_package_path: Vec::new(),
-        experimental_project_path: test_case.experimental_project_path,
+        experimental_project_path: test_case.experimental_project_path.clone(),
     };
     // language_client_sender is used to send messages to the language client
     // language_client_receiver sees messages sent to the language client
@@ -65,7 +70,15 @@ fn run_test_lsp(test_case: TestCase) {
     // this thread receives messages from the language server and validates responses
     let language_server_receiver_thread: thread::JoinHandle<Result<(), std::io::Error>> =
         thread::spawn(move || {
-            let mut responses = test_case.expected_messages_from_language_server.clone();
+            let initialize_responses = if test_case.experimental_project_path.is_empty() {
+                get_initialize_responses()
+            } else {
+                get_initialize_responses_with_find_refs_enabled()
+            };
+            let mut responses = initialize_responses
+                .into_iter()
+                .chain(test_case.expected_messages_from_language_server)
+                .collect::<Vec<_>>();
 
             loop {
                 if responses.is_empty() {
@@ -118,7 +131,11 @@ fn run_test_lsp(test_case: TestCase) {
     // this thread sends messages to the language server (from test case)
     let language_server_sender_thread: thread::JoinHandle<Result<(), std::io::Error>> =
         thread::spawn(move || {
-            for msg in test_case.messages_from_language_client {
+            for msg in
+                get_initialize_messages(&test_case.workspace_folders, test_case.configuration)
+                    .into_iter()
+                    .chain(test_case.messages_from_language_client)
+            {
                 let send = || {
                     eprintln!("client--->server {}", serde_json::to_string(&msg).unwrap());
                     if let Err(err) = language_server_sender.send_timeout(msg.clone(), timeout) {
@@ -198,7 +215,7 @@ fn run_test_lsp(test_case: TestCase) {
 }
 
 fn get_initialize_params(
-    workspace_folders: Option<Vec<(&str, Url)>>,
+    workspace_folders: &Option<Vec<(String, Url)>>,
     configuration: bool,
 ) -> serde_json::Value {
     let mut params = serde_json::json!({
@@ -238,7 +255,7 @@ fn get_initialize_params(
 }
 
 fn get_initialize_messages(
-    workspace_folders: Option<Vec<(&str, Url)>>,
+    workspace_folders: &Option<Vec<(String, Url)>>,
     configuration: bool,
 ) -> std::vec::Vec<lsp_server::Message> {
     vec![
@@ -327,10 +344,12 @@ fn get_test_files_root() -> TempDir {
 #[test]
 fn test_initialize() {
     run_test_lsp(TestCase {
-        messages_from_language_client: get_initialize_messages(None, false),
-        expected_messages_from_language_server: get_initialize_responses(),
+        messages_from_language_client: Vec::new(),
+        expected_messages_from_language_server: Vec::new(),
         search_path: Vec::new(),
         experimental_project_path: Vec::new(),
+        workspace_folders: None,
+        configuration: false,
     });
 }
 
@@ -339,81 +358,72 @@ fn test_initialize_with_python_path() {
     let scope_uri = Url::from_file_path(get_test_files_root()).unwrap();
     let python_path = "/path/to/python/interpreter";
     let id = RequestId::from(1);
-    let mut messages_from_language_client =
-        get_initialize_messages(Some(vec![("test", scope_uri.clone())]), true);
-    messages_from_language_client.push(Message::Response(Response {
-        id: id.clone(),
-        result: Some(serde_json::json!([{"pythonPath": python_path}])),
-        error: None,
-    }));
-    let mut expected_messages_from_language_server = get_initialize_responses();
-    expected_messages_from_language_server.push(Message::Request(Request {
-        id,
-        method: WorkspaceConfiguration::METHOD.to_owned(),
-        params: serde_json::json!(ConfigurationParams {
-            items: Vec::from([ConfigurationItem {
-                scope_uri: Some(scope_uri),
-                section: Some("python".to_owned()),
-            }]),
-        }),
-    }));
     run_test_lsp(TestCase {
-        messages_from_language_client,
-        expected_messages_from_language_server,
+        messages_from_language_client: vec![Message::Response(Response {
+            id: id.clone(),
+            result: Some(serde_json::json!([{"pythonPath": python_path}])),
+            error: None,
+        })],
+        expected_messages_from_language_server: vec![Message::Request(Request {
+            id,
+            method: WorkspaceConfiguration::METHOD.to_owned(),
+            params: serde_json::json!(ConfigurationParams {
+                items: Vec::from([ConfigurationItem {
+                    scope_uri: Some(scope_uri.clone()),
+                    section: Some("python".to_owned()),
+                }]),
+            }),
+        })],
         search_path: Vec::new(),
         experimental_project_path: Vec::new(),
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: true,
     });
 }
 
 fn test_go_to_def(
     root: &TempDir,
-    workspace_folders: Option<Vec<(&str, Url)>>,
+    workspace_folders: Option<Vec<(String, Url)>>,
     search_path: Vec<PathBuf>,
 ) {
-    let mut test_messages = get_initialize_messages(workspace_folders, false);
-    let mut expected_responses = get_initialize_responses();
-
-    test_messages.push(Message::from(build_did_open_notification(
-        root.path().join("foo.py"),
-    )));
-
-    test_messages.push(Message::from(Request {
-        id: RequestId::from(2),
-        method: "textDocument/definition".to_owned(),
-        params: serde_json::json!({
-            "textDocument": {
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
-            },
-            "position": {
-                "line": 5,
-                "character": 16
-            }
-        }),
-    }));
-
-    expected_responses.push(Message::Response(Response {
-        id: RequestId::from(2),
-        result: Some(serde_json::json!({
-            "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string(),
-            "range": {
-                "start": {
-                    "line": 6,
-                    "character": 6
-                },
-                "end": {
-                    "line": 6,
-                    "character": 9
-                }
-            }
-        })),
-        error: None,
-    }));
-
     run_test_lsp(TestCase {
-        messages_from_language_client: test_messages,
-        expected_messages_from_language_server: expected_responses,
+        messages_from_language_client: vec![
+            Message::from(build_did_open_notification(root.path().join("foo.py"))),
+            Message::from(Request {
+                id: RequestId::from(2),
+                method: "textDocument/definition".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                    },
+                    "position": {
+                        "line": 5,
+                        "character": 16
+                    }
+                }),
+            }),
+        ],
+        expected_messages_from_language_server: vec![Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(serde_json::json!({
+                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string(),
+                "range": {
+                    "start": {
+                        "line": 6,
+                        "character": 6
+                    },
+                    "end": {
+                        "line": 6,
+                        "character": 9
+                    }
+                }
+            })),
+            error: None,
+        })],
         search_path,
         experimental_project_path: Vec::new(),
+        workspace_folders,
+        configuration: false,
     });
 }
 
@@ -422,7 +432,10 @@ fn test_go_to_def_single_root() {
     let root = get_test_files_root();
     test_go_to_def(
         &root,
-        Some(vec![("test", Url::from_file_path(root.path()).unwrap())]),
+        Some(vec![(
+            "test".to_owned(),
+            Url::from_file_path(root.path()).unwrap(),
+        )]),
         Vec::new(), // should use search_path from workspace root
     );
 }
@@ -441,51 +454,45 @@ fn test_go_to_def_no_folder_capability() {
 
 #[test]
 fn test_hover() {
-    let mut test_messages = get_initialize_messages(None, false);
-    let mut expected_responses = get_initialize_responses();
     let root = get_test_files_root();
 
-    test_messages.push(Message::from(build_did_open_notification(
-        root.path().join("foo.py"),
-    )));
-
-    test_messages.push(Message::from(Request {
-        id: RequestId::from(2),
-        method: "textDocument/hover".to_owned(),
-        params: serde_json::json!({
-            "textDocument": {
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
-            },
-            "position": {
-                "line": 5,
-                "character": 16
-            }
-        }),
-    }));
-
-    expected_responses.push(Message::Response(Response {
-        id: RequestId::from(2),
-        result: Some(serde_json::json!({"contents": {
-            "kind": "markdown",
-            "value": "```python\ntype[Bar]\n```",
-        }})),
-        error: None,
-    }));
-
     run_test_lsp(TestCase {
-        messages_from_language_client: test_messages,
-        expected_messages_from_language_server: expected_responses,
+        messages_from_language_client: vec![
+            Message::from(build_did_open_notification(root.path().join("foo.py"))),
+            Message::from(Request {
+                id: RequestId::from(2),
+                method: "textDocument/hover".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                    },
+                    "position": {
+                        "line": 5,
+                        "character": 16
+                    }
+                }),
+            }),
+        ],
+        expected_messages_from_language_server: vec![Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(serde_json::json!({"contents": {
+                "kind": "markdown",
+                "value": "```python\ntype[Bar]\n```",
+            }})),
+            error: None,
+        })],
         search_path: Vec::new(),
         experimental_project_path: Vec::new(),
+        workspace_folders: None,
+        configuration: false,
     });
 }
 
 #[test]
 fn test_references() {
-    let mut test_messages = get_initialize_messages(None, false);
-    let mut expected_responses = get_initialize_responses_with_find_refs_enabled();
     let root = get_test_files_root();
-
+    let mut test_messages = Vec::new();
+    let mut expected_responses = Vec::new();
     test_messages.push(Message::from(build_did_open_notification(
         root.path().join("bar.py"),
     )));
@@ -694,6 +701,8 @@ fn test_references() {
         expected_messages_from_language_server: expected_responses,
         search_path: vec![root.path().to_path_buf()],
         experimental_project_path: vec![root.path().to_path_buf()],
+        workspace_folders: None,
+        configuration: false,
     });
 }
 
@@ -701,8 +710,7 @@ fn test_references() {
 fn test_did_change_configuration() {
     let root = get_test_files_root();
     let scope_uri = Url::from_file_path(root.path()).unwrap();
-    let mut messages_from_language_client =
-        get_initialize_messages(Some(vec![("test", scope_uri.clone())]), true);
+    let mut messages_from_language_client = Vec::new();
     messages_from_language_client.push(Message::Notification(Notification {
         method: DidChangeConfiguration::METHOD.to_owned(),
         params: serde_json::json!({"settings": {}}),
@@ -717,32 +725,35 @@ fn test_did_change_configuration() {
         result: Some(serde_json::json!([{}])),
         error: None,
     }));
-    let mut expected_messages_from_language_server = get_initialize_responses();
-    expected_messages_from_language_server.push(Message::Request(Request {
-        id: RequestId::from(1),
-        method: WorkspaceConfiguration::METHOD.to_owned(),
-        params: serde_json::json!(ConfigurationParams {
-            items: Vec::from([ConfigurationItem {
-                scope_uri: Some(scope_uri.clone()),
-                section: Some("python".to_owned()),
-            }]),
+    let expected_messages_from_language_server = vec![
+        Message::Request(Request {
+            id: RequestId::from(1),
+            method: WorkspaceConfiguration::METHOD.to_owned(),
+            params: serde_json::json!(ConfigurationParams {
+                items: Vec::from([ConfigurationItem {
+                    scope_uri: Some(scope_uri.clone()),
+                    section: Some("python".to_owned()),
+                }]),
+            }),
         }),
-    }));
-    expected_messages_from_language_server.push(Message::Request(Request {
-        id: RequestId::from(2),
-        method: WorkspaceConfiguration::METHOD.to_owned(),
-        params: serde_json::json!(ConfigurationParams {
-            items: Vec::from([ConfigurationItem {
-                scope_uri: Some(scope_uri),
-                section: Some("python".to_owned()),
-            }]),
+        Message::Request(Request {
+            id: RequestId::from(2),
+            method: WorkspaceConfiguration::METHOD.to_owned(),
+            params: serde_json::json!(ConfigurationParams {
+                items: Vec::from([ConfigurationItem {
+                    scope_uri: Some(scope_uri.clone()),
+                    section: Some("python".to_owned()),
+                }]),
+            }),
         }),
-    }));
+    ];
     run_test_lsp(TestCase {
         messages_from_language_client,
         expected_messages_from_language_server,
         search_path: Vec::new(),
         experimental_project_path: Vec::new(),
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: true,
     });
 }
 
@@ -751,8 +762,7 @@ fn test_disable_language_services() {
     let test_files_root = get_test_files_root();
     let scope_uri = Url::from_file_path(test_files_root.path()).unwrap();
     let file_path = test_files_root.path().join("foo.py");
-    let mut messages_from_language_client =
-        get_initialize_messages(Some(vec![("test", scope_uri.clone())]), true);
+    let mut messages_from_language_client = Vec::new();
     messages_from_language_client.push(Message::Response(Response {
         id: RequestId::from(1),
         result: Some(serde_json::json!([{}])),
@@ -789,7 +799,7 @@ fn test_disable_language_services() {
         method: "textDocument/definition".to_owned(),
         params: go_to_definition_params.clone(),
     }));
-    let mut expected_messages_from_language_server = get_initialize_responses();
+    let mut expected_messages_from_language_server = Vec::new();
     let configuration_params = serde_json::json!(ConfigurationParams {
         items: Vec::from([ConfigurationItem {
             scope_uri: Some(scope_uri.clone()),
@@ -833,13 +843,15 @@ fn test_disable_language_services() {
         expected_messages_from_language_server,
         search_path: Vec::new(),
         experimental_project_path: Vec::new(),
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: true,
     });
 }
 
 #[test]
 fn test_edits_while_recheck() {
-    let mut test_messages = get_initialize_messages(None, false);
-    let mut expected_responses = get_initialize_responses();
+    let mut test_messages = Vec::new();
+    let mut expected_responses = Vec::new();
     let root = get_test_files_root();
 
     let path = root.path().join("foo.py");
@@ -908,5 +920,7 @@ fn test_edits_while_recheck() {
         expected_messages_from_language_server: expected_responses,
         search_path: vec![root.path().to_path_buf()],
         experimental_project_path: Vec::new(),
+        workspace_folders: None,
+        configuration: false,
     });
 }
