@@ -50,7 +50,7 @@ export default function LandingPageHeader(): React.ReactElement {
                 )}
             >
                 <a
-                    href={useBaseUrl('try/')}
+                    href={useBaseUrl('sandbox/')}
                     {...stylex.props(styles.buttonFullWidth, typography.p)}
                 >
                     {' '}
