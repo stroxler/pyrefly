@@ -60,34 +60,37 @@ struct Args {
     command: Command,
 }
 
+#[derive(Debug, Clone, Parser)]
+struct FullCheckArgs {
+    /// Files to check (glob supported).
+    /// If no file is specified, switch to project-checking mode where the files to
+    /// check are determined from the closest configuration file.
+    /// When supplied, `project_excludes` in any config files loaded for these files to check
+    /// are ignored, and we use the default excludes unless overridden with the `--project-excludes` flag.
+    files: Vec<String>,
+    /// Files to exclude when type checking.
+    #[clap(long, env = clap_env("PROJECT_EXCLUDES"))]
+    project_excludes: Option<Vec<String>>,
+    /// Watch for file changes and re-check them.
+    #[clap(long, env = clap_env("WATCH"), conflicts_with = "check_all")]
+    watch: bool,
+
+    /// Explicitly set the Pyre configuration to use when type checking or starting a language server.
+    /// It is an error to pass this flag in "single-file checking mode".
+    /// When not set, Pyre will perform an upward-filesystem-walk approach to find the nearest
+    /// pyrefly.toml or 'pyproject.toml with `tool.pyre` section'. If no config is found, Pyre exits with error.
+    /// If both a pyrefly.toml and valid pyproject.toml are found, pyrefly.toml takes precedence.
+    #[clap(long, short, env = clap_env("CONFIG"))]
+    config: Option<PathBuf>,
+
+    #[clap(flatten)]
+    args: CheckArgs,
+}
+
 #[derive(Debug, Clone, Subcommand)]
 enum Command {
     /// Full type checking on a file or a project
-    Check {
-        /// Files to check (glob supported).
-        /// If no file is specified, switch to project-checking mode where the files to
-        /// check are determined from the closest configuration file.
-        /// When supplied, `project_excludes` in any config files loaded for these files to check
-        /// are ignored, and we use the default excludes unless overridden with the `--project-excludes` flag.
-        files: Vec<String>,
-        /// Files to exclude when type checking.
-        #[clap(long, env = clap_env("PROJECT_EXCLUDES"))]
-        project_excludes: Option<Vec<String>>,
-        /// Watch for file changes and re-check them.
-        #[clap(long, env = clap_env("WATCH"), conflicts_with = "check_all")]
-        watch: bool,
-
-        /// Explicitly set the Pyre configuration to use when type checking or starting a language server.
-        /// It is an error to pass this flag in "single-file checking mode".
-        /// When not set, Pyre will perform an upward-filesystem-walk approach to find the nearest
-        /// pyrefly.toml or 'pyproject.toml with `tool.pyre` section'. If no config is found, Pyre exits with error.
-        /// If both a pyrefly.toml and valid pyproject.toml are found, pyrefly.toml takes precedence.
-        #[clap(long, short, env = clap_env("CONFIG"))]
-        config: Option<PathBuf>,
-
-        #[clap(flatten)]
-        args: CheckArgs,
-    },
+    Check(FullCheckArgs),
 
     /// Entry point for Buck integration
     BuckCheck(BuckCheckArgs),
@@ -129,13 +132,11 @@ fn config_finder(args: library::run::CheckArgs) -> ConfigFinder {
     standard_config_finder(Arc::new(move |_, x| args.override_config(x)))
 }
 
-async fn run_check_on_project(
-    watch: bool,
+fn get_globs_and_config_for_project(
     config: Option<PathBuf>,
     project_excludes: Option<Vec<String>>,
-    args: library::run::CheckArgs,
-    allow_forget: bool,
-) -> anyhow::Result<CommandExitStatus> {
+    args: &library::run::CheckArgs,
+) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
     let config = match config {
         Some(explicit) => {
             info!(
@@ -159,64 +160,59 @@ async fn run_check_on_project(
     debug!("Config is: {}", config);
     let project_excludes =
         project_excludes.map_or_else(|| config.project_excludes.clone(), Globs::new);
-    run_check(
-        args,
-        watch,
+
+    Ok((
         FilteredGlobs::new(config.project_includes.clone(), project_excludes),
         config_finder,
-        allow_forget,
-    )
-    .await
+    ))
 }
 
-async fn run_check_on_files(
+fn get_globs_and_config_for_files(
     files_to_check: Globs,
     project_excludes: Option<Vec<String>>,
-    watch: bool,
-    args: library::run::CheckArgs,
-    allow_forget: bool,
-) -> anyhow::Result<CommandExitStatus> {
+    args: &library::run::CheckArgs,
+) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
     let project_excludes =
         project_excludes.map_or_else(ConfigFile::default_project_excludes, Globs::new);
     let files_to_check = files_to_check.from_root(PathBuf::new().absolutize()?.as_ref());
     let config_finder = config_finder(args.clone());
-    run_check(
-        args,
-        watch,
+    Ok((
         FilteredGlobs::new(files_to_check, project_excludes),
         config_finder,
-        allow_forget,
-    )
-    .await
+    ))
+}
+
+fn get_globs_and_config(
+    files: Vec<String>,
+    project_excludes: Option<Vec<String>>,
+    config: Option<PathBuf>,
+    args: &mut library::run::CheckArgs,
+) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
+    if !files.is_empty() && config.is_some() {
+        return Err(anyhow!(
+            "Can either supply `FILES...` OR `--config/-c`, not both."
+        ));
+    }
+    args.absolute_search_path();
+    if files.is_empty() {
+        get_globs_and_config_for_project(config, project_excludes, args)
+    } else {
+        get_globs_and_config_for_files(Globs::new(files), project_excludes, args)
+    }
 }
 
 async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<CommandExitStatus> {
     match command {
-        Command::Check {
+        Command::Check(FullCheckArgs {
             files,
             project_excludes,
             watch,
             config,
             mut args,
-        } => {
-            if !files.is_empty() && config.is_some() {
-                return Err(anyhow!(
-                    "Can either supply `FILES...` OR `--config/-c`, not both."
-                ));
-            }
-            args.absolute_search_path();
-            if files.is_empty() {
-                run_check_on_project(watch, config, project_excludes, args, allow_forget).await
-            } else {
-                run_check_on_files(
-                    Globs::new(files),
-                    project_excludes,
-                    watch,
-                    args,
-                    allow_forget,
-                )
-                .await
-            }
+        }) => {
+            let (files_to_check, config_finder) =
+                get_globs_and_config(files, project_excludes, config, &mut args)?;
+            run_check(args, watch, files_to_check, config_finder, allow_forget).await
         }
         Command::BuckCheck(args) => args.run(),
         Command::Lsp(args) => args.run(Vec::new()),
