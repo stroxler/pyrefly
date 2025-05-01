@@ -592,3 +592,27 @@ fn test_edits_while_recheck() {
         ..Default::default()
     });
 }
+
+#[test]
+fn test_file_watcher() {
+    let root = get_test_files_root();
+    run_test_lsp(TestCase {
+        messages_from_language_client: vec![Message::Response(Response {
+            id: RequestId::from(1),
+            result: None,
+            error: None,
+        })],
+        expected_messages_from_language_server: vec![Message::Request(Request {
+            id: RequestId::from(1),
+            method: "client/registerCapability".to_owned(),
+            params: serde_json::json!({
+                "registrations": [{"id": "FILEWATCHER", "method": "workspace/didChangeWatchedFiles", "registerOptions": {"watchers": [{"globPattern": format!("{}/**/*.py", root.path().display()), "kind": 7}, {"globPattern": format!("{}/**/*.pyi", root.path().display()), "kind": 7}]}}]}),
+        })],
+        workspace_folders: Some(vec![(
+            "test".to_owned(),
+            Url::from_file_path(root).unwrap(),
+        )]),
+        file_watch: true,
+        ..Default::default()
+    });
+}

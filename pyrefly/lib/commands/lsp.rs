@@ -34,7 +34,9 @@ use lsp_types::ConfigurationItem;
 use lsp_types::ConfigurationParams;
 use lsp_types::Diagnostic;
 use lsp_types::DidChangeTextDocumentParams;
+use lsp_types::DidChangeWatchedFilesClientCapabilities;
 use lsp_types::DidChangeWatchedFilesParams;
+use lsp_types::DidChangeWatchedFilesRegistrationOptions;
 use lsp_types::DidCloseTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
 use lsp_types::DidSaveTextDocumentParams;
@@ -43,6 +45,8 @@ use lsp_types::DocumentHighlightParams;
 use lsp_types::DocumentSymbol;
 use lsp_types::DocumentSymbolParams;
 use lsp_types::DocumentSymbolResponse;
+use lsp_types::FileSystemWatcher;
+use lsp_types::GlobPattern;
 use lsp_types::GotoDefinitionParams;
 use lsp_types::GotoDefinitionResponse;
 use lsp_types::Hover;
@@ -61,11 +65,17 @@ use lsp_types::OneOf;
 use lsp_types::PublishDiagnosticsParams;
 use lsp_types::Range;
 use lsp_types::ReferenceParams;
+use lsp_types::Registration;
+use lsp_types::RegistrationParams;
 use lsp_types::ServerCapabilities;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
 use lsp_types::TextEdit;
+use lsp_types::Unregistration;
+use lsp_types::UnregistrationParams;
 use lsp_types::Url;
+use lsp_types::WatchKind;
+use lsp_types::WorkspaceClientCapabilities;
 use lsp_types::notification::Cancel;
 use lsp_types::notification::DidChangeConfiguration;
 use lsp_types::notification::DidChangeTextDocument;
@@ -73,6 +83,7 @@ use lsp_types::notification::DidChangeWatchedFiles;
 use lsp_types::notification::DidCloseTextDocument;
 use lsp_types::notification::DidOpenTextDocument;
 use lsp_types::notification::DidSaveTextDocument;
+use lsp_types::notification::Notification as _;
 use lsp_types::notification::PublishDiagnostics;
 use lsp_types::request::Completion;
 use lsp_types::request::DocumentHighlightRequest;
@@ -81,6 +92,8 @@ use lsp_types::request::GotoDefinition;
 use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
 use lsp_types::request::References;
+use lsp_types::request::RegisterCapability;
+use lsp_types::request::UnregisterCapability;
 use lsp_types::request::WorkspaceConfiguration;
 use path_absolutize::Absolutize;
 use serde::de::DeserializeOwned;
@@ -89,6 +102,7 @@ use starlark_map::small_map::SmallMap;
 use crate::commands::config_finder::standard_config_finder;
 use crate::commands::run::CommandExitStatus;
 use crate::commands::util::module_from_path;
+use crate::common::files::PYTHON_FILE_SUFFIXES_TO_WATCH;
 use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::config::environment::PythonEnvironment;
@@ -205,6 +219,7 @@ struct Server {
     site_package_path: Vec<PathBuf>,
     outgoing_request_id: Arc<AtomicI32>,
     outgoing_requests: Mutex<HashMap<RequestId, Request>>,
+    filewatcher_registered: bool,
 }
 
 /// Temporary "configuration": this is all that is necessary to run an LSP at a given root.
@@ -462,6 +477,8 @@ fn publish_diagnostics(
 }
 
 impl Server {
+    const FILEWATCHER_ID: &str = "FILEWATCHER";
+
     fn process_immediately_handled_event<'a>(
         &'a self,
         ide_transaction_manager: &mut IDETransactionManager<'a>,
@@ -618,7 +635,7 @@ impl Server {
         )));
 
         let config_finder = Workspaces::config_finder(&workspaces);
-        let s = Self {
+        let mut s = Self {
             send,
             async_state_read_threads: ThreadPool::with_thread_count(ThreadCount::NumThreads(
                 NonZero::new(1).unwrap(),
@@ -632,6 +649,7 @@ impl Server {
             site_package_path,
             outgoing_request_id: Arc::new(AtomicI32::new(1)),
             outgoing_requests: Mutex::new(HashMap::new()),
+            filewatcher_registered: false,
         };
         s.configure(folders);
 
@@ -882,7 +900,7 @@ impl Server {
     }
 
     /// Configure the server with a new set of workspace folders
-    fn configure(&self, workspace_paths: Vec<PathBuf>) {
+    fn configure(&mut self, workspace_paths: Vec<PathBuf>) {
         let mut new_workspaces = SmallMap::new();
         for x in &workspace_paths {
             new_workspaces.insert(
@@ -898,6 +916,7 @@ impl Server {
             // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
             self.request_settings_for_workspace(&Url::from_file_path(x).unwrap());
         }
+        self.setup_file_watcher_if_necessary(&workspace_paths);
         *self.workspaces.workspaces.write() = new_workspaces;
     }
 
@@ -1151,6 +1170,58 @@ impl Server {
             .for_each(|scope_uri| {
                 self.request_settings_for_workspace(&Url::from_file_path(scope_uri).unwrap())
             });
+    }
+
+    // TODO(connernilsen): add config files themselves to watcher
+    // TODO(connernilsen): add all source code, search_paths from config to watcher
+    // TODO(connernilsen): on config file change, re-watch
+    fn setup_file_watcher_if_necessary(&mut self, python_sources: &[PathBuf]) {
+        if matches!(
+            self.initialize_params.capabilities.workspace,
+            Some(WorkspaceClientCapabilities {
+                did_change_watched_files: Some(DidChangeWatchedFilesClientCapabilities {
+                    dynamic_registration: Some(true),
+                    ..
+                }),
+                ..
+            })
+        ) {
+            if self.filewatcher_registered {
+                self.send_request::<UnregisterCapability>(UnregistrationParams {
+                    unregisterations: Vec::from([Unregistration {
+                        id: Self::FILEWATCHER_ID.to_owned(),
+                        method: DidChangeWatchedFiles::METHOD.to_owned(),
+                    }]),
+                });
+            }
+            let mut watchers = Vec::new();
+            python_sources.iter().for_each(|path| {
+                watchers.append(
+                    &mut PYTHON_FILE_SUFFIXES_TO_WATCH
+                        .iter()
+                        .map(|suffix| FileSystemWatcher {
+                            glob_pattern: GlobPattern::String(
+                                path.join(format!("**/*.{}", suffix))
+                                    .to_string_lossy()
+                                    .into_owned(),
+                            ),
+                            kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
+                        })
+                        .collect::<Vec<_>>(),
+                );
+            });
+            self.send_request::<RegisterCapability>(RegistrationParams {
+                registrations: Vec::from([Registration {
+                    id: Self::FILEWATCHER_ID.to_owned(),
+                    method: DidChangeWatchedFiles::METHOD.to_owned(),
+                    register_options: Some(
+                        serde_json::to_value(DidChangeWatchedFilesRegistrationOptions { watchers })
+                            .unwrap(),
+                    ),
+                }]),
+            });
+            self.filewatcher_registered = true;
+        }
     }
 
     fn request_settings_for_workspace(&self, scope_uri: &Url) {

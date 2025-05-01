@@ -6,5 +6,4 @@
  */
 
 /// Suffixes of python files to be used for watching filesystem events
-#[expect(dead_code)]
 pub const PYTHON_FILE_SUFFIXES_TO_WATCH: &[&str] = &["py", "pyi"];
