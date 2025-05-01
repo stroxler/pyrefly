@@ -1384,12 +1384,10 @@ impl<'a> AsMut<Transaction<'a>> for CommittingTransaction<'a> {
 pub struct CancellableTransaction<'a>(Transaction<'a>);
 
 impl CancellableTransaction<'_> {
-    #[expect(dead_code)]
     pub fn run(&mut self, handles: &[(Handle, Require)]) -> Result<(), Cancelled> {
         self.0.run_internal(handles, self.0.readable.require)
     }
 
-    #[expect(dead_code)]
     pub fn get_cancellation_handle(&self) -> CancellationHandle {
         self.0.data.todo.get_cancellation_handle()
     }
@@ -1478,7 +1476,6 @@ impl State {
         self.new_transaction(Require::Exports, None)
     }
 
-    #[expect(dead_code)]
     pub fn cancellable_transaction<'a>(&'a self) -> CancellableTransaction<'a> {
         CancellableTransaction(self.transaction())
     }

@@ -128,6 +128,8 @@ use crate::util::globs::Globs;
 use crate::util::lock::Mutex;
 use crate::util::lock::RwLock;
 use crate::util::prelude::VecExt;
+use crate::util::task_heap::CancellationHandle;
+use crate::util::task_heap::Cancelled;
 use crate::util::thread_pool::ThreadCount;
 use crate::util::thread_pool::ThreadPool;
 
@@ -214,6 +216,7 @@ struct Server {
     initialize_params: InitializeParams,
     state: Arc<State>,
     open_files: Arc<RwLock<HashMap<PathBuf, Arc<String>>>>,
+    cancellation_handles: Arc<Mutex<HashMap<RequestId, CancellationHandle>>>,
     workspaces: Arc<Workspaces>,
     search_path: Vec<PathBuf>,
     site_package_path: Vec<PathBuf>,
@@ -644,6 +647,7 @@ impl Server {
             initialize_params,
             state: Arc::new(State::new(config_finder)),
             open_files: Arc::new(RwLock::new(HashMap::new())),
+            cancellation_handles: Arc::new(Mutex::new(HashMap::new())),
             workspaces,
             search_path,
             site_package_path,
@@ -781,9 +785,16 @@ impl Server {
     fn invalidate(&self, f: impl FnOnce(&mut Transaction) + Send + 'static) {
         let state = self.state.dupe();
         let immediately_handled_events = self.immediately_handled_events.dupe();
+        let cancellation_handles = self.cancellation_handles.dupe();
         std::thread::spawn(move || {
             let mut transaction = state.new_committable_transaction(Require::Exports, None);
             f(transaction.as_mut());
+            // Commit will be blocked until there are no ongoing reads.
+            // If we have some long running read jobs that can be cancelled, we should cancel them
+            // to unblock committing transactions.
+            for (_, cancellation_handle) in cancellation_handles.lock().drain() {
+                cancellation_handle.cancel();
+            }
             state.commit_transaction(transaction);
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
@@ -1053,35 +1064,51 @@ impl Server {
         let state = self.state.dupe();
         let workspaces = self.workspaces.dupe();
         let open_files = self.open_files.dupe();
+        let cancellation_handles = self.cancellation_handles.dupe();
         let send = self.send.dupe();
         self.async_state_read_threads.async_spawn(move || {
-            let mut transaction = state.transaction();
+            let mut transaction = state.cancellable_transaction();
+            cancellation_handles
+                .lock()
+                .insert(request_id.clone(), transaction.get_cancellation_handle());
             Self::validate_in_memory_for_transaction(
                 &state,
                 &workspaces,
                 &open_files,
-                &mut transaction,
+                transaction.as_mut(),
             );
-            let global_references = transaction.find_global_references_from_definition(
+            match transaction.find_global_references_from_definition(
                 handle.sys_info(),
                 definition_kind,
                 definition,
-            );
-            let mut locations = Vec::new();
-            for (info, ranges) in global_references {
-                if let Some(uri) = module_info_to_uri(&info) {
-                    for range in ranges {
-                        locations.push(Location {
-                            uri: uri.clone(),
-                            range: source_range_to_range(&info.source_range(range)),
-                        });
+            ) {
+                Ok(global_references) => {
+                    let mut locations = Vec::new();
+                    for (info, ranges) in global_references {
+                        if let Some(uri) = module_info_to_uri(&info) {
+                            for range in ranges {
+                                locations.push(Location {
+                                    uri: uri.clone(),
+                                    range: source_range_to_range(&info.source_range(range)),
+                                });
+                            }
+                        };
                     }
-                };
+                    send(Message::Response(new_response(
+                        request_id,
+                        Ok(Some(locations)),
+                    )))
+                }
+                Err(Cancelled()) => {
+                    let message = format!("Find reference request {} is canceled", request_id);
+                    eprintln!("{message}");
+                    send(Message::Response(Response::new_err(
+                        request_id,
+                        ErrorCode::RequestCanceled as i32,
+                        message,
+                    )))
+                }
             }
-            send(Message::Response(new_response(
-                request_id,
-                Ok(Some(locations)),
-            )))
         });
     }
 

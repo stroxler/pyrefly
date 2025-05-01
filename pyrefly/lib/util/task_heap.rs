@@ -34,7 +34,6 @@ impl CancellationHandle {
         self.0.load(Ordering::Relaxed)
     }
 
-    #[allow(dead_code)]
     pub fn cancel(&self) {
         self.0.store(true, Ordering::Relaxed);
     }
@@ -111,7 +110,6 @@ impl<K: Ord, V> TaskHeap<K, V> {
         }
     }
 
-    #[allow(dead_code)]
     pub fn get_cancellation_handle(&self) -> CancellationHandle {
         self.cancellation_handle.dupe()
     }
