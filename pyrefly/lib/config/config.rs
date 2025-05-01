@@ -236,7 +236,8 @@ impl ConfigFile {
     }
 
     pub fn default_search_path() -> Vec<PathBuf> {
-        vec![PathBuf::from("")]
+        // Note that rewrite_with_path_to_config() always adds the path to the config file to the search path.
+        Vec::new()
     }
 
     pub fn default_true() -> bool {
@@ -917,5 +918,13 @@ mod tests {
             config.replace_imports_with_any(None),
             &[ModuleWildcard::new("root").unwrap()],
         )
+    }
+
+    #[test]
+    fn test_default_search_path() {
+        if let Ok(cwd) = std::env::current_dir() {
+            let config = ConfigFile::default();
+            assert_eq!(config.search_path, vec![cwd]);
+        }
     }
 }
