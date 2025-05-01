@@ -104,7 +104,7 @@ pub struct ConfigFile {
 
     /// Sub-configs that can override specific `ConfigBase` settings
     /// based on path matching.
-    #[serde(default)]
+    #[serde(default, rename = "sub_config")]
     pub sub_configs: Vec<SubConfig>,
 
     /// Skips any `py.typed` checks we do when resolving `site_package_path` imports.
@@ -538,13 +538,13 @@ mod tests {
             assert-type = true
             bad-return = false
 
-            [[sub_configs]]
+            [[sub_config]]
             matches = "sub/project/**"
 
             skip_untyped_functions = true
             replace_imports_with_any = []
             ignore_errors_in_generated_code = false
-            [sub_configs.errors]
+            [sub_config.errors]
             assert-type = false
             invalid-yield = false
         "#;
@@ -608,7 +608,7 @@ mod tests {
             laszewo = "good kids"
             python_platform = "windows"
 
-            [[sub_configs]]
+            [[sub_config]]
             matches = "abcd"
             
             atliens = 1
@@ -794,7 +794,7 @@ mod tests {
     #[test]
     fn test_deserializing_sub_config_missing_matches() {
         let config_str = r#"
-            [[sub_configs]]
+            [[sub_config]]
             search_path = ["../../.."]
         "#;
         let err = ConfigFile::parse_config(config_str).unwrap_err();
