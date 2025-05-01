@@ -9,37 +9,15 @@
 
 import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
-import { useState } from 'react';
-import PerformanceComparisonButton from './PerformanceComparisonButton';
 import PerformanceComparisonChart from './PerformanceComparisonChart';
-import { Project, type ProjectValue } from './PerformanceComparisonTypes';
+import PerformanceComparisonDescription from './PerformanceComparisonDescription';
 
 export default function PerformanceComparisonChartSection(): React.ReactElement {
-    const [selectedProject, setSelectedProject] = useState<ProjectValue>(
-        Project.PYTORCH
-    );
-
     return (
         <div {...stylex.props(styles.body)}>
-            <div {...stylex.props(styles.buttonRow)}>
-                <PerformanceComparisonButton
-                    project={Project.PYTORCH}
-                    selectedProject={selectedProject}
-                    setSelectedProject={setSelectedProject}
-                />
-                <PerformanceComparisonButton
-                    project={Project.INSTAGRAM}
-                    selectedProject={selectedProject}
-                    setSelectedProject={setSelectedProject}
-                />
-                <PerformanceComparisonButton
-                    project={Project.EXAMPLE}
-                    selectedProject={selectedProject}
-                    setSelectedProject={setSelectedProject}
-                />
-            </div>
             <div {...stylex.props(styles.chartContainer)}>
-                <PerformanceComparisonChart project={selectedProject} />
+                <PerformanceComparisonDescription />
+                <PerformanceComparisonChart />
             </div>
         </div>
     );
@@ -52,6 +30,7 @@ const styles = stylex.create({
         backgroundColor: 'var(--color-text)',
         marginVertical: '2rem',
         paddingVertical: '2rem',
+        paddinghorizontal: '1rem',
     },
     buttonRow: {
         display: 'flex',

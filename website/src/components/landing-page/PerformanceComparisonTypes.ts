@@ -9,8 +9,6 @@
 
 export enum Project {
     INSTAGRAM = 'Instagram',
-    PYTORCH = 'PyTorch',
-    EXAMPLE = 'Example',
 }
 
 export type ProjectValue = (typeof Project)[keyof typeof Project];

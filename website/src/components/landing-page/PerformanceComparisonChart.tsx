@@ -29,13 +29,8 @@ interface ProjectData {
     data: TypeCheckerData[];
 }
 
-interface PerformanceComparisonChartProps {
-    project: ProjectValue;
-}
-
-export default function PerformanceComparisonChart({
-    project,
-}: PerformanceComparisonChartProps): React.ReactElement {
+export default function PerformanceComparisonChart(): React.ReactElement {
+    const project = Project.INSTAGRAM;
     const data = getData(project);
 
     // Calculate the maximum duration for scaling
@@ -107,17 +102,8 @@ function getData(project: ProjectValue): TypeCheckerData[] {
     return filteredData[0];
 }
 
+// TODO (T222936871): Add data for pandas and pytorch after we publish Pyrefly and get it to a stable state
 const performanceComparisonChartData: ProjectData[] = [
-    {
-        project: Project.PYTORCH,
-        data: [
-            { typechecker: TypeChecker.PYREFLY, durationInSeconds: 0.5 },
-            { typechecker: TypeChecker.MYPY, durationInSeconds: 8 },
-            { typechecker: TypeChecker.PYRIGHT, durationInSeconds: 5 },
-            { typechecker: TypeChecker.PYTYPE, durationInSeconds: 12 },
-            { typechecker: TypeChecker.PYRE1, durationInSeconds: 15 },
-        ],
-    },
     {
         project: Project.INSTAGRAM,
         data: [
@@ -126,16 +112,6 @@ const performanceComparisonChartData: ProjectData[] = [
             { typechecker: TypeChecker.PYRIGHT, durationInSeconds: 20 },
             { typechecker: TypeChecker.PYTYPE, durationInSeconds: 40 },
             { typechecker: TypeChecker.PYRE1, durationInSeconds: 40 },
-        ],
-    },
-    {
-        project: Project.EXAMPLE,
-        data: [
-            { typechecker: TypeChecker.PYREFLY, durationInSeconds: 2 },
-            { typechecker: TypeChecker.MYPY, durationInSeconds: 10 },
-            { typechecker: TypeChecker.PYRIGHT, durationInSeconds: 5 },
-            { typechecker: TypeChecker.PYTYPE, durationInSeconds: 12 },
-            { typechecker: TypeChecker.PYRE1, durationInSeconds: 12 },
         ],
     },
 ];

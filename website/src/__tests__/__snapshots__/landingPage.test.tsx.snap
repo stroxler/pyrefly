@@ -246,17 +246,9 @@ exports[`Home page renders internal site correctly 1`] = `
           </h2>
           <div>
             <div>
-              <button>
-                PyTorch
-              </button>
-              <button>
-                Instagram
-              </button>
-              <button>
-                Example
-              </button>
-            </div>
-            <div>
+              <div>
+                Typechecking the instagram codebase with 19 millions lines of code, from scratch.
+              </div>
               <div>
                 <div>
                   <span>
@@ -266,10 +258,10 @@ exports[`Home page renders internal site correctly 1`] = `
                   </span>
                   <div>
                     <div
-                      style="height: 80%; width: 3.3333333333333335%;"
+                      style="height: 80%; width: 4%;"
                     >
                       <div
-                        style="animation-duration: 0.5s;"
+                        style="animation-duration: 2s;"
                       />
                     </div>
                   </div>
@@ -287,10 +279,10 @@ exports[`Home page renders internal site correctly 1`] = `
                   </span>
                   <div>
                     <div
-                      style="height: 80%; width: 53.333333333333336%;"
+                      style="height: 80%; width: 100%;"
                     >
                       <div
-                        style="animation-duration: 8s;"
+                        style="animation-duration: 50s;"
                       />
                     </div>
                   </div>
@@ -308,10 +300,10 @@ exports[`Home page renders internal site correctly 1`] = `
                   </span>
                   <div>
                     <div
-                      style="height: 80%; width: 33.33333333333333%;"
+                      style="height: 80%; width: 40%;"
                     >
                       <div
-                        style="animation-duration: 5s;"
+                        style="animation-duration: 20s;"
                       />
                     </div>
                   </div>
@@ -332,7 +324,7 @@ exports[`Home page renders internal site correctly 1`] = `
                       style="height: 80%; width: 80%;"
                     >
                       <div
-                        style="animation-duration: 12s;"
+                        style="animation-duration: 40s;"
                       />
                     </div>
                   </div>
@@ -350,10 +342,10 @@ exports[`Home page renders internal site correctly 1`] = `
                   </span>
                   <div>
                     <div
-                      style="height: 80%; width: 100%;"
+                      style="height: 80%; width: 80%;"
                     >
                       <div
-                        style="animation-duration: 15s;"
+                        style="animation-duration: 40s;"
                       />
                     </div>
                   </div>
