@@ -316,14 +316,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             .and_then(|attr| self.type_order.resolve_as_instance_method(attr))
     }
 
-    fn convert_class_to_callable(&mut self, cls: &ClassType) -> Option<Type> {
+    fn constructor_to_callable(&mut self, cls: &ClassType) -> Option<Type> {
         let class_type = cls.clone().to_type();
-        if self.type_order.is_protocol(cls.class_object()) {
-            // If it's a protocol, always use the __call__ method
-            return self.try_lookup_attr_from_class(&class_type, &dunder::CALL);
-        } else if let Some(mut metaclass_call_attr_ty) =
-            self.type_order.get_metaclass_dunder_call(cls)
-        {
+        if let Some(mut metaclass_call_attr_ty) = self.type_order.get_metaclass_dunder_call(cls) {
             // If the class has a custom metaclass and the return type of the metaclass's __call__
             // is not a subclass of the current class, use that and ignore __new__ and __init__
             if metaclass_call_attr_ty
@@ -402,7 +397,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 got,
                 Type::Callable(_) | Type::Function(_) | Type::BoundMethod(_)
             ) && name == dunder::CALL
-                && let Some(want) = self.convert_class_to_callable(&protocol)
+                && let Some(want) =
+                    self.try_lookup_attr_from_class(&protocol.clone().to_type(), &dunder::CALL)
             {
                 if let Type::BoundMethod(box ref method) = want
                     && let Some(want_no_self) = method.to_callable()
@@ -792,12 +788,12 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (_, Type::ClassType(want)) if self.type_order.is_protocol(want.class_object()) => {
                 self.is_subset_protocol(got.clone(), want.clone())
             }
-            // Callable protocols
+            // Protocols/classes that define __call__
             (
                 Type::ClassType(got),
                 Type::BoundMethod(_) | Type::Callable(_) | Type::Function(_),
-            ) if self.type_order.is_protocol(got.class_object())
-                && let Some(call_ty) = self.convert_class_to_callable(got) =>
+            ) if let Some(call_ty) =
+                self.try_lookup_attr_from_class(&got.clone().to_type(), &dunder::CALL) =>
             {
                 self.is_subset_eq(&call_ty, want)
             }
@@ -805,7 +801,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (
                 Type::Type(box Type::ClassType(got)),
                 Type::BoundMethod(_) | Type::Callable(_) | Type::Function(_),
-            ) if let Some(call_ty) = self.convert_class_to_callable(got) => {
+            ) if let Some(call_ty) = self.constructor_to_callable(got) => {
                 self.is_subset_eq(&call_ty, want)
             }
             (Type::ClassDef(got), Type::BoundMethod(_) | Type::Callable(_) | Type::Function(_)) => {

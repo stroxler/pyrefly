@@ -701,6 +701,35 @@ foo(varargs_kwargs_bad)  # E: not assignable to parameter `f`
 );
 
 testcase!(
+    test_callable_class,
+    r#"
+from typing import Callable
+class C:
+    def __call__(self, x: int) -> int:
+        return 1
+def test(cls: C):
+    x: Callable[[int], int] = cls
+"#,
+);
+
+testcase!(
+    test_callable_class_functools_partial,
+    r#"
+from __future__ import annotations
+from functools import partial
+from typing import Callable, Match
+
+def bar(a: Match[str], b: int) -> str:
+    return f'{a}{b}'
+
+def zoo(a: Callable[[Match[str]], str]) -> None:
+    return None
+
+zoo(partial(bar, b=99))
+"#,
+);
+
+testcase!(
     test_call_self,
     r#"
 from typing import assert_type
