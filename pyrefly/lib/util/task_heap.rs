@@ -10,14 +10,41 @@
 use std::cmp;
 use std::collections::BinaryHeap;
 use std::mem;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+
+use dupe::Dupe;
 
 use crate::util::lock::Condvar;
 use crate::util::lock::Mutex;
+
+/// Used to signal that all the tasks should be cancelled.
+pub struct Cancelled();
+
+#[derive(Clone, Dupe)]
+pub struct CancellationHandle(Arc<AtomicBool>);
+
+impl CancellationHandle {
+    fn new() -> Self {
+        Self(Arc::new(AtomicBool::new(false)))
+    }
+
+    fn is_cancelled(&self) -> bool {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    #[allow(dead_code)]
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::Relaxed);
+    }
+}
 
 /// A heap of tasks, where `K` represents the priority of the task and `V` represents the task.
 /// Add tasks with `push_lifo` and `push_fifo`, and process them with `work`.
 pub struct TaskHeap<K, V> {
     inner: Mutex<TaskHeapInner<K, V>>,
+    cancellation_handle: CancellationHandle,
     condition: Condvar,
 }
 
@@ -79,8 +106,14 @@ impl<K: Ord, V> TaskHeap<K, V> {
                 active_workers: 0,
                 paused_workers: 0,
             }),
+            cancellation_handle: CancellationHandle::new(),
             condition: Condvar::new(),
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn get_cancellation_handle(&self) -> CancellationHandle {
+        self.cancellation_handle.dupe()
     }
 
     /// Push a task into the heap with specified ordering.
@@ -120,10 +153,13 @@ impl<K: Ord, V> TaskHeap<K, V> {
     /// Continues processing successive items until all items have been processed,
     /// and there are no active calls to any `f` from all `work` calls.
     ///
+    /// If `f` returns true, then all the work will be quickly cancelled. The function
+    /// will return true to indicate that cancellation has happened.
+    ///
     /// This method can be called from multiple threads simultaneously, and the callback `f`
     /// can safely call `push_fifo` or `push_lifo` on this `TaskHeap`.
     #[allow(dead_code)]
-    pub fn work(&self, mut f: impl FnMut(K, V)) {
+    pub fn work(&self, mut f: impl FnMut(K, V)) -> Result<(), Cancelled> {
         // Create a guard struct to ensure we cleanup even on panic
         struct Unwind<'a, K, V>(&'a TaskHeap<K, V>);
 
@@ -144,10 +180,17 @@ impl<K: Ord, V> TaskHeap<K, V> {
                     lock.active_workers += 1;
                     drop(lock);
                     let unwind = Unwind(self);
-                    f(item.priority.0, item.value);
+                    let should_cancel = self.cancellation_handle.is_cancelled();
+                    if !should_cancel {
+                        f(item.priority.0, item.value);
+                    }
                     mem::forget(unwind);
                     lock = self.inner.lock();
                     lock.active_workers -= 1;
+                    if should_cancel {
+                        lock.heap.clear();
+                        return Err(Cancelled());
+                    }
                 }
                 None => {
                     if lock.active_workers == 0 {
@@ -162,6 +205,12 @@ impl<K: Ord, V> TaskHeap<K, V> {
                 }
             }
         }
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub fn work_without_cancellation(&self, f: impl FnMut(K, V)) {
+        let _ = self.work(f);
     }
 }
 
@@ -202,7 +251,7 @@ mod tests {
         heap.push_lifo(1, "c");
 
         let mut results = Vec::new();
-        heap.work(|_, v| results.push(v));
+        heap.work_without_cancellation(|_, v| results.push(v));
 
         // LIFO order for equal priorities: c, b, a
         assert_eq!(results, vec!["c", "b", "a"]);
@@ -216,10 +265,27 @@ mod tests {
         heap.push_fifo(1, "c");
 
         let mut results = Vec::new();
-        heap.work(|_, v| results.push(v));
+        heap.work_without_cancellation(|_, v| results.push(v));
 
         // FIFO order for equal priorities: a, b, c
         assert_eq!(results, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_cancellation() {
+        let heap = TaskHeap::new();
+        heap.push_lifo(1, "a");
+        heap.push_lifo(1, "b");
+        heap.push_lifo(1, "c");
+
+        let mut results = Vec::new();
+        heap.cancellation_handle.cancel();
+        let result = heap.work(|_, v| {
+            results.push(v);
+        });
+        assert!(result.is_err());
+
+        assert_eq!(results, Vec::<&str>::new());
     }
 
     #[test]
@@ -230,7 +296,7 @@ mod tests {
         heap.push_fifo(2, "medium");
 
         let mut results = Vec::new();
-        heap.work(|_, v| results.push(v));
+        heap.work_without_cancellation(|_, v| results.push(v));
 
         // Higher priority first: high, medium, low
         assert_eq!(results, vec!["high", "medium", "low"]);
@@ -242,7 +308,7 @@ mod tests {
         heap.push_fifo(1, "initial");
 
         let mut results = Vec::new();
-        heap.work(|_, v| {
+        heap.work_without_cancellation(|_, v| {
             results.push(v);
             if v == "initial" {
                 heap.push_fifo(2, "nested");
@@ -263,7 +329,7 @@ mod tests {
         let thread_count = AtomicUsize::new(0);
         threads.spawn_many(|| {
             let thread_index = thread_count.fetch_add(1, Ordering::SeqCst);
-            heap.work(|k, _| {
+            heap.work_without_cancellation(|k, _| {
                 executed.lock().push(thread_index);
                 if k == 1 {
                     wait(); // Make sure we give the second time chance to go to sleep
@@ -287,7 +353,7 @@ mod tests {
         let thread_count = AtomicUsize::new(0);
         threads.spawn_many(|| {
             let thread_index = thread_count.fetch_add(1, Ordering::SeqCst);
-            heap.work(|_, _| {
+            heap.work_without_cancellation(|_, _| {
                 executed.lock().push(thread_index);
                 wait(); // Ensure the other thread gets a chance
             });
@@ -303,7 +369,9 @@ mod tests {
         heap.push_fifo(1, ());
         let threads =
             ThreadPool::with_thread_count(ThreadCount::NumThreads(NonZero::new(1).unwrap()));
-        threads.spawn_many(|| heap.work(|_, _| panic!()));
+        threads.spawn_many(|| {
+            heap.work_without_cancellation(|_, _| panic!());
+        });
     }
 
     #[test]
@@ -315,7 +383,7 @@ mod tests {
         let threads =
             ThreadPool::with_thread_count(ThreadCount::NumThreads(NonZero::new(2).unwrap()));
         threads.spawn_many(|| {
-            heap.work(|k, _| {
+            heap.work_without_cancellation(|k, _| {
                 // Ensure the panic happens first, while both are active.
                 if k == 1 {
                     wait();
@@ -337,7 +405,7 @@ mod tests {
         let threads =
             ThreadPool::with_thread_count(ThreadCount::NumThreads(NonZero::new(2).unwrap()));
         threads.spawn_many(|| {
-            heap.work(|k, _| {
+            heap.work_without_cancellation(|k, _| {
                 // Ensure the panic happens second, while the first is sleeping.
                 if k == 2 {
                     wait();

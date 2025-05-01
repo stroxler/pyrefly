@@ -23,6 +23,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::MutexGuard;
 use std::sync::RwLockReadGuard;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use dupe::Dupe;
@@ -93,6 +95,8 @@ use crate::util::locked_map::LockedMap;
 use crate::util::no_hash::BuildNoHash;
 use crate::util::recurser::Recurser;
 use crate::util::small_set1::SmallSet1;
+use crate::util::task_heap::CancellationHandle;
+use crate::util::task_heap::Cancelled;
 use crate::util::task_heap::TaskHeap;
 use crate::util::thread_pool::ThreadPool;
 use crate::util::uniques::UniqueFactory;
@@ -898,14 +902,18 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn work(&self) {
+    fn work(&self) -> Result<(), Cancelled> {
         // ensure we have answers for everything, keep going until we don't discover any new modules
         self.data.todo.work(|_, x| {
             self.demand(&x, Step::last());
-        });
+        })
     }
 
-    fn run_step(&mut self, handles: &[(Handle, Require)], old_require: Option<RequireDefault>) {
+    fn run_step(
+        &mut self,
+        handles: &[(Handle, Require)],
+        old_require: Option<RequireDefault>,
+    ) -> Result<(), Cancelled> {
         self.data.now.next();
         let configs = handles
             .iter()
@@ -935,7 +943,15 @@ impl<'a> Transaction<'a> {
             }
         }
 
-        self.data.state.threads.spawn_many(|| self.work());
+        let cancelled = AtomicBool::new(false);
+        self.data.state.threads.spawn_many(|| {
+            cancelled.fetch_or(self.work().is_err(), Ordering::Relaxed);
+        });
+        if cancelled.into_inner() {
+            Err(Cancelled())
+        } else {
+            Ok(())
+        }
     }
 
     fn invalidate_rdeps(&mut self, changed: &[ArcId<ModuleDataMut>]) {
@@ -993,7 +1009,11 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn run_internal(&mut self, handles: &[(Handle, Require)], old_require: RequireDefault) {
+    fn run_internal(
+        &mut self,
+        handles: &[(Handle, Require)],
+        old_require: RequireDefault,
+    ) -> Result<(), Cancelled> {
         // We first compute all the modules that are either new or have changed.
         // Then we repeatedly compute all the modules who depend on modules that changed.
         // To ensure we guarantee termination, and don't endure more than a linear overhead,
@@ -1005,10 +1025,10 @@ impl<'a> Transaction<'a> {
             debug!("Running epoch {i}");
             // The first version we use the old require. We use this to trigger require changes,
             // but only once, as after we've done it once, the "old" value will no longer be accessible.
-            self.run_step(handles, if i == 1 { Some(old_require) } else { None });
+            self.run_step(handles, if i == 1 { Some(old_require) } else { None })?;
             let changed = mem::take(&mut *self.data.changed.lock());
             if changed.is_empty() {
-                return;
+                return Ok(());
             }
             for c in &changed {
                 if !changed_twice.insert(c.dupe()) {
@@ -1016,15 +1036,15 @@ impl<'a> Transaction<'a> {
                     // We are in a cycle of mutual dependencies, so give up.
                     // Just invalidate everything in the cycle and recompute it all.
                     self.invalidate_rdeps(&changed);
-                    self.run_step(handles, None);
-                    return;
+                    return self.run_step(handles, None);
                 }
             }
         }
+        Ok(())
     }
 
     pub fn run(&mut self, handles: &[(Handle, Require)]) {
-        self.run_internal(handles, self.readable.require);
+        let _ = self.run_internal(handles, self.readable.require);
     }
 
     pub fn ad_hoc_solve<R: Sized, F: FnOnce(AnswersSolver<TransactionHandle>) -> R>(
@@ -1359,6 +1379,34 @@ impl<'a> AsMut<Transaction<'a>> for CommittingTransaction<'a> {
     }
 }
 
+/// A thin wrapper around `Transaction`, so that the ability to cancel the transaction is only
+/// exposed for this struct.
+pub struct CancellableTransaction<'a>(Transaction<'a>);
+
+impl CancellableTransaction<'_> {
+    #[expect(dead_code)]
+    pub fn run(&mut self, handles: &[(Handle, Require)]) -> Result<(), Cancelled> {
+        self.0.run_internal(handles, self.0.readable.require)
+    }
+
+    #[expect(dead_code)]
+    pub fn get_cancellation_handle(&self) -> CancellationHandle {
+        self.0.data.todo.get_cancellation_handle()
+    }
+}
+
+impl<'a> AsRef<Transaction<'a>> for CancellableTransaction<'a> {
+    fn as_ref(&self) -> &Transaction<'a> {
+        &self.0
+    }
+}
+
+impl<'a> AsMut<Transaction<'a>> for CancellableTransaction<'a> {
+    fn as_mut(&mut self) -> &mut Transaction<'a> {
+        &mut self.0
+    }
+}
+
 /// `State` coordinates between potential parallel operations over itself.
 /// It enforces that
 /// 1. There can be at most one ongoing recheck that can eventually commit.
@@ -1428,6 +1476,11 @@ impl State {
 
     pub fn transaction<'a>(&'a self) -> Transaction<'a> {
         self.new_transaction(Require::Exports, None)
+    }
+
+    #[expect(dead_code)]
+    pub fn cancellable_transaction<'a>(&'a self) -> CancellableTransaction<'a> {
+        CancellableTransaction(self.transaction())
     }
 
     pub fn new_committable_transaction<'a>(
