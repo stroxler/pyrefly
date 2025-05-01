@@ -43,6 +43,8 @@ pub struct TestCase {
     pub(crate) workspace_folders: Option<Vec<(String, Url)>>,
     /// if client has configuration capability
     pub(crate) configuration: bool,
+    /// if client has file watch capability
+    pub(crate) file_watch: bool,
 }
 
 pub fn run_test_lsp(test_case: TestCase) {
@@ -82,7 +84,7 @@ pub fn run_test_lsp(test_case: TestCase) {
         // this thread sends messages to the language server (from test case)
         scope.spawn(move || {
             for msg in
-                get_initialize_messages(&test_case.workspace_folders, test_case.configuration)
+                get_initialize_messages(&test_case.workspace_folders, test_case.configuration, test_case.file_watch)
                     .into_iter()
                     .chain(test_case.messages_from_language_client)
             {
@@ -189,6 +191,7 @@ pub fn run_test_lsp(test_case: TestCase) {
 fn get_initialize_params(
     workspace_folders: &Option<Vec<(String, Url)>>,
     configuration: bool,
+    file_watch: bool,
 ) -> serde_json::Value {
     let mut params = serde_json::json!({
         "rootPath": "/",
@@ -219,6 +222,10 @@ fn get_initialize_params(
                 .collect::<Vec<_>>()
         );
     }
+    if file_watch {
+        params["capabilities"]["workspace"]["didChangeWatchedFiles"] =
+            serde_json::json!({"dynamicRegistration": true});
+    }
     if configuration {
         params["capabilities"]["workspace"]["configuration"] = serde_json::json!(true);
     }
@@ -229,12 +236,13 @@ fn get_initialize_params(
 fn get_initialize_messages(
     workspace_folders: &Option<Vec<(String, Url)>>,
     configuration: bool,
+    file_watch: bool,
 ) -> std::vec::Vec<lsp_server::Message> {
     vec![
         Message::from(Request {
             id: RequestId::from(1),
             method: "initialize".to_owned(),
-            params: get_initialize_params(workspace_folders, configuration),
+            params: get_initialize_params(workspace_folders, configuration, file_watch),
         }),
         Message::from(Notification {
             method: "initialized".to_owned(),
