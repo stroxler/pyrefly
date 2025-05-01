@@ -32,10 +32,10 @@ where
     F: Fn() -> A,
     A: IntoIterator<Item: Display>,
 {
-    intersperse_iter(a, ", ")
+    intersperse_iter(", ", a)
 }
 
-pub fn intersperse_iter<F, A, S>(a: F, separator: S) -> impl Display
+pub fn intersperse_iter<F, A, S>(separator: S, a: F) -> impl Display
 where
     F: Fn() -> A,
     A: IntoIterator<Item: Display>,

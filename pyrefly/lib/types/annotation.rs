@@ -33,7 +33,7 @@ impl Display for Annotation {
                 None => write!(f, "_"),
             }
         } else {
-            write!(f, "{}", intersperse_iter(|| self.qualifiers.iter(), "["))?;
+            write!(f, "{}", intersperse_iter("[", || self.qualifiers.iter()))?;
             if let Some(ty) = &self.ty {
                 write!(f, "[{ty}]")?;
             }
