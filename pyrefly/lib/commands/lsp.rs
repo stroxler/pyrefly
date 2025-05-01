@@ -241,30 +241,6 @@ struct Workspace {
 }
 
 impl Workspace {
-    fn old(search_path: Vec<PathBuf>, site_package_path: Vec<PathBuf>, sys_info: SysInfo) -> Self {
-        let mut config_file = ConfigFile::default();
-        config_file.python_environment.python_version = Some(sys_info.version());
-        config_file.python_environment.python_platform = Some(sys_info.platform().clone());
-        config_file.python_environment.site_package_path = Some(site_package_path.clone());
-        config_file.search_path = search_path.clone();
-        config_file.configure();
-        let config_file = ArcId::new(config_file);
-
-        Self {
-            // TODO(connernilsen): we'll be deleting this, so it doesn't matter what these values are for now
-            sys_info: sys_info.clone(),
-            search_path: search_path.clone(),
-            config_file,
-            root: search_path.first().cloned().unwrap_or(PathBuf::new()),
-            python_environment: PythonEnvironment::new(
-                sys_info.platform().clone(),
-                sys_info.version(),
-                site_package_path,
-            ),
-            disable_language_services: false,
-        }
-    }
-
     fn new(workspace_root: &Path, python_environment: PythonEnvironment) -> Self {
         Self {
             root: workspace_root.to_path_buf(),
@@ -1319,17 +1295,9 @@ impl Server {
         // Currently uses the default interpreter if the pythonPath is invalid
         let env = PythonEnvironment::get_interpreter_env(Path::new(python_path));
         // TODO(kylei): warn if interpreter could not be found
-        if let Some(site_package_path) = &env.site_package_path
-            && let Some(workspace) = workspaces.get(&workspace_path)
-        {
+        if workspaces.get(&workspace_path).is_some() {
             *modified = true;
-            let search_path = workspace.search_path.clone();
-            let new_workspace = Workspace::old(
-                search_path,
-                site_package_path.clone(),
-                // this is okay, since `get_interpreter_env()` must return an environment with all values as `Some()`
-                SysInfo::new(env.python_version.unwrap(), env.python_platform.unwrap()),
-            );
+            let new_workspace = Workspace::new(&workspace_path, env);
             workspaces.insert(workspace_path, new_workspace);
         }
         self.invalidate_config();
