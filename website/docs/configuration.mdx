@@ -430,6 +430,29 @@ value that can be found in the order the `SubConfig`s appear in your configurati
 If no `SubConfig`s match, or there are no non-null config options present, then we take
 the value in the 'root'/top-level Pyrefly config (or Pyrefly default if no value is specified).
 
+### Conda and Venv Support
+
+We plan on adding extra automatic support for [Conda](https://github.com/facebook/pyrefly/issues/2)
+and [Venv](https://github.com/facebook/pyrefly/issues/1) at some point soon, but we haven't made
+it around to doing this yet. If you would like to import packages from these in the meantime,
+you can follow the following steps.
+
+### Venv
+
+If you have a venv set up locally, you can get Pyrefly working with it by having your venv sourced
+in your shell (`source .venv/bin/activate`), and we will automatically pick up your installed packages. To pick
+up your packages even when your environment isn't sourced, you can add `.venv/bin/python3` (or
+`<path_to_venv>/bin/python3`) to your Pyrefly configuration under
+[`python_interpreter`](#python_interpreter) or pass it in with the `--python-interpreter` flag.
+
+### Conda
+
+If you have conda set up locally, you can get Pyrefly working with it by having your Conda environment
+sourced in your shell (`conda activate <environment>`), and we will automatically pick up your installed packages.
+To pick up your packages even when your environment isn't sourced, you can query your environment's install
+location with `conda env list`, and add `<conda_environment_path>/bin/python3` to your Pyrefly configuration
+under [`python_interpreter`](#python_interpreter) or pass it in with the `--python-interpreter` flag.
+
 ## Example Configuration
 
 This section displays an example config showing the usage of all config options listed above to make creating
