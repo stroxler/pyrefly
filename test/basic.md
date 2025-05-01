@@ -112,3 +112,21 @@ $ export PYREFLY_STDLIB_SEARCH_PATH=$TYPESHED_ROOT/typeshed/stdlib && $PYREFLY c
 * INFO * errors* (glob)
 [0]
 ```
+
+## Dump config
+
+```scrut
+$ touch $TMPDIR/foo.py && mkdir $TMPDIR/bar && touch $TMPDIR/bar/baz.py && touch $TMPDIR/bar/qux.py && $PYREFLY dump-config $TMPDIR/foo.py $TMPDIR/bar/*.py
+Default configuration
+  Covered files:
+    "*/foo.py" (glob)
+  Search path: * (glob)
+  Site package path: * (glob)
+Default configuration
+  Covered files:
+    "*/bar/baz.py" (glob)
+    "*/bar/qux.py" (glob)
+  Search path: * (glob)
+  Site package path: * (glob)
+[0]
+```

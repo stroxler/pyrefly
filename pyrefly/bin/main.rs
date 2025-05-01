@@ -33,6 +33,9 @@ use library::run::LspArgs;
 use library::standard_config_finder;
 use path_absolutize::Absolutize;
 use pyrefly::library::library::library::library;
+use pyrefly::library::library::library::library::ConfigSource;
+use pyrefly::library::library::library::library::ModuleName;
+use pyrefly::library::library::library::library::ModulePath;
 use tracing::debug;
 use tracing::info;
 
@@ -91,6 +94,9 @@ struct FullCheckArgs {
 enum Command {
     /// Full type checking on a file or a project
     Check(FullCheckArgs),
+
+    /// Dump info about pyrefly's configuration. Use by replacing `check` with `dump-config` in your pyrefly invocation.
+    DumpConfig(FullCheckArgs),
 
     /// Entry point for Buck integration
     BuckCheck(BuckCheckArgs),
@@ -217,6 +223,55 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
         Command::BuckCheck(args) => args.run(),
         Command::Lsp(args) => args.run(Vec::new()),
         Command::Init(args) => args.run(),
+        // We intentionally make DumpConfig take the same arguments as Check so that dumping the
+        // config is as easy as changing the command name.
+        Command::DumpConfig(FullCheckArgs {
+            files,
+            project_excludes,
+            config,
+            mut args,
+            ..
+        }) => {
+            let mut configs_to_files: Vec<(ArcId<ConfigFile>, Vec<PathBuf>)> = Vec::new();
+            let (files_to_check, config_finder) =
+                get_globs_and_config(files, project_excludes, config, &mut args)?;
+            for file in files_to_check.files()? {
+                let config = config_finder
+                    .python_file(ModuleName::unknown(), &ModulePath::filesystem(file.clone()));
+                let mut found = false;
+                for (seen_config, files) in configs_to_files.iter_mut() {
+                    if *config == **seen_config {
+                        files.push(file.clone());
+                        found = true;
+                    }
+                }
+                if !found {
+                    configs_to_files.push((config, vec![file]));
+                }
+            }
+            for (config, files) in configs_to_files.into_iter() {
+                match &config.source {
+                    ConfigSource::Synthetic => {
+                        println!("Default configuration");
+                    }
+                    ConfigSource::File(path) => {
+                        println!("Configuration at {path:?}");
+                    }
+                }
+                println!("  Covered files:");
+                for (i, fi) in files.iter().enumerate() {
+                    if i < 10 {
+                        println!("    {fi:?}");
+                    } else {
+                        println!("    ...and {} more", files.len() - 10);
+                        break;
+                    }
+                }
+                println!("  Search path: {:?}", config.search_path);
+                println!("  Site package path: {:?}", config.site_package_path());
+            }
+            Ok(CommandExitStatus::Success)
+        }
     }
 }
 
