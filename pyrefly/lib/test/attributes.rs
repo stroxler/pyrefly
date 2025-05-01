@@ -818,6 +818,22 @@ def f[T: Foo](y: T) -> T:
 );
 
 testcase!(
+    bug = "Pyrefly cannot handle attribute access against a quantified bound by a union",
+    test_attribute_access_on_quantified_bound_by_union,
+    r#"
+from typing import assert_type
+class Foo:
+    x: int
+class Bar:
+    x: str
+def f[T: Foo | Bar](y: T, z: Foo | Bar) -> T:
+    assert_type(z.x, int | str)
+    assert_type(y.x, int | str) # E: TODO: Expr::attr_infer_for_type # E: assert_type(Any, int | str)
+    return y
+    "#,
+);
+
+testcase!(
     test_type_magic_dunder_compare,
     r#"
 def test(x: type[int], y: type[int]) -> None:
