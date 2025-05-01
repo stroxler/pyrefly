@@ -1,7 +1,7 @@
 # Contributing to Pyrefly Website
 
-Please see CONTRIBUTING.md in the root of the repository for more details on
-contributing. This file shows details on how to develop the Website locally, as well as deployment instructions.
+Please see CONTRIBUTING.md in the root of the repository for more details on contributing.
+This file shows details on how to develop the Website locally, as well as deployment instructions.
 
 ## Development
 
@@ -61,7 +61,7 @@ The docs are written in markdown (with JSX) and are located in the `docs` direct
 The website is currently deployed on a daily basis (14 UTC) to pyrefly.org. You can also choose to manually run this if needed.
 It is triggered by the [deploy website workflow](https://github.com/facebook/pyrefly/actions/workflows/deploy_website.yml), which first [builds and test the website](https://github.com/facebook/pyrefly/actions/workflows/build_and_test_website.yml).
 
-If there's a major bug on the website and you want to quickly roll it back to a stable state, you can use the [rollback workflow](https://github.com/facebook/pyrefly/actions/workflows/rollback_website.yml).
+If there's a major issue on the website and you want to quickly roll it back to a stable state, you can use the [rollback workflow](https://github.com/facebook/pyrefly/actions/workflows/rollback_website.yml).
 
 For details on how to manually trigger a github workflow, see [this link](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/manually-running-a-workflow).
 
