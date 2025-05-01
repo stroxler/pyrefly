@@ -6,6 +6,8 @@
  */
 
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
@@ -273,6 +275,60 @@ async fn get_watcher_events(watcher: &mut Watcher) -> anyhow::Result<Categorized
     }
 }
 
+/// Structure accumulating timing information.
+struct Timings {
+    /// The overall time we started.
+    start: Instant,
+    list_files: Duration,
+    type_check: Duration,
+    report_errors: Duration,
+}
+
+impl Display for Timings {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const THRESHOLD: Duration = Duration::from_millis(300);
+        let total = self.start.elapsed();
+        write!(f, "{total:.2?}")?;
+
+        let mut steps = Vec::with_capacity(3);
+
+        // We want to show checking if it is less than total - threshold.
+        // For the others, we want to show if they exceed threshold.
+        if self.type_check + THRESHOLD < total {
+            steps.push(("checking", self.type_check));
+        }
+        if self.report_errors > THRESHOLD {
+            steps.push(("reporting", self.report_errors));
+        }
+        if self.list_files > THRESHOLD {
+            steps.push(("listing", self.list_files));
+        }
+        if !steps.is_empty() {
+            steps.sort_by_key(|x| x.1);
+            write!(
+                f,
+                " ({})",
+                display::intersperse_iter("; ", || steps
+                    .iter()
+                    .rev()
+                    .map(|(lbl, dur)| format!("{lbl} {dur:.2?}")))
+            )?;
+        }
+        Ok(())
+    }
+}
+
+impl Timings {
+    fn new() -> Self {
+        Self {
+            start: Instant::now(),
+            list_files: Duration::ZERO,
+            type_check: Duration::ZERO,
+            report_errors: Duration::ZERO,
+        }
+    }
+}
+
 impl Args {
     pub fn absolute_search_path(&mut self) {
         if let Some(paths) = self.search_path.as_mut() {
@@ -290,12 +346,14 @@ impl Args {
         config_finder: ConfigFinder,
         allow_forget: bool,
     ) -> anyhow::Result<CommandExitStatus> {
-        let start = Instant::now();
+        let mut timings = Timings::new();
+        let list_files_start = Instant::now();
         let expanded_file_list = files_to_check.files()?;
+        timings.list_files = list_files_start.elapsed();
         debug!(
             "Checking {} files (listing took {:.2?})",
             expanded_file_list.len(),
-            start.elapsed()
+            timings.list_files,
         );
         if expanded_file_list.is_empty() {
             return Ok(CommandExitStatus::Success);
@@ -314,7 +372,11 @@ impl Args {
                 .new_transaction(require_levels.default, None),
             allow_forget,
         );
-        self.run_inner(transaction.as_mut(), &handles.all(require_levels.specified))
+        self.run_inner(
+            timings,
+            transaction.as_mut(),
+            &handles.all(require_levels.specified),
+        )
     }
 
     pub async fn run_watch(
@@ -335,7 +397,12 @@ impl Args {
         let state = State::new(config_finder);
         let mut transaction = state.new_committable_transaction(require_levels.default, None);
         loop {
-            let res = self.run_inner(transaction.as_mut(), &handles.all(require_levels.specified));
+            let timings = Timings::new();
+            let res = self.run_inner(
+                timings,
+                transaction.as_mut(),
+                &handles.all(require_levels.specified),
+            );
             state.commit_transaction(transaction);
             if let Err(e) = res {
                 eprintln!("{e:#}");
@@ -403,12 +470,13 @@ impl Args {
 
     fn run_inner(
         &self,
+        mut timings: Timings,
         transaction: &mut Transaction,
         handles: &[(Handle, Require)],
     ) -> anyhow::Result<CommandExitStatus> {
         let mut memory_trace = MemoryUsageTrace::start(Duration::from_secs_f32(0.1));
-        let start = Instant::now();
 
+        let type_check_start = Instant::now();
         transaction.set_subscriber(Some(Box::new(ProgressBarSubscriber::new())));
         transaction.run(handles);
         transaction.set_subscriber(None);
@@ -418,7 +486,9 @@ impl Args {
         } else {
             transaction.get_errors(handles.iter().map(|(handle, _)| handle))
         };
-        let computing = start.elapsed();
+        timings.type_check = type_check_start.elapsed();
+
+        let report_errors_start = Instant::now();
         let errors = loads.collect_errors();
         if let Some(path) = &self.output {
             self.output_format
@@ -434,9 +504,10 @@ impl Args {
             print_error_summary(&errors.shown, path_index);
         }
         let shown_errors_count = errors.shown.len();
-        let printing = start.elapsed();
+        timings.report_errors = report_errors_start.elapsed();
+
         info!(
-            "{} errors shown, {} errors ignored, {} modules, {} lines, took {printing:.2?} ({computing:.2?} without printing errors), peak memory {}",
+            "{} errors shown, {} errors ignored, {} modules, {} lines, took {timings}, peak memory {}",
             number_thousands(shown_errors_count),
             number_thousands(errors.disabled.len() + errors.suppressed.len()),
             number_thousands(transaction.module_count()),
