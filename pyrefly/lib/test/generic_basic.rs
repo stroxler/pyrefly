@@ -728,15 +728,22 @@ class A:
 );
 
 testcase!(
-    bug = "We shouldn't give bad specialisation errors, since we have errors in the base type",
     test_specialize_error,
     r#"
-from nowhere import BrokenGeneric, BrokenTypeVar # E: Could not find import of `nowhere`,
+from nowhere import BrokenGeneric, BrokenTypeVar # E: Could not find import of `nowhere`
 
 class MyClass(BrokenGeneric[BrokenTypeVar]):
     pass
 
-def f(x: MyClass[int]): # E: Expected 0 type arguments for `MyClass`, got 1
+# We don't know how many type arguments to expect, since we have errors in the base type, so accept any number
+def f(x: MyClass[int]):
+    pass
+
+# We should still report other errors in type arguments
+def g(
+    x: MyClass["NotAClass"],  # E: Could not find name `NotAClass`
+    y: MyClass[0],  # E: Expected a type form, got instance of `Literal[0]`
+):
     pass
 "#,
 );
