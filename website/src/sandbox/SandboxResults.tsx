@@ -84,7 +84,7 @@ function ErrorMessage({
                 goToDef(startLineNumber, startColumn, endLineNumber, endColumn)
             }
         >
-            <span {...stylex.props(styles.errorMessageError)}>ERROR </span>
+            <span {...stylex.props(styles.ErrorMessageError)}>ERROR </span>
             {message}
             {'['}
             {errorKindUrl}
@@ -172,11 +172,11 @@ export default function SandboxResults({
                                     {internalError
                                         ? `Pyrefly encountered an internal error: ${internalError}.`
                                         : errors === undefined ||
-                                            errors === null
-                                          ? 'Pyrefly failed to fetch errors.'
-                                          : errors?.length === 0
-                                            ? 'No errors!'
-                                            : null}
+                                          errors === null
+                                        ? 'Pyrefly failed to fetch errors.'
+                                        : errors?.length === 0
+                                        ? 'No errors!'
+                                        : null}
                                 </li>
                             )}
                         </ul>
@@ -184,14 +184,13 @@ export default function SandboxResults({
                 )}
                 {activeToolbarTab === 'output' && (
                     <pre {...stylex.props(styles.resultBody)}>
-                        {isRunning ? (
-                            <div>Running...</div>
-                        ) : (
-                            <div>
-                                {pythonOutput.trimStart() ||
-                                    'No output, please press the ▶️ Run button.'}
-                            </div>
-                        )}
+                        <span {...stylex.props(styles.PyodideDisclaimer)}>
+                            {`Note: The Python runtime currently only supports features up to Python version 3.12, features from newer versions are not available. \n\n`}
+                        </span>
+                        {isRunning
+                            ? 'Running...'
+                            : pythonOutput.trimStart() ||
+                              'No output, please press the ▶️ Run button.'}
                     </pre>
                 )}
                 {/* TODO (T217536145): Add JSON tab to sandbox */}
@@ -228,7 +227,6 @@ const styles = stylex.create({
     resultBody: {
         padding: '7px 10px',
         marginBottom: 0,
-        display: 'flex',
     },
     tabs: {
         display: 'flex',
@@ -295,7 +293,10 @@ const styles = stylex.create({
     msgType: {
         cursor: 'pointer',
     },
-    errorMessageError: {
+    ErrorMessageError: {
         color: '#ed0a0a',
+    },
+    PyodideDisclaimer: {
+        color: '#e59c24',
     },
 });
