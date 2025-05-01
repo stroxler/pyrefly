@@ -772,7 +772,8 @@ impl Server {
             for (_, cancellation_handle) in cancellation_handles.lock().drain() {
                 cancellation_handle.cancel();
             }
-            state.commit_transaction(transaction);
+            // we have to run, not just commit to process updates
+            state.run_with_committing_transaction(transaction, &[]);
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
