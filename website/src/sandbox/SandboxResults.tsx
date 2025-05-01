@@ -133,7 +133,7 @@ export default function SandboxResults({
                         )}
                         onClick={() => setActiveTab('errors')}
                     >
-                        Errors
+                        Typechecking Errors
                     </li>
                     <li
                         {...stylex.props(
@@ -142,7 +142,7 @@ export default function SandboxResults({
                         )}
                         onClick={() => setActiveTab('output')}
                     >
-                        Output
+                        Runtime Output
                     </li>
                 </ul>
                 {/* TODO (T217536145): Add JSON tab to sandbox */}
