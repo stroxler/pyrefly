@@ -288,7 +288,7 @@ impl Display for Timings {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         const THRESHOLD: Duration = Duration::from_millis(300);
         let total = self.start.elapsed();
-        write!(f, "{total:.2?}")?;
+        write!(f, "{}", Self::show(total))?;
 
         let mut steps = Vec::with_capacity(3);
 
@@ -311,7 +311,7 @@ impl Display for Timings {
                 display::intersperse_iter("; ", || steps
                     .iter()
                     .rev()
-                    .map(|(lbl, dur)| format!("{lbl} {dur:.2?}")))
+                    .map(|(lbl, dur)| format!("{lbl} {}", Self::show(*dur))))
             )?;
         }
         Ok(())
@@ -326,6 +326,10 @@ impl Timings {
             type_check: Duration::ZERO,
             report_errors: Duration::ZERO,
         }
+    }
+
+    fn show(x: Duration) -> String {
+        format!("{x:.2?}")
     }
 }
 
@@ -351,9 +355,9 @@ impl Args {
         let expanded_file_list = files_to_check.files()?;
         timings.list_files = list_files_start.elapsed();
         debug!(
-            "Checking {} files (listing took {:.2?})",
+            "Checking {} files (listing took {})",
             expanded_file_list.len(),
-            timings.list_files,
+            Timings::show(timings.list_files),
         );
         if expanded_file_list.is_empty() {
             return Ok(CommandExitStatus::Success);
