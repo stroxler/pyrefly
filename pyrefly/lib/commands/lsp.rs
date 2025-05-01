@@ -7,7 +7,6 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::iter;
 use std::mem;
 use std::num::NonZero;
 use std::path::Path;
@@ -104,7 +103,6 @@ use crate::commands::run::CommandExitStatus;
 use crate::commands::util::module_from_path;
 use crate::common::files::PYTHON_FILE_SUFFIXES_TO_WATCH;
 use crate::config::config::ConfigFile;
-use crate::config::config::ConfigSource;
 use crate::config::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
@@ -218,7 +216,9 @@ struct Server {
     open_files: Arc<RwLock<HashMap<PathBuf, Arc<String>>>>,
     cancellation_handles: Arc<Mutex<HashMap<RequestId, CancellationHandle>>>,
     workspaces: Arc<Workspaces>,
+    #[expect(dead_code)]
     search_path: Vec<PathBuf>,
+    #[expect(dead_code)]
     site_package_path: Vec<PathBuf>,
     outgoing_request_id: Arc<AtomicI32>,
     outgoing_requests: Mutex<HashMap<RequestId, Request>>,
@@ -283,7 +283,6 @@ impl Workspace {
         }
     }
 
-    #[expect(dead_code)]
     fn new_with_default_env(workspace_root: &Path) -> Self {
         Self::new(
             workspace_root,
@@ -631,10 +630,12 @@ impl Server {
             Vec::new()
         };
 
-        let workspaces = Arc::new(Workspaces::new(Workspace::old(
-            search_path.clone(),
-            site_package_path.clone(),
-            SysInfo::default(),
+        let workspaces = Arc::new(Workspaces::new(Workspace::new_with_default_env(
+            &initialize_params
+                .root_uri
+                .clone()
+                .and_then(|x| x.to_file_path().ok())
+                .unwrap_or_else(|| std::env::current_dir().unwrap()),
         )));
 
         let config_finder = Workspaces::config_finder(&workspaces);
@@ -836,11 +837,16 @@ impl Server {
             for path in paths {
                 let module_name =
                     module_from_path(&path, search_paths).unwrap_or_else(ModuleName::unknown);
+                // TODO(connernilsen): temp to keep tests working
+                let env = PythonEnvironment::get_default_interpreter_env();
                 handles.push((
                     Handle::new(
                         module_name,
                         ModulePath::filesystem(path),
-                        SysInfo::default(),
+                        SysInfo::new(
+                            env.python_version.unwrap_or_default(),
+                            env.python_platform.unwrap_or_default(),
+                        ),
                     ),
                     Require::Exports,
                 ));
@@ -914,16 +920,7 @@ impl Server {
     fn configure(&mut self, workspace_paths: Vec<PathBuf>) {
         let mut new_workspaces = SmallMap::new();
         for x in &workspace_paths {
-            new_workspaces.insert(
-                x.clone(),
-                Workspace::old(
-                    iter::once(x.clone())
-                        .chain(self.search_path.clone())
-                        .collect(),
-                    self.site_package_path.clone(),
-                    SysInfo::default(),
-                ),
-            );
+            new_workspaces.insert(x.clone(), Workspace::new_with_default_env(x));
             // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
             self.request_settings_for_workspace(&Url::from_file_path(x).unwrap());
         }
@@ -934,10 +931,7 @@ impl Server {
     fn module_name(state: &State, workspace: &Workspace, path: &ModulePath) -> ModuleName {
         let unknown = ModuleName::unknown();
         let config = state.config_finder().python_file(unknown, path);
-        let mut search_path = Vec::new();
-        if config.source != ConfigSource::Synthetic {
-            search_path = config.search_path.clone();
-        }
+        let mut search_path = config.search_path.clone();
         search_path.extend_from_slice(&workspace.search_path);
         to_real_path(path)
             .and_then(|path| module_from_path(path, &search_path))
