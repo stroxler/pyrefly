@@ -38,9 +38,12 @@ jobs:
       - name: Test
         working-directory: ./website
         run: yarn test
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: website-build
+          name: website-build-${{ env.date }}
           path: website/build
-          retention-days: 1
+          retention-days: 30
