@@ -24,17 +24,7 @@ import {
 } from './configured-monaco';
 import type { editor } from 'monaco-editor';
 import type { PyreflyErrorMessage } from './SandboxResults';
-
-export const DEFAULT_PYTHON_PROGRAM = `
-from typing import *
-
-def test(x: int):
-  return f"{x}"
-
-# reveal_type will produce a type error that tells you the type Pyrefly has
-# computed for the return (in this case, str)
-reveal_type(test(42))
-`.trimStart();
+import { DEFAULT_SANDBOX_PROGRAM } from './DefaultSandboxProgram';
 
 // Import type for Pyrefly State
 export interface PyreflyState {
@@ -75,7 +65,7 @@ interface SandboxProps {
 export default function Sandbox({
     sampleFilename,
     isCodeSnippet = false,
-    codeSample = DEFAULT_PYTHON_PROGRAM,
+    codeSample = DEFAULT_SANDBOX_PROGRAM,
 }: SandboxProps): React.ReactElement {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const [errors, setErrors] =

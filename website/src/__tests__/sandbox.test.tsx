@@ -10,8 +10,9 @@
 import '@testing-library/jest-dom';
 import { act } from 'react';
 import { render } from '@testing-library/react';
-import Sandbox, { DEFAULT_PYTHON_PROGRAM } from '../sandbox/Sandbox';
+import Sandbox from '../sandbox/Sandbox';
 import { SANDBOX_FILE_NAME } from '../pages/sandbox';
+import { DEFAULT_SANDBOX_PROGRAM } from '../sandbox/DefaultSandboxProgram';
 
 describe('Sandbox Component', () => {
     test('render sandbox correctly', async () => {
@@ -27,7 +28,7 @@ describe('Sandbox Component', () => {
         expectMonacoEditorLoadedWithContent(
             container,
             SANDBOX_FILE_NAME,
-            DEFAULT_PYTHON_PROGRAM,
+            DEFAULT_SANDBOX_PROGRAM,
             false
         );
 

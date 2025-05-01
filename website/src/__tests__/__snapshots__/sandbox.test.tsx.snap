@@ -10,7 +10,16 @@ exports[`Sandbox Component render sandbox correctly 1`] = `
     >
       <div
         data-language="python"
-        data-value="from typing import *
+        data-value="# Welcome to the Pyrefly Sandbox, this is a page
+# where you can write, share and learn about typing in Python.
+#
+# Here are a couple features of this sandbox:
+# - Get real-time type checking feedback
+# - Use reveal_type() to inspect inferred types
+# - experiment with the IDE features that we support (e.g. autocomplete, go-to-definition, hover, etc)
+# - Write and run Python code directly in your browser
+
+from typing import *
 
 def test(x: int):
   return f"{x}"
@@ -29,7 +38,16 @@ reveal_type(test(42))
           readonly=""
           style="width: 100%; height: 200px;"
         >
-          from typing import *
+          # Welcome to the Pyrefly Sandbox, this is a page
+# where you can write, share and learn about typing in Python.
+#
+# Here are a couple features of this sandbox:
+# - Get real-time type checking feedback
+# - Use reveal_type() to inspect inferred types
+# - experiment with the IDE features that we support (e.g. autocomplete, go-to-definition, hover, etc)
+# - Write and run Python code directly in your browser
+
+from typing import *
 
 def test(x: int):
   return f"{x}"

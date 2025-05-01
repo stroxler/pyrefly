@@ -8,7 +8,8 @@
  */
 
 import '@testing-library/jest-dom';
-import { PyreflyState, DEFAULT_PYTHON_PROGRAM } from '../sandbox/Sandbox';
+import { PyreflyState } from '../sandbox/Sandbox';
+import { DEFAULT_SANDBOX_PROGRAM } from '../sandbox/DefaultSandboxProgram';
 import {
     createPyreflyState,
     findError,
@@ -29,7 +30,7 @@ describe('pyrefly_wasm', () => {
 
     beforeEach(() => {
         // Update the source before each test
-        pyreService.updateSource(DEFAULT_PYTHON_PROGRAM);
+        pyreService.updateSource(DEFAULT_SANDBOX_PROGRAM);
     });
 
     describe('getErrors', () => {
@@ -38,7 +39,9 @@ describe('pyrefly_wasm', () => {
 x: int = ""
 import
 `;
-            pyreService.updateSource(DEFAULT_PYTHON_PROGRAM + programWithError);
+            pyreService.updateSource(
+                DEFAULT_SANDBOX_PROGRAM + programWithError
+            );
             const errors = pyreService.getErrors();
 
             // Should have at least one error for reveal_type
@@ -102,15 +105,15 @@ movie: Movie = {'name': 'Blade Runner',
     describe('gotoDefinition', () => {
         it('should return definition location for function call', () => {
             // Position of "test" in "test(42)"
-            const definition = pyreService.gotoDefinition(8, 13);
+            const definition = pyreService.gotoDefinition(17, 13);
 
             // Should return a location object
             expect(definition).toBeDefined();
 
             // expect that location is correct
-            expect(definition.startLineNumber).toBe(3);
+            expect(definition.startLineNumber).toBe(12);
             expect(definition.startColumn).toBe(5);
-            expect(definition.endLineNumber).toBe(3);
+            expect(definition.endLineNumber).toBe(12);
             expect(definition.endColumn).toBe(9);
         });
     });
@@ -121,10 +124,10 @@ movie: Movie = {'name': 'Blade Runner',
 tes
 `;
             pyreService.updateSource(
-                DEFAULT_PYTHON_PROGRAM + typingForAutocomplete
+                DEFAULT_SANDBOX_PROGRAM + typingForAutocomplete
             );
 
-            const completions = pyreService.autoComplete(9, 2);
+            const completions = pyreService.autoComplete(18, 2);
             expect(completions.length).toBeGreaterThan(0);
 
             // Check the first completion item
@@ -142,7 +145,7 @@ tes
     describe('hover', () => {
         it('should return type information for expressions', () => {
             // Position of "test(42)" in reveal_type
-            const hoverInfo = pyreService.queryType(8, 15);
+            const hoverInfo = pyreService.queryType(17, 15);
 
             expect(hoverInfo).toBeDefined();
             expect(hoverInfo.contents).toBeDefined();
@@ -162,7 +165,7 @@ tes
 
             // Check the first hint
             const firstHint = hints[0];
-            expect(firstHint.position).toEqual({ lineNumber: 3, column: 17 });
+            expect(firstHint.position).toEqual({ lineNumber: 12, column: 17 });
             expect(firstHint.label).toEqual(' -> str');
         });
     });
