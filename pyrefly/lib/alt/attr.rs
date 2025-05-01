@@ -301,7 +301,10 @@ enum AttributeBase {
     ClassInstance(ClassType),
     ClassObject(Class),
     Module(Module),
-    Quantified(Quantified),
+    /// The attribute access is on a quantified type form (as in `args: P.args` - this
+    /// is only used when the base *is* a quantified type, not when the base is
+    /// a term that *has* a quantified type.
+    TypeVar(Quantified),
     Any(AnyStyle),
     Never,
     /// type[Any] is a special case where attribute lookups first check the
@@ -928,12 +931,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(attr) => LookupResult::found_type(attr),
                 None => LookupResult::NotFound(NotFound::ModuleExport(module)),
             },
-            AttributeBase::Quantified(q) => {
-                if q.is_param_spec() && attr_name == "args" {
-                    LookupResult::found_type(Type::type_form(Type::Args(q)))
-                } else if q.is_param_spec() && attr_name == "kwargs" {
-                    LookupResult::found_type(Type::type_form(Type::Kwargs(q)))
-                } else {
+            AttributeBase::TypeVar(q) => match (q.is_param_spec(), attr_name.as_str()) {
+                // Note that is is for cases like `P.args` where `P` is a param spec, or `T.x` where
+                // `T` is a type variable (the latter is illegal, but a user could write it). It is
+                // not for cases where `base` is a term with a quantified type.
+                (true, "args") => LookupResult::found_type(Type::type_form(Type::Args(q))),
+                (true, "kwargs") => LookupResult::found_type(Type::type_form(Type::Kwargs(q))),
+                _ => {
                     let class = q.as_value(self.stdlib);
                     match self.get_instance_attribute(class, attr_name) {
                         Some(attr) => LookupResult::Found(attr),
@@ -942,7 +946,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                 }
-            }
+            },
             AttributeBase::TypeAny(style) => {
                 let builtins_type_classtype = self.stdlib.builtins_type();
                 self.get_instance_attribute(builtins_type_classtype, attr_name)
@@ -1167,8 +1171,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.stdlib.tuple(self.unions(elements)),
                 ))
             }
-            // TODO(yangdanny): the middle part is AttributeBase::Quantified
-            // but we can only return one attribute base
+            // TODO(yangdanny): Can we do better here? There might be some information
+            // in the unpacked bit that would be useful.
             Type::Tuple(Tuple::Unpacked(_)) => Some(AttributeBase::ClassInstance(
                 self.stdlib.tuple(Type::any_implicit()),
             )),
@@ -1184,7 +1188,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::ClassType(class)) => {
                 Some(AttributeBase::ClassObject(class.class_object().dupe()))
             }
-            Type::Type(box Type::Quantified(q)) => Some(AttributeBase::Quantified(q)),
+            Type::Type(box Type::Quantified(q)) => Some(AttributeBase::TypeVar(q)),
             Type::Type(box Type::Any(style)) => Some(AttributeBase::TypeAny(style)),
             Type::Module(module) => Some(AttributeBase::Module(module)),
             Type::TypeVar(_) => Some(AttributeBase::ClassInstance(self.stdlib.type_var().clone())),
@@ -1409,7 +1413,7 @@ impl<'a, Ans: LookupAnswer + LookupExport> AnswersSolver<'a, Ans> {
                     self.completions_class_type(class, &mut res)
                 }
                 AttributeBase::ClassObject(class) => self.completions_class(class, &mut res),
-                AttributeBase::Quantified(q) => {
+                AttributeBase::TypeVar(q) => {
                     self.completions_class_type(q.as_value(self.stdlib), &mut res)
                 }
                 AttributeBase::TypeAny(_) => {

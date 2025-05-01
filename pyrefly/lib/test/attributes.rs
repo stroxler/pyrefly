@@ -806,6 +806,18 @@ E.EXAMPLE_VALUE # E: Class `E` has no class attribute `EXAMPLE_VALUE`
 );
 
 testcase!(
+    test_attribute_access_on_type_var,
+    r#"
+from typing import assert_type, Any
+class Foo:
+    x: int
+def f[T: Foo](y: T) -> T:
+    assert_type(T.x, Any)  # E: Object of class `TypeVar` has no attribute `x`
+    return y
+    "#,
+);
+
+testcase!(
     test_type_magic_dunder_compare,
     r#"
 def test(x: type[int], y: type[int]) -> None:
