@@ -26,9 +26,12 @@ exports[`Home page renders external site correctly 1`] = `
           <div>
             <pre>
               <code>
+                $ 
                 pip install pyrefly
               </code>
-              <button>
+              <button
+                title="Copy to clipboard"
+              >
                 <svg
                   height="20"
                   viewBox="340 364 14 15"
@@ -103,9 +106,12 @@ exports[`Home page renders internal site correctly 1`] = `
           <div>
             <pre>
               <code>
+                $ 
                 pip install pyrefly
               </code>
-              <button>
+              <button
+                title="Copy to clipboard"
+              >
                 <svg
                   height="20"
                   viewBox="340 364 14 15"
