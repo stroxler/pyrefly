@@ -721,8 +721,8 @@ def f():
 
 fn env_import_attribute_init() -> TestEnv {
     let mut t = TestEnv::new();
-    t.add_with_path("foo", "foo/__init__.py", "import foo.attribute");
-    t.add_with_path("foo.attribute", "foo/attribute.py", "");
+    t.add_with_path("foo", "import foo.attribute", "foo/__init__.py");
+    t.add_with_path("foo.attribute", "", "foo/attribute.py");
     t
 }
 
