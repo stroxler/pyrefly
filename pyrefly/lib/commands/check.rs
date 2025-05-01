@@ -329,7 +329,7 @@ impl Timings {
     }
 
     fn show(x: Duration) -> String {
-        format!("{x:.2?}")
+        format!("{:.2}s", x.as_secs_f32())
     }
 }
 
