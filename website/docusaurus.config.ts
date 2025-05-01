@@ -33,7 +33,14 @@ function getNavBarItems() {
             label: 'Learn',
             position: 'left' as const,
         },
-        {
+        // TODO (T222948083) Re-enable internal sandbox after we fix issues with sandbox on static docs
+        process.env.INTERNAL_STATIC_DOCS === '1'
+        ? {
+            href: 'https://pyrefly.org/sandbox',
+            label: 'Sandbox',
+            position: 'left' as const,
+          }
+        : {
             to: 'sandbox/',
             activeBasePath: 'sandbox',
             label: 'Sandbox',
