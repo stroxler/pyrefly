@@ -74,17 +74,58 @@ pub fn standard_config_finder(
                         .lock()
                         .entry(path.to_owned())
                         .or_insert_with(|| {
-                            let mut config = ConfigFile::default();
+                            let mut config = configure2(path.parent(), ConfigFile::default());
                             // We deliberately set `site_package_path` rather than `search_path` here,
                             // because otherwise a user with `/sys` on their computer (all of them)
                             // will override `sys.version` in preference to typeshed.
-                            config.python_environment.site_package_path =
-                                Some(path.ancestors().skip(1).map(|x| x.to_owned()).collect());
-                            ArcId::new(configure2(path.parent(), config))
+                            let additional_site_package_path = path
+                                .ancestors()
+                                .skip(1)
+                                .map(|x| x.to_owned())
+                                .collect::<Vec<_>>();
+                            config.python_environment.site_package_path = config
+                                .python_environment
+                                .site_package_path
+                                .map_or(Some(additional_site_package_path.clone()), |path| {
+                                    Some(
+                                        additional_site_package_path
+                                            .into_iter()
+                                            .chain(path)
+                                            .collect(),
+                                    )
+                                });
+                            ArcId::new(config)
                         })
                         .dupe(),
                 }
             }
         }),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsString;
+    use std::sync::Arc;
+
+    use clap::Parser;
+
+    use crate::commands::check::Args;
+    use crate::commands::config_finder::standard_config_finder;
+    use crate::config::environment::PythonEnvironment;
+    use crate::module::module_name::ModuleName;
+    use crate::module::module_path::ModulePath;
+
+    #[test]
+    fn test_site_package_path_from_environment() {
+        let args = Args::parse_from(Vec::<OsString>::new().iter());
+        let config = standard_config_finder(Arc::new(move |_, x| args.override_config(x)))
+            .python_file(ModuleName::unknown(), &ModulePath::filesystem("".into()));
+        let env = PythonEnvironment::get_default_interpreter_env();
+        if let Some(paths) = env.site_package_path {
+            for p in paths {
+                assert!(config.site_package_path().contains(&p));
+            }
+        }
+    }
 }
