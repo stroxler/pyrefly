@@ -861,6 +861,11 @@ class C:
         match x:
             case list():
                 assert_type(x, list[int])
+
+    def test2(self):
+        match self.x:
+            case list():
+                assert_type(self.x, list[int])
 "#,
 );
 

@@ -21,7 +21,6 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
-use starlark_map::smallmap;
 use vec1::Vec1;
 
 use crate::assert_words;
@@ -142,20 +141,6 @@ pub struct NarrowOps(pub SmallMap<Name, (NarrowOp, TextRange)>);
 impl NarrowOps {
     pub fn new() -> Self {
         Self(SmallMap::new())
-    }
-
-    pub fn is(name: &Name, v: Expr, range: TextRange) -> Self {
-        Self(smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::Is(v)), range) })
-    }
-
-    pub fn eq(name: &Name, v: Expr, range: TextRange) -> Self {
-        Self(smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::Eq(v)), range) })
-    }
-
-    pub fn isinstance(name: &Name, v: Expr, range: TextRange) -> Self {
-        Self(
-            smallmap! { name.clone() => (NarrowOp::Atomic(None, AtomicNarrowOp::IsInstance(v)), range) },
-        )
     }
 
     pub fn negate(&self) -> Self {
