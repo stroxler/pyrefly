@@ -117,7 +117,7 @@ pub struct ConfigFile {
 
     /// Skips the check to ensure any `-stubs` `site_package_path` entries have an
     /// installed non-stubs package.
-    #[serde(default)]
+    #[serde(default = "ConfigFile::default_true")]
     pub ignore_missing_source: bool,
 }
 
@@ -160,7 +160,7 @@ impl ConfigFile {
             sub_configs: Default::default(),
             custom_module_paths: Default::default(),
             use_untyped_imports: true,
-            ignore_missing_source: false,
+            ignore_missing_source: true,
         }
     }
 
