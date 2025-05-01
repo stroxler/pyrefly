@@ -1,10 +1,17 @@
-# Simple workflow for deploying static content to GitHub Pages
+# Simple workflow for Building and Testing the Pyrefly Website
+# If upload_artifacts is true, the build artifacts will be uploadeded.
 name: Build and Test Pyrefly Website
 on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
   # Allow this workflow to be called by other workflows
   workflow_call:
+    inputs:
+      upload_artifacts:
+        description: 'Whether to upload artifacts after build'
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [ main ]
   pull_request:
@@ -13,7 +20,6 @@ on:
       - 'website/**'
 
 jobs:
-  # Single deploy job since we're just deploying
   build_and_test:
     runs-on: ubuntu-latest
     steps:
@@ -40,8 +46,10 @@ jobs:
         run: yarn test
       - name: Get current date
         id: date
+        if: ${{ inputs.upload_artifacts }}
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
       - name: Upload build artifacts
+        if: ${{ inputs.upload_artifacts }}
         uses: actions/upload-artifact@v4
         with:
           name: website-build-${{ env.date }}

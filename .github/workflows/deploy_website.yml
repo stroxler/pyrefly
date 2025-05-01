@@ -10,10 +10,13 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Build job
   build:
     uses: ./.github/workflows/build_and_test_website.yml
+    with:
+      upload_artifacts: true
 
-  # Single deploy job since we're just deploying
+  # Deploy job
   deploy:
     environment:
       name: github-pages
