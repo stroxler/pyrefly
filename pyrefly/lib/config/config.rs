@@ -143,7 +143,7 @@ impl Default for ConfigFile {
 impl ConfigFile {
     /// Gets a default ConfigFile, with no path rewriting. This should only be used for unit testing,
     /// since it may have strange runtime behavior. Prefer to use `ConfigFile::default()` instead.
-    pub fn default_no_path_rewrite() -> Self {
+    fn default_no_path_rewrite() -> Self {
         ConfigFile {
             source: ConfigSource::Synthetic,
             project_includes: Self::default_project_includes(),

@@ -102,7 +102,7 @@ impl Args {
             };
             return args.run();
         }
-        let cfg = ConfigFile::default_no_path_rewrite();
+        let cfg = ConfigFile::default();
 
         if path.ends_with(ConfigFile::CONFIG_FILE_NAME) {
             let serialized = toml::to_string_pretty(&cfg)?;
