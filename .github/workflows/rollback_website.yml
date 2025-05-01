@@ -1,35 +1,25 @@
 # This is a workflow to rollback the website to a previous build if there's an issue with the current website.
 # We bypass the build step here, and simply pick a previous website build to rollback to.
-# See comment below on how to customize the date of the build to rollback to. Note that we only keep
-# builds from the last 30 days.
+# Note that we only keep builds from the last 30 days.
 name: Rollback Website
 on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      artifact_date:
+        description: 'Date to rollback to (YYYY-MM-DD)'
+        required: true
+        type: string
+      run_id:
+        description: 'Workflow run ID to rollback to (fetched by going to the "Deploy Website" workflow and looking at the url)'
+        required: true
+        type: string
 
 jobs:
-
-  # Single deploy job since we're just deploying
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-        # IMPORTANT: Customize the following to the date of the website build that you want to rollback to
-        # The format used for the date is YYYY-MM-DD
-          name: website-build-2025-05-01
-          path: website/build
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Deploy to github pages
-        uses: JamesIves/github-pages-deploy-action@6c2d9db40f9296374acc17b90404b6e8864128c8 # v4.7.3
-        with:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: gh-pages # The branch the action should deploy to.
-          FOLDER: website/build # The folder the action should deploy.
+  # Call the deploy workflow with rollback parameters
+  rollback:
+    uses: ./.github/workflows/deploy_website.yml
+    with:
+      is_rollback: true
+      artifact_date: ${{ inputs.artifact_date }}
+      run_id: ${{ inputs.run_id }}
