@@ -166,6 +166,14 @@ impl TypeInfo {
         }
     }
 
+    /// When we assign to a property chain containing an unknown index, we don't know which index changed
+    /// and have to invalidate all of them.
+    pub fn invalidate_all_indexes_for_assignment(&mut self, properties: &[PropertyKind]) {
+        if let Some(props) = &mut self.properties {
+            props.clear_index_narrows(properties);
+        }
+    }
+
     pub fn ty(&self) -> &Type {
         &self.ty
     }
@@ -215,6 +223,21 @@ impl NarrowedProperties {
                 props.insert(property, NarrowedProperty::new(more_properties, ty));
             }
         };
+    }
+
+    fn clear_index_narrows(&mut self, properties: &[PropertyKind]) {
+        let props = &mut self.0;
+        match properties {
+            [] => {
+                props.retain(|k, _| !matches!(k, PropertyKind::Index(_)));
+            }
+            [property, more_properties @ ..] => match props.get_mut(property) {
+                Some(prop) => {
+                    prop.clear_index_narrows(more_properties);
+                }
+                _ => {}
+            },
+        }
     }
 
     fn update_for_assignment(
@@ -396,6 +419,15 @@ impl NarrowedProperty {
         let mut current = NarrowedProperty::Leaf(Type::None);
         mem::swap(self, &mut current);
         *self = current.with_narrow(names, narrowed_ty)
+    }
+
+    fn clear_index_narrows(&mut self, properties: &[PropertyKind]) {
+        match self {
+            Self::Leaf(_) => {}
+            Self::WithRoot(_, props) | Self::WithoutRoot(props) => {
+                props.clear_index_narrows(properties)
+            }
+        }
     }
 
     fn with_narrow(self, names: &[PropertyKind], narrowed_ty: Type) -> Self {
@@ -601,5 +633,42 @@ mod tests {
             }
         });
         assert_eq!(type_info.to_string(), "Never");
+    }
+
+    #[test]
+    fn test_type_info_invalidating_prefix() {
+        let x = || PropertyKind::Attribute(Name::new_static("x"));
+        let y = || PropertyKind::Attribute(Name::new_static("y"));
+        let idx0 = || PropertyKind::Index(0);
+        let idx1 = || PropertyKind::Index(1);
+        let z = || PropertyKind::Attribute(Name::new_static("z"));
+        let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
+        type_info.add_narrow(
+            &Vec1::from_vec_push(vec![x(), y(), idx0()], z()),
+            fake_class_type("Bar"),
+        );
+        type_info.add_narrow(
+            &Vec1::from_vec_push(vec![x(), y(), idx1()], z()),
+            fake_class_type("Bar"),
+        );
+        assert_eq!(
+            type_info.to_string(),
+            "Foo (_.x.y.0.z: Bar, _.x.y.1.z: Bar)"
+        );
+        // x has no narrowed indexes, so do nothing
+        type_info.invalidate_all_indexes_for_assignment(&[x()]);
+        assert_eq!(
+            type_info.to_string(),
+            "Foo (_.x.y.0.z: Bar, _.x.y.1.z: Bar)"
+        );
+        // this path doesn't have any narrowing, so do nothing
+        type_info.invalidate_all_indexes_for_assignment(&[x(), z()]);
+        assert_eq!(
+            type_info.to_string(),
+            "Foo (_.x.y.0.z: Bar, _.x.y.1.z: Bar)"
+        );
+        // this clears the narrowing for both x.y.0 and x.y.1
+        type_info.invalidate_all_indexes_for_assignment(&[x(), y()]);
+        assert_eq!(type_info.to_string(), "Foo ()");
     }
 }

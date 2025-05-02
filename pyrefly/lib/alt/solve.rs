@@ -62,6 +62,7 @@ use crate::binding::binding::SuperStyle;
 use crate::binding::binding::TypeParameter;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::narrow::identifier_and_chain_for_property;
+use crate::binding::narrow::identifier_and_chain_prefix_for_property;
 use crate::dunder;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -1497,6 +1498,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .arc_clone();
                     type_info.update_for_assignment(chain.properties(), narrowed);
                     type_info
+                } else if let Some((identifier, properties)) =
+                    identifier_and_chain_prefix_for_property(&Expr::Attribute(attr.clone()))
+                {
+                    // If the chain contains an unknown subscript index, we clear narrowing for
+                    // all indexes of its parent.
+                    let mut type_info = self
+                        .get(&Key::Usage(ShortIdentifier::new(&identifier)))
+                        .arc_clone();
+                    type_info.invalidate_all_indexes_for_assignment(&properties);
+                    type_info
                 } else {
                     // Placeholder: in this case, we're assigning to an anonymous base and the
                     // type info will not propagate anywhere.
@@ -1523,6 +1534,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .get(&Key::Usage(ShortIdentifier::new(&identifier)))
                         .arc_clone();
                     type_info.update_for_assignment(chain.properties(), narrowed);
+                    type_info
+                } else if let Some((identifier, properties)) =
+                    identifier_and_chain_prefix_for_property(&Expr::Subscript(subscript.clone()))
+                {
+                    // If the chain contains an unknown subscript index, we clear narrowing for
+                    // all indexes of its parent.
+                    let mut type_info = self
+                        .get(&Key::Usage(ShortIdentifier::new(&identifier)))
+                        .arc_clone();
+                    type_info.invalidate_all_indexes_for_assignment(&properties);
                     type_info
                 } else {
                     // Placeholder: in this case, we're assigning to an anonymous base and the

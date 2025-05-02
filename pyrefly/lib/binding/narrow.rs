@@ -300,6 +300,9 @@ impl NarrowOps {
     }
 }
 
+/// Given an expression, determine whether it is a chain of properties (attribute/concrete index) rooted at a name,
+/// and if so, return the name and the chain of properties.
+/// For example: x.y.[0].z
 pub fn identifier_and_chain_for_property(expr: &Expr) -> Option<(Identifier, PropertyChain)> {
     fn f(
         expr: &Expr,
@@ -348,6 +351,70 @@ pub fn identifier_and_chain_for_property(expr: &Expr) -> Option<(Identifier, Pro
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
                     rev_property_chain.push(PropertyKind::Index(idx));
+                    f(parent, rev_property_chain)
+                }
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+    f(expr, Vec::new())
+}
+
+/// Similar to identifier_and_chain_for_property, except if we encounter a non-concrete subscript in the chain
+/// we only return the prefix before that location.
+/// For example: w.x[y].z -> w.x
+pub fn identifier_and_chain_prefix_for_property(
+    expr: &Expr,
+) -> Option<(Identifier, Vec<PropertyKind>)> {
+    fn f(
+        expr: &Expr,
+        mut rev_property_chain: Vec<PropertyKind>,
+    ) -> Option<(Identifier, Vec<PropertyKind>)> {
+        if let Expr::Attribute(attr) = expr {
+            match &*attr.value {
+                Expr::Name(name) => {
+                    rev_property_chain.push(PropertyKind::Attribute(attr.attr.id.clone()));
+                    rev_property_chain.reverse();
+                    Some((Ast::expr_name_identifier(name.clone()), rev_property_chain))
+                }
+                parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
+                    rev_property_chain.push(PropertyKind::Attribute(attr.attr.id.clone()));
+                    f(parent, rev_property_chain)
+                }
+                _ => None,
+            }
+        } else if let Expr::Subscript(
+            subscript @ ExprSubscript {
+                slice:
+                    box Expr::NumberLiteral(ExprNumberLiteral {
+                        value: Number::Int(idx),
+                        ..
+                    }),
+                ..
+            },
+        ) = expr
+            && let Some(idx) = idx.as_usize()
+        {
+            match &*subscript.value {
+                Expr::Name(name) => {
+                    rev_property_chain.push(PropertyKind::Index(idx));
+                    rev_property_chain.reverse();
+                    Some((Ast::expr_name_identifier(name.clone()), rev_property_chain))
+                }
+                parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
+                    rev_property_chain.push(PropertyKind::Index(idx));
+                    f(parent, rev_property_chain)
+                }
+                _ => None,
+            }
+        } else if let Expr::Subscript(subscript) = expr {
+            // The subscript does not contain an integer literal, so we drop everything that we encountered so far
+            match &*subscript.value {
+                Expr::Name(name) => Some((Ast::expr_name_identifier(name.clone()), Vec::new())),
+                parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
+                    rev_property_chain.clear();
                     f(parent, rev_property_chain)
                 }
                 _ => None,

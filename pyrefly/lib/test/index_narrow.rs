@@ -54,3 +54,29 @@ def test(x: list[object], c1: C1, c2s: list[C2], s: str):
     assert_type(c2s[0].x, str)
  "#,
 );
+
+testcase!(
+    test_index_narrow_prefix_invalidation,
+    r#"
+from typing import assert_type
+class C1:
+    x: list[object]
+class C2:
+    x: object
+def test(x: list[object], c1: C1, c2s: list[C2], s: str, idx: int):
+    assert isinstance(x[0], int)
+    assert_type(x[0], int)
+    x[idx] = s
+    assert_type(x[0], object)
+
+    assert isinstance(c1.x[0], int)
+    assert_type(c1.x[0], int)
+    c1.x[idx] = s
+    assert_type(c1.x[0], object)
+
+    assert isinstance(c2s[0].x, int)
+    assert_type(c2s[0].x, int)
+    c2s[idx].x = s
+    assert_type(c2s[0].x, object)
+ "#,
+);
