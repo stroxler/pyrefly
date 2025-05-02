@@ -129,7 +129,7 @@ impl Args {
                 if input_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
                     input_path
                 } else {
-                    &input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME)
+                    &input_path.with_file_name(ConfigFile::PYREFLY_FILE_NAME)
                 }
             }
         };
@@ -170,7 +170,7 @@ mod tests {
 }
 "#;
         fs_anyhow::write(&input_path, pyr)?;
-        let output_path = input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
+        let output_path = input_path.with_file_name(ConfigFile::PYREFLY_FILE_NAME);
 
         let args = Args {
             input_path: Some(input_path),
@@ -193,7 +193,7 @@ mod tests {
     fn test_run_mypy() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let input_path = tmp.path().join("mypy.ini");
-        let output_path = input_path.with_file_name(ConfigFile::CONFIG_FILE_NAME);
+        let output_path = input_path.with_file_name(ConfigFile::PYREFLY_FILE_NAME);
         // This config is derived from the pytorch mypy.ini.
         let mypy = br#"[mypy]
 files =

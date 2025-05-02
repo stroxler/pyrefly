@@ -206,9 +206,9 @@ impl ConfigFile {
 }
 
 impl ConfigFile {
-    pub const CONFIG_FILE_NAME: &str = "pyrefly.toml";
+    pub const PYREFLY_FILE_NAME: &str = "pyrefly.toml";
     pub const PYPROJECT_FILE_NAME: &str = "pyproject.toml";
-    pub const CONFIG_FILE_NAMES: &[&str] = &[Self::CONFIG_FILE_NAME, Self::PYPROJECT_FILE_NAME];
+    pub const CONFIG_FILE_NAMES: &[&str] = &[Self::PYREFLY_FILE_NAME, Self::PYPROJECT_FILE_NAME];
 
     /// An empty `ConfigFile` with no search path at all. Always returns the same `ArcId`.
     #[allow(clippy::field_reassign_with_default)] // Default doesn't do what a normal Default does

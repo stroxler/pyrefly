@@ -63,7 +63,7 @@ impl Args {
     }
 
     fn check_for_existing_config(path: &Path) -> anyhow::Result<bool> {
-        if path.ends_with(ConfigFile::CONFIG_FILE_NAME) && path.exists() {
+        if path.ends_with(ConfigFile::PYREFLY_FILE_NAME) && path.exists() {
             return Ok(true);
         }
         if path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) && path.exists() {
@@ -76,7 +76,8 @@ impl Args {
             return Ok(raw_pyproject.contains("[tool.pyrefly]"));
         }
         if path.is_dir() {
-            let pyrefly = Args::check_for_existing_config(&path.join(ConfigFile::CONFIG_FILE_NAME));
+            let pyrefly =
+                Args::check_for_existing_config(&path.join(ConfigFile::PYREFLY_FILE_NAME));
             let pyproject =
                 Args::check_for_existing_config(&path.join(ConfigFile::PYPROJECT_FILE_NAME));
             return Ok(pyrefly? || pyproject?);
@@ -104,7 +105,7 @@ impl Args {
         }
         let cfg = ConfigFile::default();
 
-        if path.ends_with(ConfigFile::CONFIG_FILE_NAME) {
+        if path.ends_with(ConfigFile::PYREFLY_FILE_NAME) {
             let serialized = toml::to_string_pretty(&cfg)?;
             fs_anyhow::write(&path, serialized.as_bytes())?;
         } else if path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
@@ -116,7 +117,7 @@ impl Args {
             if pyproject_path.exists() {
                 config_migration::write_pyproject(&pyproject_path, cfg)?;
             } else {
-                let path = path.join(ConfigFile::CONFIG_FILE_NAME);
+                let path = path.join(ConfigFile::PYREFLY_FILE_NAME);
                 let serialized = toml::to_string_pretty(&cfg)?;
                 fs_anyhow::write(&path, serialized.as_bytes())?;
             }
