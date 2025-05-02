@@ -33,7 +33,6 @@ use library::standard_config_finder;
 use path_absolutize::Absolutize;
 use pyrefly::library::library::library::library;
 use pyrefly::library::library::library::library::ConfigSource;
-use pyrefly::library::library::library::library::ModuleName;
 use pyrefly::library::library::library::library::ModulePath;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
@@ -232,13 +231,23 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             mut args,
             ..
         }) => {
-            let mut configs_to_files: SmallMap<ArcId<ConfigFile>, Vec<PathBuf>> = SmallMap::new();
+            let mut configs_to_files: SmallMap<ArcId<ConfigFile>, Vec<ModulePath>> =
+                SmallMap::new();
             let (files_to_check, config_finder) =
                 get_globs_and_config(files, project_excludes, config, &mut args)?;
-            for file in files_to_check.files()? {
-                let config = config_finder
-                    .python_file(ModuleName::unknown(), &ModulePath::filesystem(file.clone()));
-                configs_to_files.entry(config).or_default().push(file);
+            let mut handles = args
+                .get_handles(files_to_check, &config_finder)?
+                .into_iter()
+                .map(|(handle, _)| handle)
+                .collect::<Vec<_>>();
+            handles.sort_by(|a, b| a.path().cmp(b.path()));
+            for handle in handles {
+                let path = handle.path();
+                let config = config_finder.python_file(handle.module(), path);
+                configs_to_files
+                    .entry(config)
+                    .or_default()
+                    .push(path.clone());
             }
             for (config, files) in configs_to_files.into_iter() {
                 match &config.source {
@@ -252,7 +261,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
                 println!("  Covered files:");
                 for (i, fi) in files.iter().enumerate() {
                     if i < 10 {
-                        println!("    {fi:?}");
+                        println!("    {fi}");
                     } else {
                         println!("    ...and {} more", files.len() - 10);
                         break;

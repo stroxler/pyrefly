@@ -344,6 +344,19 @@ impl Args {
         }
     }
 
+    pub fn get_handles(
+        self,
+        files_to_check: FilteredGlobs,
+        config_finder: &ConfigFinder,
+    ) -> anyhow::Result<Vec<(Handle, Require)>> {
+        let handles = Handles::new(
+            files_to_check.files()?,
+            self.search_path.as_deref().unwrap_or_default(),
+            config_finder,
+        );
+        Ok(handles.all(self.get_required_levels().specified))
+    }
+
     pub fn run_once(
         self,
         files_to_check: FilteredGlobs,
