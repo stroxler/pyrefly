@@ -915,11 +915,11 @@ impl<'a> Transaction<'a> {
         old_require: Option<RequireDefault>,
     ) -> Result<(), Cancelled> {
         self.data.now.next();
-        let configs = handles
+        let sys_infos = handles
             .iter()
             .map(|(x, _)| x.sys_info().dupe())
             .collect::<SmallSet<_>>();
-        self.compute_stdlib(configs);
+        self.compute_stdlib(sys_infos);
 
         {
             let dirty = mem::take(&mut *self.data.dirty.lock());
