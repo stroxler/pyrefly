@@ -69,14 +69,16 @@ pub enum ClassFieldInitialization {
     /// If this is a dataclass field, BoolKeywords stores the field's dataclass
     /// flags (which are boolean options that control how fields behave).
     Class(Option<BoolKeywords>),
-    Instance,
+    /// The boolean indicates whether we know the field may have been initialized
+    /// outside of the class body or not.
+    Instance(bool),
 }
 
 impl Display for ClassFieldInitialization {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Class(_) => write!(f, "initialized in body"),
-            Self::Instance => write!(f, "not initialized in body"),
+            Self::Instance(_) => write!(f, "not initialized in body"),
         }
     }
 }
@@ -232,7 +234,7 @@ impl ClassField {
         match self.instantiate_for(instance).0 {
             ClassFieldInner::Simple { ty, .. } => match self.initialization() {
                 ClassFieldInitialization::Class(_) => Some(ty),
-                ClassFieldInitialization::Instance => None,
+                ClassFieldInitialization::Instance(_) => None,
             },
         }
     }
@@ -255,7 +257,7 @@ impl ClassField {
                 ..
             } => Required::Optional,
             ClassFieldInner::Simple {
-                initialization: ClassFieldInitialization::Instance,
+                initialization: ClassFieldInitialization::Instance(_),
                 ..
             } => Required::Required,
         }
@@ -346,7 +348,7 @@ impl ClassField {
                         kws.set(DataclassKeywords::DEFAULT.0, true);
                         kws
                     }
-                    ClassFieldInitialization::Instance => BoolKeywords::new(),
+                    ClassFieldInitialization::Instance(_) => BoolKeywords::new(),
                 };
                 if kw_only {
                     flags.set(DataclassKeywords::KW_ONLY.0, true);
@@ -743,7 +745,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         initial_value: &ClassFieldInitialValue,
     ) -> ClassFieldInitialization {
         match initial_value {
-            ClassFieldInitialValue::Instance(_) => ClassFieldInitialization::Instance,
+            ClassFieldInitialValue::Instance(_) => ClassFieldInitialization::Instance(false),
             ClassFieldInitialValue::Class(None) => ClassFieldInitialization::Class(None),
             ClassFieldInitialValue::Class(Some(e)) => {
                 // If this field was created via a call to a dataclass field specifier, extract field flags from the call.
@@ -892,10 +894,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ClassFieldInitialization::Class(_) => {
                         bind_instance_attribute(instance, ty, is_class_var, readonly)
                     }
-                    ClassFieldInitialization::Instance if readonly || is_class_var => {
+                    ClassFieldInitialization::Instance(_) if readonly || is_class_var => {
                         Attribute::read_only(ty)
                     }
-                    ClassFieldInitialization::Instance => Attribute::read_write(ty),
+                    ClassFieldInitialization::Instance(_) => Attribute::read_write(ty),
                 }
             }
         }
@@ -917,7 +919,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 )
             }
             ClassFieldInner::Simple {
-                initialization: ClassFieldInitialization::Instance,
+                initialization: ClassFieldInitialization::Instance(_),
                 annotation,
                 ..
             } if annotation

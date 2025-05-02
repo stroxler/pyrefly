@@ -43,7 +43,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return false;
         }
         // Enum members must be initialized on the class
-        if *initialization == ClassFieldInitialization::Instance {
+        if matches!(*initialization, ClassFieldInitialization::Instance(_)) {
             return false;
         }
         match ty {
