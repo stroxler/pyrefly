@@ -29,3 +29,28 @@ def test(x: list[object], c1: C1, c2s: list[C2]):
     assert_type(c2s[0].x, int)
  "#,
 );
+
+testcase!(
+    test_index_narrow_invalidation,
+    r#"
+from typing import assert_type
+class C1:
+    x: list[object]
+class C2:
+    x: object
+def test(x: list[object], c1: C1, c2s: list[C2], s: str):
+    assert isinstance(x[0], int)
+    x[0] = s
+    assert_type(x[0], str)
+    x = []
+    assert isinstance(x[0], object)
+
+    assert isinstance(c1.x[0], int)
+    c1.x[0] = s
+    assert_type(c1.x[0], str)
+
+    assert isinstance(c2s[0].x, int)
+    c2s[0].x = s
+    assert_type(c2s[0].x, str)
+ "#,
+);

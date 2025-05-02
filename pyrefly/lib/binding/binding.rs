@@ -159,9 +159,8 @@ pub enum Key {
     Import(Name, TextRange),
     /// I am defined in this module at this location.
     Definition(ShortIdentifier),
-    /// I am a name with possible attribute narrowing coming from an attribute
-    /// assignment at this location.
-    AttrAssign(ShortIdentifier),
+    /// I am a name with possible attribute/subscript narrowing coming from an assignment at this location.
+    PropertyAssign(ShortIdentifier),
     /// The type at a specific return point.
     ReturnExplicit(TextRange),
     /// The implicit return type of a function, either Type::None or Type::Never.
@@ -200,7 +199,7 @@ impl Ranged for Key {
         match self {
             Self::Import(_, r) => *r,
             Self::Definition(x) => x.range(),
-            Self::AttrAssign(x) => x.range(),
+            Self::PropertyAssign(x) => x.range(),
             Self::ReturnExplicit(r) => *r,
             Self::ReturnImplicit(x) => x.range(),
             Self::ReturnType(x) => x.range(),
@@ -222,8 +221,8 @@ impl DisplayWith<ModuleInfo> for Key {
         match self {
             Self::Import(n, r) => write!(f, "import {n} {r:?}"),
             Self::Definition(x) => write!(f, "{} {:?}", ctx.display(x), x.range()),
-            Self::AttrAssign(x) => {
-                write!(f, "attr assign {}._ = _ {:?}", ctx.display(x), x.range())
+            Self::PropertyAssign(x) => {
+                write!(f, "prop assign {}._ = _ {:?}", ctx.display(x), x.range())
             }
             Self::Usage(x) => write!(f, "use {} {:?}", ctx.display(x), x.range()),
             Self::Anon(r) => write!(f, "anon {r:?}"),
@@ -707,8 +706,6 @@ pub enum Binding {
     /// A value at a specific position in an unpacked iterable expression.
     /// Example: UnpackedValue(('a', 'b')), 1) represents 'b'.
     UnpackedValue(Idx<Key>, TextRange, UnpackedPosition),
-    /// A subscript expression and the value assigned to it
-    SubscriptValue(Box<Binding>, ExprSubscript),
     /// A type where we have an annotation, but also a type we computed.
     /// If the annotation has a type inside it (e.g. `int` then use the annotation).
     /// If the annotation doesn't (e.g. it's `Final`), then use the binding.
@@ -787,6 +784,8 @@ pub enum Binding {
     /// The result of assigning to an attribute. This operation cannot change the *type* of the
     /// name to which we are assigning, but it *can* change the live attribute narrows.
     AssignToAttribute(Box<(ExprAttribute, ExprOrBinding)>),
+    /// The result of assigning to a subscript, used for narrowing.
+    AssignToSubscript(Box<(ExprSubscript, ExprOrBinding)>),
 }
 
 impl DisplayWith<Bindings> for Binding {
@@ -836,15 +835,6 @@ impl DisplayWith<Bindings> for Binding {
                     IsAsync::Async => "async context",
                 };
                 write!(f, "{name} {}", ctx.display(*x))
-            }
-            Self::SubscriptValue(x, subscript) => {
-                write!(
-                    f,
-                    "subscript {}[{}] = {}",
-                    m.display(&subscript.value),
-                    m.display(&subscript.slice),
-                    x.display_with(ctx),
-                )
             }
             Self::UnpackedValue(x, range, pos) => {
                 let pos = match pos {
@@ -983,6 +973,24 @@ impl DisplayWith<Bindings> for Binding {
                     "check assign type to attr {}.{} ({})",
                     m.display(attr.value.as_ref()),
                     attr.attr,
+                    binding.display_with(ctx)
+                )
+            }
+            Self::AssignToSubscript(box (subscript, ExprOrBinding::Expr(value))) => {
+                write!(
+                    f,
+                    "check assign expr to subscript {}[{}] ({})",
+                    m.display(subscript.value.as_ref()),
+                    m.display(subscript.slice.as_ref()),
+                    m.display(value),
+                )
+            }
+            Self::AssignToSubscript(box (subscript, ExprOrBinding::Binding(binding))) => {
+                write!(
+                    f,
+                    "check assign type to subscript {}[{}] ({})",
+                    m.display(subscript.value.as_ref()),
+                    m.display(subscript.slice.as_ref()),
                     binding.display_with(ctx)
                 )
             }

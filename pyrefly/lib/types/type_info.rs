@@ -146,15 +146,15 @@ impl TypeInfo {
     /// Update for an assignment. This is different from `add_narrow` for two reasons:
     /// - It invalidates any existing subtree at that property chain in addition to narrowing.
     /// - There may not be a type available for the assignment (in which case we *just* invalidate)
-    pub fn update_for_assignment(&mut self, names: &Vec1<PropertyKind>, ty: Option<Type>) {
-        if let Some((name, more_properties)) = names.split_first() {
+    pub fn update_for_assignment(&mut self, properties: &Vec1<PropertyKind>, ty: Option<Type>) {
+        if let Some((prop, more_properties)) = properties.split_first() {
             if let Some(properties) = &mut self.properties {
                 // If there might be an existing narrow, we need to recurse down the chain of names and update.
-                properties.update_for_assignment(name, more_properties, ty);
+                properties.update_for_assignment(prop, more_properties, ty);
             } else if let Some(ty) = ty {
                 // If there is no existing narrow and a Type is available, we should create a narrow.
                 self.properties = Some(Box::new(NarrowedProperties::of_narrow(
-                    name.clone(),
+                    prop.clone(),
                     more_properties,
                     ty,
                 )));

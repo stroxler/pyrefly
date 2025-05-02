@@ -7,6 +7,7 @@
 
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
+use ruff_python_ast::ExprSubscript;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
 
@@ -80,7 +81,7 @@ impl<'a> BindingsBuilder<'a> {
             identifier_and_chain_for_property(&Expr::Attribute(attr.clone()))
         {
             let idx = self.table.insert(
-                Key::AttrAssign(ShortIdentifier::new(&identifier)),
+                Key::PropertyAssign(ShortIdentifier::new(&identifier)),
                 Binding::AssignToAttribute(Box::new((attr, value))),
             );
             let name = Hashed::new(&identifier.id);
@@ -92,6 +93,27 @@ impl<'a> BindingsBuilder<'a> {
             self.table.insert(
                 Key::Anon(attr.range),
                 Binding::AssignToAttribute(Box::new((attr, value))),
+            );
+        }
+    }
+
+    fn bind_subscript_assign(&mut self, subscript: ExprSubscript, value: ExprOrBinding) {
+        if let Some((identifier, _)) =
+            identifier_and_chain_for_property(&Expr::Subscript(subscript.clone()))
+        {
+            let idx = self.table.insert(
+                Key::PropertyAssign(ShortIdentifier::new(&identifier)),
+                Binding::AssignToSubscript(Box::new((subscript, value))),
+            );
+            let name = Hashed::new(&identifier.id);
+            if self.lookup_name_hashed(name, LookupKind::Regular).is_ok() {
+                self.scopes
+                    .update_flow_info_hashed(self.loop_depth, name, idx, FlowStyle::None);
+            }
+        } else {
+            self.table.insert(
+                Key::Anon(subscript.range),
+                Binding::AssignToSubscript(Box::new((subscript, value))),
             );
         }
     }
@@ -156,10 +178,9 @@ impl<'a> BindingsBuilder<'a> {
             }
             Expr::Subscript(x) => {
                 let binding = make_binding(None);
-                self.table.insert(
-                    Key::Anon(x.range),
-                    Binding::SubscriptValue(Box::new(binding), x.clone()),
-                );
+                // Create a binding to verify that the assignment is valid and potentially narrow
+                // the name assigned to.
+                self.bind_subscript_assign(x.clone(), ExprOrBinding::Binding(binding.clone()));
             }
             Expr::Tuple(tup) => {
                 self.bind_unpacking(&mut tup.elts, make_binding, tup.range);

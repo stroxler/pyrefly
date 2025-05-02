@@ -12,6 +12,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use itertools::Either;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::TypeParam;
 use ruff_python_ast::TypeParams;
 use ruff_python_ast::name::Name;
@@ -46,6 +47,7 @@ use crate::binding::binding::BindingLegacyTypeParam;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::EmptyAnswer;
+use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::FunctionSource;
 use crate::binding::binding::Initialized;
 use crate::binding::binding::IsAsync;
@@ -1501,11 +1503,102 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     TypeInfo::of_ty(Type::never())
                 }
             }
+            Binding::AssignToSubscript(box (subscript, value)) => {
+                let value_ty = match value {
+                    ExprOrBinding::Expr(e) => self.expr_infer(e, errors),
+                    ExprOrBinding::Binding(b) => self.solve_binding(b, errors).arc_clone_ty(),
+                };
+                // If we can't assign to this subscript, then we don't narrow the type
+                let narrowed = if self.check_assign_to_subscript(subscript, &value_ty, errors)
+                    == Type::any_error()
+                {
+                    None
+                } else {
+                    Some(value_ty)
+                };
+                if let Some((identifier, chain)) =
+                    identifier_and_chain_for_property(&Expr::Subscript(subscript.clone()))
+                {
+                    let mut type_info = self
+                        .get(&Key::Usage(ShortIdentifier::new(&identifier)))
+                        .arc_clone();
+                    type_info.update_for_assignment(chain.properties(), narrowed);
+                    type_info
+                } else {
+                    // Placeholder: in this case, we're assigning to an anonymous base and the
+                    // type info will not propagate anywhere.
+                    TypeInfo::of_ty(Type::never())
+                }
+            }
             _ => {
                 // All other Bindings model `Type` level operations where we do not
                 // propagate any attribute narrows.
                 TypeInfo::of_ty(self.binding_to_type(binding, errors))
             }
+        }
+    }
+
+    fn check_assign_to_subscript(
+        &self,
+        subscript: &ExprSubscript,
+        value: &Type,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let base = self.expr_infer(&subscript.value, errors);
+        let slice_ty = self.expr_infer(&subscript.slice, errors);
+        match (&base, &slice_ty) {
+            (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
+                if let Some(field) = self.typed_dict_field(typed_dict, &Name::new(field_name)) {
+                    if field.read_only {
+                        self.error(
+                            errors,
+                            subscript.slice.range(),
+                            ErrorKind::ReadOnly,
+                            None,
+                            format!(
+                                "Key `{}` in TypedDict `{}` is read-only",
+                                field_name,
+                                typed_dict.name(),
+                            ),
+                        )
+                    } else if !self.is_subset_eq(value, &field.ty) {
+                        self.error(
+                            errors,
+                            subscript.range(),
+                            ErrorKind::BadAssignment,
+                            None,
+                            format!("Expected {}, got {}", field.ty, value),
+                        )
+                    } else {
+                        Type::None
+                    }
+                } else {
+                    self.error(
+                        errors,
+                        subscript.slice.range(),
+                        ErrorKind::TypedDictKeyError,
+                        None,
+                        format!(
+                            "TypedDict `{}` does not have key `{}`",
+                            typed_dict.name(),
+                            field_name
+                        ),
+                    )
+                }
+            }
+            (_, _) => self.call_method_or_error(
+                &base,
+                &dunder::SETITEM,
+                subscript.range,
+                &[
+                    CallArg::Type(&slice_ty, subscript.slice.range()),
+                    // use the subscript's location
+                    CallArg::Type(value, subscript.range),
+                ],
+                &[],
+                errors,
+                Some(&|| ErrorContext::SetItem(self.for_display(base.clone()))),
+            ),
         }
     }
 
@@ -1515,7 +1608,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | Binding::Default(..)
             | Binding::Phi(..)
             | Binding::Narrow(..)
-            | Binding::AssignToAttribute(..) => {
+            | Binding::AssignToAttribute(..)
+            | Binding::AssignToSubscript(..) => {
                 // These forms require propagating attribute narrowing information, so they
                 // are handled in `binding_to_type_info`
                 self.binding_to_type_info(binding, errors).into_ty()
@@ -2050,67 +2144,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         })
                     }
                     None => context_value,
-                }
-            }
-            Binding::SubscriptValue(box b, x) => {
-                let base = self.expr_infer(&x.value, errors);
-                let slice_ty = self.expr_infer(&x.slice, errors);
-                let value_ty = self.binding_to_type(b, errors);
-                match (&base, &slice_ty) {
-                    (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
-                        if let Some(field) =
-                            self.typed_dict_field(typed_dict, &Name::new(field_name))
-                        {
-                            if field.read_only {
-                                self.error(
-                                    errors,
-                                    x.slice.range(),
-                                    ErrorKind::ReadOnly,
-                                    None,
-                                    format!(
-                                        "Key `{}` in TypedDict `{}` is read-only",
-                                        field_name,
-                                        typed_dict.name(),
-                                    ),
-                                )
-                            } else if !self.is_subset_eq(&value_ty, &field.ty) {
-                                self.error(
-                                    errors,
-                                    x.range(),
-                                    ErrorKind::BadAssignment,
-                                    None,
-                                    format!("Expected {}, got {}", field.ty, value_ty),
-                                )
-                            } else {
-                                Type::None
-                            }
-                        } else {
-                            self.error(
-                                errors,
-                                x.slice.range(),
-                                ErrorKind::TypedDictKeyError,
-                                None,
-                                format!(
-                                    "TypedDict `{}` does not have key `{}`",
-                                    typed_dict.name(),
-                                    field_name
-                                ),
-                            )
-                        }
-                    }
-                    (_, _) => self.call_method_or_error(
-                        &base,
-                        &dunder::SETITEM,
-                        x.range,
-                        &[
-                            CallArg::Type(&slice_ty, x.slice.range()),
-                            // use the subscript's location
-                            CallArg::Type(&value_ty, x.range),
-                        ],
-                        &[],
-                        errors,
-                        Some(&|| ErrorContext::SetItem(self.for_display(base.clone()))),
-                    ),
                 }
             }
             Binding::UnpackedValue(b, range, pos) => {
