@@ -44,7 +44,7 @@ assert_bytes!(TypeInfo, 40);
 #[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut, TypeEq)]
 pub struct TypeInfo {
     ty: Type,
-    attrs: Option<Box<NarrowedAttrs>>,
+    attrs: Option<Box<NarrowedProperties>>,
 }
 
 impl TypeInfo {
@@ -61,20 +61,20 @@ impl TypeInfo {
 
     pub fn type_at_property(&self, property: &PropertyKind) -> Option<&Type> {
         match self.get_at_property(property) {
-            None | Some(NarrowedAttr::WithoutRoot(..)) => None,
-            Some(NarrowedAttr::Leaf(ty)) | Some(NarrowedAttr::WithRoot(ty, _)) => Some(ty),
+            None | Some(NarrowedProperty::WithoutRoot(..)) => None,
+            Some(NarrowedProperty::Leaf(ty)) | Some(NarrowedProperty::WithRoot(ty, _)) => Some(ty),
         }
     }
 
     pub fn at_property(&self, property: &PropertyKind, fallback: impl Fn() -> Type) -> Self {
         match self.get_at_property(property) {
             None => TypeInfo::of_ty(fallback()),
-            Some(NarrowedAttr::Leaf(ty)) => Self::of_ty(ty.clone()),
-            Some(NarrowedAttr::WithoutRoot(attrs)) => Self {
+            Some(NarrowedProperty::Leaf(ty)) => Self::of_ty(ty.clone()),
+            Some(NarrowedProperty::WithoutRoot(attrs)) => Self {
                 ty: fallback(),
                 attrs: Some(Box::new(attrs.clone())),
             },
-            Some(NarrowedAttr::WithRoot(ty, attrs)) => Self {
+            Some(NarrowedProperty::WithRoot(ty, attrs)) => Self {
                 ty: ty.clone(),
                 attrs: Some(Box::new(attrs.clone())),
             },
@@ -98,12 +98,13 @@ impl TypeInfo {
             0 => Self::of_ty(Type::never()),
             1 => branches.pop().unwrap(),
             _ => {
-                let (tys, attrs): (Vec<Type>, Vec<Option<&NarrowedAttrs>>) = branches
+                let (tys, attrs): (Vec<Type>, Vec<Option<&NarrowedProperties>>) = branches
                     .iter()
                     .map(|TypeInfo { ty, attrs }| (ty.clone(), attrs.as_ref().map(|a| a.as_ref())))
                     .unzip();
                 let ty = union_types(tys);
-                let attrs = NarrowedAttrs::join(attrs.into_iter().flatten().collect(), union_types);
+                let attrs =
+                    NarrowedProperties::join(attrs.into_iter().flatten().collect(), union_types);
                 Self {
                     ty,
                     attrs: attrs.map(Box::new),
@@ -119,7 +120,7 @@ impl TypeInfo {
             if let Some(attrs) = &mut self.attrs {
                 attrs.add_narrow(name.clone(), more_properties, ty);
             } else {
-                self.attrs = Some(Box::new(NarrowedAttrs::of_narrow(
+                self.attrs = Some(Box::new(NarrowedProperties::of_narrow(
                     name.clone(),
                     more_properties,
                     ty,
@@ -142,7 +143,7 @@ impl TypeInfo {
                 attrs.update_for_assignment(name, more_properties, ty);
             } else if let Some(ty) = ty {
                 // If there is no existing narrow and a Type is available, we should create a narrow.
-                self.attrs = Some(Box::new(NarrowedAttrs::of_narrow(
+                self.attrs = Some(Box::new(NarrowedProperties::of_narrow(
                     name.clone(),
                     more_properties,
                     ty,
@@ -171,7 +172,7 @@ impl TypeInfo {
         self.arc_clone().into_ty()
     }
 
-    fn get_at_property(&self, property: &PropertyKind) -> Option<&NarrowedAttr> {
+    fn get_at_property(&self, property: &PropertyKind) -> Option<&NarrowedProperty> {
         if let Some(box attrs) = &self.attrs {
             attrs.get(property)
         } else {
@@ -191,9 +192,9 @@ impl Display for TypeInfo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq)]
-struct NarrowedAttrs(SmallMap<PropertyKind, NarrowedAttr>);
+struct NarrowedProperties(SmallMap<PropertyKind, NarrowedProperty>);
 
-impl NarrowedAttrs {
+impl NarrowedProperties {
     fn add_narrow(&mut self, property: PropertyKind, more_properties: &[PropertyKind], ty: Type) {
         let attrs = &mut self.0;
         match attrs.get_mut(&property) {
@@ -201,7 +202,7 @@ impl NarrowedAttrs {
                 attr.add_narrow(more_properties, ty);
             }
             None => {
-                attrs.insert(property, NarrowedAttr::new(more_properties, ty));
+                attrs.insert(property, NarrowedProperty::new(more_properties, ty));
             }
         };
     }
@@ -216,7 +217,7 @@ impl NarrowedAttrs {
         match more_properties {
             [] => {
                 if let Some(ty) = ty {
-                    attrs.insert(property.clone(), NarrowedAttr::new(more_properties, ty));
+                    attrs.insert(property.clone(), NarrowedProperty::new(more_properties, ty));
                 } else {
                     attrs.shift_remove(property);
                 }
@@ -229,13 +230,13 @@ impl NarrowedAttrs {
         }
     }
 
-    fn get(&self, property: &PropertyKind) -> Option<&NarrowedAttr> {
+    fn get(&self, property: &PropertyKind) -> Option<&NarrowedProperty> {
         self.0.get(property)
     }
 
     fn of_narrow(name: PropertyKind, more_properties: &[PropertyKind], ty: Type) -> Self {
         let mut attrs = SmallMap::with_capacity(1);
-        attrs.insert(name.clone(), NarrowedAttr::new(more_properties, ty));
+        attrs.insert(name.clone(), NarrowedProperty::new(more_properties, ty));
         Self(attrs)
     }
 
@@ -256,7 +257,7 @@ impl NarrowedAttrs {
                             .extend(tail.iter().filter_map(|attrs| attrs.get(&name).cloned()));
                         // If any map lacked this name, we just drop it. Only join if all maps have it.
                         if attr_branches.len() == n {
-                            NarrowedAttr::join(attr_branches, union_types)
+                            NarrowedProperty::join(attr_branches, union_types)
                                 .map(move |attr| (name, attr))
                         } else {
                             None
@@ -286,13 +287,15 @@ impl NarrowedAttrs {
                 write!(f, ", ")?;
             }
             match value {
-                NarrowedAttr::Leaf(ty) => Self::fmt_type_with_label(prefix, name, ty, f),
-                NarrowedAttr::WithRoot(ty, attrs) => {
+                NarrowedProperty::Leaf(ty) => Self::fmt_type_with_label(prefix, name, ty, f),
+                NarrowedProperty::WithRoot(ty, attrs) => {
                     Self::fmt_type_with_label(prefix, name, ty, f)?;
                     write!(f, ", ")?;
                     attrs.fmt_with_prefix_and_name(prefix, name, f)
                 }
-                NarrowedAttr::WithoutRoot(attrs) => attrs.fmt_with_prefix_and_name(prefix, name, f),
+                NarrowedProperty::WithoutRoot(attrs) => {
+                    attrs.fmt_with_prefix_and_name(prefix, name, f)
+                }
             }?;
         }
         Ok(())
@@ -327,7 +330,7 @@ impl NarrowedAttrs {
     }
 }
 
-impl Visit<Type> for NarrowedAttrs {
+impl Visit<Type> for NarrowedProperties {
     fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Type)) {
         let attrs = &self.0;
         attrs.values().for_each(|value| {
@@ -336,7 +339,7 @@ impl Visit<Type> for NarrowedAttrs {
     }
 }
 
-impl VisitMut<Type> for NarrowedAttrs {
+impl VisitMut<Type> for NarrowedProperties {
     fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut Type)) {
         let attrs = &mut self.0;
         attrs.values_mut().for_each(|value| {
@@ -345,41 +348,39 @@ impl VisitMut<Type> for NarrowedAttrs {
     }
 }
 
-impl Display for NarrowedAttrs {
+impl Display for NarrowedProperties {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_with_prefix(&mut Vec::new(), f)
     }
 }
 
-/// A `NarrowedAttr` represents a single attribute within a tree of narrowed
-/// attributes. The attribute itself may or may not be narrowed, and it may or
-/// may not have any sub-attributes (but at least one must be the case, or it
+/// A `NarrowedProperty` represents a single property within a tree of narrowed
+/// properties. The property itself may or may not be narrowed, and it may or
+/// may not have any sub-properties (but at least one must be the case, or it
 /// wouldn't be in the tree at all)
 #[derive(Debug, Clone, Visit, VisitMut, PartialEq, Eq, TypeEq)]
-enum NarrowedAttr {
-    /// This attribute is narrowed, and has no narrowed sub-attributes (Leaf)
+enum NarrowedProperty {
+    /// This property is narrowed, and has no narrowed sub-property (Leaf)
     Leaf(Type),
-    /// This attribute is narrowed, and has one or more narrowed sub-attributes (WithRoot)
-    WithRoot(Type, NarrowedAttrs),
-    /// This attribute is not narrowed, and has one or more narrowed sub-attributes (WithoutRoot)
-    WithoutRoot(NarrowedAttrs),
+    /// This property is narrowed, and has one or more narrowed sub-property (WithRoot)
+    WithRoot(Type, NarrowedProperties),
+    /// This property is not narrowed, and has one or more narrowed sub-property (WithoutRoot)
+    WithoutRoot(NarrowedProperties),
 }
 
-impl NarrowedAttr {
+impl NarrowedProperty {
     fn new(properties: &[PropertyKind], ty: Type) -> Self {
         match properties {
             [] => Self::Leaf(ty),
-            [first_property, more_properties @ ..] => Self::WithoutRoot(NarrowedAttrs::of_narrow(
-                (*first_property).clone(),
-                more_properties,
-                ty,
-            )),
+            [first_property, more_properties @ ..] => Self::WithoutRoot(
+                NarrowedProperties::of_narrow((*first_property).clone(), more_properties, ty),
+            ),
         }
     }
 
     fn add_narrow(&mut self, names: &[PropertyKind], narrowed_ty: Type) {
         // Take ownership of self so we can destructure it and potentially change enum variants.
-        let mut current = NarrowedAttr::Leaf(Type::None);
+        let mut current = NarrowedProperty::Leaf(Type::None);
         mem::swap(self, &mut current);
         *self = current.with_narrow(names, narrowed_ty)
     }
@@ -400,8 +401,11 @@ impl NarrowedAttr {
                 // We are setting a narrow in a subtree. We need to preserve any existing tree.
                 match self {
                     Self::Leaf(root_ty) => {
-                        let attrs =
-                            NarrowedAttrs::of_narrow((*name).clone(), more_properties, narrowed_ty);
+                        let attrs = NarrowedProperties::of_narrow(
+                            (*name).clone(),
+                            more_properties,
+                            narrowed_ty,
+                        );
                         Self::WithRoot(root_ty, attrs)
                     }
                     Self::WithoutRoot(mut attrs) => {
@@ -459,7 +463,7 @@ impl NarrowedAttr {
         }
         let ty = ty_branches.map(union_types);
         let attrs = attrs_branches.and_then(|attrs_branches| {
-            NarrowedAttrs::join(attrs_branches.iter().collect(), union_types)
+            NarrowedProperties::join(attrs_branches.iter().collect(), union_types)
         });
         match (ty, attrs) {
             (None, None) => None,
