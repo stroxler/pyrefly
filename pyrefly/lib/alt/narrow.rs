@@ -7,6 +7,9 @@
 
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprNumberLiteral;
+use ruff_python_ast::Int;
+use ruff_python_ast::Number;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -329,11 +332,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn get_attribute_type(&self, base: &TypeInfo, attr: &PropertyChain, range: TextRange) -> Type {
-        // We don't want to throw any attribute access errors when narrowing - the same code is traversed
+    fn get_property_type(&self, base: &TypeInfo, prop: &PropertyChain, range: TextRange) -> Type {
+        // We don't want to throw any attribute access or indexing errors when narrowing - the same code is traversed
         // separately for type checking, and there might be error context then we don't have here.
         let ignore_errors = self.error_swallower();
-        let (first_prop, remaining_prop) = attr.properties().clone().split_off_first();
+        let (first_prop, remaining_prop) = prop.properties().clone().split_off_first();
         match self.narrowable_for_property_chain(
             base,
             &first_prop,
@@ -361,19 +364,51 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Narrowable {
-        let PropertyKind::Attribute(first_attr_name) = first_prop else {
-            unreachable!("TODO: list index narrowing");
-        };
-        match remaining_prop.split_first() {
-            None => {
-                match base.type_at_property(&PropertyKind::Attribute(first_attr_name.clone())) {
+        match first_prop {
+            PropertyKind::Attribute(first_attr_name) => match remaining_prop.split_first() {
+                None => match base.type_at_property(first_prop) {
                     Some(ty) => Narrowable::Simple(ty.clone()),
                     None => self.narrowable_for_attr(base.ty(), first_attr_name, range, errors),
+                },
+                Some((next_name, remaining_prop)) => {
+                    let base = self.attr_infer(base, first_attr_name, range, errors, None);
+                    self.narrowable_for_property_chain(
+                        &base,
+                        next_name,
+                        remaining_prop,
+                        range,
+                        errors,
+                    )
                 }
-            }
-            Some((next_name, remaining_prop)) => {
-                let base = self.attr_infer(base, first_attr_name, range, errors, None);
-                self.narrowable_for_property_chain(&base, next_name, remaining_prop, range, errors)
+            },
+            PropertyKind::Index(idx) => {
+                // We synthesize a slice expression for the subscript here
+                // The range doesn't matter, since narrowing logic swallows type errors
+                let synthesized_slice = Expr::NumberLiteral(ExprNumberLiteral {
+                    range,
+                    value: Number::Int(Int::from(*idx as u64)),
+                });
+                match remaining_prop.split_first() {
+                    None => match base.type_at_property(first_prop) {
+                        Some(ty) => Narrowable::Simple(ty.clone()),
+                        None => Narrowable::Simple(self.subscript_infer_for_type(
+                            base.ty(),
+                            &synthesized_slice,
+                            range,
+                            errors,
+                        )),
+                    },
+                    Some((next_name, remaining_prop)) => {
+                        let base_ty = self.subscript_infer(base, &synthesized_slice, range, errors);
+                        self.narrowable_for_property_chain(
+                            &base_ty,
+                            next_name,
+                            remaining_prop,
+                            range,
+                            errors,
+                        )
+                    }
+                }
             }
         }
     }
@@ -391,14 +426,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .clone()
                     .with_ty(self.atomic_narrow(type_info.ty(), op, range, errors))
             }
-            NarrowOp::Atomic(Some(attr), op) => {
+            NarrowOp::Atomic(Some(prop), op) => {
                 let ty = self.atomic_narrow(
-                    &self.get_attribute_type(type_info, attr, range),
+                    &self.get_property_type(type_info, prop, range),
                     op,
                     range,
                     errors,
                 );
-                type_info.with_narrow(attr.properties(), ty)
+                type_info.with_narrow(prop.properties(), ty)
             }
             NarrowOp::And(ops) => {
                 let mut ops_iter = ops.iter();

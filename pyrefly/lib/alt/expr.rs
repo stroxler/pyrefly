@@ -10,6 +10,7 @@ use ruff_python_ast::BoolOp;
 use ruff_python_ast::Comprehension;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::ExprSlice;
 use ruff_python_ast::ExprStarred;
 use ruff_python_ast::Identifier;
@@ -185,6 +186,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         TypeInfo::at_property(base, &PropertyKind::Attribute(attr_name.clone()), || {
             self.attr_infer_for_type(base.ty(), attr_name, range, errors, context)
         })
+    }
+
+    pub fn subscript_infer(
+        &self,
+        base: &TypeInfo,
+        slice: &Expr,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> TypeInfo {
+        match slice {
+            Expr::NumberLiteral(ExprNumberLiteral {
+                value: Number::Int(idx),
+                ..
+            }) if let Some(idx) = idx.as_usize() => {
+                TypeInfo::at_property(base, &PropertyKind::Index(idx), || {
+                    self.subscript_infer_for_type(base.ty(), slice, range, errors)
+                })
+            }
+            _ => TypeInfo::of_ty(self.subscript_infer_for_type(base.ty(), slice, range, errors)),
+        }
     }
 
     /// When interpreted as static types (as opposed to when accounting for runtime
@@ -778,6 +799,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     _ => self.attr_infer(&base, &x.attr.id, x.range, errors, None),
                 }
             }
+            Expr::Subscript(x) => {
+                // TODO: We don't deal properly with hint here, we should.
+                let base = self.expr_infer_type_info(&x.value, errors);
+                self.subscript_infer(&base, &x.slice, x.range(), errors)
+            }
             Expr::Named(x) => self.expr_infer_type_info_with_hint(&x.value, hint, errors),
             // All other expressions operate at the `Type` level only, so we avoid the overhead of
             // wrapping and unwrapping `TypeInfo` by computing the result as a `Type` and only wrapping
@@ -788,15 +814,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         res
     }
 
-    pub fn subscript_infer(
+    pub fn subscript_infer_for_type(
         &self,
-        base: Type,
+        base: &Type,
         slice: &Expr,
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
         let xs = Ast::unpack_slice(slice);
-        self.distribute_over_union(&base, |base| {
+        self.distribute_over_union(base, |base| {
             let mut base = base.clone();
             if let Type::Var(v) = base {
                 base = self.solver().force_var(v);
@@ -971,7 +997,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         match x {
-            Expr::Name(..) | Expr::Attribute(..) | Expr::Named(..) => {
+            Expr::Name(..) | Expr::Attribute(..) | Expr::Named(..) | Expr::Subscript(..) => {
                 // These cases are required to preserve attribute narrowing information. But anyone calling
                 // this function only needs the Type, so we can just pull it out.
                 self.expr_infer_type_info_with_hint(x, hint, errors)
@@ -1361,11 +1387,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::BooleanLiteral(x) => Lit::from_boolean_literal(x).to_type(),
             Expr::NoneLiteral(_) => Type::None,
             Expr::EllipsisLiteral(_) => Type::Ellipsis,
-            Expr::Subscript(x) => {
-                // TODO: We don't deal properly with hint here, we should.
-                let base = self.expr_infer(&x.value, errors);
-                self.subscript_infer(base, &x.slice, x.range(), errors)
-            }
             Expr::Starred(ExprStarred { value: box x, .. }) => {
                 let ty = self.expr_untype(x, TypeFormContext::TypeArgument, errors);
                 Type::Unpack(Box::new(ty))
