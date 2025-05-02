@@ -871,19 +871,13 @@ impl Server {
     }
 
     fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) -> anyhow::Result<()> {
-        if !params.changes.is_empty() {
-            self.invalidate(move |t| {
-                t.invalidate_disk(
-                    params
-                        .changes
-                        .iter()
-                        .map(|x| x.uri.to_file_path().unwrap())
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                )
-            });
-        }
-        Ok(())
+        self.validate_with_disk_invalidation(
+            params
+                .changes
+                .iter()
+                .map(|x| x.uri.to_file_path().unwrap())
+                .collect::<Vec<_>>(),
+        )
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
