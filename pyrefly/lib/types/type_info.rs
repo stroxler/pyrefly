@@ -232,10 +232,13 @@ impl NarrowedProperties {
                     props.shift_remove(property);
                 }
             }
-            [name, more_properties @ ..] => {
-                if let Some(prop) = props.get_mut(name) {
-                    prop.update_for_assignment(name, more_properties, ty);
-                } // ... else there is no existing narrow and no narrow type, so do nothing.
+            [next_property, remaining_properties @ ..] => {
+                if let Some(prop) = props.get_mut(next_property) {
+                    prop.update_for_assignment(next_property, remaining_properties, ty);
+                } else if let Some(ty) = ty {
+                    props.insert(property.clone(), NarrowedProperty::new(more_properties, ty));
+                }
+                // ... else there is no existing narrow and no narrow type, so do nothing.
             }
         }
     }
