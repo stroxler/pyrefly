@@ -126,7 +126,7 @@ impl AtomicNarrowOp {
 #[derive(Clone, Debug)]
 enum NarrowingSubject {
     Name(Name),
-    Attribute(Name, PropertyChain),
+    Property(Name, PropertyChain),
 }
 
 impl NarrowOp {
@@ -205,7 +205,7 @@ impl NarrowOps {
         for subject in expr_to_subjects(left) {
             let (name, attr) = match subject {
                 NarrowingSubject::Name(name) => (name, None),
-                NarrowingSubject::Attribute(name, attr) => (name, Some(attr)),
+                NarrowingSubject::Property(name, attr) => (name, Some(attr)),
             };
             if let Some((existing, _)) = narrow_ops.0.get_mut(&name) {
                 existing.and(NarrowOp::Atomic(attr, op.clone()));
@@ -329,7 +329,7 @@ pub fn identifier_and_chain_for_attribute(
 
 fn subject_for_attribute(expr: &ExprAttribute) -> Option<NarrowingSubject> {
     identifier_and_chain_for_attribute(expr)
-        .map(|(identifier, attr)| NarrowingSubject::Attribute(identifier.id, attr))
+        .map(|(identifier, attr)| NarrowingSubject::Property(identifier.id, attr))
 }
 
 fn expr_to_subjects(expr: &Expr) -> Vec<NarrowingSubject> {
