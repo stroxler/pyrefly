@@ -788,6 +788,179 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         res
     }
 
+    pub fn subscript_infer(
+        &self,
+        base: Type,
+        slice: &Expr,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let xs = Ast::unpack_slice(slice);
+        self.distribute_over_union(&base, |base| {
+            let mut base = base.clone();
+            if let Type::Var(v) = base {
+                base = self.solver().force_var(v);
+            }
+            if matches!(&base, Type::ClassDef(t) if t.name() == "tuple") {
+                base = Type::type_form(Type::SpecialForm(SpecialForm::Tuple));
+            }
+            match base {
+                Type::Forall(forall) => {
+                    let tys =
+                        xs.map(|x| self.expr_untype(x, TypeFormContext::TypeArgument, errors));
+                    let targs = self.check_and_create_targs(
+                        &forall.body.name(),
+                        &forall.tparams,
+                        tys,
+                        range,
+                        errors,
+                    );
+                    let param_map = forall
+                        .tparams
+                        .quantified()
+                        .cloned()
+                        .zip(targs.as_slice().iter().cloned())
+                        .collect::<SmallMap<_, _>>();
+                    forall.body.as_type().subst(&param_map)
+                }
+                // Note that we have to check for `builtins.type` by name here because this code runs
+                // when we're bootstrapping the stdlib and don't have access to class objects yet.
+                Type::ClassDef(cls) if cls.is_builtin("type") => {
+                    let targ = match xs.len() {
+                        // This causes us to treat `type[list]` as equivalent to `type[list[Any]]`,
+                        // which may or may not be what we want.
+                        1 => self.expr_untype(&xs[0], TypeFormContext::TypeArgument, errors),
+                        _ => self.error(
+                            errors,
+                            range,
+                            ErrorKind::BadSpecialization,
+                            None,
+                            format!("Expected 1 type argument for `type`, got {}", xs.len()),
+                        ),
+                    };
+                    // TODO: Validate that `targ` refers to a "valid in-scope class or TypeVar"
+                    // (https://typing.readthedocs.io/en/latest/spec/annotations.html#type-and-annotation-expressions)
+                    Type::type_form(Type::type_form(targ))
+                }
+                // TODO: pyre_extensions.PyreReadOnly is a non-standard type system extension that marks read-only
+                // objects. We don't support it yet.
+                Type::ClassDef(cls)
+                    if cls.has_qname("pyre_extensions", "PyreReadOnly")
+                        || cls.has_qname("pyre_extensions", "ReadOnly") =>
+                {
+                    match xs.len() {
+                        1 => self.expr_infer(&xs[0], errors),
+                        _ => self.error(
+                            errors,
+                            range,
+                            ErrorKind::BadSpecialization,
+                            None,
+                            format!(
+                                "Expected 1 type argument for `PyreReadOnly`, got {}",
+                                xs.len()
+                            ),
+                        ),
+                    }
+                }
+                Type::ClassDef(cls) => Type::type_form(self.specialize(
+                    &cls,
+                    xs.map(|x| self.expr_untype(x, TypeFormContext::TypeArgument, errors)),
+                    range,
+                    errors,
+                )),
+                Type::Type(box Type::SpecialForm(special)) => {
+                    self.apply_special_form(special, slice, range, errors)
+                }
+                Type::Tuple(Tuple::Concrete(ref elts)) if xs.len() == 1 => self.infer_tuple_index(
+                    elts.to_owned(),
+                    &xs[0],
+                    range,
+                    errors,
+                    Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
+                ),
+                Type::Tuple(_) if xs.len() == 1 => self.call_method_or_error(
+                    &base,
+                    &dunder::GETITEM,
+                    range,
+                    &[CallArg::Expr(slice)],
+                    &[],
+                    errors,
+                    Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
+                ),
+                Type::Any(style) => style.propagate(),
+                Type::LiteralString | Type::Literal(Lit::Str(_)) if xs.len() <= 3 => {
+                    // We could have a more precise type here, but this matches Pyright.
+                    self.stdlib.str().clone().to_type()
+                }
+                Type::ClassType(ref cls)
+                    if let Some(elts) = self.named_tuple_element_types(cls) =>
+                {
+                    self.infer_tuple_index(
+                        elts,
+                        slice,
+                        range,
+                        errors,
+                        Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
+                    )
+                }
+                Type::ClassType(_) => self.call_method_or_error(
+                    &base,
+                    &dunder::GETITEM,
+                    range,
+                    &[CallArg::Expr(slice)],
+                    &[],
+                    errors,
+                    Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
+                ),
+                Type::TypedDict(typed_dict) => {
+                    let key_ty = self.expr_infer(slice, errors);
+                    self.distribute_over_union(&key_ty, |ty| match ty {
+                        Type::Literal(Lit::Str(field_name)) => {
+                            if let Some(field) =
+                                self.typed_dict_field(&typed_dict, &Name::new(field_name))
+                            {
+                                field.ty.clone()
+                            } else {
+                                self.error(
+                                    errors,
+                                    slice.range(),
+                                    ErrorKind::TypedDictKeyError,
+                                    None,
+                                    format!(
+                                        "TypedDict `{}` does not have key `{}`",
+                                        typed_dict.name(),
+                                        field_name
+                                    ),
+                                )
+                            }
+                        }
+                        _ => self.error(
+                            errors,
+                            slice.range(),
+                            ErrorKind::TypedDictKeyError,
+                            None,
+                            format!(
+                                "Invalid key for TypedDict `{}`, got `{}`",
+                                typed_dict.name(),
+                                self.for_display(ty.clone())
+                            ),
+                        ),
+                    })
+                }
+                t => self.error(
+                    errors,
+                    range,
+                    ErrorKind::BadSpecialization,
+                    None,
+                    format!(
+                        "Can't apply arguments to non-class, got {}",
+                        self.for_display(t)
+                    ),
+                ),
+            }
+        })
+    }
+
     /// This function should not be used directly: we want every expression to record a type trace,
     /// and that is handled in expr_infer_type_info_with_hint. This function should *only* be called
     /// via expr_infer_type_info_with_hint.
@@ -1189,179 +1362,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::NoneLiteral(_) => Type::None,
             Expr::EllipsisLiteral(_) => Type::Ellipsis,
             Expr::Subscript(x) => {
-                let xs = Ast::unpack_slice(&x.slice);
                 // TODO: We don't deal properly with hint here, we should.
-                let fun = self.expr_infer(&x.value, errors);
-                self.distribute_over_union(&fun, |fun| {
-                    let mut fun = fun.clone();
-                    if let Type::Var(v) = fun {
-                        fun = self.solver().force_var(v);
-                    }
-                    if matches!(&fun, Type::ClassDef(t) if t.name() == "tuple") {
-                        fun = Type::type_form(Type::SpecialForm(SpecialForm::Tuple));
-                    }
-                    match fun {
-                        Type::Forall(forall) => {
-                            let tys = xs.map(|x| {
-                                self.expr_untype(x, TypeFormContext::TypeArgument, errors)
-                            });
-                            let targs = self.check_and_create_targs(
-                                &forall.body.name(),
-                                &forall.tparams,
-                                tys,
-                                x.range,
-                                errors,
-                            );
-                            let param_map = forall
-                                .tparams
-                                .quantified()
-                                .cloned()
-                                .zip(targs.as_slice().iter().cloned())
-                                .collect::<SmallMap<_, _>>();
-                            forall.body.as_type().subst(&param_map)
-                        }
-                        // Note that we have to check for `builtins.type` by name here because this code runs
-                        // when we're bootstrapping the stdlib and don't have access to class objects yet.
-                        Type::ClassDef(cls) if cls.is_builtin("type") => {
-                            let targ = match xs.len() {
-                                // This causes us to treat `type[list]` as equivalent to `type[list[Any]]`,
-                                // which may or may not be what we want.
-                                1 => {
-                                    self.expr_untype(&xs[0], TypeFormContext::TypeArgument, errors)
-                                }
-                                _ => self.error(
-                                    errors,
-                                    x.range,
-                                    ErrorKind::BadSpecialization,
-                                    None,
-                                    format!(
-                                        "Expected 1 type argument for `type`, got {}",
-                                        xs.len()
-                                    ),
-                                ),
-                            };
-                            // TODO: Validate that `targ` refers to a "valid in-scope class or TypeVar"
-                            // (https://typing.readthedocs.io/en/latest/spec/annotations.html#type-and-annotation-expressions)
-                            Type::type_form(Type::type_form(targ))
-                        }
-                        // TODO: pyre_extensions.PyreReadOnly is a non-standard type system extension that marks read-only
-                        // objects. We don't support it yet.
-                        Type::ClassDef(cls)
-                            if cls.has_qname("pyre_extensions", "PyreReadOnly")
-                                || cls.has_qname("pyre_extensions", "ReadOnly") =>
-                        {
-                            match xs.len() {
-                                1 => self.expr_infer(&xs[0], errors),
-                                _ => self.error(
-                                    errors,
-                                    x.range,
-                                    ErrorKind::BadSpecialization,
-                                    None,
-                                    format!(
-                                        "Expected 1 type argument for `PyreReadOnly`, got {}",
-                                        xs.len()
-                                    ),
-                                ),
-                            }
-                        }
-                        Type::ClassDef(cls) => Type::type_form(self.specialize(
-                            &cls,
-                            xs.map(|x| self.expr_untype(x, TypeFormContext::TypeArgument, errors)),
-                            x.range,
-                            errors,
-                        )),
-                        Type::Type(box Type::SpecialForm(special)) => {
-                            self.apply_special_form(special, &x.slice, x.range, errors)
-                        }
-                        Type::Tuple(Tuple::Concrete(ref elts)) if xs.len() == 1 => self
-                            .infer_tuple_index(
-                                elts.to_owned(),
-                                &xs[0],
-                                x.range,
-                                errors,
-                                Some(&|| ErrorContext::Index(self.for_display(fun.clone()))),
-                            ),
-                        Type::Tuple(_) if xs.len() == 1 => self.call_method_or_error(
-                            &fun,
-                            &dunder::GETITEM,
-                            x.range,
-                            &[CallArg::Expr(&x.slice)],
-                            &[],
-                            errors,
-                            Some(&|| ErrorContext::Index(self.for_display(fun.clone()))),
-                        ),
-                        Type::Any(style) => style.propagate(),
-                        Type::LiteralString | Type::Literal(Lit::Str(_)) if xs.len() <= 3 => {
-                            // We could have a more precise type here, but this matches Pyright.
-                            self.stdlib.str().clone().to_type()
-                        }
-                        Type::ClassType(ref cls)
-                            if let Some(elts) = self.named_tuple_element_types(cls) =>
-                        {
-                            self.infer_tuple_index(
-                                elts,
-                                &x.slice,
-                                x.range,
-                                errors,
-                                Some(&|| ErrorContext::Index(self.for_display(fun.clone()))),
-                            )
-                        }
-                        Type::ClassType(_) => self.call_method_or_error(
-                            &fun,
-                            &dunder::GETITEM,
-                            x.range,
-                            &[CallArg::Expr(&x.slice)],
-                            &[],
-                            errors,
-                            Some(&|| ErrorContext::Index(self.for_display(fun.clone()))),
-                        ),
-                        Type::TypedDict(typed_dict) => {
-                            let key_ty = self.expr_infer(&x.slice, errors);
-                            self.distribute_over_union(&key_ty, |ty| match ty {
-                                Type::Literal(Lit::Str(field_name)) => {
-                                    if let Some(field) =
-                                        self.typed_dict_field(&typed_dict, &Name::new(field_name))
-                                    {
-                                        field.ty.clone()
-                                    } else {
-                                        self.error(
-                                            errors,
-                                            x.slice.range(),
-                                            ErrorKind::TypedDictKeyError,
-                                            None,
-                                            format!(
-                                                "TypedDict `{}` does not have key `{}`",
-                                                typed_dict.name(),
-                                                field_name
-                                            ),
-                                        )
-                                    }
-                                }
-                                _ => self.error(
-                                    errors,
-                                    x.slice.range(),
-                                    ErrorKind::TypedDictKeyError,
-                                    None,
-                                    format!(
-                                        "Invalid key for TypedDict `{}`, got `{}`",
-                                        typed_dict.name(),
-                                        self.for_display(ty.clone())
-                                    ),
-                                ),
-                            })
-                        }
-                        t => self.error(
-                            errors,
-                            x.range,
-                            ErrorKind::BadSpecialization,
-                            None,
-                            format!(
-                                "Can't apply arguments to non-class, got {}",
-                                self.for_display(t)
-                            ),
-                        ),
-                    }
-                })
+                let base = self.expr_infer(&x.value, errors);
+                self.subscript_infer(base, &x.slice, x.range(), errors)
             }
             Expr::Starred(ExprStarred { value: box x, .. }) => {
                 let ty = self.expr_untype(x, TypeFormContext::TypeArgument, errors);
