@@ -987,21 +987,9 @@ impl<'a> BindingsBuilder<'a> {
             match (&merged, x) {
                 // If they're identical, keep it
                 (l, r) if l == &r => {}
-                // Uninitialized takes precedence over Unbound
-                (FlowStyle::Uninitialized, FlowStyle::Unbound) => {}
-                (FlowStyle::Unbound, FlowStyle::Uninitialized) => {
-                    merged = FlowStyle::Uninitialized;
-                }
-                // Unbound and bound branches merge into PossiblyUnbound
-                // Uninitialized and bound branches merge into PossiblyUninitialized
-                (FlowStyle::Unbound, _) => {
-                    return FlowStyle::PossiblyUnbound;
-                }
+                // Uninitialized and initialized branches merge into PossiblyUninitialized
                 (FlowStyle::Uninitialized, _) => {
                     return FlowStyle::PossiblyUninitialized;
-                }
-                (_, FlowStyle::PossiblyUnbound | FlowStyle::Unbound) => {
-                    return FlowStyle::PossiblyUnbound;
                 }
                 (_, FlowStyle::PossiblyUninitialized | FlowStyle::Uninitialized) => {
                     return FlowStyle::PossiblyUninitialized;

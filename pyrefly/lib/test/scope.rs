@@ -104,19 +104,19 @@ def f1() -> None:
 );
 
 testcase!(
-    test_unbound_name,
+    test_del_name,
     r#"
 x: int
 x + 1  # E: `x` is uninitialized
 x = 1
 x + 1  # OK
 del x
-x + 1  # E: `x` is unbound
+x + 1  # E: `x` is uninitialized
 
 y = 1
 y + 1  # OK
 del y
-y + 1  # E: `y` is unbound
+y + 1  # E: `y` is uninitialized
 
 # check that we don't fall back to Any when the variable is annotated
 z: int
@@ -125,7 +125,7 @@ z = str(z)  # E: `z` is uninitialized  # E: `str` is not assignable to variable 
 );
 
 testcase!(
-    test_unbound_merge_flow,
+    test_uninitialized_merge_flow,
     r#"
 def test(cond: bool):
     if cond:
@@ -149,7 +149,7 @@ def test(cond: bool):
     else:
         d = 1
         del d
-    d  # E: `d` may be unbound
+    d  # E: `d` may be uninitialized
     if cond:
         e = 1
     else:
@@ -166,13 +166,13 @@ def test(cond: bool):
         del g
     else:
         g = 1
-    g  # E: `g` may be unbound
+    g  # E: `g` may be uninitialized
     if cond:
         h = 1
         del h
     else:
         h = 1
         del h
-    h  # E: `h` is unbound
+    h  # E: `h` is uninitialized
 "#,
 );

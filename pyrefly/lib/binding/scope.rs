@@ -187,12 +187,8 @@ pub enum FlowStyle {
     /// Am I a function definition? Used to chain overload definitions.
     /// If so, does my return type have an explicit annotation?
     FunctionDef(Idx<KeyFunction>, bool),
-    /// The name is possibly unbound (perhaps due to merging branches)
-    PossiblyUnbound,
     /// The name is possibly uninitialized (perhaps due to merging branches)
     PossiblyUninitialized,
-    /// The name was previously bound, but is now unbound due to `del`
-    Unbound,
     /// The name was in an annotated declaration like `x: int` but not initialized
     Uninitialized,
 }
@@ -201,9 +197,7 @@ impl FlowStyle {
     /// Produce an error message for an uninitialized or unbound variable.
     pub fn uninitialized_error_message(&self, name: &Identifier) -> Option<String> {
         match self {
-            Self::Unbound => Some(format!("`{name}` is unbound")),
             Self::Uninitialized => Some(format!("`{name}` is uninitialized")),
-            Self::PossiblyUnbound => Some(format!("`{name}` may be unbound")),
             Self::PossiblyUninitialized => Some(format!("`{name}` may be uninitialized")),
             _ => None,
         }
