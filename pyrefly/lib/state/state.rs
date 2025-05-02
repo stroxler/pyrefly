@@ -948,7 +948,7 @@ impl<'a> Transaction<'a> {
             cancelled.fetch_or(self.work().is_err(), Ordering::Relaxed);
         });
         if cancelled.into_inner() {
-            Err(Cancelled())
+            Err(Cancelled)
         } else {
             Ok(())
         }

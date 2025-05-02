@@ -20,7 +20,7 @@ use crate::util::lock::Condvar;
 use crate::util::lock::Mutex;
 
 /// Used to signal that all the tasks should be cancelled.
-pub struct Cancelled();
+pub struct Cancelled;
 
 #[derive(Clone, Dupe)]
 pub struct CancellationHandle(Arc<AtomicBool>);
@@ -187,7 +187,7 @@ impl<K: Ord, V> TaskHeap<K, V> {
                     lock.active_workers -= 1;
                     if should_cancel {
                         lock.heap.clear();
-                        return Err(Cancelled());
+                        return Err(Cancelled);
                     }
                 }
                 None => {

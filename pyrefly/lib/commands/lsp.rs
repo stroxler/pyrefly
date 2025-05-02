@@ -1064,7 +1064,7 @@ impl Server {
                         Ok(Some(locations)),
                     )))
                 }
-                Err(Cancelled()) => {
+                Err(Cancelled) => {
                     let message = format!("Find reference request {} is canceled", request_id);
                     eprintln!("{message}");
                     send(Message::Response(Response::new_err(
