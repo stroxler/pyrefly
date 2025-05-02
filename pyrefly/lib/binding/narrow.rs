@@ -78,9 +78,9 @@ impl fmt::Display for PropertyKind {
 }
 
 #[derive(Clone, Debug)]
-pub struct AttributeChain(pub Box<Vec1<PropertyKind>>);
+pub struct PropertyChain(pub Box<Vec1<PropertyKind>>);
 
-impl AttributeChain {
+impl PropertyChain {
     pub fn new_attribute(chain: Vec1<Name>) -> Self {
         Self(Box::new(chain.mapped(PropertyKind::Attribute)))
     }
@@ -90,28 +90,11 @@ impl AttributeChain {
             Self(box chain) => chain,
         }
     }
-
-    pub fn names(&self) -> Vec1<Name> {
-        // This is bad, but it's temporary and will be removed soon
-        let mut names = Vec::new();
-        match self {
-            Self(box chain) => {
-                for property in chain {
-                    if let PropertyKind::Attribute(name) = property {
-                        names.push(name.clone())
-                    } else {
-                        unreachable!()
-                    }
-                }
-            }
-        }
-        return Vec1::try_from_vec(names).unwrap();
-    }
 }
 
 #[derive(Clone, Debug)]
 pub enum NarrowOp {
-    Atomic(Option<AttributeChain>, AtomicNarrowOp),
+    Atomic(Option<PropertyChain>, AtomicNarrowOp),
     And(Vec<NarrowOp>),
     Or(Vec<NarrowOp>),
 }
@@ -143,7 +126,7 @@ impl AtomicNarrowOp {
 #[derive(Clone, Debug)]
 enum NarrowingSubject {
     Name(Name),
-    Attribute(Name, AttributeChain),
+    Attribute(Name, PropertyChain),
 }
 
 impl NarrowOp {
@@ -317,23 +300,23 @@ impl NarrowOps {
 
 pub fn identifier_and_chain_for_attribute(
     expr: &ExprAttribute,
-) -> Option<(Identifier, AttributeChain)> {
+) -> Option<(Identifier, PropertyChain)> {
     fn f(
         expr: &ExprAttribute,
-        mut rev_attr_chain: Vec<Name>,
-    ) -> Option<(Identifier, AttributeChain)> {
+        mut rev_property_chain: Vec<Name>,
+    ) -> Option<(Identifier, PropertyChain)> {
         match &*expr.value {
             Expr::Name(name) => {
-                let mut final_chain = Vec1::from_vec_push(rev_attr_chain, expr.attr.id.clone());
+                let mut final_chain = Vec1::from_vec_push(rev_property_chain, expr.attr.id.clone());
                 final_chain.reverse();
                 Some((
                     Ast::expr_name_identifier(name.clone()),
-                    AttributeChain::new_attribute(final_chain),
+                    PropertyChain::new_attribute(final_chain),
                 ))
             }
             Expr::Attribute(x) => {
-                rev_attr_chain.push(expr.attr.id.clone());
-                f(x, rev_attr_chain)
+                rev_property_chain.push(expr.attr.id.clone());
+                f(x, rev_property_chain)
             }
             _ => None,
         }

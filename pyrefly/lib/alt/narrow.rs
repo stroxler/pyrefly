@@ -16,8 +16,9 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::attr::Narrowable;
 use crate::alt::callable::CallArg;
 use crate::binding::narrow::AtomicNarrowOp;
-use crate::binding::narrow::AttributeChain;
 use crate::binding::narrow::NarrowOp;
+use crate::binding::narrow::PropertyChain;
+use crate::binding::narrow::PropertyKind;
 use crate::error::collector::ErrorCollector;
 use crate::types::callable::FunctionKind;
 use crate::types::class::ClassType;
@@ -328,16 +329,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn get_attribute_type(&self, base: &TypeInfo, attr: &AttributeChain, range: TextRange) -> Type {
+    fn get_attribute_type(&self, base: &TypeInfo, attr: &PropertyChain, range: TextRange) -> Type {
         // We don't want to throw any attribute access errors when narrowing - the same code is traversed
         // separately for type checking, and there might be error context then we don't have here.
         let ignore_errors = self.error_swallower();
-        let names = attr.names();
-        let (first_name, remaining_names) = names.split_off_first();
-        match self.narrowable_for_attr_chain(
+        let (first_prop, remaining_prop) = attr.properties().clone().split_off_first();
+        match self.narrowable_for_property_chain(
             base,
-            &first_name,
-            &remaining_names,
+            &first_prop,
+            &remaining_prop,
             range,
             &ignore_errors,
         ) {
@@ -353,22 +353,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn narrowable_for_attr_chain(
+    fn narrowable_for_property_chain(
         &self,
         base: &TypeInfo,
-        first_name: &Name,
-        remaining_names: &[Name],
+        first_prop: &PropertyKind,
+        remaining_prop: &[PropertyKind],
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Narrowable {
-        match remaining_names.split_first() {
-            None => match base.type_at_name(first_name) {
-                Some(ty) => Narrowable::Simple(ty.clone()),
-                None => self.narrowable_for_attr(base.ty(), first_name, range, errors),
-            },
-            Some((next_name, remaining_names)) => {
-                let base = self.attr_infer(base, first_name, range, errors, None);
-                self.narrowable_for_attr_chain(&base, next_name, remaining_names, range, errors)
+        let PropertyKind::Attribute(first_attr_name) = first_prop else {
+            unreachable!("TODO: list index narrowing");
+        };
+        match remaining_prop.split_first() {
+            None => {
+                match base.type_at_property(&PropertyKind::Attribute(first_attr_name.clone())) {
+                    Some(ty) => Narrowable::Simple(ty.clone()),
+                    None => self.narrowable_for_attr(base.ty(), first_attr_name, range, errors),
+                }
+            }
+            Some((next_name, remaining_prop)) => {
+                let base = self.attr_infer(base, first_attr_name, range, errors, None);
+                self.narrowable_for_property_chain(&base, next_name, remaining_prop, range, errors)
             }
         }
     }
@@ -393,7 +398,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     errors,
                 );
-                type_info.with_narrow(&attr.names(), ty)
+                type_info.with_narrow(attr.properties(), ty)
             }
             NarrowOp::And(ops) => {
                 let mut ops_iter = ops.iter();

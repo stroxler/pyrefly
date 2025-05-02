@@ -14,11 +14,11 @@ use itertools::Itertools;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
-use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
 
 use crate::assert_bytes;
+use crate::binding::narrow::PropertyKind;
 use crate::types::types::Type;
 use crate::util::visit::Visit;
 use crate::util::visit::VisitMut;
@@ -59,15 +59,15 @@ impl TypeInfo {
         }
     }
 
-    pub fn type_at_name(&self, name: &Name) -> Option<&Type> {
-        match self.get_at_name(name) {
+    pub fn type_at_property(&self, property: &PropertyKind) -> Option<&Type> {
+        match self.get_at_property(property) {
             None | Some(NarrowedAttr::WithoutRoot(..)) => None,
             Some(NarrowedAttr::Leaf(ty)) | Some(NarrowedAttr::WithRoot(ty, _)) => Some(ty),
         }
     }
 
-    pub fn at_name(&self, name: &Name, fallback: impl Fn() -> Type) -> Self {
-        match self.get_at_name(name) {
+    pub fn at_property(&self, property: &PropertyKind, fallback: impl Fn() -> Type) -> Self {
+        match self.get_at_property(property) {
             None => TypeInfo::of_ty(fallback()),
             Some(NarrowedAttr::Leaf(ty)) => Self::of_ty(ty.clone()),
             Some(NarrowedAttr::WithoutRoot(attrs)) => Self {
@@ -81,9 +81,9 @@ impl TypeInfo {
         }
     }
 
-    pub fn with_narrow(&self, names: &Vec1<Name>, ty: Type) -> Self {
+    pub fn with_narrow(&self, properties: &Vec1<PropertyKind>, ty: Type) -> Self {
         let mut type_info = self.clone();
-        type_info.add_narrow(names, ty);
+        type_info.add_narrow(properties, ty);
         type_info
     }
 
@@ -114,14 +114,14 @@ impl TypeInfo {
 
     /// Add a narrow to the TypeInfo. This is used for narrowing conditions, not assignment - it
     /// only adds a new narrow (possibly overwriting any preexisting narrow), without changing subtrees.
-    fn add_narrow(&mut self, names: &Vec1<Name>, ty: Type) {
-        if let Some((name, more_names)) = names.split_first() {
+    fn add_narrow(&mut self, names: &Vec1<PropertyKind>, ty: Type) {
+        if let Some((name, more_properties)) = names.split_first() {
             if let Some(attrs) = &mut self.attrs {
-                attrs.add_narrow(name.clone(), more_names, ty);
+                attrs.add_narrow(name.clone(), more_properties, ty);
             } else {
                 self.attrs = Some(Box::new(NarrowedAttrs::of_narrow(
                     name.clone(),
-                    more_names,
+                    more_properties,
                     ty,
                 )));
             }
@@ -135,16 +135,16 @@ impl TypeInfo {
     /// Update for an assignment. This is different from `add_narrow` for two reasons:
     /// - It invalidates any existing subtree at that attribute chain in addition to narrowing.
     /// - There may not be a type available for the assignment (in which case we *just* invalidate)
-    pub fn update_for_assignment(&mut self, names: &Vec1<Name>, ty: Option<Type>) {
-        if let Some((name, more_names)) = names.split_first() {
+    pub fn update_for_assignment(&mut self, names: &Vec1<PropertyKind>, ty: Option<Type>) {
+        if let Some((name, more_properties)) = names.split_first() {
             if let Some(attrs) = &mut self.attrs {
                 // If there might be an existing narrow, we need to recurse down the chain of names and update.
-                attrs.update_for_assignment(name, more_names, ty);
+                attrs.update_for_assignment(name, more_properties, ty);
             } else if let Some(ty) = ty {
                 // If there is no existing narrow and a Type is available, we should create a narrow.
                 self.attrs = Some(Box::new(NarrowedAttrs::of_narrow(
                     name.clone(),
-                    more_names,
+                    more_properties,
                     ty,
                 )));
             } // ... else we have no type nor an existing narrow, nothing to do
@@ -171,9 +171,9 @@ impl TypeInfo {
         self.arc_clone().into_ty()
     }
 
-    fn get_at_name(&self, name: &Name) -> Option<&NarrowedAttr> {
+    fn get_at_property(&self, property: &PropertyKind) -> Option<&NarrowedAttr> {
         if let Some(box attrs) = &self.attrs {
-            attrs.get(name)
+            attrs.get(property)
         } else {
             None
         }
@@ -191,46 +191,51 @@ impl Display for TypeInfo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq)]
-struct NarrowedAttrs(SmallMap<Name, NarrowedAttr>);
+struct NarrowedAttrs(SmallMap<PropertyKind, NarrowedAttr>);
 
 impl NarrowedAttrs {
-    fn add_narrow(&mut self, name: Name, more_names: &[Name], ty: Type) {
+    fn add_narrow(&mut self, property: PropertyKind, more_properties: &[PropertyKind], ty: Type) {
         let attrs = &mut self.0;
-        match attrs.get_mut(&name) {
+        match attrs.get_mut(&property) {
             Some(attr) => {
-                attr.add_narrow(more_names, ty);
+                attr.add_narrow(more_properties, ty);
             }
             None => {
-                attrs.insert(name, NarrowedAttr::new(more_names, ty));
+                attrs.insert(property, NarrowedAttr::new(more_properties, ty));
             }
         };
     }
 
-    fn update_for_assignment(&mut self, name: &Name, more_names: &[Name], ty: Option<Type>) {
+    fn update_for_assignment(
+        &mut self,
+        property: &PropertyKind,
+        more_properties: &[PropertyKind],
+        ty: Option<Type>,
+    ) {
         let attrs = &mut self.0;
-        match more_names {
+        match more_properties {
             [] => {
                 if let Some(ty) = ty {
-                    attrs.insert(name.clone(), NarrowedAttr::new(more_names, ty));
+                    attrs.insert(property.clone(), NarrowedAttr::new(more_properties, ty));
                 } else {
-                    attrs.shift_remove(name);
+                    attrs.shift_remove(property);
                 }
             }
-            [name, more_names @ ..] => {
+            [name, more_properties @ ..] => {
                 if let Some(attr) = attrs.get_mut(name) {
-                    attr.update_for_assignment(name, more_names, ty);
+                    attr.update_for_assignment(name, more_properties, ty);
                 } // ... else there is no existing narrow and no narrow type, so do nothing.
             }
         }
     }
 
-    fn get(&self, name: &Name) -> Option<&NarrowedAttr> {
-        self.0.get(name)
+    fn get(&self, property: &PropertyKind) -> Option<&NarrowedAttr> {
+        self.0.get(property)
     }
 
-    fn of_narrow(name: Name, more_names: &[Name], ty: Type) -> Self {
+    fn of_narrow(name: PropertyKind, more_properties: &[PropertyKind], ty: Type) -> Self {
         let mut attrs = SmallMap::with_capacity(1);
-        attrs.insert(name.clone(), NarrowedAttr::new(more_names, ty));
+        attrs.insert(name.clone(), NarrowedAttr::new(more_properties, ty));
         Self(attrs)
     }
 
@@ -267,7 +272,11 @@ impl NarrowedAttrs {
         }
     }
 
-    fn fmt_with_prefix(&self, prefix: &mut Vec<String>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt_with_prefix(
+        &self,
+        prefix: &mut Vec<PropertyKind>,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         let attrs = &self.0;
         let mut first = true;
         for (name, value) in attrs.iter() {
@@ -291,19 +300,19 @@ impl NarrowedAttrs {
 
     fn fmt_with_prefix_and_name<'a>(
         &self,
-        prefix: &mut Vec<String>,
-        name: &'a Name,
+        prefix: &mut Vec<PropertyKind>,
+        property: &'a PropertyKind,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        prefix.push(name.to_string());
+        prefix.push(property.clone());
         self.fmt_with_prefix(prefix, f)?;
         prefix.pop();
         Ok(())
     }
 
     fn fmt_type_with_label(
-        prefix: &[String],
-        name: &Name,
+        prefix: &[PropertyKind],
+        property: &PropertyKind,
         ty: &Type,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
@@ -312,7 +321,7 @@ impl NarrowedAttrs {
             "_.{}{}{}: {}",
             prefix.iter().join("."),
             if prefix.is_empty() { "" } else { "." },
-            name,
+            property,
             ty
         )
     }
@@ -357,23 +366,25 @@ enum NarrowedAttr {
 }
 
 impl NarrowedAttr {
-    fn new(names: &[Name], ty: Type) -> Self {
-        match names {
+    fn new(properties: &[PropertyKind], ty: Type) -> Self {
+        match properties {
             [] => Self::Leaf(ty),
-            [name, more_names @ ..] => {
-                Self::WithoutRoot(NarrowedAttrs::of_narrow((*name).clone(), more_names, ty))
-            }
+            [first_property, more_properties @ ..] => Self::WithoutRoot(NarrowedAttrs::of_narrow(
+                (*first_property).clone(),
+                more_properties,
+                ty,
+            )),
         }
     }
 
-    fn add_narrow(&mut self, names: &[Name], narrowed_ty: Type) {
+    fn add_narrow(&mut self, names: &[PropertyKind], narrowed_ty: Type) {
         // Take ownership of self so we can destructure it and potentially change enum variants.
         let mut current = NarrowedAttr::Leaf(Type::None);
         mem::swap(self, &mut current);
         *self = current.with_narrow(names, narrowed_ty)
     }
 
-    fn with_narrow(self, names: &[Name], narrowed_ty: Type) -> Self {
+    fn with_narrow(self, names: &[PropertyKind], narrowed_ty: Type) -> Self {
         match names {
             [] => {
                 // We are setting a narrow at the current node (potentially overriding an existing narrow; it is
@@ -385,20 +396,20 @@ impl NarrowedAttr {
                     }
                 }
             }
-            [name, more_names @ ..] => {
+            [name, more_properties @ ..] => {
                 // We are setting a narrow in a subtree. We need to preserve any existing tree.
                 match self {
                     Self::Leaf(root_ty) => {
                         let attrs =
-                            NarrowedAttrs::of_narrow((*name).clone(), more_names, narrowed_ty);
+                            NarrowedAttrs::of_narrow((*name).clone(), more_properties, narrowed_ty);
                         Self::WithRoot(root_ty, attrs)
                     }
                     Self::WithoutRoot(mut attrs) => {
-                        attrs.add_narrow((*name).clone(), more_names, narrowed_ty);
+                        attrs.add_narrow((*name).clone(), more_properties, narrowed_ty);
                         Self::WithoutRoot(attrs)
                     }
                     Self::WithRoot(root_ty, mut attrs) => {
-                        attrs.add_narrow((*name).clone(), more_names, narrowed_ty);
+                        attrs.add_narrow((*name).clone(), more_properties, narrowed_ty);
                         Self::WithRoot(root_ty, attrs)
                     }
                 }
@@ -406,11 +417,16 @@ impl NarrowedAttr {
         }
     }
 
-    fn update_for_assignment(&mut self, name: &Name, more_names: &[Name], ty: Option<Type>) {
+    fn update_for_assignment(
+        &mut self,
+        property: &PropertyKind,
+        more_properties: &[PropertyKind],
+        ty: Option<Type>,
+    ) {
         match self {
             Self::Leaf(..) => {}
             Self::WithoutRoot(attrs) | Self::WithRoot(_, attrs) => {
-                attrs.update_for_assignment(name, more_names, ty);
+                attrs.update_for_assignment(property, more_properties, ty);
             }
         }
     }
@@ -460,6 +476,7 @@ mod tests {
     use ruff_python_ast::name::Name;
     use vec1::Vec1;
 
+    use crate::binding::narrow::PropertyKind;
     use crate::types::class::ClassType;
     use crate::types::class::TArgs;
     use crate::types::display::tests::fake_class;
@@ -475,8 +492,8 @@ mod tests {
 
     #[test]
     fn test_type_info_one_level_only() {
-        let x = || Name::new_static("x");
-        let y = || Name::new_static("y");
+        let x = || PropertyKind::Attribute(Name::new_static("x"));
+        let y = || PropertyKind::Attribute(Name::new_static("y"));
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         assert_eq!(type_info.to_string(), "Foo");
         type_info.add_narrow(&Vec1::new(x()), fake_class_type("Bar"));
@@ -487,9 +504,9 @@ mod tests {
 
     #[test]
     fn test_type_info_adding_sub_attributes() {
-        let x = || Name::new_static("x");
-        let y = || Name::new_static("y");
-        let z = || Name::new_static("z");
+        let x = || PropertyKind::Attribute(Name::new_static("x"));
+        let y = || PropertyKind::Attribute(Name::new_static("y"));
+        let z = || PropertyKind::Attribute(Name::new_static("z"));
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         type_info.add_narrow(&Vec1::new(x()), fake_class_type("Bar"));
         type_info.add_narrow(&Vec1::from_vec_push(vec![x()], y()), fake_class_type("Baz"));
@@ -511,10 +528,10 @@ mod tests {
 
     #[test]
     fn test_type_info_creating_subtrees_and_narrowing_roots() {
-        let x = || Name::new_static("x");
-        let y = || Name::new_static("y");
-        let z = || Name::new_static("z");
-        let w = || Name::new_static("w");
+        let x = || PropertyKind::Attribute(Name::new_static("x"));
+        let y = || PropertyKind::Attribute(Name::new_static("y"));
+        let z = || PropertyKind::Attribute(Name::new_static("z"));
+        let w = || PropertyKind::Attribute(Name::new_static("w"));
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y()], z()),
@@ -535,9 +552,9 @@ mod tests {
 
     #[test]
     fn test_type_info_overwiting_existing_narrows() {
-        let x = || Name::new_static("x");
-        let y = || Name::new_static("y");
-        let z = || Name::new_static("z");
+        let x = || PropertyKind::Attribute(Name::new_static("x"));
+        let y = || PropertyKind::Attribute(Name::new_static("y"));
+        let z = || PropertyKind::Attribute(Name::new_static("z"));
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y()], z()),

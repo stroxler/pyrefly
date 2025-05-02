@@ -28,6 +28,7 @@ use crate::alt::solve::TypeFormContext;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
+use crate::binding::narrow::PropertyKind;
 use crate::dunder;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -181,7 +182,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> TypeInfo {
-        TypeInfo::at_name(base, attr_name, || {
+        TypeInfo::at_property(base, &PropertyKind::Attribute(attr_name.clone()), || {
             self.attr_infer_for_type(base.ty(), attr_name, range, errors, context)
         })
     }
