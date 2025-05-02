@@ -81,8 +81,8 @@ impl fmt::Display for PropertyKind {
 pub struct PropertyChain(pub Box<Vec1<PropertyKind>>);
 
 impl PropertyChain {
-    pub fn new_attribute(chain: Vec1<Name>) -> Self {
-        Self(Box::new(chain.mapped(PropertyKind::Attribute)))
+    pub fn new(chain: Vec1<PropertyKind>) -> Self {
+        Self(Box::new(chain))
     }
 
     pub fn properties(&self) -> &Vec1<PropertyKind> {
@@ -303,19 +303,22 @@ pub fn identifier_and_chain_for_attribute(
 ) -> Option<(Identifier, PropertyChain)> {
     fn f(
         expr: &ExprAttribute,
-        mut rev_property_chain: Vec<Name>,
+        mut rev_property_chain: Vec<PropertyKind>,
     ) -> Option<(Identifier, PropertyChain)> {
         match &*expr.value {
             Expr::Name(name) => {
-                let mut final_chain = Vec1::from_vec_push(rev_property_chain, expr.attr.id.clone());
+                let mut final_chain = Vec1::from_vec_push(
+                    rev_property_chain,
+                    PropertyKind::Attribute(expr.attr.id.clone()),
+                );
                 final_chain.reverse();
                 Some((
                     Ast::expr_name_identifier(name.clone()),
-                    PropertyChain::new_attribute(final_chain),
+                    PropertyChain::new(final_chain),
                 ))
             }
             Expr::Attribute(x) => {
-                rev_property_chain.push(expr.attr.id.clone());
+                rev_property_chain.push(PropertyKind::Attribute(expr.attr.id.clone()));
                 f(x, rev_property_chain)
             }
             _ => None,
