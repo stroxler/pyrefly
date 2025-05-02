@@ -269,8 +269,8 @@ impl ConfigFile {
         SysInfo::new(self.python_version(), self.python_platform().clone())
     }
 
-    pub fn errors(&self, path: Option<&Path>) -> &ErrorDisplayConfig {
-        path.and_then(|path| self.get_from_sub_configs(ConfigBase::get_errors, path))
+    fn errors(&self, path: &Path) -> &ErrorDisplayConfig {
+        self.get_from_sub_configs(ConfigBase::get_errors, path)
             .unwrap_or_else(||
                 // we can use unwrap here, because the value in the root config must
                 // be set in `ConfigFile::configure()`.
@@ -295,17 +295,15 @@ impl ConfigFile {
                 self.root.skip_untyped_functions.unwrap())
     }
 
-    pub fn ignore_errors_in_generated_code(&self, path: Option<&Path>) -> bool {
-        path.and_then(|path| {
-            self.get_from_sub_configs(ConfigBase::get_ignore_errors_in_generated_code, path)
-        })
-        .unwrap_or_else(||
+    fn ignore_errors_in_generated_code(&self, path: &Path) -> bool {
+        self.get_from_sub_configs(ConfigBase::get_ignore_errors_in_generated_code, path)
+            .unwrap_or_else(||
                 // we can use unwrap here, because the value in the root config must
                 // be set in `ConfigFile::configure()`.
                 self.root.ignore_errors_in_generated_code.unwrap())
     }
 
-    pub fn get_error_config(&self, path: Option<&Path>) -> ErrorConfig {
+    pub fn get_error_config(&self, path: &Path) -> ErrorConfig {
         ErrorConfig::new(
             self.errors(path),
             self.ignore_errors_in_generated_code(path),
@@ -903,9 +901,7 @@ mod tests {
         );
 
         // test empty value falls back to next
-        assert!(
-            config.ignore_errors_in_generated_code(Some(Path::new("this/is/highest/priority")))
-        );
+        assert!(config.ignore_errors_in_generated_code(Path::new("this/is/highest/priority")));
 
         // test no pattern match
         assert_eq!(

@@ -445,7 +445,7 @@ impl<'a> Transaction<'a> {
             Some(path) => path.dupe(),
             None => self
                 .get_cached_loader(&self.get_module(handle).config.read())
-                .find_import(module, handle.path().as_path())?,
+                .find_import(module, Some(handle.path().as_path()))?,
         };
         Ok(Handle::new(module, path, handle.sys_info().dupe()))
     }
@@ -546,7 +546,7 @@ impl<'a> Transaction<'a> {
             for dependency_handle in module_data.deps.read().values().flatten() {
                 match loader.find_import(
                     dependency_handle.module(),
-                    module_data.handle.path().as_path(),
+                    Some(module_data.handle.path().as_path()),
                 ) {
                     Ok(path) if &path == dependency_handle.path() => {}
                     _ => {

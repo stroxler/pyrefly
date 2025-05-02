@@ -112,12 +112,12 @@ impl ModulePath {
     }
 
     pub fn is_init(&self) -> bool {
-        self.as_path().is_some_and(is_path_init)
+        is_path_init(self.as_path())
     }
 
     /// Whether things imported by this module are reexported.
     pub fn style(&self) -> ModuleStyle {
-        self.as_path().map(ModuleStyle::of_path).unwrap_or_default()
+        ModuleStyle::of_path(self.as_path())
     }
 
     pub fn is_interface(&self) -> bool {
@@ -129,7 +129,7 @@ impl ModulePath {
         if matches!(self.details(), ModulePathDetails::BundledTypeshed(_)) {
             return None;
         }
-        let mut path = self.as_path()?.to_path_buf();
+        let mut path = self.as_path().to_path_buf();
         path.set_extension("");
 
         if path.file_name() == Some(dunder::INIT.as_str().as_ref()) {
@@ -146,12 +146,12 @@ impl ModulePath {
     }
 
     /// Convert to a path, that may not exist on disk.
-    pub fn as_path(&self) -> Option<&Path> {
+    pub fn as_path(&self) -> &Path {
         match &**self.0 {
             ModulePathDetails::FileSystem(path)
             | ModulePathDetails::BundledTypeshed(path)
             | ModulePathDetails::Memory(path)
-            | ModulePathDetails::Namespace(path) => Some(path),
+            | ModulePathDetails::Namespace(path) => path,
         }
     }
 
