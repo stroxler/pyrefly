@@ -37,16 +37,17 @@ const docsSidebar = [
         collapsed: false,
         items: ['installation', 'configuration'],
     },
-    {
-        type: 'category' as const,
-        label: 'Migrating to Pyrefly',
-        link: {
-            type: 'doc' as const,
-            id: 'migrating-to-pyrefly',
-        },
-        description: "Never used a type system before or just new to Pyrefly? Start here!",
-        items: ['migrating-from-mypy',  'migrating-from-pyright']
-    },
+    // TODO: Renaable links to configuration migration work when we're confident the tool won't break existing pyrpoject toml files
+    // {
+    //     type: 'category' as const,
+    //     label: 'Migrating to Pyrefly',
+    //     link: {
+    //         type: 'doc' as const,
+    //         id: 'migrating-to-pyrefly',
+    //     },
+    //     description: "Never used a type system before or just new to Pyrefly? Start here!",
+    //     items: ['migrating-from-mypy',  'migrating-from-pyright']
+    // },
     {
         type: 'doc' as const,
         id: 'pyrefly-faq',
