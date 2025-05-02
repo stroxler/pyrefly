@@ -315,6 +315,14 @@ impl Globs {
     pub fn files(&self) -> anyhow::Result<Vec<PathBuf>> {
         if USE_EDEN {
             match self.files_eden() {
+                Ok(files) if files.is_empty() => {
+                    return Err(anyhow::anyhow!(
+                        "No files matched pattern(s) {}",
+                        self.0
+                            .map(|p| format!("`{}`", p.0.to_string_lossy()))
+                            .join(", "),
+                    ));
+                }
                 Ok(files) => return Ok(files),
                 Err(e) => debug!("Failed to use `eden` for glob: {e:#}"),
             }
