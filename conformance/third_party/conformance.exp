@@ -4765,46 +4765,6 @@
     },
     {
       "code": -2,
-      "column": 1,
-      "concise_description": "assert_type(Any, str) failed",
-      "description": "assert_type(Any, str) failed",
-      "line": 35,
-      "name": "assert-type",
-      "stop_column": 29,
-      "stop_line": 35
-    },
-    {
-      "code": -2,
-      "column": 13,
-      "concise_description": "Instance-only attribute `genus` of class `Pet2` is not visible on the class",
-      "description": "Instance-only attribute `genus` of class `Pet2` is not visible on the class",
-      "line": 35,
-      "name": "missing-attribute",
-      "stop_column": 23,
-      "stop_line": 35
-    },
-    {
-      "code": -2,
-      "column": 1,
-      "concise_description": "assert_type(Any, str) failed",
-      "description": "assert_type(Any, str) failed",
-      "line": 36,
-      "name": "assert-type",
-      "stop_column": 31,
-      "stop_line": 36
-    },
-    {
-      "code": -2,
-      "column": 13,
-      "concise_description": "Instance-only attribute `species` of class `Pet2` is not visible on the class",
-      "description": "Instance-only attribute `species` of class `Pet2` is not visible on the class",
-      "line": 36,
-      "name": "missing-attribute",
-      "stop_column": 25,
-      "stop_line": 36
-    },
-    {
-      "code": -2,
       "column": 5,
       "concise_description": "Enum member `DOG` may not be annotated directly. Instead, annotate the _value_ attribute.",
       "description": "Enum member `DOG` may not be annotated directly. Instead, annotate the _value_ attribute.",

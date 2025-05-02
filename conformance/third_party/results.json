@@ -3,7 +3,7 @@
   "pass": 49,
   "fail": 87,
   "pass_rate": 0.36,
-  "differences": 443,
+  "differences": 441,
   "passing": [
     "aliases_newtype.py",
     "annotations_coroutines.py",
@@ -87,7 +87,7 @@
     "directives_deprecated.py": 12,
     "directives_type_ignore_file1.py": 1,
     "enums_behaviors.py": 4,
-    "enums_members.py": 6,
+    "enums_members.py": 4,
     "exceptions_context_managers.py": 2,
     "generics_base_class.py": 3,
     "generics_basic.py": 7,

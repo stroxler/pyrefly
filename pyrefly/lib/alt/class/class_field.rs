@@ -544,7 +544,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
         let metadata = self.get_metadata_for_class(class);
-        let initialization = self.get_class_field_initialization(&metadata, initial_value);
+        let initialization = self.get_class_field_initialization(
+            &metadata,
+            initial_value,
+            class.module_info().path().is_interface(),
+        );
 
         // Ban typed dict from containing values; fields should be annotation-only.
         // TODO(stroxler): we ought to look into this more: class-level attributes make sense on a `TypedDict` class;
@@ -743,9 +747,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         metadata: &ClassMetadata,
         initial_value: &ClassFieldInitialValue,
+        is_stub: bool,
     ) -> ClassFieldInitialization {
         match initial_value {
-            ClassFieldInitialValue::Instance(_) => ClassFieldInitialization::Instance(false),
+            ClassFieldInitialValue::Instance(_) => {
+                // We consider fields to be always-initialized if it's defined within stub files.
+                // See https://github.com/python/typeshed/pull/13875 for reasoning.
+                ClassFieldInitialization::Instance(is_stub)
+            }
             ClassFieldInitialValue::Class(None) => ClassFieldInitialization::Class(None),
             ClassFieldInitialValue::Class(Some(e)) => {
                 // If this field was created via a call to a dataclass field specifier, extract field flags from the call.
@@ -919,7 +928,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 )
             }
             ClassFieldInner::Simple {
-                initialization: ClassFieldInitialization::Instance(_),
+                initialization: ClassFieldInitialization::Instance(false),
                 annotation,
                 ..
             } if annotation

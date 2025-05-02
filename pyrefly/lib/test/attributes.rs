@@ -548,14 +548,14 @@ class A:
 }
 
 testcase!(
-    test_stub_initializes_attr_with_ellipses,
+    test_stub_initializes_attr,
     env_with_stub(),
     r#"
 from typing import assert_type
 from foo import A
 
 assert_type(A.x, int)
-A.y  # E: Instance-only attribute `y` of class `A` is not visible on the class
+assert_type(A.y, int)
     "#,
 );
 

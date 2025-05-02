@@ -270,8 +270,6 @@
   "enums_members.py": [
     "Line 27: Unexpected errors ['assert_type(Any, str) failed', 'Instance-only attribute `genus` of class `Pet` is not visible on the class']",
     "Line 28: Unexpected errors ['assert_type(Any, str) failed', 'Instance-only attribute `species` of class `Pet` is not visible on the class']",
-    "Line 35: Unexpected errors ['assert_type(Any, str) failed', 'Instance-only attribute `genus` of class `Pet2` is not visible on the class']",
-    "Line 36: Unexpected errors ['assert_type(Any, str) failed', 'Instance-only attribute `species` of class `Pet2` is not visible on the class']",
     "Line 100: Unexpected errors ['assert_type(Literal[TrafficLight.AMBER], Literal[TrafficLight.YELLOW]) failed']",
     "Line 128: Unexpected errors ['Could not find name `reveal_type`']"
   ],
