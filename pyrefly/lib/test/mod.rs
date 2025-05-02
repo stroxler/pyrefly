@@ -26,6 +26,7 @@ mod flow;
 mod generic_basic;
 mod generic_restrictions;
 mod imports;
+mod index_narrow;
 mod literal;
 mod lsp;
 mod metadata;
