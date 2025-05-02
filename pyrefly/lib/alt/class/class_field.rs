@@ -544,11 +544,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
         let metadata = self.get_metadata_for_class(class);
-        let initialization = self.get_class_field_initialization(
-            &metadata,
-            initial_value,
-            class.module_info().path().is_interface(),
-        );
+        let magically_initialized = {
+            // We consider fields to be always-initialized if it's defined within stub files.
+            // See https://github.com/python/typeshed/pull/13875 for reasoning.
+            class.module_info().path().is_interface()
+            // We consider fields to be always-initialized if it's annotated explicitly with `ClassVar`.
+            || annotation
+                .as_ref()
+                .is_some_and(|annot| annot.has_qualifier(&Qualifier::ClassVar))
+        };
+        let initialization =
+            self.get_class_field_initialization(&metadata, initial_value, magically_initialized);
 
         // Ban typed dict from containing values; fields should be annotation-only.
         // TODO(stroxler): we ought to look into this more: class-level attributes make sense on a `TypedDict` class;
@@ -747,13 +753,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         metadata: &ClassMetadata,
         initial_value: &ClassFieldInitialValue,
-        is_stub: bool,
+        magically_initialized: bool,
     ) -> ClassFieldInitialization {
         match initial_value {
             ClassFieldInitialValue::Instance(_) => {
-                // We consider fields to be always-initialized if it's defined within stub files.
-                // See https://github.com/python/typeshed/pull/13875 for reasoning.
-                ClassFieldInitialization::Instance(is_stub)
+                ClassFieldInitialization::Instance(magically_initialized)
             }
             ClassFieldInitialValue::Class(None) => ClassFieldInitialization::Class(None),
             ClassFieldInitialValue::Class(Some(e)) => {
@@ -929,14 +933,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             ClassFieldInner::Simple {
                 initialization: ClassFieldInitialization::Instance(false),
-                annotation,
                 ..
-            } if annotation
-                .as_ref()
-                .is_none_or(|annot| !annot.has_qualifier(&Qualifier::ClassVar)) =>
-            {
-                Attribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(cls.dupe()))
-            }
+            } => Attribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(cls.dupe())),
             ClassFieldInner::Simple { ty, .. } => {
                 if field.depends_on_class_type_parameter(cls) {
                     self.get_function_depending_on_class_type_parameter(cls, ty)
