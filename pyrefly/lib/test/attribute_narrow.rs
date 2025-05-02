@@ -209,8 +209,8 @@ class N:
 
 def f(n: N):
     assert isinstance(n.args[0], N)
-    t1 = n.args[0].type # E:  Object of class `NoneType` has no attribute `type` # E: Object of class `tuple` has no attribute `type`
-    reveal_type(t1) # E: revealed type: Error
+    t1 = n.args[0].type
+    reveal_type(t1) # E: revealed type: Never
 "#,
 );
 

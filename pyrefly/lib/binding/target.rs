@@ -20,7 +20,7 @@ use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LookupKind;
-use crate::binding::narrow::identifier_and_chain_for_attribute;
+use crate::binding::narrow::identifier_and_chain_for_property;
 use crate::binding::scope::FlowStyle;
 use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
@@ -76,7 +76,9 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn bind_attr_assign(&mut self, attr: ExprAttribute, value: ExprOrBinding) {
-        if let Some((identifier, _)) = identifier_and_chain_for_attribute(&attr) {
+        if let Some((identifier, _)) =
+            identifier_and_chain_for_property(&Expr::Attribute(attr.clone()))
+        {
             let idx = self.table.insert(
                 Key::AttrAssign(ShortIdentifier::new(&identifier)),
                 Binding::AssignToAttribute(Box::new((attr, value))),

@@ -12,13 +12,15 @@ use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::CmpOp;
 use ruff_python_ast::Expr;
-use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprBoolOp;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprCompare;
 use ruff_python_ast::ExprNamed;
+use ruff_python_ast::ExprNumberLiteral;
+use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::ExprUnaryOp;
 use ruff_python_ast::Identifier;
+use ruff_python_ast::Number;
 use ruff_python_ast::UnaryOp;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -298,37 +300,67 @@ impl NarrowOps {
     }
 }
 
-pub fn identifier_and_chain_for_attribute(
-    expr: &ExprAttribute,
-) -> Option<(Identifier, PropertyChain)> {
+pub fn identifier_and_chain_for_property(expr: &Expr) -> Option<(Identifier, PropertyChain)> {
     fn f(
-        expr: &ExprAttribute,
+        expr: &Expr,
         mut rev_property_chain: Vec<PropertyKind>,
     ) -> Option<(Identifier, PropertyChain)> {
-        match &*expr.value {
-            Expr::Name(name) => {
-                let mut final_chain = Vec1::from_vec_push(
-                    rev_property_chain,
-                    PropertyKind::Attribute(expr.attr.id.clone()),
-                );
-                final_chain.reverse();
-                Some((
-                    Ast::expr_name_identifier(name.clone()),
-                    PropertyChain::new(final_chain),
-                ))
+        if let Expr::Attribute(attr) = expr {
+            match &*attr.value {
+                Expr::Name(name) => {
+                    let mut final_chain = Vec1::from_vec_push(
+                        rev_property_chain,
+                        PropertyKind::Attribute(attr.attr.id.clone()),
+                    );
+                    final_chain.reverse();
+                    Some((
+                        Ast::expr_name_identifier(name.clone()),
+                        PropertyChain::new(final_chain),
+                    ))
+                }
+                parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
+                    rev_property_chain.push(PropertyKind::Attribute(attr.attr.id.clone()));
+                    f(parent, rev_property_chain)
+                }
+                _ => None,
             }
-            Expr::Attribute(x) => {
-                rev_property_chain.push(PropertyKind::Attribute(expr.attr.id.clone()));
-                f(x, rev_property_chain)
+        } else if let Expr::Subscript(
+            subscript @ ExprSubscript {
+                slice:
+                    box Expr::NumberLiteral(ExprNumberLiteral {
+                        value: Number::Int(idx),
+                        ..
+                    }),
+                ..
+            },
+        ) = expr
+            && let Some(idx) = idx.as_usize()
+        {
+            match &*subscript.value {
+                Expr::Name(name) => {
+                    let mut final_chain =
+                        Vec1::from_vec_push(rev_property_chain, PropertyKind::Index(idx));
+                    final_chain.reverse();
+                    Some((
+                        Ast::expr_name_identifier(name.clone()),
+                        PropertyChain::new(final_chain),
+                    ))
+                }
+                parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
+                    rev_property_chain.push(PropertyKind::Index(idx));
+                    f(parent, rev_property_chain)
+                }
+                _ => None,
             }
-            _ => None,
+        } else {
+            None
         }
     }
     f(expr, Vec::new())
 }
 
-fn subject_for_attribute(expr: &ExprAttribute) -> Option<NarrowingSubject> {
-    identifier_and_chain_for_attribute(expr)
+fn subject_for_property(expr: &Expr) -> Option<NarrowingSubject> {
+    identifier_and_chain_for_property(expr)
         .map(|(identifier, attr)| NarrowingSubject::Property(identifier.id, attr))
 }
 
@@ -336,7 +368,7 @@ fn expr_to_subjects(expr: &Expr) -> Vec<NarrowingSubject> {
     fn f(expr: &Expr, res: &mut Vec<NarrowingSubject>) {
         match expr {
             Expr::Name(name) => res.push(NarrowingSubject::Name(name.id.clone())),
-            Expr::Attribute(x) => res.extend(subject_for_attribute(x)),
+            Expr::Attribute(_) | Expr::Subscript(_) => res.extend(subject_for_property(expr)),
             Expr::Named(ExprNamed { target, value, .. }) => {
                 f(target, res);
                 f(value, res);

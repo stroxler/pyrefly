@@ -59,7 +59,7 @@ use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::SuperStyle;
 use crate::binding::binding::TypeParameter;
 use crate::binding::binding::UnpackedPosition;
-use crate::binding::narrow::identifier_and_chain_for_attribute;
+use crate::binding::narrow::identifier_and_chain_for_property;
 use crate::dunder;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -1487,7 +1487,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     attr.range,
                     errors,
                 );
-                if let Some((identifier, chain)) = identifier_and_chain_for_attribute(attr) {
+                if let Some((identifier, chain)) =
+                    identifier_and_chain_for_property(&Expr::Attribute(attr.clone()))
+                {
                     let mut type_info = self
                         .get(&Key::Usage(ShortIdentifier::new(&identifier)))
                         .arc_clone();
