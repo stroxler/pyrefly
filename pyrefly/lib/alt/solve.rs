@@ -1491,7 +1491,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let mut type_info = self
                         .get(&Key::Usage(ShortIdentifier::new(&identifier)))
                         .arc_clone();
-                    type_info.update_for_assignment(chain.names(), narrowed);
+                    type_info.update_for_assignment(&chain.names(), narrowed);
                     type_info
                 } else {
                     // Placeholder: in this case, we're assigning to an anonymous base and the

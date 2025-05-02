@@ -5,6 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::fmt;
+
+use pyrefly_derive::TypeEq;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::CmpOp;
@@ -59,18 +62,50 @@ pub enum AtomicNarrowOp {
     Placeholder,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, TypeEq, Hash)]
+pub enum PropertyKind {
+    Attribute(Name),
+    Index(usize),
+}
+
+impl fmt::Display for PropertyKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PropertyKind::Attribute(name) => write!(f, "{}", name),
+            PropertyKind::Index(idx) => write!(f, "{}", idx),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
-pub struct AttributeChain(pub Box<Vec1<Name>>);
+pub struct AttributeChain(pub Box<Vec1<PropertyKind>>);
 
 impl AttributeChain {
-    pub fn new(chain: Vec1<Name>) -> Self {
-        Self(Box::new(chain))
+    pub fn new_attribute(chain: Vec1<Name>) -> Self {
+        Self(Box::new(chain.mapped(PropertyKind::Attribute)))
     }
 
-    pub fn names(&self) -> &Vec1<Name> {
+    pub fn properties(&self) -> &Vec1<PropertyKind> {
         match self {
             Self(box chain) => chain,
         }
+    }
+
+    pub fn names(&self) -> Vec1<Name> {
+        // This is bad, but it's temporary and will be removed soon
+        let mut names = Vec::new();
+        match self {
+            Self(box chain) => {
+                for property in chain {
+                    if let PropertyKind::Attribute(name) = property {
+                        names.push(name.clone())
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+        }
+        return Vec1::try_from_vec(names).unwrap();
     }
 }
 
@@ -293,7 +328,7 @@ pub fn identifier_and_chain_for_attribute(
                 final_chain.reverse();
                 Some((
                     Ast::expr_name_identifier(name.clone()),
-                    AttributeChain::new(final_chain),
+                    AttributeChain::new_attribute(final_chain),
                 ))
             }
             Expr::Attribute(x) => {

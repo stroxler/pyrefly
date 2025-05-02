@@ -332,7 +332,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // We don't want to throw any attribute access errors when narrowing - the same code is traversed
         // separately for type checking, and there might be error context then we don't have here.
         let ignore_errors = self.error_swallower();
-        let AttributeChain(box names) = attr.clone();
+        let names = attr.names();
         let (first_name, remaining_names) = names.split_off_first();
         match self.narrowable_for_attr_chain(
             base,
@@ -393,7 +393,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     errors,
                 );
-                type_info.with_narrow(attr.names(), ty)
+                type_info.with_narrow(&attr.names(), ty)
             }
             NarrowOp::And(ops) => {
                 let mut ops_iter = ops.iter();
