@@ -62,10 +62,8 @@ pub fn standard_config_finder(
             // path that is still useful for this import by including all of its parents.
             None => {
                 let path = match path.details() {
-                    ModulePathDetails::FileSystem(x) | ModulePathDetails::Memory(x) => {
-                        Some(x.as_path())
-                    }
-                    ModulePathDetails::Namespace(x) => x.parent(),
+                    ModulePathDetails::FileSystem(x) | ModulePathDetails::Memory(x) => x.parent(),
+                    ModulePathDetails::Namespace(x) => Some(x.as_path()),
                     ModulePathDetails::BundledTypeshed(_) => None,
                 };
                 match path {
@@ -78,11 +76,8 @@ pub fn standard_config_finder(
                             // We deliberately set `site_package_path` rather than `search_path` here,
                             // because otherwise a user with `/sys` on their computer (all of them)
                             // will override `sys.version` in preference to typeshed.
-                            let additional_site_package_path = path
-                                .ancestors()
-                                .skip(1)
-                                .map(|x| x.to_owned())
-                                .collect::<Vec<_>>();
+                            let additional_site_package_path =
+                                path.ancestors().map(|x| x.to_owned()).collect::<Vec<_>>();
                             config.python_environment.site_package_path = config
                                 .python_environment
                                 .site_package_path
