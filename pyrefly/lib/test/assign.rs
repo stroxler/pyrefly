@@ -120,7 +120,7 @@ y: Optional[str] = 43  # E: `Literal[43]` is not assignable to `str | None`
 
 testcase!(
     test_assign_ellipse,
-    TestEnv::one_with_path("foo", "x: int = ...", "foo.pyi"),
+    TestEnv::one_with_path("foo", "foo.pyi", "x: int = ..."),
     r#"
 from typing import assert_type
 from types import EllipsisType

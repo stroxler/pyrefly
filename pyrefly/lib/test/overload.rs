@@ -52,6 +52,7 @@ fn env_with_stub() -> TestEnv {
     let mut t = TestEnv::new();
     t.add_with_path(
         "foo",
+        "foo.pyi",
         r#"
 from typing import overload
 
@@ -61,7 +62,6 @@ def f(x: int) -> int: ...
 @overload
 def f(x: str) -> str: ...
     "#,
-        "foo.pyi",
     );
     t
 }

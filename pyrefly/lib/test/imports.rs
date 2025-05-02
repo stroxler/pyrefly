@@ -20,14 +20,14 @@ x: X = X()
 
 fn env_class_x_deeper() -> TestEnv {
     let mut t = TestEnv::new();
-    t.add_with_path("foo", "", "foo/__init__.pyi");
+    t.add_with_path("foo", "foo/__init__.pyi", "");
     t.add_with_path(
         "foo.bar",
+        "foo/bar.pyi",
         r#"
 class X: ...
 x: X = X()
 "#,
-        "foo/bar.pyi",
     );
     t
 }
@@ -118,10 +118,10 @@ y: X = x  # E: `foo.X` is not assignable to `main.X`
 
 fn env_imports_dot() -> TestEnv {
     let mut t = TestEnv::new();
-    t.add_with_path("foo", "", "foo/__init__.pyi");
-    t.add_with_path("foo.bar", "", "foo/bar/__init__.pyi");
-    t.add_with_path("foo.bar.baz", "from .qux import x", "foo/bar/baz.pyi");
-    t.add_with_path("foo.bar.qux", "x: int = 1", "foo/bar/qux.pyi");
+    t.add_with_path("foo", "foo/__init__.pyi", "");
+    t.add_with_path("foo.bar", "foo/bar/__init__.pyi", "");
+    t.add_with_path("foo.bar.baz", "foo/bar/baz.pyi", "from .qux import x");
+    t.add_with_path("foo.bar.qux", "foo/bar/qux.pyi", "x: int = 1");
     t
 }
 
@@ -192,9 +192,9 @@ assert_type(_y, Any)  # E: Could not find name `_y`
 
 fn env_import_different_submodules() -> TestEnv {
     let mut t = TestEnv::new();
-    t.add_with_path("foo", "", "foo/__init__.pyi");
-    t.add_with_path("foo.bar", "x: int = 1", "foo/bar.pyi");
-    t.add_with_path("foo.baz", "x: str = 'a'", "foo/baz.pyi");
+    t.add_with_path("foo", "foo/__init__.pyi", "");
+    t.add_with_path("foo.bar", "foo/bar.pyi", "x: int = 1");
+    t.add_with_path("foo.baz", "foo/baz.pyi", "x: str = 'a'");
     t
 }
 
@@ -264,14 +264,14 @@ z = y  # E: Could not find name `y`
 
 fn env_broken_export() -> TestEnv {
     let mut t = TestEnv::new();
-    t.add_with_path("foo", "from foo.bar import *", "foo/__init__.pyi");
+    t.add_with_path("foo", "foo/__init__.pyi", "from foo.bar import *");
     t.add_with_path(
         "foo.bar",
+        "foo/bar.pyi",
         r#"
 from foo import baz  # E: Could not import `baz` from `foo`
 __all__ = []
 "#,
-        "foo/bar.pyi",
     );
     t
 }
@@ -286,8 +286,8 @@ import foo
 
 fn env_relative_import_star() -> TestEnv {
     let mut t = TestEnv::new();
-    t.add_with_path("foo", "from .bar import *", "foo/__init__.pyi");
-    t.add_with_path("foo.bar", "x: int = 5", "foo/bar.pyi");
+    t.add_with_path("foo", "foo/__init__.pyi", "from .bar import *");
+    t.add_with_path("foo.bar", "foo/bar.pyi", "x: int = 5");
     t
 }
 
@@ -304,8 +304,8 @@ assert_type(foo.x, int)
 
 fn env_dunder_init_with_submodule() -> TestEnv {
     let mut t = TestEnv::new();
-    t.add_with_path("foo", "x: str = ''", "foo/__init__.py");
-    t.add_with_path("foo.bar", "x: int = 0", "foo/bar.py");
+    t.add_with_path("foo", "foo/__init__.py", "x: str = ''");
+    t.add_with_path("foo.bar", "foo/bar.py", "x: int = 0");
     t
 }
 
@@ -345,9 +345,9 @@ foo.bar.x  # E: No attribute `bar` in module `foo`
 
 fn env_dunder_init_with_submodule2() -> TestEnv {
     let mut t = TestEnv::new();
-    t.add_with_path("foo", "x: str = ''", "foo/__init__.py");
-    t.add_with_path("foo.bar", "x: int = 0", "foo/bar/__init__.py");
-    t.add_with_path("foo.bar.baz", "x: float = 4.2", "foo/bar/baz.py");
+    t.add_with_path("foo", "foo/__init__.py", "x: str = ''");
+    t.add_with_path("foo.bar", "foo/bar/__init__.py", "x: int = 0");
+    t.add_with_path("foo.bar.baz", "foo/bar/baz.py", "x: float = 4.2");
     t
 }
 
@@ -365,8 +365,8 @@ assert_type(foo.bar.baz.x, float)
 
 fn env_dunder_init_overlap_submodule() -> TestEnv {
     let mut t = TestEnv::new();
-    t.add_with_path("foo", "bar: str = ''", "foo/__init__.py");
-    t.add_with_path("foo.bar", "x: int = 0", "foo/bar.py");
+    t.add_with_path("foo", "foo/__init__.py", "bar: str = ''");
+    t.add_with_path("foo.bar", "foo/bar.py", "x: int = 0");
     t
 }
 
@@ -424,8 +424,8 @@ foo.bar.x # This should not fail. The type is `int`. # E: Object of class `str` 
 
 fn env_dunder_init_reexport_submodule() -> TestEnv {
     let mut t = TestEnv::new();
-    t.add_with_path("foo", "from .bar import x", "foo/__init__.py");
-    t.add_with_path("foo.bar", "x: int = 0", "foo/bar.py");
+    t.add_with_path("foo", "foo/__init__.py", "from .bar import x");
+    t.add_with_path("foo.bar", "foo/bar.py", "x: int = 0");
     t
 }
 
@@ -573,15 +573,15 @@ fn env_from_self_import_mod_in_package() -> TestEnv {
     let mut env = TestEnv::new();
     env.add_with_path(
         "foo",
+        "foo/__init__.py",
         r#"
 from . import bar
 from . import baz as _baz
 baz = _baz
 "#,
-        "foo/__init__.py",
     );
-    env.add_with_path("foo.bar", "", "foo/bar.py");
-    env.add_with_path("foo.baz", "", "foo/baz.py");
+    env.add_with_path("foo.bar", "foo/bar.py", "");
+    env.add_with_path("foo.baz", "foo/baz.py", "");
     env
 }
 
@@ -721,8 +721,8 @@ def f():
 
 fn env_import_attribute_init() -> TestEnv {
     let mut t = TestEnv::new();
-    t.add_with_path("foo", "import foo.attribute", "foo/__init__.py");
-    t.add_with_path("foo.attribute", "", "foo/attribute.py");
+    t.add_with_path("foo", "foo/__init__.py", "import foo.attribute");
+    t.add_with_path("foo.attribute", "foo/attribute.py", "");
     t
 }
 

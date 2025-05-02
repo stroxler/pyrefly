@@ -537,12 +537,12 @@ fn env_with_stub() -> TestEnv {
     let mut t = TestEnv::new();
     t.add_with_path(
         "foo",
+        "foo.pyi",
         r#"
 class A:
     x: int = ...
     y: int
     "#,
-        "foo.pyi",
     );
     t
 }

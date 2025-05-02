@@ -107,7 +107,7 @@ impl TestEnv {
         res
     }
 
-    pub fn add_with_path(&mut self, name: &str, code: &str, path: &str) {
+    pub fn add_with_path(&mut self, name: &str, path: &str, code: &str) {
         self.modules.insert(
             ModuleName::from_str(name),
             (
@@ -132,9 +132,9 @@ impl TestEnv {
         res
     }
 
-    pub fn one_with_path(name: &str, code: &str, path: &str) -> Self {
+    pub fn one_with_path(name: &str, path: &str, code: &str) -> Self {
         let mut res = Self::new();
-        res.add_with_path(name, code, path);
+        res.add_with_path(name, path, code);
         res
     }
 
@@ -399,8 +399,8 @@ pub fn testcase_for_macro(
     }
     env.add_with_path(
         "main",
-        &format!("{}{}", "\n".repeat(start_line), contents),
         file,
+        &format!("{}{}", "\n".repeat(start_line), contents),
     );
     // If any given test regularly takes > 10s, that's probably a bug.
     // Currently all are less than 3s in debug, even when running in parallel.
