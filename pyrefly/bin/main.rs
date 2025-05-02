@@ -141,10 +141,6 @@ fn get_globs_and_config_for_project(
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
     let config = match config {
         Some(explicit) => {
-            info!(
-                "Using config file explicitly provided at `{}`",
-                explicit.display()
-            );
             // We deliberately don't use the cached object, since we want errors in an explicit config to be fatal
             ArcId::new(args.override_config(ConfigFile::from_file(&explicit, true)?))
         }
@@ -156,6 +152,15 @@ fn get_globs_and_config_for_project(
                 .unwrap_or_else(|| ArcId::new(args.override_config(ConfigFile::default())))
         }
     };
+    match &config.source {
+        ConfigSource::File(path) => {
+            info!("Checking project configured at {path:?}");
+        }
+        ConfigSource::Synthetic => {
+            info!("Checking current directory with default configuration");
+        }
+    }
+
     // We want our config_finder to never actually
     let config_finder = ConfigFinder::new_constant(config.dupe());
 
