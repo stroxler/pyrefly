@@ -35,6 +35,7 @@ use pyrefly::library::library::library::library;
 use pyrefly::library::library::library::library::ConfigSource;
 use pyrefly::library::library::library::library::ModuleName;
 use pyrefly::library::library::library::library::ModulePath;
+use starlark_map::small_map::SmallMap;
 use tracing::debug;
 use tracing::info;
 
@@ -226,19 +227,13 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             mut args,
             ..
         }) => {
-            let mut configs_to_files: Vec<(ArcId<ConfigFile>, Vec<PathBuf>)> = Vec::new();
+            let mut configs_to_files: SmallMap<ArcId<ConfigFile>, Vec<PathBuf>> = SmallMap::new();
             let (files_to_check, config_finder) =
                 get_globs_and_config(files, project_excludes, config, &mut args)?;
-            'outer: for file in files_to_check.files()? {
+            for file in files_to_check.files()? {
                 let config = config_finder
                     .python_file(ModuleName::unknown(), &ModulePath::filesystem(file.clone()));
-                for (seen_config, files) in configs_to_files.iter_mut() {
-                    if *config == **seen_config {
-                        files.push(file.clone());
-                        continue 'outer;
-                    }
-                }
-                configs_to_files.push((config, vec![file]));
+                configs_to_files.entry(config).or_default().push(file);
             }
             for (config, files) in configs_to_files.into_iter() {
                 match &config.source {
