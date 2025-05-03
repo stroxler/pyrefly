@@ -606,7 +606,7 @@ fn test_file_watcher() {
             id: RequestId::from(1),
             method: "client/registerCapability".to_owned(),
             params: serde_json::json!({
-                "registrations": [{"id": "FILEWATCHER", "method": "workspace/didChangeWatchedFiles", "registerOptions": {"watchers": [{"globPattern": format!("{}/**/*.py", root.path().display()), "kind": 7}, {"globPattern": format!("{}/**/*.pyi", root.path().display()), "kind": 7}]}}]}),
+                "registrations": [{"id": "FILEWATCHER", "method": "workspace/didChangeWatchedFiles", "registerOptions": {"watchers": [{"globPattern": root.path().join("**/*.py").to_str().unwrap(), "kind": 7}, {"globPattern": root.path().join("**/*.pyi").to_str().unwrap(), "kind": 7}]}}]}),
         })],
         workspace_folders: Some(vec![(
             "test".to_owned(),
