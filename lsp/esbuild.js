@@ -19,7 +19,7 @@ async function main() {
     sourcemap: !production,
     sourcesContent: false,
     platform: 'node',
-    outfile: 'dist/extension.js',
+    outdir: 'dist',
     external: ['vscode'],
     logLevel: 'warning',
     plugins: [
