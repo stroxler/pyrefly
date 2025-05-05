@@ -25,6 +25,8 @@ use lsp_types::ServerCapabilities;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
 use lsp_types::Url;
+use lsp_types::WorkspaceFoldersServerCapabilities;
+use lsp_types::WorkspaceServerCapabilities;
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
@@ -271,6 +273,13 @@ fn get_initialize_responses(find_refs: bool) -> Vec<Message> {
             hover_provider: Some(HoverProviderCapability::Simple(true)),
             inlay_hint_provider: Some(OneOf::Left(true)),
             document_symbol_provider: Some(OneOf::Left(true)),
+            workspace: Some(WorkspaceServerCapabilities {
+                workspace_folders: Some(WorkspaceFoldersServerCapabilities {
+                    supported: Some(true),
+                    change_notifications: Some(OneOf::Left(true)),
+                }),
+                file_operations: None,
+            }),
             ..Default::default()
         }})),
         error: None,

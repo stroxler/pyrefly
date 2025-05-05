@@ -78,6 +78,8 @@ use lsp_types::UnregistrationParams;
 use lsp_types::Url;
 use lsp_types::WatchKind;
 use lsp_types::WorkspaceClientCapabilities;
+use lsp_types::WorkspaceFoldersServerCapabilities;
+use lsp_types::WorkspaceServerCapabilities;
 use lsp_types::notification::Cancel;
 use lsp_types::notification::DidChangeConfiguration;
 use lsp_types::notification::DidChangeTextDocument;
@@ -348,6 +350,13 @@ pub fn run_lsp(
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
         document_symbol_provider: Some(OneOf::Left(true)),
+        workspace: Some(WorkspaceServerCapabilities {
+            workspace_folders: Some(WorkspaceFoldersServerCapabilities {
+                supported: Some(true),
+                change_notifications: Some(OneOf::Left(true)),
+            }),
+            file_operations: None,
+        }),
         ..Default::default()
     })
     .unwrap();
