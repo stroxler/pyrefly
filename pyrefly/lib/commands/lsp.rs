@@ -249,7 +249,18 @@ impl Workspace {
     }
 }
 
+impl Default for Workspace {
+    fn default() -> Self {
+        Self {
+            root: PathBuf::from("/"),
+            python_environment: PythonEnvironment::get_default_interpreter_env(),
+            disable_language_services: Default::default(),
+        }
+    }
+}
+
 struct Workspaces {
+    /// If a workspace is not found, this one is used. It contains every possible file on the system but is lowest priority.
     default: RwLock<Workspace>,
     workspaces: RwLock<SmallMap<PathBuf, Workspace>>,
 }
@@ -612,14 +623,7 @@ impl Server {
             Vec::new()
         };
 
-        // TODO(kylei): default workspace should have no root
-        let workspaces = Arc::new(Workspaces::new(Workspace::new_with_default_env(
-            &initialize_params
-                .root_uri
-                .clone()
-                .and_then(|x| x.to_file_path().ok())
-                .unwrap_or_else(|| std::env::current_dir().unwrap()),
-        )));
+        let workspaces = Arc::new(Workspaces::new(Workspace::default()));
 
         let config_finder = Workspaces::config_finder(&workspaces);
         let s = Self {

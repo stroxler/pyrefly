@@ -124,6 +124,12 @@ fn test_go_to_def_no_root() {
 }
 
 #[test]
+fn test_go_to_def_no_root_uses_upwards_search() {
+    let root = get_test_files_root();
+    test_go_to_def(&root, Some(vec![]));
+}
+
+#[test]
 fn test_go_to_def_no_folder_capability() {
     let root = get_test_files_root();
     test_go_to_def(&root, None);
