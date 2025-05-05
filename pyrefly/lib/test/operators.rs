@@ -414,3 +414,15 @@ testcase!(
 42 in (x for x in ['y'])  # E: `in` is not supported between `Literal[42]` and `Generator[str, None, None]`
     "#,
 );
+
+testcase!(
+    test_unop_on_self,
+    r#"
+from typing import Self
+class C:
+    def __neg__(self) -> Self:
+        return self
+    def f(self) -> Self:
+        return -self
+    "#,
+);
