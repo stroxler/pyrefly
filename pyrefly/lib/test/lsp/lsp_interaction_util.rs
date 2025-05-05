@@ -149,12 +149,19 @@ pub fn run_test_lsp(test_case: TestCase) {
                 match language_client_receiver.recv_timeout(timeout) {
                     Ok(msg) => {
                         eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
-                        let mut assert = || {
-                            assert_eq!(
-                                serde_json::to_string(&msg).unwrap(),
-                                serde_json::to_string(&responses.remove(0)).unwrap(),
-                                "Response mismatch"
-                            );
+                        let assert = |expected_response: String, response: String| {
+                            if expected_response.contains("$$MATCH_EVERYTHING$$") {
+                                if let Some(index) = expected_response.find("$$MATCH_EVERYTHING$$")
+                                {
+                                    assert_eq!(
+                                        response[..index].to_string(),
+                                        expected_response[..index].to_string(),
+                                        "Response mismatch"
+                                    );
+                                } else {
+                                    assert_eq!(response, expected_response, "Response mismatch");
+                                }
+                            }
                         };
                         match &msg {
                             Message::Response(Response {
@@ -162,7 +169,10 @@ pub fn run_test_lsp(test_case: TestCase) {
                                 result: _,
                                 error: _,
                             }) => {
-                                assert();
+                                assert(
+                                    serde_json::to_string(&responses.remove(0)).unwrap(),
+                                    serde_json::to_string(&msg).unwrap(),
+                                );
                                 server_response_received_sender.send(id.clone()).unwrap();
                             }
                             Message::Notification(notification) => {
@@ -173,7 +183,10 @@ pub fn run_test_lsp(test_case: TestCase) {
                                 method: _,
                                 params: _,
                             }) => {
-                                assert();
+                                assert(
+                                    serde_json::to_string(&responses.remove(0)).unwrap(),
+                                    serde_json::to_string(&msg).unwrap(),
+                                );
                                 client_request_received_sender.send(id.clone()).unwrap();
                             }
                         };
