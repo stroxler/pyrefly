@@ -1357,7 +1357,12 @@ pub struct AttrInfo {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    fn completions_class(&self, cls: &Class, res: &mut Vec<AttrInfo>) {
+    fn completions_class(
+        &self,
+        cls: &Class,
+        expected_attribute_name: Option<&Name>,
+        res: &mut Vec<AttrInfo>,
+    ) {
         let mut seen = SmallSet::new();
         for c in iter::once(cls).chain(
             self.get_metadata_for_class(cls)
@@ -1368,58 +1373,123 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Don't want to suggest `__hash__`
                 break;
             }
-            for fld in c.fields() {
-                if seen.insert(fld.clone()) {
-                    res.push(AttrInfo {
-                        name: fld.clone(),
-                        ty: None,
-                        module: Some(c.module_info().dupe()),
-                        range: c.field_decl_range(fld),
-                    });
+            match expected_attribute_name {
+                None => {
+                    for fld in c.fields() {
+                        if seen.insert(fld.clone()) {
+                            res.push(AttrInfo {
+                                name: fld.clone(),
+                                ty: None,
+                                module: Some(c.module_info().dupe()),
+                                range: c.field_decl_range(fld),
+                            });
+                        }
+                    }
+                }
+                Some(expected_attribute_name) => {
+                    if let Some(range) = c.field_decl_range(expected_attribute_name) {
+                        res.push(AttrInfo {
+                            name: expected_attribute_name.clone(),
+                            ty: None,
+                            module: Some(c.module_info().dupe()),
+                            range: Some(range),
+                        });
+                    }
                 }
             }
         }
     }
 
-    fn completions_class_type(&self, cls: &ClassType, res: &mut Vec<AttrInfo>) {
-        self.completions_class(cls.class_object(), res);
+    fn completions_class_type(
+        &self,
+        cls: &ClassType,
+        expected_attribute_name: Option<&Name>,
+        res: &mut Vec<AttrInfo>,
+    ) {
+        self.completions_class(cls.class_object(), expected_attribute_name, res);
     }
 
-    fn completions_module(&self, module: &Module, res: &mut Vec<AttrInfo>) {
+    fn completions_module(
+        &self,
+        module: &Module,
+        expected_attribute_name: Option<&Name>,
+        res: &mut Vec<AttrInfo>,
+    ) {
         let module_name = ModuleName::from_parts(module.path());
         if let Some(exports) = self.get_module_exports(module_name) {
-            res.extend(exports.wildcard(self.exports).iter().map(|x| AttrInfo {
-                name: x.clone(),
-                ty: None,
-                module: None,
-                range: None,
-            }))
+            match expected_attribute_name {
+                None => {
+                    res.extend(
+                        exports
+                            .wildcard(self.exports)
+                            .iter()
+                            .filter(|x| match expected_attribute_name {
+                                Some(expected_attribute_name) => *x == expected_attribute_name,
+                                None => true,
+                            })
+                            .map(|x| AttrInfo {
+                                name: x.clone(),
+                                ty: None,
+                                module: None,
+                                range: None,
+                            }),
+                    );
+                }
+                Some(expected_attribute_name) => {
+                    if exports
+                        .wildcard(self.exports)
+                        .contains(expected_attribute_name)
+                    {
+                        res.push(AttrInfo {
+                            name: expected_attribute_name.clone(),
+                            ty: None,
+                            module: None,
+                            range: None,
+                        });
+                    }
+                }
+            }
         }
     }
 
     /// List all the attributes available from a type. Used to power completion.
     /// Not all usages need types, so we can skip type computation with `include_types=false`.
-    pub fn completions(&self, base: Type, include_types: bool) -> Vec<AttrInfo> {
+    pub fn completions(
+        &self,
+        base: Type,
+        expected_attribute_name: Option<&Name>,
+        include_types: bool,
+    ) -> Vec<AttrInfo> {
         let mut res = Vec::new();
         // TODO: expose attributes shared across all union members
         if let Some(base) = self.as_attribute_base_no_union(base) {
             match &base {
-                AttributeBase::ClassInstance(class) => self.completions_class_type(class, &mut res),
-                AttributeBase::TypedDict(_) => {
-                    self.completions_class_type(self.stdlib.typed_dict_fallback(), &mut res)
+                AttributeBase::ClassInstance(class) => {
+                    self.completions_class_type(class, expected_attribute_name, &mut res)
                 }
+                AttributeBase::TypedDict(_) => self.completions_class_type(
+                    self.stdlib.typed_dict_fallback(),
+                    expected_attribute_name,
+                    &mut res,
+                ),
                 AttributeBase::SuperInstance(class, _) => {
-                    self.completions_class_type(class, &mut res)
+                    self.completions_class_type(class, expected_attribute_name, &mut res)
                 }
-                AttributeBase::ClassObject(class) => self.completions_class(class, &mut res),
-                AttributeBase::TypeVar(q) => {
-                    self.completions_class_type(q.as_value(self.stdlib), &mut res)
+                AttributeBase::ClassObject(class) => {
+                    self.completions_class(class, expected_attribute_name, &mut res)
                 }
-                AttributeBase::TypeAny(_) => {
-                    self.completions_class_type(self.stdlib.builtins_type(), &mut res)
-                }
+                AttributeBase::TypeVar(q) => self.completions_class_type(
+                    q.as_value(self.stdlib),
+                    expected_attribute_name,
+                    &mut res,
+                ),
+                AttributeBase::TypeAny(_) => self.completions_class_type(
+                    self.stdlib.builtins_type(),
+                    expected_attribute_name,
+                    &mut res,
+                ),
                 AttributeBase::Module(module) => {
-                    self.completions_module(module, &mut res);
+                    self.completions_module(module, expected_attribute_name, &mut res);
                 }
                 AttributeBase::Any(_) => {}
                 AttributeBase::Never => {}

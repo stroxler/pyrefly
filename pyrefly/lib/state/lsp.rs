@@ -258,7 +258,7 @@ impl<'a> Transaction<'a> {
             .get_answers(handle)?
             .get_type_trace(attribute.value.range())?;
         self.ad_hoc_solve(handle, |solver| {
-            let items = solver.completions(base_type.arc_clone(), false);
+            let items = solver.completions(base_type.arc_clone(), Some(&attribute.attr.id), false);
             items.into_iter().find_map(|x| {
                 if x.name == attribute.attr.id {
                     // TODO(kylei): attribute docstrings
@@ -352,15 +352,14 @@ impl<'a> Transaction<'a> {
                     && let Some(base_type) = answers.get_type_trace(attribute.value.range())
                 {
                     for AttrInfo {
-                        name,
+                        name: _,
                         ty: _,
                         module,
                         range,
-                    } in solver.completions(base_type.arc_clone(), false)
+                    } in solver.completions(base_type.arc_clone(), Some(expected_name), false)
                     {
                         if let Some(module) = module
                             && let Some(range) = range
-                            && &name == expected_name
                             && module.path() == definition.module_info.path()
                             && range == definition.range
                         {
@@ -460,7 +459,7 @@ impl<'a> Transaction<'a> {
             .get_type_trace(attribute.value.range())?;
         self.ad_hoc_solve(handle, |solver| {
             solver
-                .completions(base_type.arc_clone(), true)
+                .completions(base_type.arc_clone(), None, true)
                 .into_map(|x| CompletionItem {
                     label: x.name.as_str().to_owned(),
                     detail: x.ty.map(|t| t.to_string()),
