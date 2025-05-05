@@ -12,6 +12,7 @@ use std::num::NonZero;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
 
@@ -223,7 +224,7 @@ struct Server {
     site_package_path: Vec<PathBuf>,
     outgoing_request_id: Arc<AtomicI32>,
     outgoing_requests: Mutex<HashMap<RequestId, Request>>,
-    filewatcher_registered: bool,
+    filewatcher_registered: Arc<AtomicBool>,
 }
 
 /// Temporary "configuration": this is all that is necessary to run an LSP at a given root.
@@ -617,7 +618,7 @@ impl Server {
         )));
 
         let config_finder = Workspaces::config_finder(&workspaces);
-        let mut s = Self {
+        let s = Self {
             send,
             async_state_read_threads: ThreadPool::with_thread_count(ThreadCount::NumThreads(
                 NonZero::new(1).unwrap(),
@@ -632,7 +633,7 @@ impl Server {
             site_package_path,
             outgoing_request_id: Arc::new(AtomicI32::new(1)),
             outgoing_requests: Mutex::new(HashMap::new()),
-            filewatcher_registered: false,
+            filewatcher_registered: Arc::new(AtomicBool::new(false)),
         };
         s.configure(folders);
 
@@ -890,7 +891,7 @@ impl Server {
     }
 
     /// Configure the server with a new set of workspace folders
-    fn configure(&mut self, workspace_paths: Vec<PathBuf>) {
+    fn configure(&self, workspace_paths: Vec<PathBuf>) {
         let mut new_workspaces = SmallMap::new();
         for x in &workspace_paths {
             new_workspaces.insert(x.clone(), Workspace::new_with_default_env(x));
@@ -1162,7 +1163,7 @@ impl Server {
     // TODO(connernilsen): add config files themselves to watcher
     // TODO(connernilsen): add all source code, search_paths from config to watcher
     // TODO(connernilsen): on config file change, re-watch
-    fn setup_file_watcher_if_necessary(&mut self, python_sources: &[PathBuf]) {
+    fn setup_file_watcher_if_necessary(&self, python_sources: &[PathBuf]) {
         if matches!(
             self.initialize_params.capabilities.workspace,
             Some(WorkspaceClientCapabilities {
@@ -1173,7 +1174,7 @@ impl Server {
                 ..
             })
         ) {
-            if self.filewatcher_registered {
+            if self.filewatcher_registered.load(Ordering::Relaxed) {
                 self.send_request::<UnregisterCapability>(UnregistrationParams {
                     unregisterations: Vec::from([Unregistration {
                         id: Self::FILEWATCHER_ID.to_owned(),
@@ -1207,7 +1208,7 @@ impl Server {
                     ),
                 }]),
             });
-            self.filewatcher_registered = true;
+            self.filewatcher_registered.store(true, Ordering::Relaxed);
         }
     }
 
