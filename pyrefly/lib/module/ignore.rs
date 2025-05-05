@@ -29,8 +29,21 @@ pub struct Ignore {
 
 impl Ignore {
     pub fn new(code: &str) -> Self {
-        let mut ignore_all = false;
+        // process line level comments
+        let mut ignores: SmallMap<OneIndexed, Vec<SuppressionKind>> = SmallMap::new();
+        for (line, line_str) in code.lines().enumerate() {
+            if let Some(kind) = Self::get_suppression_kind(line_str) {
+                ignores.insert(OneIndexed::from_zero_indexed(line), [kind].to_vec());
+            }
+        }
+        Self {
+            ignores,
+            ignore_all: Self::has_ignore_all(code),
+        }
+    }
 
+    fn has_ignore_all(code: &str) -> bool {
+        let mut ignore_all = false;
         // process top level comments
         for line_str in code.lines() {
             // Skip blank lines
@@ -45,18 +58,7 @@ impl Ignore {
                 break; // We found the top-level ignore comment, no need to check further
             }
         }
-
-        // process line level comments
-        let mut ignores: SmallMap<OneIndexed, Vec<SuppressionKind>> = SmallMap::new();
-        for (line, line_str) in code.lines().enumerate() {
-            if let Some(kind) = Self::get_suppression_kind(line_str) {
-                ignores.insert(OneIndexed::from_zero_indexed(line), [kind].to_vec());
-            }
-        }
-        Self {
-            ignores,
-            ignore_all,
-        }
+        ignore_all
     }
 
     fn get_suppression_kind(line: &str) -> Option<SuppressionKind> {
@@ -115,5 +117,28 @@ mod tests {
         assert!(Ignore::get_suppression_kind("# ignore: pyrefly").is_none());
         assert!(Ignore::get_suppression_kind(" pyrefly: ignore").is_none());
         assert!(Ignore::get_suppression_kind("normal line").is_none());
+    }
+
+    #[test]
+    fn test_has_ignore_all() {
+        assert!(Ignore::has_ignore_all(
+            r#"
+# pyrefly: ignore-all-errors
+x = 5
+"#
+        ));
+        assert!(Ignore::has_ignore_all(
+            r#"
+# comment
+# pyrefly: ignore-all-errors
+x = 5
+"#
+        ));
+        assert!(!Ignore::has_ignore_all(
+            r#"
+x = 5
+# pyrefly: ignore-all-errors
+"#
+        ));
     }
 }
