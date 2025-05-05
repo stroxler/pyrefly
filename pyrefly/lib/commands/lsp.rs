@@ -237,7 +237,9 @@ struct Server {
 /// TODO(connernilsel): replace with real config logic
 #[derive(Debug)]
 struct Workspace {
+    #[expect(dead_code)]
     sys_info: SysInfo,
+    #[expect(dead_code)]
     search_path: Vec<PathBuf>,
     /// The config implied by these settings
     config_file: ArcId<ConfigFile>,
@@ -710,19 +712,13 @@ impl Server {
 
     fn validate_in_memory_for_transaction(
         state: &State,
-        workspaces: &Workspaces,
         open_files: &RwLock<HashMap<PathBuf, Arc<String>>>,
         transaction: &mut Transaction<'_>,
     ) -> Vec<(Handle, Require)> {
         let handles = open_files
             .read()
             .keys()
-            .map(|x| {
-                (
-                    Self::make_open_handle(state, workspaces, x),
-                    Require::Everything,
-                )
-            })
+            .map(|x| (Self::make_open_handle(state, x), Require::Everything))
             .collect::<Vec<_>>();
         transaction.set_memory(
             open_files
@@ -745,12 +741,8 @@ impl Server {
             Ok(transaction) => transaction.as_mut(),
             Err(transaction) => transaction,
         };
-        let handles = Self::validate_in_memory_for_transaction(
-            &self.state,
-            &self.workspaces,
-            &self.open_files,
-            transaction,
-        );
+        let handles =
+            Self::validate_in_memory_for_transaction(&self.state, &self.open_files, transaction);
 
         let publish = |transaction: &Transaction| {
             let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
@@ -972,22 +964,18 @@ impl Server {
         self.request_settings_for_all_workspaces();
     }
 
-    fn module_name(state: &State, workspace: &Workspace, path: &ModulePath) -> ModuleName {
+    fn handle_from_module_path(state: &State, path: ModulePath) -> Handle {
         let unknown = ModuleName::unknown();
-        let config = state.config_finder().python_file(unknown, path);
-        let mut search_path = config.search_path.clone();
-        search_path.extend_from_slice(&workspace.search_path);
-        to_real_path(path)
-            .and_then(|path| module_from_path(path, &search_path))
-            .unwrap_or(unknown)
+        let config = state.config_finder().python_file(unknown, &path);
+        let module_name = to_real_path(&path)
+            .and_then(|path| module_from_path(path, &config.search_path))
+            .unwrap_or(unknown);
+        Handle::new(module_name, path, config.get_sys_info())
     }
 
-    fn make_open_handle(state: &State, workspaces: &Workspaces, path: &Path) -> Handle {
-        workspaces.get_with(path.to_owned(), |workspace| {
-            let path = ModulePath::memory(path.to_owned());
-            let name = Self::module_name(state, workspace, &path);
-            Handle::new(name, path, workspace.sys_info.dupe())
-        })
+    fn make_open_handle(state: &State, path: &Path) -> Handle {
+        let path = ModulePath::memory(path.to_owned());
+        Self::handle_from_module_path(state, path)
     }
 
     /// Create a handle. Return None if the workspace has language services disabled (and thus you shouldn't do anything).
@@ -1002,8 +990,7 @@ impl Server {
                 } else {
                     ModulePath::filesystem(path)
                 };
-                let name = Self::module_name(&self.state, workspace, &module_path);
-                Some(Handle::new(name, module_path, workspace.sys_info.dupe()))
+                Some(Self::handle_from_module_path(&self.state, module_path))
             }
         })
     }
@@ -1108,7 +1095,6 @@ impl Server {
         };
         ide_transaction_manager.save(transaction);
         let state = self.state.dupe();
-        let workspaces = self.workspaces.dupe();
         let open_files = self.open_files.dupe();
         let cancellation_handles = self.cancellation_handles.dupe();
         let send = self.send.dupe();
@@ -1117,12 +1103,7 @@ impl Server {
             cancellation_handles
                 .lock()
                 .insert(request_id.clone(), transaction.get_cancellation_handle());
-            Self::validate_in_memory_for_transaction(
-                &state,
-                &workspaces,
-                &open_files,
-                transaction.as_mut(),
-            );
+            Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
             match transaction.find_global_references_from_definition(
                 handle.sys_info(),
                 definition_kind,
