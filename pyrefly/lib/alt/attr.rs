@@ -1108,32 +1108,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn get_module_attr(&self, module: &Module, attr_name: &Name) -> Option<Type> {
         let module_name = ModuleName::from_parts(module.path());
-        match self.get_module_exports(module_name) {
+
+        let module_export_type = match self.get_module_exports(module_name) {
             None => {
                 // We have already errored on `m` when loading the module. No need to emit error again.
                 Some(Type::any_error())
             }
-            Some(exports) => self
-                .get_exported_type(&exports, module_name, attr_name)
-                .or_else(|| {
-                    // `module_name` could also refer to a package, in which case we need to check if
-                    // `module_name.attr_name`:
-                    // - Has been imported directly. Unless `module_name` re-exports `attr_name` from itself
-                    //   (in which can `attr_name` will be included in the exports map), we want to make sure that
-                    //   `module_name.attr_name` is only valid when there's an explicit import statement for either
-                    //   `module_name.attr_name` or its submodules. Just importing `module_name`, for example,
-                    //   shouldn't automatically make the submodule name `module_name.attr_name` accessible.
-                    // - Actually exists as a submodule on the filesystem.
-                    let submodule = module.push_path(attr_name.clone());
-                    let submodule_name = module_name.append(attr_name);
-                    if submodule.is_submodules_imported_directly()
-                        && self.get_module_exports(submodule_name).is_some()
-                    {
-                        Some(submodule.to_type())
-                    } else {
-                        None
-                    }
-                }),
+            Some(exports) => self.get_exported_type(&exports, module_name, attr_name),
+        };
+
+        // `module_name` could refer to a package, in which case we need to check if
+        // `module_name.attr_name`:
+        // - Has been imported directly. We want to make sure that `module_name.attr_name` is only
+        //   valid when there's an explicit import statement for either `module_name.attr_name` or its
+        //   submodules. Just importing `module_name`, for example, shouldn't automatically make the
+        //   submodule name `module_name.attr_name` accessible.
+        // - Actually exists as a submodule on the filesystem.
+        //
+        // This check always takes precedence over the result of the module export lookup, because the import system
+        // would always bind the submodule name `attr_name` to the namespace of `module_name` *after* the module
+        // toplevel of `module_name` has been executed.
+        let submodule = module.push_path(attr_name.clone());
+        let submodule_name = module_name.append(attr_name);
+        if submodule.is_submodules_imported_directly()
+            && self.get_module_exports(submodule_name).is_some()
+        {
+            Some(submodule.to_type())
+        } else {
+            module_export_type
         }
     }
 

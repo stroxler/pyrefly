@@ -371,31 +371,13 @@ fn env_dunder_init_overlap_submodule() -> TestEnv {
 }
 
 testcase!(
-    bug = r#"
-TODO: foo.bar should not be a str (it should be the module object)
-TODO: foo.bar.x should exist and should be an int
-    "#,
-    test_import_dunder_init_overlap_submodule_last,
-    env_dunder_init_overlap_submodule(),
-    r#"
-from typing import assert_type
-import foo
-import foo.bar
-assert_type(foo.bar, str) # TODO: error
-foo.bar.x # TODO # E: Object of class `str` has no attribute `x`
-"#,
-);
-
-testcase!(
-    bug = "TODO: Surprisingly (to Sam), importing __init__ after the submodule does not overwrite foo.bar with the global from __init__.py.",
     test_import_dunder_init_overlap_submodule_first,
     env_dunder_init_overlap_submodule(),
     r#"
 from typing import assert_type
 import foo.bar
 import foo
-assert_type(foo.bar, str) # TODO: error
-foo.bar.x # TODO # E: Object of class `str` has no attribute `x`
+assert_type(foo.bar.x, int)
 "#,
 );
 
@@ -411,14 +393,32 @@ foo.bar.x # E: Object of class `str` has no attribute `x`
 );
 
 testcase!(
-    bug = "`foo.bar` is explicitly imported as module so it should be treated as a module.",
     test_import_dunder_init_overlap_submodule_only,
     env_dunder_init_overlap_submodule(),
     r#"
 from typing import assert_type
 import foo.bar
-assert_type(foo.bar, str) # This should fail: foo.bar is a module, not a str
-foo.bar.x # This should not fail. The type is `int`. # E: Object of class `str` has no attribute `x`
+assert_type(foo.bar.x, int)
+"#,
+);
+testcase!(
+    test_from_dunder_init_import_submodule_no_extra_import,
+    env_dunder_init_overlap_submodule(),
+    r#"
+from typing import assert_type
+from foo import bar
+assert_type(bar, str)
+"#,
+);
+
+testcase!(
+    test_from_dunder_init_import_submodule_with_extra_import,
+    env_dunder_init_overlap_submodule(),
+    r#"
+from typing import assert_type
+import foo.bar
+from foo import bar
+assert_type(bar, str)
 "#,
 );
 
