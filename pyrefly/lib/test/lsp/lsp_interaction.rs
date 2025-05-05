@@ -39,17 +39,25 @@ fn test_initialize_with_python_path() {
     run_test_lsp(TestCase {
         messages_from_language_client: vec![Message::Response(Response {
             id: id.clone(),
-            result: Some(serde_json::json!([{"pythonPath": python_path}])),
+            result: Some(
+                serde_json::json!([{"pythonPath": python_path}, {"pythonPath": python_path}]),
+            ),
             error: None,
         })],
         expected_messages_from_language_server: vec![Message::Request(Request {
             id,
             method: WorkspaceConfiguration::METHOD.to_owned(),
             params: serde_json::json!(ConfigurationParams {
-                items: Vec::from([ConfigurationItem {
-                    scope_uri: Some(scope_uri.clone()),
-                    section: Some("python".to_owned()),
-                }]),
+                items: Vec::from([
+                    ConfigurationItem {
+                        scope_uri: Some(scope_uri.clone()),
+                        section: Some("python".to_owned()),
+                    },
+                    ConfigurationItem {
+                        scope_uri: None,
+                        section: Some("python".to_owned()),
+                    }
+                ]),
             }),
         })],
         workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
@@ -397,26 +405,28 @@ fn test_did_change_configuration() {
         result: Some(serde_json::json!([{}])),
         error: None,
     }));
+    let params = serde_json::json!(ConfigurationParams {
+        items: Vec::from([
+            ConfigurationItem {
+                scope_uri: Some(scope_uri.clone()),
+                section: Some("python".to_owned()),
+            },
+            ConfigurationItem {
+                scope_uri: None,
+                section: Some("python".to_owned()),
+            }
+        ]),
+    });
     let expected_messages_from_language_server = vec![
         Message::Request(Request {
             id: RequestId::from(1),
             method: WorkspaceConfiguration::METHOD.to_owned(),
-            params: serde_json::json!(ConfigurationParams {
-                items: Vec::from([ConfigurationItem {
-                    scope_uri: Some(scope_uri.clone()),
-                    section: Some("python".to_owned()),
-                }]),
-            }),
+            params: params.clone(),
         }),
         Message::Request(Request {
             id: RequestId::from(2),
             method: WorkspaceConfiguration::METHOD.to_owned(),
-            params: serde_json::json!(ConfigurationParams {
-                items: Vec::from([ConfigurationItem {
-                    scope_uri: Some(scope_uri.clone()),
-                    section: Some("python".to_owned()),
-                }]),
-            }),
+            params,
         }),
     ];
     run_test_lsp(TestCase {
@@ -462,7 +472,102 @@ fn test_disable_language_services() {
     }));
     messages_from_language_client.push(Message::Response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([{"pyrefly": {"disableLanguageServices": true}}])),
+        result: Some(serde_json::json!([{"pyrefly": {"disableLanguageServices": true}}, {"pyrefly": {"disableLanguageServices": true}}])),
+        error: None,
+    }));
+    messages_from_language_client.push(Message::from(Request {
+        id: RequestId::from(3),
+        method: "textDocument/definition".to_owned(),
+        params: go_to_definition_params.clone(),
+    }));
+    let mut expected_messages_from_language_server = Vec::new();
+    let configuration_params = serde_json::json!(ConfigurationParams {
+        items: Vec::from([
+            ConfigurationItem {
+                scope_uri: Some(scope_uri.clone()),
+                section: Some("python".to_owned()),
+            },
+            ConfigurationItem {
+                scope_uri: None,
+                section: Some("python".to_owned()),
+            }
+        ]),
+    });
+    expected_messages_from_language_server.push(Message::Request(Request {
+        id: RequestId::from(1),
+        method: WorkspaceConfiguration::METHOD.to_owned(),
+        params: configuration_params.clone(),
+    }));
+    expected_messages_from_language_server.push(Message::Response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({
+            "uri": Url::from_file_path(test_files_root.path().join("bar.py")).unwrap().to_string(),
+            "range": {
+                "start": {
+                    "line": 6,
+                    "character": 6
+                },
+                "end": {
+                    "line": 6,
+                    "character": 9
+                }
+            }
+        })),
+        error: None,
+    }));
+    expected_messages_from_language_server.push(Message::Request(Request {
+        id: RequestId::from(2),
+        method: WorkspaceConfiguration::METHOD.to_owned(),
+        params: configuration_params.clone(),
+    }));
+    expected_messages_from_language_server.push(Message::Response(Response {
+        id: RequestId::from(3),
+        result: Some(serde_json::json!([])),
+        error: None,
+    }));
+    run_test_lsp(TestCase {
+        messages_from_language_client,
+        expected_messages_from_language_server,
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: true,
+        ..Default::default()
+    });
+}
+
+#[test]
+fn test_disable_language_services_default_workspace() {
+    let test_files_root = get_test_files_root();
+    let file_path = test_files_root.path().join("foo.py");
+    let mut messages_from_language_client = Vec::new();
+    messages_from_language_client.push(Message::Response(Response {
+        id: RequestId::from(1),
+        result: Some(serde_json::json!([{}])),
+        error: None,
+    }));
+    messages_from_language_client.push(Message::from(build_did_open_notification(
+        file_path.clone(),
+    )));
+    let go_to_definition_params = serde_json::json!({
+        "textDocument": {
+            "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
+        },
+        "position": {
+            "line": 5,
+            "character": 16
+        }
+    });
+    messages_from_language_client.push(Message::from(Request {
+        id: RequestId::from(2),
+        method: "textDocument/definition".to_owned(),
+        params: go_to_definition_params.clone(),
+    }));
+    messages_from_language_client.push(Message::Notification(Notification {
+        method: DidChangeConfiguration::METHOD.to_owned(),
+        params: serde_json::json!({"settings": {}}),
+    }));
+    messages_from_language_client.push(Message::Response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!([{"pyrefly": {"disableLanguageServices": true}}, {"pyrefly": {"disableLanguageServices": true}}])),
         error: None,
     }));
     messages_from_language_client.push(Message::from(Request {
@@ -473,7 +578,7 @@ fn test_disable_language_services() {
     let mut expected_messages_from_language_server = Vec::new();
     let configuration_params = serde_json::json!(ConfigurationParams {
         items: Vec::from([ConfigurationItem {
-            scope_uri: Some(scope_uri.clone()),
+            scope_uri: None,
             section: Some("python".to_owned()),
         }]),
     });
@@ -512,7 +617,6 @@ fn test_disable_language_services() {
     run_test_lsp(TestCase {
         messages_from_language_client,
         expected_messages_from_language_server,
-        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
         configuration: true,
         ..Default::default()
     });

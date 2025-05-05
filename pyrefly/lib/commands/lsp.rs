@@ -17,6 +17,7 @@ use std::sync::atomic::Ordering;
 
 use clap::Parser;
 use dupe::Dupe;
+use itertools::__std_iter::once;
 use lsp_server::Connection;
 use lsp_server::ErrorCode;
 use lsp_server::Message;
@@ -606,6 +607,7 @@ impl Server {
             Vec::new()
         };
 
+        // TODO(kylei): default workspace should have no root
         let workspaces = Arc::new(Workspaces::new(Workspace::new_with_default_env(
             &initialize_params
                 .root_uri
@@ -1209,7 +1211,6 @@ impl Server {
         }
     }
 
-    // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
     fn request_settings_for_all_workspaces(&self) {
         if let Some(workspace) = &self.initialize_params.capabilities.workspace
             && workspace.configuration == Some(true)
@@ -1220,8 +1221,11 @@ impl Server {
                     .workspaces
                     .read()
                     .keys()
-                    .map(|uri| ConfigurationItem {
-                        scope_uri: Some(Url::from_file_path(uri).unwrap()),
+                    .map(|uri| Some(Url::from_file_path(uri).unwrap()))
+                    // add default workspace
+                    .chain(once(None))
+                    .map(|url| ConfigurationItem {
+                        scope_uri: url,
                         section: Some("python".to_owned()),
                     })
                     .collect::<Vec<_>>(),
@@ -1240,29 +1244,26 @@ impl Server {
         {
             let mut modified = false;
             for (i, id) in request.items.iter().enumerate() {
-                if let Some(scope_uri) = &id.scope_uri {
-                    match response.get(i) {
-                        Some(serde_json::Value::Object(map)) => {
-                            if let Some(serde_json::Value::String(python_path)) =
-                                map.get("pythonPath")
-                            {
-                                self.update_pythonpath(&mut modified, scope_uri, python_path);
-                            }
-                            if let Some(serde_json::Value::Object(pyrefly_settings)) =
-                                map.get("pyrefly")
-                                && let Some(serde_json::Value::Bool(disable_language_services)) =
-                                    pyrefly_settings.get("disableLanguageServices")
-                            {
-                                self.update_disable_language_services(
-                                    scope_uri,
-                                    *disable_language_services,
-                                );
-                            }
+                match response.get(i) {
+                    Some(serde_json::Value::Object(map)) => {
+                        if let Some(serde_json::Value::String(python_path)) = map.get("pythonPath")
+                        {
+                            self.update_pythonpath(&mut modified, &id.scope_uri, python_path);
                         }
-                        _ => {
-                            // Non-map value or no configuration returned for request
+                        if let Some(serde_json::Value::Object(pyrefly_settings)) =
+                            map.get("pyrefly")
+                            && let Some(serde_json::Value::Bool(disable_language_services)) =
+                                pyrefly_settings.get("disableLanguageServices")
+                        {
+                            self.update_disable_language_services(
+                                &id.scope_uri,
+                                *disable_language_services,
+                            );
                         }
-                    };
+                    }
+                    _ => {
+                        // Non-map value or no configuration returned for request
+                    }
                 }
             }
             if modified {
@@ -1272,11 +1273,23 @@ impl Server {
         Ok(())
     }
 
-    fn update_disable_language_services(&self, scope_uri: &Url, disable_language_services: bool) {
+    /// Update disableLanguageServices setting for scope_uri, None if default workspace
+    fn update_disable_language_services(
+        &self,
+        scope_uri: &Option<Url>,
+        disable_language_services: bool,
+    ) {
         let mut workspaces = self.workspaces.workspaces.write();
-        let workspace_path = scope_uri.to_file_path().unwrap();
-        if let Some(workspace) = workspaces.get_mut(&workspace_path) {
-            workspace.disable_language_services = disable_language_services;
+        match scope_uri {
+            Some(scope_uri) => {
+                if let Some(workspace) = workspaces.get_mut(&scope_uri.to_file_path().unwrap()) {
+                    workspace.disable_language_services = disable_language_services;
+                }
+            }
+            None => {
+                self.workspaces.default.write().disable_language_services =
+                    disable_language_services
+            }
         }
     }
 
@@ -1284,15 +1297,25 @@ impl Server {
         self.invalidate(|t| t.invalidate_config());
     }
 
-    fn update_pythonpath(&self, modified: &mut bool, scope_uri: &Url, python_path: &str) {
+    /// Updates pythonpath with specified python path
+    /// scope_uri = None for default workspace
+    fn update_pythonpath(&self, modified: &mut bool, scope_uri: &Option<Url>, python_path: &str) {
         let mut workspaces = self.workspaces.workspaces.write();
-        let workspace_path = scope_uri.to_file_path().unwrap();
         // Currently uses the default interpreter if the pythonPath is invalid
         let env = PythonEnvironment::get_interpreter_env(Path::new(python_path));
         // TODO(kylei): warn if interpreter could not be found
-        if let Some(workspace) = workspaces.get_mut(&workspace_path) {
-            *modified = true;
-            workspace.python_environment = env;
+        match scope_uri {
+            Some(scope_uri) => {
+                let workspace_path = scope_uri.to_file_path().unwrap();
+                if let Some(workspace) = workspaces.get_mut(&workspace_path) {
+                    *modified = true;
+                    workspace.python_environment = env;
+                }
+            }
+            None => {
+                *modified = true;
+                self.workspaces.default.write().python_environment = env;
+            }
         }
         self.invalidate_config();
     }
