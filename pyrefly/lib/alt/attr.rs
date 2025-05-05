@@ -27,7 +27,6 @@ use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
 use crate::export::exports::Exports;
-use crate::export::exports::LookupExport;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::types::callable::FuncMetadata;
@@ -1357,7 +1356,7 @@ pub struct AttrInfo {
     pub range: Option<TextRange>,
 }
 
-impl<'a, Ans: LookupAnswer + LookupExport> AnswersSolver<'a, Ans> {
+impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn completions_class(&self, cls: &Class, res: &mut Vec<AttrInfo>) {
         let mut seen = SmallSet::new();
         for c in iter::once(cls).chain(
