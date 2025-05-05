@@ -16,6 +16,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
 
+use base64::Engine;
+use base64::engine::general_purpose;
 use clap::Parser;
 use dupe::Dupe;
 use itertools::__std_iter::once;
@@ -441,6 +443,32 @@ fn module_info_to_uri(module_info: &ModuleInfo) -> Option<Url> {
     let abs_path = path.absolutize();
     let abs_path = abs_path.as_deref().unwrap_or(path);
     Some(Url::from_file_path(abs_path).unwrap())
+}
+
+/// VSCode exposes a textDocumentContentProvider API where language clients can define schemes
+/// for rendering read only content. We have defined a scheme `contentsAsUri` which encodes the
+/// entire file contents into the uri of the URL. Since a definition response only contains a URL,
+/// this is an easy way to send file contents to the language client to be displayed.
+fn module_info_to_uri_with_document_content_provider(module_info: &ModuleInfo) -> Option<Url> {
+    match module_info.path().details() {
+        ModulePathDetails::FileSystem(path)
+        | ModulePathDetails::Memory(path)
+        | ModulePathDetails::Namespace(path) => {
+            let abs_path = path.absolutize();
+            let abs_path = abs_path.as_deref().unwrap_or(path);
+            Some(Url::from_file_path(abs_path).unwrap())
+        }
+        ModulePathDetails::BundledTypeshed(path) => {
+            Url::parse(&format!(
+                // This is the URI displayed in the opened file - note the extra `/` to make it absolute,
+                // otherwise VSCode will not display it
+                "contentsAsUri:///{}?{}",
+                path.to_string_lossy().into_owned(),
+                general_purpose::STANDARD.encode(module_info.contents().as_str())
+            ))
+            .ok()
+        }
+    }
 }
 
 fn publish_diagnostics_for_uri(
@@ -993,8 +1021,16 @@ impl Server {
             module_info: definition_module_info,
             range,
         } = transaction.goto_definition(&handle, range)?;
+        let uri = match &self.initialize_params.initialization_options {
+            Some(serde_json::Value::Object(map))
+                if (map.get("supportContentsAsUri") == Some(&serde_json::Value::Bool(true))) =>
+            {
+                module_info_to_uri_with_document_content_provider(&definition_module_info)?
+            }
+            Some(_) | None => module_info_to_uri(&definition_module_info)?,
+        };
         Some(GotoDefinitionResponse::Scalar(Location {
-            uri: module_info_to_uri(&definition_module_info)?,
+            uri,
             range: source_range_to_range(&definition_module_info.source_range(range)),
         }))
     }
