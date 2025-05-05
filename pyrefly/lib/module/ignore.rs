@@ -43,7 +43,6 @@ impl Ignore {
     }
 
     fn has_ignore_all(code: &str) -> bool {
-        let mut ignore_all = false;
         // process top level comments
         for line_str in code.lines() {
             // Skip blank lines
@@ -52,13 +51,12 @@ impl Ignore {
             }
             // If the line is a comment, check if it's exactly "# pyrefly: ignore-all-errors"
             if !line_str.starts_with("#") {
-                break;
+                return false;
             } else if line_str.trim() == "# pyrefly: ignore-all-errors" {
-                ignore_all = true;
-                break; // We found the top-level ignore comment, no need to check further
+                return true;
             }
         }
-        ignore_all
+        false
     }
 
     fn get_suppression_kind(line: &str) -> Option<SuppressionKind> {
