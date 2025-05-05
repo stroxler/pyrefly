@@ -45,14 +45,15 @@ impl Ignore {
     fn has_ignore_all(code: &str) -> bool {
         // process top level comments
         for line_str in code.lines() {
+            let line_str = line_str.trim();
             // Skip blank lines
-            if line_str.trim().is_empty() {
+            if line_str.is_empty() {
                 continue;
             }
             // If the line is a comment, check if it's exactly "# pyrefly: ignore-all-errors"
             if !line_str.starts_with("#") {
                 return false;
-            } else if line_str.trim() == "# pyrefly: ignore-all-errors" {
+            } else if line_str == "# pyrefly: ignore-all-errors" {
                 return true;
             }
         }
@@ -132,7 +133,7 @@ x = 5
 x = 5
 "#
         ));
-        assert!(!Ignore::has_ignore_all(
+        assert!(Ignore::has_ignore_all(
             r#"
 # comment
   # indented comment
