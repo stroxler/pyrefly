@@ -123,7 +123,6 @@ use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionData;
-use crate::sys_info::SysInfo;
 use crate::types::lsp::position_to_text_size;
 use crate::types::lsp::source_range_to_range;
 use crate::types::lsp::text_size_to_position;
@@ -225,7 +224,7 @@ struct Server {
 
 /// Temporary "configuration": this is all that is necessary to run an LSP at a given root.
 /// TODO(connernilsel): replace with real config logic
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Workspace {
     #[expect(dead_code)]
     root: PathBuf,
@@ -263,7 +262,6 @@ impl Workspaces {
         }
     }
 
-    /// TODO(connernilsen): replace with real config logic
     fn get_with<F, R>(&self, uri: PathBuf, f: F) -> R
     where
         F: FnOnce(&Workspace) -> R,
@@ -356,7 +354,6 @@ pub fn run_lsp(
         };
     };
     let server = Server::new(Arc::new(send), initialization_params);
-    server.populate_all_project_files(&args.experimental_project_path);
     eprintln!("Reading messages");
     let mut ide_transaction_manager = IDETransactionManager::default();
     let mut canceled_requests = HashSet::new();
@@ -641,6 +638,7 @@ impl Server {
             filewatcher_registered: Arc::new(AtomicBool::new(false)),
         };
         s.configure(&folders, &Vec::new());
+        s.populate_all_project_files(&folders);
 
         s
     }
@@ -711,7 +709,6 @@ impl Server {
             for x in open_files.keys() {
                 diags.insert(x.as_path().to_owned(), Vec::new());
             }
-            // TODO(connernilsen): replace with real error config from config file
             for e in transaction
                 .get_errors(handles.iter().map(|(handle, _)| handle))
                 .collect_errors()
@@ -792,41 +789,44 @@ impl Server {
     /// entire project to work. This blocking function should be called during server initialization
     /// time if we intend to provide features like find-references, and should be called when config
     /// changes (currently this is a TODO).
-    fn populate_all_project_files(&self, search_paths: &[PathBuf]) {
-        if search_paths.is_empty() {
+    fn populate_all_project_files(&self, workspaces: &[PathBuf]) {
+        if workspaces.is_empty() {
+            eprintln!("Workspaces emtpy, skipping project file population");
             return;
         }
+
+        let config_finder = Workspaces::config_finder(&self.workspaces);
+        let unknown = ModuleName::unknown();
+
         let immediately_handled_events = self.immediately_handled_events.dupe();
         eprintln!(
             "Populating all files in the project path ({:?}).",
-            search_paths
+            workspaces,
         );
         let mut transaction = self
             .state
             .new_committable_transaction(Require::Exports, None);
+
         let mut handles = Vec::new();
-        for search_path in search_paths {
-            let paths = Globs::new_with_root(search_path, vec![".".to_owned()])
+        for workspace in workspaces {
+            // TODO(connernilsen): would love to use the workspace's config, and not require the workspaces arg
+            // (use self.workspaces.workspaces instead), but we get a deadlock when we do :(
+            let paths = Globs::new_with_root(workspace, vec![".".to_owned()])
                 .files()
                 .unwrap_or_default();
+
             for path in paths {
-                let module_name =
-                    module_from_path(&path, search_paths).unwrap_or_else(ModuleName::unknown);
-                // TODO(connernilsen): temp to keep tests working
-                let env = PythonEnvironment::get_default_interpreter_env();
+                let module_path = ModulePath::filesystem(path.clone());
+                let path_config = config_finder.python_file(unknown, &module_path);
+                let module_name = module_from_path(&path, &path_config.search_path)
+                    .unwrap_or_else(ModuleName::unknown);
                 handles.push((
-                    Handle::new(
-                        module_name,
-                        ModulePath::filesystem(path),
-                        SysInfo::new(
-                            env.python_version.unwrap_or_default(),
-                            env.python_platform.unwrap_or_default(),
-                        ),
-                    ),
+                    Handle::new(module_name, module_path, path_config.get_sys_info()),
                     Require::Exports,
                 ));
             }
         }
+
         eprintln!("Prepare to check {} files.", handles.len());
         transaction.as_mut().run(&handles);
         self.state.commit_transaction(transaction);

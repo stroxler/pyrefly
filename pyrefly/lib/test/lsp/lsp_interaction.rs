@@ -230,6 +230,7 @@ fn test_hover() {
 #[test]
 fn test_references() {
     let root = get_test_files_root();
+    let scope_uri = Url::from_file_path(root.path()).unwrap();
     let mut test_messages = Vec::new();
     let mut expected_responses = Vec::new();
     test_messages.push(Message::from(build_did_open_notification(
@@ -439,6 +440,7 @@ fn test_references() {
         messages_from_language_client: test_messages,
         expected_messages_from_language_server: expected_responses,
         experimental_project_path: vec![root.path().to_path_buf()],
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
         ..Default::default()
     });
 }
