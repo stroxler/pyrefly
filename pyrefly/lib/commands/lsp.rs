@@ -110,7 +110,6 @@ use crate::commands::config_finder::standard_config_finder;
 use crate::commands::run::CommandExitStatus;
 use crate::commands::util::module_from_path;
 use crate::common::files::PYTHON_FILE_SUFFIXES_TO_WATCH;
-use crate::config::config::ConfigFile;
 use crate::config::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
@@ -128,7 +127,6 @@ use crate::sys_info::SysInfo;
 use crate::types::lsp::position_to_text_size;
 use crate::types::lsp::source_range_to_range;
 use crate::types::lsp::text_size_to_position;
-use crate::util::arc_id::ArcId;
 use crate::util::args::clap_env;
 use crate::util::globs::Globs;
 use crate::util::lock::Mutex;
@@ -141,10 +139,6 @@ use crate::util::thread_pool::ThreadPool;
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
-    #[clap(long = "search-path", env = clap_env("SEARCH_PATH"))]
-    pub(crate) search_path: Vec<PathBuf>,
-    #[clap(long = "site-package-path", env = clap_env("SITE_PACKAGE_PATH"))]
-    pub(crate) site_package_path: Vec<PathBuf>,
     /// Temporary way to obtain the list of all the files belong to a project.
     /// This is necessary to know what files should be considered during find references.
     /// The information should eventually come from configs. TODO(@connernilsen)
@@ -224,10 +218,6 @@ struct Server {
     open_files: Arc<RwLock<HashMap<PathBuf, Arc<String>>>>,
     cancellation_handles: Arc<Mutex<HashMap<RequestId, CancellationHandle>>>,
     workspaces: Arc<Workspaces>,
-    #[expect(dead_code)]
-    search_path: Vec<PathBuf>,
-    #[expect(dead_code)]
-    site_package_path: Vec<PathBuf>,
     outgoing_request_id: Arc<AtomicI32>,
     outgoing_requests: Mutex<HashMap<RequestId, Request>>,
     filewatcher_registered: Arc<AtomicBool>,
@@ -237,12 +227,6 @@ struct Server {
 /// TODO(connernilsel): replace with real config logic
 #[derive(Debug)]
 struct Workspace {
-    #[expect(dead_code)]
-    sys_info: SysInfo,
-    #[expect(dead_code)]
-    search_path: Vec<PathBuf>,
-    /// The config implied by these settings
-    config_file: ArcId<ConfigFile>,
     #[expect(dead_code)]
     root: PathBuf,
     python_environment: PythonEnvironment,
@@ -255,16 +239,6 @@ impl Workspace {
             root: workspace_root.to_path_buf(),
             python_environment: python_environment.clone(),
             disable_language_services: false,
-            // TODO(connernilsen): delete these
-            sys_info: SysInfo::new(
-                python_environment.python_version.unwrap_or_default(),
-                python_environment
-                    .python_platform
-                    .clone()
-                    .unwrap_or_default(),
-            ),
-            search_path: vec![workspace_root.to_path_buf()],
-            config_file: ArcId::new(ConfigFile::default()),
         }
     }
 
@@ -312,7 +286,7 @@ impl Workspaces {
             {
                 workspaces.get_with(dir.to_owned(), |w| {
                     let site_package_path = config.python_environment.site_package_path.take();
-                    config.python_environment = w.config_file.python_environment.clone();
+                    config.python_environment = w.python_environment.clone();
                     if let Some(new) = site_package_path {
                         let mut workspace = config
                             .python_environment
@@ -322,9 +296,6 @@ impl Workspaces {
                         workspace.extend(new);
                         config.python_environment.site_package_path = Some(workspace);
                     }
-                    config
-                        .search_path
-                        .extend_from_slice(&w.config_file.search_path);
                 })
             };
             config.configure();
@@ -376,8 +347,6 @@ pub fn run_lsp(
             return Err(e.into());
         }
     };
-    let search_path = args.search_path;
-    let site_package_path = args.site_package_path;
     let connection_for_send = connection.dupe();
     let send = move |msg| {
         if connection_for_send.sender.send(msg).is_err() {
@@ -386,12 +355,7 @@ pub fn run_lsp(
             eprintln!("Connection closed.");
         };
     };
-    let server = Server::new(
-        Arc::new(send),
-        initialization_params,
-        search_path,
-        site_package_path,
-    );
+    let server = Server::new(Arc::new(send), initialization_params);
     server.populate_all_project_files(&args.experimental_project_path);
     eprintln!("Reading messages");
     let mut ide_transaction_manager = IDETransactionManager::default();
@@ -414,7 +378,7 @@ pub fn run_lsp(
 }
 
 impl Args {
-    pub fn run(mut self, extra_search_paths: Vec<PathBuf>) -> anyhow::Result<CommandExitStatus> {
+    pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         // Note that  we must have our logging only write out to stderr.
         eprintln!("starting generic LSP server");
 
@@ -422,7 +386,6 @@ impl Args {
         // also be implemented to use sockets or HTTP.
         let (connection, io_threads) = Connection::stdio();
 
-        self.search_path.extend(extra_search_paths);
         run_lsp(
             Arc::new(connection),
             move || io_threads.join().map_err(anyhow::Error::from),
@@ -639,8 +602,6 @@ impl Server {
     fn new(
         send: Arc<dyn Fn(Message) + Send + Sync + 'static>,
         initialize_params: InitializeParams,
-        search_path: Vec<PathBuf>,
-        site_package_path: Vec<PathBuf>,
     ) -> Self {
         let folders = if let Some(capability) = &initialize_params.capabilities.workspace
             && let Some(true) = capability.workspace_folders
@@ -675,8 +636,6 @@ impl Server {
             open_files: Arc::new(RwLock::new(HashMap::new())),
             cancellation_handles: Arc::new(Mutex::new(HashMap::new())),
             workspaces,
-            search_path,
-            site_package_path,
             outgoing_request_id: Arc::new(AtomicI32::new(1)),
             outgoing_requests: Mutex::new(HashMap::new()),
             filewatcher_registered: Arc::new(AtomicBool::new(false)),

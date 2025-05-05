@@ -39,7 +39,6 @@ use crate::util::fs_anyhow;
 pub struct TestCase {
     pub(crate) messages_from_language_client: Vec<Message>,
     pub(crate) expected_messages_from_language_server: Vec<Message>,
-    pub(crate) search_path: Vec<PathBuf>,
     pub(crate) experimental_project_path: Vec<PathBuf>,
     /// workspace folders open in the client
     pub(crate) workspace_folders: Option<Vec<(String, Url)>>,
@@ -55,8 +54,6 @@ pub fn run_test_lsp(test_case: TestCase) {
     init_test();
     let timeout = Duration::from_secs(25);
     let args = Args {
-        search_path: test_case.search_path,
-        site_package_path: Vec::new(),
         experimental_project_path: test_case.experimental_project_path.clone(),
     };
     // language_client_sender is used to send messages to the language client

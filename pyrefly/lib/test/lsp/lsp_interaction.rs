@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::path::PathBuf;
-
 use lsp_server::Message;
 use lsp_server::Notification;
 use lsp_server::Request;
@@ -67,11 +65,7 @@ fn test_initialize_with_python_path() {
     });
 }
 
-fn test_go_to_def(
-    root: &TempDir,
-    workspace_folders: Option<Vec<(String, Url)>>,
-    search_path: Vec<PathBuf>,
-) {
+fn test_go_to_def(root: &TempDir, workspace_folders: Option<Vec<(String, Url)>>) {
     run_test_lsp(TestCase {
         messages_from_language_client: vec![
             Message::from(build_did_open_notification(root.path().join("foo.py"))),
@@ -106,7 +100,6 @@ fn test_go_to_def(
             })),
             error: None,
         })],
-        search_path,
         workspace_folders,
         ..Default::default()
     });
@@ -121,20 +114,19 @@ fn test_go_to_def_single_root() {
             "test".to_owned(),
             Url::from_file_path(root.path()).unwrap(),
         )]),
-        Vec::new(), // should use search_path from workspace root
     );
 }
 
 #[test]
 fn test_go_to_def_no_root() {
     let root = get_test_files_root();
-    test_go_to_def(&root, Some(vec![]), vec![root.path().to_owned()]);
+    test_go_to_def(&root, Some(vec![]));
 }
 
 #[test]
 fn test_go_to_def_no_folder_capability() {
     let root = get_test_files_root();
-    test_go_to_def(&root, None, vec![root.path().to_owned()]);
+    test_go_to_def(&root, None);
 }
 
 #[test]
@@ -446,7 +438,6 @@ fn test_references() {
     run_test_lsp(TestCase {
         messages_from_language_client: test_messages,
         expected_messages_from_language_server: expected_responses,
-        search_path: vec![root.path().to_path_buf()],
         experimental_project_path: vec![root.path().to_path_buf()],
         ..Default::default()
     });
@@ -758,7 +749,6 @@ fn test_edits_while_recheck() {
     run_test_lsp(TestCase {
         messages_from_language_client: test_messages,
         expected_messages_from_language_server: expected_responses,
-        search_path: vec![root.path().to_path_buf()],
         ..Default::default()
     });
 }
