@@ -108,6 +108,10 @@ impl TestEnv {
     }
 
     pub fn add_with_path(&mut self, name: &str, path: &str, code: &str) {
+        assert!(
+            path.ends_with(".py") || path.ends_with(".pyi") || path.ends_with(".rs"),
+            "{path} doesn't look like a reasonable path"
+        );
         self.modules.insert(
             ModuleName::from_str(name),
             (
