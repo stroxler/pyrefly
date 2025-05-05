@@ -307,7 +307,9 @@ impl Workspaces {
     fn config_finder(workspaces: &Arc<Workspaces>) -> ConfigFinder {
         let workspaces = workspaces.dupe();
         standard_config_finder(Arc::new(move |dir, mut config| {
-            if let Some(dir) = dir {
+            if let Some(dir) = dir
+                && config.python_interpreter.is_none()
+            {
                 workspaces.get_with(dir.to_owned(), |w| {
                     let site_package_path = config.python_environment.site_package_path.take();
                     config.python_environment = w.config_file.python_environment.clone();
