@@ -108,7 +108,7 @@ All found `project_includes` files were filtered by `project_excludes` patterns.
 $ echo "" > $TMPDIR/empty.py && echo -e "project_includes = [\"$TMPDIR/empty.py\"]\nsite_package_path = [\"$TMPDIR/abcd\"]\nsearch_path = [\"$TMPDIR/abcd\"]" > $TMPDIR/pyrefly.toml && $PYREFLY check -c $TMPDIR/pyrefly.toml --python-version 3.13.0 && rm $TMPDIR/pyrefly.toml
 *WARN Invalid site_package_path: * does not exist (glob)
 *WARN Invalid search_path: * does not exist (glob)
-* INFO * (glob)
+ INFO Checking project configured at "*/pyrefly.toml" (glob)
 * INFO * errors* (glob)
 [0]
 ```
