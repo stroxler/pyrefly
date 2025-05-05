@@ -268,14 +268,14 @@ impl Workspace {
 }
 
 struct Workspaces {
-    default: Workspace,
+    default: RwLock<Workspace>,
     workspaces: RwLock<SmallMap<PathBuf, Workspace>>,
 }
 
 impl Workspaces {
     fn new(default: Workspace) -> Self {
         Self {
-            default,
+            default: RwLock::new(default),
             workspaces: RwLock::new(SmallMap::new()),
         }
     }
@@ -286,12 +286,13 @@ impl Workspaces {
         F: FnOnce(&Workspace) -> R,
     {
         let workspaces = self.workspaces.read();
+        let default_workspace = self.default.read();
         let workspace = workspaces
             .iter()
             .filter(|(key, _)| uri.starts_with(key))
             .max_by(|(key1, _), (key2, _)| key2.ancestors().count().cmp(&key1.ancestors().count()))
-            .map_or(&self.default, |(_, workspace)| workspace);
-        f(workspace)
+            .map(|(_, workspace)| workspace);
+        f(workspace.unwrap_or(&default_workspace))
     }
 
     fn config_finder(workspaces: &Arc<Workspaces>) -> ConfigFinder {
