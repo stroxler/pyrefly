@@ -38,6 +38,7 @@ use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidChangeWatchedFilesClientCapabilities;
 use lsp_types::DidChangeWatchedFilesParams;
 use lsp_types::DidChangeWatchedFilesRegistrationOptions;
+use lsp_types::DidChangeWorkspaceFoldersParams;
 use lsp_types::DidCloseTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
 use lsp_types::DidSaveTextDocumentParams;
@@ -81,6 +82,7 @@ use lsp_types::notification::Cancel;
 use lsp_types::notification::DidChangeConfiguration;
 use lsp_types::notification::DidChangeTextDocument;
 use lsp_types::notification::DidChangeWatchedFiles;
+use lsp_types::notification::DidChangeWorkspaceFolders;
 use lsp_types::notification::DidCloseTextDocument;
 use lsp_types::notification::DidOpenTextDocument;
 use lsp_types::notification::DidSaveTextDocument;
@@ -579,6 +581,9 @@ impl Server {
                     };
                     canceled_requests.insert(id);
                     Ok(())
+                } else if let Some(params) = as_notification::<DidChangeWorkspaceFolders>(&x) {
+                    self.workspace_folders_changed(params);
+                    Ok(())
                 } else if as_notification::<DidChangeConfiguration>(&x).is_some() {
                     self.change_workspace();
                     Ok(())
@@ -635,7 +640,7 @@ impl Server {
             outgoing_requests: Mutex::new(HashMap::new()),
             filewatcher_registered: Arc::new(AtomicBool::new(false)),
         };
-        s.configure(folders);
+        s.configure(&folders, &Vec::new());
 
         s
     }
@@ -890,14 +895,43 @@ impl Server {
         Ok(())
     }
 
+    fn workspace_folders_changed(&self, params: DidChangeWorkspaceFoldersParams) {
+        let removed = params
+            .event
+            .removed
+            .iter()
+            .map(|x| x.uri.to_file_path().unwrap())
+            .collect::<Vec<_>>();
+        let added = params
+            .event
+            .added
+            .iter()
+            .map(|x| x.uri.to_file_path().unwrap())
+            .collect::<Vec<_>>();
+
+        self.configure(&added, &removed);
+    }
+
     /// Configure the server with a new set of workspace folders
-    fn configure(&self, workspace_paths: Vec<PathBuf>) {
-        let mut new_workspaces = SmallMap::new();
-        for x in &workspace_paths {
-            new_workspaces.insert(x.clone(), Workspace::new_with_default_env(x));
+    fn configure(
+        &self,
+        workspace_paths_added: &Vec<PathBuf>,
+        workspace_paths_removed: &Vec<PathBuf>,
+    ) {
+        let mut all_workspaces = Vec::new();
+        {
+            let mut workspaces = self.workspaces.workspaces.write();
+            for x in workspace_paths_added {
+                workspaces.insert(x.clone(), Workspace::new_with_default_env(x));
+            }
+            for x in workspace_paths_removed {
+                workspaces.shift_remove(x);
+            }
+            workspaces
+                .keys()
+                .for_each(|uri| all_workspaces.push(uri.clone()));
         }
-        self.setup_file_watcher_if_necessary(&workspace_paths);
-        *self.workspaces.workspaces.write() = new_workspaces;
+        self.setup_file_watcher_if_necessary(all_workspaces.as_slice());
         self.request_settings_for_all_workspaces();
     }
 

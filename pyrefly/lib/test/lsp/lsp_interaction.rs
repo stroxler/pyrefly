@@ -16,6 +16,7 @@ use lsp_types::ConfigurationItem;
 use lsp_types::ConfigurationParams;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeConfiguration;
+use lsp_types::notification::DidChangeWorkspaceFolders;
 use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
 use lsp_types::request::WorkspaceConfiguration;
@@ -717,6 +718,65 @@ fn test_file_watcher() {
             Url::from_file_path(root).unwrap(),
         )]),
         file_watch: true,
+        ..Default::default()
+    });
+}
+
+#[test]
+fn test_did_change_workspace_folder() {
+    let root = get_test_files_root();
+    let scope_uri = Url::from_file_path(root.path()).unwrap();
+    run_test_lsp(TestCase {
+        messages_from_language_client: vec![
+            Message::Response(Response {
+                id: RequestId::from(1),
+                result: Some(serde_json::json!([{}])),
+                error: None,
+            }),
+            Message::Notification(Notification {
+                method: DidChangeWorkspaceFolders::METHOD.to_owned(),
+                params: serde_json::json!({
+                    "event": {
+                    "added": [{"uri": Url::from_file_path(&root).unwrap(), "name": "test"}],
+                    "removed": [],
+                    }
+                }),
+            }),
+            Message::Response(Response {
+                id: RequestId::from(2),
+                result: Some(serde_json::json!([{}, {}])),
+                error: None,
+            }),
+        ],
+        expected_messages_from_language_server: vec![
+            Message::Request(Request {
+                id: RequestId::from(1),
+                method: WorkspaceConfiguration::METHOD.to_owned(),
+                params: serde_json::json!(ConfigurationParams {
+                    items: Vec::from([ConfigurationItem {
+                        scope_uri: None,
+                        section: Some("python".to_owned()),
+                    }]),
+                }),
+            }),
+            Message::Request(Request {
+                id: RequestId::from(2),
+                method: WorkspaceConfiguration::METHOD.to_owned(),
+                params: serde_json::json!(ConfigurationParams {
+                    items: Vec::from([
+                        ConfigurationItem {
+                            scope_uri: Some(scope_uri.clone()),
+                            section: Some("python".to_owned()),
+                        },
+                        ConfigurationItem {
+                            scope_uri: None,
+                            section: Some("python".to_owned()),
+                        }
+                    ]),
+                }),
+            }),
+        ],
+        configuration: true,
         ..Default::default()
     });
 }
