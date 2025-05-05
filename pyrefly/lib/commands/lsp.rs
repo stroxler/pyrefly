@@ -892,11 +892,10 @@ impl Server {
         let mut new_workspaces = SmallMap::new();
         for x in &workspace_paths {
             new_workspaces.insert(x.clone(), Workspace::new_with_default_env(x));
-            // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
-            self.request_settings_for_workspace(&Url::from_file_path(x).unwrap());
         }
         self.setup_file_watcher_if_necessary(&workspace_paths);
         *self.workspaces.workspaces.write() = new_workspaces;
+        self.request_settings_for_all_workspaces();
     }
 
     fn module_name(state: &State, workspace: &Workspace, path: &ModulePath) -> ModuleName {
@@ -1155,13 +1154,7 @@ impl Server {
     }
 
     fn change_workspace(&self) {
-        self.workspaces
-            .workspaces
-            .read()
-            .keys()
-            .for_each(|scope_uri| {
-                self.request_settings_for_workspace(&Url::from_file_path(scope_uri).unwrap())
-            });
+        self.request_settings_for_all_workspaces();
     }
 
     // TODO(connernilsen): add config files themselves to watcher
@@ -1216,15 +1209,22 @@ impl Server {
         }
     }
 
-    fn request_settings_for_workspace(&self, scope_uri: &Url) {
+    // todo(kylei): request settings for <DEFAULT> config (files not in any workspace folders)
+    fn request_settings_for_all_workspaces(&self) {
         if let Some(workspace) = &self.initialize_params.capabilities.workspace
             && workspace.configuration == Some(true)
         {
             self.send_request::<WorkspaceConfiguration>(ConfigurationParams {
-                items: Vec::from([ConfigurationItem {
-                    scope_uri: Some(scope_uri.clone()),
-                    section: Some("python".to_owned()),
-                }]),
+                items: self
+                    .workspaces
+                    .workspaces
+                    .read()
+                    .keys()
+                    .map(|uri| ConfigurationItem {
+                        scope_uri: Some(Url::from_file_path(uri).unwrap()),
+                        section: Some("python".to_owned()),
+                    })
+                    .collect::<Vec<_>>(),
             });
         }
     }
