@@ -88,7 +88,11 @@ export async function activate(context: ExtensionContext) {
 
     // Otherwise to spawn the server
     let serverOptions: ServerOptions = { command: path === '' ? bundledPyreflyPath.fsPath : path, args: args };
-    let rawInitialisationOptions = vscode.workspace.getConfiguration("pyrefly");
+    let rawInitialisationOptions = {
+      ...vscode.workspace.getConfiguration("pyrefly"),
+      // allows us to open a text document that does not exist on disk using the `contentsasuri` scheme from Pyrefly
+      supportContentsAsUri: true
+    };
 
     // Options to control the language client
     let clientOptions: LanguageClientOptions = {
