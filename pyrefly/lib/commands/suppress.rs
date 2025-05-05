@@ -17,7 +17,7 @@ use crate::error::error::Error;
 use crate::util::fs_anyhow;
 
 /// Combines all errors that affect one line into a single entry.
-// The current format is: `# type: ignore  # error1, error2, ...`, because pyrefly does not currently support pyre-fixme.
+// The current format is: `# pyrefly: ignore  # error1, error2, ...`, because pyrefly does not currently support pyre-fixme.
 fn dedup_errors(errors: &[Error]) -> SmallMap<usize, String> {
     let mut deduped_errors = SmallMap::new();
     for error in errors {
