@@ -9,6 +9,7 @@ pub mod dirty;
 pub mod epoch;
 pub mod errors;
 pub mod handle;
+pub mod ide;
 pub mod load;
 pub mod loader;
 pub mod lsp;

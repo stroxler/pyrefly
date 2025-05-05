@@ -34,6 +34,9 @@ use crate::module::module_path::ModulePathDetails;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::state::handle::Handle;
+use crate::state::ide::IntermediateDefinition;
+use crate::state::ide::binding_to_intermediate_definition;
+use crate::state::ide::key_to_intermediate_definition;
 use crate::state::require::Require;
 use crate::state::state::CancellableTransaction;
 use crate::state::state::Transaction;
@@ -137,66 +140,40 @@ impl<'a> Transaction<'a> {
         self.get_type_trace(handle, attribute.range)
     }
 
-    fn key_to_export(&self, handle: &Handle, key: &Key, gas: Gas) -> Option<(Handle, Export)> {
-        let bindings = self.get_bindings(handle)?;
-        let idx = bindings.key_to_idx(key);
-        let res = self.binding_to_export(handle, bindings.get(idx), gas);
-        if res.is_none()
-            && let Key::Definition(x) = key
-        {
-            return Some((
-                handle.dupe(),
-                Export {
-                    location: x.range(),
-                    docstring: None,
-                },
-            ));
-        }
-        if res.is_none()
-            && let Key::Anywhere(_, range) = key
-        {
-            return Some((
-                handle.dupe(),
-                Export {
-                    location: *range,
-                    docstring: None,
-                },
-            ));
-        }
-        res
-    }
-
-    fn binding_to_export(
+    fn resolve_named_import(
         &self,
         handle: &Handle,
-        binding: &Binding,
+        module_name: ModuleName,
+        name: Name,
+        gas: &mut Gas,
+    ) -> Option<(Handle, Export)> {
+        let mut m = module_name;
+        while !gas.stop() {
+            let handle = self.import_handle(handle, m, None).ok()?;
+            match self.get_exports(&handle).get(&name) {
+                Some(ExportLocation::ThisModule(export)) => {
+                    return Some((handle.clone(), export.clone()));
+                }
+                Some(ExportLocation::OtherModule(module)) => m = *module,
+                None => return None,
+            }
+        }
+        None
+    }
+
+    fn resolve_intermediate_definition(
+        &self,
+        handle: &Handle,
+        intermediate_definition: IntermediateDefinition,
         mut gas: Gas,
     ) -> Option<(Handle, Export)> {
-        if gas.stop() {
-            return None;
-        }
-        let bindings = self.get_bindings(handle)?;
-        match binding {
-            Binding::Forward(k) => self.key_to_export(handle, bindings.idx_to_key(*k), gas),
-            Binding::Default(_, m) => self.binding_to_export(handle, m, gas),
-            Binding::Phi(ks) if !ks.is_empty() => {
-                self.key_to_export(handle, bindings.idx_to_key(*ks.iter().next().unwrap()), gas)
+        match intermediate_definition {
+            IntermediateDefinition::Local(export) => Some((handle.dupe(), export)),
+            IntermediateDefinition::NamedImport(module_name, name) => {
+                self.resolve_named_import(handle, module_name, name, &mut gas)
             }
-            Binding::Import(mut m, name) => {
-                while !gas.stop() {
-                    let handle = self.import_handle(handle, m, None).ok()?;
-                    match self.get_exports(&handle).get(name) {
-                        Some(ExportLocation::ThisModule(export)) => {
-                            return Some((handle.clone(), export.clone()));
-                        }
-                        Some(ExportLocation::OtherModule(module)) => m = *module,
-                        None => return None,
-                    }
-                }
-                None
-            }
-            Binding::Module(name, _, _) => {
-                let handle = self.import_handle(handle, *name, None).ok()?;
+            IntermediateDefinition::Module(name) => {
+                let handle = self.import_handle(handle, name, None).ok()?;
                 let docstring = self.get_module_docstring(&handle);
                 Some((
                     handle,
@@ -206,12 +183,25 @@ impl<'a> Transaction<'a> {
                     },
                 ))
             }
-            Binding::CheckLegacyTypeParam(k, _) => {
-                let binding = bindings.get(*k);
-                self.key_to_export(handle, bindings.idx_to_key(binding.0), gas)
-            }
-            _ => None,
         }
+    }
+
+    fn key_to_export(&self, handle: &Handle, key: &Key, mut gas: Gas) -> Option<(Handle, Export)> {
+        let bindings = self.get_bindings(handle)?;
+        let intermediate_definition = key_to_intermediate_definition(&bindings, key, &mut gas)?;
+        self.resolve_intermediate_definition(handle, intermediate_definition, gas)
+    }
+
+    fn binding_to_export(
+        &self,
+        handle: &Handle,
+        binding: &Binding,
+        mut gas: Gas,
+    ) -> Option<(Handle, Export)> {
+        let bindings = self.get_bindings(handle)?;
+        let intermediate_definition =
+            binding_to_intermediate_definition(&bindings, binding, &mut gas)?;
+        self.resolve_intermediate_definition(handle, intermediate_definition, gas)
     }
 
     /// Find the definition, metadata and optionally the docstring for the given position.
