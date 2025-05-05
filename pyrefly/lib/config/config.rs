@@ -420,7 +420,6 @@ impl ConfigFile {
                 .with_context(|| format!("Path `{}` cannot be absolutized", config_path.display()))?
                 .into_owned();
             let config_str = fs_anyhow::read_to_string(&config_path)?;
-            // The parent must exist because we read the file contents successfully.
             let config_root = config_path.parent().ok_or_else(|| {
                 anyhow!("Could not find parent of path `{}`", config_path.display())
             })?;
