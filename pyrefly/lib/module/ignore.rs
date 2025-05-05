@@ -134,6 +134,14 @@ x = 5
         ));
         assert!(!Ignore::has_ignore_all(
             r#"
+# comment
+  # indented comment
+# pyrefly: ignore-all-errors
+x = 5
+"#
+        ));
+        assert!(!Ignore::has_ignore_all(
+            r#"
 x = 5
 # pyrefly: ignore-all-errors
 "#
