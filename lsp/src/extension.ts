@@ -58,7 +58,8 @@ function requireSetting<T>(path: string): T {
       if (configurationItems.length <= index || configurationItems[index].section !== 'python') {
         return undefined;
       }
-      return await pythonExtension.environments.getActiveEnvironmentPath(vscode.Uri.file(configurationItems[index]?.scopeUri)).path;
+      let scopeUri = configurationItems[index].scopeUri;
+      return await pythonExtension.environments.getActiveEnvironmentPath(scopeUri === undefined ? undefined : vscode.Uri.file(scopeUri)).path;
     };
     const newResult = await Promise.all(configuration.map(async (item, index) => {
       const pythonPath = await getPythonPathForConfigurationItem(index);
