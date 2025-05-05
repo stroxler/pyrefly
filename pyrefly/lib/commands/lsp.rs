@@ -235,7 +235,6 @@ struct Workspace {
     config_file: ArcId<ConfigFile>,
     #[expect(dead_code)]
     root: PathBuf,
-    #[expect(dead_code)]
     python_environment: PythonEnvironment,
     disable_language_services: bool,
 }
@@ -1291,10 +1290,9 @@ impl Server {
         // Currently uses the default interpreter if the pythonPath is invalid
         let env = PythonEnvironment::get_interpreter_env(Path::new(python_path));
         // TODO(kylei): warn if interpreter could not be found
-        if workspaces.get(&workspace_path).is_some() {
+        if let Some(workspace) = workspaces.get_mut(&workspace_path) {
             *modified = true;
-            let new_workspace = Workspace::new(&workspace_path, env);
-            workspaces.insert(workspace_path, new_workspace);
+            workspace.python_environment = env;
         }
         self.invalidate_config();
     }
