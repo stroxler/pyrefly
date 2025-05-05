@@ -197,6 +197,9 @@ impl ConfigFile {
     pub const PYREFLY_FILE_NAME: &str = "pyrefly.toml";
     pub const PYPROJECT_FILE_NAME: &str = "pyproject.toml";
     pub const CONFIG_FILE_NAMES: &[&str] = &[Self::PYREFLY_FILE_NAME, Self::PYPROJECT_FILE_NAME];
+    /// Files that don't contain pyrefly-specific config information but indicate that we're at the
+    /// root of a Python project, which should be added to the search path.
+    pub const ADDITIONAL_ROOT_FILE_NAMES: &[&str] = &["setup.py", "mypy.ini", "pyrightconfig.json"];
 
     /// An empty `ConfigFile` with no search path at all.
     pub fn empty() -> Self {
@@ -424,6 +427,12 @@ impl ConfigFile {
             let maybe_config =
                 if config_path.file_name() == Some(OsStr::new(ConfigFile::PYPROJECT_FILE_NAME)) {
                     ConfigFile::parse_pyproject_toml(&config_str)?
+                } else if config_path.file_name().is_some_and(|fi| {
+                    fi.to_str()
+                        .is_some_and(|fi| ConfigFile::ADDITIONAL_ROOT_FILE_NAMES.contains(&fi))
+                }) {
+                    // We'll create a file with default options but treat config_root as the project root.
+                    None
                 } else {
                     Some(ConfigFile::parse_config(&config_str)?)
                 };
@@ -944,12 +953,37 @@ mod tests {
         assert_eq!(config.search_path, vec![root.path().to_path_buf()]);
     }
 
+    fn create_empty_file_and_parse_config(root: &TempDir, name: &str) -> ConfigFile {
+        let path = root.path().join(name);
+        fs::write(&path, "").unwrap();
+        ConfigFile::from_file(&path, true).unwrap()
+    }
+
     #[test]
     fn test_pyproject_toml_no_pyrefly_search_path() {
         let root = TempDir::new().unwrap();
-        let path = root.path().join(ConfigFile::PYPROJECT_FILE_NAME);
-        fs::write(&path, "").unwrap();
-        let config = ConfigFile::from_file(&path, true).unwrap();
+        let config = create_empty_file_and_parse_config(&root, ConfigFile::PYPROJECT_FILE_NAME);
+        assert_eq!(config.search_path, vec![root.path().to_path_buf()]);
+    }
+
+    #[test]
+    fn test_setup_py_search_path() {
+        let root = TempDir::new().unwrap();
+        let config = create_empty_file_and_parse_config(&root, "setup.py");
+        assert_eq!(config.search_path, vec![root.path().to_path_buf()]);
+    }
+
+    #[test]
+    fn test_mypy_config_search_path() {
+        let root = TempDir::new().unwrap();
+        let config = create_empty_file_and_parse_config(&root, "mypy.ini");
+        assert_eq!(config.search_path, vec![root.path().to_path_buf()]);
+    }
+
+    #[test]
+    fn test_pyright_config_search_path() {
+        let root = TempDir::new().unwrap();
+        let config = create_empty_file_and_parse_config(&root, "pyrightconfig.json");
         assert_eq!(config.search_path, vec![root.path().to_path_buf()]);
     }
 }

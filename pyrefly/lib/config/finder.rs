@@ -20,7 +20,6 @@ use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::util::arc_id::ArcId;
 use crate::util::lock::Mutex;
-use crate::util::prelude::SliceExt;
 use crate::util::upward_search::UpwardSearch;
 
 /// A way to find a config file given a directory or Python file.
@@ -73,7 +72,11 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
 
         Self {
             search: UpwardSearch::new(
-                ConfigFile::CONFIG_FILE_NAMES.map(OsString::from),
+                ConfigFile::CONFIG_FILE_NAMES
+                    .iter()
+                    .chain(ConfigFile::ADDITIONAL_ROOT_FILE_NAMES)
+                    .map(OsString::from)
+                    .collect(),
                 move |x| match load(x) {
                     Ok(v) => Some(v),
                     Err(e) => {
