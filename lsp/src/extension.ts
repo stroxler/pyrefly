@@ -149,6 +149,24 @@ export async function activate(context: ExtensionContext) {
             await client.start();
         }),
     );
+
+    registerTextDocumentContentProviders();
+}
+
+/**
+ * VSCode allows registering a content provider for a URI scheme. This allows us to
+ * open a text document that does not necessarily exist on disk using a specific schema.
+ */
+function registerTextDocumentContentProviders() {
+  // This document provider encodes the entire text document contents as the query section of the URI.
+  const provider = new (class implements vscode.TextDocumentContentProvider {
+    provideTextDocumentContent(uri: vscode.Uri): string {
+      return Buffer.from(uri.query, 'base64').toString();
+    }
+  })();
+
+  vscode.workspace.registerTextDocumentContentProvider("contentsasuri", provider);
+
 }
 
 export function deactivate(): Thenable<void> | undefined {
