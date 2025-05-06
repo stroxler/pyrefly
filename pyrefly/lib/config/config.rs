@@ -59,6 +59,42 @@ pub enum ConfigSource {
     Synthetic,
 }
 
+/// Where the importable Python code in a project lives. There are two common Python project layouts, src and flat.
+/// See: https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/#src-layout-vs-flat-layout
+#[derive(Default)]
+enum ProjectLayout {
+    /// Python packages live directly in the project root
+    #[default]
+    Flat,
+    /// Python packages live in a src/ subdirectory
+    Src,
+}
+
+impl ProjectLayout {
+    fn new(project_root: &Path) -> Self {
+        let src_subdir = project_root.join("src");
+        match src_subdir.try_exists() {
+            Ok(true) => Self::Src,
+            Ok(false) => Self::Flat,
+            Err(e) => {
+                debug!(
+                    "Error checking for existence of path {}: {}",
+                    src_subdir.display(),
+                    e
+                );
+                Self::default()
+            }
+        }
+    }
+
+    fn get_import_root(&self, project_root: &Path) -> PathBuf {
+        match self {
+            Self::Flat => project_root.to_path_buf(),
+            Self::Src => project_root.join("src"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct ConfigFile {
     #[serde(skip)]
@@ -122,13 +158,13 @@ impl Default for ConfigFile {
     /// Gets a default ConfigFile, with all paths rewritten relative to cwd.
     fn default() -> Self {
         match std::env::current_dir() {
-            Ok(cwd) => Self::default_at_root(&cwd),
+            Ok(cwd) => Self::default_at_root(&cwd, &ProjectLayout::default()),
             Err(err) => {
                 debug!(
                     "Cannot identify current dir for default config path rewriting: {}",
                     err
                 );
-                Self::default_no_path_rewrite()
+                Self::default_no_path_rewrite(&ProjectLayout::default())
             }
         }
     }
@@ -137,18 +173,20 @@ impl Default for ConfigFile {
 impl ConfigFile {
     /// Gets a default ConfigFile, with no path rewriting. This should only be used for unit testing,
     /// since it may have strange runtime behavior. Prefer to use `ConfigFile::default()` instead.
-    fn default_no_path_rewrite() -> Self {
+    fn default_no_path_rewrite(layout: &ProjectLayout) -> Self {
         let mut result = Self::empty();
         result.project_includes = Self::default_project_includes();
         result.project_excludes = Self::default_project_excludes();
-        // Note that rewrite_with_path_to_config() converts this to the config file's containing directory.
-        result.search_path.push(PathBuf::from(""));
+        // Note that rewrite_with_path_to_config() converts "" to the config file's containing directory.
+        result
+            .search_path
+            .push(layout.get_import_root(Path::new("")));
         result
     }
 
     /// Gets a default ConfigFile, with all paths rewritten relative to a root dir.
-    fn default_at_root(root: &Path) -> Self {
-        let mut result = Self::default_no_path_rewrite();
+    fn default_at_root(root: &Path, layout: &ProjectLayout) -> Self {
+        let mut result = Self::default_no_path_rewrite(layout);
         result.rewrite_with_path_to_config(root);
         result
     }
@@ -431,15 +469,17 @@ impl ConfigFile {
                 } else {
                     Some(ConfigFile::parse_config(&config_str)?)
                 };
+            let layout = ProjectLayout::new(config_root);
             let mut config = if let Some(mut config) = maybe_config {
                 config.rewrite_with_path_to_config(config_root);
-                // push config to search path to make sure we can fall back to the config directory as an import path
-                if !config.search_path.iter().any(|p| p == config_root) {
-                    config.search_path.push(config_root.to_path_buf());
+                // push import root to search path to make sure we can fall back to it
+                let import_root = layout.get_import_root(config_root);
+                if !config.search_path.contains(&import_root) {
+                    config.search_path.push(import_root);
                 }
                 config
             } else {
-                ConfigFile::default_at_root(config_root)
+                ConfigFile::default_at_root(config_root, &layout)
             };
             config.source = ConfigSource::File(config_path.to_owned());
 
@@ -610,7 +650,7 @@ mod tests {
             config,
             ConfigFile {
                 search_path: Vec::new(),
-                ..ConfigFile::default_no_path_rewrite()
+                ..ConfigFile::default_no_path_rewrite(&ProjectLayout::default())
             }
         );
     }
@@ -662,7 +702,7 @@ mod tests {
                     site_package_path: None,
                     site_package_path_from_interpreter: false,
                 },
-                ..ConfigFile::default_no_path_rewrite()
+                ..ConfigFile::default_no_path_rewrite(&ProjectLayout::default())
             }
         );
     }
@@ -699,7 +739,7 @@ mod tests {
                     // this won't be set until after `configure()`
                     site_package_path_from_interpreter: false,
                 },
-                ..ConfigFile::default_no_path_rewrite()
+                ..ConfigFile::default_no_path_rewrite(&ProjectLayout::default())
             }
         );
     }
@@ -824,7 +864,7 @@ mod tests {
 
     #[test]
     fn test_expect_all_fields_set_in_root_config() {
-        let mut config = ConfigFile::default_no_path_rewrite();
+        let mut config = ConfigFile::default_no_path_rewrite(&ProjectLayout::default());
         config.configure();
 
         let table: serde_json::Map<String, serde_json::Value> =
@@ -988,5 +1028,44 @@ mod tests {
         let root = TempDir::new().unwrap();
         let config = create_empty_file_and_parse_config(&root, "pyrightconfig.json");
         assert_eq!(config.search_path, vec![root.path().to_path_buf()]);
+    }
+
+    #[test]
+    fn test_src_layout_default_config() {
+        // root/
+        // - pyproject.toml (empty)
+        // - src/
+        // - my_amazing_scripts/
+        //   - foo.py
+        let root = TempDir::new().unwrap();
+        let src_dir = root.path().join("src");
+        let scripts_dir = root.path().join("my_amazing_scripts");
+        let python_file = scripts_dir.join("foo.py");
+        fs::create_dir(&src_dir).unwrap();
+        fs::create_dir(&scripts_dir).unwrap();
+        fs::write(&python_file, "").unwrap();
+        let config = create_empty_file_and_parse_config(&root, ConfigFile::PYPROJECT_FILE_NAME);
+        // We should still find Python files (commonly scripts and tests) outside src/.
+        assert_eq!(config.project_includes.files().unwrap(), vec![python_file]);
+        assert_eq!(config.search_path, vec![src_dir]);
+    }
+
+    #[test]
+    fn test_src_layout_with_config() {
+        // root/
+        // - pyrefly.toml
+        // - src/
+        let root = TempDir::new().unwrap();
+        let src_dir = root.path().join("src");
+        fs::create_dir_all(&src_dir).unwrap();
+        let pyrefly_path = root.path().join(ConfigFile::PYREFLY_FILE_NAME);
+        fs::write(&pyrefly_path, "project_includes = [\"**/*\"]").unwrap();
+        let config = ConfigFile::from_file(&pyrefly_path, true).unwrap();
+        // File contents should still be relative to the location of the config file, not src/.
+        assert_eq!(
+            config.project_includes,
+            Globs::new(vec![root.path().join("**/*").to_string_lossy().to_string()]),
+        );
+        assert_eq!(config.search_path, vec![src_dir]);
     }
 }
