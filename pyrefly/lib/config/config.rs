@@ -186,9 +186,10 @@ impl Default for ConfigFile {
 }
 
 impl ConfigFile {
-    /// Gets a default ConfigFile, with no path rewriting. This should only be used for unit testing,
-    /// since it may have strange runtime behavior. Prefer to use `ConfigFile::default()` instead.
-    fn default_no_path_rewrite(layout: &ProjectLayout) -> Self {
+    /// Gets a generic ConfigFile whose paths need to be rewritten with respect to a root dir.
+    /// This should only be used for unit testing, since it may have strange runtime behavior.
+    /// Prefer to use `ConfigFile::init_at_root()` instead.
+    fn init_no_path_rewrite(layout: &ProjectLayout) -> Self {
         Self {
             project_includes: Self::default_project_includes(),
             project_excludes: Self::default_project_excludes(),
@@ -198,9 +199,9 @@ impl ConfigFile {
         }
     }
 
-    /// Gets a default ConfigFile, with all paths rewritten relative to a root dir.
-    pub fn default_at_root(root: &Path, layout: &ProjectLayout) -> Self {
-        let mut result = Self::default_no_path_rewrite(layout);
+    /// Gets a ConfigFile for a project directory.
+    pub fn init_at_root(root: &Path, layout: &ProjectLayout) -> Self {
+        let mut result = Self::init_no_path_rewrite(layout);
         result.rewrite_with_path_to_config(root);
         result
     }
@@ -480,7 +481,7 @@ impl ConfigFile {
                 }
                 config
             } else {
-                ConfigFile::default_at_root(config_root, &layout)
+                ConfigFile::init_at_root(config_root, &layout)
             };
             config.source = ConfigSource::File(config_path.to_owned());
 
@@ -652,7 +653,7 @@ mod tests {
             config,
             ConfigFile {
                 search_path: Vec::new(),
-                ..ConfigFile::default_no_path_rewrite(&ProjectLayout::default())
+                ..ConfigFile::init_no_path_rewrite(&ProjectLayout::default())
             }
         );
     }
@@ -704,7 +705,7 @@ mod tests {
                     site_package_path: None,
                     site_package_path_from_interpreter: false,
                 },
-                ..ConfigFile::default_no_path_rewrite(&ProjectLayout::default())
+                ..ConfigFile::init_no_path_rewrite(&ProjectLayout::default())
             }
         );
     }
@@ -741,7 +742,7 @@ mod tests {
                     // this won't be set until after `configure()`
                     site_package_path_from_interpreter: false,
                 },
-                ..ConfigFile::default_no_path_rewrite(&ProjectLayout::default())
+                ..ConfigFile::init_no_path_rewrite(&ProjectLayout::default())
             }
         );
     }
@@ -868,7 +869,7 @@ mod tests {
 
     #[test]
     fn test_expect_all_fields_set_in_root_config() {
-        let mut config = ConfigFile::default_no_path_rewrite(&ProjectLayout::default());
+        let mut config = ConfigFile::init_no_path_rewrite(&ProjectLayout::default());
         config.configure();
 
         let table: serde_json::Map<String, serde_json::Value> =
@@ -986,7 +987,7 @@ mod tests {
     #[test]
     fn test_default_search_path() {
         let tempdir = TempDir::new().unwrap();
-        let config = ConfigFile::default_at_root(tempdir.path(), &ProjectLayout::default());
+        let config = ConfigFile::init_at_root(tempdir.path(), &ProjectLayout::default());
         assert_eq!(config.search_path, vec![tempdir.path().to_path_buf()]);
     }
 

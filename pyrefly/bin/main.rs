@@ -148,7 +148,7 @@ fn get_globs_and_config_for_project(
             let current_dir = std::env::current_dir().context("cannot identify current dir")?;
             let config_finder = config_finder(args.clone());
             config_finder.directory(&current_dir).unwrap_or_else(|| {
-                ArcId::new(args.override_config(ConfigFile::default_at_root(
+                ArcId::new(args.override_config(ConfigFile::init_at_root(
                     &current_dir,
                     &ProjectLayout::new(&current_dir),
                 )))

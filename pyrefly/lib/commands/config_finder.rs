@@ -54,7 +54,7 @@ pub fn standard_config_finder(
                 .lock()
                 .entry(path.clone())
                 .or_insert_with(|| {
-                    let config = ConfigFile::default_at_root(&path, &ProjectLayout::Flat);
+                    let config = ConfigFile::init_at_root(&path, &ProjectLayout::Flat);
                     ArcId::new(configure2(path.parent(), config))
                 })
                 .dupe(),
