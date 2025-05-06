@@ -252,9 +252,7 @@
   "directives_reveal_type.py": [],
   "directives_type_checking.py": [],
   "directives_type_ignore.py": [],
-  "directives_type_ignore_file1.py": [
-    "Line 16: Unexpected errors [\"`Literal['']` is not assignable to `int`\"]"
-  ],
+  "directives_type_ignore_file1.py": [],
   "directives_type_ignore_file2.py": [],
   "directives_version_platform.py": [],
   "enums_behaviors.py": [

@@ -6,6 +6,7 @@
  */
 
 use dupe::Dupe;
+use itertools::Itertools;
 use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -44,7 +45,7 @@ impl Ignore {
 
     fn has_ignore_all(code: &str) -> bool {
         // process top level comments
-        for line_str in code.lines() {
+        for (line_str, next_line_str) in code.lines().tuple_windows() {
             let line_str = line_str.trim();
             // Skip blank lines
             if line_str.is_empty() {
@@ -53,6 +54,15 @@ impl Ignore {
             // If the line is a comment, check if it's exactly "# pyrefly: ignore-all-errors"
             if !line_str.starts_with("#") {
                 return false;
+            } else if line_str == "# type: ignore" {
+                let next_line_str = next_line_str.trim();
+                if next_line_str.is_empty() || next_line_str.starts_with("#") {
+                    return true;
+                } else {
+                    // We consider any `# type: ignore` followed by a line with code to be a
+                    // normal suppression, not an ignore-all directive.
+                    return false;
+                }
             } else if line_str == "# pyrefly: ignore-all-errors" {
                 return true;
             }
@@ -145,6 +155,27 @@ x = 5
             r#"
 x = 5
 # pyrefly: ignore-all-errors
+"#
+        ));
+        assert!(Ignore::has_ignore_all(
+            r#"
+# type: ignore
+
+x = 5
+"#
+        ));
+        assert!(Ignore::has_ignore_all(
+            r#"
+# comment
+# type: ignore
+# comment
+x = 5
+"#
+        ));
+        assert!(!Ignore::has_ignore_all(
+            r#"
+# type: ignore
+x = 5
 "#
         ));
     }
