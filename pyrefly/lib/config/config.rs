@@ -235,6 +235,7 @@ impl ConfigFile {
         } else {
             Err(FindError::search_path(
                 &self.search_path,
+                &self.low_priority_search_path,
                 self.site_package_path(),
                 module,
             ))
