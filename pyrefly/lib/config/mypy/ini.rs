@@ -140,6 +140,21 @@ impl MypyConfig {
             cfg.search_path = value;
         }
         cfg.use_untyped_imports = follow_untyped_imports;
+        cfg.root.replace_imports_with_any = replace_imports
+            .into_iter()
+            .flat_map(|x| {
+                if let Some(stripped) = x.strip_prefix("mypy-") {
+                    stripped
+                        .split(",")
+                        .filter(|x| !x.is_empty())
+                        .map(|x| ModuleWildcard::new(x).ok())
+                        .collect()
+                } else {
+                    vec![ModuleWildcard::new(&x).ok()]
+                }
+            })
+            .filter(|x| x.is_some())
+            .collect();
         Ok(cfg)
     }
 }
@@ -206,8 +221,7 @@ ignore_missing_imports = True
             "**/src/specific/bad/file.py".to_owned(),
         ]);
         assert_eq!(cfg.project_excludes, expected_excludes);
-        // TODO: Reimplement this test in follow up diff.
-        // assert_eq!(cfg.replace_imports_with_any(None).len(), 5);
+        assert_eq!(cfg.replace_imports_with_any(None).len(), 5);
         assert!(cfg.use_untyped_imports);
         Ok(())
     }
