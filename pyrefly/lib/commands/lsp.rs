@@ -365,6 +365,7 @@ pub fn run_lsp(
         };
     };
     let server = Server::new(Arc::new(send), initialization_params);
+    server.populate_all_project_files(&args.experimental_project_path);
     eprintln!("Reading messages");
     let mut ide_transaction_manager = IDETransactionManager::default();
     let mut canceled_requests = HashSet::new();
@@ -642,7 +643,6 @@ impl Server {
             filewatcher_registered: Arc::new(AtomicBool::new(false)),
         };
         s.configure(&folders, &Vec::new());
-        s.populate_all_project_files(&folders);
 
         s
     }
