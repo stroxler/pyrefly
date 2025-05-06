@@ -30,6 +30,7 @@ use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 use crate::types::literal::Lit;
+use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -114,6 +115,89 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn tuple_concat(&self, l: &Tuple, r: &Tuple) -> Type {
+        match (l, r) {
+            (Tuple::Concrete(l), Tuple::Concrete(r)) => {
+                let mut elements = l.clone();
+                elements.extend(r.clone());
+                Type::Tuple(Tuple::Concrete(elements))
+            }
+            (Tuple::Unbounded(box l), Tuple::Unbounded(box r)) => {
+                Type::Tuple(Tuple::Unbounded(Box::new(self.union(l.clone(), r.clone()))))
+            }
+            (Tuple::Concrete(l), r @ Tuple::Unbounded(_)) => Type::Tuple(Tuple::Unpacked(
+                Box::new((l.clone(), Type::Tuple(r.clone()), Vec::new())),
+            )),
+            (l @ Tuple::Unbounded(_), Tuple::Concrete(r)) => Type::Tuple(Tuple::Unpacked(
+                Box::new((Vec::new(), Type::Tuple(l.clone()), r.clone())),
+            )),
+            (Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)), Tuple::Concrete(r)) => {
+                let mut new_suffix = l_suffix.clone();
+                new_suffix.extend(r.clone());
+                Type::Tuple(Tuple::Unpacked(Box::new((
+                    l_prefix.clone(),
+                    l_middle.clone(),
+                    new_suffix,
+                ))))
+            }
+            (Tuple::Concrete(l), Tuple::Unpacked(box (r_prefix, r_middle, r_suffix))) => {
+                let mut new_prefix = l.clone();
+                new_prefix.extend(r_prefix.clone());
+                Type::Tuple(Tuple::Unpacked(Box::new((
+                    new_prefix,
+                    r_middle.clone(),
+                    r_suffix.clone(),
+                ))))
+            }
+            (Tuple::Unbounded(box l), Tuple::Unpacked(box (r_prefix, r_middle, r_suffix))) => {
+                let mut middle = r_prefix.clone();
+                middle.push(l.clone());
+                middle.push(
+                    self.unwrap_iterable(r_middle)
+                        .unwrap_or(Type::any_implicit()),
+                );
+                Type::Tuple(Tuple::Unpacked(Box::new((
+                    Vec::new(),
+                    Type::Tuple(Tuple::unbounded(self.unions(middle))),
+                    r_suffix.clone(),
+                ))))
+            }
+            (Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)), Tuple::Unbounded(box r)) => {
+                let mut middle = l_suffix.clone();
+                middle.push(r.clone());
+                middle.push(
+                    self.unwrap_iterable(l_middle)
+                        .unwrap_or(Type::any_implicit()),
+                );
+                Type::Tuple(Tuple::Unpacked(Box::new((
+                    l_prefix.clone(),
+                    Type::Tuple(Tuple::unbounded(self.unions(middle))),
+                    Vec::new(),
+                ))))
+            }
+            (
+                Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)),
+                Tuple::Unpacked(box (r_prefix, r_middle, r_suffix)),
+            ) => {
+                let mut middle = l_suffix.clone();
+                middle.extend(r_prefix.clone());
+                middle.push(
+                    self.unwrap_iterable(l_middle)
+                        .unwrap_or(Type::any_implicit()),
+                );
+                middle.push(
+                    self.unwrap_iterable(r_middle)
+                        .unwrap_or(Type::any_implicit()),
+                );
+                Type::Tuple(Tuple::Unpacked(Box::new((
+                    l_prefix.clone(),
+                    Type::Tuple(Tuple::unbounded(self.unions(middle))),
+                    r_suffix.clone(),
+                ))))
+            }
+        }
+    }
+
     pub fn binop_infer(&self, x: &ExprBinOp, errors: &ErrorCollector) -> Type {
         let binop_call = |op: Operator, lhs: &Type, rhs: &Type, range: TextRange| -> Type {
             let context = || {
@@ -146,6 +230,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 || (rhs == Type::LiteralString && lhs.is_literal_string()))
         {
             return Type::LiteralString;
+        } else if x.op == Operator::Add
+            && let Type::Tuple(ref l) = lhs
+            && let Type::Tuple(ref r) = rhs
+        {
+            return self.tuple_concat(l, r);
         }
         self.distribute_over_union(&lhs, |lhs| {
             self.distribute_over_union(&rhs, |rhs| binop_call(x.op, lhs, rhs, x.range))
@@ -182,9 +271,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         let tcc: &dyn Fn() -> TypeCheckContext =
             &|| TypeCheckContext::of_kind(TypeCheckKind::AugmentedAssignment);
-        let result = self.distribute_over_union(&base, |lhs| {
-            self.distribute_over_union(&rhs, |rhs| binop_call(x.op, lhs, rhs, x.range))
-        });
+        let result = if x.op == Operator::Add
+            && let Type::Tuple(ref l) = base
+            && let Type::Tuple(ref r) = rhs
+        {
+            self.tuple_concat(l, r)
+        } else {
+            self.distribute_over_union(&base, |lhs| {
+                self.distribute_over_union(&rhs, |rhs| binop_call(x.op, lhs, rhs, x.range))
+            })
+        };
         // If we're assigning to something with an annotation, make sure the produced value is assignable to it
         if let Some(ann) = ann.map(|k| self.get_idx(k)) {
             if ann.annotation.is_final() {

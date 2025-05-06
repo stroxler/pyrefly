@@ -296,3 +296,31 @@ def test(y: Iterable[Any], z: Iterable[int]):
     x = tuple(z)  # Not OK
 "#,
 );
+
+testcase!(
+    test_tuple_aug_assign,
+    r#"
+def test() -> None:
+    x: tuple[object, ...] = (1,)
+    x += (2, "y")
+    y: tuple[int, ...] = (1,)
+    y += (2, "y")  # E: Augmented assignment produces a value of type `tuple[Literal[1], Literal[2], Literal['y']]`, which is not assignable to `tuple[int, ...]`
+"#,
+);
+
+testcase!(
+    test_tuple_concat,
+    r#"
+from typing import assert_type
+def test(x: tuple[int, str], y: tuple[bool, ...], z: tuple[int, *tuple[str, ...], bool]) -> None:
+    assert_type(x + x, tuple[int, str, int, str])
+    assert_type(x + y, tuple[int, str, *tuple[bool, ...]])
+    assert_type(x + z, tuple[int, str, int, *tuple[str, ...], bool])
+    assert_type(y + x, tuple[*tuple[bool, ...], int, str])
+    assert_type(y + y, tuple[bool, ...])
+    assert_type(y + z, tuple[*tuple[bool | int | str, ...], bool])
+    assert_type(z + x, tuple[int, *tuple[str, ...], bool, int, str])
+    assert_type(z + y, tuple[int, *tuple[str | bool, ...]])
+    assert_type(z + z, tuple[int, *tuple[str | bool | int, ...], bool])
+"#,
+);
