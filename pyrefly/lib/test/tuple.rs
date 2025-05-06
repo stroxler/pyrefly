@@ -324,3 +324,12 @@ def test(x: tuple[int, str], y: tuple[bool, ...], z: tuple[int, *tuple[str, ...]
     assert_type(z + z, tuple[int, *tuple[str | bool | int, ...], bool])
 "#,
 );
+
+testcase!(
+    test_tuple_concat_union,
+    r#"
+from typing import assert_type
+def test(x: tuple[int] | tuple[str]) -> None:
+    assert_type(x + x, tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int])
+"#,
+);

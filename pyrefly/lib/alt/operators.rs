@@ -218,26 +218,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         let lhs = self.expr_infer(&x.left, errors);
         let rhs = self.expr_infer(&x.right, errors);
-        if let Type::Any(style) = &lhs {
-            return style.propagate();
-        } else if x.op == Operator::BitOr
-            && let Some(l) = self.untype_opt(lhs.clone(), x.left.range())
-            && let Some(r) = self.untype_opt(rhs.clone(), x.right.range())
-        {
-            return Type::type_form(self.union(l, r));
-        } else if x.op == Operator::Add
-            && ((lhs == Type::LiteralString && rhs.is_literal_string())
-                || (rhs == Type::LiteralString && lhs.is_literal_string()))
-        {
-            return Type::LiteralString;
-        } else if x.op == Operator::Add
-            && let Type::Tuple(ref l) = lhs
-            && let Type::Tuple(ref r) = rhs
-        {
-            return self.tuple_concat(l, r);
-        }
         self.distribute_over_union(&lhs, |lhs| {
-            self.distribute_over_union(&rhs, |rhs| binop_call(x.op, lhs, rhs, x.range))
+            self.distribute_over_union(&rhs, |rhs| {
+                if let Type::Any(style) = &lhs {
+                    style.propagate()
+                } else if x.op == Operator::BitOr
+                    && let Some(l) = self.untype_opt(lhs.clone(), x.left.range())
+                    && let Some(r) = self.untype_opt(rhs.clone(), x.right.range())
+                {
+                    Type::type_form(self.union(l, r))
+                } else if x.op == Operator::Add
+                    && ((*lhs == Type::LiteralString && rhs.is_literal_string())
+                        || (*rhs == Type::LiteralString && lhs.is_literal_string()))
+                {
+                    Type::LiteralString
+                } else if x.op == Operator::Add
+                    && let Type::Tuple(ref l) = lhs
+                    && let Type::Tuple(ref r) = rhs
+                {
+                    self.tuple_concat(l, r)
+                } else {
+                    binop_call(x.op, lhs, rhs, x.range)
+                }
+            })
         })
     }
 
@@ -264,23 +267,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         let base = self.expr_infer(&x.target, errors);
         let rhs = self.expr_infer(&x.value, errors);
-        if let Type::Any(style) = &base {
-            return style.propagate();
-        } else if x.op == Operator::Add && base.is_literal_string() && rhs.is_literal_string() {
-            return Type::LiteralString;
-        }
         let tcc: &dyn Fn() -> TypeCheckContext =
             &|| TypeCheckContext::of_kind(TypeCheckKind::AugmentedAssignment);
-        let result = if x.op == Operator::Add
-            && let Type::Tuple(ref l) = base
-            && let Type::Tuple(ref r) = rhs
-        {
-            self.tuple_concat(l, r)
-        } else {
-            self.distribute_over_union(&base, |lhs| {
-                self.distribute_over_union(&rhs, |rhs| binop_call(x.op, lhs, rhs, x.range))
+        let result = self.distribute_over_union(&base, |lhs| {
+            self.distribute_over_union(&rhs, |rhs| {
+                if let Type::Any(style) = &base {
+                    style.propagate()
+                } else if x.op == Operator::Add
+                    && base.is_literal_string()
+                    && rhs.is_literal_string()
+                {
+                    Type::LiteralString
+                } else if x.op == Operator::Add
+                    && let Type::Tuple(ref l) = base
+                    && let Type::Tuple(ref r) = rhs
+                {
+                    self.tuple_concat(l, r)
+                } else {
+                    binop_call(x.op, lhs, rhs, x.range)
+                }
             })
-        };
+        });
         // If we're assigning to something with an annotation, make sure the produced value is assignable to it
         if let Some(ann) = ann.map(|k| self.get_idx(k)) {
             if ann.annotation.is_final() {
