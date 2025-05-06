@@ -448,6 +448,19 @@ Z = Optional["Y"]
 );
 
 testcase!(
+    bug = "The recursive instance of X is resolved to Unknown",
+    test_type_alias_recursive,
+    r#"
+type X = int | list["X"]
+x1: X = 1
+x2: X = [1]
+x3: X = [[1, 2]]
+x4: X = [1, [2, 3]]
+x5: X = ["foo"]  # Not OK
+"#,
+);
+
+testcase!(
     bug = "Doesn't detect as a TypeAlias, but it is one. Maybe this is reasonable.",
     test_type_alias_with_string,
     r#"
