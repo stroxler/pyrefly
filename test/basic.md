@@ -4,7 +4,7 @@
 
 ```scrut {output_stream: stderr}
 $ echo "" > $TMPDIR/empty.py && $PYREFLY check --python-version 3.13.0 $TMPDIR/empty.py -a
-* INFO * errors* (glob)
+ INFO 0 errors* (glob)
 [0]
 ```
 
@@ -12,7 +12,7 @@ $ echo "" > $TMPDIR/empty.py && $PYREFLY check --python-version 3.13.0 $TMPDIR/e
 
 ```scrut {output_stream: stderr}
 $ $PYREFLY check $TEST_PY -a
-* INFO * errors* (glob)
+ INFO 0 errors* (glob)
 [0]
 ```
 
@@ -75,7 +75,7 @@ $ echo "x: str = 12" > $TMPDIR/shown1.py && \
 > $PYREFLY check --python-version 3.13.0 $TMPDIR/shown2.py --check-all
 ERROR */shown*.py:1:* (glob)
 ERROR */shown*.py:1:* (glob)
-* INFO * errors* (glob)
+ INFO * errors* (glob)
 [1]
 ```
 
@@ -109,15 +109,15 @@ $ echo "" > $TMPDIR/empty.py && echo -e "project_includes = [\"$TMPDIR/empty.py\
 *WARN Invalid site_package_path: * does not exist (glob)
 *WARN Invalid search_path: * does not exist (glob)
  INFO Checking project configured at "*/pyrefly.toml" (glob)
-* INFO * errors* (glob)
+ INFO * errors* (glob)
 [0]
 ```
 
 ## --search-path takes precedence over default typeshed
 
 ```scrut
-$ export PYREFLY_STDLIB_SEARCH_PATH=$TYPESHED_ROOT/typeshed/stdlib && $PYREFLY check --python-version 3.13.0 $TYPESHED_ROOT/typeshed/stdlib/builtins.pyi --search-path $TYPESHED_ROOT/typeshed/stdlib 2>&1 | grep -v "overrides"
-* INFO * errors* (glob)
+$ PYREFLY_STDLIB_SEARCH_PATH=$TYPESHED_ROOT/typeshed/stdlib $PYREFLY check --python-version 3.13.0 $TYPESHED_ROOT/typeshed/stdlib/builtins.pyi --search-path $TYPESHED_ROOT/typeshed/stdlib 2>&1 | grep -v "overrides"
+ INFO * errors* (glob)
 [0]
 ```
 
