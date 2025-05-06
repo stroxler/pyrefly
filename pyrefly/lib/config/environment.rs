@@ -182,7 +182,7 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
 
     pub fn get_default_interpreter_env() -> PythonEnvironment {
         Self::get_default_interpreter()
-            .map(|interpreter| Self::get_interpreter_env(interpreter))
+            .map(Self::get_interpreter_env)
             .unwrap_or_default()
     }
 }
