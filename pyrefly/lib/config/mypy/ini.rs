@@ -46,12 +46,6 @@ pub struct MypyConfig {
     use_untyped_imports: bool,
 }
 
-#[derive(Deserialize)]
-struct MypyOutput {
-    mypy: MypyConfig,
-    replace_imports: Vec<ModuleWildcard>,
-}
-
 impl MypyConfig {
     pub fn parse_mypy_config(ini_path: &Path) -> anyhow::Result<ConfigFile> {
         fn ini_string_to_array(value: &Option<String>) -> Vec<String> {
