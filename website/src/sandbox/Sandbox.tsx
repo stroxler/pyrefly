@@ -9,8 +9,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import useBaseUrl from '@docusaurus/useBaseUrl';
-import MonacoEditorButton, { BUTTON_HEIGHT } from './MonacoEditorButton';
-import RunPythonButton from './RunPythonButton';
+import MonacoEditorButton, {
+    BUTTON_HEIGHT,
+    runOnClickForAtLeastTwoSeconds,
+} from './MonacoEditorButton';
+import RunPythonButton, {
+    createRunPythonCodeFunction,
+} from './RunPythonButton';
 import Editor from '@monaco-editor/react';
 import * as LZString from 'lz-string';
 import * as stylex from '@stylexjs/stylex';
@@ -25,6 +30,7 @@ import {
 import type { editor } from 'monaco-editor';
 import type { PyreflyErrorMessage } from './SandboxResults';
 import { DEFAULT_SANDBOX_PROGRAM } from './DefaultSandboxProgram';
+import { usePythonWorker } from './usePythonWorker';
 
 // Import type for Pyrefly State
 export interface PyreflyState {
@@ -147,6 +153,11 @@ export default function Sandbox({
         }
     }
 
+    const { runPython } = usePythonWorker({ setPythonOutput });
+
+    // Create a function to run Python code that can be passed a model
+    const runPythonCodeFunction = createRunPythonCodeFunction(setActiveTab, runPython);
+
     function onEditorMount(editor: editor.IStandaloneCodeEditor) {
         const model = fetchCurMonacoModelAndTriggerUpdate(sampleFilename);
         setModel(model);
@@ -159,6 +170,19 @@ export default function Sandbox({
             );
         }
         editorRef.current = editor;
+
+        // Add keyboard shortcut for Command+Enter (Mac) or Ctrl+Enter (Windows/Linux)
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+            if (!isCodeSnippet && !isRunning) {
+                // Use the model from the editor directly
+                const editorModel = editor.getModel();
+                if (editorModel) {
+                    runOnClickForAtLeastTwoSeconds(setIsRunning, async () => {
+                        await runPythonCodeFunction(editorModel);
+                    });
+                }
+            }
+        });
     }
 
     const handleGoToDefFromErrors = (

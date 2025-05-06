@@ -7,17 +7,34 @@
  * @format
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import MonacoEditorButton from './MonacoEditorButton';
 import type { editor } from 'monaco-editor';
 import { usePythonWorker } from './usePythonWorker';
 
 interface RunPythonButtonProps {
     model: editor.ITextModel | null;
-    onActiveTabChange: (tab: string) => void;
+    onActiveTabChange: React.Dispatch<React.SetStateAction<string>>;
     isRunning: boolean;
     setIsRunning: React.Dispatch<React.SetStateAction<boolean>>;
     setPythonOutput: React.Dispatch<React.SetStateAction<string>>;
+}
+
+// Reusable function to create a Python code runner
+export function createRunPythonCodeFunction(
+    onActiveTabChange: React.Dispatch<React.SetStateAction<string>>,
+    runPython: (code: string) => Promise<void>
+) {
+    // Return a function that takes a model parameter
+    return async (model: editor.ITextModel | null) => {
+        if (!model) return;
+
+        // Switch to output tab
+        onActiveTabChange('output');
+
+        const code = model.getValue();
+        await runPython(code);
+    };
 }
 
 export default function RunPythonButton({
@@ -27,21 +44,19 @@ export default function RunPythonButton({
     setIsRunning,
     setPythonOutput,
 }: RunPythonButtonProps): React.ReactElement {
-    const { runPython } = usePythonWorker({
-        setPythonOutput,
-    });
+    // Initialize the Python worker
+    const { runPython } = usePythonWorker({ setPythonOutput });
 
-    // Run Python code using the worker
     const runPythonCode = useCallback(async () => {
         if (!model) return;
 
-        // Switch to output tab
-        onActiveTabChange('output');
-        setPythonOutput('');
-
-        const code = model.getValue();
-        await runPython(code);
-    }, [model, onActiveTabChange, setPythonOutput, runPython]);
+        // Create and immediately call the run function
+        const runFunction = createRunPythonCodeFunction(
+            onActiveTabChange,
+            runPython
+        );
+        await runFunction(model);
+    }, [model, onActiveTabChange]);
 
     return (
         <MonacoEditorButton
