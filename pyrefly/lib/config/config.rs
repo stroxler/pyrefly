@@ -79,7 +79,7 @@ pub struct ConfigFile {
 
     /// The list of directories where imports are
     /// imported from, including type checked files.
-    #[serde(default = "ConfigFile::default_search_path")]
+    #[serde(default)]
     pub search_path: Vec<PathBuf>,
 
     // TODO(connernilsen): make this mutually exclusive with venv/conda env
@@ -141,7 +141,8 @@ impl ConfigFile {
         let mut result = Self::empty();
         result.project_includes = Self::default_project_includes();
         result.project_excludes = Self::default_project_excludes();
-        result.search_path = Self::default_search_path();
+        // Note that rewrite_with_path_to_config() converts this to the config file's containing directory.
+        result.search_path.push(PathBuf::from(""));
         result
     }
 
@@ -233,11 +234,6 @@ impl ConfigFile {
             // match any hidden file, but don't match `.` or `..` (equivalent to regex: `\.[^/\.]{0,1}.*`)
             "**/.[!/.]*".to_owned(),
         ])
-    }
-
-    pub fn default_search_path() -> Vec<PathBuf> {
-        // Note that rewrite_with_path_to_config() converts this to the config file's containing directory.
-        vec![PathBuf::from("")]
     }
 
     pub fn default_true() -> bool {
@@ -610,7 +606,13 @@ mod tests {
     fn deserialize_pyrefly_config_defaults() {
         let config_str = "";
         let config = ConfigFile::parse_config(config_str).unwrap();
-        assert_eq!(config, ConfigFile::default_no_path_rewrite());
+        assert_eq!(
+            config,
+            ConfigFile {
+                search_path: Vec::new(),
+                ..ConfigFile::default_no_path_rewrite()
+            }
+        );
     }
 
     #[test]
@@ -653,6 +655,7 @@ mod tests {
                     "./tests".to_owned(),
                     "./implementation".to_owned()
                 ]),
+                search_path: Vec::new(),
                 python_environment: PythonEnvironment {
                     python_platform: Some(PythonPlatform::mac()),
                     python_version: Some(PythonVersion::new(1, 2, 3)),
@@ -688,6 +691,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigFile {
+                search_path: Vec::new(),
                 python_environment: PythonEnvironment {
                     python_version: Some(PythonVersion::new(1, 2, 3)),
                     python_platform: None,
