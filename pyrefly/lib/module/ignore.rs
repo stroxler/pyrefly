@@ -63,7 +63,9 @@ impl Ignore {
                     // normal suppression, not an ignore-all directive.
                     return false;
                 }
-            } else if line_str == "# pyrefly: ignore-all-errors" {
+            } else if line_str == "# pyrefly: ignore-all-errors"
+                || line_str == "# pyre-ignore-all-errors"
+            {
                 return true;
             }
         }
@@ -175,6 +177,13 @@ x = 5
         assert!(!Ignore::has_ignore_all(
             r#"
 # type: ignore
+x = 5
+"#
+        ));
+
+        assert!(Ignore::has_ignore_all(
+            r#"
+# pyre-ignore-all-errors
 x = 5
 "#
         ));
