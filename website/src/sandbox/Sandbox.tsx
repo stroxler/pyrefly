@@ -11,7 +11,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import MonacoEditorButton, {
     BUTTON_HEIGHT,
-    runOnClickForAtLeastTwoSeconds,
+    runOnClickForAtLeastOneSecond,
 } from './MonacoEditorButton';
 import RunPythonButton, {
     createRunPythonCodeFunction,
@@ -177,7 +177,7 @@ export default function Sandbox({
                 // Use the model from the editor directly
                 const editorModel = editor.getModel();
                 if (editorModel) {
-                    runOnClickForAtLeastTwoSeconds(setIsRunning, async () => {
+                    runOnClickForAtLeastOneSecond(setIsRunning, async () => {
                         await runPythonCodeFunction(editorModel);
                     });
                 }

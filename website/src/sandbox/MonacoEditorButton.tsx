@@ -22,20 +22,20 @@ interface MonacoEditorButtonProps {
     setIsRunning?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export function runOnClickForAtLeastTwoSeconds(
+export function runOnClickForAtLeastOneSecond(
     setIsRunning: React.Dispatch<React.SetStateAction<boolean>>,
     onClick: () => Promise<void>
 ): Promise<void> {
     setIsRunning(true);
 
-    // Create a promise that resolves after 2 seconds
+    // Create a promise that resolves after 1 second
     const timerPromise = new Promise<void>((resolve) => {
         setTimeout(() => {
             resolve();
-        }, 2000);
+        }, 1000);
     });
 
-    // Wait for both the onClick function and the 2-second timer to complete
+    // Wait for both the onClick function and the 1-second timer to complete
     return Promise.all([onClick(), timerPromise]).then(() => {
         setIsRunning(false);
     });
@@ -61,7 +61,7 @@ export default function MonacoEditorButton({
         if (disabled) return;
 
         try {
-            runOnClickForAtLeastTwoSeconds(setIsRunning, onClick);
+            runOnClickForAtLeastOneSecond(setIsRunning, onClick);
         } catch (error) {
             console.error('Error in button action:', error);
         }
