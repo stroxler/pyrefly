@@ -79,24 +79,12 @@ pub fn standard_config_finder(
                     .lock()
                     .entry(path.to_owned())
                     .or_insert_with(|| {
-                        let mut config = configure2(path.parent(), ConfigFile::empty());
-                        // We deliberately set `site_package_path` rather than `search_path` here,
-                        // because otherwise a user with `/sys` on their computer (all of them)
-                        // will override `sys.version` in preference to typeshed.
-                        let additional_site_package_path =
+                        let mut config = ConfigFile::empty();
+                        // We use `low_priority_search_path` because otherwise a user with `/sys` on their
+                        // computer (all of them) will override `sys.version` in preference to typeshed.
+                        config.low_priority_search_path =
                             path.ancestors().map(|x| x.to_owned()).collect::<Vec<_>>();
-                        config.python_environment.site_package_path = config
-                            .python_environment
-                            .site_package_path
-                            .map_or(Some(additional_site_package_path.clone()), |path| {
-                                Some(
-                                    additional_site_package_path
-                                        .into_iter()
-                                        .chain(path)
-                                        .collect(),
-                                )
-                            });
-                        ArcId::new(config)
+                        ArcId::new(configure2(path.parent(), config))
                     })
                     .dupe()
             }
