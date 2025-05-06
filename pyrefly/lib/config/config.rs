@@ -165,8 +165,8 @@ impl Default for ConfigFile {
     fn default() -> Self {
         ConfigFile {
             source: ConfigSource::Synthetic,
-            project_includes: Globs::new(Vec::new()),
-            project_excludes: Globs::new(Vec::new()),
+            project_includes: Default::default(),
+            project_excludes: Default::default(),
             python_interpreter: None,
             search_path: Vec::new(),
             low_priority_search_path: Vec::new(),
