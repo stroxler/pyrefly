@@ -71,7 +71,7 @@ pub enum ProjectLayout {
 }
 
 impl ProjectLayout {
-    fn new(project_root: &Path) -> Self {
+    pub fn new(project_root: &Path) -> Self {
         let src_subdir = project_root.join("src");
         match src_subdir.try_exists() {
             Ok(true) => Self::Src,

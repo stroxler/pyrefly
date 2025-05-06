@@ -69,6 +69,7 @@ pub mod library {
                 pub use crate::config::base::ConfigBase;
                 pub use crate::config::config::ConfigFile;
                 pub use crate::config::config::ConfigSource;
+                pub use crate::config::config::ProjectLayout;
                 pub use crate::config::environment::PythonEnvironment;
                 pub use crate::config::finder;
                 pub use crate::module::module_name::ModuleName;

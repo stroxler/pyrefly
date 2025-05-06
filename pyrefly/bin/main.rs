@@ -34,6 +34,7 @@ use path_absolutize::Absolutize;
 use pyrefly::library::library::library::library;
 use pyrefly::library::library::library::library::ConfigSource;
 use pyrefly::library::library::library::library::ModulePath;
+use pyrefly::library::library::library::library::ProjectLayout;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
 use tracing::info;
@@ -146,9 +147,12 @@ fn get_globs_and_config_for_project(
         None => {
             let current_dir = std::env::current_dir().context("cannot identify current dir")?;
             let config_finder = config_finder(args.clone());
-            config_finder
-                .directory(&current_dir)
-                .unwrap_or_else(|| ArcId::new(args.override_config(ConfigFile::default())))
+            config_finder.directory(&current_dir).unwrap_or_else(|| {
+                ArcId::new(args.override_config(ConfigFile::default_at_root(
+                    &current_dir,
+                    &ProjectLayout::new(&current_dir),
+                )))
+            })
         }
     };
     match &config.source {
