@@ -127,7 +127,7 @@ pub struct ConfigFile {
     // TODO(connernilsen): make this mutually exclusive with venv/conda env
     /// The python executable that will be queried for `python_version`,
     /// `python_platform`, or `site_package_path` if any of the values are missing.
-    #[serde(default = "PythonEnvironment::get_default_interpreter")]
+    #[serde(default)]
     pub python_interpreter: Option<PathBuf>,
 
     /// Values representing the environment of the Python interpreter
@@ -256,7 +256,7 @@ impl ConfigFile {
             source: ConfigSource::Synthetic,
             project_includes: Globs::new(Vec::new()),
             project_excludes: Globs::new(Vec::new()),
-            python_interpreter: PythonEnvironment::get_default_interpreter(),
+            python_interpreter: None,
             search_path: Vec::new(),
             low_priority_search_path: Vec::new(),
             python_environment: PythonEnvironment {
@@ -375,7 +375,11 @@ impl ConfigFile {
     /// which should probably be everything except for `PathBuf` or `Globs` types.
     pub fn configure(&mut self) {
         if self.python_environment.any_empty() {
-            if let Some(interpreter) = &self.python_interpreter {
+            if let Some(interpreter) = &self
+                .python_interpreter
+                .as_ref()
+                .or(PythonEnvironment::get_default_interpreter().as_ref())
+            {
                 let system_env = PythonEnvironment::get_interpreter_env(interpreter);
                 self.python_environment.override_empty(system_env);
             } else {
