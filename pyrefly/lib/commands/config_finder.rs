@@ -38,7 +38,7 @@ pub fn standard_config_finder(
     // A cache where path `p` maps to config file with `search_path = [p, p/.., p/../.., ...]`.
     let cache_parents: Mutex<SmallMap<PathBuf, ArcId<ConfigFile>>> = Mutex::new(SmallMap::new());
 
-    let empty = LazyLock::new(move || ArcId::new(configure3(None, ConfigFile::default())));
+    let empty = LazyLock::new(move || ArcId::new(configure3(None, ConfigFile::empty())));
 
     ConfigFinder::new(
         Box::new(move |file| {

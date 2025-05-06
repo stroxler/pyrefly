@@ -103,7 +103,7 @@ impl Args {
             };
             return args.run();
         }
-        let cfg = ConfigFile::default();
+        let cfg = ConfigFile::empty();
 
         if path.ends_with(ConfigFile::PYREFLY_FILE_NAME) {
             let serialized = toml::to_string_pretty(&cfg)?;

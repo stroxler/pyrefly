@@ -163,7 +163,7 @@ impl TestEnv {
     }
 
     pub fn config(&self) -> ArcId<ConfigFile> {
-        let mut config = ConfigFile::default();
+        let mut config = ConfigFile::empty();
         config.python_environment.python_version = Some(self.version);
         config.python_environment.python_platform = Some(PythonPlatform::linux());
         config.python_environment.site_package_path = Some(Vec::new());

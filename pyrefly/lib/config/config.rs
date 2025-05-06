@@ -160,22 +160,6 @@ pub struct ConfigFile {
     pub ignore_missing_source: bool,
 }
 
-impl Default for ConfigFile {
-    /// Gets a default ConfigFile, with all paths rewritten relative to cwd.
-    fn default() -> Self {
-        match std::env::current_dir() {
-            Ok(cwd) => Self::default_at_root(&cwd, &ProjectLayout::default()),
-            Err(err) => {
-                debug!(
-                    "Cannot identify current dir for default config path rewriting: {}",
-                    err
-                );
-                Self::default_no_path_rewrite(&ProjectLayout::default())
-            }
-        }
-    }
-}
-
 impl ConfigFile {
     /// Gets a default ConfigFile, with no path rewriting. This should only be used for unit testing,
     /// since it may have strange runtime behavior. Prefer to use `ConfigFile::default()` instead.
@@ -967,7 +951,7 @@ mod tests {
                     },
                 },
             ],
-            ..Default::default()
+            ..ConfigFile::empty()
         };
 
         // test precedence (two configs match, one higher priority)
@@ -1000,10 +984,9 @@ mod tests {
 
     #[test]
     fn test_default_search_path() {
-        if let Ok(cwd) = std::env::current_dir() {
-            let config = ConfigFile::default();
-            assert_eq!(config.search_path, vec![cwd]);
-        }
+        let tempdir = TempDir::new().unwrap();
+        let config = ConfigFile::default_at_root(tempdir.path(), &ProjectLayout::default());
+        assert_eq!(config.search_path, vec![tempdir.path().to_path_buf()]);
     }
 
     #[test]
