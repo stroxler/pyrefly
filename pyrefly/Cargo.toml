@@ -24,6 +24,7 @@ base64 = { version = "0.21", features = ["alloc"] }
 blake3 = { version = "=1.5.5", features = ["mmap", "rayon", "traits-preview"] }
 bstr = { version = "1.10.0", features = ["serde", "std", "unicode"] }
 clap = { version = "4.5.30", features = ["derive", "env", "string", "unicode", "wrap_help"] }
+configparser = { version = "3.0.3", features = ["indexmap"] }
 const-str = "0.4.3"
 convert_case = "0.6"
 dupe = "0.9.1"
