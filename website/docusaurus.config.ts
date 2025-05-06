@@ -28,8 +28,8 @@ function getNavBarItems() {
             position: 'left' as const,
         },
         {
-            to: `${BasePath}/python-typing-5-minutes/`,
-            activeBasePath: `${BasePath}/python-typing-5-minutes`,
+            to: `${BasePath}/typing-for-python-developers/`,
+            activeBasePath: `${BasePath}/typing-for-python-developers`,
             label: 'Learn',
             position: 'left' as const,
         },
