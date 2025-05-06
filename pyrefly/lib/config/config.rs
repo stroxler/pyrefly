@@ -62,7 +62,7 @@ pub enum ConfigSource {
 /// Where the importable Python code in a project lives. There are two common Python project layouts, src and flat.
 /// See: https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/#src-layout-vs-flat-layout
 #[derive(Default)]
-enum ProjectLayout {
+pub enum ProjectLayout {
     /// Python packages live directly in the project root
     #[default]
     Flat,
@@ -185,7 +185,7 @@ impl ConfigFile {
     }
 
     /// Gets a default ConfigFile, with all paths rewritten relative to a root dir.
-    fn default_at_root(root: &Path, layout: &ProjectLayout) -> Self {
+    pub fn default_at_root(root: &Path, layout: &ProjectLayout) -> Self {
         let mut result = Self::default_no_path_rewrite(layout);
         result.rewrite_with_path_to_config(root);
         result

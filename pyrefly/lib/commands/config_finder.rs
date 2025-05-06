@@ -14,7 +14,9 @@ use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
+use crate::config::config::ProjectLayout;
 use crate::config::finder::ConfigFinder;
+use crate::module::bundled::BundledTypeshed;
 use crate::module::module_path::ModulePathDetails;
 use crate::util::arc_id::ArcId;
 use crate::util::lock::Mutex;
@@ -52,8 +54,7 @@ pub fn standard_config_finder(
                 .lock()
                 .entry(path.clone())
                 .or_insert_with(|| {
-                    let mut config = ConfigFile::default();
-                    config.search_path = vec![path.clone()];
+                    let config = ConfigFile::default_at_root(&path, &ProjectLayout::Flat);
                     ArcId::new(configure2(path.parent(), config))
                 })
                 .dupe(),
@@ -62,37 +63,42 @@ pub fn standard_config_finder(
             // path that is still useful for this import by including all of its parents.
             None => {
                 let path = match path.details() {
-                    ModulePathDetails::FileSystem(x) | ModulePathDetails::Memory(x) => x.parent(),
-                    ModulePathDetails::Namespace(x) => Some(x.as_path()),
-                    ModulePathDetails::BundledTypeshed(_) => None,
+                    ModulePathDetails::FileSystem(x) | ModulePathDetails::Memory(x) => {
+                        if let Some(path) = x.parent() {
+                            path
+                        } else {
+                            return empty.dupe();
+                        }
+                    }
+                    ModulePathDetails::Namespace(x) => x.as_path(),
+                    ModulePathDetails::BundledTypeshed(_) => {
+                        return BundledTypeshed::config();
+                    }
                 };
-                match path {
-                    None => empty.dupe(),
-                    Some(path) => cache_parents
-                        .lock()
-                        .entry(path.to_owned())
-                        .or_insert_with(|| {
-                            let mut config = configure2(path.parent(), ConfigFile::default());
-                            // We deliberately set `site_package_path` rather than `search_path` here,
-                            // because otherwise a user with `/sys` on their computer (all of them)
-                            // will override `sys.version` in preference to typeshed.
-                            let additional_site_package_path =
-                                path.ancestors().map(|x| x.to_owned()).collect::<Vec<_>>();
-                            config.python_environment.site_package_path = config
-                                .python_environment
-                                .site_package_path
-                                .map_or(Some(additional_site_package_path.clone()), |path| {
-                                    Some(
-                                        additional_site_package_path
-                                            .into_iter()
-                                            .chain(path)
-                                            .collect(),
-                                    )
-                                });
-                            ArcId::new(config)
-                        })
-                        .dupe(),
-                }
+                cache_parents
+                    .lock()
+                    .entry(path.to_owned())
+                    .or_insert_with(|| {
+                        let mut config = configure2(path.parent(), ConfigFile::empty());
+                        // We deliberately set `site_package_path` rather than `search_path` here,
+                        // because otherwise a user with `/sys` on their computer (all of them)
+                        // will override `sys.version` in preference to typeshed.
+                        let additional_site_package_path =
+                            path.ancestors().map(|x| x.to_owned()).collect::<Vec<_>>();
+                        config.python_environment.site_package_path = config
+                            .python_environment
+                            .site_package_path
+                            .map_or(Some(additional_site_package_path.clone()), |path| {
+                                Some(
+                                    additional_site_package_path
+                                        .into_iter()
+                                        .chain(path)
+                                        .collect(),
+                                )
+                            });
+                        ArcId::new(config)
+                    })
+                    .dupe()
             }
         }),
     )
