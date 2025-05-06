@@ -375,10 +375,10 @@ impl ConfigFile {
     /// which should probably be everything except for `PathBuf` or `Globs` types.
     pub fn configure(&mut self) {
         if self.python_environment.any_empty() {
-            if let Some(interpreter) = &self
+            if let Some(interpreter) = self
                 .python_interpreter
-                .as_ref()
-                .or(PythonEnvironment::get_default_interpreter().as_ref())
+                .as_deref()
+                .or(PythonEnvironment::get_default_interpreter())
             {
                 let system_env = PythonEnvironment::get_interpreter_env(interpreter);
                 self.python_environment.override_empty(system_env);

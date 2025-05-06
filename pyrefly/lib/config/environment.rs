@@ -157,15 +157,18 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         Ok(deserialized)
     }
 
-    pub fn get_default_interpreter() -> Option<PathBuf> {
-        // disable query with `which` on wasm
-        #[cfg(not(target_arch = "wasm32"))]
-        for interpreter in Self::DEFAULT_INTERPRETERS {
-            if let Ok(interpreter_path) = which(interpreter) {
-                return Some(interpreter_path);
+    pub fn get_default_interpreter() -> Option<&'static Path> {
+        static SYSTEM_INTERP: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
+            // disable query with `which` on wasm
+            #[cfg(not(target_arch = "wasm32"))]
+            for interpreter in PythonEnvironment::DEFAULT_INTERPRETERS {
+                if let Ok(interpreter_path) = which(interpreter) {
+                    return Some(interpreter_path);
+                }
             }
-        }
-        None
+            None
+        });
+        SYSTEM_INTERP.as_deref()
     }
 
     pub fn get_interpreter_env(interpreter: &Path) -> PythonEnvironment {
