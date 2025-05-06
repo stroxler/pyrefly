@@ -170,12 +170,7 @@ impl Default for ConfigFile {
             python_interpreter: None,
             search_path: Vec::new(),
             low_priority_search_path: Vec::new(),
-            python_environment: PythonEnvironment {
-                python_platform: None,
-                python_version: None,
-                site_package_path: None,
-                site_package_path_from_interpreter: false,
-            },
+            python_environment: Default::default(),
             root: Default::default(),
             sub_configs: Default::default(),
             custom_module_paths: Default::default(),

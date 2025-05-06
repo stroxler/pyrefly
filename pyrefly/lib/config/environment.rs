@@ -36,7 +36,7 @@ static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonE
 /// on config parsing, since we also won't know if an executable
 /// other than the first available on the path should be used (i.e.
 /// should we always look at a venv/conda environment instead?)
-#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
 pub struct PythonEnvironment {
     /// The platform any `sys.platform` check should evaluate against.
     #[serde(default)]
@@ -184,20 +184,6 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         Self::get_default_interpreter()
             .map(Self::get_interpreter_env)
             .unwrap_or_default()
-    }
-}
-
-impl Default for PythonEnvironment {
-    /// This supplies Pyrefly's backup default values if we are unable to query
-    /// an interpreter or want to have a `PythonEnvironment` in testing.
-    /// Prefer to query an interpreter if possible.
-    fn default() -> Self {
-        Self {
-            python_platform: Some(PythonPlatform::default()),
-            python_version: Some(PythonVersion::default()),
-            site_package_path: Some(Vec::new()),
-            site_package_path_from_interpreter: false,
-        }
     }
 }
 
