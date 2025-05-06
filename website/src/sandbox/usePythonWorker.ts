@@ -7,81 +7,105 @@
  * @format
  */
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect } from 'react';
 import { WorkerResponse } from './pythonWorker';
 
 interface usePythonWorkerProps {
     setPythonOutput: React.Dispatch<React.SetStateAction<string>>;
 }
 
-export const usePythonWorker = ({ setPythonOutput }: usePythonWorkerProps) => {
-    const workerRef = useRef<Worker | null>(null);
-    const resolveRef = useRef<
-        ((value: void | PromiseLike<void>) => void) | null
-    >(null);
+// Singleton instance variables
+let workerInstance: Worker | null = null;
+let resolveInstance: ((value: void | PromiseLike<void>) => void) | null = null;
+let setOutputFunction: React.Dispatch<React.SetStateAction<string>> | null =
+    null;
 
-    useEffect(() => {
-        // Create worker instance
-        const worker = new Worker(
-            new URL('./pythonWorker.ts', import.meta.url),
-            {
-                type: 'module',
-            }
+// Singleton runPython function
+const runPython = async (code: string): Promise<void> => {
+    if (!workerInstance || !setOutputFunction) {
+        console.error(
+            'Python worker not initialized. Call initializePythonWorker first.'
         );
+        return;
+    }
 
-        // Set up message handler
-        worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
-            const response: WorkerResponse = event.data;
+    setOutputFunction('');
 
-            switch (response.type) {
-                case 'stdout':
-                    setPythonOutput((prev) => prev + '\n' + response.output);
-                    return;
-                case 'stderr':
-                    setPythonOutput((prev) => prev + '\n' + response.output);
-                    return;
-                case 'runPython':
-                    if (!response.success && response.error) {
-                        setPythonOutput(
-                            (prev) => prev + '\n' + `Error: ${response.error}`
-                        );
-                    }
+    return new Promise((resolve) => {
+        // Store the resolve function for later use
+        resolveInstance = resolve;
 
-                    // Resolve the promise if there's a pending one
-                    if (resolveRef.current) {
-                        resolveRef.current();
-                        resolveRef.current = null;
-                    }
-                    return;
-                default:
-                    console.error(
-                        `Unknown message type received from worker: ${response}`
+        // Send message to worker
+        workerInstance?.postMessage(code);
+    });
+};
+
+// Initialize the Python worker singleton
+const initializePythonWorker = (
+    setPythonOutput: React.Dispatch<React.SetStateAction<string>>
+): void => {
+    // Only initialize once
+    if (workerInstance !== null) {
+        return;
+    }
+
+    // Store the output function
+    setOutputFunction = setPythonOutput;
+
+    // Create worker instance
+    const worker = new Worker(new URL('./pythonWorker.ts', import.meta.url), {
+        type: 'module',
+    });
+
+    // Set up message handler
+    worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+        const response: WorkerResponse = event.data;
+
+        switch (response.type) {
+            case 'stdout':
+                setPythonOutput((prev) => prev + '\n' + response.output);
+                return;
+            case 'stderr':
+                setPythonOutput((prev) => prev + '\n' + response.output);
+                return;
+            case 'runPython':
+                if (!response.success && response.error) {
+                    setPythonOutput(
+                        (prev) => prev + '\n' + `Error: ${response.error}`
                     );
-            }
-        };
+                }
 
-        workerRef.current = worker;
+                // Resolve the promise if there's a pending one
+                if (resolveInstance) {
+                    resolveInstance();
+                    resolveInstance = null;
+                }
+                return;
+            default:
+                console.error(
+                    `Unknown message type received from worker: ${response}`
+                );
+        }
+    };
 
-        // Clean up worker on unmount
+    workerInstance = worker;
+};
+
+// Hook for React components to use the Python worker
+export const usePythonWorker = ({ setPythonOutput }: usePythonWorkerProps) => {
+    useEffect(() => {
+        // Initialize the worker if it hasn't been initialized yet
+        if (workerInstance === null) {
+            console.log('intializing python worker');
+            initializePythonWorker(setPythonOutput);
+        } // Otherwise, do nothing
+
+        // Clean up worker on unmount if this is the component that created it
         return () => {
-            worker.terminate();
-            workerRef.current = null;
+            // We don't terminate the worker here to maintain the singleton
+            // The worker will persist until the page is refreshed
         };
-    }, []);
-
-    const runPython = useCallback(async (code: string): Promise<void> => {
-        if (!workerRef.current) return;
-
-        setPythonOutput('');
-
-        return new Promise((resolve) => {
-            // Store the resolve function for later use
-            resolveRef.current = resolve;
-
-            // Send message to worker
-            workerRef.current?.postMessage(code);
-        });
-    }, []);
+    }, [setPythonOutput]);
 
     return { runPython };
 };
