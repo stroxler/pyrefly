@@ -94,7 +94,7 @@ fn test_multiple_path() {
         ("main", "main.py", MAIN_PY),
     ];
 
-    let mut config = ConfigFile::empty();
+    let mut config = ConfigFile::default();
     config.python_environment.set_empty_to_default();
     for (name, path, _) in FILES.iter().rev() {
         config.custom_module_paths.insert(
@@ -143,7 +143,7 @@ impl Incremental {
         init_test();
         let data = IncrementalData::default();
 
-        let mut config = ConfigFile::empty();
+        let mut config = ConfigFile::default();
         config.python_environment.set_empty_to_default();
         for file in ["main", "foo", "bar", "baz"] {
             config.custom_module_paths.insert(

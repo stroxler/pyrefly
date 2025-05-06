@@ -160,18 +160,42 @@ pub struct ConfigFile {
     pub ignore_missing_source: bool,
 }
 
+impl Default for ConfigFile {
+    /// An empty `ConfigFile`
+    fn default() -> Self {
+        ConfigFile {
+            source: ConfigSource::Synthetic,
+            project_includes: Globs::new(Vec::new()),
+            project_excludes: Globs::new(Vec::new()),
+            python_interpreter: None,
+            search_path: Vec::new(),
+            low_priority_search_path: Vec::new(),
+            python_environment: PythonEnvironment {
+                python_platform: None,
+                python_version: None,
+                site_package_path: None,
+                site_package_path_from_interpreter: false,
+            },
+            root: Default::default(),
+            sub_configs: Default::default(),
+            custom_module_paths: Default::default(),
+            use_untyped_imports: true,
+            ignore_missing_source: true,
+        }
+    }
+}
+
 impl ConfigFile {
     /// Gets a default ConfigFile, with no path rewriting. This should only be used for unit testing,
     /// since it may have strange runtime behavior. Prefer to use `ConfigFile::default()` instead.
     fn default_no_path_rewrite(layout: &ProjectLayout) -> Self {
-        let mut result = Self::empty();
-        result.project_includes = Self::default_project_includes();
-        result.project_excludes = Self::default_project_excludes();
-        // Note that rewrite_with_path_to_config() converts "" to the config file's containing directory.
-        result
-            .search_path
-            .push(layout.get_import_root(Path::new("")));
-        result
+        Self {
+            project_includes: Self::default_project_includes(),
+            project_excludes: Self::default_project_excludes(),
+            // Note that rewrite_with_path_to_config() converts "" to the config file's containing directory.
+            search_path: vec![layout.get_import_root(Path::new(""))],
+            ..Default::default()
+        }
     }
 
     /// Gets a default ConfigFile, with all paths rewritten relative to a root dir.
@@ -234,29 +258,6 @@ impl ConfigFile {
     /// Files that don't contain pyrefly-specific config information but indicate that we're at the
     /// root of a Python project, which should be added to the search path.
     pub const ADDITIONAL_ROOT_FILE_NAMES: &[&str] = &["setup.py", "mypy.ini", "pyrightconfig.json"];
-
-    /// An empty `ConfigFile` with no search path at all.
-    pub fn empty() -> Self {
-        ConfigFile {
-            source: ConfigSource::Synthetic,
-            project_includes: Globs::new(Vec::new()),
-            project_excludes: Globs::new(Vec::new()),
-            python_interpreter: None,
-            search_path: Vec::new(),
-            low_priority_search_path: Vec::new(),
-            python_environment: PythonEnvironment {
-                python_platform: None,
-                python_version: None,
-                site_package_path: None,
-                site_package_path_from_interpreter: false,
-            },
-            root: Default::default(),
-            sub_configs: Default::default(),
-            custom_module_paths: Default::default(),
-            use_untyped_imports: true,
-            ignore_missing_source: true,
-        }
-    }
 
     pub fn default_project_includes() -> Globs {
         Globs::new(vec!["**/*".to_owned()])
@@ -951,7 +952,7 @@ mod tests {
                     },
                 },
             ],
-            ..ConfigFile::empty()
+            ..Default::default()
         };
 
         // test precedence (two configs match, one higher priority)

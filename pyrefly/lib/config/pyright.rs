@@ -30,7 +30,7 @@ pub struct PyrightConfig {
 
 impl PyrightConfig {
     pub fn convert(self) -> ConfigFile {
-        let mut cfg = ConfigFile::empty();
+        let mut cfg = ConfigFile::default();
         if let Some(includes) = self.project_includes {
             cfg.project_includes = includes;
         }
@@ -112,7 +112,7 @@ mod tests {
                     site_package_path: None,
                     site_package_path_from_interpreter: false,
                 },
-                ..ConfigFile::empty()
+                ..Default::default()
             }
         );
         Ok(())
@@ -144,7 +144,7 @@ mod tests {
                     site_package_path: None,
                     site_package_path_from_interpreter: false,
                 },
-                ..ConfigFile::empty()
+                ..Default::default()
             }
         );
         Ok(())

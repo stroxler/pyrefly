@@ -38,7 +38,7 @@ pub fn standard_config_finder(
     // A cache where path `p` maps to config file with `search_path = [p, p/.., p/../.., ...]`.
     let cache_parents: Mutex<SmallMap<PathBuf, ArcId<ConfigFile>>> = Mutex::new(SmallMap::new());
 
-    let empty = LazyLock::new(move || ArcId::new(configure3(None, ConfigFile::empty())));
+    let empty = LazyLock::new(move || ArcId::new(configure3(None, ConfigFile::default())));
 
     ConfigFinder::new(
         Box::new(move |file| {
@@ -79,7 +79,7 @@ pub fn standard_config_finder(
                     .lock()
                     .entry(path.to_owned())
                     .or_insert_with(|| {
-                        let mut config = ConfigFile::empty();
+                        let mut config = ConfigFile::default();
                         // We use `low_priority_search_path` because otherwise a user with `/sys` on their
                         // computer (all of them) will override `sys.version` in preference to typeshed.
                         config.low_priority_search_path =

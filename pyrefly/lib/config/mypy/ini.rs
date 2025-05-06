@@ -96,7 +96,7 @@ impl MypyConfig {
             }
         }
         // Create new configuration
-        let mut cfg = ConfigFile::empty();
+        let mut cfg = ConfigFile::default();
 
         let project_includes = [files, packages, modules]
             .into_iter()
@@ -231,7 +231,7 @@ ignore_missing_imports = True
         fs_anyhow::write(&input_path, mypy)?;
 
         let cfg = MypyConfig::parse_mypy_config(&input_path)?;
-        let default = ConfigFile::empty();
+        let default = ConfigFile::default();
         assert_eq!(cfg.project_includes, default.project_includes);
         assert_eq!(cfg.project_excludes, default.project_excludes);
         Ok(())

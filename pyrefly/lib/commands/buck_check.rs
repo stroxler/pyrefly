@@ -61,7 +61,7 @@ fn read_input_file(path: &Path) -> anyhow::Result<InputFile> {
 fn compute_errors(sys_info: SysInfo, sourcedb: BuckSourceDatabase) -> Vec<Error> {
     let modules = sourcedb.modules_to_check();
 
-    let mut config = ConfigFile::empty();
+    let mut config = ConfigFile::default();
     config.python_environment.python_platform = Some(sys_info.platform().clone());
     config.python_environment.python_version = Some(sys_info.version());
     config.python_environment.site_package_path = Some(Vec::new());

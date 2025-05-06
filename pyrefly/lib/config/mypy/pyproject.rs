@@ -98,7 +98,7 @@ pub fn parse_pyrproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {
         .and_then(|t| t.mypy)
         .ok_or(MypyNotFoundError {})?;
 
-    let mut cfg = ConfigFile::empty();
+    let mut cfg = ConfigFile::default();
 
     let project_includes = [mypy.files, mypy.packages, mypy.modules]
         .into_iter()
