@@ -522,7 +522,7 @@ impl<'a> BindingsBuilder<'a> {
                 Ok(expr) => {
                     *x = expr;
                     // TODO: Remember if we have already done a parse_type_literal, so we could properly
-                    // reject anntoations of the form `"'T'"`.
+                    // reject annotations of the form `"'T'"`.
                     self.ensure_type(x, tparams_builder);
                 }
                 Err(e) => {
