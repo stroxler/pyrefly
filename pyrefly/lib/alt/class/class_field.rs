@@ -502,6 +502,27 @@ pub enum DataclassMember {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    fn matches_enum_value_annotation(&self, value: &Type, annotation: &Type) -> bool {
+        if matches!(value, Type::Tuple(_)) {
+            // TODO: check tuple values against constructor signature
+            // see https://typing.python.org/en/latest/spec/enums.html#member-values
+            return true;
+        }
+        if matches!(value, Type::ClassType(cls) if cls.has_qname("enum", "auto")) {
+            return true;
+        }
+        if let Type::ClassType(cls) = value
+            && cls.has_qname("enum", "member")
+            && let [member_targ] = cls.targs().as_slice()
+        {
+            return self
+                .solver()
+                .is_subset_eq(member_targ, annotation, self.type_order());
+        }
+        self.solver()
+            .is_subset_eq(value, annotation, self.type_order())
+    }
+
     pub fn calculate_class_field(
         &self,
         name: &Name,
@@ -659,10 +680,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             if enum_.has_value
                 && let Some(enum_value_ty) = self.type_of_enum_value(enum_)
-                && !matches!(ty, Type::Tuple(_))
-                && !self
-                    .solver()
-                    .is_subset_eq(&ty, &enum_value_ty, self.type_order())
+                && !self.matches_enum_value_annotation(&ty, &enum_value_ty)
             {
                 self.error(
                         errors, range, ErrorKind::BadAssignment, None,

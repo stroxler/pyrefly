@@ -119,12 +119,15 @@ for e in E:  # E: Type `type[E]` is not iterable
 testcase!(
     test_value_annotation,
     r#"
-from enum import Enum
+from enum import Enum, member, auto
 
 class MyEnum(Enum):
     _value_: int
+    V = member(1)
+    W = auto()
     X = 1
     Y = "FOO"  # E: The value for enum member `Y` must match the annotation of the _value_ attribute
+    Z = member("FOO")  # E: The value for enum member `Z` must match the annotation of the _value_ attribute
 "#,
 );
 
