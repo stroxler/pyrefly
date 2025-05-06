@@ -32,7 +32,6 @@ use crate::commands::run::CommandExitStatus;
 use crate::commands::suppress;
 use crate::commands::util::module_from_path;
 use crate::config::config::ConfigFile;
-use crate::config::config::ConfigSource;
 use crate::config::config::validate_path;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;
@@ -210,13 +209,11 @@ impl Handles {
         let unknown = ModuleName::unknown();
         let config = config_finder.python_file(unknown, &module_path);
 
-        let mut search_path = Vec::new();
-        // We want to find the module name for this path, but if we had to create a synthetic
-        // config then we don't really have any idea, and shouldn't use our approximate guess to figure out a name.
-        if config.source != ConfigSource::Synthetic {
-            search_path = config.search_path.clone();
-        }
-        search_path.extend(args_search_path.iter().cloned());
+        let search_path = args_search_path
+            .iter()
+            .cloned()
+            .chain(config.search_path.clone())
+            .collect::<Vec<_>>();
         let module_name = module_from_path(&path, &search_path).unwrap_or(unknown);
 
         self.path_data
