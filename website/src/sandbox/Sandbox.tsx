@@ -7,15 +7,13 @@
  * @format
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import MonacoEditorButton, {
     BUTTON_HEIGHT,
     runOnClickForAtLeastOneSecond,
 } from './MonacoEditorButton';
-import RunPythonButton, {
-    createRunPythonCodeFunction,
-} from './RunPythonButton';
+import RunPythonButton from './RunPythonButton';
 import Editor from '@monaco-editor/react';
 import * as LZString from 'lz-string';
 import * as stylex from '@stylexjs/stylex';
@@ -160,6 +158,11 @@ export default function Sandbox({
         setActiveTab,
         runPython
     );
+    const runPythonCodeCallback = useCallback(async () => {
+        if (!model) return;
+
+        await runPythonCodeFunction(model);
+    }, [model, setActiveTab]);
 
     function onEditorMount(editor: editor.IStandaloneCodeEditor) {
         const model = fetchCurMonacoModelAndTriggerUpdate(sampleFilename);
@@ -241,11 +244,9 @@ export default function Sandbox({
                     >
                         {!isCodeSnippet
                             ? getRunPythonButton(
-                                  model,
-                                  setActiveTab,
+                                  runPythonCodeCallback,
                                   isRunning,
-                                  setIsRunning,
-                                  setPythonOutput
+                                  setIsRunning
                               )
                             : null}
                         {!isCodeSnippet ? getShareUrlButton() : null}
@@ -437,19 +438,15 @@ function OpenSandboxButton({
 }
 
 function getRunPythonButton(
-    model: editor.ITextModel,
-    setActiveTab: React.Dispatch<React.SetStateAction<string>>,
+    runPython: () => Promise<void>,
     isRunning: boolean,
-    setIsRunning: React.Dispatch<React.SetStateAction<boolean>>,
-    setPythonOutput: React.Dispatch<React.SetStateAction<string>>
+    setIsRunning: React.Dispatch<React.SetStateAction<boolean>>
 ): React.ReactElement {
     return (
         <RunPythonButton
-            model={model}
-            onActiveTabChange={setActiveTab}
+            runPython={runPython}
             isRunning={isRunning}
             setIsRunning={setIsRunning}
-            setPythonOutput={setPythonOutput}
         />
     );
 }
@@ -495,6 +492,23 @@ function getResetButton(
             ariaLabel="reset to default code"
         />
     );
+}
+
+// Reusable function to create a Python code runner
+export function createRunPythonCodeFunction(
+    onActiveTabChange: React.Dispatch<React.SetStateAction<string>>,
+    runPython: (code: string) => Promise<void>
+) {
+    // Return a function that takes a model parameter
+    return async (model: editor.ITextModel | null) => {
+        if (!model) return;
+
+        // Switch to output tab
+        onActiveTabChange('output');
+
+        const code = model.getValue();
+        await runPython(code);
+    };
 }
 
 /**
