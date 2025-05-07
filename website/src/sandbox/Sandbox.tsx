@@ -156,7 +156,10 @@ export default function Sandbox({
     const { runPython } = usePythonWorker({ setPythonOutput });
 
     // Create a function to run Python code that can be passed a model
-    const runPythonCodeFunction = createRunPythonCodeFunction(setActiveTab, runPython);
+    const runPythonCodeFunction = createRunPythonCodeFunction(
+        setActiveTab,
+        runPython
+    );
 
     function onEditorMount(editor: editor.IStandaloneCodeEditor) {
         const model = fetchCurMonacoModelAndTriggerUpdate(sampleFilename);

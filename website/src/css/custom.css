@@ -150,7 +150,9 @@
     --dark-yellow: #e59c24;
     --light-grey: #7f8790;
     --ifm-navbar-padding-vertical: 0;
-    --ifm-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --ifm-font-family-base:
+        'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif;
     --ifm-heading-font-weight: 'bold';
 }
 

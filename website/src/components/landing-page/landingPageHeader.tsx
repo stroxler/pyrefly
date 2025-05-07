@@ -51,7 +51,6 @@ export default function LandingPageHeader(): React.ReactElement {
                     isLoaded && styles.buttonGroupVerticalVisible
                 )}
             >
-
                 <CodeSnippet />
                 <a
                     href="https://marketplace.visualstudio.com/items?itemName=meta.pyrefly"
@@ -67,8 +66,7 @@ export default function LandingPageHeader(): React.ReactElement {
                     styles.buttonGroup,
                     isLoaded && styles.buttonGroupVisible
                 )}
-            >
-            </section>
+            ></section>
             <section>
                 <Firefly />
                 <Firefly />
@@ -225,5 +223,5 @@ const styles = stylex.create({
     pip: {
         marginTop: '1rem',
         marginBottom: 0,
-    }
+    },
 });

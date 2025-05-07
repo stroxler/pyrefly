@@ -87,6 +87,5 @@ describe('Home page', () => {
         expect(subtitleText).toBe(
             'A faster Python type checker written in Rust'
         );
-
     }
 });
