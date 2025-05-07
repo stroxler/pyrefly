@@ -296,7 +296,7 @@ impl ConfigFile {
         SysInfo::new(self.python_version(), self.python_platform().clone())
     }
 
-    fn errors(&self, path: &Path) -> &ErrorDisplayConfig {
+    pub fn errors(&self, path: &Path) -> &ErrorDisplayConfig {
         self.get_from_sub_configs(ConfigBase::get_errors, path)
             .unwrap_or_else(||
                 // we can use unwrap here, because the value in the root config must

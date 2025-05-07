@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use itertools::Itertools;
@@ -60,6 +61,8 @@ struct MypySection {
     python_version: Option<PythonVersion>,
     #[serde(rename = "python_executable")]
     python_interpreter: Option<PathBuf>,
+    disable_error_code: Option<Vec<String>>,
+    enable_error_code: Option<Vec<String>>,
     #[allow(dead_code)]
     #[serde(default)]
     per_module: Vec<ModuleSection>,
@@ -138,6 +141,24 @@ pub fn parse_pyrproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {
         cfg.python_interpreter = mypy.python_interpreter;
     }
 
+    let disable_error_code = mypy
+        .disable_error_code
+        .map(|d| split_comma(&d))
+        .unwrap_or(vec![]);
+    let enable_error_code = mypy
+        .enable_error_code
+        .map(|d| split_comma(&d))
+        .unwrap_or(vec![]);
+    let mut errors = HashMap::new();
+    for error_code in disable_error_code {
+        errors.insert(error_code, false);
+    }
+    // enable_error_code overrides disable_error_code
+    for error_code in enable_error_code {
+        errors.insert(error_code, true);
+    }
+    cfg.root.errors = super::code_to_kind(errors);
+
     Ok(cfg)
 }
 
@@ -196,6 +217,18 @@ exclude = [
 "#;
         let cfg_list = parse_pyrproject_config(src_list)?;
         assert_eq!(cfg_str, cfg_list);
+        Ok(())
+    }
+
+    #[test]
+    fn test_disable_errors() -> anyhow::Result<()> {
+        let src = r#"[tool.mypy]
+disable_error_code = ["union-attr"]
+"#;
+        let mut cfg = parse_pyrproject_config(src)?;
+        cfg.configure();
+        let errors = cfg.errors(&PathBuf::from("."));
+        assert!(!errors.is_enabled(crate::error::kind::ErrorKind::MissingAttribute));
         Ok(())
     }
 }

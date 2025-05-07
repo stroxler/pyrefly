@@ -44,6 +44,8 @@ pub struct MypyConfig {
         default = "ConfigFile::default_true"
     )]
     use_untyped_imports: bool,
+    disable_error_code: Option<Vec<String>>,
+    enable_error_code: Option<Vec<String>>,
 }
 
 impl MypyConfig {
@@ -74,6 +76,10 @@ impl MypyConfig {
         let mypy_path = config.get("mypy", "mypy_path"); // string
         let python_executable = config.get("mypy", "python_executable");
         let python_version = config.get("mypy", "python_version");
+        let disable_error_code: Vec<String> =
+            ini_string_to_array(&config.get("mypy", "disable_error_code"));
+        let enable_error_code: Vec<String> =
+            ini_string_to_array(&config.get("mypy", "enable_error_code"));
 
         let mut replace_imports: Vec<String> = Vec::new();
         let mut follow_untyped_imports = false;
@@ -149,6 +155,17 @@ impl MypyConfig {
             })
             .filter(|x| x.is_some())
             .collect();
+
+        let mut errors = HashMap::new();
+        for error_code in disable_error_code {
+            errors.insert(error_code, false);
+        }
+        // enable_error_code overrides disable_error_code
+        for error_code in enable_error_code {
+            errors.insert(error_code, true);
+        }
+        cfg.root.errors = crate::config::mypy::code_to_kind(errors);
+
         Ok(cfg)
     }
 }
@@ -234,6 +251,20 @@ ignore_missing_imports = True
         let default = ConfigFile::default();
         assert_eq!(cfg.project_includes, default.project_includes);
         assert_eq!(cfg.project_excludes, default.project_excludes);
+        Ok(())
+    }
+    #[test]
+    fn test_disable_errors() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("mypy.ini");
+        let src = br#"[mypy]
+disable_error_code = union-attr
+"#;
+        fs_anyhow::write(&input_path, src)?;
+        let mut cfg = MypyConfig::parse_mypy_config(&input_path)?;
+        cfg.configure();
+        let errors = cfg.errors(tmp.path());
+        assert!(!errors.is_enabled(crate::error::kind::ErrorKind::MissingAttribute));
         Ok(())
     }
 }
