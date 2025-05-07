@@ -66,6 +66,18 @@ class A:
 );
 
 testcase!(
+    test_self_attribute_in_unrecognized_method,
+    r#"
+from typing import assert_type
+class A:
+    def f(self, x: int):
+        self.x = x  # E: Object of class `A` has no attribute `x`
+def f(a: A):
+    assert_type(a.x, int)  # E: Object of class `A` has no attribute `x`  # E: assert_type(Any, int) failed
+    "#,
+);
+
+testcase!(
     test_self_attribute_in_test_setup,
     r#"
 class MyTestCase:
