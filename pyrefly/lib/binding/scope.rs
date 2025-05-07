@@ -247,6 +247,15 @@ impl ClassBodyInner {
     pub fn as_class_metadata_key(&self) -> KeyClassMetadata {
         KeyClassMetadata(self.index)
     }
+
+    pub fn add_attributes_defined_by_method(
+        &mut self,
+        method_name: Name,
+        attributes: SmallMap<Name, InstanceAttribute>,
+    ) {
+        self.instance_attributes_by_method
+            .insert(method_name, attributes);
+    }
 }
 
 /// Information about an instance attribute coming from a `self` assignment

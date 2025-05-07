@@ -201,8 +201,7 @@ impl<'a> BindingsBuilder<'a> {
         if let ScopeKind::Method(method) = func_scope.kind
             && let ScopeKind::ClassBody(body) = &mut self.scopes.current_mut().kind
         {
-            body.instance_attributes_by_method
-                .insert(method.name.id, method.instance_attributes);
+            body.add_attributes_defined_by_method(method.name.id, method.instance_attributes);
         }
         let is_async = x.is_async;
 
