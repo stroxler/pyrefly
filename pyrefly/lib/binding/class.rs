@@ -43,7 +43,6 @@ use crate::binding::scope::FlowStyle;
 use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
-use crate::dunder;
 use crate::error::kind::ErrorKind;
 use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
@@ -839,21 +838,4 @@ fn is_valid_identifier(name: &str) -> bool {
     static IDENTIFIER_REGEX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new("^[a-zA-Z_][a-zA-Z0-9_]*$").unwrap());
     !is_keyword(name) && IDENTIFIER_REGEX.is_match(name)
-}
-
-pub fn is_attribute_defining_method(method_name: &Name, class_name: &Name) -> bool {
-    if method_name == &dunder::INIT {
-        true
-    } else {
-        (class_name.contains("Test") || class_name.contains("test"))
-            && is_test_setup_method(method_name)
-    }
-}
-
-fn is_test_setup_method(method_name: &Name) -> bool {
-    match method_name.as_str() {
-        "asyncSetUp" | "async_setUp" | "setUp" | "_setup" | "_async_setup"
-        | "async_with_context" | "with_context" | "setUpClass" => true,
-        _ => false,
-    }
 }

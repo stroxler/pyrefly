@@ -31,7 +31,7 @@ use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyFunction;
 use crate::binding::bindings::BindingTable;
-use crate::binding::class::is_attribute_defining_method;
+use crate::dunder;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
 use crate::export::exports::LookupExport;
@@ -304,6 +304,23 @@ impl ClassBodyInner {
                 })
             })
         }
+    }
+}
+
+fn is_attribute_defining_method(method_name: &Name, class_name: &Name) -> bool {
+    if method_name == &dunder::INIT {
+        true
+    } else {
+        (class_name.contains("Test") || class_name.contains("test"))
+            && is_test_setup_method(method_name)
+    }
+}
+
+fn is_test_setup_method(method_name: &Name) -> bool {
+    match method_name.as_str() {
+        "asyncSetUp" | "async_setUp" | "setUp" | "_setup" | "_async_setup"
+        | "async_with_context" | "with_context" | "setUpClass" => true,
+        _ => false,
     }
 }
 
