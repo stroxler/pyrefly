@@ -36,6 +36,7 @@ pub enum SpecialExport {
     Cast,
     Super,
     Exit,
+    Len,
 }
 
 #[derive(Debug)]
@@ -72,6 +73,7 @@ impl SpecialExport {
             "cast" => Some(Self::Cast),
             "super" => Some(Self::Super),
             "exit" => Some(Self::Exit),
+            "len" => Some(Self::Len),
             _ => None,
         }
     }
@@ -95,7 +97,7 @@ impl SpecialExport {
             }
             Self::CollectionsNamedTuple => matches!(m.as_str(), "collections"),
             Self::Enum | Self::StrEnum | Self::IntEnum => matches!(m.as_str(), "enum"),
-            Self::Super => matches!(m.as_str(), "builtins"),
+            Self::Super | Self::Len => matches!(m.as_str(), "builtins"),
             Self::Exit => matches!(m.as_str(), "sys"),
         }
     }
