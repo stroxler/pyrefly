@@ -155,3 +155,11 @@ $ mkdir -p $TMPDIR/src_project/src/foo && echo "x: int = 0" > $TMPDIR/src_projec
  INFO 0 errors* (glob)
 [0]
 ```
+
+## Relative project_excludes
+
+```scrut {output_stream: stderr}
+$ mkdir $TMPDIR/foo && touch $TMPDIR/foo/bar.py && echo "x: str = 0" > $TMPDIR/foo/problem.py && cd $TMPDIR/foo && $PYREFLY check *.py --project-excludes=problem.py
+ INFO 0 errors* (glob)
+[0]
+```

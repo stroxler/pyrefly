@@ -134,9 +134,13 @@ fn config_finder(args: library::run::CheckArgs) -> ConfigFinder {
     standard_config_finder(Arc::new(move |_, x| args.override_config(x)))
 }
 
+fn absolutize(globs: Globs) -> anyhow::Result<Globs> {
+    Ok(globs.from_root(PathBuf::new().absolutize()?.as_ref()))
+}
+
 fn get_globs_and_config_for_project(
     config: Option<PathBuf>,
-    project_excludes: Option<Vec<String>>,
+    project_excludes: Option<Globs>,
     args: &library::run::CheckArgs,
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
     let config = match config {
@@ -168,8 +172,7 @@ fn get_globs_and_config_for_project(
     let config_finder = ConfigFinder::new_constant(config.dupe());
 
     debug!("Config is: {}", config);
-    let project_excludes =
-        project_excludes.map_or_else(|| config.project_excludes.clone(), Globs::new);
+    let project_excludes = project_excludes.unwrap_or_else(|| config.project_excludes.clone());
 
     Ok((
         FilteredGlobs::new(config.project_includes.clone(), project_excludes),
@@ -179,12 +182,11 @@ fn get_globs_and_config_for_project(
 
 fn get_globs_and_config_for_files(
     files_to_check: Globs,
-    project_excludes: Option<Vec<String>>,
+    project_excludes: Option<Globs>,
     args: &library::run::CheckArgs,
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
-    let project_excludes =
-        project_excludes.map_or_else(ConfigFile::default_project_excludes, Globs::new);
-    let files_to_check = files_to_check.from_root(PathBuf::new().absolutize()?.as_ref());
+    let project_excludes = project_excludes.unwrap_or_else(ConfigFile::default_project_excludes);
+    let files_to_check = absolutize(files_to_check)?;
     let config_finder = config_finder(args.clone());
     Ok((
         FilteredGlobs::new(files_to_check, project_excludes),
@@ -205,6 +207,11 @@ fn get_globs_and_config(
     }
     args.absolute_search_path();
     args.validate()?;
+    let project_excludes = if let Some(project_excludes) = project_excludes {
+        Some(absolutize(Globs::new(project_excludes))?)
+    } else {
+        None
+    };
     if files.is_empty() {
         get_globs_and_config_for_project(config, project_excludes, args)
     } else {
