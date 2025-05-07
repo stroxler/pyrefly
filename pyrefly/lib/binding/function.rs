@@ -104,7 +104,7 @@ impl<'a> BindingsBuilder<'a> {
 
         let body = mem::take(&mut x.body);
         let decorators = self.ensure_and_bind_decorators(mem::take(&mut x.decorator_list));
-        let source = if is_ellipse(&body) {
+        let source = if is_ellipse(&body) || self.module_info.path().is_interface() {
             FunctionSource::Stub
         } else {
             FunctionSource::Impl

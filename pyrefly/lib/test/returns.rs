@@ -248,3 +248,11 @@ def f(b: bool) -> int:
         fail()
 "#,
 );
+
+testcase!(
+    test_return_error_on_docstring,
+    r#"
+def f() -> int: # E: Function declared to return `int` but is missing an explicit `return` 
+    """ ... """ 
+     "#,
+);
