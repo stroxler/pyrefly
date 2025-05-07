@@ -200,30 +200,35 @@ impl<'a> BindingsBuilder<'a> {
             }
         }
         if let ScopeKind::ClassBody(body) = last_scope.kind {
-            for (name, method_name, InstanceAttribute(value, annotation, range)) in
-                body.method_defined_attributes()
+            for (
+                name,
+                (method_name, defined_in_recognized_method),
+                InstanceAttribute(value, annotation, range),
+            ) in body.method_defined_attributes()
             {
-                if !fields.contains_key_hashed(name.as_ref()) {
-                    fields.insert_hashed(
-                        name.clone(),
-                        ClassFieldProperties::new(annotation.is_some(), range),
-                    );
-                    self.table.insert(
-                        KeyClassField(class_index, name.key().clone()),
-                        BindingClassField {
-                            class: definition_key,
-                            name: name.into_key(),
-                            value,
-                            annotation,
-                            range,
-                            initial_value: ClassFieldInitialValue::Instance(Some(
-                                method_name.clone(),
-                            )),
-                            is_function_without_return_annotation: false,
-                        },
-                    );
-                } else if annotation.is_some() {
-                    self.error(range, format!("Cannot annotate attribute `{name}`, which is already annotated in the class body"), ErrorKind::InvalidAnnotation);
+                if defined_in_recognized_method {
+                    if !fields.contains_key_hashed(name.as_ref()) {
+                        fields.insert_hashed(
+                            name.clone(),
+                            ClassFieldProperties::new(annotation.is_some(), range),
+                        );
+                        self.table.insert(
+                            KeyClassField(class_index, name.key().clone()),
+                            BindingClassField {
+                                class: definition_key,
+                                name: name.into_key(),
+                                value,
+                                annotation,
+                                range,
+                                initial_value: ClassFieldInitialValue::Instance(Some(
+                                    method_name.clone(),
+                                )),
+                                is_function_without_return_annotation: false,
+                            },
+                        );
+                    } else if annotation.is_some() {
+                        self.error(range, format!("Cannot annotate attribute `{name}`, which is already annotated in the class body"), ErrorKind::InvalidAnnotation);
+                    }
                 }
             }
         } else {

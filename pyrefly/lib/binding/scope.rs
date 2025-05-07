@@ -237,10 +237,19 @@ impl FlowInfo {
 pub struct ClassBodyInner {
     pub name: Identifier,
     index: ClassIndex,
-    instance_attributes_by_method: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
+    attributes_from_recognized_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
+    attributes_from_other_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
 }
 
 impl ClassBodyInner {
+    pub fn new(name: Identifier, index: ClassIndex) -> Self {
+        Self {
+            name,
+            index,
+            attributes_from_recognized_methods: SmallMap::new(),
+            attributes_from_other_methods: SmallMap::new(),
+        }
+    }
     pub fn as_class_key(&self) -> KeyClass {
         KeyClass(ShortIdentifier::new(&self.name))
     }
@@ -255,27 +264,49 @@ impl ClassBodyInner {
         attributes: SmallMap<Name, InstanceAttribute>,
     ) {
         if is_attribute_defining_method(&method_name, &self.name.id) {
-            self.instance_attributes_by_method
+            self.attributes_from_recognized_methods
+                .insert(method_name, attributes);
+        } else {
+            self.attributes_from_other_methods
                 .insert(method_name, attributes);
         }
     }
 
-    /// Produces triples (hashed_attr_name, method_name, attribute)
+    /// Produces triples (hashed_attr_name, (method_name, defined_in_recognized_method), attribute).
+    ///
+    /// The method flag here allows us to model the behavior where we always infer an attribute we
+    /// see defined by a method, but we will produce a type error if an attribute is defined in
+    /// a method that we do not recognize as a valid attribute-defining method (we recognized
+    /// constructors and some specific methods like test setups).
+    ///
+    /// Note that we iterate recognized methods first, which both ensures that these
+    /// get precedence for type inference and ensures we don't produce unnecessary errors.
     pub fn method_defined_attributes(
         self,
-    ) -> impl Iterator<Item = (Hashed<Name>, Name, InstanceAttribute)> {
-        self.instance_attributes_by_method
-            .into_iter()
-            .flat_map(|(method_name, attrs)| {
-                attrs
-                    .into_iter_hashed()
-                    .map(move |(name, attr)| (name, method_name.clone(), attr))
+    ) -> impl Iterator<Item = (Hashed<Name>, (Name, bool), InstanceAttribute)> {
+        Self::iter_attributes(self.attributes_from_recognized_methods, true).chain(
+            Self::iter_attributes(self.attributes_from_other_methods, false),
+        )
+    }
+
+    fn iter_attributes(
+        attrs: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
+        recognized_attribute_defining_method: bool,
+    ) -> impl Iterator<Item = (Hashed<Name>, (Name, bool), InstanceAttribute)> {
+        {
+            attrs.into_iter().flat_map(move |(method_name, attrs)| {
+                attrs.into_iter_hashed().map(move |(name, attr)| {
+                    (
+                        name,
+                        (method_name.clone(), recognized_attribute_defining_method),
+                        attr,
+                    )
+                })
             })
+        }
     }
 }
 
-/// Information about an instance attribute coming from a `self` assignment
-/// in a method.
 #[derive(Clone, Debug)]
 pub struct InstanceAttribute(
     pub ExprOrBinding,
@@ -353,11 +384,7 @@ impl Scope {
         Self::new(
             range,
             false,
-            ScopeKind::ClassBody(ClassBodyInner {
-                index,
-                name,
-                instance_attributes_by_method: SmallMap::new(),
-            }),
+            ScopeKind::ClassBody(ClassBodyInner::new(name, index)),
         )
     }
 
