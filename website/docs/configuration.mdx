@@ -42,8 +42,7 @@ correspond to different but useful ways we expect most people to interact with P
   none can be found, and type check using that one config. This involves getting the
   [`project_includes`](#project_includes) and [`project_excludes`](#project_excludes) from the file, expanding the patterns,
   and type checking on those files.
-  - Project mode is used whenever `-c`/`--config` is passed in OR when no files are
-    provided with the CLI invocation.
+  - Project mode is used whenever no files are provided with the CLI invocation.
 - Per-file or Single-file mode: when given [`FILES...`](#project_includes) (and optionally [`--project-excludes`](#project_excludes))
   during a CLI invocation, expand the patterns and find the relevant config file for each
   file listed. `project_includes` and `project_excludes` are ignored from the config file,
@@ -66,10 +65,7 @@ additional files that mark the root of a project to aid import resolution.
 
 For project checking mode, the 'start location' is current working directory. For single-file checking mode,
 the start location is the directory containing each file to be type checked, and
-we find the config for each file matched by the pattern provided. No
-config flag can be passed into Pyrefly in single file checking mode, since the behavior
-is very ambiguous (would we apply the given config to each file? should the config
-override all settings, or just some of them?, ...).
+we find the config for each file matched by the pattern provided.
 
 If a `pyrefly.toml` is found, it is parsed and used for type checking, and will
 return an error to the user on invalid types, syntax, values, or unknown config options.
@@ -78,6 +74,12 @@ If a `pyproject.toml` is found, Pyrefly will use the `[tool.pyrefly]`
 section if it exists, otherwise it will assume a default config.
 The same errors will be returned as when loading a `pyrefly.toml` if
 the config is invalid.
+
+### Providing a Config in Single-File Mode
+
+Providing `-c`/`--config` in single-file checking mode disables the upward file search for config
+files. All options are read from the provided config file except `project_includes` and
+`project_excludes`, which are ignored.
 
 ## Configuration Options
 

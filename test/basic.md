@@ -163,3 +163,11 @@ $ mkdir $TMPDIR/foo && touch $TMPDIR/foo/bar.py && echo "x: str = 0" > $TMPDIR/f
  INFO 0 errors* (glob)
 [0]
 ```
+
+## Specify both files and config
+
+```scrut {output_stream: stderr}
+$ echo "x: str = 0" > $TMPDIR/oops.py && echo "errors = { bad-assignment = false }" > $TMPDIR/pyrefly.toml && $PYREFLY check -c $TMPDIR/pyrefly.toml $TMPDIR/oops.py && rm $TMPDIR/pyrefly.toml
+ INFO 0 errors* (glob)
+[0]
+```

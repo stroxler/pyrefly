@@ -12,7 +12,6 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use anyhow::anyhow;
 use clap::Parser;
 use clap::Subcommand;
 use dupe::Dupe;
@@ -80,9 +79,11 @@ struct FullCheckArgs {
     watch: bool,
 
     /// Explicitly set the Pyre configuration to use when type checking or starting a language server.
-    /// It is an error to pass this flag in "single-file checking mode".
+    /// In "single-file checking mode," this config is applied to all files being checked, ignoring
+    /// the config's `project_includes` and `project_excludes` and ignoring any config-finding approach
+    /// that would otherwise be used.
     /// When not set, Pyre will perform an upward-filesystem-walk approach to find the nearest
-    /// pyrefly.toml or 'pyproject.toml with `tool.pyre` section'. If no config is found, Pyre exits with error.
+    /// pyrefly.toml or pyproject.toml with `tool.pyre` section'. If no config is found, Pyre exits with error.
     /// If both a pyrefly.toml and valid pyproject.toml are found, pyrefly.toml takes precedence.
     #[clap(long, short, env = clap_env("CONFIG"))]
     config: Option<PathBuf>,
@@ -145,6 +146,7 @@ fn absolutize(globs: Globs) -> anyhow::Result<Globs> {
     Ok(globs.from_root(PathBuf::new().absolutize()?.as_ref()))
 }
 
+/// Get inputs for a full-project check. We will look for a config file and type-check the project it defines.
 fn get_globs_and_config_for_project(
     config: Option<PathBuf>,
     project_excludes: Option<Globs>,
@@ -195,14 +197,26 @@ fn get_globs_and_config_for_project(
     ))
 }
 
+/// Get inputs for a per-file check. If an explicit config is passed in, we use it; otherwise, we
+/// find configs via upward search from each file.
 fn get_globs_and_config_for_files(
+    config: Option<PathBuf>,
     files_to_check: Globs,
     project_excludes: Option<Globs>,
     args: &library::run::CheckArgs,
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
     let project_excludes = project_excludes.unwrap_or_else(ConfigFile::default_project_excludes);
     let files_to_check = absolutize(files_to_check)?;
-    let config_finder = config_finder(args.clone());
+    let config_finder = match config {
+        Some(explicit) => {
+            let (config, errors) = args.override_config(ConfigFile::from_file(&explicit, true)?);
+            for e in errors {
+                warn!("{}", e);
+            }
+            ConfigFinder::new_constant(ArcId::new(config))
+        }
+        None => config_finder(args.clone()),
+    };
     Ok((
         FilteredGlobs::new(files_to_check, project_excludes),
         config_finder,
@@ -215,11 +229,6 @@ fn get_globs_and_config(
     config: Option<PathBuf>,
     args: &mut library::run::CheckArgs,
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
-    if !files.is_empty() && config.is_some() {
-        return Err(anyhow!(
-            "Can either supply `FILES...` OR `--config/-c`, not both."
-        ));
-    }
     args.absolute_search_path();
     args.validate()?;
     let project_excludes = if let Some(project_excludes) = project_excludes {
@@ -230,7 +239,7 @@ fn get_globs_and_config(
     if files.is_empty() {
         get_globs_and_config_for_project(config, project_excludes, args)
     } else {
-        get_globs_and_config_for_files(Globs::new(files), project_excludes, args)
+        get_globs_and_config_for_files(config, Globs::new(files), project_excludes, args)
     }
 }
 
