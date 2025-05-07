@@ -57,13 +57,13 @@ enum TestAssertion {
 }
 
 impl TestAssertion {
-    pub fn to_narrow_ops(&self, args: &[Expr]) -> Option<NarrowOps> {
+    pub fn to_narrow_ops(&self, builder: &BindingsBuilder, args: &[Expr]) -> Option<NarrowOps> {
         match self {
             Self::AssertTrue if let Some(arg0) = args.first() => {
-                Some(NarrowOps::from_expr(Some(arg0)))
+                Some(NarrowOps::from_expr(builder, Some(arg0)))
             }
             Self::AssertFalse if let Some(arg0) = args.first() => {
-                Some(NarrowOps::from_expr(Some(arg0)).negate())
+                Some(NarrowOps::from_expr(builder, Some(arg0)).negate())
             }
             Self::AssertIsNone if let Some(arg0) = args.first() => {
                 Some(NarrowOps::from_single_narrow_op(
@@ -164,7 +164,7 @@ impl<'a> BindingsBuilder<'a> {
                 |k| Binding::IterableValue(k, comp.iter.clone(), IsAsync::new(comp.is_async));
             self.bind_target(&mut comp.target, &make_binding, None);
             for x in comp.ifs.iter() {
-                let narrow_ops = NarrowOps::from_expr(Some(x));
+                let narrow_ops = NarrowOps::from_expr(self, Some(x));
                 self.bind_narrow_ops(&narrow_ops, comp.range);
             }
         }
@@ -243,7 +243,7 @@ impl<'a> BindingsBuilder<'a> {
                 // Ternary operation. We treat it like an if/else statement.
                 let base = self.scopes.current().flow.clone();
                 self.ensure_expr(&mut x.test);
-                let narrow_ops = NarrowOps::from_expr(Some(&x.test));
+                let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.bind_narrow_ops(&narrow_ops, x.body.range());
                 self.ensure_expr(&mut x.body);
                 let range = x.range();
@@ -256,7 +256,7 @@ impl<'a> BindingsBuilder<'a> {
                 for value in values {
                     self.bind_narrow_ops(&narrow_ops, value.range());
                     self.ensure_expr(value);
-                    let new_narrow_ops = NarrowOps::from_expr(Some(value));
+                    let new_narrow_ops = NarrowOps::from_expr(self, Some(value));
                     match op {
                         BoolOp::And => {
                             // Every subsequent value is evaluated only if all previous values were truthy.
@@ -402,7 +402,7 @@ impl<'a> BindingsBuilder<'a> {
                 func,
                 arguments,
             }) if let Some(test_assert) = self.as_assert_in_test(func)
-                && let Some(narrow_op) = test_assert.to_narrow_ops(&arguments.args) =>
+                && let Some(narrow_op) = test_assert.to_narrow_ops(self, &arguments.args) =>
             {
                 self.ensure_expr(func);
                 for arg in arguments.args.iter_mut() {

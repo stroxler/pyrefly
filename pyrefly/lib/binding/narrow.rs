@@ -30,6 +30,7 @@ use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
 
 use crate::assert_words;
+use crate::binding::bindings::BindingsBuilder;
 use crate::ruff::ast::Ast;
 use crate::types::types::Type;
 use crate::util::prelude::SliceExt;
@@ -236,7 +237,7 @@ impl NarrowOps {
         narrow_ops
     }
 
-    pub fn from_expr(test: Option<&Expr>) -> Self {
+    pub fn from_expr(builder: &BindingsBuilder, test: Option<&Expr>) -> Self {
         match test {
             Some(Expr::Compare(ExprCompare {
                 range: _,
@@ -283,9 +284,9 @@ impl NarrowOps {
                     BoolOp::Or => NarrowOps::or_all,
                 };
                 let mut exprs = values.iter();
-                let mut narrow_ops = Self::from_expr(exprs.next());
+                let mut narrow_ops = Self::from_expr(builder, exprs.next());
                 for next_val in exprs {
-                    extend(&mut narrow_ops, Self::from_expr(Some(next_val)))
+                    extend(&mut narrow_ops, Self::from_expr(builder, Some(next_val)))
                 }
                 narrow_ops
             }
@@ -293,7 +294,7 @@ impl NarrowOps {
                 range: _,
                 op: UnaryOp::Not,
                 operand: box e,
-            })) => Self::from_expr(Some(e)).negate(),
+            })) => Self::from_expr(builder, Some(e)).negate(),
             Some(Expr::Call(ExprCall {
                 range,
                 func,

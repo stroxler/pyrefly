@@ -622,7 +622,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse);
             }
             Stmt::While(mut x) => {
-                let narrow_ops = NarrowOps::from_expr(Some(&x.test));
+                let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.setup_loop(x.range, &narrow_ops);
                 self.ensure_expr(&mut x.test);
                 self.table
@@ -650,7 +650,7 @@ impl<'a> BindingsBuilder<'a> {
                     }
                     self.bind_narrow_ops(&negated_prev_ops, range);
                     let mut base = self.scopes.current().flow.clone();
-                    let new_narrow_ops = NarrowOps::from_expr(test.as_ref());
+                    let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
                     if let Some(mut e) = test {
                         self.ensure_expr(&mut e);
                         self.table
@@ -770,7 +770,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Assert(mut x) => {
                 self.ensure_expr(&mut x.test);
-                self.bind_narrow_ops(&NarrowOps::from_expr(Some(&x.test)), x.range);
+                self.bind_narrow_ops(&NarrowOps::from_expr(self, Some(&x.test)), x.range);
                 self.table
                     .insert(Key::Anon(x.test.range()), Binding::Expr(None, *x.test));
                 if let Some(mut msg_expr) = x.msg {
