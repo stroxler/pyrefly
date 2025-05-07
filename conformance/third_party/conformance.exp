@@ -2505,10 +2505,20 @@
     {
       "code": -2,
       "column": 9,
-      "concise_description": "Object of class `ClassA` has no attribute `xx`",
-      "description": "Object of class `ClassA` has no attribute `xx`",
+      "concise_description": "Cannot assign to read-only field `xx`",
+      "description": "Cannot assign to read-only field `xx`",
       "line": 65,
-      "name": "missing-attribute",
+      "name": "read-only",
+      "stop_column": 16,
+      "stop_line": 65
+    },
+    {
+      "code": -2,
+      "column": 14,
+      "concise_description": "Attribute `xx` is implicitly defined by assignment in method `method1`, which is not a constructor",
+      "description": "Attribute `xx` is implicitly defined by assignment in method `method1`, which is not a constructor",
+      "line": 65,
+      "name": "implicitly-defined-attribute",
       "stop_column": 16,
       "stop_line": 65
     },
@@ -6032,11 +6042,11 @@
   "generics_self_basic.py": [
     {
       "code": -2,
-      "column": 9,
-      "concise_description": "Object of class `Shape` has no attribute `scale`",
-      "description": "Object of class `Shape` has no attribute `scale`",
+      "column": 14,
+      "concise_description": "Attribute `scale` is implicitly defined by assignment in method `set_scale`, which is not a constructor",
+      "description": "Attribute `scale` is implicitly defined by assignment in method `set_scale`, which is not a constructor",
       "line": 15,
-      "name": "missing-attribute",
+      "name": "implicitly-defined-attribute",
       "stop_column": 19,
       "stop_line": 15
     },
@@ -8657,13 +8667,23 @@
     },
     {
       "code": -2,
-      "column": 9,
-      "concise_description": "Object of class `Template` has no attribute `temp`",
-      "description": "Object of class `Template` has no attribute `temp`",
+      "column": 14,
+      "concise_description": "Attribute `temp` is implicitly defined by assignment in method `method`, which is not a constructor",
+      "description": "Attribute `temp` is implicitly defined by assignment in method `method`, which is not a constructor",
       "line": 67,
-      "name": "missing-attribute",
+      "name": "implicitly-defined-attribute",
       "stop_column": 18,
       "stop_line": 67
+    },
+    {
+      "code": -2,
+      "column": 17,
+      "concise_description": "`Concrete` is not assignable to `Template`",
+      "description": "`Concrete` is not assignable to `Template`",
+      "line": 79,
+      "name": "bad-assignment",
+      "stop_column": 38,
+      "stop_line": 79
     },
     {
       "code": -2,
@@ -9357,21 +9377,21 @@
     },
     {
       "code": -2,
-      "column": 9,
-      "concise_description": "Object of class `ClassA` has no attribute `id3`",
-      "description": "Object of class `ClassA` has no attribute `id3`",
+      "column": 14,
+      "concise_description": "Attribute `id3` is implicitly defined by assignment in method `method1`, which is not a constructor",
+      "description": "Attribute `id3` is implicitly defined by assignment in method `method1`, which is not a constructor",
       "line": 62,
-      "name": "missing-attribute",
+      "name": "implicitly-defined-attribute",
       "stop_column": 17,
       "stop_line": 62
     },
     {
       "code": -2,
-      "column": 9,
-      "concise_description": "Object of class `ClassA` has no attribute `id4`",
-      "description": "Object of class `ClassA` has no attribute `id4`",
+      "column": 14,
+      "concise_description": "Attribute `id4` is implicitly defined by assignment in method `method1`, which is not a constructor",
+      "description": "Attribute `id4` is implicitly defined by assignment in method `method1`, which is not a constructor",
       "line": 63,
-      "name": "missing-attribute",
+      "name": "implicitly-defined-attribute",
       "stop_column": 17,
       "stop_line": 63
     },

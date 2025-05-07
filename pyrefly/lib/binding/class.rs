@@ -206,29 +206,33 @@ impl<'a> BindingsBuilder<'a> {
                 InstanceAttribute(value, annotation, range),
             ) in body.method_defined_attributes()
             {
-                if defined_in_recognized_method {
-                    if !fields.contains_key_hashed(name.as_ref()) {
-                        fields.insert_hashed(
-                            name.clone(),
-                            ClassFieldProperties::new(annotation.is_some(), range),
-                        );
-                        self.table.insert(
-                            KeyClassField(class_index, name.key().clone()),
-                            BindingClassField {
-                                class: definition_key,
-                                name: name.into_key(),
-                                value,
-                                annotation,
-                                range,
-                                initial_value: ClassFieldInitialValue::Instance(Some(
-                                    method_name.clone(),
-                                )),
-                                is_function_without_return_annotation: false,
-                            },
-                        );
-                    } else if annotation.is_some() {
-                        self.error(range, format!("Cannot annotate attribute `{name}`, which is already annotated in the class body"), ErrorKind::InvalidAnnotation);
+                if !fields.contains_key_hashed(name.as_ref()) {
+                    if !defined_in_recognized_method {
+                        self.error(
+                        range,
+                        format!("Attribute `{}` is implicitly defined by assignment in method `{method_name}`, which is not a constructor", &name),
+                        ErrorKind::ImplicitlyDefinedAttribute)
                     }
+                    fields.insert_hashed(
+                        name.clone(),
+                        ClassFieldProperties::new(annotation.is_some(), range),
+                    );
+                    self.table.insert(
+                        KeyClassField(class_index, name.key().clone()),
+                        BindingClassField {
+                            class: definition_key,
+                            name: name.into_key(),
+                            value,
+                            annotation,
+                            range,
+                            initial_value: ClassFieldInitialValue::Instance(Some(
+                                method_name.clone(),
+                            )),
+                            is_function_without_return_annotation: false,
+                        },
+                    );
+                } else if annotation.is_some() {
+                    self.error(range, format!("Cannot annotate attribute `{}`, which is already annotated in the class body", &name), ErrorKind::InvalidAnnotation);
                 }
             }
         } else {

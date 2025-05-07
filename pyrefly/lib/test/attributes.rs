@@ -71,9 +71,9 @@ testcase!(
 from typing import assert_type
 class A:
     def f(self, x: int):
-        self.x = x  # E: Object of class `A` has no attribute `x`
+        self.x = x  # E: Attribute `x` is implicitly defined by assignment in method `f`, which is not a constructor
 def f(a: A):
-    assert_type(a.x, int)  # E: Object of class `A` has no attribute `x`  # E: assert_type(Any, int) failed
+    assert_type(a.x, int)
     "#,
 );
 
@@ -293,7 +293,7 @@ def f(c: C):
     "#,
 );
 
-// TODO: Should `C.x` exist?
+// TODO: Should we implement simple control-flow heuristics so `C.x` is recognized here?
 testcase!(
     test_set_attribute_in_init_indirect,
     r#"
@@ -301,9 +301,9 @@ class C:
     def __init__(self):
         self.f()
     def f(self):
-        self.x = 0  # E: Object of class `C` has no attribute `x`
-def f(c: C):
-    return c.x  # E: Object of class `C` has no attribute `x`
+        self.x = 0  # E: Attribute `x` is implicitly defined by assignment in method `f`, which is not a constructor
+def f(c: C) -> int:
+    return c.x
     "#,
 );
 

@@ -332,7 +332,7 @@
   "generics_self_basic.py": [
     "Line 20: Expected 1 errors",
     "Line 33: Expected 1 errors",
-    "Line 15: Unexpected errors ['Object of class `Shape` has no attribute `scale`']"
+    "Line 15: Unexpected errors ['Attribute `scale` is implicitly defined by assignment in method `set_scale`, which is not a constructor']"
   ],
   "generics_self_protocols.py": [
     "Line 58: Unexpected errors ['Argument `ReturnConcreteShape` is not assignable to parameter `shape` with type `ShapeProtocol` in function `accepts_shape`']"
@@ -498,6 +498,7 @@
   "protocols_definition.py": [
     "Line 116: Expected 1 errors",
     "Line 117: Expected 1 errors",
+    "Line 79: Unexpected errors ['`Concrete` is not assignable to `Template`']",
     "Line 281: Unexpected errors ['`Concrete5_Good2` is not assignable to `Template5`']"
   ],
   "protocols_explicit.py": [

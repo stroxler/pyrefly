@@ -113,6 +113,10 @@ pub enum ErrorKind {
     InvalidTypeVar,
     /// An error caused by incorrect usage or definition of a TypeVarTuple.
     InvalidTypeVarTuple,
+    /// An attribute was implicitly defined by assignment to `self` in a method that we
+    /// do not recognize as always executing (we recognize constructors and some test setup
+    /// methods).
+    ImplicitlyDefinedAttribute,
     /// Attempting to use `yield` in a way that is not allowed.
     /// e.g. `yield from` with something that's not an iterable.
     InvalidYield,
