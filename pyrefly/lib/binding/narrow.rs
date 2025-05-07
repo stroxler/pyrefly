@@ -17,6 +17,7 @@ use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprCompare;
 use ruff_python_ast::ExprNamed;
 use ruff_python_ast::ExprNumberLiteral;
+use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::ExprUnaryOp;
 use ruff_python_ast::Identifier;
@@ -68,13 +69,24 @@ pub enum AtomicNarrowOp {
 pub enum PropertyKind {
     Attribute(Name),
     Index(usize),
+    Key(String),
 }
 
 impl fmt::Display for PropertyKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            PropertyKind::Attribute(name) => write!(f, "{}", name),
-            PropertyKind::Index(idx) => write!(f, "{}", idx),
+            Self::Attribute(name) => write!(f, "{}", name),
+            Self::Index(idx) => write!(f, "{}", idx),
+            Self::Key(key) => write!(f, "{}", key),
+        }
+    }
+}
+
+impl PropertyKind {
+    pub fn invalidate_on_unknown_assignment(&self) -> bool {
+        match self {
+            Self::Attribute(_) => false,
+            Self::Index(_) | Self::Key(_) => true,
         }
     }
 }
@@ -355,6 +367,29 @@ pub fn identifier_and_chain_for_property(expr: &Expr) -> Option<(Identifier, Pro
                 }
                 _ => None,
             }
+        } else if let Expr::Subscript(
+            subscript @ ExprSubscript {
+                slice: box Expr::StringLiteral(ExprStringLiteral { value: key, .. }),
+                ..
+            },
+        ) = expr
+        {
+            match &*subscript.value {
+                Expr::Name(name) => {
+                    let mut final_chain =
+                        Vec1::from_vec_push(rev_property_chain, PropertyKind::Key(key.to_string()));
+                    final_chain.reverse();
+                    Some((
+                        Ast::expr_name_identifier(name.clone()),
+                        PropertyChain::new(final_chain),
+                    ))
+                }
+                parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
+                    rev_property_chain.push(PropertyKind::Key(key.to_string()));
+                    f(parent, rev_property_chain)
+                }
+                _ => None,
+            }
         } else {
             None
         }
@@ -409,8 +444,27 @@ pub fn identifier_and_chain_prefix_for_property(
                 }
                 _ => None,
             }
+        } else if let Expr::Subscript(
+            subscript @ ExprSubscript {
+                slice: box Expr::StringLiteral(ExprStringLiteral { value: key, .. }),
+                ..
+            },
+        ) = expr
+        {
+            match &*subscript.value {
+                Expr::Name(name) => {
+                    rev_property_chain.push(PropertyKind::Key(key.to_string()));
+                    rev_property_chain.reverse();
+                    Some((Ast::expr_name_identifier(name.clone()), rev_property_chain))
+                }
+                parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
+                    rev_property_chain.push(PropertyKind::Key(key.to_string()));
+                    f(parent, rev_property_chain)
+                }
+                _ => None,
+            }
         } else if let Expr::Subscript(subscript) = expr {
-            // The subscript does not contain an integer literal, so we drop everything that we encountered so far
+            // The subscript does not contain an integer or string literal, so we drop everything that we encountered so far
             match &*subscript.value {
                 Expr::Name(name) => Some((Ast::expr_name_identifier(name.clone()), Vec::new())),
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {

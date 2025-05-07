@@ -8,8 +8,12 @@
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprNumberLiteral;
+use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::Int;
 use ruff_python_ast::Number;
+use ruff_python_ast::StringLiteral;
+use ruff_python_ast::StringLiteralFlags;
+use ruff_python_ast::StringLiteralValue;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -387,6 +391,39 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let synthesized_slice = Expr::NumberLiteral(ExprNumberLiteral {
                     range,
                     value: Number::Int(Int::from(*idx as u64)),
+                });
+                match remaining_prop.split_first() {
+                    None => match base.type_at_property(first_prop) {
+                        Some(ty) => Narrowable::Simple(ty.clone()),
+                        None => Narrowable::Simple(self.subscript_infer_for_type(
+                            base.ty(),
+                            &synthesized_slice,
+                            range,
+                            errors,
+                        )),
+                    },
+                    Some((next_name, remaining_prop)) => {
+                        let base_ty = self.subscript_infer(base, &synthesized_slice, range, errors);
+                        self.narrowable_for_property_chain(
+                            &base_ty,
+                            next_name,
+                            remaining_prop,
+                            range,
+                            errors,
+                        )
+                    }
+                }
+            }
+            PropertyKind::Key(key) => {
+                // We synthesize a slice expression for the subscript here
+                // The range doesn't matter, since narrowing logic swallows type errors
+                let synthesized_slice = Expr::StringLiteral(ExprStringLiteral {
+                    range,
+                    value: StringLiteralValue::single(StringLiteral {
+                        range,
+                        value: key.clone().into_boxed_str(),
+                        flags: StringLiteralFlags::empty(),
+                    }),
                 });
                 match remaining_prop.split_first() {
                     None => match base.type_at_property(first_prop) {

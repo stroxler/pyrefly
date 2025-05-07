@@ -13,6 +13,7 @@ use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::ExprSlice;
 use ruff_python_ast::ExprStarred;
+use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::Number;
@@ -201,6 +202,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ..
             }) if let Some(idx) = idx.as_usize() => {
                 TypeInfo::at_property(base, &PropertyKind::Index(idx), || {
+                    self.subscript_infer_for_type(base.ty(), slice, range, errors)
+                })
+            }
+            Expr::StringLiteral(ExprStringLiteral { value: key, .. }) => {
+                TypeInfo::at_property(base, &PropertyKind::Key(key.to_string()), || {
                     self.subscript_infer_for_type(base.ty(), slice, range, errors)
                 })
             }

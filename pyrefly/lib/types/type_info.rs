@@ -85,6 +85,9 @@ impl TypeInfo {
     }
 
     pub fn with_narrow(&self, properties: &Vec1<PropertyKind>, ty: Type) -> Self {
+        if ty == Type::any_error() {
+            return self.clone();
+        }
         let mut type_info = self.clone();
         type_info.add_narrow(properties, ty);
         type_info
@@ -229,7 +232,7 @@ impl NarrowedProperties {
         let props = &mut self.0;
         match properties {
             [] => {
-                props.retain(|k, _| !matches!(k, PropertyKind::Index(_)));
+                props.retain(|k, _| !k.invalidate_on_unknown_assignment());
             }
             [property, more_properties @ ..] => match props.get_mut(property) {
                 Some(prop) => {
