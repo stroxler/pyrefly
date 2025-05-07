@@ -158,21 +158,48 @@ impl OutputFormat {
         Ok(())
     }
 
+    fn write_error_text_to_console(errors: &[Error]) -> anyhow::Result<()> {
+        print_errors(errors);
+        Ok(())
+    }
+
+    fn write_error_json(writer: &mut impl Write, errors: &[Error]) -> anyhow::Result<()> {
+        let legacy_errors = LegacyErrors::from_errors(errors);
+        serde_json::to_writer_pretty(writer, &legacy_errors)?;
+        Ok(())
+    }
+
+    fn buffered_write_error_json(writer: impl Write, errors: &[Error]) -> anyhow::Result<()> {
+        let mut writer = BufWriter::new(writer);
+        Self::write_error_json(&mut writer, errors)?;
+        writer.flush()?;
+        Ok(())
+    }
+
     fn write_error_json_to_file(path: &Path, errors: &[Error]) -> anyhow::Result<()> {
         fn f(path: &Path, errors: &[Error]) -> anyhow::Result<()> {
-            let legacy_errors = LegacyErrors::from_errors(errors);
-            let mut file = BufWriter::new(File::create(path)?);
-            serde_json::to_writer_pretty(&mut file, &legacy_errors)?;
-            Ok(file.flush()?)
+            let file = File::create(path)?;
+            OutputFormat::buffered_write_error_json(file, errors)
         }
         f(path, errors)
             .with_context(|| format!("while writing JSON errors to `{}`", path.display()))
+    }
+
+    fn write_error_json_to_console(errors: &[Error]) -> anyhow::Result<()> {
+        Self::buffered_write_error_json(std::io::stdout(), errors)
     }
 
     fn write_errors_to_file(&self, path: &Path, errors: &[Error]) -> anyhow::Result<()> {
         match self {
             Self::Text => Self::write_error_text_to_file(path, errors),
             Self::Json => Self::write_error_json_to_file(path, errors),
+        }
+    }
+
+    fn write_errors_to_console(&self, errors: &[Error]) -> anyhow::Result<()> {
+        match self {
+            Self::Text => Self::write_error_text_to_console(errors),
+            Self::Json => Self::write_error_json_to_console(errors),
         }
     }
 }
@@ -523,7 +550,7 @@ impl Args {
             self.output_format
                 .write_errors_to_file(path, &errors.shown)?;
         } else {
-            print_errors(&errors.shown);
+            self.output_format.write_errors_to_console(&errors.shown)?;
         }
         memory_trace.stop();
         if let Some(limit) = self.count_errors {

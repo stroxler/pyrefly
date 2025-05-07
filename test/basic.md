@@ -16,6 +16,14 @@ $ $PYREFLY check $TEST_PY -a
 [0]
 ```
 
+## JSON output
+
+```scrut
+$ echo "x: str = 42" > $TMPDIR/test.py && $PYREFLY check $TMPDIR/test.py --output-format json | $JQ '.[] | length'
+1
+[0]
+```
+
 ## Error on a non-existent file
 
 ```scrut {output_stream: stderr}
