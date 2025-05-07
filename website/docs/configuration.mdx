@@ -52,10 +52,17 @@ correspond to different but useful ways we expect most people to interact with P
 ## Configuration Finding
 
 In both project checking mode and single-file checking mode (see [Type Checking Modes](#type-checking-modes)
-for more info), we may perform an upward file search to find a
-configuration file if one is not provided with `-c`/`--config`. We each directory
-from the 'start location' to the filesystem root, looking first for `pyrefly.toml` then `pyproject.toml`, in
-the same directory before looking at its parent.
+for more info), we attempt to find a *project root* from which to check each file, both for reading
+config options and for import resolution  (see [Import Root](./import-resolution.mdx#import-root)). The
+project root is typically the directory containing the configuration file. More precisely:
+
+1. If a configuration file is provided with `-c`/`--config`, we use its containing directory.
+1. Otherwise, we perform an upward file search from the 'start location' to the filesystem root,
+   looking in each directory for any of the following files: `pyrefly.toml`, `pyproject.toml`,
+   `setup.py`, `mypy.ini`, and `pyrightconfig.json`. If we find one, we use the current directory.
+
+Note that only `pyrefly.toml` and `pyproject.toml` are parsed for config options, but we look for
+additional files that mark the root of a project to aid import resolution.
 
 For project checking mode, the 'start location' is current working directory. For single-file checking mode,
 the start location is the directory containing each file to be type checked, and
@@ -131,12 +138,12 @@ type checked file is imported by another type checked file, we check all search 
 determine how to import it.
 
 - Type: list of directories specifying the root
-- Default: `["."]`
+- Default: [import root](./import-resolution.mdx#import-root)
 - Flag equivalent: `--search-path`
 - ENV equivalent: `PYREFLY_SEARCH_PATH`
 - Equivalent configs: `extraPaths` in Pyright, `mypy_path` in mypy
 - Notes:
-  - We automatically append `"."` (the directory containing the
+  - We automatically append an import root (typically the directory containing the
     configuration file) to the `search_roots` when type checking as a sensible
     default and last attempt at an import.
   - Libraries should not be listed here, since they may override `typeshed`

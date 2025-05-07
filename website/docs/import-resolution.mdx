@@ -25,9 +25,8 @@ directory, and more dots (e.g. `..other.file`) will continue to walk upward.
 For absolute imports, Pyrefly uses the following import strategy:
 
 1. Try to import from each entry in [`search_path`](./configuration.mdx#search_path) in the order they appear
-   using the module finding strategy. a. NOTE: we append the config file's
-   directory to `search_path` automatically when using a config file as a
-   sensible last-resort for attempting an import.
+   using the module finding strategy. a. NOTE: we append an [import root](#import-root) to `search_path`
+   automatically when using a config file as a sensible last-resort for attempting an import.
 2. Try to import from `typeshed`.
 3. Try to find a stub package corresponding to the import we're trying to resolve in
    [`site_package_path`](./configuration.mdx#site_package_path).
@@ -42,6 +41,17 @@ For absolute imports, Pyrefly uses the following import strategy:
 See [Site Package Path Typing Rules](#site-package-path-typing-rules) for more information about which
 modules are valid imports from [`site_package_path`](./configuration.mdx#site_package_path), and
 how to override that behavior.
+
+### Import Root
+
+Pyrefly automatically appends an *import root* to the search path. This is the directory that
+importable Python packages live in, determined from the
+[project root](./configuration.mdx#configuration-finding) and layout.
+Pyrefly auto-detects import roots for two common project layouts:
+
+* Src layout, assumed when there is a `src/` directory directly inside the project root. `src/` is
+  the import root.
+* Flat layout, the default. The project root is the import root.
 
 ### Site Package Path Typing Rules
 
@@ -83,3 +93,9 @@ imports by first searching for a relevant `-stubs` package, then by looking at
 the non-stubs package's `.pyi` files, then falls back to a `.py` file. See
 [Absolute Imports](#absolute-imports) for details on when non-stubs packages
 are allowed to be used for types, and how you can override that behavior.
+
+## Debugging Import Issues
+
+Pyrefly has a `dump-config` command that dumps the import-related config options it is using for
+each file it is checking. To use it, simply replace `check` with `dump-config` in your
+command-line invocation.
