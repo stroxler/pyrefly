@@ -36,7 +36,8 @@ pub struct Args {
     /// If not provided, or if it's a directory, pyrefly will search upwards for a
     /// mypy.ini, pyrightconfig.json, or pyproject.toml.
     pub input_path: Option<PathBuf>,
-    /// Optional path to write the converted pyre.toml config file to. If not provided, the config will be written to the same directory as the input file.
+    /// Optional path to write the pyrefly config file to. If not provided, the config will be written to the same directory as the input file.
+    /// Must end in pyrefly.toml or pyproject.toml.
     pub output_path: Option<PathBuf>,
 }
 
@@ -83,6 +84,15 @@ impl Args {
                 return Ok(CommandExitStatus::InfraError);
             }
         }
+
+        if self.output_path.as_ref().is_some_and(|p| {
+            !(p.ends_with(ConfigFile::CONFIG_FILE_NAME)
+                || p.ends_with(ConfigFile::PYPROJECT_FILE_NAME))
+        }) {
+            error!("Output path must end in pyrefly.toml or pyproject.toml");
+            return Ok(CommandExitStatus::UserError);
+        }
+
         let input_path = match &self.input_path {
             Some(path) if path.is_file() => {
                 info!("Looking for {}", path.display());
@@ -133,6 +143,19 @@ impl Args {
                 }
             }
         };
+        if !output_path
+            .parent()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Could not check if parent directories of {} exist",
+                    output_path.display()
+                )
+            })?
+            .exists()
+        {
+            std::fs::create_dir_all(output_path.parent().unwrap())
+                .with_context(|| "While trying to write the migrated config file")?;
+        }
         if output_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
             write_pyproject(output_path, config)?;
             info!("Config written to {}", output_path.display());
@@ -438,4 +461,34 @@ test = true
         Ok(())
     }
     */
+
+    #[test]
+    fn test_output_path_must_be_file() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("pyrightconfig.json");
+        fs_anyhow::write(&input_path, b"{}")?;
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: Some(tmp.path().to_path_buf()),
+        };
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::UserError));
+        Ok(())
+    }
+
+    #[test]
+    fn test_output_path_create_dir_if_needed() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("pyrightconfig.json");
+        let output_path = tmp.path().join("a").join("pyrefly.toml");
+        fs_anyhow::write(&input_path, b"{}")?;
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: Some(output_path.clone()),
+        };
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::Success));
+        assert!(output_path.exists());
+        ConfigFile::from_file(&output_path, false).map(|_| ())
+    }
 }
