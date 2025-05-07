@@ -85,19 +85,23 @@
         "watch:esbuild": "node esbuild.js --watch",
         "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
         "vscode:prepublish": "npm run package",
-        "package": "npm run check-types && node esbuild.js --production"
+        "package": "npm run check-types && node esbuild.js --production",
+        "test": "vscode-test"
     },
     "devDependencies": {
+        "@types/mocha": "^10.0.10",
         "@types/node": "^16.11.7",
         "@types/vscode": "^1.78.1",
+        "@vscode/test-cli": "^0.0.10",
+        "@vscode/test-electron": "^2.5.2",
         "@vscode/vsce": "^2.9.2",
         "esbuild": "^0.25.1",
         "npm-run-all": "^4.1.5",
         "typescript": "^4.4.3"
     },
     "dependencies": {
-        "vscode-languageclient": "^8.1.0",
-        "@vscode/python-extension": "^1.0.5"
+        "@vscode/python-extension": "^1.0.5",
+        "vscode-languageclient": "^8.1.0"
     },
     "extensionDependencies": [
         "ms-python.python"

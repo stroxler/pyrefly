@@ -11,8 +11,9 @@ const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 
 async function main() {
+  entryPoints = production ? ['src/extension.ts'] : ['src/test/**/*.test.ts', 'src/extension.ts'];
   const ctx = await esbuild.context({
-    entryPoints: ['src/extension.ts'],
+    entryPoints: entryPoints,
     bundle: true,
     format: 'cjs',
     minify: production,
