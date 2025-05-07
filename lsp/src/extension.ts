@@ -155,6 +155,17 @@ export async function activate(context: ExtensionContext) {
     );
 
     registerTextDocumentContentProviders();
+
+    // When our extension is activated, make sure ms-python knows
+    // TODO(kylei): remove this hack once ms-python has this behavior
+    await triggerMsPythonRefreshLanguageServers();
+
+    vscode.workspace.onDidChangeConfiguration(async (e) => {
+      if (e.affectsConfiguration(`python.pyrefly.disableLanguageServices`)) {
+        // TODO(kylei): remove this hack once ms-python has this behavior
+        await triggerMsPythonRefreshLanguageServers();
+      }
+    })
 }
 
 /**
@@ -170,7 +181,24 @@ function registerTextDocumentContentProviders() {
   })();
 
   vscode.workspace.registerTextDocumentContentProvider("contentsasuri", provider);
+}
 
+/**
+ * This function will trigger the ms-python extension to reasses which language server to spin up.
+ * It does this by changing languageServer setting: this triggers a refresh of active language
+ * servers:
+ * https://github.com/microsoft/vscode-python/blob/main/src/client/languageServer/watcher.ts#L296
+ *
+ * We then change the setting back so we don't end up messing up the users settings.
+ */
+async function triggerMsPythonRefreshLanguageServers() {
+    const config = vscode.workspace.getConfiguration('python');
+    const setting = 'languageServer';
+    let previousSetting = config.get(setting);
+    // without the target, we will crash here with "Unable to write to Workspace Settings
+    // because no workspace is opened. Please open a workspace first and try again."
+    await config.update(setting, previousSetting === 'None' ? 'Default' : 'None', vscode.ConfigurationTarget.Global);
+    await config.update(setting, previousSetting, vscode.ConfigurationTarget.Global);
 }
 
 export function deactivate(): Thenable<void> | undefined {
