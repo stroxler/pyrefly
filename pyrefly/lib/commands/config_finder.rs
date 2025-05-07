@@ -26,7 +26,6 @@ use crate::util::lock::Mutex;
 /// The `path` to `configure` is a directory, either to the python file or the config file.
 /// In the case we can't find a config by walking up, we create a default config, setting the `search_path`
 /// to a sensible default if possible.
-#[allow(clippy::field_reassign_with_default)] // ConfigFile default is dubious
 pub fn standard_config_finder(
     configure: Arc<dyn Fn(Option<&Path>, ConfigFile) -> ConfigFile + Send + Sync>,
 ) -> ConfigFinder {
@@ -79,11 +78,15 @@ pub fn standard_config_finder(
                     .lock()
                     .entry(path.to_owned())
                     .or_insert_with(|| {
-                        let mut config = ConfigFile::default();
-                        // We use `low_priority_search_path` because otherwise a user with `/sys` on their
-                        // computer (all of them) will override `sys.version` in preference to typeshed.
-                        config.low_priority_search_path =
-                            path.ancestors().map(|x| x.to_owned()).collect::<Vec<_>>();
+                        let config = ConfigFile {
+                            // We use `low_priority_search_path` because otherwise a user with `/sys` on their
+                            // computer (all of them) will override `sys.version` in preference to typeshed.
+                            low_priority_search_path: path
+                                .ancestors()
+                                .map(|x| x.to_owned())
+                                .collect::<Vec<_>>(),
+                            ..Default::default()
+                        };
                         ArcId::new(configure2(path.parent(), config))
                     })
                     .dupe()
