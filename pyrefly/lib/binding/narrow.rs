@@ -75,9 +75,9 @@ pub enum PropertyKind {
 impl fmt::Display for PropertyKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Attribute(name) => write!(f, "{}", name),
-            Self::Index(idx) => write!(f, "{}", idx),
-            Self::Key(key) => write!(f, "{}", key),
+            Self::Attribute(name) => write!(f, ".{}", name),
+            Self::Index(idx) => write!(f, "[{}]", idx),
+            Self::Key(key) => write!(f, "[\"{}\"]", key),
         }
     }
 }

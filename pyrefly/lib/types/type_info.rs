@@ -358,14 +358,7 @@ impl NarrowedProperties {
         ty: &Type,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        write!(
-            f,
-            "_.{}{}{}: {}",
-            prefix.iter().join("."),
-            if prefix.is_empty() { "" } else { "." },
-            property,
-            ty
-        )
+        write!(f, "_{}{}: {}", prefix.iter().join(""), property, ty)
     }
 }
 
@@ -656,21 +649,21 @@ mod tests {
         );
         assert_eq!(
             type_info.to_string(),
-            "Foo (_.x.y.0.z: Bar, _.x.y.1.z: Bar)"
+            "Foo (_.x.y[0].z: Bar, _.x.y[1].z: Bar)"
         );
         // x has no narrowed indexes, so do nothing
         type_info.invalidate_all_indexes_for_assignment(&[x()]);
         assert_eq!(
             type_info.to_string(),
-            "Foo (_.x.y.0.z: Bar, _.x.y.1.z: Bar)"
+            "Foo (_.x.y[0].z: Bar, _.x.y[1].z: Bar)"
         );
         // this path doesn't have any narrowing, so do nothing
         type_info.invalidate_all_indexes_for_assignment(&[x(), z()]);
         assert_eq!(
             type_info.to_string(),
-            "Foo (_.x.y.0.z: Bar, _.x.y.1.z: Bar)"
+            "Foo (_.x.y[0].z: Bar, _.x.y[1].z: Bar)"
         );
-        // this clears the narrowing for both x.y.0 and x.y.1
+        // this clears the narrowing for both x.y[0] and x.y[1]
         type_info.invalidate_all_indexes_for_assignment(&[x(), y()]);
         assert_eq!(type_info.to_string(), "Foo ()");
     }
