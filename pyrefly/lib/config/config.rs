@@ -424,24 +424,25 @@ impl ConfigFile {
             .for_each(|c| c.rewrite_with_path_to_config(config_root));
     }
 
-    pub fn validate(&self) {
-        fn warn_on_invalid(p: &Path, field: &str) {
-            if let Some(e) = validate_path(p).err() {
-                warn!("Invalid {}: {}", field, e);
+    pub fn validate(&self) -> Vec<anyhow::Error> {
+        fn validate<'a>(
+            paths: &'a [PathBuf],
+            field: &'a str,
+        ) -> impl Iterator<Item = anyhow::Error> + 'a {
+            paths.iter().filter_map(move |p| {
+                validate_path(p)
+                    .err()
+                    .map(|err| anyhow!("Invalid {field}: {err}"))
+            })
+        }
+        let mut errors = Vec::new();
+        if !self.python_environment.site_package_path_from_interpreter {
+            if let Some(p) = self.python_environment.site_package_path.as_ref() {
+                errors.extend(validate(p, "site_package_path"));
             }
         }
-        if !self.python_environment.site_package_path_from_interpreter {
-            self.python_environment
-                .site_package_path
-                .as_ref()
-                .inspect(|p| {
-                    p.iter()
-                        .for_each(|p| warn_on_invalid(p, "site_package_path"))
-                });
-        }
-        self.search_path
-            .iter()
-            .for_each(|p| warn_on_invalid(p, "search_path"));
+        errors.extend(validate(&self.search_path, "search_path"));
+        errors
     }
 
     pub fn from_file(config_path: &Path, error_on_extras: bool) -> anyhow::Result<ConfigFile> {

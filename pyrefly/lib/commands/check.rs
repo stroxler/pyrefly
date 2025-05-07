@@ -481,7 +481,7 @@ impl Args {
         Ok(())
     }
 
-    pub fn override_config(&self, mut config: ConfigFile) -> ConfigFile {
+    pub fn override_config(&self, mut config: ConfigFile) -> (ConfigFile, Vec<anyhow::Error>) {
         if let Some(x) = &self.python_platform {
             config.python_environment.python_platform = Some(x.clone());
         }
@@ -499,8 +499,8 @@ impl Args {
             config.python_interpreter = Some(x.clone());
         }
         config.configure();
-        config.validate();
-        config
+        let errors = config.validate();
+        (config, errors)
     }
 
     fn get_required_levels(&self) -> RequireLevels {

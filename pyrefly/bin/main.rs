@@ -38,6 +38,7 @@ use pyrefly::library::library::library::library::ProjectLayout;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
 use tracing::info;
+use tracing::warn;
 
 // fbcode likes to set its own allocator in fbcode.default_allocator
 // So when we set our own allocator, buck build buck2 or buck2 build buck2 often breaks.
@@ -131,7 +132,13 @@ async fn run_check(
 }
 
 fn config_finder(args: library::run::CheckArgs) -> ConfigFinder {
-    standard_config_finder(Arc::new(move |_, x| args.override_config(x)))
+    standard_config_finder(Arc::new(move |_, x| {
+        let (config, errors) = args.override_config(x);
+        for e in errors {
+            warn!("{}", e);
+        }
+        config
+    }))
 }
 
 fn absolutize(globs: Globs) -> anyhow::Result<Globs> {
@@ -146,16 +153,24 @@ fn get_globs_and_config_for_project(
     let config = match config {
         Some(explicit) => {
             // We deliberately don't use the cached object, since we want errors in an explicit config to be fatal
-            ArcId::new(args.override_config(ConfigFile::from_file(&explicit, true)?))
+            let (config, errors) = args.override_config(ConfigFile::from_file(&explicit, true)?);
+            for e in errors {
+                warn!("{}", e);
+            }
+            ArcId::new(config)
         }
         None => {
             let current_dir = std::env::current_dir().context("cannot identify current dir")?;
             let config_finder = config_finder(args.clone());
             config_finder.directory(&current_dir).unwrap_or_else(|| {
-                ArcId::new(args.override_config(ConfigFile::init_at_root(
+                let (config, errors) = args.override_config(ConfigFile::init_at_root(
                     &current_dir,
                     &ProjectLayout::new(&current_dir),
-                )))
+                ));
+                for e in errors {
+                    warn!("{}", e);
+                }
+                ArcId::new(config)
             })
         }
     };

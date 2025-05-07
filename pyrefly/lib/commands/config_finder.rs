@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn test_site_package_path_from_environment() {
         let args = Args::parse_from(Vec::<OsString>::new().iter());
-        let config = standard_config_finder(Arc::new(move |_, x| args.override_config(x)))
+        let config = standard_config_finder(Arc::new(move |_, x| args.override_config(x).0))
             .python_file(ModuleName::unknown(), &ModulePath::filesystem("".into()));
         let env = PythonEnvironment::get_default_interpreter_env();
         if let Some(paths) = env.site_package_path {
