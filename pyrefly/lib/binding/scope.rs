@@ -31,6 +31,7 @@ use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyFunction;
 use crate::binding::bindings::BindingTable;
+use crate::binding::class::is_attribute_defining_method;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
 use crate::export::exports::LookupExport;
@@ -236,7 +237,7 @@ impl FlowInfo {
 pub struct ClassBodyInner {
     pub name: Identifier,
     index: ClassIndex,
-    pub instance_attributes_by_method: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
+    instance_attributes_by_method: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
 }
 
 impl ClassBodyInner {
@@ -253,8 +254,23 @@ impl ClassBodyInner {
         method_name: Name,
         attributes: SmallMap<Name, InstanceAttribute>,
     ) {
+        if is_attribute_defining_method(&method_name, &self.name.id) {
+            self.instance_attributes_by_method
+                .insert(method_name, attributes);
+        }
+    }
+
+    /// Produces triples (hashed_attr_name, method_name, attribute)
+    pub fn method_defined_attributes(
+        self,
+    ) -> impl Iterator<Item = (Hashed<Name>, Name, InstanceAttribute)> {
         self.instance_attributes_by_method
-            .insert(method_name, attributes);
+            .into_iter()
+            .flat_map(|(method_name, attrs)| {
+                attrs
+                    .into_iter_hashed()
+                    .map(move |(name, attr)| (name, method_name.clone(), attr))
+            })
     }
 }
 
