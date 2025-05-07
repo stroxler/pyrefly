@@ -5,11 +5,16 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use serde::Deserialize;
+use serde_with::FromInto;
+use serde_with::serde_as;
 
 use crate::config::config::ConfigFile;
+use crate::config::error::ErrorDisplayConfig;
+use crate::error::kind::ErrorKind;
 use crate::sys_info::PythonPlatform;
 use crate::sys_info::PythonVersion;
 use crate::util::globs::Globs;
@@ -26,6 +31,8 @@ pub struct PyrightConfig {
     python_platform: Option<String>,
     #[serde(rename = "pythonVersion")]
     python_version: Option<PythonVersion>,
+    #[serde(flatten)]
+    errors: RuleOverrides,
 }
 
 impl PyrightConfig {
@@ -46,7 +53,94 @@ impl PyrightConfig {
         if self.python_version.is_some() {
             cfg.python_environment.python_version = self.python_version;
         }
+        cfg.root.errors = self.errors.to_config();
         cfg
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DiagnosticLevel {
+    None,
+    Information,
+    Warning,
+    Error,
+}
+
+impl DiagnosticLevel {
+    fn to_bool(&self) -> bool {
+        match self {
+            Self::None => false,
+            _ => true,
+        }
+    }
+}
+
+impl From<DiagnosticLevel> for bool {
+    fn from(value: DiagnosticLevel) -> Self {
+        value.to_bool()
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum DiagnosticLevelOrBool {
+    DiagnosticLevel(DiagnosticLevel),
+    Bool(bool),
+}
+
+impl DiagnosticLevelOrBool {
+    fn to_bool(&self) -> bool {
+        match self {
+            Self::DiagnosticLevel(dl) => dl.to_bool(),
+            Self::Bool(b) => *b,
+        }
+    }
+}
+
+impl From<DiagnosticLevelOrBool> for bool {
+    fn from(value: DiagnosticLevelOrBool) -> Self {
+        value.to_bool()
+    }
+}
+
+/// Type Check Rule Overrides are pyright's equivalent to the `errors` dict in pyrefly's configs.
+/// That is, they control which "diangostic settings" are displayed to the user.
+#[serde_as]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuleOverrides {
+    #[serde_as(as = "Option<FromInto<DiagnosticLevelOrBool>>")]
+    #[serde(default)]
+    report_missing_imports: Option<bool>,
+    #[serde_as(as = "Option<FromInto<DiagnosticLevelOrBool>>")]
+    #[serde(default)]
+    report_missing_module_source: Option<bool>,
+}
+
+impl RuleOverrides {
+    /// Consume the RuleOverrides to turn it into an ErrorDisplayConfig map.
+    fn to_config(self) -> Option<ErrorDisplayConfig> {
+        let mut map = HashMap::new();
+        // For each ErrorKind, there are one or more RuleOverrides fields.
+        // The ErrorDisplayConfig map has an entry for an ErrorKind if at least one of the RuleOverrides for that ErrorKind is present.
+        // The value of that ErrorKind's entry is found by or'ing together the present RuleOverrides.
+        if let Some(import_error) = [
+            self.report_missing_imports,
+            self.report_missing_module_source,
+        ]
+        .into_iter()
+        .flatten()
+        .reduce(|acc, x| acc | x)
+        {
+            map.insert(ErrorKind::ImportError, import_error);
+        }
+
+        if map.is_empty() {
+            None
+        } else {
+            Some(ErrorDisplayConfig::new(map))
+        }
     }
 }
 
@@ -146,6 +240,52 @@ mod tests {
                 },
                 ..Default::default()
             }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_report_diagnostics_with_bool() -> anyhow::Result<()> {
+        let raw_file = r#"
+            {
+                "include": [
+                    "src/**/*.py",
+                    "test/**/*.py"
+                ],
+                "pythonVersion": "3.11",
+                "reportMissingImports": false
+            }
+            "#;
+        let pyr = serde_json::from_str::<PyrightConfig>(raw_file)?;
+        let config = pyr.convert();
+        assert!(
+            config
+                .root
+                .errors
+                .is_some_and(|m| !m.is_enabled(ErrorKind::ImportError))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_report_diagnostics_with_level() -> anyhow::Result<()> {
+        let raw_file = r#"
+            {
+                "include": [
+                    "src/**/*.py",
+                    "test/**/*.py"
+                ],
+                "pythonVersion": "3.11",
+                "reportMissingImports": "none"
+            }
+            "#;
+        let pyr = serde_json::from_str::<PyrightConfig>(raw_file)?;
+        let config = pyr.convert();
+        assert!(
+            config
+                .root
+                .errors
+                .is_some_and(|m| !m.is_enabled(ErrorKind::ImportError))
         );
         Ok(())
     }
