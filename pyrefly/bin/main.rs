@@ -168,7 +168,7 @@ fn get_globs_and_config_for_project(
                     &ProjectLayout::new(&current_dir),
                 ));
                 for e in errors {
-                    warn!("{}", e);
+                    debug!("{}", e);
                 }
                 ArcId::new(config)
             })
