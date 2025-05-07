@@ -563,10 +563,11 @@ impl Args {
         timings.report_errors = report_errors_start.elapsed();
 
         info!(
-            "{} errors shown, {} errors ignored, {} modules, {} lines, took {timings}, peak memory {}",
+            "{} errors shown, {} errors ignored, {} modules, {} transitive dependencies, {} lines, took {timings}, peak memory {}",
             number_thousands(shown_errors_count),
             number_thousands(errors.disabled.len() + errors.suppressed.len()),
-            number_thousands(transaction.module_count()),
+            number_thousands(handles.len()),
+            number_thousands(transaction.module_count() - handles.len()),
             number_thousands(transaction.line_count()),
             memory_trace.peak()
         );
