@@ -7525,16 +7525,6 @@
       "name": "assert-type",
       "stop_column": 51,
       "stop_line": 72
-    },
-    {
-      "code": -2,
-      "column": 35,
-      "concise_description": "Argument `str` is not assignable to parameter `status` with type `Literal['ABORTED', 'MALFORMED']` in function `expects_bad_status`",
-      "description": "Argument `str` is not assignable to parameter `status` with type `Literal['ABORTED', 'MALFORMED']` in function `expects_bad_status`",
-      "line": 106,
-      "name": "bad-argument-type",
-      "stop_column": 41,
-      "stop_line": 106
     }
   ],
   "literals_literalstring.py": [

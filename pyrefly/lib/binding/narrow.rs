@@ -51,6 +51,8 @@ pub enum AtomicNarrowOp {
     NotTypeGuard(Type, Arguments),
     TypeIs(Type, Arguments),
     NotTypeIs(Type, Arguments),
+    In(Expr),
+    NotIn(Expr),
     /// (func, args) for a function call that may narrow the type of its first argument.
     Call(Box<Expr>, Arguments),
     NotCall(Box<Expr>, Arguments),
@@ -124,6 +126,8 @@ impl AtomicNarrowOp {
             Self::IsNotSubclass(v) => Self::IsSubclass(v.clone()),
             Self::Eq(v) => Self::NotEq(v.clone()),
             Self::NotEq(v) => Self::Eq(v.clone()),
+            Self::In(v) => Self::NotIn(v.clone()),
+            Self::NotIn(v) => Self::In(v.clone()),
             Self::TypeGuard(ty, args) => Self::NotTypeGuard(ty.clone(), args.clone()),
             Self::NotTypeGuard(ty, args) => Self::TypeGuard(ty.clone(), args.clone()),
             Self::TypeIs(ty, args) => Self::NotTypeIs(ty.clone(), args.clone()),
@@ -250,6 +254,8 @@ impl NarrowOps {
                             CmpOp::IsNot => AtomicNarrowOp::IsNot(right.clone()),
                             CmpOp::Eq => AtomicNarrowOp::Eq(right.clone()),
                             CmpOp::NotEq => AtomicNarrowOp::NotEq(right.clone()),
+                            CmpOp::In => AtomicNarrowOp::In(right.clone()),
+                            CmpOp::NotIn => AtomicNarrowOp::NotIn(right.clone()),
                             _ => {
                                 return None;
                             }

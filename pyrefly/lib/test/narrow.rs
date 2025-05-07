@@ -957,3 +957,34 @@ def f(x: object, y: object) -> None:
         assert_type(y, object)
 "#,
 );
+
+testcase!(
+    test_narrow_in,
+    r#"
+from typing import Literal, assert_type, Never
+from enum import Enum
+class Color(Enum):
+    RED = 1
+    GREEN = 2
+    BLUE = 3
+def test(x: Literal["foo", 1] | Color | bool | None, y: object, z: Literal["f", "g"]) -> None:
+    if x in (1, Color.RED, True):
+        assert_type(x, Literal[1, Color.RED, True])
+    else:
+        assert_type(x, Literal["foo", Color.BLUE, Color.GREEN, False] | None)
+    if x in [1, 2, 3, 4]:
+        assert_type(x, Literal[1])
+    if x in [2, 3, 4]:
+        assert_type(x, Never)
+    if x in [y, 1]:
+        # we only narrow if the list only contains literals
+        assert_type(x, Literal["foo", 1, Color.BLUE, Color.GREEN, Color.RED] | bool | None)
+    if z in "foo":
+        # we only narrow if the RHS is a list, set, tuple literal
+        assert_type(z, Literal["f", "g"])
+    if y in {1, Color.RED, True}:
+        assert_type(y, Literal[1, Color.RED, True])
+    else:
+        assert_type(y, object)
+"#,
+);

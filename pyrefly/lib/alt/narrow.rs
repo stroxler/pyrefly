@@ -164,6 +164,70 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Type {
         match op {
             AtomicNarrowOp::Placeholder => ty.clone(),
+            AtomicNarrowOp::In(v) => {
+                let exprs = match v {
+                    Expr::List(list) => Some(list.elts.clone()),
+                    Expr::Tuple(tuple) => Some(tuple.elts.clone()),
+                    Expr::Set(set) => Some(set.elts.clone()),
+                    _ => None,
+                };
+                let Some(exprs) = exprs else {
+                    return ty.clone();
+                };
+                let mut literal_types = Vec::new();
+                for expr in exprs {
+                    let expr_ty = self.expr_infer(&expr, errors);
+                    if matches!(expr_ty, Type::Literal(_) | Type::None) {
+                        literal_types.push(expr_ty);
+                    } else {
+                        return ty.clone();
+                    }
+                }
+                self.intersect(ty, &self.unions(literal_types))
+            }
+            AtomicNarrowOp::NotIn(v) => {
+                let exprs = match v {
+                    Expr::List(list) => Some(list.elts.clone()),
+                    Expr::Tuple(tuple) => Some(tuple.elts.clone()),
+                    Expr::Set(set) => Some(set.elts.clone()),
+                    _ => None,
+                };
+                let Some(exprs) = exprs else {
+                    return ty.clone();
+                };
+                let mut literal_types = Vec::new();
+                for expr in exprs {
+                    let expr_ty = self.expr_infer(&expr, errors);
+                    if matches!(expr_ty, Type::Literal(_) | Type::None) {
+                        literal_types.push(expr_ty);
+                    } else {
+                        return ty.clone();
+                    }
+                }
+                self.distribute_over_union(ty, |t| {
+                    let mut result = t.clone();
+                    for right in &literal_types {
+                        match (t, right) {
+                            (_, _) if *t == *right => {
+                                result = Type::never();
+                            }
+                            (Type::ClassType(cls), Type::Literal(Lit::Bool(b)))
+                                if cls.is_builtin("bool") =>
+                            {
+                                result = Type::Literal(Lit::Bool(!b));
+                            }
+                            (
+                                Type::ClassType(left_cls),
+                                Type::Literal(Lit::Enum(box (right_cls, name, _))),
+                            ) if *left_cls == *right_cls => {
+                                result = self.subtract_enum_member(left_cls, name);
+                            }
+                            _ => {}
+                        }
+                    }
+                    result
+                })
+            }
             AtomicNarrowOp::Is(v) => {
                 let right = self.expr_infer(v, errors);
                 // Get our best approximation of ty & right.
