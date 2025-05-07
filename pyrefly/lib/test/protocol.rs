@@ -343,3 +343,15 @@ def f():
 assert_type(f.x, int)
     "#,
 );
+
+testcase!(
+    bug = "According to the spec, should complain here specifically about implicit attribute definition in protocols. The current error is too general.",
+    test_protocol_with_implicit_attr_assigned_in_method,
+    r#"
+from typing import Protocol
+class P(Protocol):
+    x: int
+    def f(self, y: str):
+        self.y = y  # E: Attribute `y` is implicitly defined by assignment in method `f`, which is not a constructor
+    "#,
+);
