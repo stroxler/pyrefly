@@ -71,14 +71,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn intersect(&self, left: &Type, right: &Type) -> Type {
         // Get our best approximation of ty & right.
-        self.distribute_over_union(left, |t| {
-            if self.is_subset_eq(right, t) {
-                right.clone()
-            } else if self.is_subset_eq(t, right) {
-                t.clone()
-            } else {
-                Type::never()
-            }
+        self.distribute_over_union(left, |l| {
+            self.distribute_over_union(right, |r| {
+                if self.is_subset_eq(r, l) {
+                    r.clone()
+                } else if self.is_subset_eq(l, r) {
+                    l.clone()
+                } else {
+                    Type::never()
+                }
+            })
         })
     }
 
