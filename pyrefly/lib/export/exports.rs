@@ -131,6 +131,13 @@ impl Exports {
         self.0.docstring.as_ref()
     }
 
+    pub fn is_submodule_imported_implicitly(&self, name: &Name) -> bool {
+        self.0
+            .definitions
+            .implicitly_imported_submodules
+            .contains(name)
+    }
+
     pub fn exports(&self, lookup: &dyn LookupExport) -> Arc<SmallMap<Name, ExportLocation>> {
         let f = || {
             let mut result: SmallMap<Name, ExportLocation> = SmallMap::new();

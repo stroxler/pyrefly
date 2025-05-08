@@ -430,14 +430,13 @@ fn env_dunder_init_reexport_submodule() -> TestEnv {
 }
 
 testcase!(
-    bug = "We currently don't model auto re-exporting submodules in __init__.py",
     test_import_dunder_init_reexport_submodule,
     env_dunder_init_reexport_submodule(),
     r#"
 from typing import assert_type
 import foo
 assert_type(foo.x, int)
-foo.bar.x  # E: No attribute `bar` in module `foo`
+assert_type(foo.bar.x, int)
 "#,
 );
 
@@ -722,16 +721,16 @@ def f():
 fn env_import_attribute_init() -> TestEnv {
     let mut t = TestEnv::new();
     t.add_with_path("foo", "foo/__init__.py", "import foo.attribute");
-    t.add_with_path("foo.attribute", "foo/attribute.py", "");
+    t.add_with_path("foo.attribute", "foo/attribute.py", "x: int = 42");
     t
 }
 
 testcase!(
-    bug = "We should find the attribute",
     test_import_attribute_init,
     env_import_attribute_init(),
     r#"
+from typing import assert_type
 import foo
-print(foo.attribute) # E: No attribute `attribute` in module `foo` 
+assert_type(foo.attribute.x, int)
 "#,
 );

@@ -1108,21 +1108,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn get_module_attr(&self, module: &Module, attr_name: &Name) -> Option<Type> {
         let module_name = ModuleName::from_parts(module.path());
-
-        let module_export_type = match self.get_module_exports(module_name) {
-            None => {
-                // We have already errored on `m` when loading the module. No need to emit error again.
-                Some(Type::any_error())
-            }
-            Some(exports) => self.get_exported_type(&exports, module_name, attr_name),
-        };
+        let module_exports = self.get_module_exports(module_name);
 
         // `module_name` could refer to a package, in which case we need to check if
         // `module_name.attr_name`:
-        // - Has been imported directly. We want to make sure that `module_name.attr_name` is only
-        //   valid when there's an explicit import statement for either `module_name.attr_name` or its
-        //   submodules. Just importing `module_name`, for example, shouldn't automatically make the
-        //   submodule name `module_name.attr_name` accessible.
+        // - Has been imported. This can happen in two ways:
+        //   Either there's an explicit import statement earlier than import directly from `module_name.attr_name`,
+        //   or `module_name` is imported, and `module_name` marked itself as implicitly importing `attr_name`.
+        //   In other cases, just importing `module_name` shouldn't automatically make the submodule name
+        //   `module_name.attr_name` accessible.
         // - Actually exists as a submodule on the filesystem.
         //
         // This check always takes precedence over the result of the module export lookup, because the import system
@@ -1130,12 +1124,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // toplevel of `module_name` has been executed.
         let submodule = module.push_path(attr_name.clone());
         let submodule_name = module_name.append(attr_name);
-        if submodule.is_submodules_imported_directly()
-            && self.get_module_exports(submodule_name).is_some()
-        {
+        let is_imported = submodule.is_submodules_imported_directly()
+            || module_exports
+                .as_ref()
+                .is_some_and(|exports| exports.is_submodule_imported_implicitly(attr_name));
+        if is_imported && self.get_module_exports(submodule_name).is_some() {
             Some(submodule.to_type())
         } else {
-            module_export_type
+            module_exports.map_or(Some(Type::any_error()), |exports| {
+                self.get_exported_type(&exports, module_name, attr_name)
+            })
         }
     }
 
