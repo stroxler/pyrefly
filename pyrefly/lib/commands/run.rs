@@ -7,6 +7,7 @@
 
 use std::process::ExitCode;
 
+use clap::ColorChoice;
 use clap::Parser;
 
 pub use crate::commands::buck_check::Args as BuckCheckArgs;
@@ -25,15 +26,34 @@ pub struct CommonGlobalArgs {
     #[clap(long, short = 'j', default_value = "0", global = true, env = clap_env("THREADS"))]
     pub threads: ThreadCount,
 
+    /// Controls whether colored output is used.
+    #[clap(long, default_value = "auto", global = true, env = clap_env("COLOR"))]
+    color: ColorChoice,
+
     /// Enable verbose logging.
     #[clap(long = "verbose", short = 'v', global = true, env = clap_env("VERBOSE"))]
     pub verbose: bool,
+}
+
+fn init_color(color: ColorChoice) {
+    match color {
+        ColorChoice::Never => {
+            anstream::ColorChoice::write_global(anstream::ColorChoice::Never);
+        }
+        ColorChoice::Always => {
+            anstream::ColorChoice::write_global(anstream::ColorChoice::Always);
+        }
+        ColorChoice::Auto => {
+            // Do nothing: the default is auto-determine
+        }
+    }
 }
 
 impl CommonGlobalArgs {
     pub fn init(&self) {
         init_tracing(self.verbose, false, false);
         init_thread_pool(self.threads);
+        init_color(self.color);
     }
 }
 
