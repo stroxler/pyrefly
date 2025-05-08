@@ -1421,21 +1421,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(exports) = self.get_module_exports(module_name) {
             match expected_attribute_name {
                 None => {
-                    res.extend(
-                        exports
-                            .wildcard(self.exports)
-                            .iter()
-                            .filter(|x| match expected_attribute_name {
-                                Some(expected_attribute_name) => *x == expected_attribute_name,
-                                None => true,
-                            })
-                            .map(|x| AttrInfo {
-                                name: x.clone(),
-                                ty: None,
-                                module: None,
-                                range: None,
-                            }),
-                    );
+                    res.extend(exports.wildcard(self.exports).iter().map(|x| AttrInfo {
+                        name: x.clone(),
+                        ty: None,
+                        module: None,
+                        range: None,
+                    }));
                 }
                 Some(expected_attribute_name) => {
                     if exports
