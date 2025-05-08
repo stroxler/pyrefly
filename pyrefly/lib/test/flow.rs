@@ -675,6 +675,20 @@ pass  # E: Expected an indented block
 );
 
 testcase!(
+    test_match_implicit_return,
+    r#"
+def test1(x: int) -> int:
+    match x:
+        case _:
+            return 1
+def test2(x: int) -> int:  # E: Function declared to return `int`, but one or more paths are missing an explicit `return`
+    match x:
+        case 1:
+            return 1
+"#,
+);
+
+testcase!(
     test_match_class_narrow,
     r#"
 from typing import assert_type

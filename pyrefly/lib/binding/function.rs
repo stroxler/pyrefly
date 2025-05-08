@@ -340,6 +340,19 @@ fn function_last_expressions<'a>(
                     // If we don't have a matching handler, we raise an exception, which is fine.
                 }
             }
+            Stmt::Match(x) => {
+                let mut exhaustive = false;
+                for case in x.cases.iter() {
+                    f(sys_info, &case.body, res)?;
+                    if case.pattern.is_wildcard() || case.pattern.is_irrefutable() {
+                        exhaustive = true;
+                        break;
+                    }
+                }
+                if !exhaustive {
+                    return None;
+                }
+            }
             _ => return None,
         }
         Some(())
