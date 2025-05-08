@@ -31,6 +31,7 @@ use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyFunction;
+use crate::binding::binding::KeyLegacyTypeParam;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::LastStmt;
@@ -116,6 +117,44 @@ impl<'a> BindingsBuilder<'a> {
         })
     }
 
+    fn function_header(
+        &mut self,
+        x: &mut StmtFunctionDef,
+        func_name: &Identifier,
+        class_key: Option<Idx<KeyClass>>,
+    ) -> (
+        Option<(TextRange, Idx<KeyAnnotation>)>,
+        Vec<Idx<KeyLegacyTypeParam>>,
+    ) {
+        let tparams = x
+            .type_params
+            .as_mut()
+            .map(|tparams| self.type_params(tparams));
+
+        let mut legacy = Some(LegacyTParamBuilder::new(tparams.is_some()));
+
+        // We need to bind all the parameters expressions _after_ the type params, but before the parameter names,
+        // which might shadow some types.
+        for (param, default) in Ast::parameters_iter_mut(&mut x.parameters) {
+            self.ensure_type_opt(param.annotation.as_deref_mut(), &mut legacy);
+            if let Some(default) = default {
+                self.ensure_expr_opt(default.as_deref_mut());
+            }
+        }
+
+        let return_ann_with_range = self.return_annotation_with_range(
+            mem::take(&mut x.returns),
+            func_name,
+            class_key,
+            &mut legacy,
+        );
+
+        let legacy_tparam_builder = legacy.unwrap();
+        legacy_tparam_builder.add_name_definitions(self);
+        let legacy_tparams = legacy_tparam_builder.lookup_keys();
+        (return_ann_with_range, legacy_tparams)
+    }
+
     pub fn function_def(&mut self, mut x: StmtFunctionDef) {
         // Get preceding function definition, if any. Used for building an overload type.
         let mut pred_idx = None;
@@ -152,33 +191,9 @@ impl<'a> BindingsBuilder<'a> {
 
         self.scopes.push(Scope::annotation(x.range));
 
-        let tparams = x
-            .type_params
-            .as_mut()
-            .map(|tparams| self.type_params(tparams));
-
-        let mut legacy = Some(LegacyTParamBuilder::new(tparams.is_some()));
-
-        // We need to bind all the parameters expressions _after_ the type params, but before the parameter names,
-        // which might shadow some types.
-        for (param, default) in Ast::parameters_iter_mut(&mut x.parameters) {
-            self.ensure_type_opt(param.annotation.as_deref_mut(), &mut legacy);
-            if let Some(default) = default {
-                self.ensure_expr_opt(default.as_deref_mut());
-            }
-        }
-
-        let return_ann_with_range = self.return_annotation_with_range(
-            mem::take(&mut x.returns),
-            &func_name,
-            class_key,
-            &mut legacy,
-        );
+        let (return_ann_with_range, legacy_tparams) =
+            self.function_header(&mut x, &func_name, class_key);
         let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
-
-        let legacy_tparam_builder = legacy.unwrap();
-        legacy_tparam_builder.add_name_definitions(self);
-        let legacy_tparams = legacy_tparam_builder.lookup_keys();
 
         // Collect the keys of terminal expressions. Used to determine the implicit return type.
         let last_exprs = function_last_expressions(&body, self.sys_info);
