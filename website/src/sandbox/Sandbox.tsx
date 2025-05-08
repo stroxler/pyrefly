@@ -556,7 +556,7 @@ const styles = stylex.create({
     codeEditorContainer: {
         position: 'relative',
         display: 'flex',
-        overflow: 'auto',
+        overflow: 'visible',
         borderBottom: '10px',
         background: '#fff',
         height: '100%',
