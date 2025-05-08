@@ -452,35 +452,40 @@ mod tests {
         }
     }
 
-    fn check(contents: &str, import_all: &[&str], defs: &[&str]) -> Definitions {
-        let ast = Ast::parse(contents).0;
+    fn calculate_unranged_definitions(contents: &str) -> Definitions {
         let mut res = Definitions::new(
-            &ast.body,
+            &Ast::parse(contents).0.body,
             ModuleName::from_str("main"),
             false,
             &SysInfo::default(),
-        );
-        assert_eq!(
-            import_all,
-            res.import_all
-                .keys()
-                .map(|x| x.as_str())
-                .collect::<Vec<_>>()
-        );
-        assert_eq!(
-            defs,
-            res.definitions
-                .keys()
-                .map(|x| x.as_str())
-                .collect::<Vec<_>>(),
         );
         res.dunder_all.iter_mut().for_each(unrange);
         res
     }
 
+    fn assert_import_all(defs: &Definitions, expected_import_all: &[&str]) {
+        assert_eq!(
+            expected_import_all,
+            defs.import_all
+                .keys()
+                .map(|x| x.as_str())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    fn assert_definition_names(defs: &Definitions, expected_names: &[&str]) {
+        assert_eq!(
+            expected_names,
+            defs.definitions
+                .keys()
+                .map(|x| x.as_str())
+                .collect::<Vec<_>>()
+        );
+    }
+
     #[test]
     fn test_definitions() {
-        check(
+        let defs = calculate_unranged_definitions(
             r#"
 from foo import *
 from bar import baz as qux
@@ -500,14 +505,14 @@ n = True
 
 r[p] = 1
 "#,
-            &["foo"],
-            &["qux", "moo", "mod", "x", "z", "w", "n"],
         );
+        assert_import_all(&defs, &["foo"]);
+        assert_definition_names(&defs, &["qux", "moo", "mod", "x", "z", "w", "n"]);
     }
 
     #[test]
     fn test_overload() {
-        let defs = check(
+        let defs = calculate_unranged_definitions(
             r#"
 from typing import overload
 
@@ -521,9 +526,10 @@ def foo(x: str | int) -> str | int:
 def bar(x: int) -> int: ...
 def bar(x: str) -> str: ...
             "#,
-            &[],
-            &["overload", "foo", "bar"],
         );
+        assert_import_all(&defs, &[]);
+        assert_definition_names(&defs, &["overload", "foo", "bar"]);
+
         let foo = defs.definitions.get(&Name::new_static("foo")).unwrap();
         assert_eq!(foo.style, DefinitionStyle::Local);
         assert_eq!(foo.count, 3);
@@ -535,7 +541,7 @@ def bar(x: str) -> str: ...
 
     #[test]
     fn test_all() {
-        let defs = check(
+        let defs = calculate_unranged_definitions(
             r#"
 from foo import *
 a = 1
@@ -550,9 +556,10 @@ __all__.extend(foo.__all__)
 __all__.append('a')
 __all__.remove('r')
         "#,
-            &["foo"],
-            &["a", "b", "__all__"],
         );
+        assert_import_all(&defs, &["foo"]);
+        assert_definition_names(&defs, &["a", "b", "__all__"]);
+
         let loc = TextRange::default();
         let a = &DunderAllEntry::Name(loc, Name::new_static("a"));
         let b = &DunderAllEntry::Name(loc, Name::new_static("b"));
@@ -567,14 +574,15 @@ __all__.remove('r')
     #[test]
     fn test_all_reexport() {
         // Not in the spec, but see collections.abc which does this.
-        let defs = check(
+        let defs = calculate_unranged_definitions(
             r#"
 from _collections_abc import *
 from _collections_abc import __all__ as __all__
 "#,
-            &["_collections_abc"],
-            &["__all__"],
         );
+        assert_import_all(&defs, &["_collections_abc"]);
+        assert_definition_names(&defs, &["__all__"]);
+
         assert_eq!(
             defs.dunder_all,
             vec![DunderAllEntry::Module(
