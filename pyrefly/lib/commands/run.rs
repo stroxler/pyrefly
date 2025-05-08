@@ -51,7 +51,7 @@ fn init_color(color: ColorChoice) {
 
 impl CommonGlobalArgs {
     pub fn init(&self) {
-        init_tracing(self.verbose, false, false);
+        init_tracing(self.verbose, false);
         init_thread_pool(self.threads);
         init_color(self.color);
     }

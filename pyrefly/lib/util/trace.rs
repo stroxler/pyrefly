@@ -7,10 +7,9 @@
 
 //! Utilities for working with the `tracing` crate.
 
-use std::io::IsTerminal;
-use std::io::stderr;
 use std::sync::Once;
 
+use anstream::stderr;
 use tracing_subscriber::Layer;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
@@ -23,7 +22,7 @@ static INIT_TRACING_ONCE: Once = Once::new();
 
 /// Set up tracing so it prints to stderr, and can be used for output.
 /// Most things should use `info` and `debug` level for showing messages.
-pub fn init_tracing(verbose: bool, force_ansi: bool, testing: bool) {
+pub fn init_tracing(verbose: bool, testing: bool) {
     INIT_TRACING_ONCE.call_once(|| {
         const ENV_VAR: &str = "PYREFLY_LOG";
         let mut env_filter = EnvFilter::from_env(ENV_VAR);
@@ -41,7 +40,6 @@ pub fn init_tracing(verbose: bool, force_ansi: bool, testing: bool) {
             .with_file(false)
             .without_time()
             .with_writer(stderr)
-            .with_ansi(force_ansi || stderr().is_terminal())
             .with_target(false);
 
         if testing {
