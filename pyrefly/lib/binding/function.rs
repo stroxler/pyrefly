@@ -146,7 +146,7 @@ impl<'a> BindingsBuilder<'a> {
         let mut return_annotation = mem::take(&mut x.returns);
         self.ensure_type_opt(return_annotation.as_deref_mut(), &mut legacy);
 
-        let return_ann_range = return_annotation.map(|x| {
+        let return_ann_with_range = return_annotation.map(|x| {
             (
                 x.range(),
                 self.table.insert(
@@ -159,7 +159,7 @@ impl<'a> BindingsBuilder<'a> {
                 ),
             )
         });
-        let return_ann = return_ann_range.as_ref().map(|(_, key)| *key);
+        let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
 
         // Collect the keys of terminal expressions. Used to determine the implicit return type.
         let last_exprs = function_last_expressions(&body, self.sys_info);
@@ -259,7 +259,7 @@ impl<'a> BindingsBuilder<'a> {
         self.table.insert(
             Key::ReturnType(ShortIdentifier::new(&func_name)),
             Binding::ReturnType(ReturnType {
-                annot: return_ann_range,
+                annot: return_ann_with_range,
                 returns: return_keys,
                 implicit_return,
                 yields: yield_keys,
