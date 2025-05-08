@@ -253,6 +253,21 @@ f(x)
 "#,
         );
     }
+    #[test]
+    fn test_add_suppressions_existing_comment() {
+        assert_suppress_errors(
+            vec![(3, 10, ErrorKind::BadAssignment)],
+            r#"
+# comment
+def foo() -> None: pass
+"#,
+            r#"
+# comment
+# pyrefly: ignore  # bad-assignment
+def foo() -> None: pass
+"#,
+        );
+    }
 
     #[test]
     fn test_remove_suppression_above() {
