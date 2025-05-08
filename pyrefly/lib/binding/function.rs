@@ -42,6 +42,7 @@ use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::FuncYieldsAndReturns;
 use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::scope::FlowStyle;
+use crate::binding::scope::MethodInner;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
 use crate::graph::index::Idx;
@@ -194,7 +195,7 @@ impl<'a> BindingsBuilder<'a> {
         func_name: &Identifier,
         function_idx: Idx<KeyFunction>,
         class_key: Option<Idx<KeyClass>>,
-    ) -> (FunctionStubOrImpl, Scope) {
+    ) -> (FunctionStubOrImpl, Option<MethodInner>) {
         let stub_or_impl = if is_ellipse(&body) || self.module_info.path().is_interface() {
             FunctionStubOrImpl::Stub
         } else {
@@ -227,6 +228,10 @@ impl<'a> BindingsBuilder<'a> {
 
         let (func_scope, yields_and_returns) =
             self.function_body_scope(parameters, body, range, func_name, function_idx, class_key);
+        let as_method = match func_scope.kind {
+            ScopeKind::Method(m) => Some(m),
+            _ => None,
+        };
 
         let is_generator = !yields_and_returns.yields.is_empty();
         let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
@@ -279,7 +284,7 @@ impl<'a> BindingsBuilder<'a> {
             }),
         );
 
-        (stub_or_impl, func_scope)
+        (stub_or_impl, as_method)
     }
 
     pub fn function_def(&mut self, mut x: StmtFunctionDef) {
@@ -318,7 +323,7 @@ impl<'a> BindingsBuilder<'a> {
         let (return_ann_with_range, legacy_tparams) =
             self.function_header(&mut x, &func_name, class_key);
 
-        let (stub_or_impl, func_scope) = self.function_body(
+        let (stub_or_impl, as_method) = self.function_body(
             &mut x.parameters,
             mem::take(&mut x.body),
             decorators.clone().into_boxed_slice(),
@@ -333,7 +338,7 @@ impl<'a> BindingsBuilder<'a> {
         // Pop the annotation scope to get back to the parent scope, and handle this
         // case where we need to track assignments to `self` from methods.
         self.scopes.pop();
-        if let ScopeKind::Method(method) = func_scope.kind
+        if let Some(method) = as_method
             && let ScopeKind::ClassBody(body) = &mut self.scopes.current_mut().kind
         {
             body.add_attributes_defined_by_method(method.name.id, method.instance_attributes);
