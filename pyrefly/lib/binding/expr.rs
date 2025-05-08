@@ -54,6 +54,12 @@ enum TestAssertion {
     AssertIsNotNone,
     AssertIsInstance,
     AssertNotIsInstance,
+    AssertIs,
+    AssertIsNot,
+    AssertEqual,
+    AssertNotEqual,
+    AssertIn,
+    AssertNotIn,
 }
 
 impl TestAssertion {
@@ -100,6 +106,66 @@ impl TestAssertion {
                 Some(NarrowOps::from_single_narrow_op(
                     arg0,
                     AtomicNarrowOp::IsNotInstance(arg1.clone()),
+                    arg0.range(),
+                ))
+            }
+            Self::AssertEqual
+                if let Some(arg0) = args.first()
+                    && let Some(arg1) = args.get(1) =>
+            {
+                Some(NarrowOps::from_single_narrow_op(
+                    arg0,
+                    AtomicNarrowOp::Eq(arg1.clone()),
+                    arg0.range(),
+                ))
+            }
+            Self::AssertNotEqual
+                if let Some(arg0) = args.first()
+                    && let Some(arg1) = args.get(1) =>
+            {
+                Some(NarrowOps::from_single_narrow_op(
+                    arg0,
+                    AtomicNarrowOp::NotEq(arg1.clone()),
+                    arg0.range(),
+                ))
+            }
+            Self::AssertIs
+                if let Some(arg0) = args.first()
+                    && let Some(arg1) = args.get(1) =>
+            {
+                Some(NarrowOps::from_single_narrow_op(
+                    arg0,
+                    AtomicNarrowOp::Is(arg1.clone()),
+                    arg0.range(),
+                ))
+            }
+            Self::AssertIsNot
+                if let Some(arg0) = args.first()
+                    && let Some(arg1) = args.get(1) =>
+            {
+                Some(NarrowOps::from_single_narrow_op(
+                    arg0,
+                    AtomicNarrowOp::IsNot(arg1.clone()),
+                    arg0.range(),
+                ))
+            }
+            Self::AssertIn
+                if let Some(arg0) = args.first()
+                    && let Some(arg1) = args.get(1) =>
+            {
+                Some(NarrowOps::from_single_narrow_op(
+                    arg0,
+                    AtomicNarrowOp::In(arg1.clone()),
+                    arg0.range(),
+                ))
+            }
+            Self::AssertNotIn
+                if let Some(arg0) = args.first()
+                    && let Some(arg1) = args.get(1) =>
+            {
+                Some(NarrowOps::from_single_narrow_op(
+                    arg0,
+                    AtomicNarrowOp::NotIn(arg1.clone()),
                     arg0.range(),
                 ))
             }
@@ -227,6 +293,12 @@ impl<'a> BindingsBuilder<'a> {
                     "assertIsNotNone" => Some(TestAssertion::AssertIsNotNone),
                     "assertIsInstance" => Some(TestAssertion::AssertIsInstance),
                     "assertNotIsInstance" => Some(TestAssertion::AssertNotIsInstance),
+                    "assertIs" => Some(TestAssertion::AssertIs),
+                    "assertIsNot" => Some(TestAssertion::AssertIsNot),
+                    "assertEqual" => Some(TestAssertion::AssertEqual),
+                    "assertNotEqual" => Some(TestAssertion::AssertNotEqual),
+                    "assertIn" => Some(TestAssertion::AssertIn),
+                    "assertNotIn" => Some(TestAssertion::AssertNotIn),
                     _ => None,
                 },
                 _ => None,

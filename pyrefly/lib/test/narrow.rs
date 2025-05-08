@@ -897,6 +897,63 @@ class MyTest(TestCase):
 "#,
 );
 
+testcase!(
+    test_unittest_assert_equal,
+    r#"
+from typing import assert_type, Literal
+from unittest import TestCase
+def foo() -> Literal[0, 1]: ...
+class MyTest(TestCase):
+    def test_equal(self) -> None:
+        x = foo()
+        self.assertEqual(x, 0)
+        assert_type(x, Literal[0])
+    
+    def test_not_equal(self) -> None:
+        x = foo()
+        self.assertNotEqual(x, 0)
+        assert_type(x, Literal[1])
+"#,
+);
+
+testcase!(
+    test_unittest_assert_is,
+    r#"
+from typing import assert_type, Literal
+from unittest import TestCase
+def foo() -> bool: ...
+class MyTest(TestCase):
+    def test_is(self) -> None:
+        x = foo()
+        self.assertIs(x, True)
+        assert_type(x, Literal[True])
+    
+    def test_is_not(self) -> None:
+        x = foo()
+        self.assertIsNot(x, True)
+        assert_type(x, Literal[False])
+"#,
+);
+
+testcase!(
+    test_unittest_assert_in,
+    r#"
+from typing import assert_type, Literal
+from unittest import TestCase
+def foo() -> Literal[1, 2, 3]: ...
+class MyTest(TestCase):
+    def test_in(self) -> None:
+        x = foo()
+        self.assertIn(x, [1, 2])
+        assert_type(x, Literal[1, 2])
+    
+    def test_not_in(self) -> None:
+        x = foo()
+        self.assertNotIn(x, [1, 2])
+        assert_type(x, Literal[3])
+"#,
+);
+
 // Make sure we catch illegal arguments to isinstance and issubclass even when we aren't narrowing.
 testcase!(
     test_validate_class_object_no_narrow,
