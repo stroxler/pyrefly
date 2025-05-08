@@ -687,3 +687,13 @@ xs: list[int] = [1, 2, 3]
 xs[1] = "test" # E: Argument `Literal['test']` is not assignable to parameter # E: Item assignment is not supported on
 "#,
 );
+
+// Tests how we display implicit Any types.
+testcase!(
+    test_reveal_error,
+    r#"
+from typing import reveal_type
+x = oops # E: Could not find name `oops`
+reveal_type(x) # E: revealed type: Unknown
+    "#,
+);

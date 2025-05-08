@@ -305,8 +305,7 @@ impl<'a> TypeDisplayContext<'a> {
             Type::Ellipsis => write!(f, "Ellipsis"),
             Type::Any(style) => match style {
                 AnyStyle::Explicit => write!(f, "Any"),
-                AnyStyle::Implicit => write!(f, "Unknown"),
-                AnyStyle::Error => write!(f, "Error"),
+                AnyStyle::Implicit | AnyStyle::Error => write!(f, "Unknown"),
             },
             Type::TypeAlias(ta) => {
                 write!(
