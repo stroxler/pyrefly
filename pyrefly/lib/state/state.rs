@@ -350,6 +350,10 @@ impl<'a> Transaction<'a> {
         Errors::new(res)
     }
 
+    pub fn get_config_errors(&self) -> Vec<anyhow::Error> {
+        self.data.state.config_finder.errors()
+    }
+
     pub fn get_module_info(&self, handle: &Handle) -> Option<ModuleInfo> {
         self.get_load(handle).map(|x| x.module_info.dupe())
     }

@@ -102,6 +102,10 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
         mem::take(&mut self.errors.lock())
     }
 
+    pub fn add_errors(&self, errors: Vec<anyhow::Error>) {
+        self.errors.lock().extend(errors);
+    }
+
     /// Get the config file associated with a directory.
     pub fn directory(&self, dir: &Path) -> Option<T> {
         self.search.directory(dir).flatten()

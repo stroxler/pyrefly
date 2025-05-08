@@ -152,19 +152,19 @@ fn get_globs_and_config_for_project(
     project_excludes: Option<Globs>,
     args: &library::run::CheckArgs,
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
-    let config = match config {
+    let (config, errors) = match config {
         Some(explicit) => {
             // We deliberately don't use the cached object, since we want errors in an explicit config to be fatal
             let (config, errors) = args.override_config(ConfigFile::from_file(&explicit, true)?);
             for e in errors {
                 warn!("{}", e);
             }
-            ArcId::new(config)
+            (ArcId::new(config), Vec::new())
         }
         None => {
             let current_dir = std::env::current_dir().context("cannot identify current dir")?;
             let config_finder = config_finder(args.clone());
-            config_finder.directory(&current_dir).unwrap_or_else(|| {
+            let config = config_finder.directory(&current_dir).unwrap_or_else(|| {
                 let (config, errors) = args.override_config(ConfigFile::init_at_root(
                     &current_dir,
                     &ProjectLayout::new(&current_dir),
@@ -173,7 +173,8 @@ fn get_globs_and_config_for_project(
                     debug!("{}", e);
                 }
                 ArcId::new(config)
-            })
+            });
+            (config, config_finder.errors())
         }
     };
     match &config.source {
@@ -187,6 +188,7 @@ fn get_globs_and_config_for_project(
 
     // We want our config_finder to never actually
     let config_finder = ConfigFinder::new_constant(config.dupe());
+    config_finder.add_errors(errors);
 
     debug!("Config is: {}", config);
     let project_excludes = project_excludes.unwrap_or_else(|| config.project_excludes.clone());

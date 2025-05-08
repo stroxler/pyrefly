@@ -26,6 +26,7 @@ use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
+use tracing::error;
 use tracing::info;
 
 use crate::commands::run::CommandExitStatus;
@@ -552,6 +553,12 @@ impl Args {
         timings.type_check = type_check_start.elapsed();
 
         let report_errors_start = Instant::now();
+        let config_errors = transaction.get_config_errors();
+        let has_config_errors = !config_errors.is_empty();
+        for error in config_errors {
+            error!("{}", error);
+        }
+
         let errors = loads.collect_errors();
         if let Some(path) = &self.output {
             self.output_format
@@ -650,7 +657,7 @@ impl Args {
         if self.expectations {
             loads.check_against_expectations()?;
             Ok(CommandExitStatus::Success)
-        } else if shown_errors_count > 0 {
+        } else if has_config_errors || shown_errors_count > 0 {
             Ok(CommandExitStatus::UserError)
         } else {
             Ok(CommandExitStatus::Success)

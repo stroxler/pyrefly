@@ -174,3 +174,24 @@ $ echo "x: str = 0" > $TMPDIR/oops.py && echo "errors = { bad-assignment = false
  INFO 0 errors* (glob)
 [0]
 ```
+
+## Error in implicit config (project mode)
+
+```scrut {output_stream: stderr}
+$ mkdir $TMPDIR/implicit && touch $TMPDIR/implicit/empty.py && echo "oops oops" > $TMPDIR/implicit/pyrefly.toml && cd $TMPDIR/implicit && $PYREFLY check
+ INFO Checking current directory with default configuration
+ERROR Failed to parse configuration* (glob)
+* (glob*)
+[1]
+```
+
+## Error in implicit config (file mode)
+
+<!-- Reusing implicit dir with bad pyrefly.toml set up in "Error in implicit config (project mode)" -->
+
+```scrut {output_stream: stderr}
+$ $PYREFLY check $TMPDIR/implicit/empty.py
+ERROR Failed to parse configuration* (glob)
+* (glob*)
+[1]
+```
