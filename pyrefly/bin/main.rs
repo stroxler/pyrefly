@@ -36,6 +36,7 @@ use pyrefly::library::library::library::library::ModulePath;
 use pyrefly::library::library::library::library::ProjectLayout;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
+use tracing::error;
 use tracing::info;
 use tracing::warn;
 
@@ -294,6 +295,9 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
                     .entry(config)
                     .or_default()
                     .push(path.clone());
+            }
+            for error in config_finder.errors() {
+                error!("{error:#}");
             }
             for (config, files) in configs_to_files.into_iter() {
                 match &config.source {
