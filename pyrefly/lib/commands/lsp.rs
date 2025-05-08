@@ -596,6 +596,7 @@ impl Server {
                 self.validate_in_memory(ide_transaction_manager)?;
             }
             ServerEvent::CancelRequest(id) => {
+                eprintln!("We should cancel request {:?}", id);
                 canceled_requests.insert(id);
             }
             ServerEvent::DidOpenTextDocument(params) => {
@@ -637,7 +638,7 @@ impl Server {
                     ));
                     return Ok(());
                 }
-                eprintln!("Handling non-canceled request ({})", x.id);
+                eprintln!("Handling non-canceled request {} ({})", x.method, x.id);
                 if let Some(params) = as_request::<GotoDefinition>(&x) {
                     let default_response = GotoDefinitionResponse::Array(Vec::new());
                     let transaction =
