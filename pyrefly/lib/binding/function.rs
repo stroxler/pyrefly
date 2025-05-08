@@ -95,27 +95,25 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn return_annotation_with_range(
+    fn to_return_annotation_with_range(
         &mut self,
-        mut x: Option<Box<Expr>>,
+        mut x: Expr,
         func_name: &Identifier,
         class_key: Option<Idx<KeyClass>>,
         tparams_builder: &mut Option<LegacyTParamBuilder>,
-    ) -> Option<(TextRange, Idx<KeyAnnotation>)> {
-        self.ensure_type_opt(x.as_deref_mut(), tparams_builder);
-        x.map(|x| {
-            (
-                x.range(),
-                self.table.insert(
-                    KeyAnnotation::ReturnAnnotation(ShortIdentifier::new(func_name)),
-                    BindingAnnotation::AnnotateExpr(
-                        AnnotationTarget::Return(func_name.id.clone()),
-                        *x,
-                        class_key,
-                    ),
+    ) -> (TextRange, Idx<KeyAnnotation>) {
+        self.ensure_type(&mut x, tparams_builder);
+        (
+            x.range(),
+            self.table.insert(
+                KeyAnnotation::ReturnAnnotation(ShortIdentifier::new(func_name)),
+                BindingAnnotation::AnnotateExpr(
+                    AnnotationTarget::Return(func_name.id.clone()),
+                    x,
+                    class_key,
                 ),
-            )
-        })
+            ),
+        )
     }
 
     fn function_header(
@@ -143,12 +141,9 @@ impl<'a> BindingsBuilder<'a> {
             }
         }
 
-        let return_ann_with_range = self.return_annotation_with_range(
-            mem::take(&mut x.returns),
-            func_name,
-            class_key,
-            &mut legacy,
-        );
+        let return_ann_with_range = mem::take(&mut x.returns).map(|box e| {
+            self.to_return_annotation_with_range(e, func_name, class_key, &mut legacy)
+        });
 
         let legacy_tparam_builder = legacy.unwrap();
         legacy_tparam_builder.add_name_definitions(self);
