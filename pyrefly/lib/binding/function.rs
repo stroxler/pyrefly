@@ -214,17 +214,18 @@ impl<'a> BindingsBuilder<'a> {
         };
 
         let decorators = self.ensure_and_bind_decorators(mem::take(&mut x.decorator_list));
+
+        self.scopes.push(Scope::annotation(x.range));
+        let (return_ann_with_range, legacy_tparams) =
+            self.function_header(&mut x, &func_name, class_key);
+        let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
+
         let body = mem::take(&mut x.body);
         let source = if is_ellipse(&body) || self.module_info.path().is_interface() {
             FunctionSource::Stub
         } else {
             FunctionSource::Impl
         };
-
-        self.scopes.push(Scope::annotation(x.range));
-        let (return_ann_with_range, legacy_tparams) =
-            self.function_header(&mut x, &func_name, class_key);
-        let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
 
         // Implicit return
         let implicit_return = {
@@ -258,15 +259,6 @@ impl<'a> BindingsBuilder<'a> {
             function_idx,
             class_key,
         );
-
-        // Pop the annotation scope to get back to the parent scope, and handle this
-        // case where we need to track assignments to `self` from methods.
-        self.scopes.pop();
-        if let ScopeKind::Method(method) = func_scope.kind
-            && let ScopeKind::ClassBody(body) = &mut self.scopes.current_mut().kind
-        {
-            body.add_attributes_defined_by_method(method.name.id, method.instance_attributes);
-        }
 
         let is_async = x.is_async;
         let is_generator = !yields_and_returns.yields.is_empty();
@@ -318,6 +310,15 @@ impl<'a> BindingsBuilder<'a> {
                 is_async: x.is_async,
             }),
         );
+
+        // Pop the annotation scope to get back to the parent scope, and handle this
+        // case where we need to track assignments to `self` from methods.
+        self.scopes.pop();
+        if let ScopeKind::Method(method) = func_scope.kind
+            && let ScopeKind::ClassBody(body) = &mut self.scopes.current_mut().kind
+        {
+            body.add_attributes_defined_by_method(method.name.id, method.instance_attributes);
+        }
 
         let function_idx = self.table.insert(
             KeyFunction(ShortIdentifier::new(&func_name)),
