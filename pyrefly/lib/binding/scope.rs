@@ -436,6 +436,11 @@ struct ScopeTreeNode {
     children: Vec<ScopeTreeNode>,
 }
 
+/// Determines if a range contains a position, inclusive on both ends.
+fn contains_inclusive(range: TextRange, position: TextSize) -> bool {
+    range.start() <= position && position <= range.end()
+}
+
 impl ScopeTreeNode {
     /// Return whether we hit a child scope with a barrier
     fn visit_available_definitions(
@@ -444,7 +449,7 @@ impl ScopeTreeNode {
         position: TextSize,
         visitor: &mut impl FnMut(Idx<Key>),
     ) -> bool {
-        if !self.scope.range.contains(position) {
+        if !contains_inclusive(self.scope.range, position) {
             return false;
         }
         let mut barrier = false;
