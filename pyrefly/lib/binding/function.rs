@@ -11,11 +11,13 @@ use itertools::Either;
 use ruff_python_ast::AnyParameterRef;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
+use ruff_python_ast::Identifier;
 use ruff_python_ast::Parameters;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtExpr;
 use ruff_python_ast::StmtFunctionDef;
 use ruff_text_size::Ranged;
+use ruff_text_size::TextRange;
 
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
@@ -91,6 +93,29 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    fn return_annotation_with_range(
+        &mut self,
+        mut x: Option<Box<Expr>>,
+        func_name: &Identifier,
+        class_key: Option<Idx<KeyClass>>,
+        tparams_builder: &mut Option<LegacyTParamBuilder>,
+    ) -> Option<(TextRange, Idx<KeyAnnotation>)> {
+        self.ensure_type_opt(x.as_deref_mut(), tparams_builder);
+        x.map(|x| {
+            (
+                x.range(),
+                self.table.insert(
+                    KeyAnnotation::ReturnAnnotation(ShortIdentifier::new(func_name)),
+                    BindingAnnotation::AnnotateExpr(
+                        AnnotationTarget::Return(func_name.id.clone()),
+                        *x,
+                        class_key,
+                    ),
+                ),
+            )
+        })
+    }
+
     pub fn function_def(&mut self, mut x: StmtFunctionDef) {
         // Get preceding function definition, if any. Used for building an overload type.
         let mut pred_idx = None;
@@ -143,22 +168,12 @@ impl<'a> BindingsBuilder<'a> {
             }
         }
 
-        let mut return_annotation = mem::take(&mut x.returns);
-        self.ensure_type_opt(return_annotation.as_deref_mut(), &mut legacy);
-
-        let return_ann_with_range = return_annotation.map(|x| {
-            (
-                x.range(),
-                self.table.insert(
-                    KeyAnnotation::ReturnAnnotation(ShortIdentifier::new(&func_name)),
-                    BindingAnnotation::AnnotateExpr(
-                        AnnotationTarget::Return(func_name.id.clone()),
-                        *x,
-                        class_key,
-                    ),
-                ),
-            )
-        });
+        let return_ann_with_range = self.return_annotation_with_range(
+            mem::take(&mut x.returns),
+            &func_name,
+            class_key,
+            &mut legacy,
+        );
         let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
 
         // Collect the keys of terminal expressions. Used to determine the implicit return type.
