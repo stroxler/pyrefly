@@ -14,6 +14,7 @@ import MonacoEditorButton, {
     runOnClickForAtLeastOneSecond,
 } from './MonacoEditorButton';
 import RunPythonButton from './RunPythonButton';
+import { PyodideStatus } from './PyodideStatus';
 import Editor from '@monaco-editor/react';
 import * as LZString from 'lz-string';
 import * as stylex from '@stylexjs/stylex';
@@ -80,7 +81,9 @@ export default function Sandbox({
     const [editorHeightforCodeSnippet, setEditorHeightforCodeSnippet] =
         useState<number | null>(null);
     const [model, setModel] = useState<editor.ITextModel | null>(null);
-    const [isRunning, setIsRunning] = useState(false);
+    const [pyodideStatus, setPyodideStatus] = useState<PyodideStatus>(
+        PyodideStatus.NOT_INITIALIZED
+    );
     const [pythonOutput, setPythonOutput] = useState<string>('');
     const [activeTab, setActiveTab] = useState<string>('errors');
     const [isHovered, setIsHovered] = useState(false);
@@ -151,7 +154,10 @@ export default function Sandbox({
         }
     }
 
-    const { runPython } = usePythonWorker({ setPythonOutput });
+    const { runPython } = usePythonWorker({
+        setPythonOutput,
+        setPyodideStatus,
+    });
 
     // Create a function to run Python code that can be passed a model
     const runPythonCodeFunction = createRunPythonCodeFunction(
@@ -161,8 +167,10 @@ export default function Sandbox({
     const runPythonCodeCallback = useCallback(async () => {
         if (!model) return;
 
+        // Set status to running before executing Python code
+        setPyodideStatus(PyodideStatus.RUNNING);
         await runPythonCodeFunction(model);
-    }, [model, setActiveTab]);
+    }, [model, setActiveTab, setPyodideStatus]);
 
     function onEditorMount(editor: editor.IStandaloneCodeEditor) {
         const model = fetchCurMonacoModelAndTriggerUpdate(sampleFilename);
@@ -179,13 +187,24 @@ export default function Sandbox({
 
         // Add keyboard shortcut for Command+Enter (Mac) or Ctrl+Enter (Windows/Linux)
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-            if (!isCodeSnippet && !isRunning) {
+            if (
+                !isCodeSnippet &&
+                pyodideStatus !== PyodideStatus.INITIALIZING && pyodideStatus !== PyodideStatus.RUNNING
+            ) {
                 // Use the model from the editor directly
                 const editorModel = editor.getModel();
                 if (editorModel) {
-                    runOnClickForAtLeastOneSecond(setIsRunning, async () => {
-                        await runPythonCodeFunction(editorModel);
-                    });
+                    runOnClickForAtLeastOneSecond(
+                        (running) =>
+                            setPyodideStatus(
+                                running
+                                    ? PyodideStatus.RUNNING
+                                    : PyodideStatus.FINISHED_RUNNING
+                            ),
+                        async () => {
+                            await runPythonCodeFunction(editorModel);
+                        }
+                    );
                 }
             }
         });
@@ -245,8 +264,8 @@ export default function Sandbox({
                         {!isCodeSnippet
                             ? getRunPythonButton(
                                   runPythonCodeCallback,
-                                  isRunning,
-                                  setIsRunning
+                                  pyodideStatus,
+                                  setPyodideStatus
                               )
                             : null}
                         {!isCodeSnippet ? getShareUrlButton() : null}
@@ -273,7 +292,7 @@ export default function Sandbox({
                     errors={errors}
                     internalError={internalError}
                     pythonOutput={pythonOutput}
-                    isRunning={isRunning}
+                    pyodideStatus={pyodideStatus}
                     activeTab={activeTab}
                     setActiveTab={setActiveTab}
                 />
@@ -439,14 +458,14 @@ function OpenSandboxButton({
 
 function getRunPythonButton(
     runPython: () => Promise<void>,
-    isRunning: boolean,
-    setIsRunning: React.Dispatch<React.SetStateAction<boolean>>
+    pyodideStatus: PyodideStatus,
+    setPyodideStatus: React.Dispatch<React.SetStateAction<PyodideStatus>>
 ): React.ReactElement {
     return (
         <RunPythonButton
             runPython={runPython}
-            isRunning={isRunning}
-            setIsRunning={setIsRunning}
+            pyodideStatus={pyodideStatus}
+            setPyodideStatus={setPyodideStatus}
         />
     );
 }

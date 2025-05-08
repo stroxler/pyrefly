@@ -9,9 +9,11 @@
 
 import { useEffect } from 'react';
 import { WorkerResponse } from './pythonWorker';
+import { PyodideStatus } from './PyodideStatus';
 
 interface usePythonWorkerProps {
     setPythonOutput: React.Dispatch<React.SetStateAction<string>>;
+    setPyodideStatus: React.Dispatch<React.SetStateAction<PyodideStatus>>;
 }
 
 // Singleton instance variables
@@ -42,7 +44,8 @@ const runPython = async (code: string): Promise<void> => {
 
 // Initialize the Python worker singleton
 const initializePythonWorker = (
-    setPythonOutput: React.Dispatch<React.SetStateAction<string>>
+    setPythonOutput: React.Dispatch<React.SetStateAction<string>>,
+    setPyodideStatus: React.Dispatch<React.SetStateAction<PyodideStatus>>
 ): void => {
     // Only initialize once
     if (workerInstance !== null) {
@@ -68,6 +71,9 @@ const initializePythonWorker = (
             case 'stderr':
                 setPythonOutput((prev) => prev + '\n' + response.output);
                 return;
+            case 'pyodideStatusUpdate':
+                setPyodideStatus(response.status);
+                return;
             case 'runPython':
                 if (!response.success && response.error) {
                     setPythonOutput(
@@ -92,12 +98,14 @@ const initializePythonWorker = (
 };
 
 // Hook for React components to use the Python worker
-export const usePythonWorker = ({ setPythonOutput }: usePythonWorkerProps) => {
+export const usePythonWorker = ({
+    setPythonOutput,
+    setPyodideStatus,
+}: usePythonWorkerProps) => {
     useEffect(() => {
         // Initialize the worker if it hasn't been initialized yet
         if (workerInstance === null) {
-            console.log('intializing python worker');
-            initializePythonWorker(setPythonOutput);
+            initializePythonWorker(setPythonOutput, setPyodideStatus);
         } // Otherwise, do nothing
 
         // Clean up worker on unmount if this is the component that created it
@@ -105,7 +113,7 @@ export const usePythonWorker = ({ setPythonOutput }: usePythonWorkerProps) => {
             // We don't terminate the worker here to maintain the singleton
             // The worker will persist until the page is refreshed
         };
-    }, [setPythonOutput]);
+    }, [setPythonOutput, setPyodideStatus]);
 
     return { runPython };
 };

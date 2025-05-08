@@ -10,6 +10,7 @@
 import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import { PyodideStatus } from './PyodideStatus';
 
 export interface PyreflyErrorMessage {
     startLineNumber: number;
@@ -39,7 +40,7 @@ interface SandboxResultsProps {
     errors?: ReadonlyArray<PyreflyErrorMessage> | null;
     internalError: string;
     pythonOutput: string;
-    isRunning: boolean;
+    pyodideStatus: PyodideStatus;
     activeTab: string;
     setActiveTab: (tab: string) => void;
 }
@@ -109,9 +110,9 @@ export default function SandboxResults({
     goToDef,
     errors,
     internalError,
-    pythonOutput = '',
-    isRunning = false,
-    activeTab = 'errors',
+    pythonOutput,
+    pyodideStatus,
+    activeTab,
     setActiveTab = () => {},
 }: SandboxResultsProps): React.ReactElement {
     const activeToolbarTab = activeTab;
@@ -172,11 +173,11 @@ export default function SandboxResults({
                                     {internalError
                                         ? `Pyrefly encountered an internal error: ${internalError}.`
                                         : errors === undefined ||
-                                            errors === null
-                                          ? 'Pyrefly failed to fetch errors.'
-                                          : errors?.length === 0
-                                            ? 'No errors!'
-                                            : null}
+                                          errors === null
+                                        ? 'Pyrefly failed to fetch errors.'
+                                        : errors?.length === 0
+                                        ? 'No errors!'
+                                        : null}
                                 </li>
                             )}
                         </ul>
@@ -187,10 +188,14 @@ export default function SandboxResults({
                         <span {...stylex.props(styles.PyodideDisclaimer)}>
                             {`Note: The Python runtime currently only supports features up to Python version 3.12, features from newer versions are not available. \n\n`}
                         </span>
-                        {isRunning
+
+                        {pyodideStatus === PyodideStatus.NOT_INITIALIZED
+                            ? 'No output, please press the ▶️ Run button.'
+                            : pyodideStatus === PyodideStatus.INITIALIZING
+                            ? 'Loading Python interpreter...'
+                            : pyodideStatus === PyodideStatus.RUNNING
                             ? 'Running...'
-                            : pythonOutput.trimStart() ||
-                              'No output, please press the ▶️ Run button.'}
+                            : pythonOutput.trimStart()}
                     </pre>
                 )}
                 {/* TODO (T217536145): Add JSON tab to sandbox */}

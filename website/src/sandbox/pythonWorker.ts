@@ -7,6 +7,8 @@
  * @format
  */
 
+import { PyodideStatus } from './PyodideStatus';
+
 /*
  * This file is a Web Worker that runs Python code using Pyodide. It is used by the
  * Pyrefly sandbox to run Python code in the browser. We use a web worker to run
@@ -16,8 +18,10 @@
  *
  */
 import { loadPyodide, PyodideInterface } from 'pyodide';
-
-export type WorkerResponse = stdoutResponseOrStderrResponse | RunPythonResponse;
+export type WorkerResponse =
+    | stdoutResponseOrStderrResponse
+    | RunPythonResponse
+    | PyodideStatusResponse;
 
 type stdoutResponseOrStderrResponse = {
     type: 'stdout' | 'stderr';
@@ -30,11 +34,28 @@ type RunPythonResponse = {
     error?: string;
 };
 
+type PyodideStatusResponse = {
+    type: 'pyodideStatusUpdate';
+    status: PyodideStatus;
+};
+
 let pyodideInstance: PyodideInterface = null;
 
 const initPyodide = async () => {
+    // Notify the main thread that we're initializing Pyodide
+    self.postMessage({
+        type: 'pyodideStatusUpdate',
+        status: PyodideStatus.INITIALIZING,
+    });
+
     const py = await loadPyodide({
         indexURL: `${self.location.origin}/pyodide`,
+    });
+
+    // Notify the main thread that Pyodide has been initialized
+    self.postMessage({
+        type: 'pyodideStatusUpdate',
+        status: PyodideStatus.RUNNING,
     });
 
     // Set up stdout and stderr capture

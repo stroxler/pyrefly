@@ -9,18 +9,31 @@
 
 import React from 'react';
 import MonacoEditorButton from './MonacoEditorButton';
+import { PyodideStatus } from './PyodideStatus';
 
 interface RunPythonButtonProps {
     runPython: () => Promise<void>;
-    isRunning: boolean;
-    setIsRunning: React.Dispatch<React.SetStateAction<boolean>>;
+    pyodideStatus: PyodideStatus;
+    setPyodideStatus: React.Dispatch<React.SetStateAction<PyodideStatus>>;
 }
 
 export default function RunPythonButton({
     runPython,
-    isRunning,
-    setIsRunning,
+    pyodideStatus,
+    setPyodideStatus,
 }: RunPythonButtonProps): React.ReactElement {
+    // Consider the button as "running" if Pyodide is either initializing or running
+    const isRunning =
+        pyodideStatus === PyodideStatus.INITIALIZING ||
+        pyodideStatus === PyodideStatus.RUNNING;
+
+    const setIsRunning = (running: boolean) => {
+        setPyodideStatus(
+            // We set the pyodide status to FINISHED_RUNNING based on the button state because we purposely want to sync the button state with
+            // the pyodide status. There's a 1 second delay between when the button is clicked and when it's shown to finish running.
+            running ? PyodideStatus.RUNNING : PyodideStatus.FINISHED_RUNNING
+        );
+    };
     return (
         <MonacoEditorButton
             id="run-python-button"
