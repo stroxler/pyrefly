@@ -128,6 +128,7 @@ use crate::types::lsp::position_to_text_size;
 use crate::types::lsp::source_range_to_range;
 use crate::types::lsp::text_size_to_position;
 use crate::util::args::clap_env;
+use crate::util::events::CategorizedEvents;
 use crate::util::globs::Globs;
 use crate::util::lock::Mutex;
 use crate::util::lock::RwLock;
@@ -968,14 +969,44 @@ impl Server {
         self.validate_in_memory(ide_transaction_manager)
     }
 
+    pub fn categorized_events(events: Vec<lsp_types::FileEvent>) -> CategorizedEvents {
+        let mut created = Vec::new();
+        let mut modified = Vec::new();
+        let mut removed = Vec::new();
+        let mut unknown = Vec::new();
+
+        for event in events {
+            match event.typ {
+                lsp_types::FileChangeType::CREATED => {
+                    created.push(event.uri.to_file_path().unwrap());
+                }
+                lsp_types::FileChangeType::CHANGED => {
+                    modified.push(event.uri.to_file_path().unwrap());
+                }
+                lsp_types::FileChangeType::DELETED => {
+                    removed.push(event.uri.to_file_path().unwrap());
+                }
+                _ => {
+                    unknown.push(event.uri.to_file_path().unwrap());
+                }
+            }
+        }
+
+        CategorizedEvents {
+            created,
+            modified,
+            removed,
+            unknown,
+        }
+    }
+
     fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) -> anyhow::Result<()> {
-        self.validate_with_disk_invalidation(
-            params
-                .changes
-                .iter()
-                .map(|x| x.uri.to_file_path().unwrap())
-                .collect::<Vec<_>>(),
-        )
+        if !params.changes.is_empty() {
+            self.invalidate(move |t| {
+                t.invalidate_events(&Self::categorized_events(params.changes))
+            });
+        }
+        Ok(())
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
