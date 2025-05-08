@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use num_traits::ToPrimitive;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprNumberLiteral;
@@ -30,6 +31,7 @@ use crate::error::collector::ErrorCollector;
 use crate::types::callable::FunctionKind;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
+use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
@@ -164,6 +166,73 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Type {
         match op {
             AtomicNarrowOp::Placeholder => ty.clone(),
+            AtomicNarrowOp::LenEq(v) => {
+                let right = self.expr_infer(v, errors);
+                let Type::Literal(Lit::Int(lit)) = &right else {
+                    return ty.clone();
+                };
+                let Some(len) = lit.as_i64().and_then(|i| i.to_usize()) else {
+                    return ty.clone();
+                };
+                self.distribute_over_union(ty, |ty| match ty {
+                    Type::Tuple(Tuple::Concrete(elts)) if elts.len() != len => Type::never(),
+                    Type::Tuple(Tuple::Unpacked(box (prefix, _, suffix)))
+                        if prefix.len() + suffix.len() > len =>
+                    {
+                        Type::never()
+                    }
+                    Type::Tuple(Tuple::Unpacked(box (prefix, _, suffix)))
+                        if prefix.len() + suffix.len() == len =>
+                    {
+                        Type::tuple(prefix.iter().cloned().chain(suffix.clone()).collect())
+                    }
+                    Type::Tuple(Tuple::Unpacked(box (
+                        prefix,
+                        Type::Tuple(Tuple::Unbounded(box middle)),
+                        suffix,
+                    ))) if prefix.len() + suffix.len() < len => {
+                        let middle_elements =
+                            vec![middle.clone(); len - prefix.len() - suffix.len()];
+                        Type::tuple(
+                            prefix
+                                .iter()
+                                .cloned()
+                                .chain(middle_elements)
+                                .chain(suffix.clone())
+                                .collect(),
+                        )
+                    }
+                    Type::Tuple(Tuple::Unbounded(box elements)) => {
+                        Type::tuple(vec![elements.clone(); len])
+                    }
+                    Type::ClassType(class)
+                        if let Some(elements) = self.named_tuple_element_types(class)
+                            && elements.len() != len =>
+                    {
+                        Type::never()
+                    }
+                    _ => ty.clone(),
+                })
+            }
+            AtomicNarrowOp::LenNotEq(v) => {
+                let right = self.expr_infer(v, errors);
+                let Type::Literal(Lit::Int(lit)) = &right else {
+                    return ty.clone();
+                };
+                let Some(len) = lit.as_i64().and_then(|i| i.to_usize()) else {
+                    return ty.clone();
+                };
+                self.distribute_over_union(ty, |ty| match ty {
+                    Type::Tuple(Tuple::Concrete(elts)) if elts.len() == len => Type::never(),
+                    Type::ClassType(class)
+                        if let Some(elements) = self.named_tuple_element_types(class)
+                            && elements.len() == len =>
+                    {
+                        Type::never()
+                    }
+                    _ => ty.clone(),
+                })
+            }
             AtomicNarrowOp::In(v) => {
                 let exprs = match v {
                     Expr::List(list) => Some(list.elts.clone()),

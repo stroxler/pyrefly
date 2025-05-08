@@ -31,6 +31,7 @@ use vec1::Vec1;
 
 use crate::assert_words;
 use crate::binding::bindings::BindingsBuilder;
+use crate::export::special::SpecialExport;
 use crate::ruff::ast::Ast;
 use crate::types::types::Type;
 use crate::util::prelude::SliceExt;
@@ -54,6 +55,9 @@ pub enum AtomicNarrowOp {
     NotTypeIs(Type, Arguments),
     In(Expr),
     NotIn(Expr),
+    /// Used to narrow tuple types based on length
+    LenEq(Expr),
+    LenNotEq(Expr),
     /// (func, args) for a function call that may narrow the type of its first argument.
     Call(Box<Expr>, Arguments),
     NotCall(Box<Expr>, Arguments),
@@ -129,6 +133,8 @@ impl AtomicNarrowOp {
             Self::NotEq(v) => Self::Eq(v.clone()),
             Self::In(v) => Self::NotIn(v.clone()),
             Self::NotIn(v) => Self::In(v.clone()),
+            Self::LenEq(v) => Self::LenNotEq(v.clone()),
+            Self::LenNotEq(v) => Self::LenEq(v.clone()),
             Self::TypeGuard(ty, args) => Self::NotTypeGuard(ty.clone(), args.clone()),
             Self::NotTypeGuard(ty, args) => Self::TypeGuard(ty.clone(), args.clone()),
             Self::TypeIs(ty, args) => Self::NotTypeIs(ty.clone(), args.clone()),
@@ -241,22 +247,39 @@ impl NarrowOps {
         match test {
             Some(Expr::Compare(ExprCompare {
                 range: _,
-                left,
+                box left,
                 ops: cmp_ops,
                 comparators,
             })) => {
+                // If the left expression is a call to len(), we're narrowing the argument
+                let mut left = left;
+                let mut lhs_is_len = false;
+                if let Expr::Call(ExprCall {
+                    box func,
+                    arguments,
+                    ..
+                }) = left
+                    && builder.as_special_export(func) == Some(SpecialExport::Len)
+                    && arguments.args.len() == 1
+                    && arguments.keywords.is_empty()
+                {
+                    lhs_is_len = true;
+                    left = arguments.args.first().unwrap();
+                };
                 let mut ops = cmp_ops
                     .iter()
                     .zip(comparators)
                     .filter_map(|(cmp_op, right)| {
                         let range = right.range();
                         let op = match cmp_op {
-                            CmpOp::Is => AtomicNarrowOp::Is(right.clone()),
-                            CmpOp::IsNot => AtomicNarrowOp::IsNot(right.clone()),
+                            CmpOp::Is if !lhs_is_len => AtomicNarrowOp::Is(right.clone()),
+                            CmpOp::IsNot if !lhs_is_len => AtomicNarrowOp::IsNot(right.clone()),
+                            CmpOp::Eq if lhs_is_len => AtomicNarrowOp::LenEq(right.clone()),
+                            CmpOp::NotEq if lhs_is_len => AtomicNarrowOp::LenNotEq(right.clone()),
                             CmpOp::Eq => AtomicNarrowOp::Eq(right.clone()),
                             CmpOp::NotEq => AtomicNarrowOp::NotEq(right.clone()),
-                            CmpOp::In => AtomicNarrowOp::In(right.clone()),
-                            CmpOp::NotIn => AtomicNarrowOp::NotIn(right.clone()),
+                            CmpOp::In if !lhs_is_len => AtomicNarrowOp::In(right.clone()),
+                            CmpOp::NotIn if !lhs_is_len => AtomicNarrowOp::NotIn(right.clone()),
                             _ => {
                                 return None;
                             }

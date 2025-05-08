@@ -602,9 +602,6 @@
     "Line 161: Unexpected errors ['assert_type(Any, int) failed']"
   ],
   "tuples_type_compat.py": [
-    "Line 74: Unexpected errors ['assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int]) failed']",
-    "Line 78: Unexpected errors ['assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int, int] | tuple[str, str]) failed']",
-    "Line 82: Unexpected errors ['assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int, str, int]) failed']",
     "Line 93: Unexpected errors ['Cannot unpack tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int] (of size 2) into 1 value']",
     "Line 95: Unexpected errors ['assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int]) failed']",
     "Line 97: Unexpected errors ['Cannot unpack tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int] (of size 1) into 2 values']",

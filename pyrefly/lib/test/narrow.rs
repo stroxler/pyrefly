@@ -1045,3 +1045,55 @@ def test(x: Literal["foo", 1] | Color | bool | None, y: object, z: Literal["f", 
         assert_type(y, object)
 "#,
 );
+
+testcase!(
+    test_narrow_len,
+    r#"
+from typing import assert_type, Never, NamedTuple
+class NT(NamedTuple):
+    x: int
+    y: int
+def test(x: tuple[int, int], y: tuple[int, *tuple[int, ...], int], z: tuple[int, ...], nt: NT) -> None:
+    if len(x) == 2:
+        assert_type(x, tuple[int, int])
+    else:
+        assert_type(x, Never)
+    if len(x) == 1:
+        assert_type(x, Never)
+    else:
+        assert_type(x, tuple[int, int])
+    if len(x) < 1:
+        # we currently do not narrow lengths for anything besides == and !=
+        assert_type(x, tuple[int, int])
+    if len(x) != 1:
+        assert_type(x, tuple[int, int])
+    if len(x) == x[0]:
+        # only narrow if RHS is a literal
+        assert_type(x, tuple[int, int])
+    if len(y) == 2:
+        assert_type(y, tuple[int, int])
+    else:
+        assert_type(y, tuple[int, *tuple[int, ...], int])
+    if len(y) == 3:
+        assert_type(y, tuple[int, int, int])
+    if len(y) == 1:
+        # this can never be true, since y has 2 concrete elements in the prefix/suffix
+        assert_type(y, Never)
+    if len(z) == 1:
+        assert_type(z, tuple[int])
+    else:
+        assert_type(z, tuple[int, ...])
+    if len(z) == 3:
+        assert_type(z, tuple[int, int, int])
+    if len(z) == 2 or len(z) == 3:
+        assert_type(z, tuple[int, int] | tuple[int, int, int])
+    if len(nt) == 2:
+        assert_type(nt, NT)
+    else:
+        assert_type(nt, Never)
+    if len(nt) == 1:
+        assert_type(nt, Never)
+    else:
+        assert_type(nt, NT)
+"#,
+);

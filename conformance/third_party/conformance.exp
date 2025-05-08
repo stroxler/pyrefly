@@ -9960,36 +9960,6 @@
     },
     {
       "code": -2,
-      "column": 9,
-      "concise_description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int]) failed",
-      "description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int]) failed",
-      "line": 74,
-      "name": "assert-type",
-      "stop_column": 37,
-      "stop_line": 74
-    },
-    {
-      "code": -2,
-      "column": 9,
-      "concise_description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int, int] | tuple[str, str]) failed",
-      "description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int, int] | tuple[str, str]) failed",
-      "line": 78,
-      "name": "assert-type",
-      "stop_column": 60,
-      "stop_line": 78
-    },
-    {
-      "code": -2,
-      "column": 9,
-      "concise_description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int, str, int]) failed",
-      "description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int, str, int]) failed",
-      "line": 82,
-      "name": "assert-type",
-      "stop_column": 47,
-      "stop_line": 82
-    },
-    {
-      "code": -2,
       "column": 14,
       "concise_description": "Cannot unpack tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int] (of size 2) into 1 value",
       "description": "Cannot unpack tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int] (of size 2) into 1 value",
