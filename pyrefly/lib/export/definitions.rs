@@ -22,6 +22,7 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::dunder;
 use crate::module::module_name::ModuleName;
@@ -78,6 +79,10 @@ pub struct Definitions {
     pub import_all: SmallMap<ModuleName, TextRange>,
     /// The `__all__` variable contents.
     pub dunder_all: Vec<DunderAllEntry>,
+    /// If the containing module `foo` is a __init__ file, then this is the set of submodules
+    /// that are guaranteed to be imported under `foo` when `foo` is itself imported in downstream
+    /// files.
+    pub implicitly_imported_submodules: SmallSet<Name>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -130,6 +135,17 @@ struct DefinitionsBuilder<'a> {
 
 fn is_private_name(name: &Name) -> bool {
     name.starts_with('_') && !name.starts_with("__")
+}
+
+fn implicitly_imported_submodule(
+    importing_module_name: ModuleName,
+    imported_module_name: ModuleName,
+) -> Option<Name> {
+    imported_module_name
+        .components()
+        .strip_prefix(importing_module_name.components().as_slice())
+        .and_then(|components| components.first())
+        .cloned()
 }
 
 impl Definitions {
@@ -265,20 +281,26 @@ impl<'a> DefinitionsBuilder<'a> {
         match x {
             Stmt::Import(x) => {
                 for a in &x.names {
-                    let module = ModuleName::from_name(&a.name.id);
+                    let imported_module = ModuleName::from_name(&a.name.id);
+                    if self.is_init
+                        && let Some(submodule) =
+                            implicitly_imported_submodule(self.module_name, imported_module)
+                    {
+                        self.inner.implicitly_imported_submodules.insert(submodule);
+                    }
                     match &a.asname {
                         None => self.add_name(
-                            &module.first_component(),
+                            &imported_module.first_component(),
                             a.name.range,
-                            DefinitionStyle::ImportModule(module),
+                            DefinitionStyle::ImportModule(imported_module),
                             None,
                         ),
                         Some(alias) => self.add_identifier(
                             alias,
                             if alias.id == a.name.id {
-                                DefinitionStyle::ImportAsEq(module)
+                                DefinitionStyle::ImportAsEq(imported_module)
                             } else {
-                                DefinitionStyle::ImportAs(module)
+                                DefinitionStyle::ImportAs(imported_module)
                             },
                         ),
                     };
@@ -290,6 +312,13 @@ impl<'a> DefinitionsBuilder<'a> {
                     x.level,
                     x.module.as_ref().map(|x| &x.id),
                 );
+                if self.is_init
+                    && let Some(imported_module) = name
+                    && let Some(submodule) =
+                        implicitly_imported_submodule(self.module_name, imported_module)
+                {
+                    self.inner.implicitly_imported_submodules.insert(submodule);
+                }
                 for a in &x.names {
                     if &a.name == "*" {
                         if let Some(module) = name {
@@ -442,6 +471,38 @@ mod tests {
     use super::*;
     use crate::util::prelude::SliceExt;
 
+    #[test]
+    fn test_implicitly_imported_submodule() {
+        assert_eq!(
+            implicitly_imported_submodule(
+                ModuleName::from_str("foo"),
+                ModuleName::from_str("foo.bar.baz")
+            ),
+            Some(Name::new_static("bar"))
+        );
+
+        assert_eq!(
+            implicitly_imported_submodule(ModuleName::from_str("foo"), ModuleName::from_str("foo")),
+            None
+        );
+
+        assert_eq!(
+            implicitly_imported_submodule(
+                ModuleName::from_str("foo.bar"),
+                ModuleName::from_str("foo.bar.baz.qux")
+            ),
+            Some(Name::new_static("baz"))
+        );
+
+        assert_eq!(
+            implicitly_imported_submodule(
+                ModuleName::from_str("foo.bar"),
+                ModuleName::from_str("baz.qux")
+            ),
+            None
+        );
+    }
+
     fn unrange(x: &mut DunderAllEntry) {
         match x {
             DunderAllEntry::Name(range, _)
@@ -452,15 +513,23 @@ mod tests {
         }
     }
 
-    fn calculate_unranged_definitions(contents: &str) -> Definitions {
+    fn calculate_unranged_definitions(
+        contents: &str,
+        module_name: ModuleName,
+        is_init: bool,
+    ) -> Definitions {
         let mut res = Definitions::new(
             &Ast::parse(contents).0.body,
-            ModuleName::from_str("main"),
-            false,
+            module_name,
+            is_init,
             &SysInfo::default(),
         );
         res.dunder_all.iter_mut().for_each(unrange);
         res
+    }
+
+    fn calculate_unranged_definitions_with_defaults(contents: &str) -> Definitions {
+        calculate_unranged_definitions(contents, ModuleName::from_str("main"), false)
     }
 
     fn assert_import_all(defs: &Definitions, expected_import_all: &[&str]) {
@@ -468,6 +537,16 @@ mod tests {
             expected_import_all,
             defs.import_all
                 .keys()
+                .map(|x| x.as_str())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    fn assert_implicitly_imported_submodules(defs: &Definitions, expected: &[&str]) {
+        assert_eq!(
+            expected,
+            defs.implicitly_imported_submodules
+                .iter()
                 .map(|x| x.as_str())
                 .collect::<Vec<_>>()
         );
@@ -485,7 +564,7 @@ mod tests {
 
     #[test]
     fn test_definitions() {
-        let defs = calculate_unranged_definitions(
+        let defs = calculate_unranged_definitions_with_defaults(
             r#"
 from foo import *
 from bar import baz as qux
@@ -512,7 +591,7 @@ r[p] = 1
 
     #[test]
     fn test_overload() {
-        let defs = calculate_unranged_definitions(
+        let defs = calculate_unranged_definitions_with_defaults(
             r#"
 from typing import overload
 
@@ -541,7 +620,7 @@ def bar(x: str) -> str: ...
 
     #[test]
     fn test_all() {
-        let defs = calculate_unranged_definitions(
+        let defs = calculate_unranged_definitions_with_defaults(
             r#"
 from foo import *
 a = 1
@@ -574,7 +653,7 @@ __all__.remove('r')
     #[test]
     fn test_all_reexport() {
         // Not in the spec, but see collections.abc which does this.
-        let defs = calculate_unranged_definitions(
+        let defs = calculate_unranged_definitions_with_defaults(
             r#"
 from _collections_abc import *
 from _collections_abc import __all__ as __all__
@@ -590,5 +669,34 @@ from _collections_abc import __all__ as __all__
                 ModuleName::from_str("_collections_abc")
             )]
         );
+    }
+
+    #[test]
+    fn test_implicitly_imported_submodule_from_import_stmt() {
+        let defs = calculate_unranged_definitions(
+            r#"
+from . import a
+from .a import x
+from .b.c import y
+from ..derp.d import z
+"#,
+            ModuleName::from_str("derp"),
+            true,
+        );
+        assert_implicitly_imported_submodules(&defs, &["a", "b", "d"]);
+    }
+
+    #[test]
+    fn test_implicitly_imported_submodule_import_stmt() {
+        let defs = calculate_unranged_definitions(
+            r#"
+import a
+import derp.b
+import derp.c.d
+"#,
+            ModuleName::from_str("derp"),
+            true,
+        );
+        assert_implicitly_imported_submodules(&defs, &["b", "c"]);
     }
 }
