@@ -73,12 +73,15 @@ impl PythonEnvironment {
         }
     }
 
+    /// Are any Python environment values `None`?
     pub fn any_empty(&self) -> bool {
         self.python_platform.is_none()
             || self.python_version.is_none()
             || self.site_package_path.is_none()
     }
 
+    /// If any Python environment values are `None`, set them to
+    /// Pyrefly's default value.
     pub fn set_empty_to_default(&mut self) {
         if self.python_platform.is_none() {
             self.python_platform = Some(PythonPlatform::default());
@@ -92,6 +95,8 @@ impl PythonEnvironment {
         }
     }
 
+    /// Given another `PythonEnvironment`, override any `None` values
+    /// in this `PythonEnvironment` with the other environment's values.
     pub fn override_empty(&mut self, other: Self) {
         if self.python_platform.is_none() {
             self.python_platform = other.python_platform;
@@ -105,6 +110,9 @@ impl PythonEnvironment {
         }
     }
 
+    /// Given a path to a Python interpreter executable, query that interpreter for its
+    /// version, platform, and site package path. Return an error in the case of failure during
+    /// execution, parsing, or deserializing.
     fn get_env_from_interpreter(interpreter: &Path) -> anyhow::Result<PythonEnvironment> {
         let script = "\
 import json, site, sys
@@ -157,6 +165,8 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         Ok(deserialized)
     }
 
+    /// Get the first interpreter available on the path by using `which`
+    /// and querying for [`Self::DEFAULT_INTERPRETERS`] in order.
     pub fn get_default_interpreter() -> Option<&'static Path> {
         static SYSTEM_INTERP: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
             // disable query with `which` on wasm
@@ -171,6 +181,12 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         SYSTEM_INTERP.as_deref()
     }
 
+    /// Given a path to an interpreter, query the interpreter with
+    /// [`Self::get_env_from_interpreter()`] and cache the result. If a cached
+    /// result already exists, return that.
+    ///
+    /// In the case of failure, log an error message and return Pyrefly's
+    /// [`PythonEnvironment::default()`].
     pub fn get_interpreter_env(interpreter: &Path) -> PythonEnvironment {
         INTERPRETER_ENV_REGISTRY.lock()
         .entry(interpreter.to_path_buf()).or_insert_with(move || {
@@ -180,6 +196,8 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         }).clone().unwrap_or_default()
     }
 
+    /// [`Self::get_default_interpreter()`] and [`Self::get_interpreter_env()`] with the resulting value,
+    /// or return [`PythonEnvironment::default()`] if `None`.
     pub fn get_default_interpreter_env() -> PythonEnvironment {
         Self::get_default_interpreter()
             .map(Self::get_interpreter_env)
