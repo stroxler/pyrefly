@@ -109,7 +109,6 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             FunctionSource::Impl
         };
-        let mut return_annotation = mem::take(&mut x.returns);
         self.functions.push(FuncInfo::default());
 
         let func_name = x.name.clone();
@@ -143,6 +142,8 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr_opt(default.as_deref_mut());
             }
         }
+
+        let mut return_annotation = mem::take(&mut x.returns);
         self.ensure_type_opt(return_annotation.as_deref_mut(), &mut legacy);
 
         let return_ann_range = return_annotation.map(|x| {
