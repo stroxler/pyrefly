@@ -39,7 +39,7 @@ use crate::binding::binding::ReturnExplicit;
 use crate::binding::binding::ReturnImplicit;
 use crate::binding::binding::ReturnType;
 use crate::binding::bindings::BindingsBuilder;
-use crate::binding::bindings::FuncInfo;
+use crate::binding::bindings::FuncYieldsAndReturns;
 use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::Scope;
@@ -192,7 +192,8 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             FunctionSource::Impl
         };
-        self.functions.push(FuncInfo::default());
+        self.function_yields_and_returns
+            .push(FuncYieldsAndReturns::default());
 
         self.scopes.push(Scope::annotation(x.range));
 
@@ -244,11 +245,11 @@ impl<'a> BindingsBuilder<'a> {
         }
         let is_async = x.is_async;
 
-        let accumulate = self.functions.pop().unwrap();
-        let is_generator = !accumulate.yields.is_empty();
+        let yields_and_returns = self.function_yields_and_returns.pop().unwrap();
+        let is_generator = !yields_and_returns.yields.is_empty();
 
         // Collect the keys of explicit returns.
-        let return_keys = accumulate
+        let return_keys = yields_and_returns
             .returns
             .into_map(|x| {
                 self.table.insert(
@@ -264,7 +265,7 @@ impl<'a> BindingsBuilder<'a> {
             .into_boxed_slice();
 
         // Collect the keys of yield expressions.
-        let yield_keys = accumulate
+        let yield_keys = yields_and_returns
             .yields
             .into_map(|x| match x {
                 Either::Left(x) => {

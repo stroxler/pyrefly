@@ -138,13 +138,13 @@ pub struct BindingsBuilder<'a> {
     solver: &'a Solver,
     uniques: &'a UniqueFactory,
     pub scopes: Scopes,
-    pub functions: Vec1<FuncInfo>,
+    pub function_yields_and_returns: Vec1<FuncYieldsAndReturns>,
     pub table: BindingTable,
 }
 
 /// Things we collect from inside a function
 #[derive(Default, Clone, Debug)]
-pub struct FuncInfo {
+pub struct FuncYieldsAndReturns {
     pub returns: Vec<StmtReturn>,
     pub yields: Vec<Either<ExprYield, ExprYieldFrom>>,
 }
@@ -306,7 +306,7 @@ impl Bindings {
             loop_depth: 0,
             class_count: 0,
             scopes: Scopes::module(module_scope_range, enable_trace),
-            functions: Vec1::new(FuncInfo::default()),
+            function_yields_and_returns: Vec1::new(FuncYieldsAndReturns::default()),
             table: Default::default(),
         };
         builder.init_static_scope(&x, true);
@@ -315,8 +315,9 @@ impl Bindings {
         }
         builder.stmts(x);
         // Create dummy bindings for any invalid yield/yield from expressions.
-        let (func_info, _) = builder.functions.split_off_first();
-        for x in func_info.yields {
+        let (top_level_yields_and_returns, _) =
+            builder.function_yields_and_returns.split_off_first();
+        for x in top_level_yields_and_returns.yields {
             match x {
                 Either::Left(x) => {
                     builder
@@ -330,7 +331,7 @@ impl Bindings {
                 }
             }
         }
-        for x in func_info.returns {
+        for x in top_level_yields_and_returns.returns {
             if let Some(x) = x.value {
                 builder
                     .table

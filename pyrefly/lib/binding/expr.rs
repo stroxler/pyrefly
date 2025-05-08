@@ -529,14 +529,14 @@ impl<'a> BindingsBuilder<'a> {
                 true
             }
             Expr::Yield(x) => {
-                self.functions
+                self.function_yields_and_returns
                     .last_mut()
                     .yields
                     .push(Either::Left(x.clone()));
                 false
             }
             Expr::YieldFrom(x) => {
-                self.functions
+                self.function_yields_and_returns
                     .last_mut()
                     .yields
                     .push(Either::Right(x.clone()));

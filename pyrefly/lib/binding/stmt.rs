@@ -299,7 +299,7 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::ClassDef(x) => self.class_def(x),
             Stmt::Return(mut x) => {
                 self.ensure_expr_opt(x.value.as_deref_mut());
-                self.functions.last_mut().returns.push(x);
+                self.function_yields_and_returns.last_mut().returns.push(x);
                 self.scopes.current_mut().flow.no_next = true;
             }
             Stmt::Delete(mut x) => {
