@@ -176,6 +176,10 @@ impl<'a> BindingsBuilder<'a> {
         );
         let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
 
+        let legacy_tparam_builder = legacy.unwrap();
+        legacy_tparam_builder.add_name_definitions(self);
+        let legacy_tparams = legacy_tparam_builder.lookup_keys();
+
         // Collect the keys of terminal expressions. Used to determine the implicit return type.
         let last_exprs = function_last_expressions(&body, self.sys_info);
         let last_expr_keys = last_exprs.map(|x| {
@@ -191,16 +195,11 @@ impl<'a> BindingsBuilder<'a> {
             .into_boxed_slice()
         });
 
-        let legacy_tparam_builder = legacy.unwrap();
-        legacy_tparam_builder.add_name_definitions(self);
-
         if class_key.is_none() {
             self.scopes.push(Scope::function(x.range));
         } else {
             self.scopes.push(Scope::method(x.range, func_name.clone()));
         }
-
-        let legacy_tparams = legacy_tparam_builder.lookup_keys();
 
         let function_idx = self
             .table
