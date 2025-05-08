@@ -192,7 +192,7 @@ fn definition_in_builtins_disabled() {
         ],
         expected_messages_from_language_server: vec![Message::Response(Response {
             id: RequestId::from(2),
-            result: None,
+            result: Some(serde_json::json!([])),
             error: None,
         })],
         contents_as_uri: false,
