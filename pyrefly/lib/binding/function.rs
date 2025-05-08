@@ -192,11 +192,8 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             FunctionSource::Impl
         };
-        self.function_yields_and_returns
-            .push(FuncYieldsAndReturns::default());
 
         self.scopes.push(Scope::annotation(x.range));
-
         let (return_ann_with_range, legacy_tparams) =
             self.function_header(&mut x, &func_name, class_key);
         let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
@@ -230,12 +227,15 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             self.scopes.push(Scope::method(x.range, func_name.clone()));
         }
+        self.function_yields_and_returns
+            .push(FuncYieldsAndReturns::default());
 
         self.parameters(&mut x.parameters, function_idx, class_key);
 
         self.init_static_scope(&body, false);
         self.stmts(body);
         let func_scope = self.scopes.pop();
+        let yields_and_returns = self.function_yields_and_returns.pop().unwrap();
 
         // Pop the annotation scope to get back to the parent scope, and handle this
         // case where we need to track assignments to `self` from methods.
@@ -245,9 +245,8 @@ impl<'a> BindingsBuilder<'a> {
         {
             body.add_attributes_defined_by_method(method.name.id, method.instance_attributes);
         }
-        let is_async = x.is_async;
 
-        let yields_and_returns = self.function_yields_and_returns.pop().unwrap();
+        let is_async = x.is_async;
         let is_generator = !yields_and_returns.yields.is_empty();
 
         // Collect the keys of explicit returns.
