@@ -17,6 +17,9 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 
+use anstream::eprintln;
+use anstream::println;
+use anstream::stdout;
 use anyhow::Context as _;
 use clap::Parser;
 use clap::ValueEnum;
@@ -28,6 +31,7 @@ use starlark_map::small_set::SmallSet;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
+use yansi::Paint;
 
 use crate::commands::run::CommandExitStatus;
 use crate::commands::suppress;
@@ -161,11 +165,11 @@ impl OutputFormat {
     fn write_error_text_to_console(errors: &[Error]) -> anyhow::Result<()> {
         for error in errors {
             println!(
-                "{}:{}: {} [{}]",
-                error.path().as_path().display(),
-                error.source_range(),
-                error.msg(),
-                error.error_kind().to_name()
+                "{}:{}: {} {}",
+                Paint::red(&error.path().as_path().display()),
+                Paint::yellow(error.source_range()),
+                Paint::new(error.msg()),
+                Paint::magenta(format!("[{}]", error.error_kind().to_name()).as_str()),
             )
         }
         Ok(())
@@ -194,7 +198,7 @@ impl OutputFormat {
     }
 
     fn write_error_json_to_console(errors: &[Error]) -> anyhow::Result<()> {
-        Self::buffered_write_error_json(std::io::stdout(), errors)
+        Self::buffered_write_error_json(stdout(), errors)
     }
 
     fn write_errors_to_file(&self, path: &Path, errors: &[Error]) -> anyhow::Result<()> {

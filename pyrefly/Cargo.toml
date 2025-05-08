@@ -17,6 +17,7 @@ name = "pyrefly"
 path = "bin/main.rs"
 
 [dependencies]
+anstream = "0.6.11"
 anyhow = "1.0.95"
 append-only-vec = "0.1.2"
 argfile = "0.1.6"
@@ -66,6 +67,7 @@ toml = "0.8.19"
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 tracing-subscriber = { version = "0.3.18", features = ["chrono", "env-filter", "json", "local-time", "parking_lot", "registry"] }
 vec1 = { version = "1", features = ["serde"] }
+yansi = { version = "1.0.0-rc.1", features = ["hyperlink"] }
 
 [dev-dependencies]
 pretty_assertions = { version = "1.2", features = ["alloc"], default-features = false }
