@@ -166,16 +166,12 @@ impl<'a> BindingsBuilder<'a> {
             }
         }
 
-        let body = mem::take(&mut x.body);
-        let decorators = self.ensure_and_bind_decorators(mem::take(&mut x.decorator_list));
-        let source = if is_ellipse(&body) || self.module_info.path().is_interface() {
-            FunctionSource::Stub
-        } else {
-            FunctionSource::Impl
-        };
-        self.functions.push(FuncInfo::default());
-
         let func_name = x.name.clone();
+        let function_idx = self
+            .table
+            .functions
+            .0
+            .insert(KeyFunction(ShortIdentifier::new(&func_name)));
         let (class_key, class_meta) = match &self.scopes.current().kind {
             ScopeKind::ClassBody(body) => (
                 Some(self.table.classes.0.insert(body.as_class_key())),
@@ -188,6 +184,15 @@ impl<'a> BindingsBuilder<'a> {
             ),
             _ => (None, None),
         };
+
+        let body = mem::take(&mut x.body);
+        let decorators = self.ensure_and_bind_decorators(mem::take(&mut x.decorator_list));
+        let source = if is_ellipse(&body) || self.module_info.path().is_interface() {
+            FunctionSource::Stub
+        } else {
+            FunctionSource::Impl
+        };
+        self.functions.push(FuncInfo::default());
 
         self.scopes.push(Scope::annotation(x.range));
 
@@ -216,11 +221,6 @@ impl<'a> BindingsBuilder<'a> {
             self.scopes.push(Scope::method(x.range, func_name.clone()));
         }
 
-        let function_idx = self
-            .table
-            .functions
-            .0
-            .insert(KeyFunction(ShortIdentifier::new(&func_name)));
         self.parameters(&mut x.parameters, function_idx, class_key);
 
         self.init_static_scope(&body, false);
