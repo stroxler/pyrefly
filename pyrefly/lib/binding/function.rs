@@ -236,8 +236,10 @@ impl<'a> BindingsBuilder<'a> {
         self.init_static_scope(&body, false);
         self.stmts(body);
         let func_scope = self.scopes.pop();
-        self.scopes.pop();
 
+        // Pop the annotation scope to get back to the parent scope, and handle this
+        // case where we need to track assignments to `self` from methods.
+        self.scopes.pop();
         if let ScopeKind::Method(method) = func_scope.kind
             && let ScopeKind::ClassBody(body) = &mut self.scopes.current_mut().kind
         {
