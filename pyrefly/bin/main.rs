@@ -155,8 +155,12 @@ fn get_globs_and_config_for_project(
     let (config, errors) = match config {
         Some(explicit) => {
             // We deliberately don't use the cached object, since we want errors in an explicit config to be fatal
-            let (config, errors) = args.override_config(ConfigFile::from_file(&explicit, true)?);
-            for e in errors {
+            let (file_config, parse_errors) = ConfigFile::from_file(&explicit, true);
+            if let Some(e) = parse_errors.into_iter().next() {
+                return Err(e);
+            }
+            let (config, validation_errors) = args.override_config(file_config);
+            for e in validation_errors {
                 warn!("{e:#}");
             }
             (ArcId::new(config), Vec::new())
@@ -211,8 +215,12 @@ fn get_globs_and_config_for_files(
     let files_to_check = absolutize(files_to_check)?;
     let config_finder = match config {
         Some(explicit) => {
-            let (config, errors) = args.override_config(ConfigFile::from_file(&explicit, true)?);
-            for e in errors {
+            let (file_config, parse_errors) = ConfigFile::from_file(&explicit, true);
+            if let Some(e) = parse_errors.into_iter().next() {
+                return Err(e);
+            }
+            let (config, validation_errors) = args.override_config(file_config);
+            for e in validation_errors {
                 warn!("{e:#}");
             }
             ConfigFinder::new_constant(ArcId::new(config))

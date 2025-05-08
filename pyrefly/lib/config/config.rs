@@ -38,6 +38,7 @@ use crate::sys_info::SysInfo;
 use crate::util::fs_anyhow;
 use crate::util::globs::Glob;
 use crate::util::globs::Globs;
+use crate::util::prelude::VecExt;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct SubConfig {
@@ -456,63 +457,87 @@ impl ConfigFile {
         errors
     }
 
-    pub fn from_file(config_path: &Path, error_on_extras: bool) -> anyhow::Result<ConfigFile> {
-        fn f(config_path: &Path, error_on_extras: bool) -> anyhow::Result<ConfigFile> {
+    pub fn from_file(
+        config_path: &Path,
+        error_on_extras: bool,
+    ) -> (ConfigFile, Vec<anyhow::Error>) {
+        fn read_path(config_path: &Path) -> anyhow::Result<Option<ConfigFile>> {
             let config_path = config_path
                 .absolutize()
                 .with_context(|| format!("Path `{}` cannot be absolutized", config_path.display()))?
                 .into_owned();
             let config_str = fs_anyhow::read_to_string(&config_path)?;
-            let config_root = config_path.parent().ok_or_else(|| {
-                anyhow!("Could not find parent of path `{}`", config_path.display())
-            })?;
-            let maybe_config =
-                if config_path.file_name() == Some(OsStr::new(ConfigFile::PYPROJECT_FILE_NAME)) {
-                    ConfigFile::parse_pyproject_toml(&config_str)?
-                } else if config_path.file_name().is_some_and(|fi| {
-                    fi.to_str()
-                        .is_some_and(|fi| ConfigFile::ADDITIONAL_ROOT_FILE_NAMES.contains(&fi))
-                }) {
-                    // We'll create a file with default options but treat config_root as the project root.
-                    None
-                } else {
-                    Some(ConfigFile::parse_config(&config_str)?)
-                };
-            let layout = ProjectLayout::new(config_root);
-            let mut config = if let Some(mut config) = maybe_config {
-                config.rewrite_with_path_to_config(config_root);
-                // push import root to search path to make sure we can fall back to it
-                let import_root = layout.get_import_root(config_root);
-                if !config.search_path.contains(&import_root) {
-                    config.search_path.push(import_root);
-                }
-                config
+            if config_path.file_name() == Some(OsStr::new(ConfigFile::PYPROJECT_FILE_NAME)) {
+                Ok(ConfigFile::parse_pyproject_toml(&config_str)?)
+            } else if config_path.file_name().is_some_and(|fi| {
+                fi.to_str()
+                    .is_some_and(|fi| ConfigFile::ADDITIONAL_ROOT_FILE_NAMES.contains(&fi))
+            }) {
+                // We'll create a file with default options but treat config_root as the project root.
+                Ok(None)
             } else {
-                ConfigFile::init_at_root(config_root, &layout)
+                Ok(Some(ConfigFile::parse_config(&config_str)?))
+            }
+        }
+        fn f(config_path: &Path, error_on_extras: bool) -> (ConfigFile, Vec<anyhow::Error>) {
+            let mut errors = Vec::new();
+            let maybe_config = match read_path(config_path) {
+                Ok(maybe_config) => maybe_config,
+                Err(e) => {
+                    errors.push(e);
+                    None
+                }
+            };
+            let mut config = match config_path.parent() {
+                Some(config_root) => {
+                    let layout = ProjectLayout::new(config_root);
+                    if let Some(mut config) = maybe_config {
+                        config.rewrite_with_path_to_config(config_root);
+                        // push import root to search path to make sure we can fall back to it
+                        let import_root = layout.get_import_root(config_root);
+                        if !config.search_path.contains(&import_root) {
+                            config.search_path.push(import_root);
+                        }
+                        config
+                    } else {
+                        ConfigFile::init_at_root(config_root, &layout)
+                    }
+                }
+                None => {
+                    errors.push(anyhow!(
+                        "Could not find parent of path `{}`",
+                        config_path.display()
+                    ));
+                    maybe_config.unwrap_or_else(ConfigFile::default)
+                }
             };
             config.source = ConfigSource::File(config_path.to_owned());
 
             if error_on_extras {
                 if !config.root.extras.0.is_empty() {
                     let extra_keys = config.root.extras.0.keys().join(", ");
-                    return Err(anyhow!("Extra keys found in config: {extra_keys}"));
+                    errors.push(anyhow!("Extra keys found in config: {extra_keys}"));
                 }
                 for sub_config in &config.sub_configs {
                     if !sub_config.settings.extras.0.is_empty() {
                         let extra_keys = config.root.extras.0.keys().join(", ");
-                        return Err(anyhow!(
+                        errors.push(anyhow!(
                             "Extra keys found in sub config matching {}: {extra_keys}",
                             sub_config.matches
                         ));
                     }
                 }
             }
-            Ok(config)
+            (config, errors)
         }
-        f(config_path, error_on_extras).map_err(|err| {
-            let file_str = config_path.display();
-            err.context(format!("Failed to parse configuration at {file_str}"))
-        })
+        let (config, errors) = f(config_path, error_on_extras);
+        (
+            config,
+            errors.into_map(|err| {
+                let file_str = config_path.display();
+                err.context(format!("Failed to parse configuration at {file_str}"))
+            }),
+        )
     }
 
     fn parse_config(config_str: &str) -> anyhow::Result<ConfigFile> {
@@ -1003,14 +1028,14 @@ mod tests {
         let root = TempDir::new().unwrap();
         let path = root.path().join(ConfigFile::PYPROJECT_FILE_NAME);
         fs::write(&path, "[tool.pyrefly]").unwrap();
-        let config = ConfigFile::from_file(&path, true).unwrap();
+        let config = ConfigFile::from_file(&path, true).0;
         assert_eq!(config.search_path, vec![root.path().to_path_buf()]);
     }
 
     fn create_empty_file_and_parse_config(root: &TempDir, name: &str) -> ConfigFile {
         let path = root.path().join(name);
         fs::write(&path, "").unwrap();
-        ConfigFile::from_file(&path, true).unwrap()
+        ConfigFile::from_file(&path, true).0
     }
 
     #[test]
@@ -1071,7 +1096,7 @@ mod tests {
         fs::create_dir_all(&src_dir).unwrap();
         let pyrefly_path = root.path().join(ConfigFile::PYREFLY_FILE_NAME);
         fs::write(&pyrefly_path, "project_includes = [\"**/*\"]").unwrap();
-        let config = ConfigFile::from_file(&pyrefly_path, true).unwrap();
+        let config = ConfigFile::from_file(&pyrefly_path, true).0;
         // File contents should still be relative to the location of the config file, not src/.
         assert_eq!(
             config.project_includes,
