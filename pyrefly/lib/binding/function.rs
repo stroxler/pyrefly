@@ -200,20 +200,29 @@ impl<'a> BindingsBuilder<'a> {
             self.function_header(&mut x, &func_name, class_key);
         let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
 
-        // Collect the keys of terminal expressions. Used to determine the implicit return type.
-        let last_exprs = function_last_expressions(&body, self.sys_info);
-        let last_expr_keys = last_exprs.map(|x| {
-            x.into_map(|(last, x)| {
-                (
-                    last,
-                    self.table.types.0.insert(match last {
-                        LastStmt::Expr => Key::StmtExpr(x.range()),
-                        LastStmt::With(_) => Key::ContextExpr(x.range()),
-                    }),
-                )
-            })
-            .into_boxed_slice()
-        });
+        // Implicit return
+        let implicit_return = {
+            let last_exprs = function_last_expressions(&body, self.sys_info).map(|x| {
+                x.into_map(|(last, x)| {
+                    (
+                        last,
+                        self.table.types.0.insert(match last {
+                            LastStmt::Expr => Key::StmtExpr(x.range()),
+                            LastStmt::With(_) => Key::ContextExpr(x.range()),
+                        }),
+                    )
+                })
+                .into_boxed_slice()
+            });
+            self.table.insert(
+                Key::ReturnImplicit(ShortIdentifier::new(&func_name)),
+                Binding::ReturnImplicit(ReturnImplicit {
+                    last_exprs,
+                    function_source: source,
+                    decorators: decorators.clone().into_boxed_slice(),
+                }),
+            )
+        };
 
         if class_key.is_none() {
             self.scopes.push(Scope::function(x.range));
@@ -237,16 +246,6 @@ impl<'a> BindingsBuilder<'a> {
 
         let accumulate = self.functions.pop().unwrap();
         let is_generator = !accumulate.yields.is_empty();
-
-        // Implicit return
-        let implicit_return = self.table.insert(
-            Key::ReturnImplicit(ShortIdentifier::new(&func_name)),
-            Binding::ReturnImplicit(ReturnImplicit {
-                last_exprs: last_expr_keys,
-                function_source: source,
-                decorators: decorators.clone().into_boxed_slice(),
-            }),
-        );
 
         // Collect the keys of explicit returns.
         let return_keys = accumulate
