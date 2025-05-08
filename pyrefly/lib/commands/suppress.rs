@@ -131,7 +131,7 @@ pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<OneIndexe
                     // TODO: Expand support of what we remove and thoroughly test
                     let new_string = regex.replace_all(line, "");
                     if !new_string.trim().is_empty() {
-                        buf.push_str(&new_string);
+                        buf.push_str(new_string.trim_end());
                     }
                     buf.push('\n');
                     continue;
@@ -188,13 +188,42 @@ mod tests {
         assert_str_eq!(want, got_file);
     }
 
-    #[test]
-    fn test_add_suppressions() {
+    fn assert_suppress_errors(
+        path_errors: Vec<(usize, usize, ErrorKind)>,
+        input: &str,
+        output: &str,
+    ) {
         let tdir = tempfile::tempdir().unwrap();
         let path = tdir.path().join("test.py");
-        fs_anyhow::write(
-            &path,
-            br#"x: str = 1
+        fs_anyhow::write(&path, input.as_bytes()).unwrap();
+        let errors = {
+            let mut e = SmallMap::new();
+            e.insert(
+                path.clone(),
+                path_errors
+                    .into_iter()
+                    .map(|x| error(path.clone(), x.0, x.1, x.2))
+                    .collect(),
+            );
+            e
+        };
+        let (failures, successes) = add_suppressions(&errors);
+        assert!(failures.is_empty());
+        assert_eq!(vec![&path], successes);
+        let got_file = fs_anyhow::read_to_string(&path).unwrap();
+        assert_str_eq!(output, got_file);
+    }
+
+    #[test]
+    fn test_add_suppressions() {
+        assert_suppress_errors(
+            vec![
+                (1, 10, ErrorKind::BadAssignment),
+                (6, 7, ErrorKind::BadArgumentType),
+                (7, 10, ErrorKind::BadReturn),
+                (10, 3, ErrorKind::BadArgumentType),
+            ],
+            r#"x: str = 1
 
 
 def f(y: int) -> None:
@@ -206,29 +235,7 @@ def f(y: int) -> None:
 f(x)
 
 "#,
-        )
-        .unwrap();
-        // These errors were determined by manually running pyrefly on the snippet above.
-        // As such, they may not be 100% accurate with what pyrefly produces now.
-        let errors = {
-            let mut e = SmallMap::new();
-            e.insert(
-                path.clone(),
-                vec![
-                    error(path.clone(), 1, 10, ErrorKind::BadAssignment),
-                    error(path.clone(), 6, 7, ErrorKind::BadArgumentType),
-                    error(path.clone(), 7, 10, ErrorKind::BadReturn),
-                    error(path.clone(), 10, 3, ErrorKind::BadArgumentType),
-                ],
-            );
-            e
-        };
-
-        let (got_failures, got_successes) = add_suppressions(&errors);
-        assert!(got_failures.is_empty());
-        assert_eq!(vec![&path], got_successes);
-
-        let want_file = r#"# pyrefly: ignore  # bad-assignment
+            r#"# pyrefly: ignore  # bad-assignment
 x: str = 1
 
 
@@ -243,9 +250,8 @@ def f(y: int) -> None:
 # pyrefly: ignore  # bad-argument-type
 f(x)
 
-"#;
-        let got_file = fs_anyhow::read_to_string(&path).unwrap();
-        assert_str_eq!(want_file, got_file);
+"#,
+        );
     }
 
     #[test]
@@ -289,7 +295,7 @@ def g() -> str:
 "#;
         let want = r#"
 def g() -> str:
-    return "hello" 
+    return "hello"
 "#;
         test_remove_suppressions(lines, input, want);
     }
@@ -304,13 +310,13 @@ def f() -> int:
     # pyrefly: ignore
     return 1
 "#;
-        let output = r#"
+        let output = r##"
 def g() -> str:
-    return "hello" 
+    return "hello"
 def f() -> int:
 
     return 1
-"#;
+"##;
         test_remove_suppressions(lines, input, output);
     }
 }
