@@ -155,6 +155,34 @@ impl<'a> BindingsBuilder<'a> {
         (return_ann_with_range, legacy_tparams)
     }
 
+    /// Handle creating a scope and binding the function body.
+    ///
+    /// Note that are some aspects of function analysis (such as implicit return analysis) that also depend on the
+    /// function body but are not handled here.
+    fn function_body_scope(
+        &mut self,
+        parameters: &mut Box<Parameters>,
+        body: Vec<Stmt>,
+        range: TextRange,
+        func_name: &Identifier,
+        function_idx: Idx<KeyFunction>,
+        class_key: Option<Idx<KeyClass>>,
+    ) -> (Scope, FuncYieldsAndReturns) {
+        if class_key.is_none() {
+            self.scopes.push(Scope::function(range));
+        } else {
+            self.scopes.push(Scope::method(range, func_name.clone()));
+        }
+        self.function_yields_and_returns
+            .push(FuncYieldsAndReturns::default());
+        self.parameters(parameters, function_idx, class_key);
+        self.init_static_scope(&body, false);
+        self.stmts(body);
+        let func_scope = self.scopes.pop();
+        let yields_and_returns = self.function_yields_and_returns.pop().unwrap();
+        (func_scope, yields_and_returns)
+    }
+
     pub fn function_def(&mut self, mut x: StmtFunctionDef) {
         // Get preceding function definition, if any. Used for building an overload type.
         let mut pred_idx = None;
@@ -185,8 +213,8 @@ impl<'a> BindingsBuilder<'a> {
             _ => (None, None),
         };
 
-        let body = mem::take(&mut x.body);
         let decorators = self.ensure_and_bind_decorators(mem::take(&mut x.decorator_list));
+        let body = mem::take(&mut x.body);
         let source = if is_ellipse(&body) || self.module_info.path().is_interface() {
             FunctionSource::Stub
         } else {
@@ -222,20 +250,14 @@ impl<'a> BindingsBuilder<'a> {
             )
         };
 
-        if class_key.is_none() {
-            self.scopes.push(Scope::function(x.range));
-        } else {
-            self.scopes.push(Scope::method(x.range, func_name.clone()));
-        }
-        self.function_yields_and_returns
-            .push(FuncYieldsAndReturns::default());
-
-        self.parameters(&mut x.parameters, function_idx, class_key);
-
-        self.init_static_scope(&body, false);
-        self.stmts(body);
-        let func_scope = self.scopes.pop();
-        let yields_and_returns = self.function_yields_and_returns.pop().unwrap();
+        let (func_scope, yields_and_returns) = self.function_body_scope(
+            &mut x.parameters,
+            body,
+            x.range,
+            &func_name,
+            function_idx,
+            class_key,
+        );
 
         // Pop the annotation scope to get back to the parent scope, and handle this
         // case where we need to track assignments to `self` from methods.
