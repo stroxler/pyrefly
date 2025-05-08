@@ -26,6 +26,10 @@ use crate::util::lock::Mutex;
 /// The `path` to `configure` is a directory, either to the python file or the config file.
 /// In the case we can't find a config by walking up, we create a default config, setting the `search_path`
 /// to a sensible default if possible.
+///
+/// `configure` is a function that accepts a `Option<&Path>` representing the root of the project
+/// (the directory the config was found in), and the `ConfigFile` that was loaded/created. The root
+/// of the project may be `None` if it can't be found (no [`Path::parent()`]) or it's irrelevant (bundled typeshed).
 pub fn standard_config_finder(
     configure: Arc<dyn Fn(Option<&Path>, ConfigFile) -> ConfigFile + Send + Sync>,
 ) -> ConfigFinder {
@@ -97,16 +101,20 @@ pub fn standard_config_finder(
 
 #[cfg(test)]
 mod tests {
+
     use std::ffi::OsString;
-    use std::sync::Arc;
+    use std::ops::Deref as _;
 
     use clap::Parser;
+    use pretty_assertions::assert_eq;
 
+    use super::*;
     use crate::commands::check::Args;
-    use crate::commands::config_finder::standard_config_finder;
+    use crate::config::config::ConfigSource;
     use crate::config::environment::environment::PythonEnvironment;
     use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
+    use crate::test::util::TestPath;
 
     #[test]
     fn test_site_package_path_from_environment() {
@@ -119,5 +127,121 @@ mod tests {
                 assert!(config.site_package_path().contains(&p));
             }
         }
+    }
+
+    #[test]
+    fn test_low_priority_search_path_fallback() {
+        fn finder(
+            expect_dir: Option<&Path>,
+            module_name: ModuleName,
+            module_path: ModulePath,
+        ) -> ArcId<ConfigFile> {
+            let expect_dir = expect_dir.map(|p| p.to_path_buf());
+            let module_path2 = module_path.clone();
+            standard_config_finder(Arc::new(move |dir, x| {
+                assert_eq!(
+                    dir.map(|p| p.to_path_buf()),
+                    expect_dir,
+                    "failed for {expect_dir:?}, {module_name}, {module_path}"
+                );
+                x
+            }))
+            .python_file(module_name, &module_path2)
+        }
+
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::dir(
+                    "with_config",
+                    vec![
+                        TestPath::file("pyrefly.toml"),
+                        TestPath::dir("foo", vec![TestPath::file("bar.py")]),
+                    ],
+                ),
+                TestPath::dir(
+                    "no_config",
+                    vec![TestPath::dir("foo", vec![TestPath::file("bar.py")])],
+                ),
+            ],
+        );
+
+        // we shouldn't do anything to the search path when we found a config file on disk
+        let config_file = finder(
+            Some(&root.join("with_config")),
+            ModuleName::from_str("foo.bar"),
+            ModulePath::filesystem(root.join("with_config/foo/bar.py")),
+        );
+        assert_eq!(
+            config_file.source,
+            ConfigSource::File(root.join("with_config/pyrefly.toml"))
+        );
+        assert_eq!(config_file.search_path, vec![root.join("with_config")]);
+        assert_eq!(config_file.low_priority_search_path, Vec::<PathBuf>::new());
+
+        // we should get a synthetic config with a search path = project_root/..
+        let config_file = finder(
+            Some(root),
+            ModuleName::from_str("foo.bar"),
+            ModulePath::filesystem(root.join("no_config/foo/bar.py")),
+        );
+        assert_eq!(config_file.source, ConfigSource::Synthetic);
+        assert_eq!(config_file.search_path, vec![root.join("no_config")]);
+        assert_eq!(config_file.low_priority_search_path, Vec::<PathBuf>::new());
+
+        // check invalid module path parent
+        assert_eq!(
+            finder(
+                None,
+                ModuleName::from_str("foo.bar"),
+                ModulePath::filesystem(PathBuf::new())
+            )
+            .deref(),
+            &ConfigFile::default(),
+        );
+
+        // check typeshed
+        assert_eq!(
+            finder(
+                None,
+                ModuleName::from_str("foo.bar"),
+                ModulePath::bundled_typeshed(PathBuf::from("bundled_typeshed")),
+            ),
+            BundledTypeshed::config(),
+        );
+
+        // check namespace
+        let config_file = finder(
+            Some(&root.join("no_config")),
+            ModuleName::unknown(),
+            ModulePath::namespace(root.join("no_config/foo")),
+        );
+        assert_eq!(config_file.source, ConfigSource::Synthetic);
+        assert_eq!(config_file.search_path, Vec::<PathBuf>::new());
+        assert_eq!(
+            config_file.low_priority_search_path,
+            [root.join("no_config/foo"), root.join("no_config")]
+                .into_iter()
+                .chain(root.ancestors().map(PathBuf::from))
+                .collect::<Vec<PathBuf>>(),
+        );
+
+        // check filesystem/memory
+        let config_file = finder(
+            Some(&root.join("no_config")),
+            ModuleName::unknown(),
+            ModulePath::filesystem(root.join("no_config/foo/bar.py")),
+        );
+        assert_eq!(config_file.source, ConfigSource::Synthetic);
+        assert_eq!(config_file.search_path, Vec::<PathBuf>::new());
+        assert_eq!(
+            config_file.low_priority_search_path,
+            [root.join("no_config/foo"), root.join("no_config")]
+                .into_iter()
+                .chain(root.ancestors().map(PathBuf::from))
+                .collect::<Vec<PathBuf>>(),
+        );
     }
 }
