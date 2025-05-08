@@ -16,7 +16,15 @@ $ $PYREFLY check $TEST_PY -a
 [0]
 ```
 
-## JSON output
+## Text output on stdout
+
+```scrut
+$ echo "x: str = 42" > $TMPDIR/test.py && $PYREFLY check $TMPDIR/test.py
+*/test.py:1:* (glob)
+[1]
+```
+
+## JSON output on stdout
 
 ```scrut
 $ echo "x: str = 42" > $TMPDIR/test.py && $PYREFLY check $TMPDIR/test.py --output-format json | $JQ '.[] | length'
@@ -42,60 +50,55 @@ Invalid --search-path: `*/does_not_exist` does not exist (glob)
 
 ## We can typecheck two files with the same name
 
-```scrut {output_stream: stderr}
+```scrut
 $ echo "x: str = 12" > $TMPDIR/same_name.py && \
 > echo "x: str = True" > $TMPDIR/same_name.pyi && \
 > $PYREFLY check --python-version 3.13.0 $TMPDIR/same_name.py $TMPDIR/same_name.pyi
-ERROR */same_name.py*:1:10-* (glob)
-ERROR */same_name.py*:1:10-* (glob)
- INFO 2 errors* (glob)
+*/same_name.py*:1:10-* (glob)
+*/same_name.py*:1:10-* (glob)
 [1]
 ```
 
 ## We don't report from nested files
 
-```scrut {output_stream: stderr}
+```scrut
 $ echo "x: str = 12" > $TMPDIR/hidden1.py && \
 > echo "import hidden1; y: int = hidden1.x" > $TMPDIR/hidden2.py && \
 > $PYREFLY check --python-version 3.13.0 $TMPDIR/hidden2.py
-ERROR */hidden2.py:1:26-35: `str` is not assignable to `int` [bad-assignment] (glob)
- INFO 1 errors* (glob)
+*/hidden2.py:1:26-35: `str` is not assignable to `int` [bad-assignment] (glob)
 [1]
 ```
 
 ## We can find adjacent modules for unknown paths
 
-```scrut {output_stream: stderr}
+```scrut
 $ mkdir -p $TMPDIR/inner/foo && mkdir -p $TMPDIR/inner/baz && \
 > echo "x: str = 12" > $TMPDIR/inner/foo/bar.py && \
 > echo "import foo.bar; y: int = foo.bar.x" > $TMPDIR/inner/baz/quux.py && \
 > $PYREFLY check --python-version 3.13.0 $TMPDIR/inner/baz/quux.py
-ERROR */inner/baz/quux.py:1:26-35: `str` is not assignable to `int` [bad-assignment] (glob)
- INFO 1 errors* (glob)
+*/inner/baz/quux.py:1:26-35: `str` is not assignable to `int` [bad-assignment] (glob)
 [1]
 ```
 
 ## We do report from nested with --check-all
 
-```scrut {output_stream: stderr}
+```scrut
 $ echo "x: str = 12" > $TMPDIR/shown1.py && \
 > echo "import shown1; y: int = shown1.x" > $TMPDIR/shown2.py && \
 > $PYREFLY check --python-version 3.13.0 $TMPDIR/shown2.py --check-all
-ERROR */shown*.py:1:* (glob)
-ERROR */shown*.py:1:* (glob)
- INFO * errors* (glob)
+*/shown*.py:1:* (glob)
+*/shown*.py:1:* (glob)
 [1]
 ```
 
 ## We can do our own globbing
 
-```scrut {output_stream: stderr}
+```scrut
 $ echo "x: str = 12" > $TMPDIR/glob1.py && \
 > echo "x: str = 12" > $TMPDIR/glob2.py && \
 > $PYREFLY check --python-version 3.13.0 "$TMPDIR/glob*.py"
-ERROR */glob*.py:1:* (glob)
-ERROR */glob*.py:1:* (glob)
- INFO 2 errors* (glob)
+*/glob*.py:1:* (glob)
+*/glob*.py:1:* (glob)
 [1]
 ```
 

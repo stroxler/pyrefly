@@ -36,7 +36,6 @@ use crate::config::config::validate_path;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;
 use crate::error::error::print_error_counts;
-use crate::error::error::print_errors;
 use crate::error::legacy::LegacyErrors;
 use crate::error::summarise::print_error_summary;
 use crate::module::bundled::stdlib_search_path;
@@ -159,7 +158,15 @@ impl OutputFormat {
     }
 
     fn write_error_text_to_console(errors: &[Error]) -> anyhow::Result<()> {
-        print_errors(errors);
+        for error in errors {
+            println!(
+                "{}:{}: {} [{}]",
+                error.path().as_path().display(),
+                error.source_range(),
+                error.msg(),
+                error.error_kind().to_name()
+            )
+        }
         Ok(())
     }
 
