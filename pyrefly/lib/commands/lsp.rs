@@ -597,6 +597,9 @@ impl Server {
             }
             ServerEvent::CancelRequest(id) => {
                 eprintln!("We should cancel request {:?}", id);
+                if let Some(cancellation_handle) = self.cancellation_handles.lock().remove(&id) {
+                    cancellation_handle.cancel();
+                }
                 canceled_requests.insert(id);
             }
             ServerEvent::DidOpenTextDocument(params) => {
