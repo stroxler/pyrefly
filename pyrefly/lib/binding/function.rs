@@ -183,44 +183,18 @@ impl<'a> BindingsBuilder<'a> {
         (func_scope, yields_and_returns)
     }
 
-    pub fn function_def(&mut self, mut x: StmtFunctionDef) {
-        // Get preceding function definition, if any. Used for building an overload type.
-        let mut pred_idx = None;
-        let mut pred_function_idx = None;
-        if let Some(flow) = self.scopes.current().flow.info.get(&x.name.id) {
-            if let FlowStyle::FunctionDef(fidx, _) = flow.style {
-                pred_idx = Some(flow.key);
-                pred_function_idx = Some(fidx);
-            }
-        }
-
-        let func_name = x.name.clone();
-        let function_idx = self
-            .table
-            .functions
-            .0
-            .insert(KeyFunction(ShortIdentifier::new(&func_name)));
-        let (class_key, class_meta) = match &self.scopes.current().kind {
-            ScopeKind::ClassBody(body) => (
-                Some(self.table.classes.0.insert(body.as_class_key())),
-                Some(
-                    self.table
-                        .class_metadata
-                        .0
-                        .insert(body.as_class_metadata_key()),
-                ),
-            ),
-            _ => (None, None),
-        };
-
-        let decorators = self.ensure_and_bind_decorators(mem::take(&mut x.decorator_list));
-
-        self.scopes.push(Scope::annotation(x.range));
-        let (return_ann_with_range, legacy_tparams) =
-            self.function_header(&mut x, &func_name, class_key);
-        let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
-
-        let body = mem::take(&mut x.body);
+    fn function_body(
+        &mut self,
+        parameters: &mut Box<Parameters>,
+        body: Vec<Stmt>,
+        decorators: Box<[Idx<Key>]>,
+        range: TextRange,
+        is_async: bool,
+        return_ann_with_range: Option<(TextRange, Idx<KeyAnnotation>)>,
+        func_name: &Identifier,
+        function_idx: Idx<KeyFunction>,
+        class_key: Option<Idx<KeyClass>>,
+    ) -> (FunctionSource, Scope) {
         let source = if is_ellipse(&body) || self.module_info.path().is_interface() {
             FunctionSource::Stub
         } else {
@@ -242,26 +216,20 @@ impl<'a> BindingsBuilder<'a> {
                 .into_boxed_slice()
             });
             self.table.insert(
-                Key::ReturnImplicit(ShortIdentifier::new(&func_name)),
+                Key::ReturnImplicit(ShortIdentifier::new(func_name)),
                 Binding::ReturnImplicit(ReturnImplicit {
                     last_exprs,
                     function_source: source,
-                    decorators: decorators.clone().into_boxed_slice(),
+                    decorators,
                 }),
             )
         };
 
-        let (func_scope, yields_and_returns) = self.function_body_scope(
-            &mut x.parameters,
-            body,
-            x.range,
-            &func_name,
-            function_idx,
-            class_key,
-        );
+        let (func_scope, yields_and_returns) =
+            self.function_body_scope(parameters, body, range, func_name, function_idx, class_key);
 
-        let is_async = x.is_async;
         let is_generator = !yields_and_returns.yields.is_empty();
+        let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
 
         // Collect the keys of explicit returns.
         let return_keys = yields_and_returns
@@ -301,14 +269,65 @@ impl<'a> BindingsBuilder<'a> {
             .into_boxed_slice();
 
         self.table.insert(
-            Key::ReturnType(ShortIdentifier::new(&func_name)),
+            Key::ReturnType(ShortIdentifier::new(func_name)),
             Binding::ReturnType(ReturnType {
                 annot: return_ann_with_range,
                 returns: return_keys,
                 implicit_return,
                 yields: yield_keys,
-                is_async: x.is_async,
+                is_async,
             }),
+        );
+
+        (source, func_scope)
+    }
+
+    pub fn function_def(&mut self, mut x: StmtFunctionDef) {
+        // Get preceding function definition, if any. Used for building an overload type.
+        let mut pred_idx = None;
+        let mut pred_function_idx = None;
+        if let Some(flow) = self.scopes.current().flow.info.get(&x.name.id) {
+            if let FlowStyle::FunctionDef(fidx, _) = flow.style {
+                pred_idx = Some(flow.key);
+                pred_function_idx = Some(fidx);
+            }
+        }
+
+        let func_name = x.name.clone();
+        let function_idx = self
+            .table
+            .functions
+            .0
+            .insert(KeyFunction(ShortIdentifier::new(&func_name)));
+        let (class_key, class_meta) = match &self.scopes.current().kind {
+            ScopeKind::ClassBody(body) => (
+                Some(self.table.classes.0.insert(body.as_class_key())),
+                Some(
+                    self.table
+                        .class_metadata
+                        .0
+                        .insert(body.as_class_metadata_key()),
+                ),
+            ),
+            _ => (None, None),
+        };
+
+        let decorators = self.ensure_and_bind_decorators(mem::take(&mut x.decorator_list));
+
+        self.scopes.push(Scope::annotation(x.range));
+        let (return_ann_with_range, legacy_tparams) =
+            self.function_header(&mut x, &func_name, class_key);
+
+        let (source, func_scope) = self.function_body(
+            &mut x.parameters,
+            mem::take(&mut x.body),
+            decorators.clone().into_boxed_slice(),
+            x.range,
+            x.is_async,
+            return_ann_with_range,
+            &func_name,
+            function_idx,
+            class_key,
         );
 
         // Pop the annotation scope to get back to the parent scope, and handle this
@@ -340,7 +359,7 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_definition(
             &func_name,
             Binding::Function(function_idx, pred_idx, class_meta),
-            FlowStyle::FunctionDef(function_idx, return_ann.is_some()),
+            FlowStyle::FunctionDef(function_idx, return_ann_with_range.is_some()),
         );
     }
 }
