@@ -164,7 +164,7 @@ impl<'a> IDETransactionManager<'a> {
     ) -> Result<CommittingTransaction<'a>, Transaction<'a>> {
         // If there is no ongoing recheck due to on-disk changes, we should prefer to commit
         // the in-memory changes into the main state.
-        if let Some(transaction) = state.try_new_committable_transaction(Require::Exports, None) {
+        if let Some(transaction) = state.try_new_committable_transaction(Require::Indexing, None) {
             // If we can commit in-memory changes, then there is no point of holding the
             // non-commitable transaction with a possibly outdated view of the `ReadableState`
             // so we can destroy the saved state.
@@ -763,7 +763,7 @@ impl Server {
         let immediately_handled_events = self.immediately_handled_events.dupe();
         let cancellation_handles = self.cancellation_handles.dupe();
         std::thread::spawn(move || {
-            let mut transaction = state.new_committable_transaction(Require::Exports, None);
+            let mut transaction = state.new_committable_transaction(Require::Indexing, None);
             f(transaction.as_mut());
             // Commit will be blocked until there are no ongoing reads.
             // If we have some long running read jobs that can be cancelled, we should cancel them
@@ -809,7 +809,7 @@ impl Server {
         );
         let mut transaction = self
             .state
-            .new_committable_transaction(Require::Exports, None);
+            .new_committable_transaction(Require::Indexing, None);
 
         let mut handles = Vec::new();
         for workspace in workspaces {
@@ -826,7 +826,7 @@ impl Server {
                     .unwrap_or_else(ModuleName::unknown);
                 handles.push((
                     Handle::new(module_name, module_path, path_config.get_sys_info()),
-                    Require::Exports,
+                    Require::Indexing,
                 ));
             }
         }

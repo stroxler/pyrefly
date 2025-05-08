@@ -292,6 +292,7 @@ impl<'a> Transaction<'a> {
             self.find_definition(handle, position)
         {
             self.local_references_from_definition(handle, definition_kind, definition)
+                .unwrap_or_default()
         } else {
             Vec::new()
         }
@@ -302,7 +303,41 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         definition_metadata: DefinitionMetadata,
         definition: TextRangeWithModuleInfo,
-    ) -> Vec<TextRange> {
+    ) -> Option<Vec<TextRange>> {
+        if handle.path() != definition.module_info.path() {
+            let index = self.get_solutions(handle)?.get_index()?;
+            let index = index.lock();
+            let mut references = Vec::new();
+            for ((imported_module_name, imported_name), ranges) in
+                &index.externally_defined_variable_references
+            {
+                let mut gas = INITIAL_GAS;
+                if let Some((imported_handle, export)) = self.resolve_named_import(
+                    handle,
+                    *imported_module_name,
+                    imported_name.clone(),
+                    &mut gas,
+                ) && imported_handle.path().as_path() == definition.module_info.path().as_path()
+                    && export.location == definition.range
+                {
+                    references.extend(ranges.iter().copied());
+                }
+            }
+            for (attribute_module_path, def_and_ref_ranges) in
+                &index.externally_defined_attribute_references
+            {
+                if attribute_module_path == definition.module_info.path() {
+                    for (def_range, ref_range) in def_and_ref_ranges {
+                        if def_range == &definition.range {
+                            references.push(*ref_range);
+                        }
+                    }
+                }
+            }
+            references.sort_by_key(|range| range.start());
+            references.dedup();
+            return Some(references);
+        }
         let mut references = match definition_metadata {
             DefinitionMetadata::Attribute(expected_name) => {
                 self.local_attribute_references_from_definition(handle, &definition, &expected_name)
@@ -317,7 +352,7 @@ impl<'a> Transaction<'a> {
         }
         references.sort_by_key(|range| range.start());
         references.dedup();
-        references
+        Some(references)
     }
 
     fn local_attribute_references_from_definition(
@@ -582,9 +617,8 @@ impl<'a> CancellableTransaction<'a> {
         definition: TextRangeWithModuleInfo,
     ) -> Result<Vec<(ModuleInfo, Vec<TextRange>)>, Cancelled> {
         // General strategy:
-        // 1: Compute the set of transitive rdeps and check every one of them under `Require::Everything`.
-        // 2. Find references in each one of them (now populated with relevant traces)
-        //    via `local_references_from_definition`
+        // 1: Compute the set of transitive rdeps.
+        // 2. Find references in each one of them using the index computed during earlier checking
         let mut transitive_rdeps = match definition.module_info.path().details() {
             ModulePathDetails::Memory(path_buf) => {
                 let handle_of_filesystem_counterpart = Handle::new(
@@ -606,11 +640,18 @@ impl<'a> CancellableTransaction<'a> {
                 ));
                 rdeps
             }
-            _ => self.as_ref().get_transitive_rdeps(Handle::new(
-                definition.module_info.name(),
-                definition.module_info.path().dupe(),
-                sys_info.dupe(),
-            )),
+            _ => {
+                let definition_handle = Handle::new(
+                    definition.module_info.name(),
+                    definition.module_info.path().dupe(),
+                    sys_info.dupe(),
+                );
+                let rdeps = self.as_ref().get_transitive_rdeps(definition_handle.dupe());
+                // We still need to know everything about the definition file, because the index
+                // only contains non-local references.
+                self.run(&[(definition_handle, Require::Everything)])?;
+                rdeps
+            }
         };
         // Remove the filesystem counterpart from candidate list,
         // otherwise we will have results from both filesystem and in-memory version of the file.
@@ -631,11 +672,9 @@ impl<'a> CancellableTransaction<'a> {
         let candidate_handles_for_references = transitive_rdeps
             .into_iter()
             .sorted_by_key(|h| h.path().dupe())
-            .map(|h| (h, Require::Everything))
             .collect::<Vec<_>>();
-        self.run(&candidate_handles_for_references)?;
         let mut global_references = Vec::new();
-        for (handle, _) in candidate_handles_for_references {
+        for handle in candidate_handles_for_references {
             let definition = match definition.module_info.path().details() {
                 // Special-case for definition inside in-memory file
                 // Calling `local_references_from_definition` naively
@@ -673,11 +712,10 @@ impl<'a> CancellableTransaction<'a> {
                 }
                 _ => definition.clone(),
             };
-            let references = self.as_ref().local_references_from_definition(
-                &handle,
-                definition_kind.clone(),
-                definition,
-            );
+            let references = self
+                .as_ref()
+                .local_references_from_definition(&handle, definition_kind.clone(), definition)
+                .unwrap_or_default();
             if !references.is_empty()
                 && let Some(module_info) = self.as_ref().get_module_info(&handle)
             {

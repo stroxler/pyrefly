@@ -164,6 +164,7 @@ impl Step {
         exports: Exports,
     ) -> Arc<(Bindings, Arc<Answers>)> {
         let solver = Solver::new();
+        let enable_index = ctx.require.keep_index();
         let enable_trace = ctx.require.keep_answers_trace();
         let bindings = Bindings::new(
             ast.range,
@@ -177,7 +178,7 @@ impl Step {
             ctx.uniques,
             enable_trace,
         );
-        let answers = Answers::new(&bindings, solver, enable_trace);
+        let answers = Answers::new(&bindings, solver, enable_index, enable_trace);
         Arc::new((bindings, Arc::new(answers)))
     }
 

@@ -13,14 +13,18 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use ruff_python_ast::name::Name;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
+use crate::alt::attr::AttrInfo;
 use crate::alt::traits::Solve;
 use crate::alt::traits::SolveRecursive;
 use crate::binding::binding::Binding;
+use crate::binding::binding::Key;
 use crate::binding::binding::Keyed;
 use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
@@ -40,6 +44,8 @@ use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::solver::solver::Solver;
 use crate::solver::type_order::TypeOrder;
+use crate::state::ide::IntermediateDefinition;
+use crate::state::ide::binding_to_intermediate_definition;
 use crate::table;
 use crate::table_for_each;
 use crate::table_mut_for_each;
@@ -53,10 +59,23 @@ use crate::types::types::Type;
 use crate::types::types::Var;
 use crate::util::display::DisplayWith;
 use crate::util::display::DisplayWithCtx;
+use crate::util::gas::Gas;
 use crate::util::lock::Mutex;
 use crate::util::recurser::Recurser;
 use crate::util::uniques::UniqueFactory;
 use crate::util::visit::VisitMut;
+
+/// The index stores all the references where the definition is external to the current module.
+/// This is useful for fast references computation.
+#[derive(Debug, Default)]
+pub struct Index {
+    /// A map from (import specifier (ModuleName), imported symbol (Name)) to all references to it
+    /// in the current module.
+    pub externally_defined_variable_references: SmallMap<(ModuleName, Name), Vec<TextRange>>,
+    /// A map from (attribute definition module) to a list of pairs of
+    /// (range of attribute definition in the definition, range of reference in the current module).
+    pub externally_defined_attribute_references: SmallMap<ModulePath, Vec<(TextRange, TextRange)>>,
+}
 
 #[derive(Debug, Default)]
 pub struct Traces {
@@ -74,6 +93,7 @@ pub struct Traces {
 pub struct Answers {
     solver: Solver,
     table: AnswerTable,
+    index: Option<Arc<Mutex<Index>>>,
     trace: Option<Mutex<Traces>>,
 }
 
@@ -129,6 +149,7 @@ table!(
 pub struct Solutions {
     module_info: ModuleInfo,
     table: SolutionsTable,
+    index: Option<Arc<Mutex<Index>>>,
 }
 
 impl Display for Solutions {
@@ -285,6 +306,11 @@ impl Solutions {
         });
         difference
     }
+
+    pub fn get_index(&self) -> Option<Arc<Mutex<Index>>> {
+        let index = self.index.as_ref()?;
+        Some(index.dupe())
+    }
 }
 
 #[derive(Clone)]
@@ -320,7 +346,12 @@ impl Answers {
         &self.table
     }
 
-    pub fn new(bindings: &Bindings, solver: Solver, enable_trace: bool) -> Self {
+    pub fn new(
+        bindings: &Bindings,
+        solver: Solver,
+        enable_index: bool,
+        enable_trace: bool,
+    ) -> Self {
         fn presize<K: SolveRecursive>(items: &mut AnswerEntry<K>, bindings: &Bindings)
         where
             BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
@@ -333,6 +364,11 @@ impl Answers {
         }
         let mut table = AnswerTable::default();
         table_mut_for_each!(&mut table, |items| presize(items, bindings));
+        let index = if enable_index {
+            Some(Arc::new(Mutex::new(Index::default())))
+        } else {
+            None
+        };
         let trace = if enable_trace {
             Some(Mutex::new(Traces::default()))
         } else {
@@ -342,6 +378,7 @@ impl Answers {
         Self {
             solver,
             table,
+            index,
             trace,
         }
     }
@@ -406,6 +443,31 @@ impl Answers {
             &answers_solver,
             compute_everything
         ));
+        if let Some(index) = &self.index {
+            let mut index = index.lock();
+            // Index bindings with external definitions.
+            for idx in bindings.keys::<Key>() {
+                let binding = bindings.get(idx);
+                let (imported_module_name, imported_name) = match binding_to_intermediate_definition(
+                    bindings,
+                    binding,
+                    &mut Gas::new(20),
+                ) {
+                    None => continue,
+                    Some(IntermediateDefinition::Local(_)) => continue,
+                    Some(IntermediateDefinition::Module(_)) => continue,
+                    Some(IntermediateDefinition::NamedImport(module_name, name)) => {
+                        (module_name, name)
+                    }
+                };
+                let reference_range = bindings.idx_to_key(idx).range();
+                index
+                    .externally_defined_variable_references
+                    .entry((imported_module_name, imported_name))
+                    .or_default()
+                    .push(reference_range);
+            }
+        }
 
         // Now force all types to be fully resolved.
         fn post_solve<K: Keyed>(items: &mut SolutionsEntry<K>, solver: &Solver) {
@@ -419,6 +481,7 @@ impl Answers {
         Solutions {
             module_info: bindings.module_info().dupe(),
             table: res,
+            index: self.index.dupe(),
         }
     }
 
@@ -771,5 +834,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// operation that may error but never report errors from it.
     pub fn error_swallower(&self) -> ErrorCollector {
         ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Never)
+    }
+}
+
+impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    pub fn record_external_attribute_definition_index(
+        &self,
+        base: &Type,
+        attribute_name: &Name,
+        attribute_reference_range: TextRange,
+    ) {
+        if let Some(index) = &self.current.index {
+            for AttrInfo {
+                name: _,
+                ty: _,
+                module,
+                range,
+            } in self.completions(base.clone(), Some(attribute_name), false)
+            {
+                if let Some(module) = module
+                    && let Some(range) = range
+                    && module.path() != self.bindings().module_info().path()
+                {
+                    index
+                        .lock()
+                        .externally_defined_attribute_references
+                        .entry(module.path().dupe())
+                        .or_default()
+                        .push((range, attribute_reference_range))
+                }
+            }
+        }
     }
 }

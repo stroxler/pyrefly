@@ -802,7 +802,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     (Type::Literal(Lit::Enum(box (_, _, raw_type))), "_value_" | "value") => {
                         TypeInfo::of_ty(raw_type.clone())
                     }
-                    _ => self.attr_infer(&base, &x.attr.id, x.range, errors, None),
+                    _ => {
+                        self.record_external_attribute_definition_index(
+                            base.ty(),
+                            x.attr.id(),
+                            x.attr.range,
+                        );
+                        self.attr_infer(&base, &x.attr.id, x.range, errors, None)
+                    }
                 }
             }
             Expr::Subscript(x) => {

@@ -17,6 +17,9 @@ pub enum Require {
     Exports,
     /// We want to know what errors this module produces.
     Errors,
+    /// We want to retain enough information about a file (e.g. references),
+    /// so that IDE features that require an index can work.
+    Indexing,
     /// We want to retain all information about this module in memory,
     /// including the AST and bindings/answers.
     Everything,
@@ -27,26 +30,24 @@ impl Require {
         self >= Require::Errors
     }
 
-    /// Currently we only have one state for all memory values, so don't distinguish.
-    /// But we might want to be more fine-grained in the future.
-    fn keep_memory(self) -> bool {
-        self >= Require::Everything
+    pub fn keep_index(self) -> bool {
+        self >= Require::Indexing
     }
 
     pub fn keep_answers_trace(self) -> bool {
-        self.keep_memory()
+        self >= Require::Everything
     }
 
     pub fn keep_ast(self) -> bool {
-        self.keep_memory()
+        self >= Require::Everything
     }
 
     pub fn keep_bindings(self) -> bool {
-        self.keep_memory()
+        self >= Require::Everything
     }
 
     pub fn keep_answers(self) -> bool {
-        self.keep_memory()
+        self >= Require::Everything
     }
 }
 
