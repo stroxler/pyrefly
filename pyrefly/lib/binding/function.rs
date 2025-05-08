@@ -25,7 +25,7 @@ use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingFunction;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
-use crate::binding::binding::FunctionSource;
+use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
@@ -194,11 +194,11 @@ impl<'a> BindingsBuilder<'a> {
         func_name: &Identifier,
         function_idx: Idx<KeyFunction>,
         class_key: Option<Idx<KeyClass>>,
-    ) -> (FunctionSource, Scope) {
-        let source = if is_ellipse(&body) || self.module_info.path().is_interface() {
-            FunctionSource::Stub
+    ) -> (FunctionStubOrImpl, Scope) {
+        let stub_or_impl = if is_ellipse(&body) || self.module_info.path().is_interface() {
+            FunctionStubOrImpl::Stub
         } else {
-            FunctionSource::Impl
+            FunctionStubOrImpl::Impl
         };
 
         // Implicit return
@@ -219,7 +219,7 @@ impl<'a> BindingsBuilder<'a> {
                 Key::ReturnImplicit(ShortIdentifier::new(func_name)),
                 Binding::ReturnImplicit(ReturnImplicit {
                     last_exprs,
-                    function_source: source,
+                    stub_or_impl,
                     decorators,
                 }),
             )
@@ -279,7 +279,7 @@ impl<'a> BindingsBuilder<'a> {
             }),
         );
 
-        (source, func_scope)
+        (stub_or_impl, func_scope)
     }
 
     pub fn function_def(&mut self, mut x: StmtFunctionDef) {
@@ -318,7 +318,7 @@ impl<'a> BindingsBuilder<'a> {
         let (return_ann_with_range, legacy_tparams) =
             self.function_header(&mut x, &func_name, class_key);
 
-        let (source, func_scope) = self.function_body(
+        let (stub_or_impl, func_scope) = self.function_body(
             &mut x.parameters,
             mem::take(&mut x.body),
             decorators.clone().into_boxed_slice(),
@@ -343,7 +343,7 @@ impl<'a> BindingsBuilder<'a> {
             KeyFunction(ShortIdentifier::new(&func_name)),
             BindingFunction {
                 def: x,
-                source,
+                stub_or_impl,
                 class_key,
                 decorators: decorators.into_boxed_slice(),
                 legacy_tparams: legacy_tparams.into_boxed_slice(),

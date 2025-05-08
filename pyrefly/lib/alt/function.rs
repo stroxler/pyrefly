@@ -21,7 +21,7 @@ use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::binding::binding::Binding;
-use crate::binding::binding::FunctionSource;
+use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
@@ -145,7 +145,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn function_definition(
         &self,
         def: &StmtFunctionDef,
-        source: FunctionSource,
+        stub_or_impl: FunctionStubOrImpl,
         class_key: Option<&Idx<KeyClass>>,
         decorators: &[Idx<Key>],
         legacy_tparams: &[Idx<KeyLegacyTypeParam>],
@@ -155,7 +155,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let mut required = Required::Required;
             if let Some(default) = default {
                 required = Required::Optional;
-                if source != FunctionSource::Stub
+                if stub_or_impl != FunctionStubOrImpl::Stub
                     || !matches!(default.as_ref(), Expr::EllipsisLiteral(_))
                 {
                     self.expr(

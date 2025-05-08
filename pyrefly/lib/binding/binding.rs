@@ -576,7 +576,7 @@ impl IsAsync {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FunctionSource {
+pub enum FunctionStubOrImpl {
     Stub,
     Impl,
 }
@@ -585,7 +585,7 @@ pub enum FunctionSource {
 pub struct BindingFunction {
     /// A function definition, but with the return/body stripped out.
     pub def: StmtFunctionDef,
-    pub source: FunctionSource,
+    pub stub_or_impl: FunctionStubOrImpl,
     pub class_key: Option<Idx<KeyClass>>,
     pub decorators: Box<[Idx<Key>]>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
@@ -647,7 +647,7 @@ pub struct ReturnImplicit {
     pub last_exprs: Option<Box<[(LastStmt, Idx<Key>)]>>,
     /// Ignore the implicit return type for stub functions (returning `...`). This is
     /// unsafe, but is convenient and matches Pyright's behavior.
-    pub function_source: FunctionSource,
+    pub stub_or_impl: FunctionStubOrImpl,
     pub decorators: Box<[Idx<Key>]>,
 }
 

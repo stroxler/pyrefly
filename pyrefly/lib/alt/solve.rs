@@ -48,7 +48,7 @@ use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::EmptyAnswer;
 use crate::binding::binding::ExprOrBinding;
-use crate::binding::binding::FunctionSource;
+use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::Initialized;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
@@ -1994,7 +1994,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // instead of `None`. Instead, we should just ignore the implicit return for stub
                 // functions when solving Binding::ReturnType. Unfortunately, this leads to
                 // another issue (see comment on Binding::ReturnType).
-                if x.function_source == FunctionSource::Stub
+                if x.stub_or_impl == FunctionStubOrImpl::Stub
                     || x.decorators.iter().any(|k| {
                         // We handle functions decorated with `@abstractmethod` the same way
                         // as stubs, inferring an implicit return of `Never` instead of `None`
@@ -2394,7 +2394,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Arc<DecoratedFunction> {
         self.function_definition(
             &x.def,
-            x.source,
+            x.stub_or_impl,
             x.class_key.as_ref(),
             &x.decorators,
             &x.legacy_tparams,
