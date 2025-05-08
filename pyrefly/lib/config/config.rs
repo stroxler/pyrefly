@@ -242,6 +242,10 @@ impl ConfigFile {
                 &self.low_priority_search_path,
                 self.site_package_path(),
                 module,
+                match &self.source {
+                    ConfigSource::File(file) => Some(file),
+                    _ => None,
+                },
             ))
         }
     }

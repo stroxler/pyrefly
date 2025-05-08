@@ -48,16 +48,23 @@ impl FindError {
         low_priority_search_roots: &[PathBuf],
         site_package_path: &[PathBuf],
         module: ModuleName,
+        config_path: Option<&Path>,
     ) -> FindError {
+        let config_path = config_path
+            .map(|p| format!(" (from config at {})", p.display()))
+            .unwrap_or_default();
         if search_roots.is_empty()
             && low_priority_search_roots.is_empty()
             && site_package_path.is_empty()
         {
-            Self::not_found(anyhow!("no search roots or site package path"), module)
+            Self::not_found(
+                anyhow!("no search roots or site package path{config_path}"),
+                module,
+            )
         } else {
             Self::not_found(
                 anyhow!(
-                    "looked at search roots ({}), implied search roots ({}), and site package path ({})",
+                    "looked at search roots ({}), implied search roots ({}), and site package path ({}){config_path}",
                     commas_iter(|| search_roots.iter().map(|x| x.display())),
                     commas_iter(|| low_priority_search_roots.iter().map(|x| x.display())),
                     commas_iter(|| site_package_path.iter().map(|x| x.display())),
