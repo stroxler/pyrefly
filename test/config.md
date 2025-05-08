@@ -6,7 +6,7 @@
 $ echo "" > $TMPDIR/empty.py && echo -e "project_includes = [\"$TMPDIR/empty.py\"]\nsite_package_path = [\"$TMPDIR/abcd\"]\nsearch_path = [\"$TMPDIR/abcd\"]" > $TMPDIR/pyrefly.toml && $PYREFLY check -c $TMPDIR/pyrefly.toml --python-version 3.13.0 && rm $TMPDIR/pyrefly.toml
  WARN Invalid site_package_path in `*/pyrefly.toml`: * does not exist (glob)
  WARN Invalid search_path in `*/pyrefly.toml`: * does not exist (glob)
- INFO Checking project configured at "*/pyrefly.toml" (glob)
+ INFO Checking project configured at `*/pyrefly.toml` (glob)
  INFO * errors* (glob)
 [0]
 ```

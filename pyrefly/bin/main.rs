@@ -136,7 +136,7 @@ fn config_finder(args: library::run::CheckArgs) -> ConfigFinder {
     standard_config_finder(Arc::new(move |_, x| {
         let (config, errors) = args.override_config(x);
         for e in errors {
-            warn!("{}", e);
+            warn!("{e:#}");
         }
         config
     }))
@@ -157,7 +157,7 @@ fn get_globs_and_config_for_project(
             // We deliberately don't use the cached object, since we want errors in an explicit config to be fatal
             let (config, errors) = args.override_config(ConfigFile::from_file(&explicit, true)?);
             for e in errors {
-                warn!("{}", e);
+                warn!("{e:#}");
             }
             (ArcId::new(config), Vec::new())
         }
@@ -179,7 +179,7 @@ fn get_globs_and_config_for_project(
     };
     match &config.source {
         ConfigSource::File(path) => {
-            info!("Checking project configured at {path:?}");
+            info!("Checking project configured at `{}`", path.display());
         }
         ConfigSource::Synthetic => {
             info!("Checking current directory with default configuration");
@@ -213,7 +213,7 @@ fn get_globs_and_config_for_files(
         Some(explicit) => {
             let (config, errors) = args.override_config(ConfigFile::from_file(&explicit, true)?);
             for e in errors {
-                warn!("{}", e);
+                warn!("{e:#}");
             }
             ConfigFinder::new_constant(ArcId::new(config))
         }

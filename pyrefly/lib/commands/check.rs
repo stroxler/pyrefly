@@ -556,7 +556,7 @@ impl Args {
         let config_errors = transaction.get_config_errors();
         let has_config_errors = !config_errors.is_empty();
         for error in config_errors {
-            error!("{}", error);
+            error!("{error:#}");
         }
 
         let errors = loads.collect_errors();

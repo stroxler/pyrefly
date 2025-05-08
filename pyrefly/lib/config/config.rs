@@ -440,7 +440,7 @@ impl ConfigFile {
             paths.iter().filter_map(move |p| {
                 validate_path(p)
                     .err()
-                    .map(|err| anyhow!("Invalid {desc}: {err}"))
+                    .map(|err| err.context(format!("Invalid {desc}")))
             })
         }
         let mut errors = Vec::new();
@@ -511,7 +511,7 @@ impl ConfigFile {
         }
         f(config_path, error_on_extras).map_err(|err| {
             let file_str = config_path.display();
-            anyhow!("Failed to parse configuration at {file_str}: {err}")
+            err.context(format!("Failed to parse configuration at {file_str}"))
         })
     }
 
