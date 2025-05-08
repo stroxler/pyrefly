@@ -104,7 +104,7 @@ mod tests {
 
     use crate::commands::check::Args;
     use crate::commands::config_finder::standard_config_finder;
-    use crate::config::environment::PythonEnvironment;
+    use crate::config::environment::environment::PythonEnvironment;
     use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
 

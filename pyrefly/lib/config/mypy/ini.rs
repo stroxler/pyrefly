@@ -18,7 +18,7 @@ use regex_syntax::ast::print;
 use serde::Deserialize;
 
 use crate::config::config::ConfigFile;
-use crate::config::environment::PythonEnvironment;
+use crate::config::environment::environment::PythonEnvironment;
 use crate::config::mypy::regex_converter;
 use crate::module::wildcard::ModuleWildcard;
 use crate::sys_info::PythonPlatform;

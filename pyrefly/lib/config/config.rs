@@ -22,7 +22,7 @@ use tracing::debug;
 use tracing::warn;
 
 use crate::config::base::ConfigBase;
-use crate::config::environment::PythonEnvironment;
+use crate::config::environment::environment::PythonEnvironment;
 use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::module::bundled::typeshed;

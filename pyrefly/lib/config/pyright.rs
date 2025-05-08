@@ -169,7 +169,7 @@ pub fn parse_pyproject_toml(raw_file: &str) -> anyhow::Result<ConfigFile> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::environment::PythonEnvironment;
+    use crate::config::environment::environment::PythonEnvironment;
 
     #[test]
     fn test_convert_pyright_config() -> anyhow::Result<()> {
