@@ -238,6 +238,7 @@ const config: Config = {
     themeConfig: {
         prism: {
             theme: prismThemes.github,
+            darkTheme: prismThemes.dracula
         },
         colorMode: {
             defaultMode: 'dark',
