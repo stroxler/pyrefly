@@ -14,6 +14,7 @@ use starlark_map::small_set::SmallSet;
 use tracing::error;
 
 use crate::error::error::Error;
+use crate::ruff::ast::Ast;
 use crate::util::fs_anyhow;
 
 /// Combines all errors that affect one line into a single entry.
@@ -50,6 +51,17 @@ fn add_suppressions(
                 continue;
             }
         };
+        // Avoid adding suppressions to files that are not parsable.
+        // Save AST for comparison later
+        let (_ast, parse_errors) = Ast::parse(&file);
+        if !parse_errors.is_empty() {
+            eprintln!(
+                "Unable to silence errors in `{}` because it is not parsable",
+                path.display()
+            );
+            failures.push((path, anyhow::Error::msg("File is not parsable")));
+            continue;
+        }
         let deduped_errors = dedup_errors(errors);
         let mut buf = String::new();
         for (idx, line) in file.lines().enumerate() {
@@ -214,6 +226,31 @@ mod tests {
         assert_str_eq!(output, got_file);
     }
 
+    fn assert_no_error_suppression(
+        path_errors: Vec<(usize, usize, ErrorKind)>,
+        input: &str,
+        output: &str,
+    ) {
+        let tdir = tempfile::tempdir().unwrap();
+        let path = tdir.path().join("test.py");
+        fs_anyhow::write(&path, input.as_bytes()).unwrap();
+        let errors = {
+            let mut e = SmallMap::new();
+            e.insert(
+                path.clone(),
+                path_errors
+                    .into_iter()
+                    .map(|x| error(path.clone(), x.0, x.1, x.2))
+                    .collect(),
+            );
+            e
+        };
+        let (failures, _successes) = add_suppressions(&errors);
+        assert!(!failures.is_empty());
+        let got_file = fs_anyhow::read_to_string(&path).unwrap();
+        assert_str_eq!(output, got_file);
+    }
+
     #[test]
     fn test_add_suppressions() {
         assert_suppress_errors(
@@ -266,6 +303,29 @@ def foo() -> None: pass
 # pyrefly: ignore  # bad-assignment
 def foo() -> None: pass
 "#,
+        );
+    }
+
+    #[test]
+    fn test_add_suppressions_unparseable_line_break() {
+        assert_no_error_suppression(
+            vec![(3, 10, ErrorKind::BadAssignment)],
+            r#"
+def foo() -> None:
+    line_break = \\
+        [
+            param
+        ]
+    unrelated_line = 0
+        "#,
+            r#"
+def foo() -> None:
+    line_break = \\
+        [
+            param
+        ]
+    unrelated_line = 0
+        "#,
         );
     }
 
