@@ -4,46 +4,6 @@ import { useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import typography from './typography';
 
-const styles = stylex.create({
-    codeSnippet: {
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: 0,
-        filter: 'blur(6px)',
-        transform: 'rotateX(15deg) translateY(15px)',
-        transformOrigin: 'center center',
-        transition: 'all 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        transitionDelay: '0.4s', // delay for button group
-    },
-    codeSnippetVisible: {
-        opacity: 1,
-        filter: 'blur(0px)',
-        transform: 'rotateX(0deg) translateY(0)',
-    },
-    pre: {
-        maxWidth: '400px',
-        width: '100%',
-        borderRadius: '4px',
-        color: 'black',
-        padding: '4px 10px',
-        marginTop: '10px',
-        position: 'relative',
-    },
-    copy: {
-        position: 'absolute',
-        top: '4px',
-        right: '4px',
-        border: 'none',
-        backgroundColor: 'transparent',
-        ':hover': {
-            cursor: 'pointer',
-        },
-    },
-});
-
 const CodeSnippet: React.FC = () => {
     const [isCopied, setIsCopied] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
@@ -123,5 +83,45 @@ const CodeSnippet: React.FC = () => {
         </div>
     );
 };
+
+const styles = stylex.create({
+    codeSnippet: {
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: 0,
+        filter: 'blur(6px)',
+        transform: 'rotateX(15deg) translateY(15px)',
+        transformOrigin: 'center center',
+        transition: 'all 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        transitionDelay: '0.4s', // delay for button group
+    },
+    codeSnippetVisible: {
+        opacity: 1,
+        filter: 'blur(0px)',
+        transform: 'rotateX(0deg) translateY(0)',
+    },
+    pre: {
+        maxWidth: '400px',
+        width: '100%',
+        borderRadius: '4px',
+        color: 'black',
+        padding: '4px 10px',
+        marginTop: '10px',
+        position: 'relative',
+    },
+    copy: {
+        position: 'absolute',
+        top: '4px',
+        right: '4px',
+        border: 'none',
+        backgroundColor: 'transparent',
+        ':hover': {
+            cursor: 'pointer',
+        },
+    },
+});
 
 export default CodeSnippet;
