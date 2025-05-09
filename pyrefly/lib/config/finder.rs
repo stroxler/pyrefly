@@ -26,7 +26,7 @@ use crate::util::upward_search::UpwardSearch;
 /// Uses a lot of caching.
 pub struct ConfigFinder<T = ArcId<ConfigFile>> {
     /// The cached state, with previously found entries.
-    search: UpwardSearch<Option<T>>,
+    search: UpwardSearch<T>,
     /// The errors that have occurred when loading.
     errors: Arc<Mutex<Vec<anyhow::Error>>>,
 
@@ -40,7 +40,7 @@ pub struct ConfigFinder<T = ArcId<ConfigFile>> {
 impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     /// Create a new ConfigFinder a way to load a config file, and a default if that errors or there is no file.
     pub fn new(
-        load: Box<dyn Fn(&Path) -> anyhow::Result<T> + Send + Sync>,
+        load: Box<dyn Fn(&Path) -> (T, Vec<anyhow::Error>) + Send + Sync>,
         fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
     ) -> Self {
         Self::new_custom(Box::new(|_, _| Ok(None)), load, fallback)
@@ -54,7 +54,7 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
 
         Self::new_custom(
             Box::new(move |_, _| Ok(Some(c1.dupe()))),
-            Box::new(move |_| Ok(c2.dupe())),
+            Box::new(move |_| (c2.dupe(), Vec::new())),
             Box::new(move |_, _| c3.dupe()),
         )
     }
@@ -64,7 +64,7 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     /// The `before` function is not cached in any way.
     fn new_custom(
         before: Box<dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<T>> + Send + Sync>,
-        load: Box<dyn Fn(&Path) -> anyhow::Result<T> + Send + Sync>,
+        load: Box<dyn Fn(&Path) -> (T, Vec<anyhow::Error>) + Send + Sync>,
         fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
     ) -> Self {
         let errors = Arc::new(Mutex::new(Vec::new()));
@@ -77,12 +77,10 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
                     .chain(ConfigFile::ADDITIONAL_ROOT_FILE_NAMES)
                     .map(OsString::from)
                     .collect(),
-                move |x| match load(x) {
-                    Ok(v) => Some(v),
-                    Err(e) => {
-                        errors2.lock().push(e);
-                        None
-                    }
+                move |x| {
+                    let (v, errors) = load(x);
+                    errors2.lock().extend(errors);
+                    v
                 },
             ),
             errors,
@@ -108,7 +106,7 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
 
     /// Get the config file associated with a directory.
     pub fn directory(&self, dir: &Path) -> Option<T> {
-        self.search.directory(dir).flatten()
+        self.search.directory(dir)
     }
 
     /// Get the config file given a Python file.
@@ -125,7 +123,6 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
             Some(parent) => self
                 .search
                 .directory_absolute(parent)
-                .flatten()
                 .unwrap_or_else(|| (self.fallback)(name, path)),
             None => (self.fallback)(name, path),
         };

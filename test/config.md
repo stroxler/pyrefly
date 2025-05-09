@@ -41,7 +41,7 @@ $ echo "x: str = 0" > $TMPDIR/oops.py && echo "errors = { bad-assignment = false
 
 ```scrut {output_stream: stderr}
 $ mkdir $TMPDIR/implicit && touch $TMPDIR/implicit/empty.py && echo "oops oops" > $TMPDIR/implicit/pyrefly.toml && cd $TMPDIR/implicit && $PYREFLY check
- INFO Checking current directory with default configuration
+ INFO Checking project configured at `*/pyrefly.toml` (glob)
 ERROR Failed to parse configuration* (glob)
 * (glob*)
 [1]

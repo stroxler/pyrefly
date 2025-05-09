@@ -46,10 +46,7 @@ pub fn standard_config_finder(
     ConfigFinder::new(
         Box::new(move |file| {
             let (config, errors) = ConfigFile::from_file(file, false);
-            if let Some(e) = errors.into_iter().next() {
-                return Err(e);
-            }
-            Ok(ArcId::new(configure(file.parent(), config)))
+            (ArcId::new(configure(file.parent(), config)), errors)
         }),
         // Fall back to using a default config, but let's see if we can make the `search_path` somewhat useful
         // based on a few heuristics.
