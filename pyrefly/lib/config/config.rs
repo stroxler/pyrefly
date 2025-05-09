@@ -129,10 +129,10 @@ pub struct ConfigFile {
     pub search_path: Vec<PathBuf>,
 
     /// Not exposed to the user. When we aren't able to determine the root of a
-    /// project, we guess some low-priority search paths that are checked after
+    /// project, we guess some fallback search paths that are checked after
     /// typeshed (so we don't clobber the stdlib) and before site_package_path.
     #[serde(default, skip)]
-    pub low_priority_search_path: Vec<PathBuf>,
+    pub fallback_search_path: Vec<PathBuf>,
 
     // TODO(connernilsen): make this mutually exclusive with venv/conda env
     /// The python executable that will be queried for `python_version`,
@@ -179,7 +179,7 @@ impl Default for ConfigFile {
             project_excludes: Default::default(),
             python_interpreter: None,
             search_path: Vec::new(),
-            low_priority_search_path: Vec::new(),
+            fallback_search_path: Vec::new(),
             python_environment: Default::default(),
             root: Default::default(),
             sub_configs: Default::default(),
@@ -235,9 +235,7 @@ impl ConfigFile {
             .find(module)
         {
             Ok(path)
-        } else if let Some(path) =
-            find_module_in_search_path(module, &self.low_priority_search_path)
-        {
+        } else if let Some(path) = find_module_in_search_path(module, &self.fallback_search_path) {
             Ok(path)
         } else if let Some(path) = find_module_in_site_package_path(
             module,
@@ -249,7 +247,7 @@ impl ConfigFile {
         } else {
             Err(FindError::search_path(
                 &self.search_path,
-                &self.low_priority_search_path,
+                &self.fallback_search_path,
                 self.site_package_path(),
                 module,
                 match &self.source {
@@ -638,7 +636,7 @@ mod tests {
                 ]),
                 project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]),
                 search_path: vec![PathBuf::from("../..")],
-                low_priority_search_path: Vec::new(),
+                fallback_search_path: Vec::new(),
                 python_environment: PythonEnvironment::new(
                     PythonPlatform::mac(),
                     PythonVersion::new(1, 2, 3),
@@ -826,7 +824,7 @@ mod tests {
             project_includes: Globs::new(vec!["path1/**".to_owned(), "path2/path3".to_owned()]),
             project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]),
             search_path: vec![PathBuf::from("../..")],
-            low_priority_search_path: Vec::new(),
+            fallback_search_path: Vec::new(),
             python_environment: python_environment.clone(),
             python_interpreter: Some(PathBuf::from(interpreter.clone())),
             root: Default::default(),
@@ -861,7 +859,7 @@ mod tests {
             project_excludes: Globs::new(project_excludes_vec),
             python_interpreter: Some(test_path.join(interpreter)),
             search_path,
-            low_priority_search_path: Vec::new(),
+            fallback_search_path: Vec::new(),
             python_environment,
             root: Default::default(),
             custom_module_paths: Default::default(),

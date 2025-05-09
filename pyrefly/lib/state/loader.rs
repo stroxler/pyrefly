@@ -45,7 +45,7 @@ impl FindError {
 
     pub fn search_path(
         search_roots: &[PathBuf],
-        low_priority_search_roots: &[PathBuf],
+        fallback_search_roots: &[PathBuf],
         site_package_path: &[PathBuf],
         module: ModuleName,
         config_path: Option<&Path>,
@@ -54,7 +54,7 @@ impl FindError {
             .map(|p| format!(" (from config at {})", p.display()))
             .unwrap_or_default();
         if search_roots.is_empty()
-            && low_priority_search_roots.is_empty()
+            && fallback_search_roots.is_empty()
             && site_package_path.is_empty()
         {
             Self::not_found(
@@ -64,9 +64,9 @@ impl FindError {
         } else {
             Self::not_found(
                 anyhow!(
-                    "looked at search roots ({}), implied search roots ({}), and site package path ({}){config_path}",
+                    "looked at search roots ({}), fallback search roots ({}), and site package path ({}){config_path}",
                     commas_iter(|| search_roots.iter().map(|x| x.display())),
-                    commas_iter(|| low_priority_search_roots.iter().map(|x| x.display())),
+                    commas_iter(|| fallback_search_roots.iter().map(|x| x.display())),
                     commas_iter(|| site_package_path.iter().map(|x| x.display())),
                 ),
                 module,

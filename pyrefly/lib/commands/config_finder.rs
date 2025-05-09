@@ -102,9 +102,9 @@ pub fn standard_config_finder(
                         let (config, errors) = configure2(
                             path.parent(),
                             ConfigFile {
-                                // We use `low_priority_search_path` because otherwise a user with `/sys` on their
+                                // We use `fallback_search_path` because otherwise a user with `/sys` on their
                                 // computer (all of them) will override `sys.version` in preference to typeshed.
-                                low_priority_search_path: path
+                                fallback_search_path: path
                                     .ancestors()
                                     .map(|x| x.to_owned())
                                     .collect::<Vec<_>>(),
@@ -152,7 +152,7 @@ mod tests {
     }
 
     #[test]
-    fn test_low_priority_search_path_fallback() {
+    fn test_fallback_search_path_fallback() {
         fn finder(
             expect_dir: Option<&Path>,
             module_name: ModuleName,
@@ -201,7 +201,7 @@ mod tests {
             ConfigSource::File(root.join("with_config/pyrefly.toml"))
         );
         assert_eq!(config_file.search_path, vec![root.join("with_config")]);
-        assert_eq!(config_file.low_priority_search_path, Vec::<PathBuf>::new());
+        assert_eq!(config_file.fallback_search_path, Vec::<PathBuf>::new());
 
         // we should get a synthetic config with a search path = project_root/..
         let config_file = finder(
@@ -211,7 +211,7 @@ mod tests {
         );
         assert_eq!(config_file.source, ConfigSource::Synthetic);
         assert_eq!(config_file.search_path, vec![root.join("no_config")]);
-        assert_eq!(config_file.low_priority_search_path, Vec::<PathBuf>::new());
+        assert_eq!(config_file.fallback_search_path, Vec::<PathBuf>::new());
 
         // check invalid module path parent
         assert_eq!(
@@ -243,7 +243,7 @@ mod tests {
         assert_eq!(config_file.source, ConfigSource::Synthetic);
         assert_eq!(config_file.search_path, Vec::<PathBuf>::new());
         assert_eq!(
-            config_file.low_priority_search_path,
+            config_file.fallback_search_path,
             [root.join("no_config/foo"), root.join("no_config")]
                 .into_iter()
                 .chain(root.ancestors().map(PathBuf::from))
@@ -259,7 +259,7 @@ mod tests {
         assert_eq!(config_file.source, ConfigSource::Synthetic);
         assert_eq!(config_file.search_path, Vec::<PathBuf>::new());
         assert_eq!(
-            config_file.low_priority_search_path,
+            config_file.fallback_search_path,
             [root.join("no_config/foo"), root.join("no_config")]
                 .into_iter()
                 .chain(root.ancestors().map(PathBuf::from))
