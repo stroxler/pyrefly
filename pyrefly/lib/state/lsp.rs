@@ -20,6 +20,7 @@ use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use starlark_map::ordered_set::OrderedSet;
 
+use crate::alt::attr::AttrDefinition;
 use crate::alt::attr::AttrInfo;
 use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
@@ -186,6 +187,30 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    fn resolve_attribute_definition(
+        &self,
+        handle: &Handle,
+        attr_name: &Name,
+        definition: AttrDefinition,
+    ) -> Option<(TextRangeWithModuleInfo, Option<DocString>)> {
+        match definition {
+            AttrDefinition::FullyResolved(text_range_with_module_info) => {
+                // TODO(kylei): attribute docstrings
+                Some((text_range_with_module_info, None))
+            }
+            AttrDefinition::PartiallyResolvedImportedModuleAttribute { module_name } => {
+                let mut gas = INITIAL_GAS;
+                let (handle, export) =
+                    self.resolve_named_import(handle, module_name, attr_name.clone(), &mut gas)?;
+                let module_info = self.get_module_info(&handle)?;
+                Some((
+                    TextRangeWithModuleInfo::new(module_info, export.location),
+                    export.docstring,
+                ))
+            }
+        }
+    }
+
     fn key_to_export(&self, handle: &Handle, key: &Key, mut gas: Gas) -> Option<(Handle, Export)> {
         let bindings = self.get_bindings(handle)?;
         let intermediate_definition = key_to_intermediate_definition(&bindings, key, &mut gas)?;
@@ -261,8 +286,9 @@ impl<'a> Transaction<'a> {
             let items = solver.completions(base_type.arc_clone(), Some(&attribute.attr.id), false);
             items.into_iter().find_map(|x| {
                 if x.name == attribute.attr.id {
-                    // TODO(kylei): attribute docstrings
-                    Some((DefinitionMetadata::Attribute(x.name), x.definition?, None))
+                    let (definition, docstring) =
+                        self.resolve_attribute_definition(handle, &x.name, x.definition?)?;
+                    Some((DefinitionMetadata::Attribute(x.name), definition, docstring))
                 } else {
                     None
                 }
@@ -383,16 +409,20 @@ impl<'a> Transaction<'a> {
                     && let Some(base_type) = answers.get_type_trace(attribute.value.range())
                 {
                     for AttrInfo {
-                        name: _,
+                        name,
                         ty: _,
                         definition: attribute_definition,
                     } in solver.completions(base_type.arc_clone(), Some(expected_name), false)
                     {
-                        if let Some(TextRangeWithModuleInfo {
-                            module_info: module,
-                            range,
-                        }) = attribute_definition
-                            && module.path() == definition.module_info.path()
+                        if let Some((
+                            TextRangeWithModuleInfo {
+                                module_info: module,
+                                range,
+                            },
+                            _,
+                        )) = attribute_definition.and_then(|definition| {
+                            self.resolve_attribute_definition(handle, &name, definition)
+                        }) && module.path() == definition.module_info.path()
                             && range == definition.range
                         {
                             references.push(attribute.attr.range());

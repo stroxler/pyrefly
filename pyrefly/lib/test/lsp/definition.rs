@@ -663,3 +663,35 @@ Definition Result:
         report.trim(),
     );
 }
+
+#[test]
+fn module_attribute_test() {
+    let code_class_provider = r#"
+class MyClass:
+  x = 5
+"#;
+    let code = r#"
+import my_class
+my_class.MyClass
+#        ^
+"#;
+    let report = get_batched_lsp_operations_report(
+        &[("main", code), ("my_class", code_class_provider)],
+        get_test_report,
+    );
+    assert_eq!(
+        r#"
+# main.py
+3 | my_class.MyClass
+             ^
+Definition Result:
+2 | class MyClass:
+          ^^^^^^^
+
+
+# my_class.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}

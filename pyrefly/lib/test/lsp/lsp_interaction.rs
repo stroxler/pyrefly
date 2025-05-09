@@ -82,24 +82,86 @@ fn test_go_to_def(root: &TempDir, workspace_folders: Option<Vec<(String, Url)>>)
                     }
                 }),
             }),
-        ],
-        expected_messages_from_language_server: vec![Message::Response(Response {
-            id: RequestId::from(2),
-            result: Some(serde_json::json!({
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string(),
-                "range": {
-                    "start": {
-                        "line": 6,
-                        "character": 6
+            Message::from(Request {
+                id: RequestId::from(3),
+                method: "textDocument/definition".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
                     },
-                    "end": {
-                        "line": 6,
+                    "position": {
+                        "line": 8,
                         "character": 9
                     }
-                }
-            })),
-            error: None,
-        })],
+                }),
+            }),
+            Message::from(Request {
+                id: RequestId::from(4),
+                method: "textDocument/definition".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                    },
+                    "position": {
+                        "line": 9,
+                        "character": 7
+                    }
+                }),
+            }),
+        ],
+        expected_messages_from_language_server: vec![
+            Message::Response(Response {
+                id: RequestId::from(2),
+                result: Some(serde_json::json!({
+                    "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string(),
+                    "range": {
+                        "start": {
+                            "line": 6,
+                            "character": 6
+                        },
+                        "end": {
+                            "line": 6,
+                            "character": 9
+                        }
+                    }
+                })),
+                error: None,
+            }),
+            Message::Response(Response {
+                id: RequestId::from(3),
+                result: Some(serde_json::json!({
+                    "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string(),
+                    "range": {
+                        "start": {
+                            "line": 7,
+                            "character": 4
+                        },
+                        "end": {
+                            "line": 7,
+                            "character": 7
+                        }
+                    }
+                })),
+                error: None,
+            }),
+            Message::Response(Response {
+                id: RequestId::from(4),
+                result: Some(serde_json::json!({
+                    "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string(),
+                    "range": {
+                        "start": {
+                            "line": 6,
+                            "character": 6
+                        },
+                        "end": {
+                            "line": 6,
+                            "character": 9
+                        }
+                    }
+                })),
+                error: None,
+            }),
+        ],
         workspace_folders,
         ..Default::default()
     });
@@ -340,6 +402,10 @@ fn test_references() {
                 "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
             {
+                "range": {"start":{"line":9,"character":4},"end":{"line":9,"character":7}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
@@ -378,6 +444,10 @@ fn test_references() {
             },
             {
                 "range": {"start":{"line":8,"character":0},"end":{"line":8,"character":3}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":9,"character":4},"end":{"line":9,"character":7}},
                 "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
             {
@@ -433,6 +503,10 @@ fn test_references() {
                 "range": {"start":{"line":8,"character":0},"end":{"line":8,"character":3}},
                 "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
+            {
+                "range": {"start":{"line":9,"character":4},"end":{"line":9,"character":7}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
         ])),
         error: None,
     }));
@@ -485,6 +559,10 @@ fn test_references() {
             },
             {
                 "range": {"start":{"line":8,"character":0},"end":{"line":8,"character":3}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":9,"character":4},"end":{"line":9,"character":7}},
                 "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
         ])),

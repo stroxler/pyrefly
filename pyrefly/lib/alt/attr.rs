@@ -1349,10 +1349,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 }
 
 #[derive(Debug)]
+pub enum AttrDefinition {
+    FullyResolved(TextRangeWithModuleInfo),
+    PartiallyResolvedImportedModuleAttribute { module_name: ModuleName },
+}
+
+#[derive(Debug)]
 pub struct AttrInfo {
     pub name: Name,
     pub ty: Option<Type>,
-    pub definition: Option<TextRangeWithModuleInfo>,
+    pub definition: Option<AttrDefinition>,
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -1381,9 +1387,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             res.push(AttrInfo {
                                 name: fld.clone(),
                                 ty: None,
-                                definition: Some(TextRangeWithModuleInfo::new(
-                                    c.module_info().dupe(),
-                                    range,
+                                definition: Some(AttrDefinition::FullyResolved(
+                                    TextRangeWithModuleInfo::new(c.module_info().dupe(), range),
                                 )),
                             });
                         }
@@ -1394,9 +1399,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         res.push(AttrInfo {
                             name: expected_attribute_name.clone(),
                             ty: None,
-                            definition: Some(TextRangeWithModuleInfo::new(
-                                c.module_info().dupe(),
-                                range,
+                            definition: Some(AttrDefinition::FullyResolved(
+                                TextRangeWithModuleInfo::new(c.module_info().dupe(), range),
                             )),
                         });
                     }
@@ -1427,7 +1431,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     res.extend(exports.wildcard(self.exports).iter().map(|x| AttrInfo {
                         name: x.clone(),
                         ty: None,
-                        definition: None,
+                        definition: Some(
+                            AttrDefinition::PartiallyResolvedImportedModuleAttribute {
+                                module_name,
+                            },
+                        ),
                     }));
                 }
                 Some(expected_attribute_name) => {
@@ -1438,7 +1446,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         res.push(AttrInfo {
                             name: expected_attribute_name.clone(),
                             ty: None,
-                            definition: None,
+                            definition: Some(
+                                AttrDefinition::PartiallyResolvedImportedModuleAttribute {
+                                    module_name,
+                                },
+                            ),
                         });
                     }
                 }
@@ -1494,18 +1506,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             if include_types {
                 for info in &mut res {
-                    if let Some(TextRangeWithModuleInfo {
-                        module_info: _,
-                        range,
-                    }) = info.definition
-                    {
-                        info.ty =
-                            match self.lookup_attr_from_attribute_base(base.clone(), &info.name) {
-                                LookupResult::Found(attr) => self
-                                    .resolve_get_access(attr, range, &self.error_swallower(), None)
-                                    .ok(),
-                                _ => None,
-                            };
+                    if let Some(definition) = &info.definition {
+                        match definition {
+                            AttrDefinition::FullyResolved(TextRangeWithModuleInfo {
+                                module_info: _,
+                                range,
+                            }) => {
+                                info.ty = match self
+                                    .lookup_attr_from_attribute_base(base.clone(), &info.name)
+                                {
+                                    LookupResult::Found(attr) => self
+                                        .resolve_get_access(
+                                            attr,
+                                            *range,
+                                            &self.error_swallower(),
+                                            None,
+                                        )
+                                        .ok(),
+                                    _ => None,
+                                };
+                            }
+                            AttrDefinition::PartiallyResolvedImportedModuleAttribute {
+                                module_name: _,
+                            } => {}
+                        }
                     }
                 }
             }

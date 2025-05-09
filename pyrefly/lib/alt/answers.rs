@@ -20,6 +20,7 @@ use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
+use crate::alt::attr::AttrDefinition;
 use crate::alt::attr::AttrInfo;
 use crate::alt::traits::Solve;
 use crate::alt::traits::SolveRecursive;
@@ -852,18 +853,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 definition,
             } in self.completions(base.clone(), Some(attribute_name), false)
             {
-                if let Some(TextRangeWithModuleInfo {
-                    module_info: module,
-                    range,
-                }) = definition
-                    && module.path() != self.bindings().module_info().path()
-                {
-                    index
-                        .lock()
-                        .externally_defined_attribute_references
-                        .entry(module.path().dupe())
-                        .or_default()
-                        .push((range, attribute_reference_range))
+                match definition {
+                    Some(AttrDefinition::FullyResolved(TextRangeWithModuleInfo {
+                        module_info: module,
+                        range,
+                    })) => {
+                        if module.path() != self.bindings().module_info().path() {
+                            index
+                                .lock()
+                                .externally_defined_attribute_references
+                                .entry(module.path().dupe())
+                                .or_default()
+                                .push((range, attribute_reference_range))
+                        }
+                    }
+                    Some(AttrDefinition::PartiallyResolvedImportedModuleAttribute {
+                        module_name,
+                    }) => {
+                        index
+                            .lock()
+                            .externally_defined_variable_references
+                            .entry((module_name, attribute_name.clone()))
+                            .or_default()
+                            .push(attribute_reference_range);
+                    }
+                    None => {}
                 }
             }
         }
