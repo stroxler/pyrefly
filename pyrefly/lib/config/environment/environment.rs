@@ -73,6 +73,10 @@ impl PythonEnvironment {
         }
     }
 
+    fn pyrefly_default() -> Self {
+        Self::new(Default::default(), Default::default(), Default::default())
+    }
+
     /// Are any Python environment values `None`?
     pub fn any_empty(&self) -> bool {
         self.python_platform.is_none()
@@ -193,15 +197,14 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
             Self::get_env_from_interpreter(interpreter).inspect_err(|e| {
                 error!("Failed to query interpreter, falling back to default Python environment settings\n{}", e);
             }).ok()
-        }).clone().unwrap_or_default()
+        }).clone().unwrap_or_else(Self::pyrefly_default)
     }
 
     /// [`Self::get_default_interpreter()`] and [`Self::get_interpreter_env()`] with the resulting value,
     /// or return [`PythonEnvironment::default()`] if `None`.
     pub fn get_default_interpreter_env() -> PythonEnvironment {
         Self::get_default_interpreter()
-            .map(Self::get_interpreter_env)
-            .unwrap_or_default()
+            .map_or_else(Self::pyrefly_default, Self::get_interpreter_env)
     }
 }
 
