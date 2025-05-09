@@ -12,7 +12,6 @@ use std::sync::LazyLock;
 use regex::Regex;
 use walkdir::WalkDir;
 
-#[expect(dead_code)]
 /// Regex for matching a Python executable, copied from MS vscode-python. The correct pattern will be selected
 /// for the user's current platform.
 ///
@@ -27,10 +26,18 @@ static PYTHON_INTERPRETER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(pattern).unwrap()
 });
 
-#[allow(dead_code)]
 /// Walk the given start [`Path`] up to the given depth, searching for
 /// [`PYTHON_INTERPRETER_REGEX`]. If an error is encountered, we return
 /// an empty [`Vec`] for the given operation.
+///
+/// The strategy we use for this is similar to
+/// [vscode-python](https://github.com/microsoft/vscode-python/blob/b44b4d442fce5c0ab1547c777b846c1ade889832/src/client/pythonEnvironments/common/environmentManagers/simplevirtualenvs.ts#L14),
+/// which given an interpreter path, looks for a `pyenv.cfg` file in the
+/// same or parent directory of the interpreter. It is preferred
+/// to take the more deeply nested interpreter according to vscode-python.
+///
+/// Example: if we have `.venv/pyenv.cfg`, valid an interpreter is expected
+/// to be found at either `.venv/bin/python(\d(\.\d)?)?` or `.venv/python(\d(\.\d)?)?`.
 ///
 /// Note: we do not follow links. For `venv`s, the symlink path contains important
 /// information the Python interpreter needs to proplrly execute.
@@ -56,7 +63,7 @@ pub fn walk_interpreter(start: &Path, depth: usize) -> impl Iterator<Item = Path
     walker.into_iter().filter_map(filter_map)
 }
 
-#[expect(dead_code)]
+#[allow(dead_code)]
 /// A trait for structs with the ability to search for a Python interpreter installation.
 pub trait Finder {
     fn find(project_path: &Path) -> Option<PathBuf>;
