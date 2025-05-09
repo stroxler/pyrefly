@@ -9,4 +9,4 @@ To run the tests:
 - `npm run test` / `vscode-test` on the command-line (or through the
   package.json scripts in VSCode) OR UI exposed from the
   [Extension Test Runner](https://marketplace.visualstudio.com/items?itemName=ms-vscode.extension-test-runner)
-  extension in VSCode
+  extension in VSCode (when `lsp` folder is open as a workspace)
