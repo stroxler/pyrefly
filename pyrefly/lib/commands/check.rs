@@ -387,7 +387,7 @@ impl Args {
         config_finder: &ConfigFinder,
     ) -> anyhow::Result<Vec<(Handle, Require)>> {
         let handles = Handles::new(
-            files_to_check.files()?,
+            checkpoint(files_to_check.files(), config_finder)?,
             self.search_path.as_deref().unwrap_or_default(),
             config_finder,
         );
@@ -402,7 +402,7 @@ impl Args {
     ) -> anyhow::Result<CommandExitStatus> {
         let mut timings = Timings::new();
         let list_files_start = Instant::now();
-        let expanded_file_list = files_to_check.files()?;
+        let expanded_file_list = checkpoint(files_to_check.files(), &config_finder)?;
         timings.list_files = list_files_start.elapsed();
         debug!(
             "Checking {} files (listing took {})",
@@ -441,7 +441,7 @@ impl Args {
     ) -> anyhow::Result<()> {
         // TODO: We currently make 1 unrealistic assumptions, which should be fixed in the future:
         // - Config search is stable across incremental runs.
-        let expanded_file_list = files_to_check.files()?;
+        let expanded_file_list = checkpoint(files_to_check.files(), &config_finder)?;
         let require_levels = self.get_required_levels();
         let mut handles = Handles::new(
             expanded_file_list,
@@ -667,4 +667,15 @@ impl Args {
             Ok(CommandExitStatus::Success)
         }
     }
+}
+
+/// If we have an error, print all the errors that the config finder has accumulated. This is used
+/// to ensure that config errors are still surfaced if we exit early.
+fn checkpoint<T>(result: anyhow::Result<T>, config_finder: &ConfigFinder) -> anyhow::Result<T> {
+    if result.is_err() {
+        for error in config_finder.errors() {
+            error!("{error:#}");
+        }
+    }
+    result
 }
