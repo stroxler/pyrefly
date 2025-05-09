@@ -16,8 +16,10 @@ use ruff_python_ast::Parameters;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtExpr;
 use ruff_python_ast::StmtFunctionDef;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use starlark_map::small_map::SmallMap;
 
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
@@ -42,7 +44,7 @@ use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::FuncYieldsAndReturns;
 use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::scope::FlowStyle;
-use crate::binding::scope::MethodInner;
+use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
 use crate::graph::index::Idx;
@@ -50,6 +52,11 @@ use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::sys_info::SysInfo;
 use crate::util::prelude::VecExt;
+
+struct SelfAssignments {
+    method_name: Name,
+    instance_attributes: SmallMap<Name, InstanceAttribute>,
+}
 
 impl<'a> BindingsBuilder<'a> {
     fn parameters(
@@ -190,7 +197,7 @@ impl<'a> BindingsBuilder<'a> {
         func_name: &Identifier,
         function_idx: Idx<KeyFunction>,
         class_key: Option<Idx<KeyClass>>,
-    ) -> (FunctionStubOrImpl, Option<MethodInner>) {
+    ) -> (FunctionStubOrImpl, Option<SelfAssignments>) {
         let stub_or_impl = if is_ellipse(&body) || self.module_info.path().is_interface() {
             FunctionStubOrImpl::Stub
         } else {
@@ -223,8 +230,11 @@ impl<'a> BindingsBuilder<'a> {
 
         let (func_scope, yields_and_returns) =
             self.function_body_scope(parameters, body, range, func_name, function_idx, class_key);
-        let as_method = match func_scope.kind {
-            ScopeKind::Method(m) => Some(m),
+        let self_assignments = match func_scope.kind {
+            ScopeKind::Method(m) => Some(SelfAssignments {
+                method_name: m.name.id,
+                instance_attributes: m.instance_attributes,
+            }),
             _ => None,
         };
 
@@ -279,7 +289,7 @@ impl<'a> BindingsBuilder<'a> {
             }),
         );
 
-        (stub_or_impl, as_method)
+        (stub_or_impl, self_assignments)
     }
 
     pub fn function_def(&mut self, mut x: StmtFunctionDef) {
@@ -318,7 +328,7 @@ impl<'a> BindingsBuilder<'a> {
         let (return_ann_with_range, legacy_tparams) =
             self.function_header(&mut x, &func_name, class_key);
 
-        let (stub_or_impl, as_method) = self.function_body(
+        let (stub_or_impl, self_assignments) = self.function_body(
             &mut x.parameters,
             mem::take(&mut x.body),
             decorators.clone().into_boxed_slice(),
@@ -333,10 +343,13 @@ impl<'a> BindingsBuilder<'a> {
         // Pop the annotation scope to get back to the parent scope, and handle this
         // case where we need to track assignments to `self` from methods.
         self.scopes.pop();
-        if let Some(method) = as_method
+        if let Some(self_assignments) = self_assignments
             && let ScopeKind::ClassBody(body) = &mut self.scopes.current_mut().kind
         {
-            body.add_attributes_defined_by_method(method.name.id, method.instance_attributes);
+            body.add_attributes_defined_by_method(
+                self_assignments.method_name,
+                self_assignments.instance_attributes,
+            );
         }
 
         let function_idx = self.table.insert(
