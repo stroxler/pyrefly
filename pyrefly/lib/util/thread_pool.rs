@@ -58,7 +58,7 @@ impl ThreadPool {
             return Self(None);
         }
 
-        let mut builder = rayon::ThreadPoolBuilder::new().stack_size(4 * 1024 * 1024);
+        let mut builder = rayon::ThreadPoolBuilder::new().stack_size(5 * 1024 * 1024);
         if let ThreadCount::NumThreads(threads) = count {
             builder = builder.num_threads(threads.get());
         }
