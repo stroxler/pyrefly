@@ -42,9 +42,9 @@ use crate::util::prelude::VecExt;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct SubConfig {
-    matches: Glob,
+    pub matches: Glob,
     #[serde(flatten)]
-    settings: ConfigBase,
+    pub settings: ConfigBase,
 }
 
 impl SubConfig {

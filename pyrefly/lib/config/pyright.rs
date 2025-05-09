@@ -12,12 +12,39 @@ use serde::Deserialize;
 use serde_with::FromInto;
 use serde_with::serde_as;
 
+use crate::config::base::ConfigBase;
 use crate::config::config::ConfigFile;
+use crate::config::config::SubConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::error::kind::ErrorKind;
 use crate::sys_info::PythonPlatform;
 use crate::sys_info::PythonVersion;
+use crate::util::globs::Glob;
 use crate::util::globs::Globs;
+
+/// Represents a pyright executionEnvironment.
+/// pyright's ExecutionEnvironments allow you to specify a different Python environment for a subdirectory,
+/// e.g. with a different Python version, search path, and platform.
+/// pyrefly does not support any of that, so we only look for rule overrides.
+#[derive(Clone, Debug, Deserialize)]
+pub struct ExecEnv {
+    root: String,
+    #[serde(flatten)]
+    errors: RuleOverrides,
+}
+
+impl ExecEnv {
+    pub fn convert(self) -> SubConfig {
+        let settings = ConfigBase {
+            errors: self.errors.to_config(),
+            ..Default::default()
+        };
+        SubConfig {
+            matches: Glob::new(self.root),
+            settings,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct PyrightConfig {
@@ -33,6 +60,8 @@ pub struct PyrightConfig {
     python_version: Option<PythonVersion>,
     #[serde(flatten)]
     errors: RuleOverrides,
+    #[serde(default, rename = "executionEnvironments")]
+    execution_environments: Vec<ExecEnv>,
 }
 
 impl PyrightConfig {
@@ -54,6 +83,14 @@ impl PyrightConfig {
             cfg.python_environment.python_version = self.python_version;
         }
         cfg.root.errors = self.errors.to_config();
+
+        let sub_configs: Vec<SubConfig> = self
+            .execution_environments
+            .into_iter()
+            .map(ExecEnv::convert)
+            .collect();
+        cfg.sub_configs = sub_configs;
+
         cfg
     }
 }
@@ -286,6 +323,33 @@ mod tests {
                 .root
                 .errors
                 .is_some_and(|m| !m.is_enabled(ErrorKind::ImportError))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_exec_env() -> anyhow::Result<()> {
+        let raw_file = r#"
+        {
+            "include": ["src"],
+            "executionEnvironments": [
+                { "root": "src/web", "pythonVersion": "3.5", "pythonPlatform": "Windows", "extraPaths": [ "src/service_libs" ], "reportMissingImports": "none" },
+                { "root": "src" }
+            ]
+        }
+        "#;
+        let pyr = serde_json::from_str::<PyrightConfig>(raw_file)?;
+        let mut config = pyr.convert();
+        config.configure();
+        assert!(
+            config
+                .errors(&PathBuf::from("src/init.py"))
+                .is_enabled(ErrorKind::ImportError)
+        );
+        assert!(
+            !config
+                .errors(&PathBuf::from("src/web/foo.py"))
+                .is_enabled(ErrorKind::ImportError)
         );
         Ok(())
     }
