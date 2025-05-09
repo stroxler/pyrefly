@@ -14,6 +14,7 @@ use starlark_map::small_set::SmallSet;
 use tracing::error;
 
 use crate::error::error::Error;
+use crate::module::module_info::GENERATED_TOKEN;
 use crate::ruff::ast::Ast;
 use crate::util::fs_anyhow;
 
@@ -60,6 +61,11 @@ fn add_suppressions(
                 path.display()
             );
             failures.push((path, anyhow::Error::msg("File is not parsable")));
+            continue;
+        }
+        if file.contains(GENERATED_TOKEN) {
+            eprintln!("Skipping `{}` because it is generated", path.display());
+            failures.push((path, anyhow::Error::msg("Generated file")));
             continue;
         }
         let deduped_errors = dedup_errors(errors);
@@ -326,6 +332,24 @@ def foo() -> None:
         ]
     unrelated_line = 0
         "#,
+        );
+    }
+
+    #[test]
+    fn test_no_suppress_generated_files() {
+        let file_contents = format!(
+            r#"
+{}
+
+def bar() -> None: 
+pass 
+    "#,
+            GENERATED_TOKEN
+        );
+        assert_no_error_suppression(
+            vec![(1, 10, ErrorKind::BadAssignment)],
+            &file_contents,
+            &file_contents,
         );
     }
 

@@ -25,7 +25,7 @@ use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::ruff::ast::Ast;
 
-static GENERATED_TOKEN: &str = concat!("@", "generated");
+pub static GENERATED_TOKEN: &str = concat!("@", "generated");
 
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Default)]
 pub struct SourceRange {
