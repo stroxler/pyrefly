@@ -77,7 +77,7 @@ fn test_go_to_def(root: &TempDir, workspace_folders: Option<Vec<(String, Url)>>)
                         "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
                     },
                     "position": {
-                        "line": 5,
+                        "line": 6,
                         "character": 16
                     }
                 }),
@@ -215,7 +215,7 @@ fn test_hover() {
                         "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
                     },
                     "position": {
-                        "line": 5,
+                        "line": 6,
                         "character": 16
                     }
                 }),
@@ -319,7 +319,7 @@ fn test_references() {
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
             "position": {
-                "line": 9,
+                "line": 10,
                 "character": 1
             },
             "context": {
@@ -332,7 +332,11 @@ fn test_references() {
         id: RequestId::from(2),
         result: Some(serde_json::json!([
             {
-                "range": {"start":{"line":5,"character":16},"end":{"line":5, "character":19}},
+                "range": {"start":{"line":6,"character":16},"end":{"line":6,"character":19}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":8,"character":0},"end":{"line":8,"character":3}},
                 "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
             {
@@ -340,7 +344,7 @@ fn test_references() {
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
             {
-                "range": {"start":{"line":9,"character":0},"end":{"character":3,"line":9}},
+                "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
         ])),
@@ -369,7 +373,11 @@ fn test_references() {
         id: RequestId::from(3),
         result: Some(serde_json::json!([
             {
-                "range": {"start":{"line":5,"character":16},"end":{"line":5, "character":19}},
+                "range": {"start":{"line":6,"character":16},"end":{"line":6, "character":19}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":8,"character":0},"end":{"line":8,"character":3}},
                 "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
             {
@@ -377,7 +385,7 @@ fn test_references() {
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
             {
-                "range": {"start":{"line":9,"character":0},"end":{"character":3,"line":9}},
+                "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
         ])),
@@ -397,7 +405,7 @@ fn test_references() {
                 "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
             "position": {
-                "line": 5,
+                "line": 6,
                 "character": 17
             },
             "context": {
@@ -414,11 +422,15 @@ fn test_references() {
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
             {
-                "range": {"start":{"line":9,"character":0},"end":{"character":3,"line":9}},
+                "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
             {
-                "range": {"start":{"line":5,"character":16},"end":{"line":5, "character":19}},
+                "range": {"start":{"line":6,"character":16},"end":{"line":6, "character":19}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":8,"character":0},"end":{"line":8,"character":3}},
                 "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
         ])),
@@ -448,7 +460,7 @@ fn test_references() {
                 "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
             "position": {
-                "line": 5,
+                "line": 6,
                 "character": 17
             },
             "context": {
@@ -464,11 +476,15 @@ fn test_references() {
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
             {
-                "range": {"start":{"line":9,"character":0},"end":{"character":3,"line":9}},
+                "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
             {
-                "range": {"start":{"line":5,"character":16},"end":{"line":5, "character":19}},
+                "range": {"start":{"line":6,"character":16},"end":{"line":6, "character":19}},
+                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":8,"character":0},"end":{"line":8,"character":3}},
                 "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
         ])),
@@ -502,7 +518,7 @@ fn test_references() {
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
             {
-                "range": {"start":{"line":11,"character":0},"end":{"character":3,"line":11}},
+                "range": {"start":{"line":12,"character":0},"end":{"character":3,"line":12}},
                 "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
             },
         ])),
@@ -589,7 +605,7 @@ fn test_disable_language_services() {
             "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
         },
         "position": {
-            "line": 5,
+            "line": 6,
             "character": 16
         }
     });
@@ -684,7 +700,7 @@ fn test_disable_language_services_default_workspace() {
             "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
         },
         "position": {
-            "line": 5,
+            "line": 6,
             "character": 16
         }
     });
@@ -797,7 +813,7 @@ fn test_edits_while_recheck() {
                 "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
             },
             "position": {
-                "line": 5,
+                "line": 6,
                 "character": 18
             }
         }),

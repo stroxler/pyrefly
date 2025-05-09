@@ -4,7 +4,8 @@
 # LICENSE file in the root directory of this source tree.
 
 
-class Bar: ...
+class Bar:
+    foo = 3
 
 
 Bar
