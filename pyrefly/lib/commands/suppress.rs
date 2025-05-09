@@ -26,12 +26,16 @@ fn dedup_errors(errors: &[Error]) -> SmallMap<usize, String> {
         let e: &mut String = deduped_errors
             .entry(error.source_range().start.row.to_zero_indexed())
             .or_default();
+        let contains_error = e.contains(error.error_kind().to_name());
         if e.is_empty() {
             e.push_str("# pyrefly: ignore  # ");
-        } else {
+        } else if !contains_error {
             e.push_str(", ");
         }
-        e.push_str(error.error_kind().to_name());
+
+        if !contains_error {
+            e.push_str(error.error_kind().to_name());
+        }
     }
     deduped_errors
 }
@@ -307,6 +311,44 @@ def foo() -> None: pass
             r#"
 # comment
 # pyrefly: ignore  # bad-assignment
+def foo() -> None: pass
+"#,
+        );
+    }
+
+    #[test]
+    fn test_add_suppressions_duplicate_errors() {
+        assert_suppress_errors(
+            vec![
+                (3, 10, ErrorKind::BadAssignment),
+                (3, 10, ErrorKind::BadAssignment),
+            ],
+            r#"
+# comment
+def foo() -> None: pass
+"#,
+            r#"
+# comment
+# pyrefly: ignore  # bad-assignment
+def foo() -> None: pass
+"#,
+        );
+    }
+
+    #[test]
+    fn test_add_suppressions_multiple_errors_one_line() {
+        assert_suppress_errors(
+            vec![
+                (3, 10, ErrorKind::BadAssignment),
+                (3, 10, ErrorKind::TypeAliasError),
+            ],
+            r#"
+# comment
+def foo() -> None: pass
+"#,
+            r#"
+# comment
+# pyrefly: ignore  # bad-assignment, type-alias-error
 def foo() -> None: pass
 "#,
         );
