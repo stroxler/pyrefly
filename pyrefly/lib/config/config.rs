@@ -266,7 +266,6 @@ impl ConfigFile {
 
     pub fn default_project_excludes() -> Globs {
         Globs::new(vec![
-            "**/__pycache__/**".to_owned(),
             // match any hidden file, but don't match `.` or `..` (equivalent to regex: `\.[^/\.]{0,1}.*`)
             "**/.[!/.]*".to_owned(),
         ])

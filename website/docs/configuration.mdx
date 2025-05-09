@@ -117,7 +117,7 @@ type checking as way to filter files that match `project_includes`,
 but we don't want to type check.
 
 - Type: list of [filesystem glob patterns](#filesystem-globbing)
-- Default: `["**/__pycache__/**", "**/.[!/.]*"]`
+- Default: `["**/.[!/.]*"]`
 - Flag equivalent: `--project-excludes`
 - Equivalent configs: `exclude` in Pyright and mypy
 - Notes:
@@ -476,8 +476,8 @@ interpreter installed, some of these values may be overridden.
 
 # check all files in "."
 project_includes = ["."]
-# exclude pycache and dotfiles
-project_excludes = ["**/__pycache__/**", "**/.[!/.]*"]
+# exclude dotfiles
+project_excludes = ["**/.[!/.]*"]
 # import project files from "."
 search_path = ["."]
 # do not include any third-party packages
@@ -510,7 +510,7 @@ ignore_missing_source = false
 
 ```toml
 project_includes = ["src"]
-project_excludes = ["**/__pycache__/**", "**/.[!/.]*", "**/tests"]
+project_excludes = ["**/.[!/.]*", "**/tests"]
 search_path = ["src"]
 site_package_path = ["venv/lib/python3.12/site-packages"]
 
@@ -599,7 +599,7 @@ With the above config, here are the actual config values some files would use:
 
 #### configuring what to type check and where to import from
 project_includes = ["src"]
-project_excludes = ["**/__pycache__/**", "**/.[!/.]*", "**/tests"]
+project_excludes = ["**/.[!/.]*", "**/tests"]
 search_path = ["src"]
 site_package_path = ["venv/lib/python3.12/site-packages"]
 
