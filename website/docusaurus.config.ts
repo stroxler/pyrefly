@@ -105,7 +105,7 @@ const config: Config = {
     baseUrl: process.env.DOCUSAURUS_BASE_URL || '/',
     onBrokenLinks: 'throw',
     onBrokenMarkdownLinks: 'warn',
-    favicon: 'img/Pyrefly-symbol.png',
+    favicon: 'img/Pyrefly-Symbol.svg',
     organizationName: 'facebook', // Usually your GitHub org/user name.
     projectName: 'Pyre', // Usually your repo name.
     trailingSlash: true,
