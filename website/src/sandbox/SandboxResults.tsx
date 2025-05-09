@@ -305,6 +305,6 @@ const styles = stylex.create({
         color: '#ed0a0a',
     },
     PyodideDisclaimer: {
-        color: '#e59c24',
+        color: 'var(--color-primary)',
     },
 });
