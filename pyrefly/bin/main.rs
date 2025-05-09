@@ -7,6 +7,7 @@
 
 use std::backtrace::Backtrace;
 use std::env::args_os;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -141,6 +142,18 @@ fn absolutize(globs: Globs) -> anyhow::Result<Globs> {
     Ok(globs.from_root(PathBuf::new().absolutize()?.as_ref()))
 }
 
+fn get_explicit_config(
+    path: &Path,
+    args: &library::run::CheckArgs,
+) -> (ArcId<ConfigFile>, Vec<anyhow::Error>) {
+    let (file_config, parse_errors) = ConfigFile::from_file(path);
+    let (config, validation_errors) = args.override_config(file_config);
+    (
+        ArcId::new(config),
+        parse_errors.into_iter().chain(validation_errors).collect(),
+    )
+}
+
 /// Get inputs for a full-project check. We will look for a config file and type-check the project it defines.
 fn get_globs_and_config_for_project(
     config: Option<PathBuf>,
@@ -148,14 +161,7 @@ fn get_globs_and_config_for_project(
     args: &library::run::CheckArgs,
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
     let (config, errors) = match config {
-        Some(explicit) => {
-            let (file_config, parse_errors) = ConfigFile::from_file(&explicit);
-            let (config, validation_errors) = args.override_config(file_config);
-            (
-                ArcId::new(config),
-                parse_errors.into_iter().chain(validation_errors).collect(),
-            )
-        }
+        Some(explicit) => get_explicit_config(&explicit, args),
         None => {
             let current_dir = std::env::current_dir().context("cannot identify current dir")?;
             let config_finder = config_finder(args.clone());
@@ -205,10 +211,9 @@ fn get_globs_and_config_for_files(
     let files_to_check = absolutize(files_to_check)?;
     let config_finder = match config {
         Some(explicit) => {
-            let (file_config, parse_errors) = ConfigFile::from_file(&explicit);
-            let (config, validation_errors) = args.override_config(file_config);
-            let config_finder = ConfigFinder::new_constant(ArcId::new(config));
-            config_finder.add_errors(parse_errors.into_iter().chain(validation_errors).collect());
+            let (config, errors) = get_explicit_config(&explicit, args);
+            let config_finder = ConfigFinder::new_constant(config);
+            config_finder.add_errors(errors);
             config_finder
         }
         None => config_finder(args.clone()),
