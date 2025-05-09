@@ -75,7 +75,7 @@ describe('Home page', () => {
 
         // Verify that the logo image is present
         const logoImg = header?.querySelector(
-            'img[src="/img/Pyrefly-Brandmark-Invert.svg"]'
+            'img[src="/img/Pyrefly-Brandmark.svg"]'
         );
         expect(logoImg).toBeInTheDocument();
         expect(logoImg?.getAttribute('alt')).toBe('Pyrefly Logo');

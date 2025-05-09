@@ -107,10 +107,11 @@ const styles = stylex.create({
         maxWidth: '400px',
         width: '100%',
         borderRadius: '4px',
-        color: 'black',
+        color: 'var(--color-text)',
         padding: '4px 10px',
         marginTop: '10px',
         position: 'relative',
+        backgroundColor: 'var(--color-background-secondary)',
     },
     copy: {
         position: 'absolute',

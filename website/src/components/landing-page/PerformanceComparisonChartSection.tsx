@@ -25,12 +25,21 @@ export default function PerformanceComparisonChartSection(): React.ReactElement 
 
 const styles = stylex.create({
     body: {
-        border: '1px solid',
-        borderRadius: '4px',
-        backgroundColor: 'var(--color-text)',
+        padding: '1.75rem',
+        background: 'var(--color-background)',
+        backdropFilter: 'blur(10px)',
+        borderRadius: '8px',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        boxShadow:
+            '0 4px 6px var(--color-shadow), 0 1px 3px var(--color-shadow)',
         marginVertical: '2rem',
         paddingVertical: '2rem',
         paddinghorizontal: '1rem',
+        transition: 'all 0.3s ease',
+        ':hover': {
+            boxShadow:
+                '0 10px 20px var(--color-shadow-hovered), 0 3px 6px var(--color-shadow)',
+        },
     },
     buttonRow: {
         display: 'flex',

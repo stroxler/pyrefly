@@ -237,7 +237,7 @@ const config: Config = {
     ],
     themeConfig: {
         prism: {
-            theme: prismThemes.github,
+            theme: prismThemes.jettwaveLight,
             darkTheme: prismThemes.dracula
         },
         colorMode: {
@@ -249,7 +249,7 @@ const config: Config = {
             title: 'Pyrefly',
             logo: {
                 alt: 'Pyrefly Logo',
-                src: 'img/Pyrefly-Symbol-Invert.svg',
+                src: 'img/Pyrefly-Symbol.svg',
                 height: 24, // Set a smaller height for the header logo
                 width: 24,  // Maintain aspect ratio
             },

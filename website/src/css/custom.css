@@ -141,8 +141,8 @@
 :root {
     --ifm-navbar-padding-vertical: 0;
     /* color palette */
-    --color-background: #ffffff;
-    --color-background-secondary: #ddd;
+    --color-background: #f7f7f7;
+    --color-background-secondary: #f0f0f0;
     --color-primary: #fe9801;
     --color-primary-hover: #fe8801;
     --color-secondary: #ff7701;
@@ -153,17 +153,20 @@
     --color-green: #32963a;
     --color-green-border: #2e8b32;
     --color-green-hover: #28822d;
+    --color-shadow-background: rgba(0, 0, 0, 0.08);
     --color-shadow: rgba(0, 0, 0, 0.1);
     --color-shadow-hovered: rgba(0, 0, 0, 0.15);
+    --color-why-pyre-fly-background: rgba(255, 255, 255, 0.05);
+    --color-why-pyre-fly-background-hovered: rgba(255, 255, 255, 0.08);
     --ifm-navbar-padding-vertical: 0;
     --ifm-font-family-base:
         'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
         'Helvetica Neue', Arial, sans-serif;
     --ifm-heading-font-weight: 'bold';
 
-    --ifm-background-color: #ffffff;
-    --ifm-navbar-background-color: #2d343a;
-    --ifm-footer-background-color: #2d343a;
+    --ifm-background-color: var(--color-background);
+    --ifm-navbar-background-color: var(--ifm-background-color);
+    --ifm-footer-background-color: var(--ifm-navbar-background-color);
 }
 
 /* Dark mode styles */
@@ -173,7 +176,7 @@ html[data-theme='dark'] {
     --color-background-secondary: #44474b;
     --color-primary: #ffb133;
     --color-secondary: #ff9633;
-    --color-accent: #ff6633;
+    --color-accent: #ff4300;
     --color-text: #efefef;
     --light-grey: #a0a8b1;
     --color-green: #1c6320;
@@ -183,9 +186,9 @@ html[data-theme='dark'] {
     --color-shadow-hovered: rgba(255, 255, 255, 0.15);
 
     /* Adjust docusaurus color specific variables for dark mode */
-    --ifm-background-color: #2d343a;
-    --ifm-navbar-background-color: #2d343a;
-    --ifm-footer-background-color: #2d343a;
+    --ifm-background-color: var(--color-background);
+    --ifm-navbar-background-color: var(--ifm-background-color);
+    --ifm-footer-background-color: var(--ifm-navbar-background-color);
 }
 
 .docusaurus-highlight-code-line {
@@ -199,7 +202,7 @@ html[data-theme='dark'] {
 .navbar .navbar__toggle,
 .navbar .menu__link,
 .navbar .navbar-sidebar__back {
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--navbar-text);
 }
 
 .navbar__brand,
@@ -225,7 +228,8 @@ html[data-theme='dark'] {
     display: flex;
     height: 20px;
     width: 21px;
-    background-color: rgba(255, 255, 255, 0.7);
+    color: var(--navbar-text);
+    background-color: var(--navbar-text);
 }
 
 .navbar .stackoverflow__link:before {
@@ -244,10 +248,6 @@ html[data-theme='dark'] {
     height: 16px;
 }
 
-.navbar-sidebar {
-    background-color: #2d343a;
-}
-
 .navbar-sidebar .navbar__icon {
     padding: var(--ifm-menu-link-padding-vertical)
         var(--ifm-menu-link-padding-horizontal);
@@ -262,7 +262,17 @@ html[data-theme='dark'] {
 }
 
 .navbar__title {
-    color: white;
+    color: var(--color-text);
+}
+
+/* Add a faint line to the bottom of the navbar */
+.navbar {
+    border-bottom: 1px solid var(--color-background-secondary);
+}
+
+/* Add a faint line to separate the footer from main content */
+.footer {
+    border-top: 1px solid var(--color-background-secondary);
 }
 
 .rounded {
@@ -279,12 +289,12 @@ html[data-theme='dark'] {
 
 .version.added {
     background: var(--flow-green);
-    color: white;
+    color: var(--color-text);
 }
 
 .version.removed {
     background: var(--flow-red);
-    color: white;
+    color: var(--color-text);
 }
 
 .gh-btn {
@@ -301,8 +311,4 @@ html[data-theme='dark'] {
         margin-right: calc(-50vw + var(--ifm-container-width-xl) / 2);
         max-width: initial !important;
     }
-}
-
-.footer--dark {
-    background-color: #2d343a;
 }

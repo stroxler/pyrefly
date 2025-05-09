@@ -13,9 +13,11 @@ import Firefly from './firefly';
 import typography from './typography';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import { useEffect, useState } from 'react';
-import MonacoEditorWebpackPlugin from 'monaco-editor-webpack-plugin';
+import * as docusaurusTheme from '@docusaurus/theme-common';
 import CodeSnippet from './codeSnippet';
 export default function LandingPageHeader(): React.ReactElement {
+    const { colorMode } = docusaurusTheme.useColorMode();
+
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
@@ -23,11 +25,17 @@ export default function LandingPageHeader(): React.ReactElement {
         setIsLoaded(true);
     }, []);
 
+    const pyreflyLogoUrl = useBaseUrl(
+        colorMode === 'dark'
+            ? 'img/Pyrefly-Brandmark-Invert.svg'
+            : 'img/Pyrefly-Brandmark.svg'
+    );
+
     return (
         <header {...stylex.props(styles.featureHero)}>
             <section {...stylex.props(styles.logoContainer)}>
                 <img
-                    src={useBaseUrl('img/Pyrefly-Brandmark-Invert.svg')}
+                    src={pyreflyLogoUrl}
                     alt="Pyrefly Logo"
                     {...stylex.props(
                         styles.logo,

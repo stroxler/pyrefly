@@ -58,12 +58,12 @@ export default function WhyPyreflyGridItem({
 const styles = stylex.create({
     whyPyreflyCard: {
         padding: '1.75rem',
-        background: 'rgba(255, 255, 255, 0.05)',
+        background: 'var(--color-why-pyre-fly-background)',
         backdropFilter: 'blur(10px)',
         borderRadius: '8px',
         border: '1px solid rgba(255, 255, 255, 0.1)',
         boxShadow:
-            '0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)',
+            '0 4px 6px var(--color-shadow), 0 1px 3px var(--color-shadow-background)',
         transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', // Reduced from 1.2s to 0.8s
         transform: 'rotateX(15deg) translateY(20px)',
         opacity: 0,
@@ -74,8 +74,8 @@ const styles = stylex.create({
         ':hover': {
             transform: 'translateY(-5px)',
             boxShadow:
-                '0 10px 20px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.1)',
-            background: 'rgba(255, 255, 255, 0.08)',
+                '0 10px 20px var(--color-shadow-hovered), 0 3px 6px var(--color-shadow)',
+            background: 'var(--color-why-pyre-fly-background-hovered)',
         },
     },
     whyPyreflyCardVisible: {

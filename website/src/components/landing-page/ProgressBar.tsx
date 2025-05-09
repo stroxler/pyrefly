@@ -58,13 +58,13 @@ const styles = stylex.create({
     },
     fill: {
         height: '99%',
-        backgroundColor: 'var(--color-background)',
+        backgroundColor: 'var(--color-secondary)',
         borderRadius: 'inherit',
         animationName: fillUpKeyframes,
         animationFillMode: 'forwards',
         animationTimingFunction: 'linear',
     },
     highlight: {
-        backgroundColor: 'var(--dark-yellow)',
+        backgroundColor: 'var(--color-primary)',
     },
 });

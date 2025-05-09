@@ -14,7 +14,7 @@ exports[`Home page renders external site correctly 1`] = `
         <section>
           <img
             alt="Pyrefly Logo"
-            src="/img/Pyrefly-Brandmark-Invert.svg"
+            src="/img/Pyrefly-Brandmark.svg"
           />
         </section>
         <p>
@@ -94,7 +94,7 @@ exports[`Home page renders internal site correctly 1`] = `
         <section>
           <img
             alt="Pyrefly Logo"
-            src="/img/Pyrefly-Brandmark-Invert.svg"
+            src="/img/Pyrefly-Brandmark.svg"
           />
         </section>
         <p>
