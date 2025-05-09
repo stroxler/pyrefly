@@ -301,18 +301,25 @@ impl<'a> BindingsBuilder<'a> {
             FunctionStubOrImpl::Impl
         };
 
-        let implicit_return = self.implicit_return(&body, func_name, stub_or_impl, decorators);
-
-        let (yields_and_returns, self_assignments) =
-            self.function_body_scope(parameters, body, range, func_name, function_idx, class_key);
-
-        self.analyze_return_type(
-            func_name,
-            is_async,
-            yields_and_returns,
-            implicit_return,
-            return_ann_with_range,
-        );
+        let self_assignments = {
+            let implicit_return = self.implicit_return(&body, func_name, stub_or_impl, decorators);
+            let (yields_and_returns, self_assignments) = self.function_body_scope(
+                parameters,
+                body,
+                range,
+                func_name,
+                function_idx,
+                class_key,
+            );
+            self.analyze_return_type(
+                func_name,
+                is_async,
+                yields_and_returns,
+                implicit_return,
+                return_ann_with_range,
+            );
+            self_assignments
+        };
 
         (stub_or_impl, self_assignments)
     }
