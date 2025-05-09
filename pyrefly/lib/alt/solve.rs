@@ -1933,12 +1933,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 .generator(yield_ty, Type::any_implicit(), return_ty)
                                 .to_type()
                         }
-                    } else if x.is_async {
-                        // TODO: Use the more precise `types.CoroutineType` instead.
-                        self.stdlib
-                            .coroutine(Type::any_implicit(), Type::any_implicit(), return_ty)
-                            .to_type()
                     } else {
+                        // Do *not* modify the return type for a (non-generator) async def, we want the return type
+                        // here to match what would be annotated. We will handle creating an awaitable type when
+                        // binding the function def.
                         return_ty
                     }
                 }

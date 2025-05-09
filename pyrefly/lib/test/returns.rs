@@ -258,7 +258,6 @@ def f() -> int: # E: Function declared to return `int` but is missing an explici
 );
 
 testcase!(
-    bug = "We are inferring two layers of async when we infer an async def's return type, this is wrong",
     test_async_return_inference,
     r#"
 from typing import assert_type, Any, Callable, Coroutine
@@ -268,6 +267,6 @@ async def async_f_annotated() -> int:
 async def async_f_inferred():
     return x
 assert_type(async_f_annotated, Callable[[], Coroutine[Any, Any, int]])
-assert_type(async_f_inferred, Callable[[], Coroutine[Any, Any, int]])  # E: assert_type(() -> Coroutine[Any, Any, Coroutine[Any, Any, int]], () -> Coroutine[Any, Any, int])
+assert_type(async_f_inferred, Callable[[], Coroutine[Any, Any, int]])
      "#,
 );
