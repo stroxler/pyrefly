@@ -60,6 +60,15 @@ pub enum ConfigSource {
     Synthetic,
 }
 
+impl ConfigSource {
+    pub fn path<'a>(&'a self) -> Option<&'a Path> {
+        match &self {
+            Self::File(path) => Some(path),
+            Self::Synthetic => None,
+        }
+    }
+}
+
 /// Where the importable Python code in a project lives. There are two common Python project layouts, src and flat.
 /// See: https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/#src-layout-vs-flat-layout
 #[derive(Default)]
@@ -361,12 +370,10 @@ impl ConfigFile {
     /// which should probably be everything except for `PathBuf` or `Globs` types.
     pub fn configure(&mut self) {
         if self.python_environment.any_empty() {
-            if let Some(interpreter) = self
-                .python_interpreter
-                .as_deref()
-                .or(PythonEnvironment::get_default_interpreter())
-            {
-                let system_env = PythonEnvironment::get_interpreter_env(interpreter);
+            if let Some(interpreter) = self.python_interpreter.clone().or_else(|| {
+                PythonEnvironment::find_interpreter(self.source.path().and_then(|p| p.parent()))
+            }) {
+                let system_env = PythonEnvironment::get_interpreter_env(&interpreter);
                 self.python_environment.override_empty(system_env);
             } else {
                 self.python_environment.set_empty_to_default();

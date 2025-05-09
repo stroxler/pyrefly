@@ -137,3 +137,17 @@ $ mkdir $TMPDIR/foo && touch $TMPDIR/foo/bar.py && echo "x: str = 0" > $TMPDIR/f
  INFO 0 errors* (glob)
 [0]
 ```
+
+## We can find a venv interpreter, even when not sourced
+
+```scrut {output_stream: stderr}
+$ python3 -m venv $TMPDIR/venv && \
+> echo "import third_party.test2" > $TMPDIR/test.py && \
+> export site_packages=$($TMPDIR/venv/bin/python -c "import site; print(site.getsitepackages()[0])") && \
+> mkdir $site_packages/third_party && \
+> echo "x = 1" > $site_packages/third_party/test2.py && \
+> touch $TMPDIR/pyrefly.toml && \
+> $PYREFLY check $TMPDIR/test.py
+ INFO 0 errors* (glob)
+[0]
+```
