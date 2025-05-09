@@ -215,36 +215,15 @@ impl<'a> BindingsBuilder<'a> {
         )
     }
 
-    fn function_body(
+    /// Handles both checking yield / return expressions and binding the return type.
+    fn analyze_return_type(
         &mut self,
-        parameters: &mut Box<Parameters>,
-        body: Vec<Stmt>,
-        decorators: Box<[Idx<Key>]>,
-        range: TextRange,
-        is_async: bool,
-        return_ann_with_range: Option<(TextRange, Idx<KeyAnnotation>)>,
         func_name: &Identifier,
-        function_idx: Idx<KeyFunction>,
-        class_key: Option<Idx<KeyClass>>,
-    ) -> (FunctionStubOrImpl, Option<SelfAssignments>) {
-        let stub_or_impl = if is_ellipse(&body) || self.module_info.path().is_interface() {
-            FunctionStubOrImpl::Stub
-        } else {
-            FunctionStubOrImpl::Impl
-        };
-
-        let implicit_return = self.implicit_return(&body, func_name, stub_or_impl, decorators);
-
-        let (func_scope, yields_and_returns) =
-            self.function_body_scope(parameters, body, range, func_name, function_idx, class_key);
-        let self_assignments = match func_scope.kind {
-            ScopeKind::Method(m) => Some(SelfAssignments {
-                method_name: m.name.id,
-                instance_attributes: m.instance_attributes,
-            }),
-            _ => None,
-        };
-
+        is_async: bool,
+        yields_and_returns: FuncYieldsAndReturns,
+        implicit_return: Idx<Key>,
+        return_ann_with_range: Option<(TextRange, Idx<KeyAnnotation>)>,
+    ) {
         let is_generator = !yields_and_returns.yields.is_empty();
         let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
 
@@ -294,6 +273,45 @@ impl<'a> BindingsBuilder<'a> {
                 yields: yield_keys,
                 is_async,
             }),
+        );
+    }
+
+    fn function_body(
+        &mut self,
+        parameters: &mut Box<Parameters>,
+        body: Vec<Stmt>,
+        decorators: Box<[Idx<Key>]>,
+        range: TextRange,
+        is_async: bool,
+        return_ann_with_range: Option<(TextRange, Idx<KeyAnnotation>)>,
+        func_name: &Identifier,
+        function_idx: Idx<KeyFunction>,
+        class_key: Option<Idx<KeyClass>>,
+    ) -> (FunctionStubOrImpl, Option<SelfAssignments>) {
+        let stub_or_impl = if is_ellipse(&body) || self.module_info.path().is_interface() {
+            FunctionStubOrImpl::Stub
+        } else {
+            FunctionStubOrImpl::Impl
+        };
+
+        let implicit_return = self.implicit_return(&body, func_name, stub_or_impl, decorators);
+
+        let (func_scope, yields_and_returns) =
+            self.function_body_scope(parameters, body, range, func_name, function_idx, class_key);
+        let self_assignments = match func_scope.kind {
+            ScopeKind::Method(m) => Some(SelfAssignments {
+                method_name: m.name.id,
+                instance_attributes: m.instance_attributes,
+            }),
+            _ => None,
+        };
+
+        self.analyze_return_type(
+            func_name,
+            is_async,
+            yields_and_returns,
+            implicit_return,
+            return_ann_with_range,
         );
 
         (stub_or_impl, self_assignments)
