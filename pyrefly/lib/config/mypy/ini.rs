@@ -19,10 +19,12 @@ use crate::config::base::ConfigBase;
 use crate::config::config::ConfigFile;
 use crate::config::config::SubConfig;
 use crate::config::environment::environment::PythonEnvironment;
+use crate::config::error::ErrorDisplayConfig;
 use crate::config::mypy::regex_converter;
 use crate::module::wildcard::ModuleWildcard;
 use crate::sys_info::PythonPlatform;
 use crate::sys_info::PythonVersion;
+use crate::util::globs::Glob;
 use crate::util::globs::Globs;
 #[derive(Clone, Debug, Deserialize)]
 pub struct MypyConfig {
@@ -73,6 +75,21 @@ impl MypyConfig {
                 .unwrap_or_default()
         }
 
+        fn make_error_config(
+            disables: Vec<String>,
+            enables: Vec<String>,
+        ) -> Option<ErrorDisplayConfig> {
+            let mut errors = HashMap::new();
+            for error_code in disables {
+                errors.insert(error_code, false);
+            }
+            // enable_error_code overrides disable_error_code
+            for error_code in enables {
+                errors.insert(error_code, true);
+            }
+            crate::config::mypy::code_to_kind(errors)
+        }
+
         let mut default = IniDefault::default();
         // Need to set this to properly parse things like the PyTorch mypy.ini file,
         // Which has a multiline `files` comment that gets parsed incorrectly without this.
@@ -101,10 +118,14 @@ impl MypyConfig {
 
         let mut replace_imports: Vec<String> = Vec::new();
         let mut follow_untyped_imports = bool_or_default(&config, "mypy", "follow_untyped_imports");
+        // This is the list of mypy per-module section headers and the error configs found in those sections.
+        // We'll split the headers into separate modules later and turn each one into a subconfig.
+        let mut sub_configs: Vec<(String, ErrorDisplayConfig)> = vec![];
         for section in &config.sections() {
-            if section == "mypy" {
+            if !section.starts_with("mypy-") {
                 continue;
             }
+
             if bool_or_default(&config, section, "ignore_missing_imports")
                 || config
                     .get(section, "follow_imports")
@@ -112,6 +133,17 @@ impl MypyConfig {
             {
                 replace_imports.push(section.to_owned());
             }
+
+            // For subconfigs, the only config that needs to be extracted is enable/disable error codes.
+            let disable_error_code: Vec<String> =
+                ini_string_to_array(&config.get(section, "disable_error_code"));
+            let enable_error_code: Vec<String> =
+                ini_string_to_array(&config.get(section, "enable_error_code"));
+            let errors = make_error_config(disable_error_code, enable_error_code);
+            if let Some(errors) = errors {
+                sub_configs.push((section.strip_prefix("mypy-").unwrap().to_owned(), errors));
+            }
+
             follow_untyped_imports = follow_untyped_imports
                 || bool_or_default(&config, section, "follow_untyped_imports");
         }
@@ -169,15 +201,32 @@ impl MypyConfig {
             .filter(|x| x.is_some())
             .collect();
 
-        let mut errors = HashMap::new();
-        for error_code in disable_error_code {
-            errors.insert(error_code, false);
-        }
-        // enable_error_code overrides disable_error_code
-        for error_code in enable_error_code {
-            errors.insert(error_code, true);
-        }
-        cfg.root.errors = crate::config::mypy::code_to_kind(errors);
+        cfg.root.errors = make_error_config(disable_error_code, enable_error_code);
+
+        let sub_configs = sub_configs
+            .into_iter()
+            .flat_map(|(section, errors)| {
+                // Split the section headers into individual modules and pair them with the section's error config.
+                // mypy uses module wildcards for its per-module sections, but we use globs.
+                // A simple translation: turn `.` into `/` and `*` into `**`, e.g. `a.*.b` -> `a/**/b`.
+                section
+                    .split(",")
+                    .map(|x| x.trim())
+                    .filter(|x| !x.is_empty())
+                    .map(|module| Glob::new(module.replace('.', "/").replace('*', "**")))
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .zip(std::iter::repeat(Some(errors)))
+            })
+            .map(|(matches, errors)| SubConfig {
+                matches,
+                settings: ConfigBase {
+                    errors,
+                    ..Default::default()
+                },
+            })
+            .collect::<Vec<_>>();
+        cfg.sub_configs = sub_configs;
 
         Ok(cfg)
     }
@@ -186,6 +235,7 @@ impl MypyConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::kind::ErrorKind;
     use crate::util::fs_anyhow;
 
     #[test]
@@ -277,7 +327,7 @@ disable_error_code = union-attr
         let mut cfg = MypyConfig::parse_mypy_config(&input_path)?;
         cfg.configure();
         let errors = cfg.errors(tmp.path());
-        assert!(!errors.is_enabled(crate::error::kind::ErrorKind::MissingAttribute));
+        assert!(!errors.is_enabled(ErrorKind::MissingAttribute));
         Ok(())
     }
 
@@ -301,6 +351,34 @@ follow_imports = silent
         assert_eq!(
             cfg.replace_imports_with_any(None),
             vec![ModuleWildcard::new("some.*.project").unwrap(),]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_subconfigs() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("mypy.ini");
+        let src = br#"[mypy]
+files = src
+
+[mypy-src.*.linux]
+disable_error_code = union-attr
+
+[mypy-another.project]
+follow_imports = silent
+"#;
+        fs_anyhow::write(&input_path, src)?;
+        let mut cfg = MypyConfig::parse_mypy_config(&input_path)?;
+        cfg.configure();
+
+        assert!(
+            cfg.errors(&PathBuf::from("src"))
+                .is_enabled(ErrorKind::MissingAttribute)
+        );
+        assert!(
+            !cfg.errors(&PathBuf::from("src/linux"))
+                .is_enabled(ErrorKind::MissingAttribute)
         );
         Ok(())
     }
