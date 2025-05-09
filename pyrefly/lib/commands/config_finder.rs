@@ -20,6 +20,7 @@ use crate::module::bundled::BundledTypeshed;
 use crate::module::module_path::ModulePathDetails;
 use crate::util::arc_id::ArcId;
 use crate::util::lock::Mutex;
+use crate::util::trace::debug_log;
 
 /// Create a standard `ConfigFinder`. The `configure` function is expected to set any additional options,
 /// then call `configure` and `validate`.
@@ -31,7 +32,9 @@ use crate::util::lock::Mutex;
 /// (the directory the config was found in), and the `ConfigFile` that was loaded/created. The root
 /// of the project may be `None` if it can't be found (no [`Path::parent()`]) or it's irrelevant (bundled typeshed).
 pub fn standard_config_finder(
-    configure: Arc<dyn Fn(Option<&Path>, ConfigFile) -> ConfigFile + Send + Sync>,
+    configure: Arc<
+        dyn Fn(Option<&Path>, ConfigFile) -> (ConfigFile, Vec<anyhow::Error>) + Send + Sync,
+    >,
 ) -> ConfigFinder {
     let configure2 = configure.dupe();
     let configure3 = configure.dupe();
@@ -41,12 +44,21 @@ pub fn standard_config_finder(
     // A cache where path `p` maps to config file with `search_path = [p, p/.., p/../.., ...]`.
     let cache_parents: Mutex<SmallMap<PathBuf, ArcId<ConfigFile>>> = Mutex::new(SmallMap::new());
 
-    let empty = LazyLock::new(move || ArcId::new(configure3(None, ConfigFile::default())));
+    let empty = LazyLock::new(move || {
+        let (config, errors) = configure3(None, ConfigFile::default());
+        // Since this is a config we generated, these are likely internal errors.
+        debug_log(errors);
+        ArcId::new(config)
+    });
 
     ConfigFinder::new(
         Box::new(move |file| {
-            let (config, errors) = ConfigFile::from_file(file, false);
-            (ArcId::new(configure(file.parent(), config)), errors)
+            let (file_config, parse_errors) = ConfigFile::from_file(file, false);
+            let (config, validation_errors) = configure(file.parent(), file_config);
+            (
+                ArcId::new(config),
+                parse_errors.into_iter().chain(validation_errors).collect(),
+            )
         }),
         // Fall back to using a default config, but let's see if we can make the `search_path` somewhat useful
         // based on a few heuristics.
@@ -57,8 +69,13 @@ pub fn standard_config_finder(
                 .lock()
                 .entry(path.clone())
                 .or_insert_with(|| {
-                    let config = ConfigFile::init_at_root(&path, &ProjectLayout::Flat);
-                    ArcId::new(configure2(path.parent(), config))
+                    let (config, errors) = configure2(
+                        path.parent(),
+                        ConfigFile::init_at_root(&path, &ProjectLayout::Flat),
+                    );
+                    // Since this is a config we generated, these are likely internal errors.
+                    debug_log(errors);
+                    ArcId::new(config)
                 })
                 .dupe(),
 
@@ -82,16 +99,21 @@ pub fn standard_config_finder(
                     .lock()
                     .entry(path.to_owned())
                     .or_insert_with(|| {
-                        let config = ConfigFile {
-                            // We use `low_priority_search_path` because otherwise a user with `/sys` on their
-                            // computer (all of them) will override `sys.version` in preference to typeshed.
-                            low_priority_search_path: path
-                                .ancestors()
-                                .map(|x| x.to_owned())
-                                .collect::<Vec<_>>(),
-                            ..Default::default()
-                        };
-                        ArcId::new(configure2(path.parent(), config))
+                        let (config, errors) = configure2(
+                            path.parent(),
+                            ConfigFile {
+                                // We use `low_priority_search_path` because otherwise a user with `/sys` on their
+                                // computer (all of them) will override `sys.version` in preference to typeshed.
+                                low_priority_search_path: path
+                                    .ancestors()
+                                    .map(|x| x.to_owned())
+                                    .collect::<Vec<_>>(),
+                                ..Default::default()
+                            },
+                        );
+                        // Since this is a config we generated, these are likely internal errors.
+                        debug_log(errors);
+                        ArcId::new(config)
                     })
                     .dupe()
             }
@@ -119,7 +141,7 @@ mod tests {
     #[test]
     fn test_site_package_path_from_environment() {
         let args = Args::parse_from(Vec::<OsString>::new().iter());
-        let config = standard_config_finder(Arc::new(move |_, x| args.override_config(x).0))
+        let config = standard_config_finder(Arc::new(move |_, x| args.override_config(x)))
             .python_file(ModuleName::unknown(), &ModulePath::filesystem("".into()));
         let env = PythonEnvironment::get_default_interpreter_env();
         if let Some(paths) = env.site_package_path {
@@ -144,7 +166,7 @@ mod tests {
                     expect_dir,
                     "failed for {expect_dir:?}, {module_name}, {module_path}"
                 );
-                x
+                (x, Vec::new())
             }))
             .python_file(module_name, &module_path2)
         }

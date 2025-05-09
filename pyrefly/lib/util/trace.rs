@@ -10,6 +10,9 @@
 use std::sync::Once;
 
 use anstream::stderr;
+use tracing::Level;
+use tracing::debug;
+use tracing::enabled;
 use tracing_subscriber::Layer;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
@@ -53,4 +56,13 @@ pub fn init_tracing(verbose: bool, testing: bool) {
                 .init();
         }
     })
+}
+
+/// When debugging is enabled, log errors.
+pub fn debug_log(errors: Vec<anyhow::Error>) {
+    if enabled!(Level::DEBUG) {
+        for e in errors {
+            debug!("{e:#}");
+        }
+    }
 }

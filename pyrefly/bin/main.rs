@@ -34,11 +34,11 @@ use pyrefly::library::library::library::library;
 use pyrefly::library::library::library::library::ConfigSource;
 use pyrefly::library::library::library::library::ModulePath;
 use pyrefly::library::library::library::library::ProjectLayout;
+use pyrefly::library::library::library::library::debug_log;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
-use tracing::warn;
 
 // fbcode likes to set its own allocator in fbcode.default_allocator
 // So when we set our own allocator, buck build buck2 or buck2 build buck2 often breaks.
@@ -134,13 +134,7 @@ async fn run_check(
 }
 
 fn config_finder(args: library::run::CheckArgs) -> ConfigFinder {
-    standard_config_finder(Arc::new(move |_, x| {
-        let (config, errors) = args.override_config(x);
-        for e in errors {
-            warn!("{e:#}");
-        }
-        config
-    }))
+    standard_config_finder(Arc::new(move |_, x| args.override_config(x)))
 }
 
 fn absolutize(globs: Globs) -> anyhow::Result<Globs> {
@@ -170,9 +164,8 @@ fn get_globs_and_config_for_project(
                     &current_dir,
                     &ProjectLayout::new(&current_dir),
                 ));
-                for e in errors {
-                    debug!("{}", e);
-                }
+                // Since this is a config we generated, these are likely internal errors.
+                debug_log(errors);
                 ArcId::new(config)
             });
             (config, config_finder.errors())

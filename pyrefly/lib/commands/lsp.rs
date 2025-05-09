@@ -322,7 +322,7 @@ impl Workspaces {
                 })
             };
             config.configure();
-            config
+            (config, Vec::new())
         }))
     }
 }
