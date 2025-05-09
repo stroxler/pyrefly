@@ -18,6 +18,8 @@ use pyrefly_derive::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::name::Name;
 
+use crate::alt::solve::TypeFormContext;
+use crate::binding::binding::Initialized;
 use crate::types::annotation::Qualifier;
 use crate::types::types::NeverStyle;
 use crate::types::types::Type;
@@ -72,15 +74,21 @@ impl SpecialForm {
     }
 
     /// Is this special form valid as an un-parameterized annotation anywhere?
-    pub fn is_valid_unparameterized_annotation(self) -> bool {
+    pub fn is_valid_unparameterized_annotation(self, type_form_context: TypeFormContext) -> bool {
         match self {
+            SpecialForm::Protocol => matches!(type_form_context, TypeFormContext::BaseClassList),
+            SpecialForm::TypeAlias => matches!(
+                type_form_context,
+                TypeFormContext::TypeAlias | TypeFormContext::VarAnnotation(Initialized::Yes)
+            ),
+            SpecialForm::Final => matches!(
+                type_form_context,
+                TypeFormContext::VarAnnotation(Initialized::Yes)
+                    | TypeFormContext::ClassVarAnnotation
+            ),
             SpecialForm::LiteralString
             | SpecialForm::Never
             | SpecialForm::NoReturn
-            | SpecialForm::Generic
-            | SpecialForm::Protocol
-            | SpecialForm::Final
-            | SpecialForm::TypeAlias
             | SpecialForm::TypedDict
             | SpecialForm::Type
             | SpecialForm::SelfType => true,

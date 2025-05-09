@@ -132,6 +132,8 @@ pub enum TypeFormContext {
     TypeVarDefault,
     ParamSpecDefault,
     TypeVarTupleDefault,
+    /// A type being aliased
+    TypeAlias,
     /// Variable annotation outside of a class definition
     /// Is the variable assigned a value here?
     VarAnnotation(Initialized),
@@ -465,7 +467,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             _ => {
                 let ann_ty = self.expr_untype(x, type_form_context, errors);
                 if let Type::SpecialForm(special_form) = ann_ty
-                    && !special_form.is_valid_unparameterized_annotation()
+                    && !special_form.is_valid_unparameterized_annotation(type_form_context)
                 {
                     self.error(
                         errors,
@@ -752,16 +754,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if matches!(
             style,
             TypeAliasStyle::Scoped | TypeAliasStyle::LegacyExplicit
-        ) && self.untype_opt(ty.clone(), range).is_none()
-        {
-            self.error(
-                errors,
-                range,
-                ErrorKind::TypeAliasError,
-                None,
-                format!("Expected `{name}` to be a type alias, got {ty}"),
-            );
-            return Type::any_error();
+        ) {
+            let untyped = self.untype_opt(ty.clone(), range);
+            if let Some(ty) = untyped {
+                self.validate_type_form(ty, range, TypeFormContext::TypeAlias, errors);
+            } else {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::TypeAliasError,
+                    None,
+                    format!("Expected `{name}` to be a type alias, got {ty}"),
+                );
+                return Type::any_error();
+            }
         }
         let mut ty = match &ty {
             Type::ClassDef(cls) => Type::type_form(self.promote(cls, range)),
@@ -2658,8 +2664,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("{} is not allowed in this context.", ty),
             );
         }
+        if !matches!(
+            type_form_context,
+            TypeFormContext::TupleOrCallableParam | TypeFormContext::TypeArgument
+        ) && matches!(ty, Type::TypeVarTuple(_))
+        {
+            return self.error(
+                errors,
+                range,
+                ErrorKind::InvalidAnnotation,
+                None,
+                "TypeVarTuple must be unpacked.".to_owned(),
+            );
+        }
         if let Type::SpecialForm(special_form) = ty
-            && !special_form.is_valid_unparameterized_annotation()
+            && !special_form.is_valid_unparameterized_annotation(type_form_context)
         {
             self.error(
                 errors,

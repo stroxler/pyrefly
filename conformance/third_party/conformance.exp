@@ -4988,6 +4988,16 @@
     },
     {
       "code": -2,
+      "column": 8,
+      "concise_description": "Expected a type argument for `Generic`",
+      "description": "Expected a type argument for `Generic`",
+      "line": 30,
+      "name": "invalid-annotation",
+      "stop_column": 15,
+      "stop_line": 30
+    },
+    {
+      "code": -2,
       "column": 22,
       "concise_description": "Expected 1 type argument for `LinkedList`, got 2",
       "description": "Expected 1 type argument for `LinkedList`, got 2",
@@ -5468,6 +5478,16 @@
     },
     {
       "code": -2,
+      "column": 18,
+      "concise_description": "ParamSpec(P) is not allowed in this context.",
+      "description": "ParamSpec(P) is not allowed in this context.",
+      "line": 15,
+      "name": "invalid-annotation",
+      "stop_column": 19,
+      "stop_line": 15
+    },
+    {
+      "code": -2,
       "column": 14,
       "concise_description": "ParamSpec is not allowed in this context.",
       "description": "ParamSpec is not allowed in this context.",
@@ -5923,6 +5943,16 @@
       "name": "invalid-type-var",
       "stop_column": 20,
       "stop_line": 65
+    },
+    {
+      "code": -2,
+      "column": 12,
+      "concise_description": "Expected a type argument for `TypeAlias`",
+      "description": "Expected a type argument for `TypeAlias`",
+      "line": 87,
+      "name": "invalid-annotation",
+      "stop_column": 21,
+      "stop_line": 87
     },
     {
       "code": -2,
