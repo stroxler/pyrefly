@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import * as docusaurusTheme from '@docusaurus/theme-common';
 import MonacoEditorButton, {
     BUTTON_HEIGHT,
     runOnClickForAtLeastOneSecond,
@@ -189,7 +190,8 @@ export default function Sandbox({
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
             if (
                 !isCodeSnippet &&
-                pyodideStatus !== PyodideStatus.INITIALIZING && pyodideStatus !== PyodideStatus.RUNNING
+                pyodideStatus !== PyodideStatus.INITIALIZING &&
+                pyodideStatus !== PyodideStatus.RUNNING
             ) {
                 // Use the model from the editor directly
                 const editorModel = editor.getModel();
@@ -351,13 +353,16 @@ function getPyreflyEditor(
     onEditorMount: (editor: editor.IStandaloneCodeEditor) => void,
     editorHeightforCodeSnippet: number | null
 ): React.ReactElement {
+    const { colorMode } = docusaurusTheme.useColorMode();
+
+    const editorTheme = colorMode === 'dark' ? 'vs-dark' : 'vs-light';
     if (isCodeSnippet) {
         return (
             <Editor
                 defaultPath={fileName}
                 defaultValue={codeSample}
                 defaultLanguage="python"
-                theme="vs-light"
+                theme={editorTheme}
                 onChange={forceRecheck}
                 onMount={onEditorMount}
                 keepCurrentModel={true}
@@ -389,7 +394,7 @@ function getPyreflyEditor(
                 defaultPath={fileName}
                 defaultValue={codeSample}
                 defaultLanguage="python"
-                theme="vs-light"
+                theme={editorTheme}
                 onChange={(value) => {
                     forceRecheck();
                     if (typeof value === 'string') {
@@ -558,7 +563,7 @@ const styles = stylex.create({
         display: 'flex',
         overflow: 'visible',
         borderBottom: '10px',
-        background: '#fff',
+        background: 'var(--color-background)',
         height: '100%',
     },
     buttonContainerBase: {

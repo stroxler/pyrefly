@@ -240,9 +240,9 @@ const config: Config = {
             theme: prismThemes.github,
         },
         colorMode: {
-            defaultMode: 'light',
-            disableSwitch: true,
-            respectPrefersColorScheme: false,
+            defaultMode: 'dark',
+            disableSwitch: false,
+            respectPrefersColorScheme: true,
         },
         navbar: {
             title: 'Pyrefly',
@@ -255,7 +255,6 @@ const config: Config = {
             items: getNavBarItems(),
         },
         footer: {
-            style: 'dark',
             links: [
                 {
                     title: 'Community',

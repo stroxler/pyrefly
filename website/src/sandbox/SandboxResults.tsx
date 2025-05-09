@@ -216,13 +216,13 @@ const styles = stylex.create({
         height: 'calc(25vh - var(--ifm-navbar-height) / 4)', // 25% of screen height - nav bar
         position: 'relative',
         fontSize: '12px',
-        background: '#f7f7f7',
-        borderLeft: '1px solid #ddd',
+        background: 'var(--color-background)',
+        borderLeft: '1px solid var(--color-background)',
     },
     resultsToolbar: {
         display: 'flex',
-        background: '#fff',
-        borderBottom: '1px solid #ddd',
+        background: 'var(--color-background)',
+        borderBottom: '1px solid var(--color-background-secondary)',
         fontSize: '14px',
     },
     results: {
@@ -230,8 +230,10 @@ const styles = stylex.create({
         height: '80%',
     },
     resultBody: {
-        padding: '7px 10px',
+        paddingVertical: '7px',
+        paddingHorizontal: '10px',
         marginBottom: 0,
+        background: 'var(--color-background)',
     },
     tabs: {
         display: 'flex',
@@ -244,14 +246,14 @@ const styles = stylex.create({
         pointerEvents: 'auto',
     },
     tab: {
-        borderRight: '1px solid #ddd',
+        borderRight: '1px solid var(--color-background-secondary)',
         cursor: 'pointer',
         fontWeight: 'bold',
         padding: '7px 15px',
     },
     selectedTab: {
-        background: 'white',
-        borderBottom: '2px solid #404040',
+        background: 'var(--color-background)',
+        borderBottom: '2px solid var(--color-text)',
         marginBottom: '-1px', // cover up container bottom border
     },
     loader: {
@@ -262,7 +264,7 @@ const styles = stylex.create({
     loaderDot: {
         width: '14px',
         height: '14px',
-        backgroundColor: '#ccc',
+        backgroundColor: 'var(--color-background)',
         borderRadius: '100%',
         animationName: skBounceDelayKeyframes,
         animationDuration: '1.4s',
@@ -284,7 +286,8 @@ const styles = stylex.create({
     errorItemSibling: {
         marginTop: '10px',
         paddingTop: '10px',
-        borderTop: 'solid #eee 1px',
+        borderTop: 'solid var(--color-background-secondary) 1px',
+        background: 'var(--color-background)',
     },
     errorNestedItem: {
         padding: 'inherit',

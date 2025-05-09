@@ -119,15 +119,15 @@ const styles = stylex.create({
     },
     // Default state
     buttonDefault: {
-        background: 'rgba(255, 255, 255, 0.95)',
-        border: '1px solid #ddd',
+        background: 'var(--color-background)',
+        border: '1px solid var(--color-background-secondary)',
         color: 'inherit',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        boxShadow: '0 2px 8px var(--color-shadow)',
         '@media (min-width: 769px)': {
             ':hover': {
-                background: 'rgba(255, 255, 255, 1)',
+                background: 'var(--color-background)',
                 transform: 'translateY(-1px)',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                boxShadow: '0 4px 12px var(--color-shadow-hovered)',
             },
         },
     },
@@ -136,19 +136,19 @@ const styles = stylex.create({
     },
     // Running state
     buttonRunning: {
-        background: 'rgba(76, 175, 80, 0.95)',
+        background: 'var(--color-green)',
         color: 'white',
-        border: '1px solid #43a047',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        border: '1px solid var(--color-green-border)',
+        boxShadow: '0 2px 8px var(--color-shadow)',
         animationName: runningKeyframes,
         animationDuration: '0.3s',
         animationTimingFunction: 'ease',
         '@media (min-width: 769px)': {
             ':hover': {
-                background: 'rgba(67, 160, 71, 1)',
+                background: 'var(--color-green-hover)',
                 color: 'white',
                 transform: 'translateY(-1px)',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                boxShadow: '0 4px 12px var(--color-shadow-hovered)',
             },
         },
     },
