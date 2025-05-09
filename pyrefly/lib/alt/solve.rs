@@ -2583,6 +2583,139 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    pub fn validate_type_form(
+        &self,
+        ty: Type,
+        range: TextRange,
+        type_form_context: TypeFormContext,
+        errors: &ErrorCollector,
+    ) -> Type {
+        if type_form_context != TypeFormContext::ParameterKwargsAnnotation
+            && matches!(ty, Type::Unpack(box Type::TypedDict(_)))
+        {
+            return self.error(
+                errors,
+                range,
+                ErrorKind::InvalidAnnotation,
+                None,
+                "Unpack with a TypedDict is only allowed in a **kwargs annotation.".to_owned(),
+            );
+        }
+        if type_form_context != TypeFormContext::ParameterKwargsAnnotation
+            && matches!(ty, Type::Kwargs(_))
+        {
+            return self.error(
+                errors,
+                range,
+                ErrorKind::InvalidAnnotation,
+                None,
+                "ParamSpec **kwargs is only allowed in a **kwargs annotation.".to_owned(),
+            );
+        }
+        if type_form_context != TypeFormContext::ParameterArgsAnnotation
+            && matches!(ty, Type::Args(_))
+        {
+            return self.error(
+                errors,
+                range,
+                ErrorKind::InvalidAnnotation,
+                None,
+                "ParamSpec *args is only allowed in an *args annotation.".to_owned(),
+            );
+        }
+        if !matches!(
+            type_form_context,
+            TypeFormContext::ParameterArgsAnnotation
+                | TypeFormContext::ParameterKwargsAnnotation
+                | TypeFormContext::TypeArgument
+                | TypeFormContext::TupleOrCallableParam
+                | TypeFormContext::GenericBase
+                | TypeFormContext::TypeVarTupleDefault
+        ) && matches!(ty, Type::Unpack(_))
+        {
+            return self.error(
+                errors,
+                range,
+                ErrorKind::InvalidAnnotation,
+                None,
+                "Unpack is not allowed in this context.".to_owned(),
+            );
+        }
+        if !matches!(
+            type_form_context,
+            TypeFormContext::TypeArgument
+                | TypeFormContext::GenericBase
+                | TypeFormContext::ParamSpecDefault
+        ) && matches!(
+            ty,
+            Type::Concatenate(_, _) | Type::ParamSpecValue(_) | Type::ParamSpec(_)
+        ) {
+            return self.error(
+                errors,
+                range,
+                ErrorKind::InvalidAnnotation,
+                None,
+                format!("{} is not allowed in this context.", ty),
+            );
+        }
+        if let Type::SpecialForm(special_form) = ty
+            && !special_form.is_valid_unparameterized_annotation()
+        {
+            self.error(
+                errors,
+                range,
+                ErrorKind::InvalidAnnotation,
+                None,
+                format!("Expected a type argument for `{}`", special_form),
+            );
+        }
+        if let Type::Quantified(quantified) = &ty {
+            if quantified.is_param_spec()
+                && !matches!(
+                    type_form_context,
+                    TypeFormContext::TypeArgument
+                        | TypeFormContext::GenericBase
+                        | TypeFormContext::ParamSpecDefault
+                )
+            {
+                return self.error(
+                    errors,
+                    range,
+                    ErrorKind::InvalidAnnotation,
+                    None,
+                    "ParamSpec is not allowed in this context.".to_owned(),
+                );
+            }
+            // We check tuple/callable/generic type arguments separately, so exclude those
+            // to avoid emitting duplicate errors.
+            if quantified.is_type_var_tuple()
+                && !matches!(
+                    type_form_context,
+                    TypeFormContext::TupleOrCallableParam | TypeFormContext::TypeArgument
+                )
+            {
+                return self.error(
+                    errors,
+                    range,
+                    ErrorKind::InvalidAnnotation,
+                    None,
+                    "TypeVarTuple must be unpacked.".to_owned(),
+                );
+            }
+        }
+        if type_form_context == TypeFormContext::TypeVarConstraint && ty.any(Type::is_type_variable)
+        {
+            return self.error(
+                errors,
+                range,
+                ErrorKind::InvalidAnnotation,
+                None,
+                "Type variable bounds and constraints must be concrete".to_owned(),
+            );
+        }
+        ty
+    }
+
     pub fn expr_untype(
         &self,
         x: &Expr,
@@ -2610,130 +2743,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             _ => self.untype(self.expr_infer(x, errors), x.range(), errors),
         };
-        if type_form_context != TypeFormContext::ParameterKwargsAnnotation
-            && matches!(result, Type::Unpack(box Type::TypedDict(_)))
-        {
-            return self.error(
-                errors,
-                x.range(),
-                ErrorKind::InvalidAnnotation,
-                None,
-                "Unpack with a TypedDict is only allowed in a **kwargs annotation.".to_owned(),
-            );
-        }
-        if type_form_context != TypeFormContext::ParameterKwargsAnnotation
-            && matches!(result, Type::Kwargs(_))
-        {
-            return self.error(
-                errors,
-                x.range(),
-                ErrorKind::InvalidAnnotation,
-                None,
-                "ParamSpec **kwargs is only allowed in a **kwargs annotation.".to_owned(),
-            );
-        }
-        if type_form_context != TypeFormContext::ParameterArgsAnnotation
-            && matches!(result, Type::Args(_))
-        {
-            return self.error(
-                errors,
-                x.range(),
-                ErrorKind::InvalidAnnotation,
-                None,
-                "ParamSpec *args is only allowed in an *args annotation.".to_owned(),
-            );
-        }
-        if !matches!(
-            type_form_context,
-            TypeFormContext::ParameterArgsAnnotation
-                | TypeFormContext::ParameterKwargsAnnotation
-                | TypeFormContext::TypeArgument
-                | TypeFormContext::TupleOrCallableParam
-                | TypeFormContext::GenericBase
-                | TypeFormContext::TypeVarTupleDefault
-        ) && matches!(result, Type::Unpack(_))
-        {
-            return self.error(
-                errors,
-                x.range(),
-                ErrorKind::InvalidAnnotation,
-                None,
-                "Unpack is not allowed in this context.".to_owned(),
-            );
-        }
-        if !matches!(
-            type_form_context,
-            TypeFormContext::TypeArgument
-                | TypeFormContext::GenericBase
-                | TypeFormContext::ParamSpecDefault
-        ) && matches!(
-            result,
-            Type::Concatenate(_, _) | Type::ParamSpecValue(_) | Type::ParamSpec(_)
-        ) {
-            return self.error(
-                errors,
-                x.range(),
-                ErrorKind::InvalidAnnotation,
-                None,
-                format!("{} is not allowed in this context.", result),
-            );
-        }
-        if let Type::SpecialForm(special_form) = result
-            && !special_form.is_valid_unparameterized_annotation()
-        {
-            self.error(
-                errors,
-                x.range(),
-                ErrorKind::InvalidAnnotation,
-                None,
-                format!("Expected a type argument for `{}`", special_form),
-            );
-        }
-        if let Type::Quantified(quantified) = &result {
-            if quantified.is_param_spec()
-                && !matches!(
-                    type_form_context,
-                    TypeFormContext::TypeArgument
-                        | TypeFormContext::GenericBase
-                        | TypeFormContext::ParamSpecDefault
-                )
-            {
-                return self.error(
-                    errors,
-                    x.range(),
-                    ErrorKind::InvalidAnnotation,
-                    None,
-                    "ParamSpec is not allowed in this context.".to_owned(),
-                );
-            }
-            // We check tuple/callable/generic type arguments separately, so exclude those
-            // to avoid emitting duplicate errors.
-            if quantified.is_type_var_tuple()
-                && !matches!(
-                    type_form_context,
-                    TypeFormContext::TupleOrCallableParam | TypeFormContext::TypeArgument
-                )
-            {
-                return self.error(
-                    errors,
-                    x.range(),
-                    ErrorKind::InvalidAnnotation,
-                    None,
-                    "TypeVarTuple must be unpacked.".to_owned(),
-                );
-            }
-        }
-        if type_form_context == TypeFormContext::TypeVarConstraint
-            && result.any(Type::is_type_variable)
-        {
-            return self.error(
-                errors,
-                x.range(),
-                ErrorKind::InvalidAnnotation,
-                None,
-                "Type variable bounds and constraints must be concrete".to_owned(),
-            );
-        }
-        result
+        self.validate_type_form(result, x.range(), type_form_context, errors)
     }
 }
