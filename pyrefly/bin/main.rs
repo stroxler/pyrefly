@@ -155,16 +155,12 @@ fn get_globs_and_config_for_project(
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
     let (config, errors) = match config {
         Some(explicit) => {
-            // We deliberately don't use the cached object, since we want errors in an explicit config to be fatal
             let (file_config, parse_errors) = ConfigFile::from_file(&explicit, true);
-            if let Some(e) = parse_errors.into_iter().next() {
-                return Err(e);
-            }
             let (config, validation_errors) = args.override_config(file_config);
-            for e in validation_errors {
-                warn!("{e:#}");
-            }
-            (ArcId::new(config), Vec::new())
+            (
+                ArcId::new(config),
+                parse_errors.into_iter().chain(validation_errors).collect(),
+            )
         }
         None => {
             let current_dir = std::env::current_dir().context("cannot identify current dir")?;
@@ -217,14 +213,10 @@ fn get_globs_and_config_for_files(
     let config_finder = match config {
         Some(explicit) => {
             let (file_config, parse_errors) = ConfigFile::from_file(&explicit, true);
-            if let Some(e) = parse_errors.into_iter().next() {
-                return Err(e);
-            }
             let (config, validation_errors) = args.override_config(file_config);
-            for e in validation_errors {
-                warn!("{e:#}");
-            }
-            ConfigFinder::new_constant(ArcId::new(config))
+            let config_finder = ConfigFinder::new_constant(ArcId::new(config));
+            config_finder.add_errors(parse_errors.into_iter().chain(validation_errors).collect());
+            config_finder
         }
         None => config_finder(args.clone()),
     };
