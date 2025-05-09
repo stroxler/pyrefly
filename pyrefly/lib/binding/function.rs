@@ -186,6 +186,35 @@ impl<'a> BindingsBuilder<'a> {
         (func_scope, yields_and_returns)
     }
 
+    fn implicit_return(
+        &mut self,
+        body: &[Stmt],
+        func_name: &Identifier,
+        stub_or_impl: FunctionStubOrImpl,
+        decorators: Box<[Idx<Key>]>,
+    ) -> Idx<Key> {
+        let last_exprs = function_last_expressions(body, self.sys_info).map(|x| {
+            x.into_map(|(last, x)| {
+                (
+                    last,
+                    self.table.types.0.insert(match last {
+                        LastStmt::Expr => Key::StmtExpr(x.range()),
+                        LastStmt::With(_) => Key::ContextExpr(x.range()),
+                    }),
+                )
+            })
+            .into_boxed_slice()
+        });
+        self.table.insert(
+            Key::ReturnImplicit(ShortIdentifier::new(func_name)),
+            Binding::ReturnImplicit(ReturnImplicit {
+                last_exprs,
+                stub_or_impl,
+                decorators,
+            }),
+        )
+    }
+
     fn function_body(
         &mut self,
         parameters: &mut Box<Parameters>,
@@ -204,29 +233,7 @@ impl<'a> BindingsBuilder<'a> {
             FunctionStubOrImpl::Impl
         };
 
-        // Implicit return
-        let implicit_return = {
-            let last_exprs = function_last_expressions(&body, self.sys_info).map(|x| {
-                x.into_map(|(last, x)| {
-                    (
-                        last,
-                        self.table.types.0.insert(match last {
-                            LastStmt::Expr => Key::StmtExpr(x.range()),
-                            LastStmt::With(_) => Key::ContextExpr(x.range()),
-                        }),
-                    )
-                })
-                .into_boxed_slice()
-            });
-            self.table.insert(
-                Key::ReturnImplicit(ShortIdentifier::new(func_name)),
-                Binding::ReturnImplicit(ReturnImplicit {
-                    last_exprs,
-                    stub_or_impl,
-                    decorators,
-                }),
-            )
-        };
+        let implicit_return = self.implicit_return(&body, func_name, stub_or_impl, decorators);
 
         let (func_scope, yields_and_returns) =
             self.function_body_scope(parameters, body, range, func_name, function_idx, class_key);
