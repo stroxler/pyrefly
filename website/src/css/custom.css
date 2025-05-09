@@ -238,6 +238,12 @@ html[data-theme='dark'] {
     background-repeat: no-repeat;
 }
 
+.navbar .discord__link:before {
+    background: url(/img/Discord-Symbol-White.svg);
+    background-repeat: no-repeat;
+    height: 16px;
+}
+
 .navbar-sidebar {
     background-color: #2d343a;
 }

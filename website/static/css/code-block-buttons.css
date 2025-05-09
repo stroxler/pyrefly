@@ -46,12 +46,3 @@ pre .btnIcon:hover {
 .btnClipboard {
     right: 10px;
 }
-
-/* Custom CSS for the discord logo - for some reason does not work from custom.css */
-.navbar__item.navbar__link.navbar__icon.discord__link:before {
-    background: url(/img/Discord-Symbol-White.svg);
-    background-repeat: no-repeat;
-    background-color: rgba(0, 0, 0, 0);
-    height: 16px;
-    opacity: 0.8;
-}
