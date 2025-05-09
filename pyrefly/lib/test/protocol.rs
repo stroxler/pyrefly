@@ -298,6 +298,16 @@ f(B())  # E: Argument `B` is not assignable to parameter `x` with type `Hashable
 );
 
 testcase!(
+    test_protocol_instantiation,
+    r#"
+from typing import Protocol
+class A(Protocol):
+    pass
+a: A = A()  # E: Cannot instantiate `A` because it is a protocol
+    "#,
+);
+
+testcase!(
     test_protocol_getattr,
     r#"
 from typing import Protocol

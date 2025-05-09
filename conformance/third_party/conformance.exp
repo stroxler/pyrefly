@@ -8625,6 +8625,16 @@
   "protocols_class_objects.py": [
     {
       "code": -2,
+      "column": 12,
+      "concise_description": "Cannot instantiate `Proto` because it is a protocol",
+      "description": "Cannot instantiate `Proto` because it is a protocol",
+      "line": 26,
+      "name": "bad-instantiation",
+      "stop_column": 15,
+      "stop_line": 26
+    },
+    {
+      "code": -2,
       "column": 16,
       "concise_description": "`type[ConcreteA]` is not assignable to `ProtoA1`",
       "description": "`type[ConcreteA]` is not assignable to `ProtoA1`",
@@ -9130,6 +9140,16 @@
     }
   ],
   "protocols_subtyping.py": [
+    {
+      "code": -2,
+      "column": 6,
+      "concise_description": "Cannot instantiate `Proto1` because it is a protocol",
+      "description": "Cannot instantiate `Proto1` because it is a protocol",
+      "line": 16,
+      "name": "bad-instantiation",
+      "stop_column": 12,
+      "stop_line": 16
+    },
     {
       "code": -2,
       "column": 21,

@@ -492,7 +492,8 @@
     "Line 104: Expected 1 errors",
     "Line 106: Expected 1 errors",
     "Line 107: Expected 1 errors",
-    "Line 108: Expected 1 errors"
+    "Line 108: Expected 1 errors",
+    "Line 26: Unexpected errors ['Cannot instantiate `Proto` because it is a protocol']"
   ],
   "protocols_definition.py": [
     "Line 116: Expected 1 errors",
@@ -535,9 +536,7 @@
     "Line 32: Unexpected errors ['`One` is not assignable to variable `c` with type `Copyable`']",
     "Line 33: Unexpected errors ['`Other` is not assignable to variable `c` with type `Copyable`']"
   ],
-  "protocols_subtyping.py": [
-    "Line 16: Expected 1 errors"
-  ],
+  "protocols_subtyping.py": [],
   "protocols_variance.py": [
     "Line 21: Expected 1 errors",
     "Line 40: Expected 1 errors",

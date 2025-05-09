@@ -476,6 +476,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // We only care about the side effect here, not the result
                     self.is_subset_eq(&Type::ClassType(cls.clone()), &hint);
                 }
+                if self
+                    .get_metadata_for_class(cls.class_object())
+                    .is_protocol()
+                {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::BadInstantiation,
+                        context,
+                        format!(
+                            "Cannot instantiate `{}` because it is a protocol",
+                            cls.name()
+                        ),
+                    );
+                }
                 self.construct_class(cls, args, keywords, range, errors, context)
             }
             Target::TypedDict(td) => {

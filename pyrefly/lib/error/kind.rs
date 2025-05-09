@@ -65,6 +65,8 @@ pub enum ErrorKind {
     /// A function definition has some typing-related error.
     /// e.g. putting a non-default argument after a default argument.
     BadFunctionDefinition,
+    /// Can't instantiate an abstract class or protocol
+    BadInstantiation,
     /// Attempting to call a function with an incorrect keyword argument.
     /// e.g. f(x=1, x=2), or perhaps f(y=1) (where `f` has no parameter `y`).
     BadKeywordArgument,
