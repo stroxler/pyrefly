@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use regex::Regex;
+use walkdir::WalkDir;
 
 #[expect(dead_code)]
 /// Regex for matching a Python executable, copied from MS vscode-python. The correct pattern will be selected
@@ -26,8 +27,111 @@ static PYTHON_INTERPRETER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(pattern).unwrap()
 });
 
+#[allow(dead_code)]
+/// Walk the given start [`Path`] up to the given depth, searching for
+/// [`PYTHON_INTERPRETER_REGEX`]. If an error is encountered, we return
+/// an empty [`Vec`] for the given operation.
+///
+/// Note: we do not follow links. For `venv`s, the symlink path contains important
+/// information the Python interpreter needs to proplrly execute.
+pub fn walk_interpreter(start: &Path, depth: usize) -> impl Iterator<Item = PathBuf> {
+    let walker = WalkDir::new(start)
+        .min_depth(1)
+        .max_depth(depth)
+        .follow_links(false);
+
+    fn filter_map(entry: Result<walkdir::DirEntry, walkdir::Error>) -> Option<PathBuf> {
+        let entry = entry.ok()?;
+
+        // don't handle symlinks differently here, since the symlinked path is important for
+        // using `pyenv.cfg`.
+        if entry.file_type().is_dir()
+            || !PYTHON_INTERPRETER_REGEX.is_match(entry.file_name().to_string_lossy().as_ref())
+        {
+            return None;
+        }
+        Some(entry.path().to_path_buf())
+    }
+
+    walker.into_iter().filter_map(filter_map)
+}
+
 #[expect(dead_code)]
 /// A trait for structs with the ability to search for a Python interpreter installation.
 pub trait Finder {
     fn find(project_path: &Path) -> Option<PathBuf>;
+}
+
+#[cfg(test)]
+mod tests {
+    use itertools::Itertools as _;
+
+    use super::*;
+    use crate::test::util::TestPath;
+
+    fn interp_name(version_suffix: &str) -> String {
+        let windows_suffix = if cfg!(windows) { ".exe" } else { "" };
+        format!("python{version_suffix}{windows_suffix}")
+    }
+
+    fn create_fs(root: &Path, interp_name: &str) {
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::file("pyrefly.toml"),
+                TestPath::dir("foo", vec![TestPath::file("bar.py")]),
+                TestPath::dir(
+                    ".venv",
+                    vec![
+                        TestPath::file(interp_name),
+                        TestPath::dir("bin", vec![TestPath::file(interp_name)]),
+                    ],
+                ),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_find_all_interpreters() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        let interp_name = interp_name("");
+        create_fs(root, &interp_name);
+
+        assert_eq!(
+            walk_interpreter(root, 3).sorted().collect::<Vec<PathBuf>>(),
+            vec![
+                root.join(".venv/bin").join(&interp_name),
+                root.join(".venv").join(&interp_name)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_find_max_depth() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        let interp_name = interp_name("");
+        create_fs(root, &interp_name);
+
+        assert_eq!(
+            walk_interpreter(root, 0).collect::<Vec<PathBuf>>(),
+            Vec::<PathBuf>::new()
+        );
+        assert_eq!(
+            walk_interpreter(root, 1).collect::<Vec<PathBuf>>(),
+            Vec::<PathBuf>::new()
+        );
+        assert_eq!(
+            walk_interpreter(root, 2).collect::<Vec<PathBuf>>(),
+            vec![root.join(".venv").join(&interp_name)]
+        );
+        assert_eq!(
+            walk_interpreter(root, 3).sorted().collect::<Vec<PathBuf>>(),
+            vec![
+                root.join(".venv/bin").join(&interp_name),
+                root.join(".venv").join(&interp_name)
+            ]
+        );
+    }
 }
