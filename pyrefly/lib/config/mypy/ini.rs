@@ -8,16 +8,16 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Command;
 use std::str::FromStr;
 
+use anyhow::Context as _;
 use configparser::ini::Ini;
 use configparser::ini::IniDefault;
-use regex::Regex;
-use regex_syntax::ast::print;
 use serde::Deserialize;
 
+use crate::config::base::ConfigBase;
 use crate::config::config::ConfigFile;
+use crate::config::config::SubConfig;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::mypy::regex_converter;
 use crate::module::wildcard::ModuleWildcard;
@@ -60,12 +60,30 @@ impl MypyConfig {
                 _ => Vec::new(),
             }
         }
+
+        // getboolcoerce returns an Option<bool> to indicate if the value was set or not,
+        // wrapped in a Result to indicate if the value could be parsed as a bool.
+        // We assume that mypy configs are well formed, since they're already used by mypy itself,
+        // so it's semantically safe to smoosh this down to an Option and unwrap_or_default it.
+        fn bool_or_default(config: &Ini, section: &str, key: &str) -> bool {
+            config
+                .getboolcoerce(section, key)
+                .ok()
+                .flatten()
+                .unwrap_or_default()
+        }
+
         let mut default = IniDefault::default();
         // Need to set this to properly parse things like the PyTorch mypy.ini file,
         // Which has a multiline `files` comment that gets parsed incorrectly without this.
         default.multiline = true;
         let mut config = Ini::new_from_defaults(default);
-        let map = config.load(ini_path);
+        config
+            .load(ini_path)
+            .map_err(|e| anyhow::anyhow!(e))
+            .with_context(|| {
+                format!("While trying to read mypy config at {}", ini_path.display())
+            })?;
 
         // https://mypy.readthedocs.io/en/latest/config_file.html#import-discovery
         // files, packages, modules, mypy_path, python_executable, python_version, and excludes can only be set in the top level `[mypy]` global section
@@ -82,26 +100,22 @@ impl MypyConfig {
             ini_string_to_array(&config.get("mypy", "enable_error_code"));
 
         let mut replace_imports: Vec<String> = Vec::new();
-        let mut follow_untyped_imports = false;
-        // let mut new_configuration = HashMap::new();
-        if let Ok(mypy_config) = map {
-            for (section_name, settings) in mypy_config {
-                for (key, value) in settings {
-                    if let Some(val) = value {
-                        if val.as_str() == "True"
-                            && key == "ignore_missing_imports"
-                            && section_name.starts_with("mypy-")
-                        {
-                            replace_imports.push(section_name.clone());
-                        }
-                        if key == "follow_untyped_imports" {
-                            follow_untyped_imports = follow_untyped_imports || (val == "True");
-                        }
-                    }
-                }
+        let mut follow_untyped_imports = bool_or_default(&config, "mypy", "follow_untyped_imports");
+        for section in &config.sections() {
+            if section == "mypy" {
+                continue;
             }
+            if bool_or_default(&config, section, "ignore_missing_imports")
+                || config
+                    .get(section, "follow_imports")
+                    .is_some_and(|val| val == "skip")
+            {
+                replace_imports.push(section.to_owned());
+            }
+            follow_untyped_imports = follow_untyped_imports
+                || bool_or_default(&config, section, "follow_untyped_imports");
         }
-        // Create new configuration
+
         let mut cfg = ConfigFile::default();
 
         let project_includes = [files, packages, modules]
@@ -130,9 +144,8 @@ impl MypyConfig {
         }
 
         if let Some(search_paths) = mypy_path {
-            let re = Regex::new(r"[,:]").unwrap();
-            let value: Vec<PathBuf> = re
-                .split(&search_paths)
+            let value: Vec<PathBuf> = search_paths
+                .split([',', ':'])
                 .map(|x| x.trim().to_owned())
                 .filter(|x| !x.is_empty())
                 .map(PathBuf::from)
@@ -243,8 +256,8 @@ ignore_missing_imports = True
         let input_path = tmp.path().join("mypy.ini");
         // This config is derived from the pytorch mypy.ini.
         let mypy = br#"[mypy]
- unknown_option = True
- "#;
+unknown_option = True
+"#;
         fs_anyhow::write(&input_path, mypy)?;
 
         let cfg = MypyConfig::parse_mypy_config(&input_path)?;
@@ -265,6 +278,30 @@ disable_error_code = union-attr
         cfg.configure();
         let errors = cfg.errors(tmp.path());
         assert!(!errors.is_enabled(crate::error::kind::ErrorKind::MissingAttribute));
+        Ok(())
+    }
+
+    #[test]
+    fn test_replace_imports() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("mypy.ini");
+        let src = br#"[mypy]
+test_flag = True
+
+# replace some.*.project with Any.
+[mypy-some.*.project]
+ignore_missing_imports = True
+
+# Don't replace this one, because it's not `follow_imports = skip`.
+[mypy-another.project]
+follow_imports = silent
+"#;
+        fs_anyhow::write(&input_path, src)?;
+        let cfg = MypyConfig::parse_mypy_config(&input_path)?;
+        assert_eq!(
+            cfg.replace_imports_with_any(None),
+            vec![ModuleWildcard::new("some.*.project").unwrap(),]
+        );
         Ok(())
     }
 }
