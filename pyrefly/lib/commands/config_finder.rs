@@ -53,7 +53,7 @@ pub fn standard_config_finder(
 
     ConfigFinder::new(
         Box::new(move |file| {
-            let (file_config, parse_errors) = ConfigFile::from_file(file, false);
+            let (file_config, parse_errors) = ConfigFile::from_file(file);
             let (config, validation_errors) = configure(file.parent(), file_config);
             (
                 ArcId::new(config),

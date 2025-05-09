@@ -149,7 +149,7 @@ fn get_globs_and_config_for_project(
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
     let (config, errors) = match config {
         Some(explicit) => {
-            let (file_config, parse_errors) = ConfigFile::from_file(&explicit, true);
+            let (file_config, parse_errors) = ConfigFile::from_file(&explicit);
             let (config, validation_errors) = args.override_config(file_config);
             (
                 ArcId::new(config),
@@ -205,7 +205,7 @@ fn get_globs_and_config_for_files(
     let files_to_check = absolutize(files_to_check)?;
     let config_finder = match config {
         Some(explicit) => {
-            let (file_config, parse_errors) = ConfigFile::from_file(&explicit, true);
+            let (file_config, parse_errors) = ConfigFile::from_file(&explicit);
             let (config, validation_errors) = args.override_config(file_config);
             let config_finder = ConfigFinder::new_constant(ArcId::new(config));
             config_finder.add_errors(parse_errors.into_iter().chain(validation_errors).collect());

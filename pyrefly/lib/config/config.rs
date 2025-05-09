@@ -457,10 +457,7 @@ impl ConfigFile {
         errors
     }
 
-    pub fn from_file(
-        config_path: &Path,
-        error_on_extras: bool,
-    ) -> (ConfigFile, Vec<anyhow::Error>) {
+    pub fn from_file(config_path: &Path) -> (ConfigFile, Vec<anyhow::Error>) {
         fn read_path(config_path: &Path) -> anyhow::Result<Option<ConfigFile>> {
             let config_path = config_path
                 .absolutize()
@@ -479,7 +476,7 @@ impl ConfigFile {
                 Ok(Some(ConfigFile::parse_config(&config_str)?))
             }
         }
-        fn f(config_path: &Path, error_on_extras: bool) -> (ConfigFile, Vec<anyhow::Error>) {
+        fn f(config_path: &Path) -> (ConfigFile, Vec<anyhow::Error>) {
             let mut errors = Vec::new();
             let maybe_config = match read_path(config_path) {
                 Ok(maybe_config) => maybe_config,
@@ -513,24 +510,22 @@ impl ConfigFile {
             };
             config.source = ConfigSource::File(config_path.to_owned());
 
-            if error_on_extras {
-                if !config.root.extras.0.is_empty() {
+            if !config.root.extras.0.is_empty() {
+                let extra_keys = config.root.extras.0.keys().join(", ");
+                errors.push(anyhow!("Extra keys found in config: {extra_keys}"));
+            }
+            for sub_config in &config.sub_configs {
+                if !sub_config.settings.extras.0.is_empty() {
                     let extra_keys = config.root.extras.0.keys().join(", ");
-                    errors.push(anyhow!("Extra keys found in config: {extra_keys}"));
-                }
-                for sub_config in &config.sub_configs {
-                    if !sub_config.settings.extras.0.is_empty() {
-                        let extra_keys = config.root.extras.0.keys().join(", ");
-                        errors.push(anyhow!(
-                            "Extra keys found in sub config matching {}: {extra_keys}",
-                            sub_config.matches
-                        ));
-                    }
+                    errors.push(anyhow!(
+                        "Extra keys found in sub config matching {}: {extra_keys}",
+                        sub_config.matches
+                    ));
                 }
             }
             (config, errors)
         }
-        let (config, errors) = f(config_path, error_on_extras);
+        let (config, errors) = f(config_path);
         (
             config,
             errors.into_map(|err| {
@@ -1028,14 +1023,14 @@ mod tests {
         let root = TempDir::new().unwrap();
         let path = root.path().join(ConfigFile::PYPROJECT_FILE_NAME);
         fs::write(&path, "[tool.pyrefly]").unwrap();
-        let config = ConfigFile::from_file(&path, true).0;
+        let config = ConfigFile::from_file(&path).0;
         assert_eq!(config.search_path, vec![root.path().to_path_buf()]);
     }
 
     fn create_empty_file_and_parse_config(root: &TempDir, name: &str) -> ConfigFile {
         let path = root.path().join(name);
         fs::write(&path, "").unwrap();
-        ConfigFile::from_file(&path, true).0
+        ConfigFile::from_file(&path).0
     }
 
     #[test]
@@ -1096,7 +1091,7 @@ mod tests {
         fs::create_dir_all(&src_dir).unwrap();
         let pyrefly_path = root.path().join(ConfigFile::PYREFLY_FILE_NAME);
         fs::write(&pyrefly_path, "project_includes = [\"**/*\"]").unwrap();
-        let config = ConfigFile::from_file(&pyrefly_path, true).0;
+        let config = ConfigFile::from_file(&pyrefly_path).0;
         // File contents should still be relative to the location of the config file, not src/.
         assert_eq!(
             config.project_includes,
