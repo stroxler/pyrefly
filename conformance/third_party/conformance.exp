@@ -144,6 +144,16 @@
     {
       "code": -2,
       "column": 21,
+      "concise_description": "invalid subscript expression cannot be used in annotations",
+      "description": "invalid subscript expression cannot be used in annotations",
+      "line": 85,
+      "name": "invalid-annotation",
+      "stop_column": 29,
+      "stop_line": 85
+    },
+    {
+      "code": -2,
+      "column": 21,
       "concise_description": "if expression cannot be used in annotations",
       "description": "if expression cannot be used in annotations",
       "line": 86,
@@ -782,6 +792,16 @@
     {
       "code": -2,
       "column": 22,
+      "concise_description": "invalid subscript expression cannot be used in annotations",
+      "description": "invalid subscript expression cannot be used in annotations",
+      "line": 43,
+      "name": "invalid-annotation",
+      "stop_column": 30,
+      "stop_line": 43
+    },
+    {
+      "code": -2,
+      "column": 22,
       "concise_description": "if expression cannot be used in annotations",
       "description": "if expression cannot be used in annotations",
       "line": 44,
@@ -1085,6 +1105,16 @@
       "name": "invalid-annotation",
       "stop_column": 25,
       "stop_line": 46
+    },
+    {
+      "code": -2,
+      "column": 9,
+      "concise_description": "invalid subscript expression cannot be used in annotations",
+      "description": "invalid subscript expression cannot be used in annotations",
+      "line": 47,
+      "name": "invalid-annotation",
+      "stop_column": 17,
+      "stop_line": 47
     },
     {
       "code": -2,
@@ -1411,6 +1441,16 @@
       "name": "invalid-annotation",
       "stop_column": 24,
       "stop_line": 93
+    },
+    {
+      "code": -2,
+      "column": 9,
+      "concise_description": "invalid subscript expression cannot be used in annotations",
+      "description": "invalid subscript expression cannot be used in annotations",
+      "line": 94,
+      "name": "invalid-annotation",
+      "stop_column": 17,
+      "stop_line": 94
     },
     {
       "code": -2,
@@ -9312,6 +9352,16 @@
       "name": "invalid-annotation",
       "stop_column": 32,
       "stop_line": 47
+    },
+    {
+      "code": -2,
+      "column": 17,
+      "concise_description": "invalid subscript expression cannot be used in annotations",
+      "description": "invalid subscript expression cannot be used in annotations",
+      "line": 48,
+      "name": "invalid-annotation",
+      "stop_column": 25,
+      "stop_line": 48
     },
     {
       "code": -2,

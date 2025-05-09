@@ -488,6 +488,7 @@ t9: TypeAlias = Protocol[int]  # E: Protocol may not be used in this context
 t10: TypeAlias = Final  # E: Expected a type argument for `Final`
 t11: TypeAlias = Final[int]  # E: Final may not be used in this context
 t12: TypeAlias = TypeAlias  # OK
+t13: TypeAlias = [int][0]  # E: invalid subscript expression cannot be used in annotations
 "#,
 );
 

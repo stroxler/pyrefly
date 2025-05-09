@@ -348,8 +348,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | Expr::StringLiteral(..)
             | Expr::NoneLiteral(..)
             | Expr::Attribute(..)
-            | Expr::Subscript(..)
             | Expr::Starred(..) => return true,
+            Expr::Subscript(s) => match *s.value {
+                Expr::Name(..)
+                | Expr::BinOp(ruff_python_ast::ExprBinOp {
+                    op: ruff_python_ast::Operator::BitOr,
+                    ..
+                })
+                | Expr::Named(..)
+                | Expr::StringLiteral(..)
+                | Expr::NoneLiteral(..)
+                | Expr::Attribute(..) => return true,
+                _ => "invalid subscript expression",
+            },
             Expr::Call(..) => "function call",
             Expr::Lambda(..) => "lambda definition",
             Expr::List(..) => "list literal",

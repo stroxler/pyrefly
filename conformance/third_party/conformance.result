@@ -1,7 +1,6 @@
 @generated
 {
   "aliases_explicit.py": [
-    "Line 85: Expected 1 errors",
     "Line 44: Unexpected errors ['Expected 1 type argument for `GoodTypeAlias12`, got 0']",
     "Line 98: Unexpected errors ['assert_type(list[Any], list[str]) failed']"
   ],
@@ -36,7 +35,6 @@
   ],
   "aliases_type_statement.py": [
     "Line 26: Expected 1 errors",
-    "Line 43: Expected 1 errors",
     "Line 56: Expected 1 errors",
     "Line 77: Expected 1 errors",
     "Line 79: Expected 1 errors",
@@ -83,7 +81,6 @@
     "Line 23: Expected 1 errors",
     "Line 24: Expected 1 errors",
     "Line 25: Expected 1 errors",
-    "Line 47: Expected 1 errors",
     "Line 66: Expected 1 errors",
     "Line 87: Unexpected errors ['Expected a type form, got instance of `(self: Self@ClassD) -> None`']",
     "Line 96: Unexpected errors ['assert_type(Any, int) failed']"
@@ -95,9 +92,7 @@
     "Line 190: Unexpected errors ['Expected to yield a value of type `int`, but a bare `yield` gives `None` instead']"
   ],
   "annotations_methods.py": [],
-  "annotations_typeexpr.py": [
-    "Line 94: Expected 1 errors"
-  ],
+  "annotations_typeexpr.py": [],
   "callables_annotation.py": [
     "Line 156: Unexpected errors ['`Proto4[Ellipsis]` is not assignable to `Proto3`']",
     "Line 157: Unexpected errors ['`Proto7` is not assignable to `Proto6`']"
@@ -544,7 +539,6 @@
     "Line 104: Expected 1 errors"
   ],
   "qualifiers_annotated.py": [
-    "Line 48: Expected 1 errors",
     "Line 76: Expected 1 errors",
     "Line 77: Expected 1 errors",
     "Line 84: Expected 1 errors",
