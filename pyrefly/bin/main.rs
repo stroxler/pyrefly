@@ -314,6 +314,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
                     }
                 }
                 println!("  Search path: {:?}", config.search_path);
+                println!("  Fallback search path: {:?}", config.fallback_search_path);
                 println!("  Site package path: {:?}", config.site_package_path());
             }
             Ok(CommandExitStatus::Success)
