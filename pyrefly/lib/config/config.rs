@@ -696,7 +696,7 @@ mod tests {
 
             [[sub_config]]
             matches = "abcd"
-            
+
             atliens = 1
         "#;
         let config = ConfigFile::parse_config(config_str).unwrap();

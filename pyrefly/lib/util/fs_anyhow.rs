@@ -24,7 +24,6 @@ pub fn write(path: &Path, contents: &[u8]) -> Result<(), anyhow::Error> {
     fs::write(path, contents).with_context(|| format!("When writing file `{}`", path.display()))
 }
 
-#[expect(dead_code)] // Used in config migration, which is temporarily disabled
 pub fn append(path: &Path, contents: &[u8]) -> Result<(), anyhow::Error> {
     let context = || format!("When appending to file `{}`", path.display());
     let mut out = fs::File::options()

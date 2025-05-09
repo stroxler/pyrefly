@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use clap::Parser;
+use parse_display::Display;
 use path_absolutize::Absolutize;
 use tracing::error;
 
@@ -18,6 +19,34 @@ use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::config::util::PyProject;
 use crate::util::fs_anyhow;
+
+// This should likely be moved into config.rs
+#[derive(Clone, Debug, Parser, Copy, Display)]
+pub enum ConfigFileKind {
+    MyPy,
+    Pyright,
+    Pyrefly,
+    Pyproject,
+}
+
+impl ConfigFileKind {
+    fn file_name(&self) -> &str {
+        match self {
+            Self::MyPy => "mypy.ini",
+            Self::Pyright => "pyrightconfig.json",
+            Self::Pyrefly => "pyrefly.toml",
+            Self::Pyproject => "pyproject.toml",
+        }
+    }
+
+    fn toml_identifier(self) -> String {
+        match self {
+            // This makes me question if pyproject should be a part of the enum at all
+            Self::Pyproject => "".to_owned(),
+            _ => format!("[tool.{}]", self).to_lowercase(),
+        }
+    }
+}
 
 /// Initialize a new pyrefly config in the given directory. Can also be used to run pyrefly config-migration on a given project.
 #[derive(Clone, Debug, Parser)]
@@ -62,25 +91,26 @@ impl Args {
         }
     }
 
-    fn check_for_existing_config(path: &Path) -> anyhow::Result<bool> {
-        if path.ends_with(ConfigFile::PYREFLY_FILE_NAME) && path.exists() {
+    fn check_for_existing_config(path: &Path, kind: ConfigFileKind) -> anyhow::Result<bool> {
+        let file_name = kind.file_name();
+        if path.ends_with(file_name) && path.exists() {
             return Ok(true);
         }
         if path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) && path.exists() {
             let raw_pyproject = fs_anyhow::read_to_string(path).with_context(|| {
                 format!(
-                    "While trying to check for an existing pyrefly config in {}",
+                    "While trying to check for an existing {} config in {}",
+                    kind,
                     path.display()
                 )
             })?;
-            return Ok(raw_pyproject.contains("[tool.pyrefly]"));
+            return Ok(raw_pyproject.contains(&kind.toml_identifier()));
         }
         if path.is_dir() {
-            let pyrefly =
-                Args::check_for_existing_config(&path.join(ConfigFile::PYREFLY_FILE_NAME));
+            let custom_file = Args::check_for_existing_config(&path.join(file_name), kind);
             let pyproject =
-                Args::check_for_existing_config(&path.join(ConfigFile::PYPROJECT_FILE_NAME));
-            return Ok(pyrefly? || pyproject?);
+                Args::check_for_existing_config(&path.join(ConfigFile::PYPROJECT_FILE_NAME), kind);
+            return Ok(custom_file? || pyproject?);
         }
         Ok(false)
     }
@@ -88,9 +118,9 @@ impl Args {
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
         let path = self.path.absolutize()?.to_path_buf();
 
-        if Args::check_for_existing_config(&path)? {
+        if Args::check_for_existing_config(&path, ConfigFileKind::Pyrefly)? {
             error!(
-                "The project at {} has already been initialized for pyrefly",
+                "The project at {} has already been initialized for pyrefly. Run `pyrefly check` to see type errors.",
                 path.display()
             );
             return Ok(CommandExitStatus::UserError);
@@ -103,7 +133,7 @@ impl Args {
             };
             return args.run();
         }
-        let cfg = ConfigFile::empty();
+        let cfg = ConfigFile::default();
 
         if path.ends_with(ConfigFile::PYREFLY_FILE_NAME) {
             let serialized = toml::to_string_pretty(&cfg)?;
@@ -138,6 +168,20 @@ mod test {
 
     use super::*;
 
+    // helper function for ConfigFile::from_file
+    fn from_file(path: &Path) -> anyhow::Result<()> {
+        let (_, errs) = ConfigFile::from_file(path);
+        if errs.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(format!(
+                "ConfigFile::from_file({}) failed: {:#?}",
+                path.display(),
+                ConfigFile::from_file(path).1
+            )))
+        }
+    }
+
     #[test]
     fn test_dir_path() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
@@ -149,7 +193,7 @@ mod test {
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
         assert!(outpath.exists());
 
-        ConfigFile::from_file(&outpath, false).map(|_| ())
+        from_file(&outpath)
     }
 
     #[test]
@@ -169,7 +213,7 @@ name = "test"
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
         assert!(outpath.exists());
 
-        ConfigFile::from_file(&outpath, false).map(|_| ())
+        from_file(&outpath)
     }
 
     #[test]
@@ -182,7 +226,7 @@ name = "test"
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
         assert!(cfgpath.exists());
-        ConfigFile::from_file(&cfgpath, false).map(|_| ())
+        from_file(&cfgpath)
     }
 
     #[test]
@@ -195,7 +239,7 @@ name = "test"
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
         assert!(cfgpath.exists());
-        ConfigFile::from_file(&cfgpath, false).map(|_| ())
+        from_file(&cfgpath)
     }
 
     #[test]
@@ -283,6 +327,13 @@ name = "test"
         let args = Args::new(dir);
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
+        Ok(())
+    }
+
+    #[test]
+    fn test_config_file_kinds() -> anyhow::Result<()> {
+        let kind = ConfigFileKind::MyPy;
+        assert_eq!(kind.toml_identifier(), "[tool.mypy]".to_owned());
         Ok(())
     }
 }

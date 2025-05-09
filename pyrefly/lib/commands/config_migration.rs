@@ -86,7 +86,7 @@ impl Args {
         }
 
         if self.output_path.as_ref().is_some_and(|p| {
-            !(p.ends_with(ConfigFile::CONFIG_FILE_NAME)
+            !(p.ends_with(ConfigFile::PYREFLY_FILE_NAME)
                 || p.ends_with(ConfigFile::PYPROJECT_FILE_NAME))
         }) {
             error!("Output path must end in pyrefly.toml or pyproject.toml");
@@ -184,6 +184,20 @@ mod tests {
     use super::*;
     use crate::util::globs::Globs;
 
+    // helper function for ConfigFile::from_file
+    fn from_file(path: &Path) -> anyhow::Result<()> {
+        let (_, errs) = ConfigFile::from_file(path);
+        if errs.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(format!(
+                "ConfigFile::from_file({}) failed: {:#?}",
+                path.display(),
+                ConfigFile::from_file(path).1
+            )))
+        }
+    }
+
     #[test]
     fn test_run_pyright() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
@@ -208,8 +222,7 @@ mod tests {
         let output_lines = output.lines().collect::<Vec<_>>();
         assert_eq!(output_lines[0], r#"project_includes = ["src/**/*.py"]"#);
         assert!(output_lines.len() > 1);
-        ConfigFile::from_file(&output_path, false)?;
-        Ok(())
+        from_file(&output_path)
     }
 
     #[test]
@@ -489,6 +502,6 @@ test = true
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
         assert!(output_path.exists());
-        ConfigFile::from_file(&output_path, false).map(|_| ())
+        from_file(&output_path)
     }
 }

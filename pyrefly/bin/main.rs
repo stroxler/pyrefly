@@ -28,6 +28,7 @@ use library::run::BuckCheckArgs;
 use library::run::CheckArgs;
 use library::run::CommandExitStatus;
 use library::run::CommonGlobalArgs;
+use library::run::InitArgs;
 use library::run::LspArgs;
 use library::standard_config_finder;
 use path_absolutize::Absolutize;
@@ -104,6 +105,10 @@ enum Command {
 
     /// Entry point for Buck integration
     BuckCheck(BuckCheckArgs),
+
+    /// Initialize a new pyrefly config in the given directory,
+    /// or migrate an existing mypy or pyright config to pyrefly.
+    Init(InitArgs),
 
     /// Start an LSP server
     Lsp(LspArgs),
@@ -259,6 +264,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
         }
         Command::BuckCheck(args) => args.run(),
         Command::Lsp(args) => args.run(),
+        Command::Init(args) => args.run(),
         // We intentionally make DumpConfig take the same arguments as Check so that dumping the
         // config is as easy as changing the command name.
         Command::DumpConfig(FullCheckArgs {

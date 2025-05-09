@@ -39,7 +39,6 @@ pub struct PyProject {
 }
 
 impl PyProject {
-    #[expect(dead_code)] // Used in config migration, which is temporarily disabled
     /// Wrap the given ConfigFile in a `PyProject { Tool { ... }}`
     pub fn new(cfg: ConfigFile) -> Self {
         Self {
