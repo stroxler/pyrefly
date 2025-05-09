@@ -262,11 +262,7 @@ impl<'a> Transaction<'a> {
             items.into_iter().find_map(|x| {
                 if x.name == attribute.attr.id {
                     // TODO(kylei): attribute docstrings
-                    Some((
-                        DefinitionMetadata::Attribute(x.name),
-                        TextRangeWithModuleInfo::new(x.module?, x.range?),
-                        None,
-                    ))
+                    Some((DefinitionMetadata::Attribute(x.name), x.definition?, None))
                 } else {
                     None
                 }
@@ -389,12 +385,13 @@ impl<'a> Transaction<'a> {
                     for AttrInfo {
                         name: _,
                         ty: _,
-                        module,
-                        range,
+                        definition: attribute_definition,
                     } in solver.completions(base_type.arc_clone(), Some(expected_name), false)
                     {
-                        if let Some(module) = module
-                            && let Some(range) = range
+                        if let Some(TextRangeWithModuleInfo {
+                            module_info: module,
+                            range,
+                        }) = attribute_definition
                             && module.path() == definition.module_info.path()
                             && range == definition.range
                         {

@@ -40,6 +40,7 @@ use crate::graph::calculation::Calculation;
 use crate::graph::index::Idx;
 use crate::graph::index_map::IndexMap;
 use crate::module::module_info::ModuleInfo;
+use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::solver::solver::Solver;
@@ -848,12 +849,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             for AttrInfo {
                 name: _,
                 ty: _,
-                module,
-                range,
+                definition,
             } in self.completions(base.clone(), Some(attribute_name), false)
             {
-                if let Some(module) = module
-                    && let Some(range) = range
+                if let Some(TextRangeWithModuleInfo {
+                    module_info: module,
+                    range,
+                }) = definition
                     && module.path() != self.bindings().module_info().path()
                 {
                     index

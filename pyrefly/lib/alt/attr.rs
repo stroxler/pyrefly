@@ -27,7 +27,7 @@ use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
 use crate::export::exports::Exports;
-use crate::module::module_info::ModuleInfo;
+use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
@@ -1352,8 +1352,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 pub struct AttrInfo {
     pub name: Name,
     pub ty: Option<Type>,
-    pub module: Option<ModuleInfo>,
-    pub range: Option<TextRange>,
+    pub definition: Option<TextRangeWithModuleInfo>,
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -1376,12 +1375,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match expected_attribute_name {
                 None => {
                     for fld in c.fields() {
-                        if seen.insert(fld.clone()) {
+                        if seen.insert(fld.clone())
+                            && let Some(range) = c.field_decl_range(fld)
+                        {
                             res.push(AttrInfo {
                                 name: fld.clone(),
                                 ty: None,
-                                module: Some(c.module_info().dupe()),
-                                range: c.field_decl_range(fld),
+                                definition: Some(TextRangeWithModuleInfo::new(
+                                    c.module_info().dupe(),
+                                    range,
+                                )),
                             });
                         }
                     }
@@ -1391,8 +1394,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         res.push(AttrInfo {
                             name: expected_attribute_name.clone(),
                             ty: None,
-                            module: Some(c.module_info().dupe()),
-                            range: Some(range),
+                            definition: Some(TextRangeWithModuleInfo::new(
+                                c.module_info().dupe(),
+                                range,
+                            )),
                         });
                     }
                 }
@@ -1422,8 +1427,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     res.extend(exports.wildcard(self.exports).iter().map(|x| AttrInfo {
                         name: x.clone(),
                         ty: None,
-                        module: None,
-                        range: None,
+                        definition: None,
                     }));
                 }
                 Some(expected_attribute_name) => {
@@ -1434,8 +1438,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         res.push(AttrInfo {
                             name: expected_attribute_name.clone(),
                             ty: None,
-                            module: None,
-                            range: None,
+                            definition: None,
                         });
                     }
                 }
@@ -1491,7 +1494,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             if include_types {
                 for info in &mut res {
-                    if let Some(range) = info.range {
+                    if let Some(TextRangeWithModuleInfo {
+                        module_info: _,
+                        range,
+                    }) = info.definition
+                    {
                         info.ty =
                             match self.lookup_attr_from_attribute_base(base.clone(), &info.name) {
                                 LookupResult::Found(attr) => self
