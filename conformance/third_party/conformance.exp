@@ -4661,8 +4661,8 @@
     {
       "code": -2,
       "column": 5,
-      "concise_description": "assert_type(property, Literal['BLUE', 'GREEN', 'RED']) failed",
-      "description": "assert_type(property, Literal['BLUE', 'GREEN', 'RED']) failed",
+      "concise_description": "assert_type(str, Literal['BLUE', 'GREEN', 'RED']) failed",
+      "description": "assert_type(str, Literal['BLUE', 'GREEN', 'RED']) failed",
       "line": 30,
       "name": "assert-type",
       "stop_column": 65,
@@ -4703,8 +4703,8 @@
     {
       "code": -2,
       "column": 5,
-      "concise_description": "assert_type(property, Literal[1, 2, 3]) failed",
-      "description": "assert_type(property, Literal[1, 2, 3]) failed",
+      "concise_description": "assert_type(Any, Literal[1, 2, 3]) failed",
+      "description": "assert_type(Any, Literal[1, 2, 3]) failed",
       "line": 30,
       "name": "assert-type",
       "stop_column": 51,
@@ -8550,16 +8550,6 @@
       "name": "assert-type",
       "stop_column": 37,
       "stop_line": 135
-    },
-    {
-      "code": -2,
-      "column": 12,
-      "concise_description": "Returned type `property` is not assignable to declared return type `int`",
-      "description": "Returned type `property` is not assignable to declared return type `int`",
-      "line": 156,
-      "name": "bad-return",
-      "stop_column": 19,
-      "stop_line": 156
     },
     {
       "code": -2,

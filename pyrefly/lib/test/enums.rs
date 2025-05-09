@@ -128,6 +128,12 @@ class MyEnum(Enum):
     X = 1
     Y = "FOO"  # E: The value for enum member `Y` must match the annotation of the _value_ attribute
     Z = member("FOO")  # E: The value for enum member `Z` must match the annotation of the _value_ attribute
+
+    def get_value(self) -> int:
+        if self.value > 0:
+            return self.value
+        else:
+            return self._value_
 "#,
 );
 
@@ -240,8 +246,14 @@ from typing import assert_type, Literal
 from enum import Enum
 class E(Enum):
     X = 1
+    def get_name(self) -> str:
+        if self.name:
+            return self.name
+        else:
+            return self._name_
 # Even though a generic enum is an error, we still want to handle it gracefully.
 assert_type(E.X._name_, Literal["X"])
+assert_type(E.X.name, Literal["X"])
     "#,
 );
 

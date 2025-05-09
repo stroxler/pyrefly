@@ -802,6 +802,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     (Type::Literal(Lit::Enum(box (_, _, raw_type))), "_value_" | "value") => {
                         TypeInfo::of_ty(raw_type.clone())
                     }
+                    (Type::SelfType(cls) | Type::ClassType(cls), "name")
+                        if self.get_metadata_for_class(cls.class_object()).is_enum() =>
+                    {
+                        self.attr_infer(&base, &Name::new_static("_name_"), x.range, errors, None)
+                    }
+                    (Type::SelfType(cls) | Type::ClassType(cls), "value")
+                        if self.get_metadata_for_class(cls.class_object()).is_enum() =>
+                    {
+                        self.attr_infer(&base, &Name::new_static("_value_"), x.range, errors, None)
+                    }
                     _ => {
                         self.record_external_attribute_definition_index(
                             base.ty(),

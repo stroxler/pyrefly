@@ -155,6 +155,10 @@ impl ClassMetadata {
         self.is_new_type
     }
 
+    pub fn is_enum(&self) -> bool {
+        self.enum_metadata.is_some()
+    }
+
     pub fn protocol_metadata(&self) -> Option<&ProtocolMetadata> {
         self.protocol_metadata.as_ref()
     }

@@ -466,7 +466,6 @@
     "Line 106: Unexpected errors ['assert_type(Any, int | str) failed']",
     "Line 134: Unexpected errors ['No matching overload found for function `expand_bool`, reporting errors for closest overload: `(x: Literal[False]) -> Literal[0]`', 'Argument `bool` is not assignable to parameter `x` with type `Literal[False]` in function `expand_bool`']",
     "Line 135: Unexpected errors ['assert_type(Any, Literal[0, 1]) failed']",
-    "Line 156: Unexpected errors ['Returned type `property` is not assignable to declared return type `int`']",
     "Line 160: Unexpected errors ['No matching overload found for function `expand_enum`, reporting errors for closest overload: `(x: Literal[Color.RED]) -> Literal[0]`', 'Argument `Color` is not assignable to parameter `x` with type `Literal[Color.RED]` in function `expand_enum`']",
     "Line 161: Unexpected errors ['assert_type(Any, Literal[0, 1]) failed']",
     "Line 180: Unexpected errors ['No matching overload found for function `expand_type_union`, reporting errors for closest overload: `(x: type[int]) -> int`', 'Argument `type[int | str]` is not assignable to parameter `x` with type `type[int]` in function `expand_type_union`']",
