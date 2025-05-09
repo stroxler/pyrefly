@@ -63,7 +63,6 @@ pub fn walk_interpreter(start: &Path, depth: usize) -> impl Iterator<Item = Path
     walker.into_iter().filter_map(filter_map)
 }
 
-#[allow(dead_code)]
 /// A trait for structs with the ability to search for a Python interpreter installation.
 pub trait Finder {
     fn find(project_path: &Path) -> Option<PathBuf>;
