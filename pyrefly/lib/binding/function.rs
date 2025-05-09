@@ -170,7 +170,7 @@ impl<'a> BindingsBuilder<'a> {
         func_name: &Identifier,
         function_idx: Idx<KeyFunction>,
         class_key: Option<Idx<KeyClass>>,
-    ) -> (Scope, FuncYieldsAndReturns) {
+    ) -> (FuncYieldsAndReturns, Option<SelfAssignments>) {
         if class_key.is_none() {
             self.scopes.push(Scope::function(range));
         } else {
@@ -182,8 +182,15 @@ impl<'a> BindingsBuilder<'a> {
         self.init_static_scope(&body, false);
         self.stmts(body);
         let func_scope = self.scopes.pop();
+        let self_assignments = match func_scope.kind {
+            ScopeKind::Method(m) => Some(SelfAssignments {
+                method_name: m.name.id,
+                instance_attributes: m.instance_attributes,
+            }),
+            _ => None,
+        };
         let yields_and_returns = self.function_yields_and_returns.pop().unwrap();
-        (func_scope, yields_and_returns)
+        (yields_and_returns, self_assignments)
     }
 
     fn implicit_return(
@@ -296,15 +303,8 @@ impl<'a> BindingsBuilder<'a> {
 
         let implicit_return = self.implicit_return(&body, func_name, stub_or_impl, decorators);
 
-        let (func_scope, yields_and_returns) =
+        let (yields_and_returns, self_assignments) =
             self.function_body_scope(parameters, body, range, func_name, function_idx, class_key);
-        let self_assignments = match func_scope.kind {
-            ScopeKind::Method(m) => Some(SelfAssignments {
-                method_name: m.name.id,
-                instance_attributes: m.instance_attributes,
-            }),
-            _ => None,
-        };
 
         self.analyze_return_type(
             func_name,
