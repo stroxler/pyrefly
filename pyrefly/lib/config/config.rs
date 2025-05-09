@@ -430,30 +430,27 @@ impl ConfigFile {
     }
 
     pub fn validate(&self) -> Vec<anyhow::Error> {
-        let location = match &self.source {
-            ConfigSource::File(path) => format!(" in `{}`", path.display()),
-            ConfigSource::Synthetic => "".to_owned(),
+        let prefix = match &self.source {
+            ConfigSource::File(path) => format!("{}: Invalid", path.display()),
+            ConfigSource::Synthetic => "Invalid".to_owned(),
         };
         fn validate<'a>(
             paths: &'a [PathBuf],
-            desc: String,
+            context: String,
         ) -> impl Iterator<Item = anyhow::Error> + 'a {
             paths.iter().filter_map(move |p| {
                 validate_path(p)
                     .err()
-                    .map(|err| err.context(format!("Invalid {desc}")))
+                    .map(|err| err.context(context.clone()))
             })
         }
         let mut errors = Vec::new();
         if !self.python_environment.site_package_path_from_interpreter {
             if let Some(p) = self.python_environment.site_package_path.as_ref() {
-                errors.extend(validate(p, format!("site_package_path{location}")));
+                errors.extend(validate(p, format!("{prefix} site_package_path")));
             }
         }
-        errors.extend(validate(
-            &self.search_path,
-            format!("search_path{location}"),
-        ));
+        errors.extend(validate(&self.search_path, format!("{prefix} search_path")));
         errors
     }
 
@@ -530,7 +527,7 @@ impl ConfigFile {
             config,
             errors.into_map(|err| {
                 let file_str = config_path.display();
-                err.context(format!("Failed to parse configuration at {file_str}"))
+                err.context(format!("{file_str}"))
             }),
         )
     }

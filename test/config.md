@@ -5,8 +5,8 @@
 ```scrut {output_stream: stderr}
 $ mkdir $TMPDIR/test && echo "" > $TMPDIR/test/empty.py && echo -e "project_includes = [\"$TMPDIR/test/empty.py\"]\nsite_package_path = [\"$TMPDIR/test/abcd\"]\nsearch_path = [\"$TMPDIR/test/abcd\"]" > $TMPDIR/test/pyrefly.toml && $PYREFLY check -c $TMPDIR/test/pyrefly.toml --python-version 3.13.0
  INFO Checking project configured at `*/pyrefly.toml` (glob)
-ERROR Invalid site_package_path in `*/pyrefly.toml`: * does not exist (glob)
-ERROR Invalid search_path in `*/pyrefly.toml`: * does not exist (glob)
+ERROR */pyrefly.toml: Invalid site_package_path: * does not exist (glob)
+ERROR */pyrefly.toml: Invalid search_path: * does not exist (glob)
  INFO * errors* (glob)
 [1]
 ```
@@ -42,7 +42,7 @@ $ echo "x: str = 0" > $TMPDIR/oops.py && echo "errors = { bad-assignment = false
 ```scrut {output_stream: stderr}
 $ mkdir $TMPDIR/implicit && touch $TMPDIR/implicit/empty.py && echo "oops oops" > $TMPDIR/implicit/pyrefly.toml && cd $TMPDIR/implicit && $PYREFLY check
  INFO Checking project configured at `*/pyrefly.toml` (glob)
-ERROR Failed to parse configuration* (glob)
+ERROR */pyrefly.toml: TOML parse error* (glob)
 * (glob*)
 [1]
 ```
@@ -53,7 +53,7 @@ ERROR Failed to parse configuration* (glob)
 
 ```scrut {output_stream: stderr}
 $ $PYREFLY check $TMPDIR/implicit/empty.py
-ERROR Failed to parse configuration* (glob)
+ERROR */pyrefly.toml: TOML parse error* (glob)
 * (glob*)
 [1]
 ```
