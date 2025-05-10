@@ -1,7 +1,7 @@
 # Pyrefly WASM Build
 
 Pyrefly's WASM build is used in browser-based applications like the
-[Pyrefly sandbox](https://pyrefly.org/try/).
+[Pyrefly sandbox](https://pyrefly.org/sandbox/).
 
 ## Prerequisites
 

@@ -440,7 +440,7 @@ function OpenSandboxButton({
     model: editor.ITextModel;
 }): React.ReactElement {
     // This call is a react hook that must be called inside the function body rather than the return statement
-    const sandboxBaseUrl = useBaseUrl('try/');
+    const sandboxBaseUrl = useBaseUrl('sandbox/');
 
     return (
         <MonacoEditorButton
