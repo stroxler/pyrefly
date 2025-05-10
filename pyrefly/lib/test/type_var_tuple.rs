@@ -138,3 +138,15 @@ def test[*Ts](x: A[int, str], y: A[str, str, str], z: A[*Ts]):
     helper(z)  # E: Argument `A[TypeVarTuple[Ts]]` is not assignable to parameter `x` with type `A[tuple[int, str]]`
 "#,
 );
+
+testcase!(
+    bug = "TODO: should be well-typed",
+    test_type_var_tuple_todo,
+    r#"
+from typing import TypeVarTuple, Callable
+
+_Ts = TypeVarTuple("_Ts")
+def f(func: Callable[[*_Ts], None], *args: *_Ts) -> None: 
+    func(*args) # E: Type `TypeVarTuple[_Ts]` is not iterable
+"#,
+);
