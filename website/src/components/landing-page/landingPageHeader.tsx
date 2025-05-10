@@ -14,7 +14,7 @@ import typography from './typography';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import { useEffect, useState } from 'react';
 import * as docusaurusTheme from '@docusaurus/theme-common';
-import CodeSnippet from './codeSnippet';
+import PipInstallPyrefly from './pipInstallPyrefly';
 export default function LandingPageHeader(): React.ReactElement {
     const { colorMode } = docusaurusTheme.useColorMode();
 
@@ -59,7 +59,7 @@ export default function LandingPageHeader(): React.ReactElement {
                     isLoaded && styles.buttonGroupVerticalVisible
                 )}
             >
-                <CodeSnippet />
+                <PipInstallPyrefly />
                 <a
                     href="https://marketplace.visualstudio.com/items?itemName=meta.pyrefly"
                     target="_blank"

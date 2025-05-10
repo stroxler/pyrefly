@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import typography from './typography';
 
-const CodeSnippet: React.FC = () => {
+const PipInstallPyrefly: React.FC = () => {
     const [isCopied, setIsCopied] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
 
@@ -125,4 +125,4 @@ const styles = stylex.create({
     },
 });
 
-export default CodeSnippet;
+export default PipInstallPyrefly;
