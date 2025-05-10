@@ -747,3 +747,17 @@ def g(
     pass
 "#,
 );
+
+testcase!(
+    bug = "TODO(typeshed): There should be no errors",
+    test_type_var_constraints,
+    r#"
+from typing import TypeVar
+from typing import Generic
+
+_b = TypeVar("_b", bool, int)
+
+class F(Generic[_b]):
+    def f(self, b: _b = True) -> _b: ... # E: Default `Literal[True]` is not assignable to parameter `b` with type `TypeVar[_b]`
+    "#,
+);
