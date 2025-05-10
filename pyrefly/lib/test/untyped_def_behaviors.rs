@@ -112,3 +112,55 @@ async def async_gen():
 assert_type(async_gen, Callable[[], Any])
 "#,
 );
+
+// Because the yield and return type plumbing works a bit differently when inferring
+// any, we want to be sure to make sure that in this mode
+// - an annotated function (or async function or generators) has its returns and yields checked
+// - we correctly flag a function annotated as a generator that has no yields
+// - we correctly flag an async generator with a return as invalid (even with no annotation)
+testcase!(
+    test_verify_return_and_yield_with_mode_infer_return_any,
+    TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::CheckAndInferReturnAny),
+    r#"
+from typing import assert_type, Any, Callable, Coroutine, Generator, AsyncGenerator
+
+def simple_return() -> int:
+    return "oops"  # E: Returned type `Literal['oops']` is not assignable to declared return type `int`
+
+def generator_with_return() -> Generator[int, Any, str]:
+    # TODO(stroxler): this yield error message needs some wordsmithing!
+    yield "oops"  # E: Type of yielded value `Literal['oops']` is not assignable to declared return type `int`
+    return 55  # E: Returned type `Literal[55]` is not assignable to declared return type `str`
+
+async def simple_async() -> int:
+    return "oops"  # E: Returned type `Literal['oops']` is not assignable to declared return type `int`
+
+async def async_generator() -> AsyncGenerator[int, None]:
+    # TODO(stroxler): this yield error message needs some wordsmithing!
+    yield "oops"  # E: Type of yielded value `Literal['oops']` is not assignable to declared return type `int`
+
+def marked_as_generator_but_does_not_yield() -> Generator[int, Any, str]:
+    return "str"  # E: Returned type `Literal['str']` is not assignable to declared return type `Generator[int, Any, str]`
+
+async def async_generator_with_return():
+    yield "s"
+    return 42  # E: Return statement with value is not allowed in async generator
+"#,
+);
+
+testcase!(
+    test_self_attrs_with_mode_infer_return_any,
+    TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::CheckAndInferReturnAny),
+    r#"
+from typing import assert_type, Any
+class C:
+    def __init__(self):
+        self.x: int = 5
+    def f(self):
+        self.y: str = "y"  # E: Attribute `y` is implicitly defined by assignment in method `f`
+c = C()
+assert_type(c.x, int)
+assert_type(c.y, str)
+assert_type(c.f(), Any)
+"#,
+);
