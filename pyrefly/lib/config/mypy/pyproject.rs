@@ -205,16 +205,18 @@ pub fn parse_pyrproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {
             .map(|d| split_comma(&d))
             .unwrap_or(vec![]);
         let errors = make_error_config(disable, enable);
-        sub_configs.extend(module.module.iter().map(|m| {
-            let matches = Glob::new(m.replace('.', "/").replace('*', "**"));
-            SubConfig {
-                matches,
-                settings: ConfigBase {
-                    errors: errors.clone(),
-                    ..Default::default()
-                },
-            }
-        }));
+        if errors.is_some() {
+            sub_configs.extend(module.module.iter().map(|m| {
+                let matches = Glob::new(m.replace('.', "/").replace('*', "**"));
+                SubConfig {
+                    matches,
+                    settings: ConfigBase {
+                        errors: errors.clone(),
+                        ..Default::default()
+                    },
+                }
+            }));
+        }
     }
 
     // SubConfig supports replace_imports_with_any, but mypy's ignore_missing_imports and follow_imports=skip
@@ -389,6 +391,23 @@ follow_imports = "silent"
             !cfg.errors(&PathBuf::from("src/foo"))
                 .is_enabled(ErrorKind::MissingAttribute)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_empty_subconfigs() -> anyhow::Result<()> {
+        let src = r#"[tool.mypy]
+files = "src"
+
+[[tool.mypy.overrides]]
+module = [
+    "src.*.linux",
+]
+fake_field = "foo"
+"#;
+        let mut cfg = parse_pyrproject_config(src)?;
+        cfg.configure();
+        assert!(cfg.sub_configs.is_empty());
         Ok(())
     }
 }
