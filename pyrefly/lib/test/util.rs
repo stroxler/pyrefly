@@ -25,6 +25,7 @@ use ruff_text_size::TextSize;
 use starlark_map::small_map::SmallMap;
 
 use crate::binding::binding::KeyExport;
+use crate::config::base::UntypedDefBehavior;
 use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
@@ -92,6 +93,7 @@ fn default_path(module: ModuleName) -> PathBuf {
 pub struct TestEnv {
     modules: SmallMap<ModuleName, (ModulePath, Option<Arc<String>>)>,
     version: PythonVersion,
+    untyped_def_behavior: UntypedDefBehavior,
 }
 
 impl TestEnv {
@@ -104,6 +106,12 @@ impl TestEnv {
     pub fn new_with_version(version: PythonVersion) -> Self {
         let mut res = Self::new();
         res.version = version;
+        res
+    }
+
+    pub fn new_with_untyped_def_behavior(untyped_def_behavior: UntypedDefBehavior) -> Self {
+        let mut res = Self::new();
+        res.untyped_def_behavior = untyped_def_behavior;
         res
     }
 
@@ -167,6 +175,7 @@ impl TestEnv {
         config.python_environment.python_version = Some(self.version);
         config.python_environment.python_platform = Some(PythonPlatform::linux());
         config.python_environment.site_package_path = Some(Vec::new());
+        config.root.untyped_def_behavior = Some(self.untyped_def_behavior);
         for (name, (path, _)) in self.modules.iter() {
             config.custom_module_paths.insert(*name, path.clone());
         }
