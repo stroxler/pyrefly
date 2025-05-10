@@ -8936,16 +8936,6 @@
       "name": "bad-assignment",
       "stop_column": 36,
       "stop_line": 56
-    },
-    {
-      "code": -2,
-      "column": 9,
-      "concise_description": "Class member `Mixin7.method1` overrides parent class `Proto7` in an inconsistent manner",
-      "description": "Class member `Mixin7.method1` overrides parent class `Proto7` in an inconsistent manner",
-      "line": 157,
-      "name": "bad-override",
-      "stop_column": 16,
-      "stop_line": 157
     }
   ],
   "protocols_generic.py": [

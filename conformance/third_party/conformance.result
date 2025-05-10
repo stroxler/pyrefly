@@ -498,8 +498,7 @@
     "Line 90: Expected 1 errors",
     "Line 110: Expected 1 errors",
     "Line 135: Expected 1 errors",
-    "Line 165: Expected 1 errors",
-    "Line 157: Unexpected errors ['Class member `Mixin7.method1` overrides parent class `Proto7` in an inconsistent manner']"
+    "Line 165: Expected 1 errors"
   ],
   "protocols_generic.py": [
     "Line 87: Unexpected errors ['Returned type `HasParent` is not assignable to declared return type `TypeVar[GenericHasParent]`']",

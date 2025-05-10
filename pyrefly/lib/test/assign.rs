@@ -523,8 +523,9 @@ def test(x: Any):
 testcase!(
     test_aug_assign_error_not_class_check_rhs,
     r#"
-def expect_str(x: str): ...
-def test(x: None):
+from typing import Any
+def expect_str(x: str) -> Any: ...
+def test(x: Any):
     x += expect_str(0) # E: Argument `Literal[0]` is not assignable to parameter `x` with type `str`
 "#,
 );
@@ -532,7 +533,8 @@ def test(x: None):
 testcase!(
     test_aug_assign_error_not_callable_check_rhs,
     r#"
-def expect_str(x: str): ...
+from typing import Any
+def expect_str(x: str) -> Any: ...
 class C:
     __iadd__: None = None
 def test(x: C):

@@ -1640,6 +1640,51 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn check_implicit_return_against_annotation(
+        &self,
+        implicit_return: Arc<TypeInfo>,
+        annotation: &Type,
+        is_async: bool,
+        is_generator: bool,
+        has_explicit_returns: bool,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        if is_async && is_generator {
+            if self.decompose_async_generator(annotation).is_none() {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::BadReturn,
+                    None,
+                    "Async generator function should return `AsyncGenerator`".to_owned(),
+                );
+            }
+        } else if is_generator {
+            if let Some((_, _, return_ty)) = self.decompose_generator(annotation) {
+                self.check_type(&return_ty, implicit_return.ty(), range, errors, &|| {
+                    TypeCheckContext::of_kind(TypeCheckKind::ImplicitFunctionReturn(
+                        has_explicit_returns,
+                    ))
+                });
+            } else {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::BadReturn,
+                    None,
+                    "Generator function should return `Generator`".to_owned(),
+                );
+            }
+        } else {
+            self.check_type(annotation, implicit_return.ty(), range, errors, &|| {
+                TypeCheckContext::of_kind(TypeCheckKind::ImplicitFunctionReturn(
+                    has_explicit_returns,
+                ))
+            });
+        }
+    }
+
     fn binding_to_type(&self, binding: &Binding, errors: &ErrorCollector) -> Type {
         match binding {
             Binding::Forward(..)
@@ -1865,7 +1910,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ty
                 }
             }
-            Binding::ReturnType(x) => {
+            Binding::ReturnType(box x) => {
                 let is_generator = !x.yields.is_empty();
                 let implicit_return = self.get_idx(x.implicit_return);
                 if let Some((range, annot)) = &x.annot {
@@ -1873,47 +1918,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // It will result in an implicit Any type, which is reasonable, but we should
                     // at least error here.
                     let ty = self.get_idx(*annot).annotation.get_type().clone();
-                    if x.is_async && is_generator {
-                        if self.decompose_async_generator(&ty).is_none() {
-                            self.error(
-                                errors,
-                                *range,
-                                ErrorKind::BadReturn,
-                                None,
-                                "Async generator function should return `AsyncGenerator`"
-                                    .to_owned(),
-                            );
-                        }
-                    } else if is_generator {
-                        if let Some((_, _, return_ty)) = self.decompose_generator(&ty) {
-                            self.check_type(
-                                &return_ty,
-                                implicit_return.ty(),
-                                *range,
-                                errors,
-                                &|| {
-                                    TypeCheckContext::of_kind(
-                                        TypeCheckKind::ImplicitFunctionReturn(
-                                            !x.returns.is_empty(),
-                                        ),
-                                    )
-                                },
-                            );
-                        } else {
-                            self.error(
-                                errors,
-                                *range,
-                                ErrorKind::BadReturn,
-                                None,
-                                "Generator function should return `Generator`".to_owned(),
-                            );
-                        }
-                    } else {
-                        self.check_type(&ty, implicit_return.ty(), *range, errors, &|| {
-                            TypeCheckContext::of_kind(TypeCheckKind::ImplicitFunctionReturn(
-                                !x.returns.is_empty(),
-                            ))
-                        });
+                    // If the function body is stubbed out or if the function is decorated with
+                    // `@abstractmethod`, we blindly accept the return type annotation.
+                    if x.stub_or_impl != FunctionStubOrImpl::Stub
+                        && !x.decorators.iter().any(|k| {
+                            let decorator = self.get_idx(*k);
+                            match decorator.ty().callee_kind() {
+                                Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => true,
+                                _ => false,
+                            }
+                        })
+                    {
+                        self.check_implicit_return_against_annotation(
+                            implicit_return,
+                            &ty,
+                            x.is_async,
+                            is_generator,
+                            !x.returns.is_empty(),
+                            *range,
+                            errors,
+                        );
                     }
                     ty
                 } else {
@@ -2004,40 +2028,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 };
 
-                // TODO: This is a bit of a hack. We want to implement Pyright's behavior where
-                // stub functions allow any annotation, but we also infer a `Never` return type
-                // instead of `None`. Instead, we should just ignore the implicit return for stub
-                // functions when solving Binding::ReturnType. Unfortunately, this leads to
-                // another issue (see comment on Binding::ReturnType).
-                if x.stub_or_impl == FunctionStubOrImpl::Stub
-                    || x.decorators.iter().any(|k| {
-                        // We handle functions decorated with `@abstractmethod` the same way
-                        // as stubs, inferring an implicit return of `Never` instead of `None`
-                        let decorator = self.get_idx(*k);
-                        match decorator.ty().callee_kind() {
-                            Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => true,
-                            _ => false,
+                if self.module_info().path().is_interface() {
+                    Type::any_implicit() // .pyi file, functions don't have bodies
+                } else if x.last_exprs.as_ref().is_some_and(|xs| {
+                    xs.iter().all(|(last, k)| {
+                        let e = self.get_idx(*k);
+                        match last {
+                            LastStmt::Expr => e.ty().is_never(),
+                            LastStmt::With(kind) => {
+                                let res = self.context_value_exit(
+                                    e.ty(),
+                                    *kind,
+                                    TextRange::default(),
+                                    &self.error_swallower(),
+                                    None,
+                                );
+                                !context_catch(&res)
+                            }
                         }
                     })
-                    || x.last_exprs.as_ref().is_some_and(|xs| {
-                        xs.iter().all(|(last, k)| {
-                            let e = self.get_idx(*k);
-                            match last {
-                                LastStmt::Expr => e.ty().is_never(),
-                                LastStmt::With(kind) => {
-                                    let res = self.context_value_exit(
-                                        e.ty(),
-                                        *kind,
-                                        TextRange::default(),
-                                        &self.error_swallower(),
-                                        None,
-                                    );
-                                    !context_catch(&res)
-                                }
-                            }
-                        })
-                    })
-                {
+                }) {
                     Type::never()
                 } else {
                     Type::None

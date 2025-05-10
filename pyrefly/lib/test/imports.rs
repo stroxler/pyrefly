@@ -734,3 +734,36 @@ import foo
 assert_type(foo.attribute.x, int)
 "#,
 );
+
+testcase!(
+    test_pyi_ellipsis_no_return_annotation,
+    TestEnv::one_with_path("foo", "foo.pyi", "def f(): ..."),
+    r#"
+from foo import f
+from typing import Any, assert_type
+assert_type(f(), Any)
+    "#,
+);
+
+fn env_pyi_docstring() -> TestEnv {
+    let mut t = TestEnv::new();
+    t.add_with_path(
+        "foo",
+        "foo.pyi",
+        r#"
+def f():
+    """Test."""
+"#,
+    );
+    t
+}
+
+testcase!(
+    test_pyi_docstring_no_return_annotation,
+    env_pyi_docstring(),
+    r#"
+from foo import f
+from typing import Any, assert_type
+assert_type(f(), Any)
+    "#,
+);

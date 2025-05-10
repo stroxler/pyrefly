@@ -575,9 +575,12 @@ impl IsAsync {
     }
 }
 
+/// Is the body of this function stubbed out (contains nothing but `...`)?
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FunctionStubOrImpl {
+    /// The function body is `...`.
     Stub,
+    /// The function body is not `...`.
     Impl,
 }
 
@@ -626,6 +629,10 @@ pub struct ReturnType {
     /// If this is non-empty, the function is a generator.
     pub yields: Box<[Either<Idx<KeyYield>, Idx<KeyYieldFrom>>]>,
     pub is_async: bool,
+    /// Used to ignore the implicit return type for stub functions (returning `...`). This is
+    /// unsafe, but is convenient and matches Pyright's behavior.
+    pub stub_or_impl: FunctionStubOrImpl,
+    pub decorators: Box<[Idx<Key>]>,
 }
 
 #[derive(Clone, Dupe, Copy, Debug)]
@@ -645,10 +652,6 @@ pub struct ReturnImplicit {
     /// the function has an implicit `None` return if there exists a non-`Never` in this
     /// list.
     pub last_exprs: Option<Box<[(LastStmt, Idx<Key>)]>>,
-    /// Ignore the implicit return type for stub functions (returning `...`). This is
-    /// unsafe, but is convenient and matches Pyright's behavior.
-    pub stub_or_impl: FunctionStubOrImpl,
-    pub decorators: Box<[Idx<Key>]>,
 }
 
 #[derive(Clone, Debug)]
@@ -694,7 +697,7 @@ pub enum Binding {
     /// The implicit return from a function.
     ReturnImplicit(ReturnImplicit),
     /// The return type of a function.
-    ReturnType(ReturnType),
+    ReturnType(Box<ReturnType>),
     /// A value in an iterable expression, e.g. IterableValue(\[1\]) represents 1.
     /// The second argument is the expression being iterated.
     /// The third argument indicates whether iteration is async or not.

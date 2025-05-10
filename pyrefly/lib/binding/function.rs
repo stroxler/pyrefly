@@ -195,13 +195,7 @@ impl<'a> BindingsBuilder<'a> {
         (yields_and_returns, self_assignments)
     }
 
-    fn implicit_return(
-        &mut self,
-        body: &[Stmt],
-        func_name: &Identifier,
-        stub_or_impl: FunctionStubOrImpl,
-        decorators: Box<[Idx<Key>]>,
-    ) -> Idx<Key> {
+    fn implicit_return(&mut self, body: &[Stmt], func_name: &Identifier) -> Idx<Key> {
         let last_exprs = function_last_expressions(body, self.sys_info).map(|x| {
             x.into_map(|(last, x)| {
                 (
@@ -216,11 +210,7 @@ impl<'a> BindingsBuilder<'a> {
         });
         self.table.insert(
             Key::ReturnImplicit(ShortIdentifier::new(func_name)),
-            Binding::ReturnImplicit(ReturnImplicit {
-                last_exprs,
-                stub_or_impl,
-                decorators,
-            }),
+            Binding::ReturnImplicit(ReturnImplicit { last_exprs }),
         )
     }
 
@@ -236,6 +226,8 @@ impl<'a> BindingsBuilder<'a> {
         yields_and_returns: FuncYieldsAndReturns,
         return_ann_with_range: Option<(TextRange, Idx<KeyAnnotation>)>,
         implicit_return_if_inferring_return_type: Option<Idx<Key>>,
+        stub_or_impl: FunctionStubOrImpl,
+        decorators: Box<[Idx<Key>]>,
     ) {
         let is_generator = !yields_and_returns.yields.is_empty();
         let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
@@ -279,13 +271,15 @@ impl<'a> BindingsBuilder<'a> {
 
         let return_type_binding =
             if let Some(implicit_return) = implicit_return_if_inferring_return_type {
-                Binding::ReturnType(ReturnType {
+                Binding::ReturnType(Box::new(ReturnType {
                     annot: return_ann_with_range,
                     returns: return_keys,
                     implicit_return,
                     yields: yield_keys,
                     is_async,
-                })
+                    stub_or_impl,
+                    decorators,
+                }))
             } else {
                 let inferred_any = Binding::Type(Type::any_implicit());
                 match return_ann {
@@ -311,7 +305,7 @@ impl<'a> BindingsBuilder<'a> {
         function_idx: Idx<KeyFunction>,
         class_key: Option<Idx<KeyClass>>,
     ) -> (FunctionStubOrImpl, Option<SelfAssignments>) {
-        let stub_or_impl = if is_ellipse(&body) || self.module_info.path().is_interface() {
+        let stub_or_impl = if is_ellipse(&body) {
             FunctionStubOrImpl::Stub
         } else {
             FunctionStubOrImpl::Impl
@@ -335,12 +329,13 @@ impl<'a> BindingsBuilder<'a> {
                     yields_and_returns,
                     return_ann_with_range,
                     None, // this disables return type inference
+                    stub_or_impl,
+                    decorators,
                 );
                 self_assignments
             }
             UntypedDefBehavior::CheckAndInferReturnType => {
-                let implicit_return =
-                    self.implicit_return(&body, func_name, stub_or_impl, decorators);
+                let implicit_return = self.implicit_return(&body, func_name);
                 let (yields_and_returns, self_assignments) = self.function_body_scope(
                     parameters,
                     body,
@@ -355,6 +350,8 @@ impl<'a> BindingsBuilder<'a> {
                     yields_and_returns,
                     return_ann_with_range,
                     Some(implicit_return),
+                    stub_or_impl,
+                    decorators,
                 );
                 self_assignments
             }

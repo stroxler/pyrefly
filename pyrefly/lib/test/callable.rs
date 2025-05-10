@@ -740,3 +740,17 @@ class Foo:
         assert_type(self(b), int)
     "#,
 );
+
+testcase!(
+    test_ellipsis_body,
+    r#"
+from typing import Any, assert_type
+def f(): ...
+# This is technically wrong (`g()` returns `None`), but `...` is often used to stub out the bodies
+# of things like overload signatures and abstractmethods. For simplicity, we just always allow this
+# stubbing behavior.
+def g() -> str: ...
+assert_type(f(), None)
+assert_type(g(), str)
+    "#,
+);
