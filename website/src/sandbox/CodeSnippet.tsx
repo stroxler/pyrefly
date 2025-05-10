@@ -7,6 +7,8 @@
 
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import * as React from 'react';
+import * as docusaurusTheme from '@docusaurus/theme-common';
+import * as stylex from '@stylexjs/stylex';
 
 const Sandbox = React.lazy(() => import('./Sandbox'));
 
@@ -20,11 +22,16 @@ export default function CodeSnippet({
     sampleFilename,
     codeSample = '',
 }: CodeSnippetProps): JSX.Element {
+    const { colorMode } = docusaurusTheme.useColorMode();
+
     if (sampleFilename == null) {
         throw "Missing sampleFilename. IDE services won't work properly.";
     }
+
     return (
-        <pre>
+        <pre
+            {...stylex.props(colorMode === 'light' ? styles.preLightMode : {})}
+        >
             <BrowserOnly>
                 {() => (
                     <React.Suspense fallback={<div>Loading...</div>}>
@@ -39,3 +46,9 @@ export default function CodeSnippet({
         </pre>
     );
 }
+
+const styles = stylex.create({
+    preLightMode: {
+        backgroundColor: '#e0e0e0', // Use darker grey in light mode
+    },
+});

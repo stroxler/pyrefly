@@ -237,7 +237,10 @@ export default function Sandbox({
         <div id="sandbox-editor" {...stylex.props(styles.tryEditor)}>
             <div
                 id="sandbox-code-editor-container"
-                {...stylex.props(styles.codeEditorContainer)}
+                {...stylex.props(
+                    styles.codeEditorContainer,
+                    isCodeSnippet && styles.codeEditorContainerWithRadius
+                )}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
@@ -357,7 +360,7 @@ function getPyreflyEditor(
 
     const editorTheme = colorMode === 'dark' ? 'vs-dark' : 'vs-light';
     if (isCodeSnippet) {
-        return (
+                    return (
             <Editor
                 defaultPath={fileName}
                 defaultValue={codeSample}
@@ -565,6 +568,11 @@ const styles = stylex.create({
         borderBottom: '10px',
         background: 'var(--color-background)',
         height: '100%',
+    },
+    codeEditorContainerWithRadius: {
+        border: '1px solid var(--color-background-secondary)',
+        borderRadius: '0.25rem',
+        overflow: 'hidden', // Ensure content doesn't overflow the rounded corners
     },
     buttonContainerBase: {
         position: 'absolute',
