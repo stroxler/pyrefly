@@ -558,7 +558,7 @@ impl Args {
 
         let report_errors_start = Instant::now();
         let config_errors = transaction.get_config_errors();
-        let has_config_errors = !config_errors.is_empty();
+        let config_errors_count = config_errors.len();
         for error in config_errors {
             error!("{error:#}");
         }
@@ -577,7 +577,7 @@ impl Args {
         if let Some(path_index) = self.summarize_errors {
             print_error_summary(&errors.shown, path_index);
         }
-        let shown_errors_count = errors.shown.len();
+        let shown_errors_count = config_errors_count + errors.shown.len();
         timings.report_errors = report_errors_start.elapsed();
 
         info!(
@@ -661,7 +661,7 @@ impl Args {
         if self.expectations {
             loads.check_against_expectations()?;
             Ok(CommandExitStatus::Success)
-        } else if has_config_errors || shown_errors_count > 0 {
+        } else if shown_errors_count > 0 {
             Ok(CommandExitStatus::UserError)
         } else {
             Ok(CommandExitStatus::Success)
