@@ -19,6 +19,7 @@ use anyhow::Context as _;
 use clap::Parser;
 use tracing::error;
 use tracing::info;
+use tracing::warn;
 
 use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
@@ -77,6 +78,24 @@ impl Args {
         )
     }
 
+    /// Check for certain conditions and warn the user that they may need to edit the config.
+    fn check_and_warn(config: &ConfigFile) {
+        if toml::to_string(&config).is_ok_and(|s| s.is_empty()) {
+            warn!(
+                "The generated config is empty. This likely means that none of the config options in the migrated config have pyrefly equivalents. Consider running `pyrefly init` instead to generate a new pyrefly config."
+            );
+            return;
+        }
+        if config.project_includes.is_empty() {
+            warn!(
+                "The migrated config had no files that could be used for `project_includes` in the generated config. By default, pyrefly will check every python file in the project."
+            );
+            warn!(
+                "You can invoke pyrefly with the files to check (e.g. `pyrefly check src/`), or you may maually fill in `project_includes` in the config."
+            );
+        }
+    }
+
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
         if let Some(path) = self.input_path.as_ref() {
             if !path.exists() {
@@ -132,6 +151,8 @@ impl Args {
             return Ok(CommandExitStatus::UserError);
         };
         info!("Conversion finished");
+
+        Self::check_and_warn(&config);
 
         let output_path = match &self.output_path {
             Some(path) => path,
