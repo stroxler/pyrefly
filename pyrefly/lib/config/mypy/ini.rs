@@ -115,9 +115,16 @@ impl MypyConfig {
             ini_string_to_array(&config.get("mypy", "disable_error_code"));
         let enable_error_code: Vec<String> =
             ini_string_to_array(&config.get("mypy", "enable_error_code"));
+        // follow_untyped_imports may be used as a global or per-module setting. As a per-module setting, it's used to
+        // indicate that the module should be ignored if it's untyped.
+        // Pyrefly's use_untyped_imports is only a global setting.
+        // We handle this by *only* checking the for the global config.
+        let follow_untyped_imports = config
+            .getboolcoerce("mypy", "follow_untyped_imports")
+            .ok()
+            .flatten();
 
         let mut replace_imports: Vec<String> = Vec::new();
-        let mut follow_untyped_imports = bool_or_default(&config, "mypy", "follow_untyped_imports");
         // This is the list of mypy per-module section headers and the error configs found in those sections.
         // We'll split the headers into separate modules later and turn each one into a subconfig.
         let mut sub_configs: Vec<(String, ErrorDisplayConfig)> = vec![];
@@ -143,9 +150,6 @@ impl MypyConfig {
             if let Some(errors) = errors {
                 sub_configs.push((section.strip_prefix("mypy-").unwrap().to_owned(), errors));
             }
-
-            follow_untyped_imports = follow_untyped_imports
-                || bool_or_default(&config, section, "follow_untyped_imports");
         }
 
         let mut cfg = ConfigFile::default();
@@ -184,7 +188,7 @@ impl MypyConfig {
                 .collect();
             cfg.search_path = value;
         }
-        cfg.use_untyped_imports = follow_untyped_imports;
+        cfg.use_untyped_imports = follow_untyped_imports.unwrap_or(cfg.use_untyped_imports);
         cfg.root.replace_imports_with_any = replace_imports
             .into_iter()
             .flat_map(|x| {
@@ -380,6 +384,24 @@ follow_imports = silent
             !cfg.errors(&PathBuf::from("src/linux"))
                 .is_enabled(ErrorKind::MissingAttribute)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_use_untyped_imports() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("mypy.ini");
+        let src = br#"[mypy]
+follow_untyped_imports = False
+
+[mypy-this.setting.ignored]
+follow_untyped_imports = True
+"#;
+        fs_anyhow::write(&input_path, src)?;
+        let mut cfg = MypyConfig::parse_mypy_config(&input_path)?;
+        cfg.configure();
+
+        assert!(!cfg.use_untyped_imports);
         Ok(())
     }
 }

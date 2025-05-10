@@ -77,7 +77,7 @@ struct MypySection {
     disable_error_code: Option<Vec<String>>,
     enable_error_code: Option<Vec<String>>,
     #[serde(default)]
-    follow_untyped_imports: bool,
+    follow_untyped_imports: Option<bool>,
     #[serde(default)]
     overrides: Vec<ModuleSection>,
 }
@@ -177,8 +177,15 @@ pub fn parse_pyrproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {
         .unwrap_or(vec![]);
     cfg.root.errors = make_error_config(disable_error_code, enable_error_code);
 
+    // follow_untyped_imports may be used as a global or per-module setting. As a per-module setting, it's used to
+    // indicate that the module should be ignored if it's untyped.
+    // Pyrefly's use_untyped_imports is only a global setting.
+    // We handle this by *only* checking the for the global config.
+    cfg.use_untyped_imports = mypy
+        .follow_untyped_imports
+        .unwrap_or(cfg.use_untyped_imports);
+
     let mut replace_imports = vec![];
-    let mut follow_untyped_imports = mypy.follow_untyped_imports;
     let mut sub_configs = vec![];
     for module in mypy.overrides {
         if module.ignore_missing_imports || module.follow_imports.is_some_and(|v| v == "skip") {
@@ -208,13 +215,11 @@ pub fn parse_pyrproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {
                 },
             }
         }));
-        follow_untyped_imports = follow_untyped_imports || module.follow_untyped_imports;
     }
 
     // SubConfig supports replace_imports_with_any, but mypy's ignore_missing_imports and follow_imports=skip
     // are equivalent to the root replace_imports_with_any.
     cfg.root.replace_imports_with_any = Some(replace_imports);
-    cfg.use_untyped_imports = follow_untyped_imports;
     cfg.sub_configs = sub_configs;
 
     Ok(cfg)
@@ -337,6 +342,9 @@ module = "a"
 follow_untyped_imports = true
 "#;
         let cfg = parse_pyrproject_config(src)?;
+        assert!(!cfg.use_untyped_imports);
+
+        let cfg = parse_pyrproject_config("[tool.mypy]\n")?;
         assert!(cfg.use_untyped_imports);
         Ok(())
     }
