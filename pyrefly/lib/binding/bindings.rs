@@ -141,7 +141,6 @@ pub struct BindingsBuilder<'a> {
     pub scopes: Scopes,
     pub function_yields_and_returns: Vec1<FuncYieldsAndReturns>,
     pub table: BindingTable,
-    #[expect(dead_code)]
     pub untyped_def_behavior: UntypedDefBehavior,
 }
 

@@ -47,10 +47,12 @@ use crate::binding::scope::FlowStyle;
 use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
+use crate::config::base::UntypedDefBehavior;
 use crate::graph::index::Idx;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::sys_info::SysInfo;
+use crate::types::types::Type;
 use crate::util::prelude::VecExt;
 
 struct SelfAssignments {
@@ -223,13 +225,17 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     /// Handles both checking yield / return expressions and binding the return type.
+    ///
+    /// The `implicit_return_if_inferring_return_type` argument should be None when
+    /// return type inference is disabled; it must be `Some(implicit_return_key)` to
+    /// get return type inference.
     fn analyze_return_type(
         &mut self,
         func_name: &Identifier,
         is_async: bool,
         yields_and_returns: FuncYieldsAndReturns,
-        implicit_return: Idx<Key>,
         return_ann_with_range: Option<(TextRange, Idx<KeyAnnotation>)>,
+        implicit_return_if_inferring_return_type: Option<Idx<Key>>,
     ) {
         let is_generator = !yields_and_returns.yields.is_empty();
         let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
@@ -271,15 +277,25 @@ impl<'a> BindingsBuilder<'a> {
             })
             .into_boxed_slice();
 
+        let return_type_binding =
+            if let Some(implicit_return) = implicit_return_if_inferring_return_type {
+                Binding::ReturnType(ReturnType {
+                    annot: return_ann_with_range,
+                    returns: return_keys,
+                    implicit_return,
+                    yields: yield_keys,
+                    is_async,
+                })
+            } else {
+                let inferred_any = Binding::Type(Type::any_implicit());
+                match return_ann {
+                    Some(ann) => Binding::AnnotatedType(ann, Box::new(inferred_any)),
+                    None => inferred_any,
+                }
+            };
         self.table.insert(
             Key::ReturnType(ShortIdentifier::new(func_name)),
-            Binding::ReturnType(ReturnType {
-                annot: return_ann_with_range,
-                returns: return_keys,
-                implicit_return,
-                yields: yield_keys,
-                is_async,
-            }),
+            return_type_binding,
         );
     }
 
@@ -301,24 +317,47 @@ impl<'a> BindingsBuilder<'a> {
             FunctionStubOrImpl::Impl
         };
 
-        let self_assignments = {
-            let implicit_return = self.implicit_return(&body, func_name, stub_or_impl, decorators);
-            let (yields_and_returns, self_assignments) = self.function_body_scope(
-                parameters,
-                body,
-                range,
-                func_name,
-                function_idx,
-                class_key,
-            );
-            self.analyze_return_type(
-                func_name,
-                is_async,
-                yields_and_returns,
-                implicit_return,
-                return_ann_with_range,
-            );
-            self_assignments
+        let self_assignments = match self.untyped_def_behavior {
+            // TODO(stroxler): Skip is not yet implemented, for now we just treat it the same as
+            // CheckAndInferReturnAny, which at least gets us the desired downstream behavior.
+            UntypedDefBehavior::Skip | UntypedDefBehavior::CheckAndInferReturnAny => {
+                let (yields_and_returns, self_assignments) = self.function_body_scope(
+                    parameters,
+                    body,
+                    range,
+                    func_name,
+                    function_idx,
+                    class_key,
+                );
+                self.analyze_return_type(
+                    func_name,
+                    is_async,
+                    yields_and_returns,
+                    return_ann_with_range,
+                    None, // this disables return type inference
+                );
+                self_assignments
+            }
+            UntypedDefBehavior::CheckAndInferReturnType => {
+                let implicit_return =
+                    self.implicit_return(&body, func_name, stub_or_impl, decorators);
+                let (yields_and_returns, self_assignments) = self.function_body_scope(
+                    parameters,
+                    body,
+                    range,
+                    func_name,
+                    function_idx,
+                    class_key,
+                );
+                self.analyze_return_type(
+                    func_name,
+                    is_async,
+                    yields_and_returns,
+                    return_ann_with_range,
+                    Some(implicit_return),
+                );
+                self_assignments
+            }
         };
 
         (stub_or_impl, self_assignments)

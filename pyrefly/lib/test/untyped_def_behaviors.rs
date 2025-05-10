@@ -38,8 +38,9 @@ assert_type(async_gen, Callable[[], AsyncGenerator[int, Any]])
 "#,
 );
 
+// TODO(stroxler): Should we do best-effort inference for awaitable and generator
+// return types here? At the moment we infer `Any` without any analysis of async or yield.
 testcase!(
-    bug = "We do not yet implement CheckAndInferAny behavior for untyped function defs",
     test_function_check_and_inference_with_mode_infer_return_any,
     TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::CheckAndInferReturnAny),
     r#"
@@ -50,28 +51,28 @@ x: int = ...  # E:
 def f():
     oops: int = "oops"  # E:
     return x
-assert_type(f, Callable[[], int])
+assert_type(f, Callable[[], Any])
 
 async def async_f():
     oops: int = "oops"  # E:
     return x
-assert_type(async_f, Callable[[], Coroutine[Any, Any, int]])
+assert_type(async_f, Callable[[], Any])
 
 def gen():
     oops: int = "oops"  # E:
     yield x
-assert_type(gen, Callable[[], Generator[int, Any, None]])
+assert_type(gen, Callable[[], Any])
 
 def gen_w_return():
     oops: int = "oops"  # E:
     yield x
     return x
-assert_type(gen_w_return, Callable[[], Generator[int, Any, int]])
+assert_type(gen_w_return, Callable[[], Any])
 
 async def async_gen():
     oops: int = "oops"  # E:
     yield x
-assert_type(async_gen, Callable[[], AsyncGenerator[int, Any]])
+assert_type(async_gen, Callable[[], Any])
 "#,
 );
 
@@ -87,27 +88,27 @@ x: int = ...  # E:
 def f():
     oops: int = "oops"  # E:
     return x
-assert_type(f, Callable[[], int])
+assert_type(f, Callable[[], Any])
 
 async def async_f():
     oops: int = "oops"  # E:
     return x
-assert_type(async_f, Callable[[], Coroutine[Any, Any, int]])
+assert_type(async_f, Callable[[], Any])
 
 def gen():
     oops: int = "oops"  # E:
     yield x
-assert_type(gen, Callable[[], Generator[int, Any, None]])
+assert_type(gen, Callable[[], Any])
 
 def gen_w_return():
     oops: int = "oops"  # E:
     yield x
     return x
-assert_type(gen_w_return, Callable[[], Generator[int, Any, int]])
+assert_type(gen_w_return, Callable[[], Any])
 
 async def async_gen():
     oops: int = "oops"  # E:
     yield x
-assert_type(async_gen, Callable[[], AsyncGenerator[int, Any]])
+assert_type(async_gen, Callable[[], Any])
 "#,
 );
