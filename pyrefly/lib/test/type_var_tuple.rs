@@ -48,6 +48,20 @@ Ts = TypeVarTuple('Ts')
 );
 
 testcase!(
+    bug = "This program should typecheck clean. Possibly we are not interpreting Unpack correctly.",
+    test_type_var_tuple_unpacking,
+    r#"
+from typing import Protocol
+from typing import Unpack, TypeVarTuple, Callable, Any
+
+_Ts = TypeVarTuple("_Ts")
+
+class A(Protocol):
+    def f(self, func: Callable[[Unpack[_Ts]], Any], *args: Unpack[_Ts]) -> Any: ... # E: TypeVarTuple must be unpacked.
+"#,
+);
+
+testcase!(
     test_type_var_tuple_class_field_and_constructor,
     r#"
 class C1[T]:
