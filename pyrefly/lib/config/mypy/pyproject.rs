@@ -13,10 +13,15 @@ use serde::Deserialize;
 use serde_with::OneOrMany;
 use serde_with::serde_as;
 
+use crate::config::base::ConfigBase;
 use crate::config::config::ConfigFile;
+use crate::config::config::SubConfig;
+use crate::config::error::ErrorDisplayConfig;
 use crate::config::mypy::regex_converter;
+use crate::module::wildcard::ModuleWildcard;
 use crate::sys_info::PythonPlatform;
 use crate::sys_info::PythonVersion;
+use crate::util::globs::Glob;
 use crate::util::globs::Globs;
 
 // A pyproject.toml Mypy config differs a bit from the INI format:
@@ -36,6 +41,14 @@ struct ModuleSection {
     ignore_missing_imports: bool,
     #[serde(default)]
     follow_untyped_imports: bool,
+    #[serde(default)]
+    follow_imports: Option<String>,
+    #[serde_as(as = "Option<OneOrMany<_>>")]
+    #[serde(default)]
+    disable_error_code: Option<Vec<String>>,
+    #[serde_as(as = "Option<OneOrMany<_>>")]
+    #[serde(default)]
+    enable_error_code: Option<Vec<String>>,
 }
 
 #[serde_as]
@@ -63,9 +76,10 @@ struct MypySection {
     python_interpreter: Option<PathBuf>,
     disable_error_code: Option<Vec<String>>,
     enable_error_code: Option<Vec<String>>,
-    #[allow(dead_code)]
     #[serde(default)]
-    per_module: Vec<ModuleSection>,
+    follow_untyped_imports: bool,
+    #[serde(default)]
+    overrides: Vec<ModuleSection>,
 }
 
 #[derive(Deserialize)]
@@ -93,6 +107,18 @@ fn split_all(strs: &[String], pat: &[char]) -> Vec<String> {
 
 fn split_comma(strs: &[String]) -> Vec<String> {
     split_all(strs, &[','])
+}
+
+fn make_error_config(disable: Vec<String>, enable: Vec<String>) -> Option<ErrorDisplayConfig> {
+    let mut errors = HashMap::new();
+    for error_code in disable {
+        errors.insert(error_code, false);
+    }
+    // enable_error_code overrides disable_error_code
+    for error_code in enable {
+        errors.insert(error_code, true);
+    }
+    crate::config::mypy::code_to_kind(errors)
 }
 
 pub fn parse_pyrproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {
@@ -149,15 +175,47 @@ pub fn parse_pyrproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {
         .enable_error_code
         .map(|d| split_comma(&d))
         .unwrap_or(vec![]);
-    let mut errors = HashMap::new();
-    for error_code in disable_error_code {
-        errors.insert(error_code, false);
+    cfg.root.errors = make_error_config(disable_error_code, enable_error_code);
+
+    let mut replace_imports = vec![];
+    let mut follow_untyped_imports = mypy.follow_untyped_imports;
+    let mut sub_configs = vec![];
+    for module in mypy.overrides {
+        if module.ignore_missing_imports || module.follow_imports.is_some_and(|v| v == "skip") {
+            replace_imports.extend(
+                module
+                    .module
+                    .iter()
+                    .filter_map(|m| ModuleWildcard::new(m).ok()),
+            );
+        }
+        let disable = module
+            .disable_error_code
+            .map(|d| split_comma(&d))
+            .unwrap_or(vec![]);
+        let enable = module
+            .enable_error_code
+            .map(|d| split_comma(&d))
+            .unwrap_or(vec![]);
+        let errors = make_error_config(disable, enable);
+        sub_configs.extend(module.module.iter().map(|m| {
+            let matches = Glob::new(m.replace('.', "/").replace('*', "**"));
+            SubConfig {
+                matches,
+                settings: ConfigBase {
+                    errors: errors.clone(),
+                    ..Default::default()
+                },
+            }
+        }));
+        follow_untyped_imports = follow_untyped_imports || module.follow_untyped_imports;
     }
-    // enable_error_code overrides disable_error_code
-    for error_code in enable_error_code {
-        errors.insert(error_code, true);
-    }
-    cfg.root.errors = super::code_to_kind(errors);
+
+    // SubConfig supports replace_imports_with_any, but mypy's ignore_missing_imports and follow_imports=skip
+    // are equivalent to the root replace_imports_with_any.
+    cfg.root.replace_imports_with_any = Some(replace_imports);
+    cfg.use_untyped_imports = follow_untyped_imports;
+    cfg.sub_configs = sub_configs;
 
     Ok(cfg)
 }
@@ -165,6 +223,7 @@ pub fn parse_pyrproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::kind::ErrorKind;
 
     #[test]
     fn test_missing_mypy() -> anyhow::Result<()> {
@@ -228,7 +287,100 @@ disable_error_code = ["union-attr"]
         let mut cfg = parse_pyrproject_config(src)?;
         cfg.configure();
         let errors = cfg.errors(&PathBuf::from("."));
-        assert!(!errors.is_enabled(crate::error::kind::ErrorKind::MissingAttribute));
+        assert!(!errors.is_enabled(ErrorKind::MissingAttribute));
+        Ok(())
+    }
+
+    #[test]
+    fn test_replace_imports() -> anyhow::Result<()> {
+        let src = r#"[tool.mypy]
+files = ["src/a.py"]
+
+[[tool.mypy.overrides]]
+module = [
+    "a.*.b",
+    "some.module"
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "uses.follow"
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = [
+    "do.not.replace",
+]
+
+"#;
+        let cfg = parse_pyrproject_config(src)?;
+        assert_eq!(
+            cfg.root.replace_imports_with_any,
+            Some(vec![
+                ModuleWildcard::new("a.*.b").unwrap(),
+                ModuleWildcard::new("some.module").unwrap(),
+                ModuleWildcard::new("uses.follow").unwrap(),
+            ])
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_use_untyped_imports() -> anyhow::Result<()> {
+        let src = r#"[tool.mypy]
+packages = ["cake"]
+follow_untyped_imports = false
+
+[[tool.mypy.overrides]]
+module = "a"
+follow_untyped_imports = true
+"#;
+        let cfg = parse_pyrproject_config(src)?;
+        assert!(cfg.use_untyped_imports);
+        Ok(())
+    }
+
+    #[test]
+    fn test_subconfig_errors() -> anyhow::Result<()> {
+        let src = r#"[tool.mypy]
+files = "src"
+
+[[tool.mypy.overrides]]
+module = [
+    "src.*.linux",
+]
+disable_error_code = "union-attr"
+
+[[tool.mypy.overrides]]
+module = "src.foo"
+disable_error_code = [
+    "union-attr",
+    "attr-defined",
+]
+
+[[tool.mypy.overrides]]
+module = "another.project"
+follow_imports = "silent"
+"#;
+        let mut cfg = parse_pyrproject_config(src)?;
+        cfg.configure();
+        assert!(
+            cfg.errors(&PathBuf::from("src"))
+                .is_enabled(ErrorKind::MissingAttribute)
+        );
+        assert!(
+            !cfg.errors(&PathBuf::from("src/linux"))
+                .is_enabled(ErrorKind::MissingAttribute)
+        );
+        assert!(
+            !cfg.errors(&PathBuf::from("src/down/the/tree/linux"))
+                .is_enabled(ErrorKind::MissingAttribute)
+        );
+        assert!(
+            !cfg.errors(&PathBuf::from("src/foo"))
+                .is_enabled(ErrorKind::MissingAttribute)
+        );
         Ok(())
     }
 }
