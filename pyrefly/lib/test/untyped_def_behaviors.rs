@@ -79,7 +79,7 @@ assert_type(async_gen, Callable[[], Any])
 testcase!(
     bug = "We do not yet implement Skip behavior for untyped function defs",
     test_function_check_and_inference_with_mode_skip,
-    TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::Skip),
+    TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::SkipAndInferReturnAny),
     r#"
 from typing import assert_type, Any, Callable, Coroutine, Generator, AsyncGenerator
 

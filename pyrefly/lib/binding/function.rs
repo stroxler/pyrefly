@@ -314,7 +314,8 @@ impl<'a> BindingsBuilder<'a> {
         let self_assignments = match self.untyped_def_behavior {
             // TODO(stroxler): Skip is not yet implemented, for now we just treat it the same as
             // CheckAndInferReturnAny, which at least gets us the desired downstream behavior.
-            UntypedDefBehavior::Skip | UntypedDefBehavior::CheckAndInferReturnAny => {
+            UntypedDefBehavior::SkipAndInferReturnAny
+            | UntypedDefBehavior::CheckAndInferReturnAny => {
                 let (yields_and_returns, self_assignments) = self.function_body_scope(
                     parameters,
                     body,

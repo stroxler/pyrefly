@@ -18,7 +18,7 @@ pub enum UntypedDefBehavior {
     #[default]
     CheckAndInferReturnType,
     CheckAndInferReturnAny,
-    Skip,
+    SkipAndInferReturnAny,
 }
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
