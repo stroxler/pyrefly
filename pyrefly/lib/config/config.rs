@@ -473,11 +473,7 @@ impl ConfigFile {
 
     pub fn from_file(config_path: &Path) -> (ConfigFile, Vec<anyhow::Error>) {
         fn read_path(config_path: &Path) -> anyhow::Result<Option<ConfigFile>> {
-            let config_path = config_path
-                .absolutize()
-                .with_context(|| format!("Path `{}` cannot be absolutized", config_path.display()))?
-                .into_owned();
-            let config_str = fs_anyhow::read_to_string(&config_path)?;
+            let config_str = fs_anyhow::read_to_string(config_path)?;
             if config_path.file_name() == Some(OsStr::new(ConfigFile::PYPROJECT_FILE_NAME)) {
                 Ok(ConfigFile::parse_pyproject_toml(&config_str)?)
             } else if config_path.file_name().is_some_and(|fi| {
@@ -522,7 +518,7 @@ impl ConfigFile {
                     maybe_config.unwrap_or_else(ConfigFile::default)
                 }
             };
-            config.source = ConfigSource::File(config_path.to_owned());
+            config.source = ConfigSource::File(config_path.to_path_buf());
 
             if !config.root.extras.0.is_empty() {
                 let extra_keys = config.root.extras.0.keys().join(", ");
@@ -539,14 +535,18 @@ impl ConfigFile {
             }
             (config, errors)
         }
-        let (config, errors) = f(config_path);
-        (
-            config,
-            errors.into_map(|err| {
-                let file_str = config_path.display();
-                err.context(format!("{file_str}"))
-            }),
-        )
+        let (config, errors) = match config_path
+            .absolutize()
+            .with_context(|| format!("Path `{}` cannot be absolutized", config_path.display()))
+        {
+            Ok(config_path) => f(&config_path),
+            Err(e) => (ConfigFile::default(), vec![e]),
+        };
+        let errors = errors.into_map(|err| {
+            let file_str = config.source.path().unwrap_or(config_path).display();
+            err.context(format!("{file_str}"))
+        });
+        (config, errors)
     }
 
     fn parse_config(config_str: &str) -> anyhow::Result<ConfigFile> {
