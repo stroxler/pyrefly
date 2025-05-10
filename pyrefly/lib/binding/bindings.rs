@@ -64,6 +64,7 @@ use crate::binding::scope::ScopeKind;
 use crate::binding::scope::ScopeTrace;
 use crate::binding::scope::Scopes;
 use crate::binding::table::TableKeyed;
+use crate::config::base::UntypedDefBehavior;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::export::exports::Exports;
@@ -141,7 +142,7 @@ pub struct BindingsBuilder<'a> {
     pub function_yields_and_returns: Vec1<FuncYieldsAndReturns>,
     pub table: BindingTable,
     #[expect(dead_code)]
-    pub skip_untyped_functions: bool,
+    pub untyped_def_behavior: UntypedDefBehavior,
 }
 
 /// Things we collect from inside a function
@@ -297,7 +298,7 @@ impl Bindings {
         errors: &ErrorCollector,
         uniques: &UniqueFactory,
         enable_trace: bool,
-        skip_untyped_functions: bool,
+        untyped_def_behavior: UntypedDefBehavior,
     ) -> Self {
         let mut builder = BindingsBuilder {
             module_info: module_info.dupe(),
@@ -311,7 +312,7 @@ impl Bindings {
             scopes: Scopes::module(module_scope_range, enable_trace),
             function_yields_and_returns: Vec1::new(FuncYieldsAndReturns::default()),
             table: Default::default(),
-            skip_untyped_functions,
+            untyped_def_behavior,
         };
         builder.init_static_scope(&x, true);
         if module_info.name() != ModuleName::builtins() {

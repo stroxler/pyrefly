@@ -12,6 +12,15 @@ use crate::config::error::ErrorDisplayConfig;
 use crate::config::util::ExtraConfigs;
 use crate::module::wildcard::ModuleWildcard;
 
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Copy, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum UntypedDefBehavior {
+    #[default]
+    CheckAndInferReturnType,
+    CheckAndInferReturnAny,
+    Skip,
+}
+
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
 pub struct ConfigBase {
     /// Errors to silence (or not) when printing errors.
@@ -23,9 +32,9 @@ pub struct ConfigBase {
     #[serde(default, skip_serializing_if = "crate::config::util::none_or_empty")]
     pub replace_imports_with_any: Option<Vec<ModuleWildcard>>,
 
-    /// analyze function body and infer return type
+    /// analyze func
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub skip_untyped_functions: Option<bool>,
+    pub untyped_def_behavior: Option<UntypedDefBehavior>,
 
     /// Whether to ignore type errors in generated code. By default this is disabled.
     /// Generated code is defined as code that contains the marker string `@` immediately followed by `generated`.
@@ -46,8 +55,8 @@ impl ConfigBase {
         base.replace_imports_with_any.as_deref()
     }
 
-    pub fn get_skip_untyped_functions(base: &Self) -> Option<bool> {
-        base.skip_untyped_functions
+    pub fn get_untyped_def_behavior(base: &Self) -> Option<UntypedDefBehavior> {
+        base.untyped_def_behavior
     }
 
     pub fn get_ignore_errors_in_generated_code(base: &Self) -> Option<bool> {

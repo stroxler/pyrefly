@@ -22,6 +22,7 @@ use tracing::debug;
 use tracing::warn;
 
 use crate::config::base::ConfigBase;
+use crate::config::base::UntypedDefBehavior;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorDisplayConfig;
@@ -337,12 +338,12 @@ impl ConfigFile {
                 self.root.replace_imports_with_any.as_deref().unwrap())
     }
 
-    pub fn skip_untyped_functions(&self, path: &Path) -> bool {
-        self.get_from_sub_configs(ConfigBase::get_skip_untyped_functions, path)
+    pub fn untyped_def_behavior(&self, path: &Path) -> UntypedDefBehavior {
+        self.get_from_sub_configs(ConfigBase::get_untyped_def_behavior, path)
             .unwrap_or_else(||
                 // we can use unwrap here, because the value in the root config must
                 // be set in `ConfigFile::configure()`.
-                self.root.skip_untyped_functions.unwrap())
+                self.root.untyped_def_behavior.unwrap())
     }
 
     fn ignore_errors_in_generated_code(&self, path: &Path) -> bool {
@@ -403,8 +404,8 @@ impl ConfigFile {
             self.root.replace_imports_with_any = Some(Default::default());
         }
 
-        if self.root.skip_untyped_functions.is_none() {
-            self.root.skip_untyped_functions = Some(Default::default());
+        if self.root.untyped_def_behavior.is_none() {
+            self.root.untyped_def_behavior = Some(Default::default());
         }
 
         if self.root.ignore_errors_in_generated_code.is_none() {
@@ -612,7 +613,7 @@ mod tests {
         let config_str = r#"
             project_includes = ["tests", "./implementation"]
             project_excludes = ["tests/untyped/**"]
-            skip_untyped_functions = false
+            untyped_def_behavior = "check-and-infer-return-type"
             search_path = ["../.."]
             python_platform = "darwin"
             python_version = "1.2.3"
@@ -630,7 +631,7 @@ mod tests {
             [[sub_config]]
             matches = "sub/project/**"
 
-            skip_untyped_functions = true
+            untyped_def_behavior = "check-and-infer-return-any"
             replace_imports_with_any = []
             ignore_errors_in_generated_code = false
             [sub_config.errors]
@@ -663,7 +664,7 @@ mod tests {
                     ]))),
                     ignore_errors_in_generated_code: Some(true),
                     replace_imports_with_any: Some(vec![ModuleWildcard::new("fibonacci").unwrap()]),
-                    skip_untyped_functions: Some(false),
+                    untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnType),
                 },
                 custom_module_paths: Default::default(),
                 sub_configs: vec![SubConfig {
@@ -676,7 +677,7 @@ mod tests {
                         ]))),
                         ignore_errors_in_generated_code: Some(false),
                         replace_imports_with_any: Some(Vec::new()),
-                        skip_untyped_functions: Some(true),
+                        untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnAny),
                     }
                 }],
                 use_untyped_imports: true,
@@ -967,7 +968,7 @@ mod tests {
             root: ConfigBase {
                 errors: Some(Default::default()),
                 replace_imports_with_any: Some(vec![ModuleWildcard::new("root").unwrap()]),
-                skip_untyped_functions: Some(false),
+                untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnType),
                 ignore_errors_in_generated_code: Some(false),
                 extras: Default::default(),
             },

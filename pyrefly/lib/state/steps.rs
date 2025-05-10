@@ -17,6 +17,7 @@ use crate::alt::answers::Answers;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers::Solutions;
 use crate::binding::bindings::Bindings;
+use crate::config::base::UntypedDefBehavior;
 use crate::error::style::ErrorStyle;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
@@ -39,7 +40,7 @@ pub struct Context<'a, Lookup> {
     pub uniques: &'a UniqueFactory,
     pub stdlib: &'a Stdlib,
     pub lookup: &'a Lookup,
-    pub skip_untyped_functions: bool,
+    pub untyped_def_behavior: UntypedDefBehavior,
 }
 
 #[derive(Debug, Default, Dupe, Clone)]
@@ -178,7 +179,7 @@ impl Step {
             &load.errors,
             ctx.uniques,
             enable_trace,
-            ctx.skip_untyped_functions,
+            ctx.untyped_def_behavior,
         );
         let answers = Answers::new(&bindings, solver, enable_index, enable_trace);
         Arc::new((bindings, Arc::new(answers)))

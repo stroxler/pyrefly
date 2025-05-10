@@ -622,10 +622,10 @@ impl<'a> Transaction<'a> {
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(module_data.dupe()),
-                skip_untyped_functions: module_data
+                untyped_def_behavior: module_data
                     .config
                     .read()
-                    .skip_untyped_functions(module_data.handle.path().as_path()),
+                    .untyped_def_behavior(module_data.handle.path().as_path()),
             });
             {
                 let mut changed = false;
@@ -1239,10 +1239,10 @@ impl<'a> Transaction<'a> {
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(m.dupe()),
-                skip_untyped_functions: m
+                untyped_def_behavior: m
                     .config
                     .read()
-                    .skip_untyped_functions(m.handle.path().as_path()),
+                    .untyped_def_behavior(m.handle.path().as_path()),
             };
             let mut step = Step::Load; // Start at AST (Load.next)
             alt.load = lock.steps.load.dupe();
