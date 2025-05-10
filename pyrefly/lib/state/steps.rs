@@ -39,7 +39,6 @@ pub struct Context<'a, Lookup> {
     pub uniques: &'a UniqueFactory,
     pub stdlib: &'a Stdlib,
     pub lookup: &'a Lookup,
-    #[expect(dead_code)]
     pub skip_untyped_functions: bool,
 }
 
@@ -179,6 +178,7 @@ impl Step {
             &load.errors,
             ctx.uniques,
             enable_trace,
+            ctx.skip_untyped_functions,
         );
         let answers = Answers::new(&bindings, solver, enable_index, enable_trace);
         Arc::new((bindings, Arc::new(answers)))

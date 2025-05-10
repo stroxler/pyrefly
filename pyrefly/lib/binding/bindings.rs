@@ -140,6 +140,8 @@ pub struct BindingsBuilder<'a> {
     pub scopes: Scopes,
     pub function_yields_and_returns: Vec1<FuncYieldsAndReturns>,
     pub table: BindingTable,
+    #[expect(dead_code)]
+    pub skip_untyped_functions: bool,
 }
 
 /// Things we collect from inside a function
@@ -295,6 +297,7 @@ impl Bindings {
         errors: &ErrorCollector,
         uniques: &UniqueFactory,
         enable_trace: bool,
+        skip_untyped_functions: bool,
     ) -> Self {
         let mut builder = BindingsBuilder {
             module_info: module_info.dupe(),
@@ -308,6 +311,7 @@ impl Bindings {
             scopes: Scopes::module(module_scope_range, enable_trace),
             function_yields_and_returns: Vec1::new(FuncYieldsAndReturns::default()),
             table: Default::default(),
+            skip_untyped_functions,
         };
         builder.init_static_scope(&x, true);
         if module_info.name() != ModuleName::builtins() {
