@@ -1029,7 +1029,7 @@ impl AnnotationWithTarget {
             AnnotationTarget::ArgsParam(_) => {
                 if let Type::Unpack(box unpacked) = annotation_ty {
                     Some(unpacked.clone())
-                } else if self.annotation.is_unpacked() || matches!(annotation_ty, Type::Args(_)) {
+                } else if matches!(annotation_ty, Type::Args(_) | Type::Unpack(_)) {
                     Some(annotation_ty.clone())
                 } else {
                     Some(Type::Tuple(Tuple::Unbounded(Box::new(
@@ -1040,8 +1040,7 @@ impl AnnotationWithTarget {
             AnnotationTarget::KwargsParam(_) => {
                 if let Type::Unpack(box unpacked) = annotation_ty {
                     Some(unpacked.clone())
-                } else if self.annotation.is_unpacked() || matches!(annotation_ty, Type::Kwargs(_))
-                {
+                } else if matches!(annotation_ty, Type::Kwargs(_) | Type::Unpack(_)) {
                     Some(annotation_ty.clone())
                 } else {
                     Some(
