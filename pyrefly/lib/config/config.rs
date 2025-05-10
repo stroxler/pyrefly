@@ -526,7 +526,7 @@ impl ConfigFile {
             }
             for sub_config in &config.sub_configs {
                 if !sub_config.settings.extras.0.is_empty() {
-                    let extra_keys = config.root.extras.0.keys().join(", ");
+                    let extra_keys = sub_config.settings.extras.0.keys().join(", ");
                     errors.push(anyhow!(
                         "Extra keys found in sub config matching {}: {extra_keys}",
                         sub_config.matches
