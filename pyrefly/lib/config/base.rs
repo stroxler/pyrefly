@@ -15,21 +15,21 @@ use crate::module::wildcard::ModuleWildcard;
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
 pub struct ConfigBase {
     /// Errors to silence (or not) when printing errors.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub errors: Option<ErrorDisplayConfig>,
 
     /// String-prefix-matched names of modules from which import errors should be ignored
     /// and the module should always be replaced with `typing.Any`
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "crate::config::util::none_or_empty")]
     pub replace_imports_with_any: Option<Vec<ModuleWildcard>>,
 
     /// analyze function body and infer return type
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skip_untyped_functions: Option<bool>,
 
     /// Whether to ignore type errors in generated code. By default this is disabled.
     /// Generated code is defined as code that contains the marker string `@` immediately followed by `generated`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ignore_errors_in_generated_code: Option<bool>,
 
     /// Any unknown config items

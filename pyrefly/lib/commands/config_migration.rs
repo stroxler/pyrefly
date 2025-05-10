@@ -221,7 +221,6 @@ mod tests {
         // We only actually care about the includes.
         let output_lines = output.lines().collect::<Vec<_>>();
         assert_eq!(output_lines[0], r#"project_includes = ["src/**/*.py"]"#);
-        assert!(output_lines.len() > 1);
         from_file(&output_path)
     }
 
@@ -503,5 +502,73 @@ test = true
         assert!(matches!(status, CommandExitStatus::Success));
         assert!(output_path.exists());
         from_file(&output_path)
+    }
+
+    #[test]
+    fn test_empty_mypy() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("mypy.ini");
+        let output_path = tmp.path().join("pyrefly.toml");
+        fs_anyhow::write(&input_path, b"[mypy]\nfake_option = True\n")?;
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: Some(output_path.clone()),
+        };
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::Success));
+        let output = fs_anyhow::read_to_string(&output_path)?;
+        assert_eq!(output, "");
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_pyright() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("pyrightconfig.json");
+        let output_path = tmp.path().join("pyrefly.toml");
+        fs_anyhow::write(&input_path, b"{}")?;
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: Some(output_path.clone()),
+        };
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::Success));
+        let output = fs_anyhow::read_to_string(&output_path)?;
+        assert_eq!(output, "");
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_mypy_pyproject() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("mypy.ini");
+        let output_path = tmp.path().join("pyproject.toml");
+        fs_anyhow::write(&input_path, b"[mypy]\nfake_option = True\n")?;
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: Some(output_path.clone()),
+        };
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::Success));
+        let output = fs_anyhow::read_to_string(&output_path)?;
+        assert_eq!(output, "[tool.pyrefly]\n");
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_pyright_pyproject() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("pyrightconfig.json");
+        let output_path = tmp.path().join("pyproject.toml");
+        fs_anyhow::write(&input_path, b"{}")?;
+        let args = Args {
+            input_path: Some(input_path),
+            output_path: Some(output_path.clone()),
+        };
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::Success));
+        let output = fs_anyhow::read_to_string(&output_path)?;
+        assert_eq!(output, "[tool.pyrefly]\n");
+        Ok(())
     }
 }

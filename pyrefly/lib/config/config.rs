@@ -113,31 +113,37 @@ pub struct ConfigFile {
     /// Files that should be counted as sources (e.g. user-space code).
     /// NOTE: unlike other args, this is never replaced with CLI arg overrides
     /// in this config, but may be overridden by CLI args where used.
-    #[serde(default = "ConfigFile::default_project_includes")]
+    #[serde(
+        default = "ConfigFile::default_project_includes",
+        skip_serializing_if = "Globs::is_empty"
+    )]
     pub project_includes: Globs,
 
     /// Files that should be excluded as sources (e.g. user-space code). These take
     /// precedence over `project_includes`.
     /// NOTE: unlike other configs, this is never replaced with CLI arg overrides
     /// in this config, but may be overridden by CLI args where used.
-    #[serde(default = "ConfigFile::default_project_excludes")]
+    #[serde(
+        default = "ConfigFile::default_project_excludes",
+        skip_serializing_if = "Globs::is_empty"
+    )]
     pub project_excludes: Globs,
 
     /// The list of directories where imports are
     /// imported from, including type checked files.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub search_path: Vec<PathBuf>,
 
     /// Not exposed to the user. When we aren't able to determine the root of a
     /// project, we guess some fallback search paths that are checked after
     /// typeshed (so we don't clobber the stdlib) and before site_package_path.
-    #[serde(default, skip)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fallback_search_path: Vec<PathBuf>,
 
     // TODO(connernilsen): make this mutually exclusive with venv/conda env
     /// The python executable that will be queried for `python_version`,
     /// `python_platform`, or `site_package_path` if any of the values are missing.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub python_interpreter: Option<PathBuf>,
 
     /// Values representing the environment of the Python interpreter
@@ -153,11 +159,14 @@ pub struct ConfigFile {
 
     /// Sub-configs that can override specific `ConfigBase` settings
     /// based on path matching.
-    #[serde(default, rename = "sub_config")]
+    #[serde(default, rename = "sub_config", skip_serializing_if = "Vec::is_empty")]
     pub sub_configs: Vec<SubConfig>,
 
     /// Skips any `py.typed` checks we do when resolving `site_package_path` imports.
-    #[serde(default = "ConfigFile::default_true")]
+    #[serde(
+        default = "ConfigFile::default_true",
+        skip_serializing_if = "crate::config::util::skip_default_true"
+    )]
     pub use_untyped_imports: bool,
 
     /// Completely custom module to path mappings. Currently not exposed to the user.
@@ -166,7 +175,10 @@ pub struct ConfigFile {
 
     /// Skips the check to ensure any `-stubs` `site_package_path` entries have an
     /// installed non-stubs package.
-    #[serde(default = "ConfigFile::default_true")]
+    #[serde(
+        default = "ConfigFile::default_true",
+        skip_serializing_if = "crate::config::util::skip_default_true"
+    )]
     pub ignore_missing_source: bool,
 }
 

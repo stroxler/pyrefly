@@ -249,6 +249,10 @@ impl Globs {
         }
         Ok(false)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 impl Display for Globs {
