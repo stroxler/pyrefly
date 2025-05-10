@@ -39,6 +39,8 @@ pub struct Context<'a, Lookup> {
     pub uniques: &'a UniqueFactory,
     pub stdlib: &'a Stdlib,
     pub lookup: &'a Lookup,
+    #[expect(dead_code)]
+    pub skip_untyped_functions: bool,
 }
 
 #[derive(Debug, Default, Dupe, Clone)]
