@@ -504,7 +504,6 @@ foo(str)
 );
 
 testcase!(
-    bug = "TODO(typeshed): There should be no errors",
     test_type_alias_bin_op,
     r#"
 from typing import TypeAlias
@@ -513,7 +512,7 @@ class B: ...
 R: TypeAlias = B  
 class C: ...
 class F:
-    T: TypeAlias = C # E: `type[C]` is not assignable to `TypeAlias`  # E: Expected a type argument for `TypeAlias` # E: TypeAlias is only allowed on variable annotations. 
-    def memmove(self, arg: T | R) -> None: ... # E: `|` is not supported between `TypeAlias` and `LegacyExplicitTypeAlias[R, type[B]]`
+    T: TypeAlias = C
+    def memmove(self, arg: T | R) -> None: ...
     "#,
 );

@@ -314,7 +314,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     qualifier
                 }
                 Some(Qualifier::TypeAlias)
-                    if !matches!(type_form_context, TypeFormContext::VarAnnotation(_)) =>
+                    if !matches!(
+                        type_form_context,
+                        TypeFormContext::VarAnnotation(_) | TypeFormContext::ClassVarAnnotation
+                    ) =>
                 {
                     self.error(
                         errors,

@@ -3,7 +3,7 @@
   "pass": 53,
   "fail": 83,
   "pass_rate": 0.39,
-  "differences": 428,
+  "differences": 429,
   "passing": [
     "aliases_newtype.py",
     "annotations_coroutines.py",
@@ -96,7 +96,7 @@
     "generics_defaults.py": 6,
     "generics_defaults_referential.py": 3,
     "generics_paramspec_components.py": 1,
-    "generics_scoping.py": 7,
+    "generics_scoping.py": 8,
     "generics_self_advanced.py": 4,
     "generics_self_attributes.py": 1,
     "generics_self_basic.py": 3,
