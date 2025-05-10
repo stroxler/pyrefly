@@ -81,3 +81,15 @@ BadNewType1 = NewType("BadNewType1", TD1)  # E: Second argument to NewType is in
 BadNewType2 = NewType("BadNewType2", Any)  # E: Second argument to NewType is invalid
      "#,
 );
+
+testcase!(
+    bug = "TODO(typeshed): There should be no errors",
+    test_new_type_as_alias,
+    r#"
+from typing import NewType, TypeAlias
+
+class R:
+    ValueType = NewType("ValueType", int)
+    V: TypeAlias = ValueType # E: Expected a type argument for `TypeAlias # E: TypeAlias is only allowed on variable annotations. # E: `type[ValueType]` is not assignable to `TypeAlias
+     "#,
+);
