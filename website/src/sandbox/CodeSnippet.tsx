@@ -10,31 +10,32 @@ import * as React from 'react';
 
 const Sandbox = React.lazy(() => import('./Sandbox'));
 
-interface SandboxBrowserOnlyProps {
+interface CodeSnippetProps {
     sampleFilename: string;
     isCodeSnippet?: boolean;
     codeSample?: string;
 }
 
-export default function SandboxBrowserOnly({
+export default function CodeSnippet({
     sampleFilename,
-    isCodeSnippet = false,
     codeSample = '',
-}: SandboxBrowserOnlyProps): JSX.Element {
+}: CodeSnippetProps): JSX.Element {
     if (sampleFilename == null) {
         throw "Missing sampleFilename. IDE services won't work properly.";
     }
     return (
-        <BrowserOnly>
-            {() => (
-                <React.Suspense fallback={<div>Loading...</div>}>
-                    <Sandbox
-                        sampleFilename={sampleFilename}
-                        isCodeSnippet={isCodeSnippet}
-                        codeSample={codeSample}
-                    />
-                </React.Suspense>
-            )}
-        </BrowserOnly>
+        <pre>
+            <BrowserOnly>
+                {() => (
+                    <React.Suspense fallback={<div>Loading...</div>}>
+                        <Sandbox
+                            sampleFilename={sampleFilename}
+                            isCodeSnippet={true}
+                            codeSample={codeSample}
+                        />
+                    </React.Suspense>
+                )}
+            </BrowserOnly>
+        </pre>
     );
 }

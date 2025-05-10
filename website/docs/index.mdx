@@ -3,7 +3,7 @@ title: Introduction
 description: Guides and references for all you need to know about Pyrefly
 ---
 
-import SandboxBrowserOnly from '@site/src/sandbox/SandboxBrowserOnly'
+import CodeSnippet from '@site/src/sandbox/CodeSnippet'
 
 Pyrefly is a static typechecker for Python that helps you catch type-related errors before your code runs. It analyzes your Python code to ensure type consistency throughout your codebase, making your applications more reliable and easier to maintain. Pyrefly supports both IDE integration and CLI usage, giving you flexibility in how you incorporate type checking into your workflow.
 
@@ -21,11 +21,9 @@ Adding type annotations to your Python code and using a typechecker like Pyrefly
 
 Here's a simple example showing how Pyrefly can catch type errors:
 
-<pre>
-  <SandboxBrowserOnly
-    sampleFilename="getting_started.py"
-    isCodeSnippet={true}
-    codeSample={`# Example: Basic Type Checking
+<CodeSnippet
+  sampleFilename="getting_started.py"
+  codeSample={`# Example: Basic Type Checking
 
 def greet(name: str) -> str:
     return "Hello, " + name
@@ -37,8 +35,7 @@ message = greet("World")
 # Error: Argument of type 'int' is not assignable to parameter of type 'str'
 error_message = greet(42)
 `}
-  />
-</pre>
+/>
 
 In this example, Pyrefly flags the second call to `greet()` because we're passing an integer (`42`) where a string is expected, helping you catch this issue before your code runs. To learn more about Python typing and how to use it effectively, check out our [Python Typing for Beginners](python-typing-for-beginners) page.
 

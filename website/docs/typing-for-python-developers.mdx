@@ -4,13 +4,13 @@ title: Typing for Python Developers
 description: Get to know Python's Type System with working examples
 ---
 
-import SandboxBrowserOnly from '@site/src/sandbox/SandboxBrowserOnly'
+import CodeSnippet from '@site/src/sandbox/CodeSnippet'
 
 # Typing for Python Developers
 
 *5‑Minute Tour with Pyrefly*
 
-**Goal:** In five minutes you’ll know how Python’s static type system _infers_, _defines_, and _composes_ types—and you’ll have copy‑paste snippets to start using right away.
+**Goal:** In five minutes you'll know how Python's static type system _infers_, _defines_, and _composes_ types—and you'll have copy‑paste snippets to start using right away.
 
 If you are new to Python, check out our [Python Typing for Beginners guide](../python-typing-for-beginners/).
 
@@ -25,10 +25,8 @@ _TL;DR_
 
 Static analyzers can often _infer_ types from your code—no annotations required. Pyrefly takes this a step further.
 
-<pre>
-  <SandboxBrowserOnly
+<CodeSnippet
   sampleFilename="basic_inference.py"
-  isCodeSnippet={true}
   codeSample={`# Basic Inference
 answer = 42
 reveal_type(answer) # hover to reveal type
@@ -41,23 +39,19 @@ def greet(name):
 
 message = greet("World")
 `}
-  />
-</pre>
+/>
 
 ### Where Inference Shines ✨
 - Constant assignments (`answer = 42 -> int`)
 - List/tuple/dict literals with uniform elements (`names = ["A", "B"] -> list[str]`)
 - Return types if parameter types are annotated:
 
-<pre>
-  <SandboxBrowserOnly
+<CodeSnippet
   sampleFilename="return_inference.py"
-  isCodeSnippet={true}
   codeSample={`def add(a: int, b: int):   # ✅ param annotations
     return a + b    # 🔍 return inferred -> int
 `}
-  />
-</pre>
+/>
 
 ### When to Add Hints
 - Public APIs (library or service boundaries)
@@ -69,10 +63,8 @@ message = greet("World")
 ### The Basics
 
 Python's built-in types can be used to write many simple type hints.
-<pre>
-  <SandboxBrowserOnly
+<CodeSnippet
   sampleFilename="built_in_types.py"
-  isCodeSnippet={true}
   codeSample={`# Example: Basic Types
 
 from typing import reveal_type
@@ -97,15 +89,12 @@ reveal_type(person) # revealed type: dict[str, str]
 is_admin: bool = True
 reveal_type(is_admin) # revealed type: Literal[True]
 `}
-  />
-</pre>
+/>
 
 ### Functions
 Defining the parameter and return types for a function doesn't just help prevent bugs, but it makes it easier to navigate in other files. You don't always need to define a return type - we'll do our best to infer it for you! We can't always get it right and an explicit return type will help your IDE navigate faster and more accurately.
-<pre>
-  <SandboxBrowserOnly
+<CodeSnippet
   sampleFilename="functions_types.py"
-  isCodeSnippet={true}
   codeSample={`# Example: Functions
 
 from typing import reveal_type
@@ -120,8 +109,7 @@ def whatDoesThisFunctionReturnAgain(a: int, b: int):
 
 reveal_type(whatDoesThisFunctionReturnAgain(2, 3)) # revealed type: int
 `}
-  />
-</pre>
+/>
 
 ## Advanced Types
 
@@ -129,10 +117,8 @@ reveal_type(whatDoesThisFunctionReturnAgain(2, 3)) # revealed type: int
 The real power comes from composing smaller pieces into richer shapes.
 
 ### Unions & Optional
-<pre>
-  <SandboxBrowserOnly
+<CodeSnippet
   sampleFilename="unions_types.py"
-  isCodeSnippet={true}
   codeSample={`# Union and Optional Types
 
 from typing import Optional
@@ -144,18 +130,15 @@ def to_int(data: str | bytes | None) -> Optional[int]:
         data = data.decode()
     return int(data)
 `}
-  />
-</pre>
+/>
 
 ### Generics
 
 Generics allow you to define reusable functions and classes that work with multiple types. This feature enables you to write more flexible and adaptable code.
 
-<pre>
-  <SandboxBrowserOnly
-    sampleFilename="generics.py"
-    isCodeSnippet={true}
-    codeSample={`# Example: Generic Classes
+<CodeSnippet
+  sampleFilename="generics.py"
+  codeSample={`# Example: Generic Classes
 
 from typing import reveal_type
 
@@ -168,18 +151,15 @@ class C[T]:
 c = C(0)
 reveal_type(c.box())  # revealed type: list[int]
 `}
-  />
-</pre>
+/>
 
 ### Protocols
 
 Protocols enable structural typing, which allows you to define interfaces without explicit inheritance. This feature helps you write more modular and composable code.
 
-<pre>
-  <SandboxBrowserOnly
-    sampleFilename="protocols.py"
-    isCodeSnippet={true}
-    codeSample={`# Example: Structural Typing with Protocols
+<CodeSnippet
+  sampleFilename="protocols.py"
+  codeSample={`# Example: Structural Typing with Protocols
 
 from typing import Iterable, Protocol
 
@@ -199,8 +179,7 @@ def f(writer: Writer):
 f(GoodWorld()) # OK
 f(BadWorld())  # ERROR!
 `}
-  />
-</pre>
+/>
 
 ## Structural Types
 Python also employs a structural type system, often referred to as "duck typing." This concept is based on the idea that if two objects have the same shape or attributes, they can be treated as being of the same type.
@@ -209,11 +188,9 @@ Python also employs a structural type system, often referred to as "duck typing.
 
 Dataclasses allow you to create type-safe data structures while minimizing boilerplate.
 
-<pre>
-  <SandboxBrowserOnly
-    sampleFilename="data_classes.py"
-    isCodeSnippet={true}
-    codeSample={`# Example: Dataclasses
+<CodeSnippet
+  sampleFilename="data_classes.py"
+  codeSample={`# Example: Dataclasses
 
 from dataclasses import dataclass
 
@@ -225,19 +202,16 @@ class Point:
 Point(x=0.0, y=0.0)    # OK
 Point(x=0.0, y="oops") # ERROR!
 `}
-  />
-</pre>
+/>
 
 
 ### TypedDict
 
 Typed dictionaries enable you to define dictionaries with specific key-value types. This feature lets you bring type safety to ad-hoc dictionary structures without major refactoring.
 
-<pre>
-  <SandboxBrowserOnly
-    sampleFilename="typed_dict.py"
-    isCodeSnippet={true}
-    codeSample={`# Example: TypedDict
+<CodeSnippet
+  sampleFilename="typed_dict.py"
+  codeSample={`# Example: TypedDict
 
 from typing import TypedDict
 
@@ -248,18 +222,15 @@ class Movie(TypedDict):
 good_movie: Movie = {"name": "Toy Story", "year": 1995} # OK
 bad_movie: Movie = {"name": "The Room", "year": "2003"}  # ERROR!
 `}
-  />
-</pre>
+/>
 
 ### Overloads
 
 Overloads allow you to define multiple function signatures for a single function. Like generics, this feature helps you write more flexible and adaptable code.
 
-<pre>
-  <SandboxBrowserOnly
-    sampleFilename="overloads.py"
-    isCodeSnippet={true}
-    codeSample={`# Example: Overloads
+<CodeSnippet
+  sampleFilename="overloads.py"
+  codeSample={`# Example: Overloads
 
 from typing import overload, reveal_type
 
@@ -275,8 +246,7 @@ def f(x: int | str) -> int | str:
 reveal_type(f(0))  # revealed type: int
 reveal_type(f("")) # revealed type: str
 `}
-  />
-</pre>
+/>
 
 ## Typing Features, PEPS available in each Python Version
 
