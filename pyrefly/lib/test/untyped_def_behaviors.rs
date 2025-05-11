@@ -149,7 +149,7 @@ async def async_generator_with_return():
 );
 
 testcase!(
-    test_self_attrs_with_mode_infer_return_any,
+    test_self_attrs_with_mode_check_and_infer_return_any,
     TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::CheckAndInferReturnAny),
     r#"
 from typing import assert_type, Any
@@ -161,6 +161,24 @@ class C:
 c = C()
 assert_type(c.x, int)
 assert_type(c.y, str)
+assert_type(c.f(), Any)
+"#,
+);
+
+testcase!(
+    bug = "We do not yet implement Skip behavior for untyped function defs",
+    test_self_attrs_with_mode_skip_and_infer_return_any,
+    TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::SkipAndInferReturnAny),
+    r#"
+from typing import assert_type, Any
+class C:
+    def __init__(self):
+        self.x: int = 5
+    def f(self):
+        self.y: str = "y"  # E: Attribute `y` is implicitly defined by assignment in method `f`
+c = C()
+assert_type(c.x, Any)  # E: assert_type(int, Any)
+assert_type(c.y, Any)  # E: assert_type(str, Any)
 assert_type(c.f(), Any)
 "#,
 );
