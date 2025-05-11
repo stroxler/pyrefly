@@ -164,3 +164,19 @@ assert_type(c.y, str)
 assert_type(c.f(), Any)
 "#,
 );
+
+testcase!(
+    bug = "We do not yet implement Skip behavior for untyped function defs",
+    test_annotated_defs_with_mode_skip_and_infer_return_any,
+    TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::SkipAndInferReturnAny),
+    r#"
+from typing import assert_type
+def unannotated():
+    # This line should have no error
+    x: int = "x"  # E:
+def annotated_return() -> None:
+    x: int = "x"  # E:
+def annotated_param(_: str):
+    x: int = "x"  # E:
+"#,
+);
