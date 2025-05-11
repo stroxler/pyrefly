@@ -235,9 +235,22 @@ testcase!(
     r#"
 from typing import assert_type
 import sys
-def f(x: str | None):
+import os
+def test_sys_exit(x: str | None):
     if not x:
         sys.exit(1)
+    assert_type(x, str)
+def test_exit(x: str | None):
+    if not x:
+        exit(1)
+    assert_type(x, str)
+def test_quit(x: str | None):
+    if not x:
+        quit(1)
+    assert_type(x, str)
+def test_os_exit(x: str | None):
+    if not x:
+        os._exit(1)
     assert_type(x, str)
     "#,
 );
