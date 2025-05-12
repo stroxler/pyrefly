@@ -187,6 +187,12 @@ fn get_globs_and_config_for_project(
         ConfigSource::File(path) => {
             info!("Checking project configured at `{}`", path.display());
         }
+        ConfigSource::Marker(path) => {
+            info!(
+                "Found `{}` marking project root, checking root directory with default configuration",
+                path.display(),
+            );
+        }
         ConfigSource::Synthetic => {
             info!("Checking current directory with default configuration");
         }
@@ -300,6 +306,9 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
                 match &config.source {
                     ConfigSource::Synthetic => {
                         println!("Default configuration");
+                    }
+                    ConfigSource::Marker(path) => {
+                        println!("Default configuration for project root marked by {path:?}");
                     }
                     ConfigSource::File(path) => {
                         println!("Configuration at {path:?}");

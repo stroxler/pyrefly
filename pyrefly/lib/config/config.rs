@@ -55,17 +55,23 @@ impl SubConfig {
     }
 }
 
+/// Where did this config come from?
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum ConfigSource {
+    /// This config was read from a file
     File(PathBuf),
+    /// This config was synthesized with path-specific defaults, based on the location of a
+    /// "marker" file that contains no pyrefly configuration but marks a project root (e.g., a
+    /// `pyproject.toml` file with no `[tool.pyrefly]` section)
+    Marker(PathBuf),
     #[default]
     Synthetic,
 }
 
 impl ConfigSource {
-    pub fn path<'a>(&'a self) -> Option<&'a Path> {
+    pub fn root<'a>(&'a self) -> Option<&'a Path> {
         match &self {
-            Self::File(path) => Some(path),
+            Self::File(path) | Self::Marker(path) => path.parent(),
             Self::Synthetic => None,
         }
     }
@@ -382,9 +388,11 @@ impl ConfigFile {
     /// which should probably be everything except for `PathBuf` or `Globs` types.
     pub fn configure(&mut self) {
         if self.python_environment.any_empty() {
-            if let Some(interpreter) = self.python_interpreter.clone().or_else(|| {
-                PythonEnvironment::find_interpreter(self.source.path().and_then(|p| p.parent()))
-            }) {
+            if let Some(interpreter) = self
+                .python_interpreter
+                .clone()
+                .or_else(|| PythonEnvironment::find_interpreter(self.source.root()))
+            {
                 let system_env = PythonEnvironment::get_interpreter_env(&interpreter);
                 self.python_environment.override_empty(system_env);
             } else {
@@ -420,7 +428,6 @@ impl ConfigFile {
     /// values, but CLI args will always be relative to CWD, whereas config values should be relative
     /// to the config root.
     fn rewrite_with_path_to_config(&mut self, config_root: &Path) {
-        // TODO(connernilsen): store root as part of config to make it easier to rewrite later on
         self.project_includes = self.project_includes.clone().from_root(config_root);
         self.search_path.iter_mut().for_each(|search_root| {
             let mut base = config_root.to_path_buf();
@@ -465,7 +472,7 @@ impl ConfigFile {
             }
         }
         errors.extend(validate(&self.search_path, "search_path"));
-        if let Some(path) = self.source.path() {
+        if let ConfigSource::File(path) = &self.source {
             errors.into_map(|e| e.context(format!("{}", path.display())))
         } else {
             errors
@@ -489,11 +496,12 @@ impl ConfigFile {
         }
         fn f(config_path: &Path) -> (ConfigFile, Vec<anyhow::Error>) {
             let mut errors = Vec::new();
-            let maybe_config = match read_path(config_path) {
-                Ok(maybe_config) => maybe_config,
+            let (maybe_config, config_source) = match read_path(config_path) {
+                Ok(Some(config)) => (Some(config), ConfigSource::File(config_path.to_path_buf())),
+                Ok(None) => (None, ConfigSource::Marker(config_path.to_path_buf())),
                 Err(e) => {
                     errors.push(e);
-                    None
+                    (None, ConfigSource::File(config_path.to_path_buf()))
                 }
             };
             let mut config = match config_path.parent() {
@@ -519,7 +527,7 @@ impl ConfigFile {
                     maybe_config.unwrap_or_else(ConfigFile::default)
                 }
             };
-            config.source = ConfigSource::File(config_path.to_path_buf());
+            config.source = config_source;
 
             if !config.root.extras.0.is_empty() {
                 let extra_keys = config.root.extras.0.keys().join(", ");
@@ -536,17 +544,14 @@ impl ConfigFile {
             }
             (config, errors)
         }
-        let (config, errors) = match config_path
+        let ((config, errors), config_path) = match config_path
             .absolutize()
             .with_context(|| format!("Path `{}` cannot be absolutized", config_path.display()))
         {
-            Ok(config_path) => f(&config_path),
-            Err(e) => (ConfigFile::default(), vec![e]),
+            Ok(config_path) => (f(&config_path), config_path.into_owned()),
+            Err(e) => ((ConfigFile::default(), vec![e]), config_path.to_path_buf()),
         };
-        let errors = errors.into_map(|err| {
-            let file_str = config.source.path().unwrap_or(config_path).display();
-            err.context(format!("{file_str}"))
-        });
+        let errors = errors.into_map(|err| err.context(format!("{}", config_path.display())));
         (config, errors)
     }
 
