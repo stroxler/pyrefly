@@ -222,22 +222,15 @@ impl Default for ConfigFile {
 }
 
 impl ConfigFile {
-    /// Gets a generic ConfigFile whose paths need to be rewritten with respect to a root dir.
-    /// This should only be used for unit testing, since it may have strange runtime behavior.
-    /// Prefer to use `ConfigFile::init_at_root()` instead.
-    fn init_no_path_rewrite(layout: &ProjectLayout) -> Self {
-        Self {
+    /// Gets a ConfigFile for a project directory.
+    pub fn init_at_root(root: &Path, layout: &ProjectLayout) -> Self {
+        let mut result = Self {
             project_includes: Self::default_project_includes(),
             project_excludes: Self::default_project_excludes(),
             // Note that rewrite_with_path_to_config() converts "" to the config file's containing directory.
             import_root: Some(layout.get_import_root(Path::new(""))),
             ..Default::default()
-        }
-    }
-
-    /// Gets a ConfigFile for a project directory.
-    pub fn init_at_root(root: &Path, layout: &ProjectLayout) -> Self {
-        let mut result = Self::init_no_path_rewrite(layout);
+        };
         result.rewrite_with_path_to_config(root);
         result
     }
@@ -951,7 +944,8 @@ mod tests {
 
     #[test]
     fn test_expect_all_fields_set_in_root_config() {
-        let mut config = ConfigFile::init_no_path_rewrite(&ProjectLayout::default());
+        let root = TempDir::new().unwrap();
+        let mut config = ConfigFile::init_at_root(root.path(), &ProjectLayout::default());
         config.configure();
 
         let table: serde_json::Map<String, serde_json::Value> =
