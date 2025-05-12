@@ -504,6 +504,23 @@ foo(str)
 );
 
 testcase!(
+    bug = "Typeshed(TODO): This should fully typecheck",
+    test_type_alias_generics,
+    r#"
+from typing import Generic, Hashable, Iterable, TypeVar, TypeAlias
+
+_Node = TypeVar("_Node", bound=Hashable)
+_NBunch: TypeAlias = _Node | Iterable[_Node] | None
+
+class DiDegreeView(Generic[_Node]):
+    def __init__(
+        self,
+        nbunch: _NBunch[_Node] = None, # E: Can't apply arguments to non-class
+    ) -> None: ...
+    "#,
+);
+
+testcase!(
     test_type_alias_bin_op,
     r#"
 from typing import TypeAlias
