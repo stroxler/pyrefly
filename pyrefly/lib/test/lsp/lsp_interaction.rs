@@ -409,11 +409,6 @@ fn test_references() {
                 "range": {"start":{"line":5,"character":16},"end":{"character":19,"line":5}},
                 "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
             },
-            // TODO: bad synthetic multiline binding reference
-            {
-                "range": {"start":{"line":7,"character":0},"end":{"character":7,"line":10}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
-            },
             {
                 "range": {"start":{"line":10,"character":4},"end":{"character":7,"line":10}},
                 "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
@@ -467,11 +462,6 @@ fn test_references() {
                 "range": {"start":{"line":5,"character":16},"end":{"character":19,"line":5}},
                 "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
             },
-            // TODO: bad synthetic multiline binding reference
-            {
-                "range": {"start":{"line":7,"character":0},"end":{"character":7,"line":10}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
-            },
             {
                 "range": {"start":{"line":10,"character":4},"end":{"character":7,"line":10}},
                 "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
@@ -523,11 +513,6 @@ fn test_references() {
             },
             {
                 "range": {"start":{"line":5,"character":16},"end":{"character":19,"line":5}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
-            },
-            // TODO: bad synthetic multiline binding reference
-            {
-                "range": {"start":{"line":7,"character":0},"end":{"character":7,"line":10}},
                 "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
             },
             {
@@ -594,11 +579,6 @@ fn test_references() {
             },
             {
                 "range": {"start":{"line":5,"character":16},"end":{"character":19,"line":5}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
-            },
-            // TODO: bad synthetic multiline binding reference
-            {
-                "range": {"start":{"line":7,"character":0},"end":{"character":7,"line":10}},
                 "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
             },
             {
