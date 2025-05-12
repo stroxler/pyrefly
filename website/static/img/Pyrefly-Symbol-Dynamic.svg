@@ -5,6 +5,9 @@
   .cls-1{fill:url(#linear-gradient-2);}
   .cls-2{fill:url(#linear-gradient);}
   .cls-3{fill:#394048;}
+  @media (prefers-color-scheme: dark) {
+    .cls-3{fill:#fff;}
+  }
 </style>
 </defs>
 
