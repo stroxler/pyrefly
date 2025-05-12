@@ -194,3 +194,22 @@ def annotated_param(_: str):
     x: int = "x"  # E:
 "#,
 );
+
+testcase!(
+    stress_tests_for_mode_skip_and_infer_return_any,
+    TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::SkipAndInferReturnAny),
+    r#"
+from typing import assert_type
+def u0():
+    x: int = "x"
+def u1(y, *args, **kwargs):
+    x: int = "x"
+class C:
+    def __init__(self):
+        x: int = "x"
+        pass
+    def __init__(self, y, *args, **kwargs):
+        x: int = "x"
+        pass
+"#,
+);
