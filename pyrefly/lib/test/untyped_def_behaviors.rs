@@ -77,7 +77,6 @@ assert_type(async_gen, Callable[[], Any])
 );
 
 testcase!(
-    bug = "We do not yet implement Skip behavior for untyped function defs",
     test_function_check_and_inference_with_mode_skip_and_infer_return_any,
     TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::SkipAndInferReturnAny),
     r#"
@@ -86,28 +85,28 @@ from typing import assert_type, Any, Callable, Coroutine, Generator, AsyncGenera
 x: int = ...  # E:
 
 def f():
-    oops: int = "oops"  # E:
+    oops: int = "oops"
     return x
 assert_type(f, Callable[[], Any])
 
 async def async_f():
-    oops: int = "oops"  # E:
+    oops: int = "oops"
     return x
 assert_type(async_f, Callable[[], Any])
 
 def gen():
-    oops: int = "oops"  # E:
+    oops: int = "oops"
     yield x
 assert_type(gen, Callable[[], Any])
 
 def gen_w_return():
-    oops: int = "oops"  # E:
+    oops: int = "oops"
     yield x
     return x
 assert_type(gen_w_return, Callable[[], Any])
 
 async def async_gen():
-    oops: int = "oops"  # E:
+    oops: int = "oops"
     yield x
 assert_type(async_gen, Callable[[], Any])
 "#,
@@ -166,7 +165,6 @@ assert_type(c.f(), Any)
 );
 
 testcase!(
-    bug = "We do not yet implement Skip behavior for untyped function defs",
     test_self_attrs_with_mode_skip_and_infer_return_any,
     TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::SkipAndInferReturnAny),
     r#"
@@ -177,21 +175,19 @@ class C:
     def f(self):
         self.y: str = "y"  # E: Attribute `y` is implicitly defined by assignment in method `f`
 c = C()
-assert_type(c.x, Any)  # E: assert_type(int, Any)
-assert_type(c.y, Any)  # E: assert_type(str, Any)
+assert_type(c.x, Any)
+assert_type(c.y, Any)
 assert_type(c.f(), Any)
 "#,
 );
 
 testcase!(
-    bug = "We do not yet implement Skip behavior for untyped function defs",
     test_annotated_defs_with_mode_skip_and_infer_return_any,
     TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::SkipAndInferReturnAny),
     r#"
 from typing import assert_type
 def unannotated():
-    # This line should have no error
-    x: int = "x"  # E:
+    x: int = "x"
 def annotated_return() -> None:
     x: int = "x"  # E:
 def annotated_param(_: str):
