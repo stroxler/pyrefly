@@ -921,7 +921,7 @@ impl Server {
             for path in paths {
                 let module_path = ModulePath::filesystem(path.clone());
                 let path_config = config_finder.python_file(unknown, &module_path);
-                let module_name = module_from_path(&path, &path_config.search_path)
+                let module_name = module_from_path(&path, path_config.search_path())
                     .unwrap_or_else(ModuleName::unknown);
                 handles.push((
                     Handle::new(module_name, module_path, path_config.get_sys_info()),
@@ -1060,7 +1060,7 @@ impl Server {
         let unknown = ModuleName::unknown();
         let config = state.config_finder().python_file(unknown, &path);
         let module_name = to_real_path(&path)
-            .and_then(|path| module_from_path(path, &config.search_path))
+            .and_then(|path| module_from_path(path, config.search_path()))
             .unwrap_or(unknown);
         Handle::new(module_name, path, config.get_sys_info())
     }

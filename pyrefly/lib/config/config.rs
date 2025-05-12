@@ -248,14 +248,16 @@ impl ConfigFile {
             .any(|p| p.matches(module))
         {
             Err(FindError::Ignored)
-        } else if let Some(path) = find_module_in_search_path(module, &self.search_path) {
+        } else if let Some(path) = find_module_in_search_path(module, self.search_path()) {
             Ok(path)
         } else if let Some(path) = typeshed()
             .map_err(|err| FindError::not_found(err, module))?
             .find(module)
         {
             Ok(path)
-        } else if let Some(path) = find_module_in_search_path(module, &self.fallback_search_path) {
+        } else if let Some(path) =
+            find_module_in_search_path(module, self.fallback_search_path.iter())
+        {
             Ok(path)
         } else if let Some(path) = find_module_in_site_package_path(
             module,
@@ -266,7 +268,7 @@ impl ConfigFile {
             Ok(path)
         } else {
             Err(FindError::search_path(
-                &self.search_path,
+                self.search_path(),
                 &self.fallback_search_path,
                 self.site_package_path(),
                 module,
@@ -312,6 +314,10 @@ impl ConfigFile {
         // we can use unwrap here, because the value in the root config must
         // be set in `ConfigFile::configure()`.
         self.python_environment.python_platform.as_ref().unwrap()
+    }
+
+    pub fn search_path<'a>(&'a self) -> impl Iterator<Item = &'a PathBuf> {
+        self.search_path.iter()
     }
 
     pub fn site_package_path(&self) -> &[PathBuf] {
@@ -573,7 +579,7 @@ impl Display for ConfigFile {
             "{{project_includes: {}, project_excludes: {}, search_path: [{}], python_interpreter: {:?}, python_environment: {}, replace_imports_with_any: [{}]}}",
             self.project_includes,
             self.project_excludes,
-            self.search_path.iter().map(|p| p.display()).join(", "),
+            self.search_path().map(|p| p.display()).join(", "),
             self.python_interpreter,
             self.python_environment,
             self.root

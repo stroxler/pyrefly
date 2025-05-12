@@ -249,12 +249,8 @@ impl Handles {
         let unknown = ModuleName::unknown();
         let config = config_finder.python_file(unknown, &module_path);
 
-        let search_path = args_search_path
-            .iter()
-            .cloned()
-            .chain(config.search_path.clone())
-            .collect::<Vec<_>>();
-        let module_name = module_from_path(&path, &search_path).unwrap_or(unknown);
+        let search_path = args_search_path.iter().chain(config.search_path());
+        let module_name = module_from_path(&path, search_path).unwrap_or(unknown);
 
         self.path_data
             .entry(path)

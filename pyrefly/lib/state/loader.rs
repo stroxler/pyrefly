@@ -43,8 +43,8 @@ impl FindError {
         Self::NoSource(module)
     }
 
-    pub fn search_path(
-        search_roots: &[PathBuf],
+    pub fn search_path<'a>(
+        search_roots: impl Iterator<Item = &'a PathBuf>,
         fallback_search_roots: &[PathBuf],
         site_package_path: &[PathBuf],
         module: ModuleName,
@@ -53,6 +53,7 @@ impl FindError {
         let config_path = config_path
             .map(|p| format!(" (from config at {})", p.display()))
             .unwrap_or_default();
+        let search_roots = search_roots.collect::<Vec<_>>();
         if search_roots.is_empty()
             && fallback_search_roots.is_empty()
             && site_package_path.is_empty()
