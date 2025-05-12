@@ -31,6 +31,14 @@ use crate::util::lock::Mutex;
 static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonEnvironment>>>> =
     LazyLock::new(|| Mutex::new(SmallMap::new()));
 
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
+pub enum SitePackagePathSource {
+    #[default]
+    ConfigFile,
+    CommandLine,
+    Interpreter(PathBuf),
+}
+
 /// Values representing the environment of the Python interpreter.
 /// These values are `None` by default, so we can tell if a config
 /// overrode them, or if we should query a Python interpreter for
@@ -56,27 +64,16 @@ pub struct PythonEnvironment {
     /// Is the `site_package_path` here one we got from
     /// querying an interpreter?
     #[serde(skip, default)]
-    pub site_package_path_from_interpreter: bool,
+    pub site_package_path_source: SitePackagePathSource,
 }
 
 impl PythonEnvironment {
     const DEFAULT_INTERPRETERS: &[&str] = &["python3", "python"];
 
-    pub fn new(
-        python_platform: PythonPlatform,
-        python_version: PythonVersion,
-        site_package_path: Vec<PathBuf>,
-    ) -> Self {
-        Self {
-            python_platform: Some(python_platform),
-            python_version: Some(python_version),
-            site_package_path: Some(site_package_path),
-            site_package_path_from_interpreter: false,
-        }
-    }
-
     fn pyrefly_default() -> Self {
-        Self::new(Default::default(), Default::default(), Default::default())
+        let mut env = Self::default();
+        env.set_empty_to_default();
+        env
     }
 
     /// Are any Python environment values `None`?
@@ -97,7 +94,7 @@ impl PythonEnvironment {
         }
         if self.site_package_path.is_none() {
             self.site_package_path = Some(Vec::new());
-            self.site_package_path_from_interpreter = false;
+            self.site_package_path_source = SitePackagePathSource::ConfigFile;
         }
     }
 
@@ -112,7 +109,7 @@ impl PythonEnvironment {
         }
         if self.site_package_path.is_none() {
             self.site_package_path = other.site_package_path;
-            self.site_package_path_from_interpreter = other.site_package_path_from_interpreter;
+            self.site_package_path_source = other.site_package_path_source;
         }
     }
 
@@ -166,7 +163,8 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
             anyhow!("Expected `site_package_path` from Python interpreter query to be non-empty")
         })?;
 
-        deserialized.site_package_path_from_interpreter = true;
+        deserialized.site_package_path_source =
+            SitePackagePathSource::Interpreter(interpreter.to_path_buf());
 
         Ok(deserialized)
     }
@@ -231,7 +229,7 @@ impl Display for PythonEnvironment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{{python_platform: {}, python_version: {}, site_package_path: [{}], site_package_path_from_interpreter: {}}}",
+            "{{python_platform: {}, python_version: {}, site_package_path: [{}], site_package_path_source: {:?}}}",
             self.python_platform
                 .as_ref()
                 .map_or_else(|| "None".to_owned(), |platform| platform.to_string()),
@@ -241,7 +239,7 @@ impl Display for PythonEnvironment {
                 || "".to_owned(),
                 |path| path.iter().map(|p| p.display()).join(", ")
             ),
-            self.site_package_path_from_interpreter,
+            self.site_package_path_source,
         )
     }
 }

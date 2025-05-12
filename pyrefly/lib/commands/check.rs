@@ -38,6 +38,7 @@ use crate::commands::suppress;
 use crate::commands::util::module_from_path;
 use crate::config::config::ConfigFile;
 use crate::config::config::validate_path;
+use crate::config::environment::environment::SitePackagePathSource;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;
 use crate::error::error::print_error_counts;
@@ -506,6 +507,7 @@ impl Args {
         }
         if let Some(x) = &self.site_package_path {
             config.python_environment.site_package_path = Some(x.clone());
+            config.python_environment.site_package_path_source = SitePackagePathSource::CommandLine;
         }
         if let Some(x) = &self.python_interpreter {
             config.python_interpreter = Some(x.clone());

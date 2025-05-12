@@ -207,6 +207,7 @@ pub fn parse_pyproject_toml(raw_file: &str) -> anyhow::Result<ConfigFile> {
 mod tests {
     use super::*;
     use crate::config::environment::environment::PythonEnvironment;
+    use crate::config::environment::environment::SitePackagePathSource;
 
     #[test]
     fn test_convert_pyright_config() -> anyhow::Result<()> {
@@ -241,7 +242,7 @@ mod tests {
                     python_platform: Some(PythonPlatform::linux()),
                     python_version: Some(PythonVersion::new(3, 10, 0)),
                     site_package_path: None,
-                    site_package_path_from_interpreter: false,
+                    site_package_path_source: SitePackagePathSource::ConfigFile,
                 },
                 ..Default::default()
             }
@@ -273,7 +274,7 @@ mod tests {
                     python_version: Some(PythonVersion::new(3, 11, 0)),
                     python_platform: None,
                     site_package_path: None,
-                    site_package_path_from_interpreter: false,
+                    site_package_path_source: SitePackagePathSource::ConfigFile,
                 },
                 ..Default::default()
             }

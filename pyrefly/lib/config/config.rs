@@ -24,6 +24,7 @@ use tracing::warn;
 use crate::config::base::ConfigBase;
 use crate::config::base::UntypedDefBehavior;
 use crate::config::environment::environment::PythonEnvironment;
+use crate::config::environment::environment::SitePackagePathSource;
 use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::module::bundled::typeshed;
@@ -458,7 +459,7 @@ impl ConfigFile {
             })
         }
         let mut errors = Vec::new();
-        if !self.python_environment.site_package_path_from_interpreter {
+        if self.python_environment.site_package_path_source == SitePackagePathSource::ConfigFile {
             if let Some(p) = self.python_environment.site_package_path.as_ref() {
                 errors.extend(validate(p, "site_package_path"));
             }
@@ -606,6 +607,7 @@ mod tests {
     use toml::Value;
 
     use super::*;
+    use crate::config::environment::environment::SitePackagePathSource;
     use crate::error::kind::ErrorKind;
 
     #[test]
@@ -650,11 +652,14 @@ mod tests {
                 project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]),
                 search_path: vec![PathBuf::from("../..")],
                 fallback_search_path: Vec::new(),
-                python_environment: PythonEnvironment::new(
-                    PythonPlatform::mac(),
-                    PythonVersion::new(1, 2, 3),
-                    vec![PathBuf::from("venv/lib/python1.2.3/site-packages")],
-                ),
+                python_environment: PythonEnvironment {
+                    python_platform: Some(PythonPlatform::mac()),
+                    python_version: Some(PythonVersion::new(1, 2, 3)),
+                    site_package_path: Some(vec![PathBuf::from(
+                        "venv/lib/python1.2.3/site-packages"
+                    )]),
+                    site_package_path_source: SitePackagePathSource::ConfigFile,
+                },
                 python_interpreter: Some(PathBuf::from("venv/my/python")),
                 root: ConfigBase {
                     extras: Default::default(),
@@ -744,7 +749,7 @@ mod tests {
                     python_platform: Some(PythonPlatform::mac()),
                     python_version: Some(PythonVersion::new(1, 2, 3)),
                     site_package_path: None,
-                    site_package_path_from_interpreter: false,
+                    site_package_path_source: SitePackagePathSource::ConfigFile,
                 },
                 ..ConfigFile::init_no_path_rewrite(&ProjectLayout::default())
             }
@@ -781,7 +786,7 @@ mod tests {
                     python_platform: None,
                     site_package_path: None,
                     // this won't be set until after `configure()`
-                    site_package_path_from_interpreter: false,
+                    site_package_path_source: SitePackagePathSource::ConfigFile,
                 },
                 ..ConfigFile::init_no_path_rewrite(&ProjectLayout::default())
             }
@@ -945,7 +950,6 @@ mod tests {
     #[test]
     fn test_site_package_path_default_after_configure() {
         let mut config = ConfigFile::parse_config("").unwrap();
-        assert!(!config.python_environment.site_package_path_from_interpreter);
 
         if config.python_interpreter.is_none() {
             // we don't really need to test anything else here if the interpreter isn't
@@ -954,12 +958,17 @@ mod tests {
         }
 
         config.configure();
-        assert!(config.python_environment.site_package_path_from_interpreter);
+        assert!(matches!(
+            config.python_environment.site_package_path_source,
+            SitePackagePathSource::Interpreter(_)
+        ));
 
         config = ConfigFile::parse_config("site_package_path = []").unwrap();
-        assert!(!config.python_environment.site_package_path_from_interpreter);
         config.configure();
-        assert!(!config.python_environment.site_package_path_from_interpreter);
+        assert_eq!(
+            config.python_environment.site_package_path_source,
+            SitePackagePathSource::ConfigFile
+        );
     }
 
     #[test]
