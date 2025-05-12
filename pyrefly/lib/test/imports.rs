@@ -767,3 +767,14 @@ from typing import Any, assert_type
 assert_type(f(), Any)
     "#,
 );
+
+testcase!(
+    bug = "Typeshed(TODO): This should fully typecheck and reveal_type should not be unknown",
+    test_literal_with_inspect_module,
+    r#"
+import inspect
+from typing import Literal, reveal_type
+reveal_type(Literal[inspect._ParameterKind.POSITIONAL_OR_KEYWORD]) # E: revealed type: type[Unknown] # E: Invalid literal expression
+
+"#,
+);
