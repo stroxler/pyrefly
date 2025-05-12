@@ -39,6 +39,18 @@ pub enum SitePackagePathSource {
     Interpreter(PathBuf),
 }
 
+impl Display for SitePackagePathSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ConfigFile => write!(f, "from config file"),
+            Self::CommandLine => write!(f, "from command line"),
+            Self::Interpreter(path) => {
+                write!(f, "queried from interpreter at `{}`", path.display())
+            }
+        }
+    }
+}
+
 /// Values representing the environment of the Python interpreter.
 /// These values are `None` by default, so we can tell if a config
 /// overrode them, or if we should query a Python interpreter for

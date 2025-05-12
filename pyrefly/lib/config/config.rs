@@ -113,6 +113,50 @@ impl ProjectLayout {
     }
 }
 
+pub enum ImportLookupPathPart<'a> {
+    SearchPathFromArgs(&'a [PathBuf]),
+    SearchPathFromFile(&'a [PathBuf]),
+    ImportRoot(Option<&'a PathBuf>),
+    FallbackSearchPath(&'a [PathBuf]),
+    SitePackagePath(&'a SitePackagePathSource, &'a [PathBuf]),
+}
+
+impl Display for ImportLookupPathPart<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::SearchPathFromArgs(paths) => {
+                write!(f, "Search path override (from command line): {paths:?}")
+            }
+            Self::SearchPathFromFile(paths) => {
+                write!(f, "Search path (from config file): {paths:?}")
+            }
+            Self::ImportRoot(Some(root)) => {
+                write!(f, "Import root (inferred from project layout): {root:?}")
+            }
+            Self::ImportRoot(None) => write!(f, "Import root (inferred from project layout): None"),
+            Self::FallbackSearchPath(paths) => write!(
+                f,
+                "Fallback search path (guessed from project_includes): {paths:?}"
+            ),
+            Self::SitePackagePath(source, paths) => {
+                write!(f, "Site package path ({source}): {paths:?}")
+            }
+        }
+    }
+}
+
+impl ImportLookupPathPart<'_> {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::SearchPathFromArgs(paths)
+            | Self::SearchPathFromFile(paths)
+            | Self::FallbackSearchPath(paths)
+            | Self::SitePackagePath(_, paths) => paths.is_empty(),
+            Self::ImportRoot(root) => root.is_none(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct ConfigFile {
     #[serde(skip)]
@@ -334,6 +378,20 @@ impl ConfigFile {
             .site_package_path
             .as_deref()
             .unwrap()
+    }
+
+    /// Gets the full, ordered path used for import lookup. Used for pretty-printing.
+    pub fn structured_import_lookup_path(&self) -> Vec<ImportLookupPathPart> {
+        vec![
+            ImportLookupPathPart::SearchPathFromArgs(&self.search_path_from_args),
+            ImportLookupPathPart::SearchPathFromFile(&self.search_path_from_file),
+            ImportLookupPathPart::ImportRoot(self.import_root.as_ref()),
+            ImportLookupPathPart::FallbackSearchPath(&self.fallback_search_path),
+            ImportLookupPathPart::SitePackagePath(
+                &self.python_environment.site_package_path_source,
+                self.site_package_path(),
+            ),
+        ]
     }
 
     pub fn get_sys_info(&self) -> SysInfo {
