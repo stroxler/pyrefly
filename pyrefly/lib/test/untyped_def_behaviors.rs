@@ -213,3 +213,23 @@ class C:
         pass
 "#,
 );
+
+testcase!(
+    bug = "We do not yet implement @no_type_check",
+    test_no_type_check_decorator,
+    r#"
+from typing import no_type_check, assert_type, Any
+
+@no_type_check
+def f(x: int) -> int:
+    y: int = "y"  # E:
+    return "f" # E:
+
+class C:
+    @no_type_check
+    def __init__(self, x: int) -> None:
+        self.x = x
+
+assert_type(C(42).x, Any)  # E: assert_type(int, Any)
+"#,
+);
