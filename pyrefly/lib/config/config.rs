@@ -137,8 +137,13 @@ pub struct ConfigFile {
     )]
     pub project_excludes: Globs,
 
+    #[serde(skip)]
+    pub search_path_from_args: Vec<PathBuf>,
+
     /// The list of directories where imports are
     /// imported from, including type checked files.
+    /// Does not include command-line overrides!
+    /// Use ConfigFile::search_path() to get the full search path.
     #[serde(default, skip_serializing_if = "Vec::is_empty", rename = "search_path")]
     pub search_path_from_file: Vec<PathBuf>,
 
@@ -198,6 +203,7 @@ impl Default for ConfigFile {
             project_includes: Default::default(),
             project_excludes: Default::default(),
             python_interpreter: None,
+            search_path_from_args: Vec::new(),
             search_path_from_file: Vec::new(),
             fallback_search_path: Vec::new(),
             python_environment: Default::default(),
@@ -317,7 +323,9 @@ impl ConfigFile {
     }
 
     pub fn search_path<'a>(&'a self) -> impl Iterator<Item = &'a PathBuf> {
-        self.search_path_from_file.iter()
+        self.search_path_from_args
+            .iter()
+            .chain(self.search_path_from_file.iter())
     }
 
     pub fn site_package_path(&self) -> &[PathBuf] {
@@ -663,6 +671,7 @@ mod tests {
                     "./implementation".to_owned()
                 ]),
                 project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]),
+                search_path_from_args: Vec::new(),
                 search_path_from_file: vec![PathBuf::from("../..")],
                 fallback_search_path: Vec::new(),
                 python_environment: PythonEnvironment {
@@ -854,6 +863,7 @@ mod tests {
             source: ConfigSource::Synthetic,
             project_includes: Globs::new(vec!["path1/**".to_owned(), "path2/path3".to_owned()]),
             project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]),
+            search_path_from_args: Vec::new(),
             search_path_from_file: vec![PathBuf::from("../..")],
             fallback_search_path: Vec::new(),
             python_environment: python_environment.clone(),
@@ -889,6 +899,7 @@ mod tests {
             project_includes: Globs::new(project_includes_vec),
             project_excludes: Globs::new(project_excludes_vec),
             python_interpreter: Some(test_path.join(interpreter)),
+            search_path_from_args: Vec::new(),
             search_path_from_file: search_path,
             fallback_search_path: Vec::new(),
             python_environment,
