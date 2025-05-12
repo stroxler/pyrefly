@@ -1315,7 +1315,7 @@ impl Server {
 
     // TODO(connernilsen): add all source code, search_paths from config to watcher
     // TODO(connernilsen): on config file change, re-watch
-    fn setup_file_watcher_if_necessary(&self, python_sources: &[PathBuf]) {
+    fn setup_file_watcher_if_necessary(&self, roots: &[PathBuf]) {
         if matches!(
             self.initialize_params.capabilities.workspace,
             Some(WorkspaceClientCapabilities {
@@ -1334,35 +1334,22 @@ impl Server {
                     }]),
                 });
             }
-            let mut watchers = Vec::new();
-            python_sources.iter().for_each(|path| {
-                watchers.append(
-                    &mut PYTHON_FILE_SUFFIXES_TO_WATCH
-                        .iter()
-                        .map(|suffix| FileSystemWatcher {
-                            glob_pattern: GlobPattern::String(
-                                path.join(format!("**/*.{}", suffix))
-                                    .to_string_lossy()
-                                    .into_owned(),
-                            ),
-                            kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
-                        })
-                        .collect::<Vec<_>>(),
-                );
-                watchers.append(
-                    &mut ConfigFile::CONFIG_FILE_NAMES
-                        .iter()
-                        .map(|config| FileSystemWatcher {
-                            glob_pattern: GlobPattern::String(
-                                path.join(format!("**/{config}"))
-                                    .to_string_lossy()
-                                    .into_owned(),
-                            ),
-                            kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
-                        })
-                        .collect::<Vec<_>>(),
-                );
-            });
+            let mut glob_patterns = Vec::new();
+            for root in roots {
+                PYTHON_FILE_SUFFIXES_TO_WATCH
+                    .iter()
+                    .for_each(|suffix| glob_patterns.push(root.join(format!("**/*.{suffix}"))));
+                ConfigFile::CONFIG_FILE_NAMES
+                    .iter()
+                    .for_each(|config| glob_patterns.push(root.join(format!("**/{config}"))));
+            }
+            let watchers = glob_patterns
+                .into_iter()
+                .map(|pattern| FileSystemWatcher {
+                    glob_pattern: GlobPattern::String(pattern.to_string_lossy().into_owned()),
+                    kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
+                })
+                .collect::<Vec<_>>();
             self.send_request::<RegisterCapability>(RegistrationParams {
                 registrations: Vec::from([Registration {
                     id: Self::FILEWATCHER_ID.to_owned(),
