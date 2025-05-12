@@ -315,15 +315,10 @@ impl ConfigFile {
         )? {
             Ok(path)
         } else {
-            Err(FindError::search_path(
-                self.search_path(),
-                &self.fallback_search_path,
-                self.site_package_path(),
+            Err(FindError::import_lookup_path(
+                self.structured_import_lookup_path(),
                 module,
-                match &self.source {
-                    ConfigSource::File(file) => Some(file),
-                    _ => None,
-                },
+                &self.source,
             ))
         }
     }
