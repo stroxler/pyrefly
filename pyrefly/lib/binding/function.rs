@@ -9,6 +9,7 @@ use std::mem;
 
 use itertools::Either;
 use ruff_python_ast::AnyParameterRef;
+use ruff_python_ast::Decorator;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
@@ -55,6 +56,10 @@ use crate::sys_info::SysInfo;
 use crate::types::types::Type;
 use crate::util::prelude::VecExt;
 use crate::util::visit::Visit;
+
+struct Decorators {
+    decorators: Box<[Idx<Key>]>,
+}
 
 struct SelfAssignments {
     method_name: Name,
@@ -426,11 +431,18 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
+    fn decorators(&mut self, decorator_list: Vec<Decorator>) -> Decorators {
+        let decorators = self
+            .ensure_and_bind_decorators(decorator_list)
+            .into_boxed_slice();
+        Decorators { decorators }
+    }
+
     fn function_body(
         &mut self,
         parameters: &mut Box<Parameters>,
         body: Vec<Stmt>,
-        decorators: Box<[Idx<Key>]>,
+        decorators: &Decorators,
         range: TextRange,
         is_async: bool,
         return_ann_with_range: Option<(TextRange, Idx<KeyAnnotation>)>,
@@ -475,7 +487,7 @@ impl<'a> BindingsBuilder<'a> {
                     return_ann_with_range,
                     None, // this disables return type inference
                     stub_or_impl,
-                    decorators,
+                    decorators.decorators.clone(),
                 );
                 self_assignments
             }
@@ -496,7 +508,7 @@ impl<'a> BindingsBuilder<'a> {
                     return_ann_with_range,
                     Some(implicit_return),
                     stub_or_impl,
-                    decorators,
+                    decorators.decorators.clone(),
                 );
                 self_assignments
             }
@@ -535,16 +547,16 @@ impl<'a> BindingsBuilder<'a> {
             _ => (None, None),
         };
 
-        let decorators = self.ensure_and_bind_decorators(mem::take(&mut x.decorator_list));
-
         self.scopes.push(Scope::annotation(x.range));
         let (return_ann_with_range, legacy_tparams) =
             self.function_header(&mut x, &func_name, class_key);
 
+        let decorators = self.decorators(mem::take(&mut x.decorator_list));
+
         let (stub_or_impl, self_assignments) = self.function_body(
             &mut x.parameters,
             mem::take(&mut x.body),
-            decorators.clone().into_boxed_slice(),
+            &decorators,
             x.range,
             x.is_async,
             return_ann_with_range,
@@ -571,7 +583,7 @@ impl<'a> BindingsBuilder<'a> {
                 def: x,
                 stub_or_impl,
                 class_key,
-                decorators: decorators.into_boxed_slice(),
+                decorators: decorators.decorators,
                 legacy_tparams: legacy_tparams.into_boxed_slice(),
                 successor: None,
             },
