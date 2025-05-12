@@ -111,6 +111,7 @@ use crate::commands::config_finder::standard_config_finder;
 use crate::commands::run::CommandExitStatus;
 use crate::commands::util::module_from_path;
 use crate::common::files::PYTHON_FILE_SUFFIXES_TO_WATCH;
+use crate::config::config::ConfigFile;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
@@ -268,7 +269,6 @@ struct Server {
 }
 
 /// Temporary "configuration": this is all that is necessary to run an LSP at a given root.
-/// TODO(connernilsel): replace with real config logic
 #[derive(Debug, Clone)]
 struct Workspace {
     #[expect(dead_code)]
@@ -1313,7 +1313,6 @@ impl Server {
         self.request_settings_for_all_workspaces();
     }
 
-    // TODO(connernilsen): add config files themselves to watcher
     // TODO(connernilsen): add all source code, search_paths from config to watcher
     // TODO(connernilsen): on config file change, re-watch
     fn setup_file_watcher_if_necessary(&self, python_sources: &[PathBuf]) {
@@ -1343,6 +1342,19 @@ impl Server {
                         .map(|suffix| FileSystemWatcher {
                             glob_pattern: GlobPattern::String(
                                 path.join(format!("**/*.{}", suffix))
+                                    .to_string_lossy()
+                                    .into_owned(),
+                            ),
+                            kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
+                        })
+                        .collect::<Vec<_>>(),
+                );
+                watchers.append(
+                    &mut ConfigFile::CONFIG_FILE_NAMES
+                        .iter()
+                        .map(|config| FileSystemWatcher {
+                            glob_pattern: GlobPattern::String(
+                                path.join(format!("**/{config}"))
                                     .to_string_lossy()
                                     .into_owned(),
                             ),
