@@ -813,7 +813,13 @@ impl Server {
                 .shown
             {
                 if let Some(path) = to_real_path(e.path()) {
-                    if open_files.contains_key(path) {
+                    // When no file covers this, we'll get the default configured config which includes "everything"
+                    // and excludes `.<file>`s.
+                    let config = self
+                        .state
+                        .config_finder()
+                        .python_file(ModuleName::unknown(), e.path());
+                    if open_files.contains_key(path) && !config.project_excludes.covers(path) {
                         diags.entry(path.to_owned()).or_default().push(Diagnostic {
                             range: source_range_to_range(e.source_range()),
                             severity: Some(lsp_types::DiagnosticSeverity::ERROR),
