@@ -39,6 +39,7 @@ pub enum SpecialExport {
     Quit,
     OsExit,
     Len,
+    NoTypeCheck,
 }
 
 #[derive(Debug)]
@@ -78,6 +79,7 @@ impl SpecialExport {
             "quit" => Some(Self::Quit),
             "_exit" => Some(Self::OsExit),
             "len" => Some(Self::Len),
+            "no_type_check" => Some(Self::NoTypeCheck),
             _ => None,
         }
     }
@@ -96,6 +98,7 @@ impl SpecialExport {
             | Self::Union
             | Self::Optional
             | Self::AssertType
+            | Self::NoTypeCheck
             | Self::Cast => {
                 matches!(m.as_str(), "typing" | "typing_extensions")
             }

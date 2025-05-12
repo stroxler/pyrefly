@@ -49,6 +49,7 @@ use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
 use crate::config::base::UntypedDefBehavior;
+use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
@@ -58,6 +59,7 @@ use crate::util::prelude::VecExt;
 use crate::util::visit::Visit;
 
 struct Decorators {
+    has_no_type_check: bool,
     decorators: Box<[Idx<Key>]>,
 }
 
@@ -432,10 +434,17 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn decorators(&mut self, decorator_list: Vec<Decorator>) -> Decorators {
+        let has_no_type_check = decorator_list
+            .iter()
+            .any(|d| self.as_special_export(&d.expression) == Some(SpecialExport::NoTypeCheck));
+
         let decorators = self
             .ensure_and_bind_decorators(decorator_list)
             .into_boxed_slice();
-        Decorators { decorators }
+        Decorators {
+            has_no_type_check,
+            decorators,
+        }
     }
 
     fn function_body(
@@ -456,61 +465,63 @@ impl<'a> BindingsBuilder<'a> {
             FunctionStubOrImpl::Impl
         };
 
-        let self_assignments = match self.untyped_def_behavior {
-            UntypedDefBehavior::SkipAndInferReturnAny
-                if !is_annotated(&return_ann_with_range, parameters) =>
-            {
-                self.mark_as_returns_any(func_name);
-                self.unchecked_function_body_scope(
-                    parameters,
-                    body,
-                    range,
-                    func_name,
-                    function_idx,
-                    class_key,
-                )
-            }
-            UntypedDefBehavior::SkipAndInferReturnAny
-            | UntypedDefBehavior::CheckAndInferReturnAny => {
-                let (yields_and_returns, self_assignments) = self.function_body_scope(
-                    parameters,
-                    body,
-                    range,
-                    func_name,
-                    function_idx,
-                    class_key,
-                );
-                self.analyze_return_type(
-                    func_name,
-                    is_async,
-                    yields_and_returns,
-                    return_ann_with_range,
-                    None, // this disables return type inference
-                    stub_or_impl,
-                    decorators.decorators.clone(),
-                );
-                self_assignments
-            }
-            UntypedDefBehavior::CheckAndInferReturnType => {
-                let implicit_return = self.implicit_return(&body, func_name);
-                let (yields_and_returns, self_assignments) = self.function_body_scope(
-                    parameters,
-                    body,
-                    range,
-                    func_name,
-                    function_idx,
-                    class_key,
-                );
-                self.analyze_return_type(
-                    func_name,
-                    is_async,
-                    yields_and_returns,
-                    return_ann_with_range,
-                    Some(implicit_return),
-                    stub_or_impl,
-                    decorators.decorators.clone(),
-                );
-                self_assignments
+        let self_assignments = if decorators.has_no_type_check
+            || (self.untyped_def_behavior == UntypedDefBehavior::SkipAndInferReturnAny
+                && !is_annotated(&return_ann_with_range, parameters))
+        {
+            self.mark_as_returns_any(func_name);
+            self.unchecked_function_body_scope(
+                parameters,
+                body,
+                range,
+                func_name,
+                function_idx,
+                class_key,
+            )
+        } else {
+            match self.untyped_def_behavior {
+                UntypedDefBehavior::SkipAndInferReturnAny
+                | UntypedDefBehavior::CheckAndInferReturnAny => {
+                    let (yields_and_returns, self_assignments) = self.function_body_scope(
+                        parameters,
+                        body,
+                        range,
+                        func_name,
+                        function_idx,
+                        class_key,
+                    );
+                    self.analyze_return_type(
+                        func_name,
+                        is_async,
+                        yields_and_returns,
+                        return_ann_with_range,
+                        None, // this disables return type inference
+                        stub_or_impl,
+                        decorators.decorators.clone(),
+                    );
+                    self_assignments
+                }
+                UntypedDefBehavior::CheckAndInferReturnType => {
+                    let implicit_return = self.implicit_return(&body, func_name);
+                    let (yields_and_returns, self_assignments) = self.function_body_scope(
+                        parameters,
+                        body,
+                        range,
+                        func_name,
+                        function_idx,
+                        class_key,
+                    );
+                    self.analyze_return_type(
+                        func_name,
+                        is_async,
+                        yields_and_returns,
+                        return_ann_with_range,
+                        Some(implicit_return),
+                        stub_or_impl,
+                        decorators.decorators.clone(),
+                    );
+                    self_assignments
+                }
             }
         };
 

@@ -4424,26 +4424,6 @@
     },
     {
       "code": -2,
-      "column": 9,
-      "concise_description": "`+` is not supported between `int` and `str`\n  Argument `str` is not assignable to parameter with type `int` in function `int.__add__`",
-      "description": "`+` is not supported between `int` and `str`\n  Argument `str` is not assignable to parameter with type `int` in function `int.__add__`",
-      "line": 25,
-      "name": "bad-argument-type",
-      "stop_column": 14,
-      "stop_line": 25
-    },
-    {
-      "code": -2,
-      "column": 12,
-      "concise_description": "Returned type `Literal[1]` is not assignable to declared return type `None`",
-      "description": "Returned type `Literal[1]` is not assignable to declared return type `None`",
-      "line": 26,
-      "name": "bad-return",
-      "stop_column": 13,
-      "stop_line": 26
-    },
-    {
-      "code": -2,
       "column": 7,
       "concise_description": "Argument `Literal[b'invalid']` is not assignable to parameter `a` with type `int` in function `func1`",
       "description": "Argument `Literal[b'invalid']` is not assignable to parameter `a` with type `int` in function `func1`",
