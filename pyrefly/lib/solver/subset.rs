@@ -973,6 +973,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 Restriction::Unrestricted => self
                     .is_subset_eq_impl(&self.type_order.stdlib().object().clone().to_type(), want),
             },
+            (t1, Type::Quantified(q)) => match q.restriction() {
+                // This only works for constraints and not bounds, because a TypeVar must resolve to exactly one of its constraints.
+                Restriction::Constraints(constraints) => constraints
+                    .iter()
+                    .all(|constraint| self.is_subset_eq(t1, constraint)),
+                _ => false,
+            },
             _ => false,
         }
     }
