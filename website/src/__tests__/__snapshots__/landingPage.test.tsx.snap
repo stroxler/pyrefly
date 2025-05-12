@@ -191,7 +191,13 @@ exports[`Home page renders internal site correctly 1`] = `
                   Easy Onboarding
                 </h3>
                 <p>
-                  Start type checking your code in minutes
+                  <a
+                    href="/en/docs/installation/"
+                    target="_blank"
+                  >
+                    Start type checking
+                  </a>
+                   your code in minutes.
                 </p>
               </div>
               <div

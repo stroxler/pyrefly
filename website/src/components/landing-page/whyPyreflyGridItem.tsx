@@ -11,16 +11,30 @@ import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import typography from './typography';
 import { useEffect, useState } from 'react';
+interface LinkProps {
+    text: string;
+    url: string;
+}
+
+interface ContentWithLinkProps {
+    text?: string;
+    link?: LinkProps;
+    beforeText?: string;
+    afterText?: string;
+}
+
 interface WhyPyreflyGridItemProps {
     title: string;
-    content: string;
+    content?: string;
     index: number;
     startAnimation: boolean;
+    contentWithLink?: ContentWithLinkProps;
 }
 
 export default function WhyPyreflyGridItem({
     title,
     content,
+    contentWithLink,
     index,
     startAnimation,
 }: WhyPyreflyGridItemProps): React.ReactElement {
@@ -50,7 +64,18 @@ export default function WhyPyreflyGridItem({
             }}
         >
             <h3 {...stylex.props(typography.h5, styles.cardTitle)}>{title}</h3>
-            <p {...stylex.props(styles.contentText, typography.p)}>{content}</p>
+            <p {...stylex.props(styles.contentText, typography.p)}>
+                {content}
+                {contentWithLink && (
+                    <>
+                        {contentWithLink.beforeText}
+                        <a href={contentWithLink.link.url} target="_blank">
+                            {contentWithLink.link.text}
+                        </a>
+                        {contentWithLink.afterText}
+                    </>
+                )}
+            </p>
         </div>
     );
 }

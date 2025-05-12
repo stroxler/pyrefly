@@ -56,7 +56,13 @@ export default function WhyPyrefly(): React.ReactElement {
                 />
                 <WhyPyreflyGridItem
                     title="Easy Onboarding"
-                    content="Start type checking your code in minutes"
+                    contentWithLink={{
+                        link: {
+                            text: 'Start type checking',
+                            url: '/en/docs/installation/',
+                        },
+                        afterText: ' your code in minutes.',
+                    }}
                     index={2}
                     startAnimation={startAnimation}
                 />
