@@ -18,6 +18,7 @@ use std::sync::atomic::Ordering;
 use base64::Engine;
 use base64::engine::general_purpose;
 use clap::Parser;
+use clap::ValueEnum;
 use crossbeam_channel::Select;
 use crossbeam_channel::Sender;
 use dupe::Dupe;
@@ -128,9 +129,9 @@ use crate::state::state::TransactionData;
 use crate::types::lsp::position_to_text_size;
 use crate::types::lsp::source_range_to_range;
 use crate::types::lsp::text_size_to_position;
+use crate::util::arc_id::ArcId;
 use crate::util::args::clap_env;
 use crate::util::events::CategorizedEvents;
-use crate::util::globs::Globs;
 use crate::util::lock::Mutex;
 use crate::util::lock::RwLock;
 use crate::util::prelude::VecExt;
@@ -139,13 +140,24 @@ use crate::util::task_heap::Cancelled;
 use crate::util::thread_pool::ThreadCount;
 use crate::util::thread_pool::ThreadPool;
 
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]
+pub(crate) enum IndexingMode {
+    /// Do not index anything. Features that depend on indexing (e.g. find-refs) will be disabled.
+    #[default]
+    None,
+    /// Start indexing when opening a file that belongs to a config in the background.
+    /// Indexing will happen in another thread, so that normal IDE services are not blocked.
+    LazyNonBlockingBackground,
+    /// Start indexing when opening a file that belongs to a config in the background.
+    /// Indexing will happen in the main thread, so that IDE services will be blocked.
+    /// However, this is useful for deterministic testing.
+    LazyBlocking,
+}
+
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
-    /// Temporary way to obtain the list of all the files belong to a project.
-    /// This is necessary to know what files should be considered during find references.
-    /// The information should eventually come from configs. TODO(@connernilsen)
-    #[clap(long = "experimental_project-path", env = clap_env("EXPERIMENTAL_PROJECT_PATH"))]
-    pub(crate) experimental_project_path: Vec<PathBuf>,
+    #[clap(long, value_enum, default_value_t, env = clap_env("INDEXING_MODE"))]
+    pub(crate) indexing_mode: IndexingMode,
 }
 
 /// `IDETransactionManager` aims to always produce a transaction that contains the up-to-date
@@ -259,6 +271,7 @@ struct Server {
     async_state_read_threads: ThreadPool,
     priority_events_sender: Arc<Sender<ServerEvent>>,
     initialize_params: InitializeParams,
+    indexing_mode: IndexingMode,
     state: Arc<State>,
     open_files: Arc<RwLock<HashMap<PathBuf, Arc<String>>>>,
     cancellation_handles: Arc<Mutex<HashMap<RequestId, CancellationHandle>>>,
@@ -448,10 +461,11 @@ pub fn run_lsp(
         }),
         document_highlight_provider: Some(OneOf::Left(true)),
         // Find references won't work properly if we don't know all the files.
-        references_provider: if args.experimental_project_path.is_empty() {
-            None
-        } else {
-            Some(OneOf::Left(true))
+        references_provider: match args.indexing_mode {
+            IndexingMode::None => None,
+            IndexingMode::LazyNonBlockingBackground | IndexingMode::LazyBlocking => {
+                Some(OneOf::Left(true))
+            }
         },
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
@@ -490,8 +504,8 @@ pub fn run_lsp(
         connection,
         priority_events_sender.dupe(),
         initialization_params,
+        args.indexing_mode,
     );
-    server.populate_all_project_files(&args.experimental_project_path);
     std::thread::spawn(move || {
         dispatch_lsp_events(
             &connection_for_dispatcher,
@@ -713,6 +727,7 @@ impl Server {
         connection: Arc<Connection>,
         priority_events_sender: Arc<Sender<ServerEvent>>,
         initialize_params: InitializeParams,
+        indexing_mode: IndexingMode,
     ) -> Self {
         let folders = if let Some(capability) = &initialize_params.capabilities.workspace
             && let Some(true) = capability.workspace_folders
@@ -736,6 +751,7 @@ impl Server {
             )),
             priority_events_sender,
             initialize_params,
+            indexing_mode,
             state: Arc::new(State::new(config_finder)),
             open_files: Arc::new(RwLock::new(HashMap::new())),
             cancellation_handles: Arc::new(Mutex::new(HashMap::new())),
@@ -853,7 +869,37 @@ impl Server {
                 ide_transaction_manager.save(transaction);
             }
         }
+
         Ok(())
+    }
+
+    fn populate_project_files_if_necessary(
+        &self,
+        config_to_populate_files: Option<ArcId<ConfigFile>>,
+    ) {
+        if let Some(config) = config_to_populate_files {
+            match self.indexing_mode {
+                IndexingMode::None => {}
+                IndexingMode::LazyNonBlockingBackground => {
+                    let state = self.state.dupe();
+                    let priority_events_sender = self.priority_events_sender.dupe();
+                    std::thread::spawn(move || {
+                        Self::populate_all_project_files_in_config(
+                            config,
+                            state,
+                            priority_events_sender,
+                        );
+                    });
+                }
+                IndexingMode::LazyBlocking => {
+                    Self::populate_all_project_files_in_config(
+                        config,
+                        self.state.dupe(),
+                        self.priority_events_sender.dupe(),
+                    );
+                }
+            }
+        }
     }
 
     /// Perform an invalidation of elements on `State` and commit them.
@@ -888,50 +934,39 @@ impl Server {
     }
 
     /// Certain IDE features (e.g. find-references) require us to know the dependency graph of the
-    /// entire project to work. This blocking function should be called during server initialization
-    /// time if we intend to provide features like find-references, and should be called when config
-    /// changes (currently this is a TODO).
-    fn populate_all_project_files(&self, workspaces: &[PathBuf]) {
-        if workspaces.is_empty() {
-            eprintln!("Workspaces emtpy, skipping project file population");
-            return;
-        }
-
-        let config_finder = Workspaces::config_finder(&self.workspaces);
+    /// entire project to work. This blocking function should be called when we know that a project
+    /// file is opened and if we intend to provide features like find-references, and should be
+    /// called when config changes (currently this is a TODO).
+    fn populate_all_project_files_in_config(
+        config: ArcId<ConfigFile>,
+        state: Arc<State>,
+        priority_events_sender: Arc<Sender<ServerEvent>>,
+    ) {
         let unknown = ModuleName::unknown();
 
-        let priority_events_sender = self.priority_events_sender.dupe();
-        eprintln!(
-            "Populating all files in the project path ({:?}).",
-            workspaces,
-        );
-        let mut transaction = self
-            .state
-            .new_committable_transaction(Require::Indexing, None);
+        eprintln!("Populating all files in the config ({:?}).", config.root);
+        let mut transaction = state.new_committable_transaction(Require::Indexing, None);
 
+        let project_path_blobs = config.get_filtered_globs(None);
+        let paths = project_path_blobs.files().unwrap_or_default();
         let mut handles = Vec::new();
-        for workspace in workspaces {
-            // TODO(connernilsen): would love to use the workspace's config, and not require the workspaces arg
-            // (use self.workspaces.workspaces instead), but we get a deadlock when we do :(
-            let paths = Globs::new_with_root(workspace, vec![".".to_owned()])
-                .files()
-                .unwrap_or_default();
-
-            for path in paths {
-                let module_path = ModulePath::filesystem(path.clone());
-                let path_config = config_finder.python_file(unknown, &module_path);
-                let module_name = module_from_path(&path, path_config.search_path())
-                    .unwrap_or_else(ModuleName::unknown);
-                handles.push((
-                    Handle::new(module_name, module_path, path_config.get_sys_info()),
-                    Require::Indexing,
-                ));
+        for path in paths {
+            let module_path = ModulePath::filesystem(path.clone());
+            let path_config = state.config_finder().python_file(unknown, &module_path);
+            if config != path_config {
+                continue;
             }
+            let module_name = module_from_path(&path, path_config.search_path())
+                .unwrap_or_else(ModuleName::unknown);
+            handles.push((
+                Handle::new(module_name, module_path, path_config.get_sys_info()),
+                Require::Indexing,
+            ));
         }
 
         eprintln!("Prepare to check {} files.", handles.len());
         transaction.as_mut().run(&handles);
-        self.state.commit_transaction(transaction);
+        state.commit_transaction(transaction);
         // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
         // the main event loop of the server. As a result, the server can do a revalidation of
         // all the in-memory files based on the fresh main State as soon as possible.
@@ -950,10 +985,19 @@ impl Server {
         params: DidOpenTextDocumentParams,
     ) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
+        let config_to_populate_files = if self.indexing_mode != IndexingMode::None
+            && let Some(directory) = uri.as_path().parent()
+        {
+            self.state.config_finder().directory(directory)
+        } else {
+            None
+        };
         self.open_files
             .write()
             .insert(uri, Arc::new(params.text_document.text));
-        self.validate_in_memory(ide_transaction_manager)
+        self.validate_in_memory(ide_transaction_manager)?;
+        self.populate_project_files_if_necessary(config_to_populate_files);
+        Ok(())
     }
 
     fn did_change<'a>(

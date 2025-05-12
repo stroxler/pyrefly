@@ -20,6 +20,7 @@ use lsp_types::request::Request as _;
 use lsp_types::request::WorkspaceConfiguration;
 use tempfile::TempDir;
 
+use crate::commands::lsp::IndexingMode;
 use crate::test::lsp::lsp_interaction_util::TestCase;
 use crate::test::lsp::lsp_interaction_util::build_did_open_notification;
 use crate::test::lsp::lsp_interaction_util::get_test_files_root;
@@ -638,7 +639,7 @@ fn test_references() {
     run_test_lsp(TestCase {
         messages_from_language_client: test_messages,
         expected_messages_from_language_server: expected_responses,
-        experimental_project_path: vec![root.path().to_path_buf()],
+        indexing_mode: IndexingMode::LazyBlocking,
         workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
         ..Default::default()
     });

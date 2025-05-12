@@ -31,6 +31,7 @@ use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 use crate::commands::lsp::Args;
+use crate::commands::lsp::IndexingMode;
 use crate::commands::lsp::run_lsp;
 use crate::test::util::init_test;
 use crate::util::fs_anyhow;
@@ -39,7 +40,7 @@ use crate::util::fs_anyhow;
 pub struct TestCase {
     pub(crate) messages_from_language_client: Vec<Message>,
     pub(crate) expected_messages_from_language_server: Vec<Message>,
-    pub(crate) experimental_project_path: Vec<PathBuf>,
+    pub(crate) indexing_mode: IndexingMode,
     /// workspace folders open in the client
     pub(crate) workspace_folders: Option<Vec<(String, Url)>>,
     /// if client has configuration capability
@@ -54,7 +55,7 @@ pub fn run_test_lsp(test_case: TestCase) {
     init_test();
     let timeout = Duration::from_secs(25);
     let args = Args {
-        experimental_project_path: test_case.experimental_project_path.clone(),
+        indexing_mode: test_case.indexing_mode,
     };
     // language_client_sender is used to send messages to the language client
     // language_client_receiver sees messages sent to the language client
@@ -136,7 +137,7 @@ pub fn run_test_lsp(test_case: TestCase) {
         // this thread receives messages from the language server and validates responses
         scope.spawn(move || {
             let mut responses =
-                get_initialize_responses(!test_case.experimental_project_path.is_empty())
+                get_initialize_responses(test_case.indexing_mode != IndexingMode::None)
                     .into_iter()
                     .chain(test_case.expected_messages_from_language_server)
                     .collect::<Vec<_>>();
