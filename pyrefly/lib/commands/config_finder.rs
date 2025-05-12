@@ -201,7 +201,7 @@ mod tests {
             ConfigSource::File(root.join("with_config/pyrefly.toml"))
         );
         assert_eq!(
-            config_file.search_path_from_file,
+            config_file.search_path().cloned().collect::<Vec<_>>(),
             vec![root.join("with_config")]
         );
         assert_eq!(config_file.fallback_search_path, Vec::<PathBuf>::new());
@@ -214,7 +214,7 @@ mod tests {
         );
         assert_eq!(config_file.source, ConfigSource::Synthetic);
         assert_eq!(
-            config_file.search_path_from_file,
+            config_file.search_path().cloned().collect::<Vec<_>>(),
             vec![root.join("no_config")]
         );
         assert_eq!(config_file.fallback_search_path, Vec::<PathBuf>::new());

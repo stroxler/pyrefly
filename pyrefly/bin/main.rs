@@ -338,6 +338,12 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
                         config.search_path_from_file
                     );
                 }
+                if let Some(import_root) = &config.import_root {
+                    println!(
+                        "  Import root (inferred from project layout): {:?}",
+                        import_root
+                    );
+                }
                 if !config.fallback_search_path.is_empty() {
                     println!(
                         "  Fallback search path (guessed from project_includes): {:?}",
