@@ -539,7 +539,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // then we can avoid a bunch of work with checking for override errors.
         let mut name_might_exist_in_inherited = true;
 
-        let value_ty = match value {
+        let (value_ty, inherited_annot) = match value {
             ExprOrBinding::Expr(e) => {
                 let inherited_annot = if annotation.is_some() {
                     None
@@ -550,7 +550,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     annotation
                 };
-                let mut ty = if let Some(annot) = inherited_annot {
+                let mut ty = if let Some(annot) = &inherited_annot {
                     let ctx: &dyn Fn() -> TypeCheckContext =
                         &|| TypeCheckContext::of_kind(TypeCheckKind::Attribute(name.clone()));
                     let hint = Some((annot.get_type(), ctx));
@@ -559,11 +559,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.expr_infer(e, errors)
                 };
                 self.expand_type_mut(&mut ty);
-                ty
+                (ty, inherited_annot)
             }
-            ExprOrBinding::Binding(b) => {
-                Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty()
-            }
+            ExprOrBinding::Binding(b) => (
+                Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty(),
+                None,
+            ),
         };
         let metadata = self.get_metadata_for_class(class);
         let magically_initialized = {
@@ -632,16 +633,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Determine whether this is an explicit `@override`.
         let is_override = value_ty.is_override();
 
+        let explicit_or_inherited_annot = annotation.or(inherited_annot.as_ref());
+
         // Promote literals. The check on `annotation` is an optimization, it does not (currently) affect semantics.
         // TODO(stroxler): if we see a read-only `Qualifier` like `Final`, it is sound to preserve literals.
-        let value_ty = if annotation.is_none_or(|a| a.ty.is_none()) && value_ty.is_literal() {
+        let value_ty = if explicit_or_inherited_annot.is_none_or(|a| a.ty.is_none())
+            && value_ty.is_literal()
+        {
             value_ty.clone().promote_literals(self.stdlib)
         } else {
             value_ty.clone()
         };
 
         // Types provided in annotations shadow inferred types
-        let ty = if let Some(ann) = annotation {
+        let ty = if let Some(ann) = explicit_or_inherited_annot {
             match &ann.ty {
                 Some(ty) => ty.clone(),
                 None => value_ty.clone(),
