@@ -38,6 +38,7 @@ use crate::sys_info::PythonPlatform;
 use crate::sys_info::PythonVersion;
 use crate::sys_info::SysInfo;
 use crate::util::fs_anyhow;
+use crate::util::globs::FilteredGlobs;
 use crate::util::globs::Glob;
 use crate::util::globs::Globs;
 use crate::util::prelude::VecExt;
@@ -277,6 +278,11 @@ impl ConfigFile {
         };
         result.rewrite_with_path_to_config(root);
         result
+    }
+
+    pub fn get_filtered_globs(&self, custom_excludes: Option<Globs>) -> FilteredGlobs {
+        let project_excludes = custom_excludes.unwrap_or_else(|| self.project_excludes.clone());
+        FilteredGlobs::new(self.project_includes.clone(), project_excludes)
     }
 
     /// Get the given [`ModuleName`] from this config's search and site package paths.

@@ -202,12 +202,8 @@ fn get_globs_and_config_for_project(
     config_finder.add_errors(errors);
 
     debug!("Config is: {}", config);
-    let project_excludes = project_excludes.unwrap_or_else(|| config.project_excludes.clone());
 
-    Ok((
-        FilteredGlobs::new(config.project_includes.clone(), project_excludes),
-        config_finder,
-    ))
+    Ok((config.get_filtered_globs(project_excludes), config_finder))
 }
 
 /// Get inputs for a per-file check. If an explicit config is passed in, we use it; otherwise, we
