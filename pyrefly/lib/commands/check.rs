@@ -498,8 +498,8 @@ impl Args {
             config.python_environment.python_version = Some(*x);
         }
         if let Some(x) = &self.search_path {
-            let old = mem::take(&mut config.search_path);
-            config.search_path = x.iter().cloned().chain(old).collect();
+            let old = mem::take(&mut config.search_path_from_file);
+            config.search_path_from_file = x.iter().cloned().chain(old).collect();
         }
         if let Some(x) = &self.site_package_path {
             config.python_environment.site_package_path = Some(x.clone());

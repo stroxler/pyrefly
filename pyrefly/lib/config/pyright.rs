@@ -74,7 +74,7 @@ impl PyrightConfig {
             cfg.project_excludes = excludes;
         }
         if let Some(search_path) = self.search_path {
-            cfg.search_path = search_path;
+            cfg.search_path_from_file = search_path;
         }
         if let Some(platform) = self.python_platform {
             cfg.python_environment.python_platform = Some(PythonPlatform::new(&platform));
@@ -237,7 +237,7 @@ mod tests {
                     "test/**/*.py".to_owned()
                 ]),
                 project_excludes: Globs::new(vec!["src/excluded/**/*.py".to_owned()]),
-                search_path: vec![PathBuf::from("src/extra")],
+                search_path_from_file: vec![PathBuf::from("src/extra")],
                 python_environment: PythonEnvironment {
                     python_platform: Some(PythonPlatform::linux()),
                     python_version: Some(PythonVersion::new(3, 10, 0)),

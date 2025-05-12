@@ -200,7 +200,10 @@ mod tests {
             config_file.source,
             ConfigSource::File(root.join("with_config/pyrefly.toml"))
         );
-        assert_eq!(config_file.search_path, vec![root.join("with_config")]);
+        assert_eq!(
+            config_file.search_path_from_file,
+            vec![root.join("with_config")]
+        );
         assert_eq!(config_file.fallback_search_path, Vec::<PathBuf>::new());
 
         // we should get a synthetic config with a search path = project_root/..
@@ -210,7 +213,10 @@ mod tests {
             ModulePath::filesystem(root.join("no_config/foo/bar.py")),
         );
         assert_eq!(config_file.source, ConfigSource::Synthetic);
-        assert_eq!(config_file.search_path, vec![root.join("no_config")]);
+        assert_eq!(
+            config_file.search_path_from_file,
+            vec![root.join("no_config")]
+        );
         assert_eq!(config_file.fallback_search_path, Vec::<PathBuf>::new());
 
         // check invalid module path parent
@@ -241,7 +247,7 @@ mod tests {
             ModulePath::namespace(root.join("no_config/foo")),
         );
         assert_eq!(config_file.source, ConfigSource::Synthetic);
-        assert_eq!(config_file.search_path, Vec::<PathBuf>::new());
+        assert_eq!(config_file.search_path_from_file, Vec::<PathBuf>::new());
         assert_eq!(
             config_file.fallback_search_path,
             [root.join("no_config/foo"), root.join("no_config")]
@@ -257,7 +263,7 @@ mod tests {
             ModulePath::filesystem(root.join("no_config/foo/bar.py")),
         );
         assert_eq!(config_file.source, ConfigSource::Synthetic);
-        assert_eq!(config_file.search_path, Vec::<PathBuf>::new());
+        assert_eq!(config_file.search_path_from_file, Vec::<PathBuf>::new());
         assert_eq!(
             config_file.fallback_search_path,
             [root.join("no_config/foo"), root.join("no_config")]

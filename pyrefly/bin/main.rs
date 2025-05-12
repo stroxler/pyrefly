@@ -326,7 +326,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
                         break;
                     }
                 }
-                println!("  Search path: {:?}", config.search_path);
+                println!("  Search path: {:?}", config.search_path_from_file);
                 println!("  Fallback search path: {:?}", config.fallback_search_path);
                 let site_package_path_source =
                     match &config.python_environment.site_package_path_source {
