@@ -308,10 +308,13 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
                         println!("Default configuration");
                     }
                     ConfigSource::Marker(path) => {
-                        println!("Default configuration for project root marked by {path:?}");
+                        println!(
+                            "Default configuration for project root marked by `{}`",
+                            path.display()
+                        );
                     }
                     ConfigSource::File(path) => {
-                        println!("Configuration at {path:?}");
+                        println!("Configuration at `{}`", path.display());
                     }
                 }
                 println!("  Covered files:");
