@@ -10,6 +10,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use itertools::Itertools;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use ruff_python_ast::Arguments;
@@ -669,6 +670,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // TODO(stroxler, yangdanny): We currently operate on promoted types, which means we do not infer `Literal[...]`
         // types for the `.value` / `._value_` attributes of literals. This is permitted in the spec although not optimal
         // for most cases; we are handling it this way in part because generic enum behavior is not yet well-specified.
+        //
+        // We currently skip the check for `_value_` if the class defines `__new__`, since that can
+        // change the value of the enum member. https://docs.python.org/3/howto/enum.html#when-to-use-new-vs-init
         let ty = if let Some(enum_) = metadata.enum_metadata()
             && self.is_valid_enum_member(name, &ty, &initialization)
         {
@@ -680,6 +684,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             if enum_.has_value
                 && let Some(enum_value_ty) = self.type_of_enum_value(enum_)
+                && !class.fields().contains(&dunder::NEW)
                 && !self.matches_enum_value_annotation(&ty, &enum_value_ty)
             {
                 self.error(
