@@ -528,7 +528,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         name: &Name,
         value: &ExprOrBinding,
-        annotation: Option<&Annotation>,
+        // Type annotation that appears directly on the field declaration (vs. one inherited from a parent)
+        direct_annotation: Option<&Annotation>,
         initial_value: &ClassFieldInitialValue,
         class: &Class,
         is_function_without_return_annotation: bool,
@@ -539,9 +540,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // then we can avoid a bunch of work with checking for override errors.
         let mut name_might_exist_in_inherited = true;
 
-        let (value_ty, inherited_annot) = match value {
+        let (value_ty, inherited_annotation) = match value {
             ExprOrBinding::Expr(e) => {
-                let inherited_annot = if annotation.is_some() {
+                let inherited_annot = if direct_annotation.is_some() {
                     None
                 } else {
                     let (found_field, annotation) = self.get_inherited_annotation(class, name);
@@ -572,7 +573,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // See https://github.com/python/typeshed/pull/13875 for reasoning.
             class.module_info().path().is_interface()
             // We consider fields to be always-initialized if it's annotated explicitly with `ClassVar`.
-            || annotation
+            || direct_annotation
                 .as_ref()
                 .is_some_and(|annot| annot.has_qualifier(&Qualifier::ClassVar))
         };
@@ -598,7 +599,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .is_some_and(|m| m.elements.contains(name))
         {
             for q in &[Qualifier::Final, Qualifier::ClassVar] {
-                if annotation.is_some_and(|ann| ann.has_qualifier(q)) {
+                if direct_annotation.is_some_and(|ann| ann.has_qualifier(q)) {
                     self.error(
                         errors,
                         range,
@@ -618,7 +619,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Qualifier::NotRequired,
                 Qualifier::ReadOnly,
             ] {
-                if annotation.is_some_and(|ann| ann.has_qualifier(q)) {
+                if direct_annotation.is_some_and(|ann| ann.has_qualifier(q)) {
                     self.error(
                         errors,
                         range,
@@ -633,20 +634,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Determine whether this is an explicit `@override`.
         let is_override = value_ty.is_override();
 
-        let explicit_or_inherited_annot = annotation.or(inherited_annot.as_ref());
+        let annotation = direct_annotation.or(inherited_annotation.as_ref());
 
         // Promote literals. The check on `annotation` is an optimization, it does not (currently) affect semantics.
         // TODO(stroxler): if we see a read-only `Qualifier` like `Final`, it is sound to preserve literals.
-        let value_ty = if explicit_or_inherited_annot.is_none_or(|a| a.ty.is_none())
-            && value_ty.is_literal()
-        {
+        let value_ty = if annotation.is_none_or(|a| a.ty.is_none()) && value_ty.is_literal() {
             value_ty.clone().promote_literals(self.stdlib)
         } else {
             value_ty.clone()
         };
 
         // Types provided in annotations shadow inferred types
-        let ty = if let Some(ann) = explicit_or_inherited_annot {
+        let ty = if let Some(ann) = annotation {
             match &ann.ty {
                 Some(ty) => ty.clone(),
                 None => value_ty.clone(),
@@ -681,7 +680,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let ty = if let Some(enum_) = metadata.enum_metadata()
             && self.is_valid_enum_member(name, &ty, &initialization)
         {
-            if annotation.is_some() {
+            if direct_annotation.is_some() {
                 self.error(
                     errors, range,ErrorKind::InvalidAnnotation, None,
                     format!("Enum member `{}` may not be annotated directly. Instead, annotate the _value_ attribute.", name),
@@ -741,7 +740,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Create the resulting field and check for override inconsistencies before returning
         let class_field = ClassField::new(
             ty,
-            annotation.cloned(),
+            direct_annotation.cloned(),
             initialization,
             readonly,
             descriptor_getter,
