@@ -238,14 +238,22 @@ html[data-theme='dark'] {
 }
 
 .navbar .github__link:before {
-    background: url(/img/icon-github.svg);
+    background: url(/img/icon-github-light-mode.svg);
     background-repeat: no-repeat;
 }
 
+html[data-theme='dark'] .navbar .github__link:before {
+    background: url(/img/icon-github-dark-mode.svg);
+}
+
 .navbar .discord__link:before {
-    background: url(/img/Discord-Symbol-White.svg);
+    background: url(/img/Discord-Symbol-light-mode.svg);
     background-repeat: no-repeat;
     height: 16px;
+}
+
+html[data-theme='dark'] .navbar .discord__link:before {
+    background: url(/img/Discord-Symbol-dark-mode.svg);
 }
 
 .navbar-sidebar .navbar__icon {
