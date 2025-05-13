@@ -281,11 +281,25 @@ exports[`Home page renders internal site correctly 1`] = `
               </div>
               <div>
                 <div>
-                  <span>
-                    <strong>
-                      Pyrefly
-                    </strong>
-                  </span>
+                  <div>
+                    <span>
+                      <strong>
+                        Pyrefly
+                      </strong>
+                    </span>
+                    <div>
+                      <span>
+                        ⓘ
+                      </span>
+                      <span>
+                        <strong>
+                          Command: 'Pyrefly check'
+                        </strong>
+                        <br />
+                        Pyrefly uses as many threads as possible, which was "INSERT NUMBER HERE" on a 10 core machine.
+                      </span>
+                    </div>
+                  </div>
                   <div>
                     <div
                       style="height: 80%; width: 4.827299209321681%;"
@@ -302,11 +316,25 @@ exports[`Home page renders internal site correctly 1`] = `
                   </span>
                 </div>
                 <div>
-                  <span>
-                    <strong>
-                      Pyright
-                    </strong>
-                  </span>
+                  <div>
+                    <span>
+                      <strong>
+                        Pyright
+                      </strong>
+                    </span>
+                    <div>
+                      <span>
+                        ⓘ
+                      </span>
+                      <span>
+                        <strong>
+                          Command: 'pyright --threads=8'
+                        </strong>
+                        <br />
+                        We picked 8 threads for pyright after trying a couple options and found this to perform the fastest on a 10 core machine.
+                      </span>
+                    </div>
+                  </div>
                   <div>
                     <div
                       style="height: 80%; width: 73.1585518102372%;"
@@ -323,11 +351,23 @@ exports[`Home page renders internal site correctly 1`] = `
                   </span>
                 </div>
                 <div>
-                  <span>
-                    <strong>
-                      MyPy
-                    </strong>
-                  </span>
+                  <div>
+                    <span>
+                      <strong>
+                        MyPy
+                      </strong>
+                    </span>
+                    <div>
+                      <span>
+                        ⓘ
+                      </span>
+                      <span>
+                        <strong>
+                          Command: 'dmypy run on a 10 core machine'
+                        </strong>
+                      </span>
+                    </div>
+                  </div>
                   <div>
                     <div
                       style="height: 80%; width: 100%;"

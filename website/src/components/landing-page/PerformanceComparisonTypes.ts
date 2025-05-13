@@ -18,7 +18,6 @@ export enum TypeChecker {
     PYREFLY = 'Pyrefly',
     PYRIGHT = 'Pyright',
     MYPY = 'MyPy',
-    PYTYPE = 'Pytype',
     PYRE = 'Pyre',
 }
 

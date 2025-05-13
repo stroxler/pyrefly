@@ -18,6 +18,7 @@ import {
 } from './PerformanceComparisonTypes';
 
 import PerformanceComparisonChartTimer from './PerformanceComparisonChartTimer';
+import TypecheckerTooltip from './TypecheckerTooltip';
 
 interface TypeCheckerData {
     typechecker: TypeCheckerValue;
@@ -51,9 +52,15 @@ export default function PerformanceComparisonChart({
                     )}
                     key={index}
                 >
-                    <span {...stylex.props(styles.typecheckerName)}>
-                        <strong>{typechecker.typechecker}</strong>
-                    </span>
+                    <div {...stylex.props(styles.typecheckerNameContainer)}>
+                        <span {...stylex.props(styles.typecheckerName)}>
+                            <strong>{typechecker.typechecker}</strong>
+                        </span>
+                        <TypecheckerTooltip
+                            typechecker={typechecker.typechecker}
+                            project={project}
+                        />
+                    </div>
                     <div {...stylex.props(styles.progressBarContainer)}>
                         <ProgressBar
                             durationInSeconds={typechecker.durationInSeconds}
@@ -80,10 +87,14 @@ const styles = stylex.create({
         display: 'flex',
         flexDirection: 'row',
     },
+    typecheckerNameContainer: {
+        display: 'flex',
+        alignItems: 'left',
+        width: 150,
+    },
     typecheckerName: {
         display: 'inline-block',
         fontSize: 20,
-        width: 150,
     },
     progressBarContainer: {
         flexGrow: 1,
