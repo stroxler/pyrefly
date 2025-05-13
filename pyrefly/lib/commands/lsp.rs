@@ -46,12 +46,15 @@ use lsp_types::DidChangeWorkspaceFoldersParams;
 use lsp_types::DidCloseTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
 use lsp_types::DidSaveTextDocumentParams;
+use lsp_types::DocumentDiagnosticParams;
+use lsp_types::DocumentDiagnosticReport;
 use lsp_types::DocumentHighlight;
 use lsp_types::DocumentHighlightParams;
 use lsp_types::DocumentSymbol;
 use lsp_types::DocumentSymbolParams;
 use lsp_types::DocumentSymbolResponse;
 use lsp_types::FileSystemWatcher;
+use lsp_types::FullDocumentDiagnosticReport;
 use lsp_types::GlobPattern;
 use lsp_types::GotoDefinitionParams;
 use lsp_types::GotoDefinitionResponse;
@@ -73,6 +76,7 @@ use lsp_types::Range;
 use lsp_types::ReferenceParams;
 use lsp_types::Registration;
 use lsp_types::RegistrationParams;
+use lsp_types::RelatedFullDocumentDiagnosticReport;
 use lsp_types::ServerCapabilities;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
@@ -95,6 +99,7 @@ use lsp_types::notification::DidSaveTextDocument;
 use lsp_types::notification::Notification as _;
 use lsp_types::notification::PublishDiagnostics;
 use lsp_types::request::Completion;
+use lsp_types::request::DocumentDiagnosticRequest;
 use lsp_types::request::DocumentHighlightRequest;
 use lsp_types::request::DocumentSymbolRequest;
 use lsp_types::request::GotoDefinition;
@@ -714,6 +719,14 @@ impl Server {
                             self.hierarchical_document_symbols(&transaction, params)
                                 .unwrap_or_default(),
                         )),
+                    ));
+                    ide_transaction_manager.save(transaction);
+                } else if let Some(params) = as_request::<DocumentDiagnosticRequest>(&x) {
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(self.document_diagnostics(&transaction, params)),
                     ));
                     ide_transaction_manager.save(transaction);
                 } else {
@@ -1366,6 +1379,31 @@ impl Server {
         }
         let handle = self.make_handle_if_enabled(uri)?;
         transaction.symbols(&handle)
+    }
+
+    fn document_diagnostics(
+        &self,
+        transaction: &Transaction<'_>,
+        params: DocumentDiagnosticParams,
+    ) -> DocumentDiagnosticReport {
+        let handle = Self::make_open_handle(
+            &self.state,
+            &params.text_document.uri.to_file_path().unwrap(),
+        );
+        let mut items = Vec::new();
+        let open_files = &self.open_files.read();
+        for e in transaction.get_errors(once(&handle)).collect_errors().shown {
+            if let Some((_, diag)) = self.get_diag_if_shown(&e, open_files) {
+                items.push(diag);
+            }
+        }
+        DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
+            full_document_diagnostic_report: FullDocumentDiagnosticReport {
+                items,
+                result_id: None,
+            },
+            related_documents: None,
+        })
     }
 
     fn change_workspace(&self) {
