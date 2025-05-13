@@ -115,6 +115,7 @@ use crate::common::files::PYTHON_FILE_SUFFIXES_TO_WATCH;
 use crate::config::config::ConfigFile;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
+use crate::error::error::Error;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::module::module_name::ModuleName;
@@ -804,6 +805,37 @@ impl Server {
         handles
     }
 
+    fn get_diag_if_shown(
+        &self,
+        e: &Error,
+        open_files: &HashMap<PathBuf, Arc<String>>,
+    ) -> Option<(PathBuf, Diagnostic)> {
+        if let Some(path) = to_real_path(e.path()) {
+            // When no file covers this, we'll get the default configured config which includes "everything"
+            // and excludes `.<file>`s.
+            let config = self
+                .state
+                .config_finder()
+                .python_file(ModuleName::unknown(), e.path());
+            if open_files.contains_key(path) && !config.project_excludes.covers(path) {
+                return Some((
+                    path.to_path_buf(),
+                    Diagnostic {
+                        range: source_range_to_range(e.source_range()),
+                        severity: Some(lsp_types::DiagnosticSeverity::ERROR),
+                        source: Some("Pyrefly".to_owned()),
+                        message: e.msg().to_owned(),
+                        code: Some(lsp_types::NumberOrString::String(
+                            e.error_kind().to_name().to_owned(),
+                        )),
+                        ..Default::default()
+                    },
+                ));
+            }
+        }
+        None
+    }
+
     fn validate_in_memory<'a>(
         &'a self,
         ide_transaction_manager: &mut IDETransactionManager<'a>,
@@ -828,25 +860,8 @@ impl Server {
                 .collect_errors()
                 .shown
             {
-                if let Some(path) = to_real_path(e.path()) {
-                    // When no file covers this, we'll get the default configured config which includes "everything"
-                    // and excludes `.<file>`s.
-                    let config = self
-                        .state
-                        .config_finder()
-                        .python_file(ModuleName::unknown(), e.path());
-                    if open_files.contains_key(path) && !config.project_excludes.covers(path) {
-                        diags.entry(path.to_owned()).or_default().push(Diagnostic {
-                            range: source_range_to_range(e.source_range()),
-                            severity: Some(lsp_types::DiagnosticSeverity::ERROR),
-                            source: Some("Pyrefly".to_owned()),
-                            message: e.msg().to_owned(),
-                            code: Some(lsp_types::NumberOrString::String(
-                                e.error_kind().to_name().to_owned(),
-                            )),
-                            ..Default::default()
-                        });
-                    }
+                if let Some((path, diag)) = self.get_diag_if_shown(&e, &open_files) {
+                    diags.entry(path.to_owned()).or_default().push(diag);
                 }
             }
             self.connection.publish_diagnostics(diags);
