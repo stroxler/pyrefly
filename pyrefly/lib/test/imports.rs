@@ -768,13 +768,30 @@ assert_type(f(), Any)
     "#,
 );
 
-testcase!(
-    bug = "Typeshed(TODO): This should fully typecheck and reveal_type should not be unknown",
-    test_literal_with_inspect_module,
-    r#"
-import inspect
-from typing import Literal, reveal_type
-reveal_type(Literal[inspect._ParameterKind.POSITIONAL_OR_KEYWORD]) # E: revealed type: type[Unknown] # E: Invalid literal expression
+fn env_literal_enum_validity() -> TestEnv {
+    TestEnv::one(
+        "foo",
+        r#"
+import enum
+class E(enum.IntEnum):
+    X = 0
+class F:
+    Y = 1
+"#,
+    )
+}
 
+testcase!(
+    test_literal_enum_validity,
+    env_literal_enum_validity(),
+    r#"
+import foo
+from typing import Literal, assert_type
+assert_type(foo.E.X, Literal[foo.E.X])
+
+def derp() -> Literal[foo.E.X]: ...
+def test() -> Literal[derp()]: ...  # E:  Invalid literal expression
+
+def test2() -> Literal[foo.F.Y]: ... # E: `foo.F.Y` is not a valid enum member
 "#,
 );
