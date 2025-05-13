@@ -366,12 +366,14 @@ fn test_completion() {
 #[test]
 fn test_references() {
     let root = get_test_files_root();
-    let scope_uri = Url::from_file_path(root.path()).unwrap();
+    let root_path = root.path().join("tests_requiring_config");
+    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
     let mut test_messages = Vec::new();
     let mut expected_responses = Vec::new();
-    test_messages.push(Message::from(build_did_open_notification(
-        root.path().join("bar.py"),
-    )));
+    let foo = root_path.join("foo.py");
+    let bar = root_path.join("bar.py");
+    let with_synthetic_bindings = root_path.join("with_synthetic_bindings.py");
+    test_messages.push(Message::from(build_did_open_notification(bar.clone())));
 
     // Find reference from a reference location in the same in-memory file
     test_messages.push(Message::from(Request {
@@ -379,7 +381,7 @@ fn test_references() {
         method: "textDocument/references".to_owned(),
         params: serde_json::json!({
             "textDocument": {
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
             "position": {
                 "line": 10,
@@ -396,31 +398,31 @@ fn test_references() {
         result: Some(serde_json::json!([
             {
                 "range": {"start":{"line":6,"character":16},"end":{"line":6,"character":19}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":8,"character":0},"end":{"line":8,"character":3}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":9,"character":4},"end":{"line":9,"character":7}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":5,"character":16},"end":{"character":19,"line":5}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
+                "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":10,"character":4},"end":{"character":7,"line":10}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
+                "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
         ])),
         error: None,
@@ -432,7 +434,7 @@ fn test_references() {
         method: "textDocument/references".to_owned(),
         params: serde_json::json!({
             "textDocument": {
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
             "position": {
                 "line": 6,
@@ -449,39 +451,37 @@ fn test_references() {
         result: Some(serde_json::json!([
             {
                 "range": {"start":{"line":6,"character":16},"end":{"line":6, "character":19}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":8,"character":0},"end":{"line":8,"character":3}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":9,"character":4},"end":{"line":9,"character":7}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":5,"character":16},"end":{"character":19,"line":5}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
+                "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":10,"character":4},"end":{"character":7,"line":10}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
+                "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
         ])),
         error: None,
     }));
 
-    test_messages.push(Message::from(build_did_open_notification(
-        root.path().join("foo.py"),
-    )));
+    test_messages.push(Message::from(build_did_open_notification(foo.clone())));
 
     // Find reference from a reference location in a different file
     test_messages.push(Message::from(Request {
@@ -489,7 +489,7 @@ fn test_references() {
         method: "textDocument/references".to_owned(),
         params: serde_json::json!({
             "textDocument": {
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             "position": {
                 "line": 6,
@@ -506,31 +506,31 @@ fn test_references() {
         result: Some(serde_json::json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":5,"character":16},"end":{"character":19,"line":5}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
+                "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":10,"character":4},"end":{"character":7,"line":10}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
+                "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":6,"character":16},"end":{"line":6, "character":19}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":8,"character":0},"end":{"line":8,"character":3}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":9,"character":4},"end":{"line":9,"character":7}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
         ])),
         error: None,
@@ -542,12 +542,12 @@ fn test_references() {
         method: "textDocument/didChange".to_owned(),
         params: serde_json::json!({
             "textDocument": {
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string(),
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string(),
                 "languageId": "python",
                 "version": 2
             },
             "contentChanges": [{
-                "text": format!("\n\n{}", std::fs::read_to_string(root.path().join("bar.py")).unwrap())
+                "text": format!("\n\n{}", std::fs::read_to_string(bar.clone()).unwrap())
             }],
         }),
     }));
@@ -556,7 +556,7 @@ fn test_references() {
         method: "textDocument/references".to_owned(),
         params: serde_json::json!({
             "textDocument": {
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             "position": {
                 "line": 6,
@@ -572,31 +572,31 @@ fn test_references() {
         result: Some(serde_json::json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":5,"character":16},"end":{"character":19,"line":5}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
+                "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":10,"character":4},"end":{"character":7,"line":10}},
-                "uri": Url::from_file_path(root.path().join("with_synthetic_bindings.py")).unwrap().to_string()
+                "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":6,"character":16},"end":{"line":6, "character":19}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":8,"character":0},"end":{"line":8,"character":3}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":9,"character":4},"end":{"line":9,"character":7}},
-                "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
             },
         ])),
         error: None,
@@ -609,7 +609,7 @@ fn test_references() {
         method: "textDocument/references".to_owned(),
         params: serde_json::json!({
             "textDocument": {
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
             "position": {
                 "line": 8,
@@ -626,11 +626,11 @@ fn test_references() {
         result: Some(serde_json::json!([
             {
                 "range": {"start":{"line":8,"character":6},"end":{"character":9,"line":8}},
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":12,"character":0},"end":{"character":3,"line":12}},
-                "uri": Url::from_file_path(root.path().join("bar.py")).unwrap().to_string()
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
         ])),
         error: None,
