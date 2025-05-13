@@ -25,48 +25,19 @@ export default function LandingPageSection({
     id = '',
     isFirstSection = false,
     isLastSection = false,
-    hasBrownBackground = false,
 }: LandingPageSectionProps): React.ReactElement {
-    const backgroundColor = hasBrownBackground
-        ? 'var(--color-background)'
-        : 'var(--color-text)';
     return (
         <section
             id={id}
             {...stylex.props(
                 styles.section,
-                isLastSection ? styles.lastSection : null,
-                { background: backgroundColor }
+                isFirstSection ? styles.isFirstSection : null,
+                isLastSection ? styles.lastSection : null
             )}
         >
-            {/* Rise decoration (for all except first section) */}
-            {!isFirstSection && (
-                <div
-                    style={{
-                        color: backgroundColor,
-                    }}
-                />
-            )}
-
-            {/* Drop decoration (for all sections) */}
-            {!isLastSection && (
-                <div
-                    style={{
-                        color: backgroundColor,
-                    }}
-                />
-            )}
             <div className="container">
                 {title != null ? (
-                    <h2
-                        {...stylex.props(
-                            styles.sectionTitle,
-                            typography.h2,
-                            hasBrownBackground
-                                ? { color: 'var(--color-text)' }
-                                : null
-                        )}
-                    >
+                    <h2 {...stylex.props(styles.sectionTitle, typography.h2)}>
                         {title}
                     </h2>
                 ) : (
@@ -86,12 +57,16 @@ const styles = stylex.create({
         alignItems: 'center',
         flex: 1,
         position: 'relative',
-        paddingVertical: 20,
+        padding: '1rem 0',
+    },
+    isFirstSection: {
+        paddingTop: '7rem',
     },
     lastSection: {
-        paddingBottom: 30,
+        paddingBottom: '7rem',
     },
     sectionTitle: {
         marginTop: '2rem',
+        color: 'var(--color-text)',
     },
 });

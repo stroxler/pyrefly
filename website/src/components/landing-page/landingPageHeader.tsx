@@ -20,7 +20,6 @@ import ThemedImage from '@theme/ThemedImage';
 export default function LandingPageHeader(): React.ReactElement {
     const { colorMode } = docusaurusTheme.useColorMode();
 
-    console.log(colorMode);
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
@@ -119,14 +118,8 @@ const styles = stylex.create({
     },
 
     featureHero: {
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center', // Center content vertically
         width: '100%',
         height: '100%',
-        padding: '7rem 0',
-        position: 'relative',
         overflow: 'hidden',
         background: 'var(--color-background)',
         color: 'var(--color-text)',

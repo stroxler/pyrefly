@@ -12,6 +12,7 @@ import Layout from '@theme/Layout';
 import NewLandingPage from './newLandingPage';
 import LandingPageHeader from '../components/landing-page/landingPageHeader';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+import LandingPageSection from '../components/landing-page/landingPageSection';
 
 export default function Home(): React.ReactElement {
     const { siteConfig } = useDocusaurusContext();
@@ -24,7 +25,12 @@ export default function Home(): React.ReactElement {
             title="Pyrefly: A Static Type Checker for Python"
             description={siteConfig.description}
         >
-            <LandingPageHeader />
+            <LandingPageSection
+                id="header-section"
+                isFirstSection={true}
+                isLastSection={true}
+                child={<LandingPageHeader />}
+            />
         </Layout>
     );
 }
