@@ -32,10 +32,12 @@ interface ProjectData {
 
 interface PerformanceComparisonChartProps {
     project: ProjectValue;
+    isLoaded: boolean;
 }
 
 export default function PerformanceComparisonChart({
     project,
+    isLoaded,
 }: PerformanceComparisonChartProps): React.ReactElement {
     const data = getData(project);
 
@@ -68,11 +70,13 @@ export default function PerformanceComparisonChart({
                             highlight={
                                 typechecker.typechecker === TypeChecker.PYREFLY
                             }
+                            isLoaded={isLoaded}
                         />
                     </div>
                     <span {...stylex.props(styles.duration)}>
                         <PerformanceComparisonChartTimer
                             targetSeconds={typechecker.durationInSeconds}
+                            isLoaded={isLoaded}
                         />
                     </span>
                 </div>

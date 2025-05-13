@@ -63,7 +63,10 @@ export default function PerformanceComparisonChartSection(): React.ReactElement 
                 )}
             >
                 <PerformanceComparisonDescription project={selectedProject} />
-                <PerformanceComparisonChart project={selectedProject} />
+                <PerformanceComparisonChart
+                    project={selectedProject}
+                    isLoaded={isLoaded}
+                />
             </div>
         </div>
     );

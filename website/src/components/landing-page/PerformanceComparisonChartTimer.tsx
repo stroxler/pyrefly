@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 
 interface TimerProps {
     targetSeconds: number;
+    isLoaded: boolean;
 }
 
 // This ensures number of decimal space to be 1. If we ever update this and ends up with more than
@@ -17,10 +18,16 @@ const UPDATE_FREQUENCY_MS = 100;
 
 const PerformanceComparisonChartTimer: React.FC<TimerProps> = ({
     targetSeconds,
+    isLoaded,
 }) => {
     const [seconds, setSeconds] = useState(0.0);
 
     useEffect(() => {
+        // Only start the timer when the chart is loaded
+        if (!isLoaded) {
+            return;
+        }
+
         if (seconds <= targetSeconds) {
             const interval = setInterval(() => {
                 setSeconds((prevSeconds) => {
@@ -36,13 +43,18 @@ const PerformanceComparisonChartTimer: React.FC<TimerProps> = ({
 
             return () => clearInterval(interval);
         }
-    }, [seconds, targetSeconds]);
+    }, [seconds, targetSeconds, isLoaded]);
 
     const numDecimalSpaces = Math.ceil(
         Math.log(1000 / UPDATE_FREQUENCY_MS) / Math.log(10)
     );
 
-    return <strong>{`${seconds.toFixed(numDecimalSpaces)}s`}</strong>;
+    // Display 0.0s when not loaded, otherwise show the current timer value
+    return (
+        <strong>{`${(isLoaded ? seconds : 0).toFixed(
+            numDecimalSpaces
+        )}s`}</strong>
+    );
 };
 
 export default PerformanceComparisonChartTimer;
