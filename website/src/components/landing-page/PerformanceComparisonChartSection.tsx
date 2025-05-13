@@ -14,6 +14,7 @@ import PerformanceComparisonDescription from './PerformanceComparisonDescription
 import PerformanceComparisonButton from './PerformanceComparisonButton';
 import { Project, ProjectValue } from './PerformanceComparisonTypes';
 import { useState } from 'react';
+import { landingPageCardStyles } from './landingPageCardStyles';
 
 export default function PerformanceComparisonChartSection(): React.ReactElement {
     const [selectedProject, setSelectedProject] = useState<ProjectValue>(
@@ -21,7 +22,7 @@ export default function PerformanceComparisonChartSection(): React.ReactElement 
     );
 
     return (
-        <div {...stylex.props(styles.body)}>
+        <div {...stylex.props(landingPageCardStyles.card, styles.body)}>
             <div {...stylex.props(styles.buttonRow)}>
                 <PerformanceComparisonButton
                     project={Project.PYTORCH}
@@ -45,22 +46,12 @@ export default function PerformanceComparisonChartSection(): React.ReactElement 
 const styles = stylex.create({
     body: {
         padding: '1.75rem',
-        background: 'var(--color-background)',
-        backdropFilter: 'blur(10px)',
-        borderRadius: '8px',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        boxShadow:
-            '0 4px 6px var(--color-shadow), 0 1px 3px var(--color-shadow)',
-        marginVertical: '2rem',
-        paddingVertical: '2rem',
-        paddinghorizontal: '1rem',
-        transition: 'all 0.3s ease',
         ':hover': {
-            boxShadow:
-                '0 10px 20px var(--color-shadow-hovered), 0 3px 6px var(--color-shadow)',
+            transform: 'translateY(0px)',
+            background: 'var(--color-landing-page-card-background)',
         },
     },
-    buttonRow: { 
+    buttonRow: {
         display: 'flex',
         justifyContent: 'center',
         gap: '1rem',
