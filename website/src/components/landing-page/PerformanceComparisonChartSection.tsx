@@ -47,7 +47,6 @@ const styles = stylex.create({
     body: {
         padding: '1.75rem',
         ':hover': {
-            transform: 'translateY(0px)',
             background: 'var(--color-landing-page-card-background)',
         },
     },

@@ -43,6 +43,9 @@ const styles = stylex.create({
         padding: '0.75rem 1.5rem',
         backgroundColor: 'var(--color-background)',
         cursor: 'pointer',
+        ':hover': {
+            transform: 'translateY(-5px)',
+        },
     },
     buttonActive: {
         backgroundColor: 'var(--color-background)',

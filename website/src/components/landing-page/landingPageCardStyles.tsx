@@ -24,7 +24,6 @@ export const landingPageCardStyles = stylex.create({
         display: 'flex',
         flexDirection: 'column',
         ':hover': {
-            transform: 'translateY(-5px)',
             boxShadow:
                 '0 10px 20px var(--color-shadow-hovered), 0 3px 6px var(--color-shadow)',
             background: 'var(--color-landing-page-card-background-hovered)',
