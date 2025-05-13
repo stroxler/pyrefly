@@ -19,6 +19,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 use tracing::error;
+use tracing::warn;
 #[cfg(not(target_arch = "wasm32"))]
 use which::which;
 
@@ -129,15 +130,20 @@ impl PythonEnvironment {
     /// version, platform, and site package path. Return an error in the case of failure during
     /// execution, parsing, or deserializing.
     fn get_env_from_interpreter(interpreter: &Path) -> anyhow::Result<PythonEnvironment> {
+        if let Ok(pythonpath) = std::env::var("PYTHONPATH") {
+            warn!(
+                "PYTHONPATH environment variable is set to '{}'. Checks on other computers may not include these paths.",
+                pythonpath
+            );
+        }
+
         let script = "\
-import json, site, sys
+import json, sys
 platform = sys.platform
 v = sys.version_info
 version = '{}.{}.{}'.format(v.major, v.minor, v.micro)
-packages = site.getsitepackages()
-if site.ENABLE_USER_SITE:
-    packages.insert(0, site.getusersitepackages())
-print(json.dumps({'python_platform': platform, 'python_version': version, 'site_package_path': packages}))
+site_package_path = list(filter(lambda x: x != '' and '.zip' not in x, sys.path))
+print(json.dumps({'python_platform': platform, 'python_version': version, 'site_package_path': site_package_path}))
 ";
 
         let mut command = Command::new(interpreter);
