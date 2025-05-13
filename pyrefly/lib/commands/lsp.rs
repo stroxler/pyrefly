@@ -294,6 +294,7 @@ struct Workspace {
     root: PathBuf,
     python_environment: PythonEnvironment,
     disable_language_services: bool,
+    disable_type_errors: bool,
 }
 
 impl Workspace {
@@ -302,6 +303,7 @@ impl Workspace {
             root: workspace_root.to_path_buf(),
             python_environment: python_environment.clone(),
             disable_language_services: false,
+            disable_type_errors: false,
         }
     }
 
@@ -319,6 +321,7 @@ impl Default for Workspace {
             root: PathBuf::from("/"),
             python_environment: PythonEnvironment::get_default_interpreter_env(),
             disable_language_services: Default::default(),
+            disable_type_errors: false,
         }
     }
 }
@@ -830,7 +833,12 @@ impl Server {
                 .state
                 .config_finder()
                 .python_file(ModuleName::unknown(), e.path());
-            if open_files.contains_key(path) && !config.project_excludes.covers(path) {
+            if open_files.contains_key(path)
+                && !config.project_excludes.covers(path)
+                && !self
+                    .workspaces
+                    .get_with(path.to_path_buf(), |w| w.disable_type_errors)
+            {
                 return Some((
                     path.to_path_buf(),
                     Diagnostic {
@@ -1502,13 +1510,23 @@ impl Server {
                         }
                         if let Some(serde_json::Value::Object(pyrefly_settings)) =
                             map.get("pyrefly")
-                            && let Some(serde_json::Value::Bool(disable_language_services)) =
-                                pyrefly_settings.get("disableLanguageServices")
                         {
-                            self.update_disable_language_services(
-                                &id.scope_uri,
-                                *disable_language_services,
-                            );
+                            if let Some(serde_json::Value::Bool(disable_language_services)) =
+                                pyrefly_settings.get("disableLanguageServices")
+                            {
+                                self.update_disable_language_services(
+                                    &id.scope_uri,
+                                    *disable_language_services,
+                                );
+                            }
+                            if let Some(serde_json::Value::Bool(disable_language_services)) =
+                                pyrefly_settings.get("disableTypeErrors")
+                            {
+                                self.update_disable_type_errors(
+                                    &id.scope_uri,
+                                    *disable_language_services,
+                                );
+                            }
                         }
                     }
                     _ => {
@@ -1540,6 +1558,19 @@ impl Server {
                 self.workspaces.default.write().disable_language_services =
                     disable_language_services
             }
+        }
+    }
+
+    /// Update typeCheckingMode setting for scope_uri, None if default workspace
+    fn update_disable_type_errors(&self, scope_uri: &Option<Url>, disable_type_errors: bool) {
+        let mut workspaces = self.workspaces.workspaces.write();
+        match scope_uri {
+            Some(scope_uri) => {
+                if let Some(workspace) = workspaces.get_mut(&scope_uri.to_file_path().unwrap()) {
+                    workspace.disable_type_errors = disable_type_errors;
+                }
+            }
+            None => self.workspaces.default.write().disable_type_errors = disable_type_errors,
         }
     }
 

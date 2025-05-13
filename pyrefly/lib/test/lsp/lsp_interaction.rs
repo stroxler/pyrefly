@@ -1111,3 +1111,228 @@ fn test_diagnostics_in_workspace() {
         ..Default::default()
     });
 }
+
+#[test]
+fn test_disable_type_errors_language_services_still_work() {
+    let test_files_root = get_test_files_root();
+    let scope_uri = Url::from_file_path(test_files_root.path()).unwrap();
+    let file_path = test_files_root.path().join("foo.py");
+    let messages_from_language_client = vec![
+        Message::Response(Response {
+            id: RequestId::from(1),
+            result: Some(
+                serde_json::json!([{"pyrefly": {"disableTypeErrors": true}}, {"pyrefly": {"disableTypeErrors": true}}]),
+            ),
+            error: None,
+        }),
+        Message::from(build_did_open_notification(file_path.clone())),
+        Message::from(Request {
+            id: RequestId::from(2),
+            method: "textDocument/hover".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
+                },
+                "position": {
+                    "line": 6,
+                    "character": 17
+                }
+            }),
+        }),
+    ];
+    let expected_messages_from_language_server = vec![
+        Message::Request(Request {
+            id: RequestId::from(1),
+            method: WorkspaceConfiguration::METHOD.to_owned(),
+            params: serde_json::json!(ConfigurationParams {
+                items: Vec::from([
+                    ConfigurationItem {
+                        scope_uri: Some(scope_uri.clone()),
+                        section: Some("python".to_owned()),
+                    },
+                    ConfigurationItem {
+                        scope_uri: None,
+                        section: Some("python".to_owned()),
+                    }
+                ]),
+            }),
+        }),
+        Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(serde_json::json!({
+                "contents": {"kind":"markdown","value":"```python\ntype[Bar]\n```"}
+            })),
+            error: None,
+        }),
+    ];
+    run_test_lsp(TestCase {
+        messages_from_language_client,
+        expected_messages_from_language_server,
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: true,
+        ..Default::default()
+    });
+}
+
+#[test]
+fn test_disable_type_errors_workspace_folder() {
+    let test_files_root = get_test_files_root();
+    let scope_uri = Url::from_file_path(test_files_root.path()).unwrap();
+    let file_path = test_files_root.path().join("type_errors.py");
+    let configuration_request_params = serde_json::json!(ConfigurationParams {
+        items: Vec::from([
+            ConfigurationItem {
+                scope_uri: Some(scope_uri.clone()),
+                section: Some("python".to_owned()),
+            },
+            ConfigurationItem {
+                scope_uri: None,
+                section: Some("python".to_owned()),
+            }
+        ]),
+    });
+
+    let messages_from_language_client = vec![
+        Message::from(build_did_open_notification(file_path.clone())),
+        Message::Response(Response {
+            id: RequestId::from(1),
+            result: Some(serde_json::json!([])),
+            error: None,
+        }),
+        Message::from(Request {
+            id: RequestId::from(2),
+            method: "textDocument/diagnostic".to_owned(),
+            params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
+            }}),
+        }),
+        Message::Notification(Notification {
+            method: DidChangeConfiguration::METHOD.to_owned(),
+            params: serde_json::json!({"settings": {}}),
+        }),
+        Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(
+                serde_json::json!([{"pyrefly": {"disableTypeErrors": true}}, {"pyrefly": {"disableTypeErrors": true}}]),
+            ),
+            error: None,
+        }),
+        Message::from(Request {
+            id: RequestId::from(3),
+            method: "textDocument/diagnostic".to_owned(),
+            params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
+            }}),
+        }),
+    ];
+    let expected_messages_from_language_server = vec![
+        Message::Request(Request {
+            id: RequestId::from(1),
+            method: WorkspaceConfiguration::METHOD.to_owned(),
+            params: configuration_request_params.clone(),
+        }),
+        Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(get_diagnostics_result()),
+            error: None,
+        }),
+        Message::Request(Request {
+            id: RequestId::from(2),
+            method: WorkspaceConfiguration::METHOD.to_owned(),
+            params: configuration_request_params,
+        }),
+        Message::Response(Response {
+            id: RequestId::from(3),
+            result: Some(serde_json::json!({"items": [], "kind": "full"})),
+            error: None,
+        }),
+    ];
+    run_test_lsp(TestCase {
+        messages_from_language_client,
+        expected_messages_from_language_server,
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: true,
+        ..Default::default()
+    });
+}
+
+#[test]
+fn test_disable_type_errors_default_workspace() {
+    let test_files_root = get_test_files_root();
+    let file_path = test_files_root.path().join("type_errors.py");
+    let messages_from_language_client = vec![
+        Message::Response(Response {
+            id: RequestId::from(1),
+            result: Some(serde_json::json!([])),
+            error: None,
+        }),
+        Message::from(build_did_open_notification(file_path.clone())),
+        Message::from(Request {
+            id: RequestId::from(2),
+            method: "textDocument/diagnostic".to_owned(),
+            params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
+            }}),
+        }),
+        Message::Notification(Notification {
+            method: DidChangeConfiguration::METHOD.to_owned(),
+            params: serde_json::json!({"settings": {}}),
+        }),
+        Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(
+                serde_json::json!([{"pyrefly": {"disableTypeErrors": true}}, {"pyrefly": {"disableTypeErrors": true}}]),
+            ),
+            error: None,
+        }),
+        Message::from(Request {
+            id: RequestId::from(3),
+            method: "textDocument/diagnostic".to_owned(),
+            params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
+            }}),
+        }),
+    ];
+    let expected_messages_from_language_server = vec![
+        Message::Request(Request {
+            id: RequestId::from(1),
+            method: WorkspaceConfiguration::METHOD.to_owned(),
+            params: serde_json::json!(ConfigurationParams {
+                items: Vec::from([ConfigurationItem {
+                    scope_uri: None,
+                    section: Some("python".to_owned()),
+                }]),
+            }),
+        }),
+        Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(get_diagnostics_result()),
+            error: None,
+        }),
+        Message::Request(Request {
+            id: RequestId::from(2),
+            method: WorkspaceConfiguration::METHOD.to_owned(),
+            params: serde_json::json!(ConfigurationParams {
+                items: Vec::from([ConfigurationItem {
+                    scope_uri: None,
+                    section: Some("python".to_owned()),
+                }]),
+            }),
+        }),
+        Message::Response(Response {
+            id: RequestId::from(3),
+            result: Some(serde_json::json!({"items": [], "kind": "full"})),
+            error: None,
+        }),
+    ];
+    run_test_lsp(TestCase {
+        messages_from_language_client,
+        expected_messages_from_language_server,
+        configuration: true,
+        ..Default::default()
+    });
+}
