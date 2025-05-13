@@ -145,8 +145,15 @@ impl Args {
             return args.run();
         }
 
+        // Generate a basic config with a couple sensible defaults.
+        // This prevents us from simply outputting an empty file, and gives the user somewhere to start if they want to customize.
+        let cfg = ConfigFile {
+            project_includes: ConfigFile::default_project_includes(),
+            project_excludes: ConfigFile::default_project_excludes(),
+            ..Default::default()
+        };
+
         // 3. pyproject.toml configuration
-        let cfg = ConfigFile::default();
         if Args::check_for_pyproject_file(&path) {
             let config = PyProject::new(cfg);
             let serialized = toml::to_string_pretty(&config)?;
@@ -352,5 +359,36 @@ mod test {
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
         Ok(())
+    }
+
+    #[test]
+    fn test_non_empty_pyrefly_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let args = Args::new(tmp.path().to_path_buf());
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
+        let file = tmp.path().join(ConfigFile::PYREFLY_FILE_NAME);
+        assert!(file.exists());
+        let raw_cfg = fs_anyhow::read_to_string(&file)?;
+        assert!(!raw_cfg.is_empty());
+        from_file(&file)
+    }
+
+    #[test]
+    fn test_non_empty_pyright_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let cfgpath = tmp.path().join(ConfigFile::PYPROJECT_FILE_NAME);
+        fs_anyhow::write(
+            &cfgpath,
+            br#"[project]
+name = "test"
+"#,
+        )?;
+        let args = Args::new(tmp.path().to_path_buf());
+        let status = args.run()?;
+        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
+        let raw_cfg = fs_anyhow::read_to_string(&cfgpath)?;
+        assert!(!raw_cfg.is_empty());
+        from_file(&cfgpath)
     }
 }
