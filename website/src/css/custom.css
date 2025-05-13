@@ -156,8 +156,9 @@
     --color-shadow-background: rgba(0, 0, 0, 0.08);
     --color-shadow: rgba(0, 0, 0, 0.1);
     --color-shadow-hovered: rgba(0, 0, 0, 0.15);
-    --color-why-pyre-fly-background: rgba(255, 255, 255, 0.05);
-    --color-why-pyre-fly-background-hovered: rgba(255, 255, 255, 0.08);
+    --color-landing-page-card-background: rgba(255, 255, 255, 0.05);
+    --color-landing-page-card-background-hovered: rgba(255, 255, 255, 0.08);
+    --color-landing-page-card-border: rgba(255, 255, 255, 0.1);
     --ifm-navbar-padding-vertical: 0;
     --ifm-font-family-base:
         'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,

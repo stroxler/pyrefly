@@ -11,6 +11,8 @@ import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import typography from './typography';
 import { useEffect, useState } from 'react';
+import { landingPageCardStyles } from './landingPageCardStyles';
+
 interface LinkProps {
     text: string;
     url: string;
@@ -55,8 +57,9 @@ export default function WhyPyreflyGridItem({
     return (
         <div
             {...stylex.props(
-                styles.whyPyreflyCard,
-                isVisible && styles.whyPyreflyCardVisible
+                landingPageCardStyles.card,
+                styles.hidden,
+                isVisible && styles.visible
             )}
             style={{
                 // Apply dynamic delay based on index
@@ -64,7 +67,7 @@ export default function WhyPyreflyGridItem({
             }}
         >
             <h3 {...stylex.props(typography.h5, styles.cardTitle)}>{title}</h3>
-            <p {...stylex.props(styles.contentText, typography.p)}>
+            <p {...stylex.props(typography.p, styles.contentText)}>
                 {content}
                 {contentWithLink && (
                     <>
@@ -81,33 +84,18 @@ export default function WhyPyreflyGridItem({
 }
 
 const styles = stylex.create({
-    whyPyreflyCard: {
-        padding: '1.75rem',
-        background: 'var(--color-why-pyre-fly-background)',
-        backdropFilter: 'blur(10px)',
-        borderRadius: '8px',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        boxShadow:
-            '0 4px 6px var(--color-shadow), 0 1px 3px var(--color-shadow-background)',
-        transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', // Reduced from 1.2s to 0.8s
+    // Animation styles
+    hidden: {
         transform: 'rotateX(15deg) translateY(20px)',
         opacity: 0,
         filter: 'blur(6px)',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        ':hover': {
-            transform: 'translateY(-5px)',
-            boxShadow:
-                '0 10px 20px var(--color-shadow-hovered), 0 3px 6px var(--color-shadow)',
-            background: 'var(--color-why-pyre-fly-background-hovered)',
-        },
     },
-    whyPyreflyCardVisible: {
+    visible: {
         opacity: 1,
         transform: 'rotateX(0deg) translateY(0)',
         filter: 'blur(0px)',
     },
+    // Text styles
     cardTitle: {
         fontWeight: 700,
         marginBottom: '0.75rem',

@@ -60,7 +60,7 @@ const styles = stylex.create({
                 '0 10px 20px var(--color-shadow-hovered), 0 3px 6px var(--color-shadow)',
         },
     },
-    buttonRow: {
+    buttonRow: { 
         display: 'flex',
         justifyContent: 'center',
         gap: '1rem',
