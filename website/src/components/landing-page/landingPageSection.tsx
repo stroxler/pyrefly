@@ -10,6 +10,7 @@
 import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import typography from './typography';
+import { useState, useEffect } from 'react';
 interface LandingPageSectionProps {
     title?: string;
     child: React.ReactNode;
@@ -26,6 +27,23 @@ export default function LandingPageSection({
     isFirstSection = false,
     isLastSection = false,
 }: LandingPageSectionProps): React.ReactElement {
+    const [isTitleVisible, setIsTitleVisible] = useState(false);
+
+    useEffect(() => {
+        // Only apply animation for performance comparison section
+        if (id === 'performance-comparison-section') {
+            // Delay the title animation to start after the Why Pyrefly section animations
+            const timer = setTimeout(() => {
+                setIsTitleVisible(true);
+            }, 1500); // Slightly later than why pyrefly animations (1400ms)
+
+            return () => clearTimeout(timer);
+        } else {
+            // For other sections, make title visible immediately
+            setIsTitleVisible(true);
+        }
+    }, [id]);
+
     return (
         <section
             id={id}
@@ -37,7 +55,17 @@ export default function LandingPageSection({
         >
             <div className="container">
                 {title != null ? (
-                    <h2 {...stylex.props(styles.sectionTitle, typography.h2)}>
+                    <h2
+                        {...stylex.props(
+                            styles.sectionTitle,
+                            typography.h2,
+                            id === 'performance-comparison-section' &&
+                                styles.animatedTitle,
+                            id === 'performance-comparison-section' &&
+                                isTitleVisible &&
+                                styles.titleVisible
+                        )}
+                    >
                         {title}
                     </h2>
                 ) : (
@@ -68,5 +96,16 @@ const styles = stylex.create({
     sectionTitle: {
         marginTop: '2rem',
         color: 'var(--color-text)',
+    },
+    animatedTitle: {
+        opacity: 0,
+        filter: 'blur(4px)',
+        transform: 'translateY(15px)',
+        transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)',
+    },
+    titleVisible: {
+        opacity: 1,
+        filter: 'blur(0px)',
+        transform: 'translateY(0)',
     },
 });
