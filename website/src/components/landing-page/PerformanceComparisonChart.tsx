@@ -29,8 +29,13 @@ interface ProjectData {
     data: TypeCheckerData[];
 }
 
-export default function PerformanceComparisonChart(): React.ReactElement {
-    const project = Project.INSTAGRAM;
+interface PerformanceComparisonChartProps {
+    project: ProjectValue;
+}
+
+export default function PerformanceComparisonChart({
+    project,
+}: PerformanceComparisonChartProps): React.ReactElement {
     const data = getData(project);
 
     // Calculate the maximum duration for scaling
@@ -107,11 +112,16 @@ const performanceComparisonChartData: ProjectData[] = [
     {
         project: Project.INSTAGRAM,
         data: [
-            { typechecker: TypeChecker.PYREFLY, durationInSeconds: 2 },
-            { typechecker: TypeChecker.MYPY, durationInSeconds: 50 },
-            { typechecker: TypeChecker.PYRIGHT, durationInSeconds: 20 },
-            { typechecker: TypeChecker.PYTYPE, durationInSeconds: 40 },
-            { typechecker: TypeChecker.PYRE1, durationInSeconds: 40 },
+            { typechecker: TypeChecker.PYREFLY, durationInSeconds: 13.36 },
+            { typechecker: TypeChecker.PYRE, durationInSeconds: 475.77 },
+        ],
+    },
+    {
+        project: Project.PYTORCH,
+        data: [
+            { typechecker: TypeChecker.PYREFLY, durationInSeconds: 2.32 },
+            { typechecker: TypeChecker.PYRIGHT, durationInSeconds: 35.16 },
+            { typechecker: TypeChecker.MYPY, durationInSeconds: 48.06 },
         ],
     },
 ];

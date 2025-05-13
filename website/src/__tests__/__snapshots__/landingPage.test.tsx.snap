@@ -258,6 +258,14 @@ exports[`Home page renders internal site correctly 1`] = `
           </h2>
           <div>
             <div>
+              <button>
+                PyTorch
+              </button>
+              <button>
+                Instagram
+              </button>
+            </div>
+            <div>
               <div>
                 Typechecking the instagram codebase with 19 millions lines of code, from scratch.
               </div>
@@ -270,10 +278,31 @@ exports[`Home page renders internal site correctly 1`] = `
                   </span>
                   <div>
                     <div
-                      style="height: 80%; width: 4%;"
+                      style="height: 80%; width: 4.827299209321681%;"
                     >
                       <div
-                        style="animation-duration: 2s;"
+                        style="animation-duration: 2.32s;"
+                      />
+                    </div>
+                  </div>
+                  <span>
+                    <strong>
+                      0.0s
+                    </strong>
+                  </span>
+                </div>
+                <div>
+                  <span>
+                    <strong>
+                      Pyright
+                    </strong>
+                  </span>
+                  <div>
+                    <div
+                      style="height: 80%; width: 73.1585518102372%;"
+                    >
+                      <div
+                        style="animation-duration: 35.16s;"
                       />
                     </div>
                   </div>
@@ -294,70 +323,7 @@ exports[`Home page renders internal site correctly 1`] = `
                       style="height: 80%; width: 100%;"
                     >
                       <div
-                        style="animation-duration: 50s;"
-                      />
-                    </div>
-                  </div>
-                  <span>
-                    <strong>
-                      0.0s
-                    </strong>
-                  </span>
-                </div>
-                <div>
-                  <span>
-                    <strong>
-                      Pyright
-                    </strong>
-                  </span>
-                  <div>
-                    <div
-                      style="height: 80%; width: 40%;"
-                    >
-                      <div
-                        style="animation-duration: 20s;"
-                      />
-                    </div>
-                  </div>
-                  <span>
-                    <strong>
-                      0.0s
-                    </strong>
-                  </span>
-                </div>
-                <div>
-                  <span>
-                    <strong>
-                      Pytype
-                    </strong>
-                  </span>
-                  <div>
-                    <div
-                      style="height: 80%; width: 80%;"
-                    >
-                      <div
-                        style="animation-duration: 40s;"
-                      />
-                    </div>
-                  </div>
-                  <span>
-                    <strong>
-                      0.0s
-                    </strong>
-                  </span>
-                </div>
-                <div>
-                  <span>
-                    <strong>
-                      Pyre1
-                    </strong>
-                  </span>
-                  <div>
-                    <div
-                      style="height: 80%; width: 80%;"
-                    >
-                      <div
-                        style="animation-duration: 40s;"
+                        style="animation-duration: 48.06s;"
                       />
                     </div>
                   </div>

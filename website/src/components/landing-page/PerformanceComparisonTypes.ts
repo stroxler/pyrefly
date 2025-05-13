@@ -9,6 +9,7 @@
 
 export enum Project {
     INSTAGRAM = 'Instagram',
+    PYTORCH = 'PyTorch',
 }
 
 export type ProjectValue = (typeof Project)[keyof typeof Project];
@@ -18,7 +19,7 @@ export enum TypeChecker {
     PYRIGHT = 'Pyright',
     MYPY = 'MyPy',
     PYTYPE = 'Pytype',
-    PYRE1 = 'Pyre1',
+    PYRE = 'Pyre',
 }
 
 export type TypeCheckerValue = (typeof TypeChecker)[keyof typeof TypeChecker];

@@ -11,13 +11,32 @@ import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import PerformanceComparisonChart from './PerformanceComparisonChart';
 import PerformanceComparisonDescription from './PerformanceComparisonDescription';
+import PerformanceComparisonButton from './PerformanceComparisonButton';
+import { Project, ProjectValue } from './PerformanceComparisonTypes';
+import { useState } from 'react';
 
 export default function PerformanceComparisonChartSection(): React.ReactElement {
+    const [selectedProject, setSelectedProject] = useState<ProjectValue>(
+        Project.PYTORCH
+    );
+
     return (
         <div {...stylex.props(styles.body)}>
+            <div {...stylex.props(styles.buttonRow)}>
+                <PerformanceComparisonButton
+                    project={Project.PYTORCH}
+                    selectedProject={selectedProject}
+                    setSelectedProject={setSelectedProject}
+                />
+                <PerformanceComparisonButton
+                    project={Project.INSTAGRAM}
+                    selectedProject={selectedProject}
+                    setSelectedProject={setSelectedProject}
+                />
+            </div>
             <div {...stylex.props(styles.chartContainer)}>
                 <PerformanceComparisonDescription />
-                <PerformanceComparisonChart />
+                <PerformanceComparisonChart project={selectedProject} />
             </div>
         </div>
     );

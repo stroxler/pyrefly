@@ -40,14 +40,14 @@ const styles = stylex.create({
     button: {
         padding: '0.75rem 1.5rem',
         borderRadius: '4px',
-        border: '1px solid var(--color-background)',
+        border: '1px solid var(--color-text)',
         backgroundColor: 'transparent',
-        color: 'var(--color-background)',
+        color: 'var(--color-text)',
         cursor: 'pointer',
         transition: 'all 0.2s',
     },
     buttonActive: {
         backgroundColor: 'var(--color-background)',
-        color: 'white',
+        color: 'var(--color-primary)',
     },
 });
