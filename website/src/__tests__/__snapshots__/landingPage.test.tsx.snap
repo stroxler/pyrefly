@@ -279,7 +279,7 @@ exports[`Home page renders internal site correctly 1`] = `
                   </div>
                   <span>
                     <strong>
-                      0s
+                      0.0s
                     </strong>
                   </span>
                 </div>
@@ -300,7 +300,7 @@ exports[`Home page renders internal site correctly 1`] = `
                   </div>
                   <span>
                     <strong>
-                      0s
+                      0.0s
                     </strong>
                   </span>
                 </div>
@@ -321,7 +321,7 @@ exports[`Home page renders internal site correctly 1`] = `
                   </div>
                   <span>
                     <strong>
-                      0s
+                      0.0s
                     </strong>
                   </span>
                 </div>
@@ -342,7 +342,7 @@ exports[`Home page renders internal site correctly 1`] = `
                   </div>
                   <span>
                     <strong>
-                      0s
+                      0.0s
                     </strong>
                   </span>
                 </div>
@@ -363,7 +363,7 @@ exports[`Home page renders internal site correctly 1`] = `
                   </div>
                   <span>
                     <strong>
-                      0s
+                      0.0s
                     </strong>
                   </span>
                 </div>

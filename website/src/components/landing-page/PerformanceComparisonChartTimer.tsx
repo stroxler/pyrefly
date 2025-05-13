@@ -11,6 +11,8 @@ interface TimerProps {
     targetSeconds: number;
 }
 
+const UPDATE_FREQUENCY_MS = 100;
+
 const PerformanceComparisonChartTimer: React.FC<TimerProps> = ({
     targetSeconds,
 }) => {
@@ -19,14 +21,26 @@ const PerformanceComparisonChartTimer: React.FC<TimerProps> = ({
     useEffect(() => {
         if (seconds <= targetSeconds) {
             const interval = setInterval(() => {
-                setSeconds((prevSeconds) => prevSeconds + 1);
-            }, 1000);
+                setSeconds((prevSeconds) => {
+                    const amountToIncrement = UPDATE_FREQUENCY_MS / 1000;
+                    const roundingModifier = 1000 / UPDATE_FREQUENCY_MS;
+                    return (
+                        Math.round(
+                            (prevSeconds + amountToIncrement) * roundingModifier
+                        ) / roundingModifier
+                    );
+                });
+            }, UPDATE_FREQUENCY_MS);
 
             return () => clearInterval(interval);
         }
     }, [seconds, targetSeconds]);
 
-    return <strong>{`${seconds}s`}</strong>;
+    const numDecimalSpaces = Math.ceil(
+        Math.log(1000 / UPDATE_FREQUENCY_MS) / Math.log(10)
+    );
+
+    return <strong>{`${seconds.toFixed(numDecimalSpaces)}s`}</strong>;
 };
 
 export default PerformanceComparisonChartTimer;
