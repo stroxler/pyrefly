@@ -98,7 +98,7 @@ def f1() -> None:
       c = 1  # OK, this is a new c
   def f14() -> None:
     nonlocal x
-    x: int = 1  # E: Inconsistent type annotations for x: int, str
+    x: int = 1  # E: `x` cannot be annotated with `int`, it is already defined with type `str`
   nonlocal a  # E: Found `a`, but it was not in a valid enclosing scope
 "#,
 );

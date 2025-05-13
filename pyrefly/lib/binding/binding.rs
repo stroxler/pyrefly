@@ -278,8 +278,13 @@ pub enum BindingExpect {
     UnpackedLength(Idx<Key>, TextRange, SizeExpectation),
     /// An exception and its cause from a raise statement.
     CheckRaisedException(RaisedException),
-    /// An expectation that the types are identical, with an associated name for error messages.
-    Eq(Idx<KeyAnnotation>, Idx<KeyAnnotation>, Name),
+    /// If a name already has an existing definition and we encounter a new definition,
+    /// make sure the annotations are equal, with an associated name for error messages.
+    Redefinition {
+        new: Idx<KeyAnnotation>,
+        existing: Idx<KeyAnnotation>,
+        name: Name,
+    },
     /// `del` statement
     Delete(Box<Expr>),
 }
@@ -313,11 +318,15 @@ impl DisplayWith<Bindings> for BindingExpect {
             Self::CheckRaisedException(RaisedException::WithCause(box (exc, cause))) => {
                 write!(f, "raise {} from {}", m.display(exc), m.display(cause))
             }
-            Self::Eq(k1, k2, name) => write!(
+            Self::Redefinition {
+                new,
+                existing,
+                name,
+            } => write!(
                 f,
                 "{} == {} on {}",
-                ctx.display(*k1),
-                ctx.display(*k2),
+                ctx.display(*new),
+                ctx.display(*existing),
                 name
             ),
         }

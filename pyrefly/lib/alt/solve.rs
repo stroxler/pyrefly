@@ -1128,26 +1128,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.check_is_exception(exc, exc.range(), false, errors);
                 self.check_is_exception(cause, cause.range(), true, errors);
             }
-            BindingExpect::Eq(k1, k2, name) => {
-                let ann1 = self.get_idx(*k1);
-                let ann2 = self.get_idx(*k2);
-                if let Some(t1) = ann1.ty(self.stdlib)
-                    && let Some(t2) = ann2.ty(self.stdlib)
-                    && t1 != t2
+            BindingExpect::Redefinition {
+                new,
+                existing,
+                name,
+            } => {
+                let ann_new = self.get_idx(*new);
+                let ann_existing = self.get_idx(*existing);
+                if let Some(t_new) = ann_new.ty(self.stdlib)
+                    && let Some(t_existing) = ann_existing.ty(self.stdlib)
+                    && t_new != t_existing
                 {
-                    let t1 = self.for_display(t1.clone());
-                    let t2 = self.for_display(t2.clone());
-                    let ctx = TypeDisplayContext::new(&[&t1, &t2]);
+                    let t_new = self.for_display(t_new.clone());
+                    let t_existing = self.for_display(t_existing.clone());
+                    let ctx = TypeDisplayContext::new(&[&t_new, &t_existing]);
                     self.error(
                         errors,
-                        self.bindings().idx_to_key(*k1).range(),
+                        self.bindings().idx_to_key(*new).range(),
                         ErrorKind::AnnotationMismatch,
                         None,
                         format!(
-                            "Inconsistent type annotations for {}: {}, {}",
+                            "`{}` cannot be annotated with `{}`, it is already defined with type `{}`",
                             name,
-                            ctx.display(&t1),
-                            ctx.display(&t2),
+                            ctx.display(&t_new),
+                            ctx.display(&t_existing),
                         ),
                     );
                 }

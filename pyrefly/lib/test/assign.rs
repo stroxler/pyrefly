@@ -304,10 +304,10 @@ def f(cond: bool):
         x: int = 1  # OK
     y: int = 0
     if cond:
-        y: str = "oops"  # E: Inconsistent type annotations for y
+        y: str = "oops"  # E: `y` cannot be annotated with `str`, it is already defined with type `int`
     z: int = 0
     if cond:
-        z: Literal[1] = 1  # E: Inconsistent type annotations for z
+        z: Literal[1] = 1  # E: `z` cannot be annotated with `Literal[1]`, it is already defined with type `int`
     "#,
 );
 
@@ -315,7 +315,7 @@ testcase!(
     test_multiple_annotations_without_merge,
     r#"
 x: int = 0
-x: str = ""  # E: Inconsistent type annotations for x
+x: str = ""  # E: `x` cannot be annotated with `str`, it is already defined with type `int`
     "#,
 );
 
