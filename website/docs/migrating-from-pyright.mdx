@@ -49,7 +49,7 @@ Pyrefly maps pyright's [type check diagnostics settings](https://microsoft.githu
 While not every diagnostic setting has an equivalent error kind, we make an effort to ensure that pyrefly suppresses the same errors that pyright does.
 
 This may lead to overly broad error suppressions, and you may want to consider removing some error kinds from the disable list.
-You can also use a [SubConfig](configuration.mdx/#sub_config) to selectively silence errors in specific files,
+You can also use a [SubConfig](configuration.mdx#sub_config) to selectively silence errors in specific files,
 or see [Silencing Errors](#silencing-errors) for how to suppress errors at the source.
 
 See [Error Kind Mapping](#error-kind-mapping) for a table showing the relationship between type check diagnostic settings and error kinds.
@@ -57,7 +57,7 @@ See [Error Kind Mapping](#error-kind-mapping) for a table showing the relationsh
 ### Execution Environments
 
 Pyright's [execution environments](https://microsoft.github.io/pyright/#/configuration?id=execution-environment-options) let you customize the Python version, platform, module search paths, and diagnostic settings for some part of your project.
-Pyrefly's [SubConfigs](configuration.mdx/#sub_config) are a similar mechanism that let you configure pyrefly's behavior for files matching a filepath glob.
+Pyrefly's [SubConfigs](configuration.mdx#sub_config) are a similar mechanism that let you configure pyrefly's behavior for files matching a filepath glob.
 However, subconfigs do not support changing the Python version, platform, or module search paths.
 
 Diagnostic settings are carried over to the equivalent subconfig, using the mapping mentioned [above](#type-check-diagnostic-settings-and-error-kinds).

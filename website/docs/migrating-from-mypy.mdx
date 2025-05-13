@@ -69,7 +69,7 @@ Pyrefly maps Mypy's [error codes](https://mypy.readthedocs.io/en/stable/error_co
 While not every error code has an equivalent error kind, we make an effort to ensure that pyrefly suppresses the same errors that mypy does.
 
 This may lead to overly broad error suppressions, and you may want to consider removing some error kinds from the disable list.
-You can also use a [SubConfig](configuration.mdx/#sub_config) to selectively silence errors in specific files,
+You can also use a [SubConfig](configuration.mdx#sub_config) to selectively silence errors in specific files,
 or see [Silencing Errors](#silencing-errors) for how to suppress errors at the source.
 
 See [Error Kind Mapping](#error-kind-mapping) for a table showing the relationship between type check diagnostic settings and error kinds.
@@ -77,7 +77,7 @@ See [Error Kind Mapping](#error-kind-mapping) for a table showing the relationsh
 ### Per-Module configs
 
 Mypy's per-module configs let you change a wide range of configuration options for modules matching a module wildcard.
-Pyrefly's [SubConfigs](configuration.mdx/#sub_config) are a similar mechanism that let you configure pyrefly's behavior for files matching a filepath glob.
+Pyrefly's [SubConfigs](configuration.mdx#sub_config) are a similar mechanism that let you configure pyrefly's behavior for files matching a filepath glob.
 However, they support significantly fewer options, and only `disable_error_code` and `enable_error_code` will be migrated over to the pyrefly config.
 
 ## Silencing Errors
