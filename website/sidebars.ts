@@ -60,7 +60,7 @@ const docsSidebar = [
     },
     {
         type: 'doc' as const,
-        id: 'error-suppresions',
+        id: 'error-suppressions',
         label: 'Error Suppressions',
     },
     {
