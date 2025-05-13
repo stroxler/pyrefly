@@ -1042,3 +1042,72 @@ fn test_did_change_workspace_folder() {
         ..Default::default()
     });
 }
+
+fn get_diagnostics_result() -> serde_json::Value {
+    serde_json::json!({"items": [
+            {"code":"bad-argument-type","message":"`+` is not supported between `Literal[1]` and `Literal['']`\n  Argument `Literal['']` is not assignable to parameter with type `int` in function `int.__add__`",
+            "range":{"end":{"character":6,"line":5},"start":{"character":0,"line":5}},"severity":1,"source":"Pyrefly"}],"kind":"full"
+    })
+}
+
+#[test]
+fn test_diagnostics_default_workspace() {
+    let root = get_test_files_root();
+    let file_path = root.path().join("type_errors.py");
+    let messages_from_language_client = vec![
+        Message::from(build_did_open_notification(file_path.clone())),
+        Message::from(Request {
+            id: RequestId::from(1),
+            method: "textDocument/diagnostic".to_owned(),
+            params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
+            }}),
+        }),
+    ];
+
+    let expected_messages_from_language_server = vec![Message::Response(Response {
+        id: RequestId::from(1),
+        result: Some(get_diagnostics_result()),
+        error: None,
+    })];
+
+    run_test_lsp(TestCase {
+        messages_from_language_client,
+        expected_messages_from_language_server,
+        ..Default::default()
+    });
+}
+
+#[test]
+fn test_diagnostics_in_workspace() {
+    let root = get_test_files_root();
+    let file_path = root.path().join("type_errors.py");
+    let messages_from_language_client = vec![
+        Message::from(build_did_open_notification(file_path.clone())),
+        Message::from(Request {
+            id: RequestId::from(1),
+            method: "textDocument/diagnostic".to_owned(),
+            params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
+            }}),
+        }),
+    ];
+
+    let expected_messages_from_language_server = vec![Message::Response(Response {
+        id: RequestId::from(1),
+        result: Some(get_diagnostics_result()),
+        error: None,
+    })];
+
+    run_test_lsp(TestCase {
+        messages_from_language_client,
+        expected_messages_from_language_server,
+        workspace_folders: Some(vec![(
+            "test".to_owned(),
+            Url::from_file_path(root).unwrap(),
+        )]),
+        ..Default::default()
+    });
+}
