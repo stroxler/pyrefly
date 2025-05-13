@@ -44,7 +44,7 @@ export default function WhyPyrefly(): React.ReactElement {
                 {/* Short-term benefits */}
                 <WhyPyreflyGridItem
                     title="Scale with Confidence"
-                    content="Typecheck 1.8 million lines of code per second"
+                    content="Type check 1.8 million lines of code per second"
                     index={0}
                     startAnimation={startAnimation}
                 />

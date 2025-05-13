@@ -29,11 +29,11 @@ export default function PerformanceComparisonDescription({
 function getDescriptionText(project: ProjectValue): React.ReactNode {
     switch (project) {
         case Project.INSTAGRAM:
-            return 'Typechecking the instagram codebase with 19 millions lines of code from scratch.';
+            return 'Type checking the instagram codebase with 19 millions lines of code from scratch.';
         case Project.PYTORCH:
             return (
                 <>
-                    Typechecking the{' '}
+                    Type checking the{' '}
                     <a
                         href="https://github.com/pytorch/pytorch"
                         target="_blank"

@@ -91,7 +91,7 @@ reveal_type(test(42))
       <div>
         <ul>
           <li>
-            Typechecking Errors
+            Type Checking Errors
           </li>
           <li>
             Runtime Output

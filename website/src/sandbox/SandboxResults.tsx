@@ -134,7 +134,7 @@ export default function SandboxResults({
                         )}
                         onClick={() => setActiveTab('errors')}
                     >
-                        Typechecking Errors
+                        Type Checking Errors
                     </li>
                     <li
                         {...stylex.props(

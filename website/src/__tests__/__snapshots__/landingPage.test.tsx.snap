@@ -186,7 +186,7 @@ exports[`Home page renders internal site correctly 1`] = `
                   Scale with Confidence
                 </h3>
                 <p>
-                  Typecheck 1.8 million lines of code per second
+                  Type check 1.8 million lines of code per second
                 </p>
               </div>
               <div
@@ -280,7 +280,7 @@ exports[`Home page renders internal site correctly 1`] = `
             </div>
             <div>
               <div>
-                Typechecking the
+                Type checking the
                  
                 <a
                   href="https://github.com/pytorch/pytorch"
