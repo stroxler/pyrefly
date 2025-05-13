@@ -267,7 +267,17 @@ exports[`Home page renders internal site correctly 1`] = `
             </div>
             <div>
               <div>
-                Typechecking the instagram codebase with 19 millions lines of code, from scratch.
+                Typechecking the
+                 
+                <a
+                  href="https://github.com/pytorch/pytorch"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  PyTorch
+                </a>
+                 
+                codebase from scratch.
               </div>
               <div>
                 <div>

@@ -36,7 +36,7 @@ export default function PerformanceComparisonChartSection(): React.ReactElement 
                 />
             </div>
             <div {...stylex.props(styles.chartContainer)}>
-                <PerformanceComparisonDescription />
+                <PerformanceComparisonDescription project={selectedProject} />
                 <PerformanceComparisonChart project={selectedProject} />
             </div>
         </div>
