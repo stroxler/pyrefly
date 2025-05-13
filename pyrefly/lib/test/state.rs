@@ -222,7 +222,6 @@ impl Incremental {
         self.check_internal(want, recompute, false)
     }
 
-    #[expect(dead_code)]
     /// Run a check. Expect to recompute things to have changed, but ignore error comments.
     fn check_ignoring_loads_expectations(&mut self, want: &[&str], recompute: &[&str]) {
         self.check_internal(want, recompute, true)
@@ -410,4 +409,42 @@ fn test_change_require() {
         1
     );
     assert!(state.transaction().get_bindings(&handle).is_some());
+}
+
+#[test]
+fn test_error_clearing_on_dependency() {
+    let mut i = Incremental::new();
+
+    i.set("foo", "def xyz() -> int: ...");
+    i.set(
+        "main",
+        "from foo import x # E: Could not import `x` from `foo`",
+    );
+    i.check(&["main", "foo"], &["main", "foo"]);
+
+    let main_handle = i.handle("main");
+
+    let errors = i
+        .state
+        .transaction()
+        .get_errors([&main_handle])
+        .collect_errors();
+
+    assert!(
+        !errors.shown.is_empty(),
+        "Expected errors before fixing the dependency"
+    );
+
+    i.set("foo", "def x() -> int: ...");
+    i.check_ignoring_loads_expectations(&["main"], &["foo", "main"]);
+
+    let errors_after_fix = i
+        .state
+        .transaction()
+        .get_errors([&main_handle])
+        .collect_errors();
+    assert!(
+        !errors_after_fix.shown.is_empty(),
+        "TODO: Expected errors after fixing the dependency" // TODO(kylei): fix #192
+    );
 }
