@@ -149,10 +149,10 @@ use crate::util::thread_pool::ThreadPool;
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]
 pub(crate) enum IndexingMode {
     /// Do not index anything. Features that depend on indexing (e.g. find-refs) will be disabled.
-    #[default]
     None,
     /// Start indexing when opening a file that belongs to a config in the background.
     /// Indexing will happen in another thread, so that normal IDE services are not blocked.
+    #[default]
     LazyNonBlockingBackground,
     /// Start indexing when opening a file that belongs to a config in the background.
     /// Indexing will happen in the main thread, so that IDE services will be blocked.
