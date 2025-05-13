@@ -11,6 +11,8 @@ interface TimerProps {
     targetSeconds: number;
 }
 
+// This ensures number of decimal space to be 1. If we ever update this and ends up with more than
+// 1 decimal space, make sure to update minWidth of styles.duration in PerformanceComparisonChart.tsx
 const UPDATE_FREQUENCY_MS = 100;
 
 const PerformanceComparisonChartTimer: React.FC<TimerProps> = ({

@@ -92,6 +92,8 @@ const styles = stylex.create({
     },
     duration: {
         marginLeft: 'auto',
+        minWidth: '70px', // Ensure enough space for 3 digits + decimal + 's'
+        textAlign: 'right',
     },
 });
 
