@@ -174,8 +174,7 @@ impl Incremental {
         )
     }
 
-    /// Run a check. Expect recompute things to have changed.
-    fn check(&mut self, want: &[&str], recompute: &[&str]) {
+    fn check_internal(&mut self, want: &[&str], recompute: &[&str], ignore_expectations: bool) {
         let subscriber = TestSubscriber::new();
         let mut transaction = self
             .state
@@ -198,7 +197,9 @@ impl Incremental {
         );
         let loads = self.state.transaction().get_errors(handles.iter());
         print_errors(&loads.collect_errors().shown);
-        loads.check_against_expectations().unwrap();
+        if !ignore_expectations {
+            loads.check_against_expectations().unwrap();
+        }
 
         let mut recompute = recompute.map(|x| (*x).to_owned());
         recompute.sort();
@@ -214,6 +215,17 @@ impl Incremental {
         }
         changed.sort();
         assert_eq!(recompute, changed);
+    }
+
+    /// Run a check. Expect to recompute things to have changed and errors from # E: <> comments.
+    fn check(&mut self, want: &[&str], recompute: &[&str]) {
+        self.check_internal(want, recompute, false)
+    }
+
+    #[expect(dead_code)]
+    /// Run a check. Expect to recompute things to have changed, but ignore error comments.
+    fn check_ignoring_loads_expectations(&mut self, want: &[&str], recompute: &[&str]) {
+        self.check_internal(want, recompute, true)
     }
 }
 
