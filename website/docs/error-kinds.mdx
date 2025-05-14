@@ -407,25 +407,88 @@ Here, `P1.args` and `P2.kwargs` can't be used together; `*args` and `**kwargs` m
 
 ## invalid-super-call
 
-Attempting to call `super()` in a way that is not allowed. e.g. calling
-`super(Y, x)` on an object `x` that does not match the class `Y`.
+`super()` has [a few restrictions](https://docs.python.org/3/library/functions.html#super) on how it is called.
+
+`super()` can be called without arguments, but only when used inside a method of a class:
+
+```python
+class Legal(Base1, Base2):
+  def f(self) -> None:
+    super().f()
+
+def illegal(arg: SomeType) -> None:
+  super().f()
+```
+
+When the function is called with two arguments, like `super(T, x)`, then `T` must be a type, and the second argument is either an object where `isinstance(x, T)` is true
+or a type where `issubclass(x, T)` is true.
 
 ## invalid-syntax
 
-Incorrect Python syntax, construct is not allowed in this position.
+This error covers syntactical edge cases that are not flagged by the parser.
+
+For example:
+
+```python
+x: list[int] = [0, 2, 3]
+x[0]: int = 1
+```
+
+It's not a parse error for an assignment to have an annotation, but it is forbidden by the type checker to annotate assignment to a subscript like `x[0]`.
 
 ## invalid-type-var
 
-An error caused by incorrect usage or definition of a TypeVar.
+An error caused by incorrect usage or definition of a TypeVar. A few examples:
+
+```python
+from typing import TypeVar
+# Old-style TypeVars must be assigned to a matching variable.
+Wrong = TypeVar("Name")
+
+# PEP 695-style TypeVars can be constrained, but there must be at least two:
+def only_one_constriant[T: (int,)](x: T) -> T:
+  ...
+
+# It's also illegal to mix the two styles together.
+T = TypeVar("T")
+def mixed[S](a: S, b: T) -> None:
+  ...
+```
 
 ## invalid-type-var-tuple
 
 An error caused by incorrect usage or definition of a TypeVarTuple.
 
+TypeVarTuple has similar error cases to [TypeVar](#invalid-type-var), but also a few of its own. For example:
+
+```python
+from typing import TypeVarTuple
+
+Ts = TypeVarTuple("Ts")
+
+# TypeVarTuples must always be unpacked:
+bad: tuple[Ts] = (...)
+good: tuple[*Ts] = (...)
+
+# Only one TypeVarTuple is allowed in a list of type arguments:
+def two_tups[*Xs, *Ys](xs: tuple[*Xs], ys: tuple[*Ys]) -> None:
+  ...
+```
+
 ## invalid-yield
 
-Attempting to use `yield` in a way that is not allowed. e.g. `yield from` with
-something that's not an iterable.
+This error arises when `yield` is used in a way that is not allowed. For example:
+
+```python
+from typing import Generator
+
+for _ in range(1, 10):
+  yield "can't yield outside of a function!"
+
+def bad_yield_from() -> Generator[int, None, None]:
+  # `yield from` can only be used with iterables.
+  yield from 1
+```
 
 ## match-error
 
