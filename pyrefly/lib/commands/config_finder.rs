@@ -33,7 +33,7 @@ use crate::util::trace::debug_log;
 /// of the project may be `None` if it can't be found (no [`Path::parent()`]) or it's irrelevant (bundled typeshed).
 pub fn standard_config_finder(
     configure: Arc<
-        dyn Fn(Option<&Path>, ConfigFile) -> (ConfigFile, Vec<anyhow::Error>) + Send + Sync,
+        dyn Fn(Option<&Path>, ConfigFile) -> (ArcId<ConfigFile>, Vec<anyhow::Error>) + Send + Sync,
     >,
 ) -> ConfigFinder {
     let configure2 = configure.dupe();
@@ -48,7 +48,7 @@ pub fn standard_config_finder(
         let (config, errors) = configure3(None, ConfigFile::default());
         // Since this is a config we generated, these are likely internal errors.
         debug_log(errors);
-        ArcId::new(config)
+        config
     });
 
     ConfigFinder::new(
@@ -56,7 +56,7 @@ pub fn standard_config_finder(
             let (file_config, parse_errors) = ConfigFile::from_file(file);
             let (config, validation_errors) = configure(file.parent(), file_config);
             (
-                ArcId::new(config),
+                config,
                 parse_errors.into_iter().chain(validation_errors).collect(),
             )
         }),
@@ -75,7 +75,7 @@ pub fn standard_config_finder(
                     );
                     // Since this is a config we generated, these are likely internal errors.
                     debug_log(errors);
-                    ArcId::new(config)
+                    config
                 })
                 .dupe(),
 
@@ -113,7 +113,7 @@ pub fn standard_config_finder(
                         );
                         // Since this is a config we generated, these are likely internal errors.
                         debug_log(errors);
-                        ArcId::new(config)
+                        config
                     })
                     .dupe()
             }
@@ -166,7 +166,7 @@ mod tests {
                     expect_dir,
                     "failed for {expect_dir:?}, {module_name}, {module_path}"
                 );
-                (x, Vec::new())
+                (ArcId::new(x), Vec::new())
             }))
             .python_file(module_name, &module_path2)
         }

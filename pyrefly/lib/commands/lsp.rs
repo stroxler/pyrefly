@@ -375,7 +375,7 @@ impl Workspaces {
                 })
             };
             config.configure();
-            (config, Vec::new())
+            (ArcId::new(config), Vec::new())
         }))
     }
 }

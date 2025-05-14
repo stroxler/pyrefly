@@ -57,6 +57,7 @@ use crate::state::subscriber::ProgressBarSubscriber;
 use crate::sys_info::PythonPlatform;
 use crate::sys_info::PythonVersion;
 use crate::sys_info::SysInfo;
+use crate::util::arc_id::ArcId;
 use crate::util::args::clap_env;
 use crate::util::display;
 use crate::util::display::number_thousands;
@@ -489,7 +490,10 @@ impl Args {
         Ok(())
     }
 
-    pub fn override_config(&self, mut config: ConfigFile) -> (ConfigFile, Vec<anyhow::Error>) {
+    pub fn override_config(
+        &self,
+        mut config: ConfigFile,
+    ) -> (ArcId<ConfigFile>, Vec<anyhow::Error>) {
         if let Some(x) = &self.python_platform {
             config.python_environment.python_platform = Some(x.clone());
         }
@@ -508,7 +512,7 @@ impl Args {
         }
         config.configure();
         let errors = config.validate();
-        (config, errors)
+        (ArcId::new(config), errors)
     }
 
     fn get_required_levels(&self) -> RequireLevels {

@@ -154,7 +154,7 @@ fn get_explicit_config(
     let (file_config, parse_errors) = ConfigFile::from_file(path);
     let (config, validation_errors) = args.override_config(file_config);
     (
-        ArcId::new(config),
+        config,
         parse_errors.into_iter().chain(validation_errors).collect(),
     )
 }
@@ -177,7 +177,7 @@ fn get_globs_and_config_for_project(
                 ));
                 // Since this is a config we generated, these are likely internal errors.
                 debug_log(errors);
-                ArcId::new(config)
+                config
             });
             (config, config_finder.errors())
         }
