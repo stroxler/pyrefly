@@ -741,6 +741,12 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         .is_none_or(|want_v| got_v.required == want_v.required)
                 })
             }
+            (Type::TypedDict(_), Type::SelfType(cls))
+                if cls == self.type_order.stdlib().typed_dict_fallback() =>
+            {
+                // Allow substituting a TypedDict for Self when we call methods
+                true
+            }
             (Type::TypedDict(_), _) => {
                 let stdlib = self.type_order.stdlib();
                 self.is_subset_eq(

@@ -1028,7 +1028,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 return None;
             }
         };
-        foralled.subst_self_type_mut(&self.instantiate(cls));
+        foralled.subst_self_type_mut(&self.instantiate(cls), &|a, b| self.is_subset_eq(a, b));
         Some(bind_class_attribute(cls, foralled))
     }
 

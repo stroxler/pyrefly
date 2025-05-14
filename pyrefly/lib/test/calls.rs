@@ -47,6 +47,6 @@ class B[T](A): ...
 class C[T]: ...
 assert_type(A.__new__(A), Self)
 assert_type(A.__new__(B[int]), B[int])
-assert_type(A.__new__(C[int]), C[int])
+assert_type(A.__new__(C[int]), Self)
     "#,
 );
