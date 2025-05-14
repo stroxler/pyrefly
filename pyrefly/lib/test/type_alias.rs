@@ -79,9 +79,9 @@ testcase!(
     r#"
 from typing import TypeVar, assert_type
 T = TypeVar('T')
-X = T | list[T]
+X = T | list[T] | None
 def f(x: X[int]):
-    assert_type(x, int | list[int])
+    assert_type(x, int | list[int] | None)
     "#,
 );
 

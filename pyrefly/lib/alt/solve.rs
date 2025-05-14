@@ -1670,6 +1670,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn may_be_implicit_type_alias(ty: &Type) -> bool {
+        fn check_type_form(ty: &Type, allow_none: bool) -> bool {
+            // TODO(stroxler, rechen): Do we want to include Type::ClassDef(_)
+            // when there is no annotation, so that `mylist = list` is treated
+            // like a value assignment rather than a type alias?
+            match ty {
+                Type::Type(_) => true,
+                Type::None if allow_none => true,
+                Type::Union(members) => {
+                    for member in members {
+                        // `None` can be part of an implicit type alias if it's
+                        // part of a union. In other words, we treat
+                        // `x = T | None` as a type alias, but not `x = None`
+                        if !check_type_form(member, true) {
+                            return false;
+                        }
+                    }
+                    true
+                }
+                _ => false,
+            }
+        }
+        check_type_form(ty, false)
+    }
+
     fn binding_to_type(&self, binding: &Binding, errors: &ErrorCollector) -> Type {
         match binding {
             Binding::Forward(..)
@@ -1825,10 +1850,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     (Some(true), _) => {
                         self.as_type_alias(name, TypeAliasStyle::LegacyExplicit, ty, expr, errors)
                     }
-                    // TODO(stroxler, rechen): Do we want to include Type::ClassDef(_)
-                    // when there is no annotation, so that `mylist = list` is treated
-                    // like a value assignment rather than a type alias?
-                    (None, Type::Type(_)) => {
+                    (None, ty_ref) if Self::may_be_implicit_type_alias(ty_ref) => {
                         self.as_type_alias(name, TypeAliasStyle::LegacyImplicit, ty, expr, errors)
                     }
                     _ => ty,
