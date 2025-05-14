@@ -57,6 +57,7 @@ pyrefly check --remove-unused-ignores
 ```
 Repeat the steps above until you get a clean formatting run and a clean type check.
 
+This will add ` # pyrefly: ignore` comments to your code that will enable you to silence errors, and come back and fix them at a later date. This can make the process of upgrading a large codebase much more manageable.
 ----
 
 ## Add Pyrefly to CI
@@ -113,5 +114,3 @@ jobs:
         run: pyrefly check
 ```
 - Your `pyrefly.toml` or pyrefly configs in your `pyproject.toml` will be automatically detected. Learn how to [configure pyrefly here](../configuration).
-
-This will add ` # pyrefly: ignore` comments to your code that will enable you to silence errors, and come back and fix them at a later date. This can make the process of upgrading a large codebase much more manageable.
