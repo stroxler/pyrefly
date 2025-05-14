@@ -23,6 +23,7 @@ use crossbeam_channel::Select;
 use crossbeam_channel::Sender;
 use dupe::Dupe;
 use itertools::__std_iter::once;
+use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::ErrorCode;
 use lsp_server::Message;
@@ -1430,8 +1431,6 @@ impl Server {
         self.request_settings_for_all_workspaces();
     }
 
-    // TODO(connernilsen): add all source code, search_paths from config to watcher
-    // TODO(connernilsen): on config file change, re-watch
     fn setup_file_watcher_if_necessary(&self, roots: &[PathBuf]) {
         if matches!(
             self.initialize_params.capabilities.workspace,
@@ -1460,6 +1459,22 @@ impl Server {
                     .iter()
                     .for_each(|config| glob_patterns.push(root.join(format!("**/{config}"))));
             }
+            let loaded_configs = self.workspaces.loaded_configs.read();
+            loaded_configs
+                .iter()
+                .filter_map(|c| c.upgrade())
+                .for_each(|c| {
+                    if let Some(config_path) = c.source.root() {
+                        glob_patterns.push(config_path.to_path_buf());
+                    }
+                    c.search_path()
+                        .chain(c.site_package_path())
+                        .cartesian_product(PYTHON_FILE_SUFFIXES_TO_WATCH)
+                        .for_each(|(s, suffix)| {
+                            glob_patterns.push(s.join(format!("**/.{suffix}")))
+                        });
+                });
+            drop(loaded_configs);
             let watchers = glob_patterns
                 .into_iter()
                 .map(|pattern| FileSystemWatcher {
