@@ -210,7 +210,7 @@ exports[`Home page renders internal site correctly 1`] = `
                   Developer Delight
                 </h3>
                 <p>
-                  Catch errors as you write code, and get instant feedback right in your favorite editor
+                  Get lightning fast autocorrect, and catch errors with instant feedback in your favorite editor.
                 </p>
               </div>
               <div
@@ -236,7 +236,7 @@ exports[`Home page renders internal site correctly 1`] = `
                   Codebase Clarity
                 </h3>
                 <p>
-                  Improve code readability and maintainability with precise type annotations
+                  Improve code readability and maintainability with precise type annotations.
                 </p>
               </div>
               <div
@@ -246,7 +246,7 @@ exports[`Home page renders internal site correctly 1`] = `
                   Tooling for Improving Types
                 </h3>
                 <p>
-                  Comes packaged with tools to elevate your type coverage from 0 to 100
+                  Comes packaged with tools to elevate your type coverage from 0 to 100.
                 </p>
               </div>
               <div
@@ -256,7 +256,14 @@ exports[`Home page renders internal site correctly 1`] = `
                   Fully Featured
                 </h3>
                 <p>
-                  Actively under development. Follows the official Python typing specification.
+                  Follows the official 
+                  <a
+                    href="/en/docs/python-features-and-peps"
+                    target="_blank"
+                  >
+                    Python typing specification
+                  </a>
+                  . Actively developed and maintained.
                 </p>
               </div>
             </div>
