@@ -162,7 +162,6 @@ def f1(x: type[A] | type[B]):
 );
 
 testcase!(
-    bug = "`Literal[False] | bool` should collapse to `bool`",
     test_and,
     r#"
 from typing import assert_type, Literal, Never
@@ -170,7 +169,7 @@ def f(x: bool | None):
     if x is True and x is None:
         assert_type(x, Never)
     else:
-        assert_type(x, Literal[False] | bool | None)
+        assert_type(x, bool | None)
     "#,
 );
 
