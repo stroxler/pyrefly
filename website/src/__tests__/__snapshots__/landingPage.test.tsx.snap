@@ -122,7 +122,7 @@ exports[`Home page renders external site correctly 1`] = `
                   Developer Delight
                 </h3>
                 <p>
-                  Get lightning fast autocorrect, and catch errors with instant feedback in your favorite editor.
+                  Get lightning fast autocomplete, and catch errors with instant feedback in your favorite editor.
                 </p>
               </div>
               <div
@@ -473,7 +473,7 @@ exports[`Home page renders internal site correctly 1`] = `
                   Developer Delight
                 </h3>
                 <p>
-                  Get lightning fast autocorrect, and catch errors with instant feedback in your favorite editor.
+                  Get lightning fast autocomplete, and catch errors with instant feedback in your favorite editor.
                 </p>
               </div>
               <div

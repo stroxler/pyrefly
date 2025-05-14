@@ -52,7 +52,7 @@ export default function WhyPyrefly(): React.ReactElement {
                 />
                 <WhyPyreflyGridItem
                     title="Developer Delight"
-                    content="Get lightning fast autocorrect, and catch errors with instant feedback in your favorite editor."
+                    content="Get lightning fast autocomplete, and catch errors with instant feedback in your favorite editor."
                     index={1}
                     startAnimation={startAnimation}
                 />

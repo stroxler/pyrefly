@@ -32,7 +32,7 @@ function getDescriptionText(project: ProjectValue): React.ReactNode {
         case Project.INSTAGRAM:
             return (
                 <>
-                    Type checking the instagram codebase from scratch.
+                    Type checking the Instagram codebase from scratch.
                     <PerformanceDescriptionTooltip project={project} />
                 </>
             );
