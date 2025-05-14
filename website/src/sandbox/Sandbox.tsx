@@ -243,7 +243,13 @@ export default function Sandbox({
         codeSample
     );
     return (
-        <div id="sandbox-editor" {...stylex.props(styles.tryEditor)}>
+        <div
+            id="sandbox-editor"
+            {...stylex.props(
+                styles.tryEditor,
+                !isCodeSnippet && !isMobile() && styles.sandboxPadding
+            )}
+        >
             <div
                 id="sandbox-code-editor-container"
                 {...stylex.props(
@@ -615,6 +621,9 @@ const styles = stylex.create({
         display: 'flex',
         flexDirection: 'column',
         flex: 1,
+    },
+    sandboxPadding: {
+        paddingHorizontal: '10px',
     },
     codeEditorContainer: {
         position: 'relative',
