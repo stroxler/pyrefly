@@ -29,7 +29,6 @@ const docsSidebar = [
         description: "Never used a type system before or just new to Pyrefly? Start here!",
         items: ['typing-for-python-developers', 'python-typing-for-beginners', 'python-features-and-peps']
     },
-    // TODO (T221099224): Release getting started and installation doc pages to public
     {
         type: 'category' as const,
         label: 'Getting Started',
@@ -40,11 +39,8 @@ const docsSidebar = [
     {
         type: 'category' as const,
         label: 'Migrating to Pyrefly',
-        link: {
-            type: 'doc' as const,
-            id: 'migrating-to-pyrefly',
-        },
         description: "Never used a type system before or just new to Pyrefly? Start here!",
+        collapsed: false,
         items: ['migrating-from-mypy',  'migrating-from-pyright']
     },
     {
