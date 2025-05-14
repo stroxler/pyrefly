@@ -29,7 +29,7 @@ export default function PerformanceComparisonDescription({
 function getDescriptionText(project: ProjectValue): React.ReactNode {
     switch (project) {
         case Project.INSTAGRAM:
-            return 'Type checking the instagram codebase with 19 millions lines of code from scratch.';
+            return 'Type checking the instagram codebase from scratch.';
         case Project.PYTORCH:
             return (
                 <>
