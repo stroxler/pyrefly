@@ -382,7 +382,10 @@ impl Workspaces {
             };
             config.configure();
             let config = ArcId::new(config);
-            loaded_configs.write().insert(config.downgrade());
+            let mut loaded_configs = loaded_configs.write();
+            let purged_configs = loaded_configs.extract_if(|c| c.vacant()).count();
+            eprintln!("Purged {purged_configs} dropped configs");
+            loaded_configs.insert(config.downgrade());
             (config, Vec::new())
         }))
     }
