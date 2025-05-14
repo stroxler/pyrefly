@@ -492,21 +492,66 @@ def bad_yield_from() -> Generator[int, None, None]:
 
 ## match-error
 
-An error caused by a bad match statement. e.g. Writing a Foo(x, y, z) pattern
-when Foo only matches on (x, y).
+This error is used in two cases.
+
+The first is when there is an issue with a `match` statement. For example, `Ex` only has 2 fields but the `case` lists 3:
+
+```python
+class Ex:
+  __match_args__ = ('a', 'b')
+  def __init__(self, a: int, b: str) -> None:
+    self.a = a
+    self.b = b
+
+def do(x: Ex) -> None:
+  match x:
+    case Ex(a, b, c):
+      print("This is an error")
+```
+
+It is also used when `__match_args__` is defined incorrectly. It must be a tuple of the names of the class's attributes as literal strings.
+For class `Ex` in the previous example, `__match_args__ = ('a', 'c')` would be an error because `Ex.c` does not exist.
 
 ## missing-argument
 
-An error caused by calling a function without all the required arguments. Should
-be used when we can name the specific arguments that are missing.
+An error caused by calling a function without all the required arguments.
+
+```python
+def takes_two(x: int, y: int) -> int:
+  return x + y
+
+takes_two(1)
+```
 
 ## missing-attribute
 
-Attempting to access an attribute that does not exist.
+This error is raised when attempting to access an attribute that does not exist on the given object or module.
+
+In the case of modules, attempting to import an nonexistent name will raise [`missing-module-attribute](#missing-module-attribute) instead.
+
+```python
+import os
+from os import bacarat  # missing-module-attribute
+os.jongleur()  # missing-attribute
+```
+
+Note that objects with type `Any` will never raise this error.
 
 ## missing-module-attribute
 
-Accessing an attribute that does not exist on a module.
+Arises when attempting to import a name that does not exist from a module.
+
+This is distinct from [`import-error`](#import-error), which is used when the module being imported does not exist, and [`missing-attribute`](#missing-attribute), when access attributes of the module.
+
+```python
+import this_does_not_exist  # import-error
+import os.bacarat  # import-error
+from os import joker  # missing-module-attribute
+os.perkeo  # missing-attribute
+```
+
+In this example, `os.bacarat` is treated as a module name, so failing to find it results in an `import-error`.
+`from os import joker` does not tell us if `joker` is a module, class, function, etc., so it is treated as the more general `missing-module-attribute`.
 
 ## no-access
 
