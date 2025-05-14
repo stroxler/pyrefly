@@ -136,6 +136,7 @@ use crate::types::lsp::position_to_text_size;
 use crate::types::lsp::source_range_to_range;
 use crate::types::lsp::text_size_to_position;
 use crate::util::arc_id::ArcId;
+use crate::util::arc_id::WeakArcId;
 use crate::util::args::clap_env;
 use crate::util::events::CategorizedEvents;
 use crate::util::lock::Mutex;
@@ -330,6 +331,7 @@ struct Workspaces {
     /// If a workspace is not found, this one is used. It contains every possible file on the system but is lowest priority.
     default: RwLock<Workspace>,
     workspaces: RwLock<SmallMap<PathBuf, Workspace>>,
+    loaded_configs: Arc<RwLock<HashSet<WeakArcId<ConfigFile>>>>,
 }
 
 impl Workspaces {
@@ -337,6 +339,7 @@ impl Workspaces {
         Self {
             default: RwLock::new(default),
             workspaces: RwLock::new(SmallMap::new()),
+            loaded_configs: Arc::new(RwLock::new(HashSet::new())),
         }
     }
 
@@ -354,7 +357,10 @@ impl Workspaces {
         f(workspace.unwrap_or(&default_workspace))
     }
 
-    fn config_finder(workspaces: &Arc<Workspaces>) -> ConfigFinder {
+    fn config_finder(
+        workspaces: &Arc<Workspaces>,
+        loaded_configs: Arc<RwLock<HashSet<WeakArcId<ConfigFile>>>>,
+    ) -> ConfigFinder {
         let workspaces = workspaces.dupe();
         standard_config_finder(Arc::new(move |dir, mut config| {
             if let Some(dir) = dir
@@ -375,7 +381,9 @@ impl Workspaces {
                 })
             };
             config.configure();
-            (ArcId::new(config), Vec::new())
+            let config = ArcId::new(config);
+            loaded_configs.write().insert(config.downgrade());
+            (config, Vec::new())
         }))
     }
 }
@@ -760,7 +768,8 @@ impl Server {
 
         let workspaces = Arc::new(Workspaces::new(Workspace::default()));
 
-        let config_finder = Workspaces::config_finder(&workspaces);
+        let config_finder =
+            Workspaces::config_finder(&workspaces, workspaces.loaded_configs.clone());
         let s = Self {
             connection: ServerConnection(connection),
             async_state_read_threads: ThreadPool::with_thread_count(ThreadCount::NumThreads(
