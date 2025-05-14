@@ -444,7 +444,7 @@ fn test_error_clearing_on_dependency() {
         .get_errors([&main_handle])
         .collect_errors();
     assert!(
-        !errors_after_fix.shown.is_empty(),
-        "TODO: Expected errors after fixing the dependency" // TODO(kylei): fix #192
+        errors_after_fix.shown.is_empty(),
+        "Expected errors after fixing the dependency"
     );
 }
