@@ -233,6 +233,15 @@ export default function Sandbox({
         editor.setSelection(range);
     };
 
+    const buttons = getMonacoButtons(
+        isCodeSnippet,
+        model,
+        runPythonCodeCallback,
+        pyodideStatus,
+        setPyodideStatus,
+        forceRecheck,
+        codeSample
+    );
     return (
         <div id="sandbox-editor" {...stylex.props(styles.tryEditor)}>
             <div
@@ -266,28 +275,7 @@ export default function Sandbox({
                                 : styles.hiddenButtonContainer
                         )}
                     >
-                        {!isCodeSnippet
-                            ? getRunPythonButton(
-                                  runPythonCodeCallback,
-                                  pyodideStatus,
-                                  setPyodideStatus
-                              )
-                            : null}
-                        {!isCodeSnippet ? getShareUrlButton() : null}
-                        {isCodeSnippet ? (
-                            <OpenSandboxButton model={model} />
-                        ) : null}
-                        {isCodeSnippet ? getCopyButton(model) : null}
-                        {/* Hide reset button if it's readonly, which is when it's a code snippet on mobile */}
-                        {!(isCodeSnippet && isMobile())
-                            ? getResetButton(
-                                  model,
-                                  forceRecheck,
-                                  codeSample,
-                                  isCodeSnippet
-                              )
-                            : null}
-                        {!isCodeSnippet ? getGitHubIssuesButton() : null}
+                        {buttons}
                     </div>
                 }
             </div>
@@ -417,6 +405,44 @@ function getPyreflyEditor(
             />
         );
     }
+}
+
+function getMonacoButtons(
+    isCodeSnippet: boolean,
+    model: editor.ITextModel,
+    runPythonCodeCallback: () => Promise<void>,
+    pyodideStatus: PyodideStatus,
+    setPyodideStatus: React.Dispatch<React.SetStateAction<PyodideStatus>>,
+    forceRecheck: () => void,
+    codeSample: string
+): ReadonlyArray<React.ReactElement> {
+    let buttons: ReadonlyArray<React.ReactElement> = [];
+    if (isCodeSnippet) {
+        buttons = [
+            <OpenSandboxButton model={model} />,
+            getCopyButton(model),
+            /* Hide reset button if it's readonly, which is when it's a code snippet on mobile */
+            !isMobile()
+                ? getResetButton(model, forceRecheck, codeSample, isCodeSnippet)
+                : null,
+        ].filter(Boolean);
+    } else {
+        buttons = [
+            getRunPythonButton(
+                runPythonCodeCallback,
+                pyodideStatus,
+                setPyodideStatus
+            ),
+            getShareUrlButton(),
+            getResetButton(model, forceRecheck, codeSample, isCodeSnippet),
+            getGitHubIssuesButton(),
+        ];
+    }
+
+    // react requires a unique key for each element in an array
+    return buttons.map((button, index) =>
+        React.cloneElement(button, { key: `button-${index}` })
+    );
 }
 
 // Monaco Editor Buttons
