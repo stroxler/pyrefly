@@ -66,12 +66,14 @@ interface SandboxProps {
     sampleFilename: string;
     isCodeSnippet?: boolean;
     codeSample?: string;
+    isInViewport?: boolean;
 }
 
 export default function Sandbox({
     sampleFilename,
     isCodeSnippet = false,
     codeSample = DEFAULT_SANDBOX_PROGRAM,
+    isInViewport = true,
 }: SandboxProps): React.ReactElement {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const [errors, setErrors] =
@@ -89,8 +91,13 @@ export default function Sandbox({
     const [activeTab, setActiveTab] = useState<string>('errors');
     const [isHovered, setIsHovered] = useState(false);
 
-    // Only run for initial render, and not on subsequent updates
+    // Initialize WebAssembly only when the component is in the viewport
     useEffect(() => {
+        // Skip initialization if not in viewport
+        if (!isInViewport) {
+            return;
+        }
+
         setLoading(true);
         // Initialize the WebAssembly module only when the component is mounted
         if (!pyreflyWasmInitializedPromise) {
@@ -107,7 +114,7 @@ export default function Sandbox({
                 setLoading(false);
                 setInternalError(JSON.stringify(e));
             });
-    }, []);
+    }, [isInViewport]); // Re-run when isInViewport changes
 
     // Need to add createModel handler in case monaco model was not created at mount time
     monaco.editor.onDidCreateModel((_newModel) => {
