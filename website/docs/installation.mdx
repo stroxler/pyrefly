@@ -88,7 +88,7 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@v5
-        
+
       # Install Python dependencies and create environment
       - name: Install dependencies and run pytest
         run: |
@@ -112,6 +112,6 @@ jobs:
       - name: Run Pyrefly Type Checker
         run: pyrefly check
 ```
-- Your `pyrefly.toml` or pyrefly configs in your `pyproject.toml` will be automatically detected. Learn how to [configure pyrefly here]('/en/docs/configuration/').
+- Your `pyrefly.toml` or pyrefly configs in your `pyproject.toml` will be automatically detected. Learn how to [configure pyrefly here](../configuration).
 
 This will add ` # pyrefly: ignore` comments to your code that will enable you to silence errors, and come back and fix them at a later date. This can make the process of upgrading a large codebase much more manageable.
