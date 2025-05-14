@@ -44,6 +44,7 @@ function getDescriptionText(project: ProjectValue): React.ReactNode {
                         href="https://github.com/pytorch/pytorch"
                         target="_blank"
                         rel="noopener noreferrer"
+                        {...stylex.props(styles.link)}
                     >
                         PyTorch
                     </a>{' '}
@@ -57,5 +58,11 @@ function getDescriptionText(project: ProjectValue): React.ReactNode {
 const styles = stylex.create({
     messageContainer: {
         paddingBottom: '2rem',
+    },
+    link: {
+        color: 'var(--color-primary)',
+        ':hover': {
+            color: 'var(--color-primary-hover)',
+        },
     },
 });

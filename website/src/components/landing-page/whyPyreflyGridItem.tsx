@@ -96,7 +96,11 @@ export default function WhyPyreflyGridItem({
                 {contentWithLink && (
                     <>
                         {contentWithLink.beforeText}
-                        <a href={contentWithLink.link.url} target="_blank">
+                        <a
+                            href={contentWithLink.link.url}
+                            target="_blank"
+                            {...stylex.props(styles.link)}
+                        >
                             {contentWithLink.link.text}
                         </a>
                         {contentWithLink.afterText}
@@ -139,5 +143,12 @@ const styles = stylex.create({
     // Add a new style for the sup element
     footnoteSupElement: {
         marginLeft: '-2px',
+    },
+    // Style for links
+    link: {
+        color: 'var(--color-primary)',
+        ':hover': {
+            color: 'var(--color-primary-hover)',
+        },
     },
 });
