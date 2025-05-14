@@ -27,7 +27,7 @@ const docsSidebar = [
         type: 'category' as const,
         label: 'Learn Python Typing',
         description: "Never used a type system before or just new to Pyrefly? Start here!",
-        items: ['typing-for-python-developers', 'python-typing-for-beginners']
+        items: ['typing-for-python-developers', 'python-typing-for-beginners', 'python-features-and-peps']
     },
     // TODO (T221099224): Release getting started and installation doc pages to public
     {

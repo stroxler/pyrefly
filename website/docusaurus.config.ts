@@ -33,6 +33,15 @@ function getNavBarItems() {
             label: 'Learn',
             position: 'left' as const,
         },
+
+        {
+            to: `${BasePath}/python-features-and-peps/`,
+            activeBasePath: `${BasePath}/python-features-and-peps`,
+            label: 'PEPs',
+            position: 'left' as const,
+        },
+
+
         // TODO (T222948083) Re-enable internal sandbox after we fix issues with sandbox on static docs
         process.env.INTERNAL_STATIC_DOCS === '1'
         ? {
