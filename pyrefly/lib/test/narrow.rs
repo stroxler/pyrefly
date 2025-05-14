@@ -325,7 +325,7 @@ testcase!(
 from typing import assert_type, Literal
 def f() -> str | None: ...
 x = f()
-while x is None:  # E: EXPECTED str | None <: Literal[42] | str
+while x is None:  # E: EXPECTED Literal[42] | str <: str | None
     if f():
         x = 42
         break

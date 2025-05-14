@@ -1039,3 +1039,20 @@ def f(cond1: bool, cond2: bool, cond3: bool, cond4: bool):
 assert_type(f(True, True, True, True), int)
 "#,
 );
+
+testcase!(
+    test_loop_defaulting,
+    r#"
+# From https://github.com/facebook/pyrefly/issues/104
+from typing import assert_type
+class Foo:
+    pass
+
+def rebase(parent: Foo | int) -> Foo: ...
+
+def test(b: bool, x: Foo) -> None:
+    while b:
+        x = rebase(x)
+    assert_type(x, Foo)
+"#,
+);
