@@ -68,35 +68,6 @@ export default function WhyPyrefly(): React.ReactElement {
                     index={2}
                     startAnimation={startAnimation}
                 />
-
-                {/* Long-term benefits */}
-                <WhyPyreflyGridItem
-                    title="Codebase Clarity"
-                    content="Improve code readability and maintainability with precise type annotations."
-                    index={3}
-                    startAnimation={startAnimation}
-                />
-                <WhyPyreflyGridItem
-                    title="Tooling for Improving Types"
-                    content="Comes packaged with tools to elevate your type coverage from 0 to 100."
-                    index={4}
-                    startAnimation={startAnimation}
-                />
-                <WhyPyreflyGridItem
-                    title="Fully Featured"
-                    contentWithLink={{
-                        beforeText: 'Follows the official ',
-                        link: {
-                            text: 'Python typing specification',
-                            url: `${useBaseUrl(
-                                '/en/docs/python-features-and-peps'
-                            )}`,
-                        },
-                        afterText: '. Actively developed and maintained.',
-                    }}
-                    index={5}
-                    startAnimation={startAnimation}
-                />
             </div>
             <section {...stylex.props(styles.fireflyContainer)}>
                 <Firefly />

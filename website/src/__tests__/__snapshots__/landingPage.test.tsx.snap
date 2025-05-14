@@ -141,43 +141,6 @@ exports[`Home page renders external site correctly 1`] = `
                    your code in minutes.
                 </p>
               </div>
-              <div
-                style="transition-delay: 0.15000000000000002s;"
-              >
-                <h3>
-                  Codebase Clarity
-                </h3>
-                <p>
-                  Improve code readability and maintainability with precise type annotations.
-                </p>
-              </div>
-              <div
-                style="transition-delay: 0.2s;"
-              >
-                <h3>
-                  Tooling for Improving Types
-                </h3>
-                <p>
-                  Comes packaged with tools to elevate your type coverage from 0 to 100.
-                </p>
-              </div>
-              <div
-                style="transition-delay: 0.25s;"
-              >
-                <h3>
-                  Fully Featured
-                </h3>
-                <p>
-                  Follows the official 
-                  <a
-                    href="/en/docs/python-features-and-peps"
-                    target="_blank"
-                  >
-                    Python typing specification
-                  </a>
-                  . Actively developed and maintained.
-                </p>
-              </div>
             </div>
             <section>
               <li
@@ -490,43 +453,6 @@ exports[`Home page renders internal site correctly 1`] = `
                     Start type checking
                   </a>
                    your code in minutes.
-                </p>
-              </div>
-              <div
-                style="transition-delay: 0.15000000000000002s;"
-              >
-                <h3>
-                  Codebase Clarity
-                </h3>
-                <p>
-                  Improve code readability and maintainability with precise type annotations.
-                </p>
-              </div>
-              <div
-                style="transition-delay: 0.2s;"
-              >
-                <h3>
-                  Tooling for Improving Types
-                </h3>
-                <p>
-                  Comes packaged with tools to elevate your type coverage from 0 to 100.
-                </p>
-              </div>
-              <div
-                style="transition-delay: 0.25s;"
-              >
-                <h3>
-                  Fully Featured
-                </h3>
-                <p>
-                  Follows the official 
-                  <a
-                    href="/en/docs/python-features-and-peps"
-                    target="_blank"
-                  >
-                    Python typing specification
-                  </a>
-                  . Actively developed and maintained.
                 </p>
               </div>
             </div>
