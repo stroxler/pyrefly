@@ -266,7 +266,9 @@ export default function Sandbox({
                         {...stylex.props(
                             styles.buttonContainerBase,
                             isMobile()
-                                ? styles.mobileButtonContainer
+                                ? isCodeSnippet
+                                    ? styles.mobileButtonContainerCodeSnippet
+                                    : styles.mobileButtonContainerSandbox
                                 : styles.desktopButtonContainer,
                             // show button if it's in sandbox or if it's hovered or if it's mobile
                             // We only want to hide this if it's a code snippet not hovered on mobile
@@ -440,8 +442,15 @@ function getMonacoButtons(
     }
 
     // react requires a unique key for each element in an array
+    // Apply sandboxMobileButton style to buttons when they're in the sandbox (not code snippet) on mobile
     return buttons.map((button, index) =>
-        React.cloneElement(button, { key: `button-${index}` })
+        React.cloneElement(button, {
+            key: `button-${index}`,
+            // Apply additional style for sandbox buttons on mobile
+            ...(!isCodeSnippet && isMobile()
+                ? { className: stylex.props(styles.sandboxMobileButton) }
+                : {}),
+        })
     );
 }
 
@@ -623,14 +632,19 @@ const styles = stylex.create({
     buttonContainerBase: {
         position: 'absolute',
         display: 'flex',
-        flexDirection: 'row', // Buttons start from left and go right
         zIndex: 10, // used to ensure it's beneath the navbar
+        gap: '8px',
     },
-    // Style for mobile buttons (always visible)
-    mobileButtonContainer: {
+    mobileButtonContainerCodeSnippet: {
         // Position at bottom right for mobile
         bottom: '16px',
         right: '16px',
+    },
+    mobileButtonContainerSandbox: {
+        // Position at bottom right for mobile
+        bottom: '16px',
+        right: '16px',
+        flexDirection: 'column', // Buttons stack vertically on mobile for sandbox
     },
     // Style for desktop buttons (hidden by default, visible on hover)
     desktopButtonContainer: {
@@ -650,5 +664,12 @@ const styles = stylex.create({
         opacity: 1,
         visibility: 'visible',
         transition: 'opacity 0.2s ease-in-out, visibility 0.2s ease-in-out',
+    },
+    // Style for sandbox mobile buttons
+    sandboxMobileButton: {
+        '@media (max-width: 768px)': {
+            margin: '0', // No margin needed as gap is handled by the container
+            width: '100%', // Make buttons full width on mobile for sandbox
+        },
     },
 });
