@@ -8,13 +8,12 @@
  */
 
 import * as React from 'react';
-import * as stylex from '@stylexjs/stylex';
 import {
     Project,
     TypeChecker,
     type TypeCheckerValue,
 } from './PerformanceComparisonTypes';
-import typography from './typography';
+import Tooltip from './Tooltip';
 
 interface TypecheckerTooltipProps {
     typechecker: TypeCheckerValue;
@@ -25,32 +24,7 @@ export default function TypecheckerTooltip({
     typechecker,
     project,
 }: TypecheckerTooltipProps): React.ReactElement {
-    return (
-        <div {...stylex.props(styles.tooltipContainer)}>
-            <span
-                {...stylex.props(typography.p, styles.infoIcon)}
-                onMouseEnter={(e) => {
-                    const tooltip = e.currentTarget.nextElementSibling;
-                    if (tooltip) {
-                        (tooltip as HTMLElement).style.visibility = 'visible';
-                        (tooltip as HTMLElement).style.opacity = '1';
-                    }
-                }}
-                onMouseLeave={(e) => {
-                    const tooltip = e.currentTarget.nextElementSibling;
-                    if (tooltip) {
-                        (tooltip as HTMLElement).style.visibility = 'hidden';
-                        (tooltip as HTMLElement).style.opacity = '0';
-                    }
-                }}
-            >
-                ⓘ
-            </span>
-            <span {...stylex.props(styles.tooltip)}>
-                {getTypecheckerInfo(typechecker, project)}
-            </span>
-        </div>
-    );
+    return <Tooltip content={getTypecheckerInfo(typechecker, project)} />;
 }
 
 export function getTypecheckerInfo(
@@ -106,34 +80,3 @@ export function getTypecheckerInfo(
             );
     }
 }
-
-const styles = stylex.create({
-    tooltipContainer: {
-        position: 'relative',
-        display: 'inline-block',
-        marginLeft: '8px',
-    },
-    infoIcon: {
-        fontSize: '16px',
-        color: 'var(--color-text)',
-        cursor: 'help',
-        verticalAlign: 'middle',
-    },
-    tooltip: {
-        visibility: 'hidden',
-        backgroundColor: 'var(--color-background-secondary)',
-        color: 'var(--color-text)',
-        textAlign: 'center',
-        borderRadius: '6px',
-        padding: '8px 12px',
-        border: '1px solid var(--color-background)',
-        position: 'absolute',
-        zIndex: 1,
-        bottom: '125%',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '250px',
-        opacity: 0,
-        transition: 'opacity 0.3s',
-    },
-});
