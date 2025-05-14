@@ -70,12 +70,12 @@ Python's built-in types can be used to write many type hints.
 from typing import reveal_type
 
 age: int = 5
-reveal_type(age) # revealed type: Literal[5]
+reveal_type(age) # revealed type: int
 
 age = "oops"
 
 name: str = "John"
-reveal_type(name) # revealed type: Literal['John']
+reveal_type(name) # revealed type: str
 
 numbers: list[int] = [1, 2, 3]
 reveal_type(numbers) # revealed type: list[int]
@@ -86,7 +86,7 @@ reveal_type(names) # revealed type: list[str]
 person: dict[str, str] = {"name": "John", "age": "30"}
 reveal_type(person) # revealed type: dict[str, str]
 
-is_admin: bool = True
+is_admin = True
 reveal_type(is_admin) # revealed type: Literal[True]
 `}
 />

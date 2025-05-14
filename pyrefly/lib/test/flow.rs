@@ -188,7 +188,7 @@ def f(cond):
     x: int = 0
     while cond():
         x: int = 1
-    assert_type(x, Literal[0, 1])
+    assert_type(x, int)
     "#,
 );
 
@@ -553,7 +553,7 @@ except Exception1 as e5:
 except x1 as e6:
     reveal_type(e6)  # E: revealed type: Exception
 except x2 as e7:
-    reveal_type(e6)  # E: revealed type: Exception1 | Exception2
+    reveal_type(e7)  # E: revealed type: Exception1 | Exception2
 "#,
 );
 

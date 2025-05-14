@@ -1839,9 +1839,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                         let annot_ty = annot.ty(self.stdlib);
                         let hint = annot_ty.as_ref().map(|t| (t, tcc));
+                        let expr_ty = self.expr(expr, hint, errors);
+                        let ty = if *style == AnnotationStyle::Direct {
+                            // For direct assignments, user-provided annotation takes
+                            // precedence over inferred expr type.
+                            annot_ty.unwrap_or(expr_ty)
+                        } else {
+                            // For forwarded assignment, user-provided annotation is treated
+                            // as just an upper-bound hint.
+                            expr_ty
+                        };
                         (
                             Some(annot.annotation.qualifiers.contains(&Qualifier::TypeAlias)),
-                            self.expr(expr, hint, errors),
+                            ty,
                         )
                     }
                     None => (None, self.expr(expr, None, errors)),

@@ -51,7 +51,7 @@ class A:
 def test2[T: A](cls: type[T]) -> T:
     a1: A = cls()  # Not OK
     a2: A = cls(1)
-    return a2
+    return cls()
 "#,
 );
 

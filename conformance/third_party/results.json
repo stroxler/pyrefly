@@ -3,7 +3,7 @@
   "pass": 53,
   "fail": 83,
   "pass_rate": 0.39,
-  "differences": 430,
+  "differences": 429,
   "passing": [
     "aliases_newtype.py",
     "annotations_coroutines.py",
@@ -60,7 +60,7 @@
     "typeddicts_readonly_kwargs.py"
   ],
   "failing": {
-    "aliases_explicit.py": 2,
+    "aliases_explicit.py": 1,
     "aliases_implicit.py": 7,
     "aliases_recursive.py": 17,
     "aliases_type_statement.py": 8,

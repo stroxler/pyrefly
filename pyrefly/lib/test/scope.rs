@@ -23,11 +23,11 @@ testcase!(
     r#"
 x: int = 0
 class C:
-    x: str = x # E: `Literal[0]` is not assignable to `str`
+    x: str = x # E: `int` is not assignable to `str`
     y: int = x # E: `str` is not assignable to `int`
     def m(self) -> str:
         # x refers to global x: int
-        return x # E: Returned type `Literal[0]` is not assignable to declared return type `str`
+        return x # E: Returned type `int` is not assignable to declared return type `str`
 "#,
 );
 

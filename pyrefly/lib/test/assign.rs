@@ -332,7 +332,7 @@ testcase!(
     r#"
 from typing import Literal
 x: int = 0
-lit0: Literal[0] = x
+lit0: Literal[0] = x  # E: `int` is not assignable to `Literal[0]`
 x = 1
 lit1: Literal[1] = x
 x = "oops"  # E: `Literal['oops']` is not assignable to variable `x` with type `int`
@@ -414,7 +414,7 @@ class A:
     def __iadd__(self, other):
         return self
     def __add__(self, other):
-        return self 
+        return self
 class B:
     def __add__(self, other):
         return self
@@ -422,7 +422,7 @@ class C:
     def __radd__(self, other):
         return self
 class D: pass
-        
+
 a = A()
 b = B()
 c = C()
