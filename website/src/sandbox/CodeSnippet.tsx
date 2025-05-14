@@ -45,5 +45,6 @@ export default function CodeSnippet({
 const styles = stylex.create({
     pre: {
         backgroundColor: 'var(--code-snippet-background)',
+        overflow: 'visible', // Allow hover results to overflow
     },
 });

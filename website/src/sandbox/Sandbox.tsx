@@ -636,7 +636,6 @@ const styles = stylex.create({
     codeEditorContainerWithRadius: {
         border: '1px solid var(--color-background-secondary)',
         borderRadius: '0.25rem',
-        overflow: 'hidden', // Ensure content doesn't overflow the rounded corners
     },
     buttonContainerBase: {
         position: 'absolute',
