@@ -555,28 +555,83 @@ In this example, `os.bacarat` is treated as a module name, so failing to find it
 
 ## no-access
 
-The attribute exists but does not support this access pattern.
+The `no-access` error indicates that an attribute exists, but it cannot be used in this way.
+
+For example, classes do not have access to their instances' attributes:
+
+```python
+class Ex:
+  def __init__(self) -> None:
+    self.meaning: int = 42
+
+del Ex.meaning  # no-access
+```
 
 ## no-matching-overload
 
-Attempting to call an overloaded function, but none of the signatures match.
+This error is similar to the other bad function call errors, but specifically for cases where a function decorated with `@overload` is called with arguments that do not match any of the overloaded variations.
+
+For example, neither of the signatures of `f` can take an argument of type `float`:
+
+```python
+from typing import overload
+
+@overload
+def f(x: int) -> int:
+    ...
+
+@overload
+def f(x: str) -> str:
+    ...
+
+def f(x: int | str) -> int | str:
+    return x
+
+f(1.0)
+```
 
 ## not-a-type
 
-Attempting to use something that isn't a type where a type is expected. This is
-a very general error and should be used sparingly.
+This indicates an attempt to use something that isn't a type where a type is expected.
+In most cases, a more specific error kind is used.
+
+You may see this error around incorrect type aliases:
+
+```python
+class A:
+  ...
+# Not an alias, just a string!
+X = "A"
+x: X = ...  # X is not a type alias, so this is illegal
+```
 
 ## not-callable
 
-Attempting to call a value that is not a callable.
+A straightforward error: something that is not a function was used as if it were a function.
+
+One interesting place this error may occur is with decorators:
+
+```python
+x = 1
+
+@x  # not-callable
+def foo() -> None:
+  ...
+```
 
 ## not-iterable
 
-Attempting to use a non-iterable value as an iterable.
+This is most likely to be seen in a `for` loop:
+
+```python
+x = 1  # Or some other value
+for val in x:  # not-iterable
+  ...
+```
 
 ## parse-error
 
-An error related to parsing or syntax.
+An error related to parsing or syntax. This covers a variety of cases, such as function calls with duplicate keyword args, some poorly defined functions, and so on.
 
 ## read-only
 
