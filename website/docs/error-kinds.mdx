@@ -160,28 +160,113 @@ For example, argument order is enforced by the parser, so `def f(x: int = 1, y: 
 
 ## bad-keyword-argument
 
-Attempting to call a function with an incorrect keyword argument. e.g. f(x=1,
-x=2), or perhaps f(y=1) (where `f` has no parameter `y`).
+bad-keyword-argument pops up when a keyword argument is given multiple values:
+
+```python
+def f(x: int) -> None:
+  pass
+f(x=1, x=2)
+```
+
+However, this is often accompanied by a `parse-error` for the same issue.
 
 ## bad-override
 
-A subclass field or method incorrectly overrides a field/method of a parent
-class.
+When a subclass overrides a field or method of its base class, care must be taken that the override won't cause problems.
+
+Some of these are obvious:
+
+```python
+class Base:
+  def f(self, a: int) -> None:
+    pass
+
+class NoArg(Base):
+  def f(self) -> None:
+    pass
+
+class WrongType(Base):
+  def f(self, a: str) -> None:
+    pass
+
+def uses_f(b: Base) -> None:
+  b.f(1)
+```
+
+These errors are rather obvious: `uses_f` will fail if given a `NoArg` or `WrongType` instance, because those methods don't expect an `int` argument!
+
+The guiding idea here is the [Liskov Substitution Principle](https://en.wikipedia.org/wiki/Liskov_substitution_principle), the idea that a subclass can stand in for a base class at any point without breaking the program.
+
+This can be a little subtle at first blush. Consider:
+
+```python
+class Base:
+  def f(self, a: int) -> None:
+    pass
+
+class Sub(Base):
+  def f(self, a: float) -> None:
+    pass
+```
+
+Is this OK? Yes! `int` is treated as a subclass of `float`, or to put it another way, a function that accepts `float` can accept every `int`.
+That means everywhere that we call `Base.f` can safely call `Sub.f`.
+
+The opposite case, where `Base.f` takes `float` and `Sub.f` takes `int`, is an error because `Sub.f` cannot accept every `float` value.
 
 ## bad-return
 
-Attempting to return a value that does not match the function's return type. Can
-also arise when returning values from generators.
+Arises when a function does not return a value that is compatible with the function's return type annotation.
+
+```python
+def bad_return() -> None:
+  return 1
+```
+
+Real-world examples are often less obvious, of course, due to complex control flow and type relationships.
+
+This error is also raised for generator functions:
+
+```python
+from typing import Generator
+# Generator has 3 types: the yield, send, and return types.
+def bad_gen() -> Generator[int, None, str]:
+  yield 1
+  return 2  # should be a str!
+```
 
 ## bad-specialization
 
-Attempting to specialize a generic class with incorrect type arguments. e.g.
-`type[int, str]` is an error because `type` accepts only 1 type arg.
+"Specialization" refers to instantiating a generic type with a concrete type.
+For example, `list` is a generic type, and `list[int]` is that type specialized with `int`.
+
+Each generic type has an expected number of type vars, and each type var can be bound or constrained.
+Attempting to use specialize a generic type in a way that violates these specifications will result in a `bad-specialization` error:
+
+```python
+x: list[int, str]
+```
 
 ## bad-unpacking
 
-An error caused by unpacking. e.g. attempting to unpack an iterable into the
-wrong number of variables.
+An error caused by unpacking, such as attempting to unpack a list, tuple, or iterable into the wrong number of variables.
+
+```python
+def two_elems() -> tuple[int, str]:
+  return (1, "two")
+
+a, b, c = two_elems()
+```
+
+Note that pyrefly can only report this error if it knows how many elements the thing being unpacked has.
+
+```python
+# A bare `tuple` could have any number of elements
+def two_elems() -> tuple:
+  return (1, "two")
+
+a, b, c = two_elems()
+```
 
 ## delete-error
 
