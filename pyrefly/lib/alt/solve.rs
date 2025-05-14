@@ -747,43 +747,39 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if !Self::is_valid_annotation(expr, errors) {
             return Type::any_error();
         }
-        if matches!(
-            style,
-            TypeAliasStyle::Scoped | TypeAliasStyle::LegacyExplicit
-        ) {
-            let untyped = self.untype_opt(ty.clone(), range);
-            if let Some(ty) = untyped {
-                self.validate_type_form(ty, range, TypeFormContext::TypeAlias, errors);
-            } else {
-                self.error(
-                    errors,
-                    range,
-                    ErrorKind::TypeAliasError,
-                    None,
-                    format!("Expected `{name}` to be a type alias, got {ty}"),
-                );
-                return Type::any_error();
+        let untyped = self.untype_opt(ty.clone(), range);
+        let mut ty = if let Type::ClassDef(cls) = ty {
+            // TODO: should we be promoting this or making a Forall type?
+            self.promote(&cls, range)
+        } else if let Some(untyped) = untyped {
+            let validated =
+                self.validate_type_form(untyped, range, TypeFormContext::TypeAlias, errors);
+            if validated.is_error() {
+                return validated;
             }
-        }
-        let mut ty = match &ty {
-            Type::ClassDef(cls) => Type::type_form(self.promote(cls, range)),
-            t => t.clone(),
+            validated
+        } else {
+            self.error(
+                errors,
+                range,
+                ErrorKind::TypeAliasError,
+                None,
+                format!("Expected `{name}` to be a type alias, got {ty}"),
+            );
+            return Type::any_error();
         };
         let mut seen_type_vars = SmallMap::new();
         let mut seen_type_var_tuples = SmallMap::new();
         let mut seen_param_specs = SmallMap::new();
         let mut tparams = Vec::new();
-        match ty {
-            Type::Type(ref mut t) => self.tvars_to_tparams_for_type_alias(
-                t,
-                &mut seen_type_vars,
-                &mut seen_type_var_tuples,
-                &mut seen_param_specs,
-                &mut tparams,
-            ),
-            _ => {}
-        }
-        let ta = TypeAlias::new(name.clone(), ty, style);
+        self.tvars_to_tparams_for_type_alias(
+            &mut ty,
+            &mut seen_type_vars,
+            &mut seen_type_var_tuples,
+            &mut seen_param_specs,
+            &mut tparams,
+        );
+        let ta = TypeAlias::new(name.clone(), Type::type_form(ty), style);
         Forallable::TypeAlias(ta).forall(self.type_params(range, tparams, errors))
     }
 

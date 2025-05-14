@@ -1032,18 +1032,7 @@
       "stop_line": 47
     }
   ],
-  "aliases_variance.py": [
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Can't apply arguments to non-class, got LegacyExplicitTypeAlias[A_Alias_2, LegacyExplicitTypeAlias[A_Alias_1, type[ClassA[TypeVar(T_co, covariant)]]]]",
-      "description": "Can't apply arguments to non-class, got LegacyExplicitTypeAlias[A_Alias_2, LegacyExplicitTypeAlias[A_Alias_1, type[ClassA[TypeVar(T_co, covariant)]]]]",
-      "line": 32,
-      "name": "bad-specialization",
-      "stop_column": 31,
-      "stop_line": 32
-    }
-  ],
+  "aliases_variance.py": [],
   "annotations_coroutines.py": [],
   "annotations_forward_refs.py": [
     {
@@ -9849,8 +9838,8 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "TODO: Expr::attr_infer_for_type attribute base undefined for type: LegacyExplicitTypeAlias[TA1, type[Type]] (trying to access unknown)",
-      "description": "TODO: Expr::attr_infer_for_type attribute base undefined for type: LegacyExplicitTypeAlias[TA1, type[Type]] (trying to access unknown)",
+      "concise_description": "TODO: Expr::attr_infer_for_type attribute base undefined for type: LegacyExplicitTypeAlias[TA1, type[type[Unknown]]] (trying to access unknown)",
+      "description": "TODO: Expr::attr_infer_for_type attribute base undefined for type: LegacyExplicitTypeAlias[TA1, type[type[Unknown]]] (trying to access unknown)",
       "line": 143,
       "name": "missing-attribute",
       "stop_column": 12,

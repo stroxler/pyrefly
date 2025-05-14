@@ -75,13 +75,24 @@ def f(x: X[int]):
 );
 
 testcase!(
-    test_generic_alias_union,
+    test_generic_alias_union_implicit,
     r#"
 from typing import TypeVar, assert_type
 T = TypeVar('T')
 X = T | list[T]
 def f(x: X[int]):
     assert_type(x, int | list[int])
+    "#,
+);
+
+testcase!(
+    test_generic_alias_union_explicit,
+    r#"
+from typing import TypeVar, assert_type, TypeAlias
+T = TypeVar('T')
+X: TypeAlias = T | list[T] | None
+def f(x: X[int]):
+    assert_type(x, int | list[int] | None)
     "#,
 );
 
@@ -504,7 +515,6 @@ foo(str)
 );
 
 testcase!(
-    bug = "Typeshed(TODO): This should fully typecheck",
     test_type_alias_generics,
     r#"
 from typing import Generic, Hashable, Iterable, TypeVar, TypeAlias
@@ -515,7 +525,7 @@ _NBunch: TypeAlias = _Node | Iterable[_Node] | None
 class DiDegreeView(Generic[_Node]):
     def __init__(
         self,
-        nbunch: _NBunch[_Node] = None, # E: Can't apply arguments to non-class
+        nbunch: _NBunch[_Node] = None,
     ) -> None: ...
     "#,
 );
