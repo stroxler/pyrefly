@@ -287,6 +287,7 @@ export default function Sandbox({
                                   isCodeSnippet
                               )
                             : null}
+                        {!isCodeSnippet ? getGitHubIssuesButton() : null}
                     </div>
                 }
             </div>
@@ -430,6 +431,25 @@ function getShareUrlButton(): React.ReactElement {
             defaultLabel="📋 Share URL"
             runningLabel="✓ URL Copied!" // we reuse the running label to indicate that the URL has been copied
             ariaLabel="share URL button"
+        />
+    );
+}
+
+function getGitHubIssuesButton(): React.ReactElement {
+    return (
+        <MonacoEditorButton
+            id="github-issues-button"
+            onClick={() => {
+                window.open(
+                    'https://github.com/facebook/pyrefly/issues/new/choose',
+                    '_blank',
+                    'noopener,noreferrer'
+                );
+                return Promise.resolve();
+            }}
+            defaultLabel="⚠️ Report Issue"
+            runningLabel="⚠️ Report Issue"
+            ariaLabel="report issue on GitHub"
         />
     );
 }

@@ -83,6 +83,14 @@ reveal_type(test(42))
             🔄 Reset
           </span>
         </button>
+        <button
+          aria-label="report issue on GitHub"
+          id="github-issues-button"
+        >
+          <span>
+            ⚠️ Report Issue
+          </span>
+        </button>
       </div>
     </div>
     <div
