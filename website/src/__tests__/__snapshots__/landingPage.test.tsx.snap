@@ -291,6 +291,18 @@ exports[`Home page renders internal site correctly 1`] = `
                 </a>
                  
                 codebase from scratch.
+                <div>
+                  <span>
+                    ⓘ
+                  </span>
+                  <span>
+                    <strong>
+                      Tested using Macbook
+                    </strong>
+                    <br />
+                    (10 cores: 8 performance + 2 efficiency cores, 32 GB RAM)
+                  </span>
+                </div>
               </div>
               <div>
                 <div>
@@ -306,10 +318,10 @@ exports[`Home page renders internal site correctly 1`] = `
                       </span>
                       <span>
                         <strong>
-                          Command: 'Pyrefly check'
+                          Command: "pyrefly check"
                         </strong>
                         <br />
-                        Pyrefly uses as many threads as possible, which was "INSERT NUMBER HERE" on a 10 core machine.
+                        Pyrefly uses as many threads as possible
                       </span>
                     </div>
                   </div>
@@ -341,10 +353,10 @@ exports[`Home page renders internal site correctly 1`] = `
                       </span>
                       <span>
                         <strong>
-                          Command: 'pyright --threads=8'
+                          Command: "pyright --threads=8"
                         </strong>
                         <br />
-                        We picked 8 threads for pyright after trying a couple options and found this to perform the fastest on a 10 core machine.
+                        8 threads yielded the best performance after testing multiple settings
                       </span>
                     </div>
                   </div>
@@ -376,7 +388,7 @@ exports[`Home page renders internal site correctly 1`] = `
                       </span>
                       <span>
                         <strong>
-                          Command: 'dmypy run on a 10 core machine'
+                          Command: "dmypy run"
                         </strong>
                       </span>
                     </div>

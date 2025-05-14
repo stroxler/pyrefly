@@ -11,6 +11,7 @@ import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import typography from './typography';
 import { Project, ProjectValue } from './PerformanceComparisonTypes';
+import PerformanceDescriptionTooltip from './PerformanceDescriptionTooltip';
 
 interface PerformanceComparisonChartProps {
     project: ProjectValue;
@@ -29,7 +30,12 @@ export default function PerformanceComparisonDescription({
 function getDescriptionText(project: ProjectValue): React.ReactNode {
     switch (project) {
         case Project.INSTAGRAM:
-            return 'Type checking the instagram codebase from scratch.';
+            return (
+                <>
+                    Type checking the instagram codebase from scratch.
+                    <PerformanceDescriptionTooltip project={project} />
+                </>
+            );
         case Project.PYTORCH:
             return (
                 <>
@@ -42,6 +48,7 @@ function getDescriptionText(project: ProjectValue): React.ReactNode {
                         PyTorch
                     </a>{' '}
                     codebase from scratch.
+                    <PerformanceDescriptionTooltip project={project} />
                 </>
             );
     }

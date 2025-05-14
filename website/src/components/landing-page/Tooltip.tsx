@@ -15,9 +15,7 @@ interface TooltipProps {
     content: React.ReactNode;
 }
 
-export default function Tooltip({
-    content,
-}: TooltipProps): React.ReactElement {
+export default function Tooltip({ content }: TooltipProps): React.ReactElement {
     return (
         <div {...stylex.props(styles.tooltipContainer)}>
             <span
@@ -39,7 +37,7 @@ export default function Tooltip({
             >
                 ⓘ
             </span>
-            <span {...stylex.props(styles.tooltip)}>
+            <span {...stylex.props(styles.tooltip, typography.p)}>
                 {content}
             </span>
         </div>
@@ -71,7 +69,7 @@ const styles = stylex.create({
         bottom: '125%',
         left: '50%',
         transform: 'translateX(-50%)',
-        width: '250px',
+        width: '300px',
         opacity: 0,
         transition: 'opacity 0.3s',
     },

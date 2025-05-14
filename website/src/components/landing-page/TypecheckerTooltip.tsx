@@ -38,44 +38,40 @@ export function getTypecheckerInfo(
                 case Project.INSTAGRAM:
                     return (
                         <>
-                            <strong>Command: 'Pyrefly check'</strong>
+                            <strong>Command: "pyrefly check"</strong>
                             <br />
-                            Pyrefly uses as many threads as possible, which was
-                            "INSERT NUMBER HERE" on a 200 core machine.
+                            Pyrefly uses as many threads as possible
                         </>
                     );
                 case Project.PYTORCH:
                     return (
                         <>
-                            <strong>Command: 'Pyrefly check'</strong>
+                            <strong>Command: "pyrefly check"</strong>
                             <br />
-                            Pyrefly uses as many threads as possible, which was
-                            "INSERT NUMBER HERE" on a 10 core machine.
+                            Pyrefly uses as many threads as possible
                         </>
                     );
             }
         case TypeChecker.PYRE:
             return (
                 <>
-                    <strong>Command: 'pyre --no-saved-state check'</strong>
+                    <strong>Command: "pyre --no-saved-state check"</strong>
                     <br />
-                    This uses X amount of threads on a 10 core machine
+                    Pyre uses as many threads as possible
                 </>
             );
         case TypeChecker.PYRIGHT:
             return (
                 <>
-                    <strong>Command: 'pyright --threads=8'</strong>
-                    <br />
-                    We picked 8 threads for pyright after trying a couple
-                    options and found this to perform the fastest on a 10 core
-                    machine.
+                    <strong>Command: "pyright --threads=8"</strong>
+                    <br />8 threads yielded the best performance after testing
+                    multiple settings
                 </>
             );
         case TypeChecker.MYPY:
             return (
                 <>
-                    <strong>Command: 'dmypy run on a 10 core machine'</strong>
+                    <strong>Command: "dmypy run"</strong>
                 </>
             );
     }
