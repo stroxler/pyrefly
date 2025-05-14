@@ -685,20 +685,48 @@ def test(x: Ex) -> None:
 
 ## unbound-name
 
-Attempting to use a name that may be unbound or uninitialized.
+This error corresponds to the runtime `NameError`, indicating that a variable is referenced but does not exist.
+
+```python
+def do_things(stuff: list[int]) -> str:
+  ...
+
+do_thing([1, 2])  # typo! Or, unbound-name
+```
 
 ## unexpected-keyword
 
-An error caused by a keyword argument used in the wrong place.
+A function was called with an extra keyword argument.
+
+```python
+def two_args(a: int, b: int) -> int:
+  ...
+
+two_args(a=1, b=2, c=3)
+```
 
 ## unknown-name
 
-Attempting to use a name that is not defined.
+`unknown-name` occurs when attempting to load a name from another scope, but the name cannot be found.
+
+```python
+def where() -> None:
+  # There is no spoon: unknown-name
+  global spoon
+```
 
 ## unsupported-operand
 
-Attempting to apply an operator to arguments that do not support it.
+This error arises when attempting to perform an operation between values of two incompatible types.
+Since many Python operators are actually syntactic sugar for function calls, many operations will result in [`bad-argument-type`](#bad-argument-type) errors.
+
+An exception is the `in` operator, which fails when looking for a value in something that does not support `in`:
+
+```python
+if "hello" in 1:  # int doesn't support `in`!
+  ...
+```
 
 ## unsupported
 
-Attempting to use a feature that is not yet supported.
+This error indicates that pyrefly does not currently support a typing feature.
