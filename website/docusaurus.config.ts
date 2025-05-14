@@ -271,7 +271,10 @@ const config: Config = {
     themeConfig: {
         prism: {
             theme: prismThemes.jettwaveLight,
-            darkTheme: prismThemes.dracula
+            darkTheme: prismThemes.dracula,
+            additionalLanguages: [
+                'toml'
+            ],
         },
         colorMode: {
             defaultMode: 'dark',
