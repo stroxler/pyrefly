@@ -635,20 +635,53 @@ An error related to parsing or syntax. This covers a variety of cases, such as f
 
 ## read-only
 
-The attribute exists but cannot be modified.
+This error indicates that the attribute being accessed does exist but cannot be modified.
+
+For example, a `@property` with no setter cannot be assigned to:
+
+```python
+class Ex:
+    @property
+    def meaning(self) -> int:
+        return 42
+
+x = Ex()
+x.meaning = 0
+```
 
 ## reveal-type
 
-Raised by a call to `reveal_type()`.
+Pyrefly uses this error to communicate the output of the [`reveal_type`](https://typing.python.org/en/latest/spec/directives.html#reveal-type) function.
 
 ## type-alias-error
 
-An error related to type alias usage or definition.
+An error related to the definition or usage of a `typing.TypeAlias`. Many of these cases are covered by [`invalid-annotation`](#invalid-annotation), so this error
+specifically handles illegal type alias values:
+
+```python
+from typing import TypeAlias
+x = 2
+Bad: TypeAlias = x
+```
 
 ## typed-dict-key-error
 
-An error related to TypedDict keys. e.g. attempting to access a TypedDict with a
-key that does not exist.
+This error arises when `TypedDict`s are used with incorrect keys, such as a key that does not exist in the `TypedDict`.
+
+```python
+from typing import TypedDict
+
+class Ex(TypedDict):
+    a: int
+    b: str
+
+def test(x: Ex) -> None:
+    # These two keys don't exist
+    x.nope
+    x["wrong"]
+    # TypedDict keys must be strings!
+    x[1]
+```
 
 ## unbound-name
 
