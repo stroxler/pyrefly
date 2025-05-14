@@ -66,7 +66,7 @@ const styles = stylex.create({
         overflow: 'hidden',
     },
     fill: {
-        height: '99%',
+        height: '100%',
         backgroundColor: 'var(--color-secondary)',
         borderRadius: 'inherit',
         animationFillMode: 'forwards',
