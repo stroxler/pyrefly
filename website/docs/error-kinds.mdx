@@ -270,46 +270,140 @@ a, b, c = two_elems()
 
 ## delete-error
 
-Attempting to `del` something that cannot be deleted.
+This error occurs when attempting to `del` something that cannot be deleted.
+
+Besides obvious things like built-in values (you can't `del True`!), some object attributes are protected from deletion.
+For example, read-only and required `TypedDict` fields cannot be deleted.
 
 ## import-error
 
-An error related to the import machinery. e.g. failed to import a module.
+An error related to the import mechanism, such as when a module cannot be found.
+
+The error message will include which paths were searched, such as the site package paths.
+You may be missing a dependency, or you may need to inform Pyrefly where the module lives. See [Configuration](configuration.mdx) for further information.
 
 ## index-error
 
-Attempting to access a container with an incorrect index. This only occurs when
-pyre can statically verify that the index is incorrect.
+Attempting to access a container with an incorrect index.
+This only occurs when Pyrefly can statically verify that the index is incorrect, such as with a fixed-length tuple.
+
+```python
+def add_three(x: tuple[int, int]) -> int:
+  return x[0] + x[1] + x[2]
+```
+
+Pyrefly also knows the keys of `TypedDict`s, but those have their own error kind.
 
 ## internal-error
 
-Internal Pyre error.
+Ideally you'll never see this one. If you do, please consider [filing a bug](https://github.com/facebook/pyrefly/issues).
 
 ## invalid-annotation
 
-Attempting to write an annotation that is invalid for some reason.
+There are several reasons why an annotation may be invalid. The most common case is misusing a typing special form, such as `typing.Final`, `typing.ClassVar`, `typing.ParamSpec`, and so on.
+
+```python
+from typing import *
+
+# Final must have a value
+a: Final
+# ClassVar can only be used in a class body
+b: ClassVar[int] = 1
+```
+
+The error messages will explain how the special form is being misused. Consult the [typing docs](https://docs.python.org/3/library/typing.html) and [typing spec](https://typing.python.org/en/latest/spec/) for more information.
 
 ## invalid-argument
 
-Passing an argument that is invalid for reasons besides type.
+This error is used to indicate an issue with an argument to special typing-related functions.
+
+For example, `typing.NewType` is a handy special form for creating types that are distinct from a base type.
+
+
+```python
+from typing import *
+
+# The first arg must match the name!
+Mismatch = NewType("Wrong Name", int)
+
+# NewTypes cannot be used in isinstance.
+UserId = NewType("UserId", int)
+if isinstance(1, UserId):
+  ...
+```
 
 ## invalid-inheritance
 
-An error caused by incorrect inheritance in a class or type definition. e.g. a
-metaclass that is not a subclass of `type`.
+An error caused by incorrect inheritance in a class or type definition.
+This can pop up in quite a few cases:
+- Trying to subclass something that isn't a class.
+- Subclassing a type that does not support it, such as a `NewType` or a `Final` class.
+- Attempting to mix `Protocol`s with non-`Protocol` base classes.
+- Trying to make a generic enum.
+- Trying to give a `TypedDict` a metaclass.
+
+And so on!
 
 ## invalid-literal
 
-Attempting to use a value that is not a valid kind of Literal.
+`typing.Literal` only allows a [limited set](https://typing.python.org/en/latest/spec/literal.html#legal-parameters-for-literal-at-type-check-time) of types as parameters.
+Attempting to use `Literal` with anything else is an error.
+
+```python
+from typing import Literal
+
+# These are legal
+Literal[1.0]
+Literal['a', 'b', 'c']
+# This is not
+class A:
+  ...
+Literal[A()]
+```
 
 ## invalid-overload
 
-An error caused by incorrect usage of the @overload decorator. e.g. not defining
-multiple variants for an overloaded function.
+The `@overload` decorator requires that the decorated function has at least two overloaded signatures and a base implementation.
+
+```python
+from typing import *
+
+@overload
+def no_base(x: int) -> None:
+  pass
+
+@overload
+def no_base(x: str) -> int:
+  pass
+```
+
+```python
+@overload
+def just_one(x: int) -> None:
+  pass
+
+def just_one(x: str) -> None:
+  ...
+```
+
 
 ## invalid-param-spec
 
-An error related to ParamSpec definition or usage.
+This error is reported when `typing.ParamSpec` is defined incorrectly or misused. For example:
+
+```python
+from typing import *
+
+P = ParamSpec("Name Must Match!")
+
+P1 = ParamSpec("P1")
+P2 = ParamSpec("P2")
+
+def f(x, *args: P1.args, **kwargs: P2.kwargs) -> None:
+  pass
+```
+
+Here, `P1.args` and `P2.kwargs` can't be used together; `*args` and `**kwargs` must come from the same `ParamSpec`.
 
 ## invalid-super-call
 
