@@ -17,7 +17,7 @@ interface TooltipProps {
 
 export default function Tooltip({ content }: TooltipProps): React.ReactElement {
     return (
-        <div {...stylex.props(styles.tooltipContainer)}>
+        <span {...stylex.props(styles.tooltipContainer)}>
             <span
                 {...stylex.props(typography.p, styles.infoIcon)}
                 onMouseEnter={(e) => {
@@ -40,7 +40,7 @@ export default function Tooltip({ content }: TooltipProps): React.ReactElement {
             <span {...stylex.props(styles.tooltip, typography.p)}>
                 {content}
             </span>
-        </div>
+        </span>
     );
 }
 
@@ -51,7 +51,7 @@ const styles = stylex.create({
         marginLeft: '8px',
     },
     infoIcon: {
-        fontSize: '16px',
+        fontSize: '12px',
         color: 'var(--color-text)',
         cursor: 'help',
         verticalAlign: 'middle',
@@ -72,5 +72,7 @@ const styles = stylex.create({
         width: '300px',
         opacity: 0,
         transition: 'opacity 0.3s',
+        whiteSpace: 'normal',
+        wordWrap: 'break-word',
     },
 });

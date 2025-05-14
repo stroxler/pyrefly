@@ -12,6 +12,7 @@ import * as stylex from '@stylexjs/stylex';
 import typography from './typography';
 import { useEffect, useState } from 'react';
 import { landingPageCardStyles } from './landingPageCardStyles';
+import Tooltip from './Tooltip';
 
 interface LinkProps {
     text: string;
@@ -31,6 +32,7 @@ interface WhyPyreflyGridItemProps {
     index: number;
     startAnimation: boolean;
     contentWithLink?: ContentWithLinkProps;
+    footnote?: string;
 }
 
 export default function WhyPyreflyGridItem({
@@ -39,6 +41,7 @@ export default function WhyPyreflyGridItem({
     contentWithLink,
     index,
     startAnimation,
+    footnote,
 }: WhyPyreflyGridItemProps): React.ReactElement {
     const [isVisible, setIsVisible] = useState(false);
 
@@ -68,7 +71,28 @@ export default function WhyPyreflyGridItem({
         >
             <h3 {...stylex.props(typography.h5, styles.cardTitle)}>{title}</h3>
             <p {...stylex.props(typography.p, styles.contentText)}>
-                {content}
+                {content && (
+                    <>
+                        {footnote ? (
+                            <>
+                                {/* Split content to keep last part with footnote */}
+                                {content.split(' ').slice(0, -2).join(' ')}{' '}
+                                <span {...stylex.props(styles.inlineContent)}>
+                                    {content.split(' ').slice(-2).join(' ')}
+                                    <sup
+                                        {...stylex.props(
+                                            styles.footnoteSupElement
+                                        )}
+                                    >
+                                        <Tooltip content={footnote} />
+                                    </sup>
+                                </span>
+                            </>
+                        ) : (
+                            content
+                        )}
+                    </>
+                )}
                 {contentWithLink && (
                     <>
                         {contentWithLink.beforeText}
@@ -107,5 +131,13 @@ const styles = stylex.create({
         marginBottom: '0rem',
         flex: 1,
         color: 'var(--color-text)',
+    },
+    inlineContent: {
+        whiteSpace: 'nowrap',
+        display: 'inline-block',
+    },
+    // Add a new style for the sup element
+    footnoteSupElement: {
+        marginLeft: '-2px',
     },
 });

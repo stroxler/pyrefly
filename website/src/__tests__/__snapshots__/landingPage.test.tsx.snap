@@ -186,7 +186,21 @@ exports[`Home page renders internal site correctly 1`] = `
                   Scale with Confidence
                 </h3>
                 <p>
-                  Type check 1.8 million lines of code per second
+                  Type check over 1.85 million lines of code
+                   
+                  <span>
+                    per second.
+                    <sup>
+                      <span>
+                        <span>
+                          ⓘ
+                        </span>
+                        <span>
+                          Tested using Meta infrastructure (166 cores, 228 GB RAM)
+                        </span>
+                      </span>
+                    </sup>
+                  </span>
                 </p>
               </div>
               <div
@@ -291,7 +305,7 @@ exports[`Home page renders internal site correctly 1`] = `
                 </a>
                  
                 codebase from scratch.
-                <div>
+                <span>
                   <span>
                     ⓘ
                   </span>
@@ -302,7 +316,7 @@ exports[`Home page renders internal site correctly 1`] = `
                     <br />
                     (10 cores: 8 performance + 2 efficiency cores, 32 GB RAM)
                   </span>
-                </div>
+                </span>
               </div>
               <div>
                 <div>
@@ -312,7 +326,7 @@ exports[`Home page renders internal site correctly 1`] = `
                         Pyrefly
                       </strong>
                     </span>
-                    <div>
+                    <span>
                       <span>
                         ⓘ
                       </span>
@@ -323,7 +337,7 @@ exports[`Home page renders internal site correctly 1`] = `
                         <br />
                         Pyrefly uses as many threads as possible
                       </span>
-                    </div>
+                    </span>
                   </div>
                   <div>
                     <div
@@ -347,7 +361,7 @@ exports[`Home page renders internal site correctly 1`] = `
                         Pyright
                       </strong>
                     </span>
-                    <div>
+                    <span>
                       <span>
                         ⓘ
                       </span>
@@ -358,7 +372,7 @@ exports[`Home page renders internal site correctly 1`] = `
                         <br />
                         8 threads yielded the best performance after testing multiple settings
                       </span>
-                    </div>
+                    </span>
                   </div>
                   <div>
                     <div
@@ -382,7 +396,7 @@ exports[`Home page renders internal site correctly 1`] = `
                         MyPy
                       </strong>
                     </span>
-                    <div>
+                    <span>
                       <span>
                         ⓘ
                       </span>
@@ -391,7 +405,7 @@ exports[`Home page renders internal site correctly 1`] = `
                           Command: "dmypy run"
                         </strong>
                       </span>
-                    </div>
+                    </span>
                   </div>
                   <div>
                     <div

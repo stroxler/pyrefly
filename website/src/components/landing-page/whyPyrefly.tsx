@@ -44,7 +44,8 @@ export default function WhyPyrefly(): React.ReactElement {
                 {/* Short-term benefits */}
                 <WhyPyreflyGridItem
                     title="Scale with Confidence"
-                    content="Type check 1.8 million lines of code per second"
+                    content="Type check over 1.85 million lines of code per second."
+                    footnote="Tested using Meta infrastructure (166 cores, 228 GB RAM)"
                     index={0}
                     startAnimation={startAnimation}
                 />
