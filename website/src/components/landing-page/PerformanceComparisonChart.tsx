@@ -54,31 +54,35 @@ export default function PerformanceComparisonChart({
                     )}
                     key={index}
                 >
-                    <div {...stylex.props(styles.typecheckerNameContainer)}>
-                        <span {...stylex.props(styles.typecheckerName)}>
-                            <strong>{typechecker.typechecker}</strong>
+                    <div>
+                        <div {...stylex.props(styles.typecheckerNameContainer)}>
+                            <span {...stylex.props(styles.typecheckerName)}>
+                                <strong>{typechecker.typechecker}</strong>
+                            </span>
+                            <TypecheckerTooltip
+                                typechecker={typechecker.typechecker}
+                                project={project}
+                            />
+                        </div>
+                    </div>
+                    <div {...stylex.props(styles.BarTimerContainer)}>
+                        <div {...stylex.props(styles.progressBarContainer)}>
+                            <ProgressBar
+                                durationInSeconds={typechecker.durationInSeconds}
+                                maxDurationInSeconds={maxDuration}
+                                highlight={
+                                    typechecker.typechecker === TypeChecker.PYREFLY
+                                }
+                                isLoaded={isLoaded}
+                            />
+                        </div>
+                        <span {...stylex.props(styles.duration)}>
+                            <PerformanceComparisonChartTimer
+                                targetSeconds={typechecker.durationInSeconds}
+                                isLoaded={isLoaded}
+                            />
                         </span>
-                        <TypecheckerTooltip
-                            typechecker={typechecker.typechecker}
-                            project={project}
-                        />
                     </div>
-                    <div {...stylex.props(styles.progressBarContainer)}>
-                        <ProgressBar
-                            durationInSeconds={typechecker.durationInSeconds}
-                            maxDurationInSeconds={maxDuration}
-                            highlight={
-                                typechecker.typechecker === TypeChecker.PYREFLY
-                            }
-                            isLoaded={isLoaded}
-                        />
-                    </div>
-                    <span {...stylex.props(styles.duration)}>
-                        <PerformanceComparisonChartTimer
-                            targetSeconds={typechecker.durationInSeconds}
-                            isLoaded={isLoaded}
-                        />
-                    </span>
                 </div>
             ))}
         </div>
@@ -89,7 +93,14 @@ const styles = stylex.create({
     barContainer: {
         flex: 1,
         display: 'flex',
-        flexDirection: 'row',
+        '@media(max-width: 760px)': {
+            flexDirection: 'column'
+        }
+    },
+    BarTimerContainer: {
+        flex: 2,
+        display: 'flex',
+
     },
     typecheckerNameContainer: {
         display: 'flex',

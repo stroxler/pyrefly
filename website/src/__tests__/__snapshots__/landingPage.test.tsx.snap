@@ -206,106 +206,118 @@ exports[`Home page renders external site correctly 1`] = `
               <div>
                 <div>
                   <div>
-                    <span>
-                      <strong>
-                        Pyrefly
-                      </strong>
-                    </span>
-                    <span>
-                      <span>
-                        ⓘ
-                      </span>
+                    <div>
                       <span>
                         <strong>
-                          Command: "pyrefly check"
+                          Pyrefly
                         </strong>
-                        <br />
-                        Pyrefly uses as many threads as possible
                       </span>
-                    </span>
-                  </div>
-                  <div>
-                    <div
-                      style="height: 80%; width: 4.827299209321681%;"
-                    >
-                      <div
-                        style="animation-duration: 2.32s; width: 0%;"
-                      />
+                      <span>
+                        <span>
+                          ⓘ
+                        </span>
+                        <span>
+                          <strong>
+                            Command: "pyrefly check"
+                          </strong>
+                          <br />
+                          Pyrefly uses as many threads as possible
+                        </span>
+                      </span>
                     </div>
                   </div>
-                  <span>
-                    <strong>
-                      0.0s
-                    </strong>
-                  </span>
+                  <div>
+                    <div>
+                      <div
+                        style="height: 80%; width: 4.827299209321681%;"
+                      >
+                        <div
+                          style="animation-duration: 2.32s; width: 0%;"
+                        />
+                      </div>
+                    </div>
+                    <span>
+                      <strong>
+                        0.0s
+                      </strong>
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <div>
-                    <span>
-                      <strong>
-                        Pyright
-                      </strong>
-                    </span>
-                    <span>
-                      <span>
-                        ⓘ
-                      </span>
+                    <div>
                       <span>
                         <strong>
-                          Command: "pyright --threads=8"
+                          Pyright
                         </strong>
-                        <br />
-                        8 threads yielded the best performance after testing multiple settings
                       </span>
-                    </span>
-                  </div>
-                  <div>
-                    <div
-                      style="height: 80%; width: 73.1585518102372%;"
-                    >
-                      <div
-                        style="animation-duration: 35.16s; width: 0%;"
-                      />
+                      <span>
+                        <span>
+                          ⓘ
+                        </span>
+                        <span>
+                          <strong>
+                            Command: "pyright --threads=8"
+                          </strong>
+                          <br />
+                          8 threads yielded the best performance after testing multiple settings
+                        </span>
+                      </span>
                     </div>
                   </div>
-                  <span>
-                    <strong>
-                      0.0s
-                    </strong>
-                  </span>
+                  <div>
+                    <div>
+                      <div
+                        style="height: 80%; width: 73.1585518102372%;"
+                      >
+                        <div
+                          style="animation-duration: 35.16s; width: 0%;"
+                        />
+                      </div>
+                    </div>
+                    <span>
+                      <strong>
+                        0.0s
+                      </strong>
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <div>
-                    <span>
-                      <strong>
-                        MyPy
-                      </strong>
-                    </span>
-                    <span>
-                      <span>
-                        ⓘ
-                      </span>
+                    <div>
                       <span>
                         <strong>
-                          Command: "dmypy run"
+                          MyPy
                         </strong>
                       </span>
-                    </span>
-                  </div>
-                  <div>
-                    <div
-                      style="height: 80%; width: 100%;"
-                    >
-                      <div
-                        style="animation-duration: 48.06s; width: 0%;"
-                      />
+                      <span>
+                        <span>
+                          ⓘ
+                        </span>
+                        <span>
+                          <strong>
+                            Command: "dmypy run"
+                          </strong>
+                        </span>
+                      </span>
                     </div>
                   </div>
-                  <span>
-                    <strong>
-                      0.0s
-                    </strong>
-                  </span>
+                  <div>
+                    <div>
+                      <div
+                        style="height: 80%; width: 100%;"
+                      >
+                        <div
+                          style="animation-duration: 48.06s; width: 0%;"
+                        />
+                      </div>
+                    </div>
+                    <span>
+                      <strong>
+                        0.0s
+                      </strong>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -523,106 +535,118 @@ exports[`Home page renders internal site correctly 1`] = `
               <div>
                 <div>
                   <div>
-                    <span>
-                      <strong>
-                        Pyrefly
-                      </strong>
-                    </span>
-                    <span>
-                      <span>
-                        ⓘ
-                      </span>
+                    <div>
                       <span>
                         <strong>
-                          Command: "pyrefly check"
+                          Pyrefly
                         </strong>
-                        <br />
-                        Pyrefly uses as many threads as possible
                       </span>
-                    </span>
-                  </div>
-                  <div>
-                    <div
-                      style="height: 80%; width: 4.827299209321681%;"
-                    >
-                      <div
-                        style="animation-duration: 2.32s; width: 0%;"
-                      />
+                      <span>
+                        <span>
+                          ⓘ
+                        </span>
+                        <span>
+                          <strong>
+                            Command: "pyrefly check"
+                          </strong>
+                          <br />
+                          Pyrefly uses as many threads as possible
+                        </span>
+                      </span>
                     </div>
                   </div>
-                  <span>
-                    <strong>
-                      0.0s
-                    </strong>
-                  </span>
+                  <div>
+                    <div>
+                      <div
+                        style="height: 80%; width: 4.827299209321681%;"
+                      >
+                        <div
+                          style="animation-duration: 2.32s; width: 0%;"
+                        />
+                      </div>
+                    </div>
+                    <span>
+                      <strong>
+                        0.0s
+                      </strong>
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <div>
-                    <span>
-                      <strong>
-                        Pyright
-                      </strong>
-                    </span>
-                    <span>
-                      <span>
-                        ⓘ
-                      </span>
+                    <div>
                       <span>
                         <strong>
-                          Command: "pyright --threads=8"
+                          Pyright
                         </strong>
-                        <br />
-                        8 threads yielded the best performance after testing multiple settings
                       </span>
-                    </span>
-                  </div>
-                  <div>
-                    <div
-                      style="height: 80%; width: 73.1585518102372%;"
-                    >
-                      <div
-                        style="animation-duration: 35.16s; width: 0%;"
-                      />
+                      <span>
+                        <span>
+                          ⓘ
+                        </span>
+                        <span>
+                          <strong>
+                            Command: "pyright --threads=8"
+                          </strong>
+                          <br />
+                          8 threads yielded the best performance after testing multiple settings
+                        </span>
+                      </span>
                     </div>
                   </div>
-                  <span>
-                    <strong>
-                      0.0s
-                    </strong>
-                  </span>
+                  <div>
+                    <div>
+                      <div
+                        style="height: 80%; width: 73.1585518102372%;"
+                      >
+                        <div
+                          style="animation-duration: 35.16s; width: 0%;"
+                        />
+                      </div>
+                    </div>
+                    <span>
+                      <strong>
+                        0.0s
+                      </strong>
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <div>
-                    <span>
-                      <strong>
-                        MyPy
-                      </strong>
-                    </span>
-                    <span>
-                      <span>
-                        ⓘ
-                      </span>
+                    <div>
                       <span>
                         <strong>
-                          Command: "dmypy run"
+                          MyPy
                         </strong>
                       </span>
-                    </span>
-                  </div>
-                  <div>
-                    <div
-                      style="height: 80%; width: 100%;"
-                    >
-                      <div
-                        style="animation-duration: 48.06s; width: 0%;"
-                      />
+                      <span>
+                        <span>
+                          ⓘ
+                        </span>
+                        <span>
+                          <strong>
+                            Command: "dmypy run"
+                          </strong>
+                        </span>
+                      </span>
                     </div>
                   </div>
-                  <span>
-                    <strong>
-                      0.0s
-                    </strong>
-                  </span>
+                  <div>
+                    <div>
+                      <div
+                        style="height: 80%; width: 100%;"
+                      >
+                        <div
+                          style="animation-duration: 48.06s; width: 0%;"
+                        />
+                      </div>
+                    </div>
+                    <span>
+                      <strong>
+                        0.0s
+                      </strong>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
