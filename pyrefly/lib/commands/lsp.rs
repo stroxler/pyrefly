@@ -120,6 +120,7 @@ use crate::commands::run::CommandExitStatus;
 use crate::commands::util::module_from_path;
 use crate::common::files::PYTHON_FILE_SUFFIXES_TO_WATCH;
 use crate::config::config::ConfigFile;
+use crate::config::config::ConfigSource;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;
@@ -329,11 +330,68 @@ impl Default for Workspace {
     }
 }
 
+/// A cache of loaded configs from the LSP's [`standard_config_finder`]. These
+/// values are [`WeakArcId`]s, so they will be dropped when no other references
+/// point to them. We use this for determining the list of files we need to watch
+/// when setting up the watcher.
+struct WeakConfigCache(Mutex<HashSet<WeakArcId<ConfigFile>>>);
+
+impl WeakConfigCache {
+    fn new() -> Self {
+        Self(Mutex::new(HashSet::new()))
+    }
+
+    fn insert(&self, config: WeakArcId<ConfigFile>) {
+        self.0.lock().insert(config);
+    }
+
+    /// Purge any [`WeakArcId`]s that are [`WeakArcId::vacant`], and return
+    /// the remaining configs, converted to [`ArcId`]s.
+    fn clean_and_get_configs(&self) -> SmallSet<ArcId<ConfigFile>> {
+        let mut configs = self.0.lock();
+        let purged_config_count = configs.extract_if(|c| c.vacant()).count();
+        if purged_config_count != 0 {
+            eprintln!("Cleared {purged_config_count} dropped configs from config cache");
+        }
+        SmallSet::from_iter(configs.iter().filter_map(|c| c.upgrade()))
+    }
+
+    /// Given an [`ArcId<ConfigFile>`], get glob patterns that should be watched by a file watcher.
+    fn get_loaded_config_paths_to_watch(config: ArcId<ConfigFile>) -> SmallSet<PathBuf> {
+        let mut result = SmallSet::new();
+        if let ConfigSource::File(config_path) = &config.source {
+            result.insert(config_path.to_path_buf());
+        } else if let Some(project_root) = config.source.root() {
+            ConfigFile::CONFIG_FILE_NAMES.iter().for_each(|config| {
+                result.insert(project_root.join("**").join(config));
+            });
+        }
+        config
+            .search_path()
+            .chain(config.site_package_path())
+            .cartesian_product(PYTHON_FILE_SUFFIXES_TO_WATCH)
+            .for_each(|(s, suffix)| {
+                result.insert(s.join(format!("**/*.{suffix}")));
+            });
+        result
+    }
+
+    /// Get glob patterns to watch all Python files under [`ConfigFile::search_path`] and
+    /// [`ConfigFile::site_package_path`], clearing out any removed [`ConfigFile`]s as we go.
+    fn get_patterns_for_cached_configs(&self) -> SmallSet<PathBuf> {
+        SmallSet::from_iter(
+            self.clean_and_get_configs()
+                .into_iter()
+                .flat_map(Self::get_loaded_config_paths_to_watch),
+        )
+    }
+}
+
 struct Workspaces {
     /// If a workspace is not found, this one is used. It contains every possible file on the system but is lowest priority.
     default: RwLock<Workspace>,
     workspaces: RwLock<SmallMap<PathBuf, Workspace>>,
-    loaded_configs: Arc<RwLock<HashSet<WeakArcId<ConfigFile>>>>,
+    loaded_configs: Arc<WeakConfigCache>,
 }
 
 impl Workspaces {
@@ -341,7 +399,7 @@ impl Workspaces {
         Self {
             default: RwLock::new(default),
             workspaces: RwLock::new(SmallMap::new()),
-            loaded_configs: Arc::new(RwLock::new(HashSet::new())),
+            loaded_configs: Arc::new(WeakConfigCache::new()),
         }
     }
 
@@ -361,7 +419,7 @@ impl Workspaces {
 
     fn config_finder(
         workspaces: &Arc<Workspaces>,
-        loaded_configs: Arc<RwLock<HashSet<WeakArcId<ConfigFile>>>>,
+        loaded_configs: Arc<WeakConfigCache>,
     ) -> ConfigFinder {
         let workspaces = workspaces.dupe();
         standard_config_finder(Arc::new(move |dir, mut config| {
@@ -384,27 +442,11 @@ impl Workspaces {
             };
             config.configure();
             let config = ArcId::new(config);
-            let mut loaded_configs = loaded_configs.write();
-            let purged_configs = loaded_configs.extract_if(|c| c.vacant()).count();
-            eprintln!("Purged {purged_configs} dropped configs");
+
             loaded_configs.insert(config.downgrade());
+
             (config, Vec::new())
         }))
-    }
-
-    fn get_loaded_config_paths_to_watch(config: ArcId<ConfigFile>) -> SmallSet<PathBuf> {
-        let mut result = SmallSet::new();
-        if let Some(config_path) = config.source.root() {
-            result.insert(config_path.to_path_buf());
-        }
-        config
-            .search_path()
-            .chain(config.site_package_path())
-            .cartesian_product(PYTHON_FILE_SUFFIXES_TO_WATCH)
-            .for_each(|(s, suffix)| {
-                result.insert(s.join(format!("**/.{suffix}")));
-            });
-        result
     }
 }
 
@@ -1476,18 +1518,13 @@ impl Server {
                     glob_patterns.insert(root.join(format!("**/{config}")));
                 });
             }
-            let loaded_configs = self.workspaces.loaded_configs.read();
-            loaded_configs
-                .iter()
-                .filter_map(|c| c.upgrade())
-                .for_each(|c| {
-                    Workspaces::get_loaded_config_paths_to_watch(c)
-                        .into_iter()
-                        .for_each(|pattern| {
-                            glob_patterns.insert(pattern);
-                        })
-                });
-            drop(loaded_configs);
+            for pattern in self
+                .workspaces
+                .loaded_configs
+                .get_patterns_for_cached_configs()
+            {
+                glob_patterns.insert(pattern);
+            }
             let watchers = glob_patterns
                 .into_iter()
                 .map(|pattern| FileSystemWatcher {
