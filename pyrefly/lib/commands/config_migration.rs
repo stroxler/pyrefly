@@ -44,22 +44,17 @@ pub struct Args {
 
 impl Args {
     fn load_from_pyproject(raw_file: &str) -> anyhow::Result<ConfigFile> {
-        info!("Attempting to load [tool.mypy] config");
         match mypy::parse_pyrproject_config(raw_file) {
             ok @ Ok(_) => {
-                info!("Successfully loaded [tool.mypy] config from pyproject.toml");
+                info!("Migrating [tool.mypy] config from pyproject.toml");
                 return ok;
             }
-            Err(e) => {
-                info!("Failed to load [tool.mypy] config from pyproject.toml:\n  {e}");
-                info!("Attempting to load [tool.pyright] config.");
+            Err(_) => {
+                // Try to parse [tool.pyright] instead.
             }
         }
         pyright::parse_pyproject_toml(raw_file)
-            .inspect(|_| info!("Successfully loaded [tool.pyright] config from pyproject.toml"))
-            .inspect_err(|e| {
-                info!("failed to load [tool.pyright] config from pyproject.toml:\n  {e}")
-            })
+            .inspect(|_| info!("Migrating [tool.pyright] config from pyproject.toml"))
     }
 
     fn find_config(start: &Path) -> anyhow::Result<PathBuf> {
@@ -104,35 +99,24 @@ impl Args {
         }
 
         let input_path = match &self.input_path {
-            Some(path) if path.is_file() => {
-                info!("Looking for {}", path.display());
-                path
-            }
-            Some(path) => {
-                info!("Looking for configs to migrate in {}", path.display());
-                &Self::find_config(path)?
-            }
+            Some(path) if path.is_file() => path,
+            Some(path) => &Self::find_config(path)?,
             None => {
                 let cwd = std::env::current_dir()
                     .context("Could not find dir to start search for configs from")?;
-                info!(
-                    "No config path provided. Searching for configs, starting in {}",
-                    cwd.display()
-                );
                 &Self::find_config(&cwd)?
             }
         };
         let config = if input_path.file_name() == Some("pyrightconfig.json".as_ref()) {
             let raw_file = fs_anyhow::read_to_string(input_path)?;
-            info!("Detected pyright config file");
+            info!("Migrating pyright config file");
             let pyr = serde_jsonrc::from_str::<PyrightConfig>(&raw_file)?;
             pyr.convert()
         } else if input_path.file_name() == Some("mypy.ini".as_ref()) {
-            info!("Detected mypy config file");
+            info!("Migrating mypy config file");
             MypyConfig::parse_mypy_config(input_path)?
         } else if input_path.file_name() == Some("pyproject.toml".as_ref()) {
             let raw_file = fs_anyhow::read_to_string(input_path)?;
-            info!("Detected pyproject.toml file.");
             Self::load_from_pyproject(&raw_file)?
         } else {
             error!(
@@ -141,7 +125,6 @@ impl Args {
             );
             return Ok(CommandExitStatus::UserError);
         };
-        info!("Conversion finished");
 
         Self::check_and_warn(&config);
 
