@@ -83,6 +83,7 @@ testcase!(
     test_typechecking_constant,
     r#"
 import typing
+import typing_extensions as te
 from typing import TYPE_CHECKING, assert_type
 if TYPE_CHECKING:
     X0 = str
@@ -107,6 +108,12 @@ if not typing.TYPE_CHECKING:
 else:
     Y1 = int
 assert_type(Y1(), int)
+
+if te.TYPE_CHECKING:
+    Z1 = str
+else:
+    Z1 = bool
+assert_type(Z1(), str)
 "#,
 );
 

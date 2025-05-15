@@ -304,12 +304,11 @@ impl SysInfo {
             },
             Expr::Name(name) if name.id == "TYPE_CHECKING" => Some(Value::Bool(true)),
             Expr::Attribute(ExprAttribute {
-                value: box Expr::Name(name),
+                // We support TYPE_CHECKING regardless of which import (or reimport) it is from.
+                value: box Expr::Name(_),
                 attr,
                 ..
-            }) if &name.id == "typing" && attr.as_str() == "TYPE_CHECKING" => {
-                Some(Value::Bool(true))
-            }
+            }) if attr.as_str() == "TYPE_CHECKING" => Some(Value::Bool(true)),
             Expr::Call(ExprCall {
                 func:
                     box Expr::Attribute(ExprAttribute {
