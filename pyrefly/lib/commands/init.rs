@@ -112,10 +112,17 @@ impl Args {
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
         let path = self.path.absolutize()?.to_path_buf();
 
-        if Args::check_for_existing_config(&path, ConfigFileKind::Pyrefly)? {
+        let dir: Option<&Path> = if path.is_dir() {
+            Some(&path)
+        } else {
+            path.parent()
+        };
+        if let Some(dir) = dir
+            && Args::check_for_existing_config(dir, ConfigFileKind::Pyrefly)?
+        {
             error!(
-                "The project at {} has already been initialized for pyrefly. Run `pyrefly check` to see type errors.",
-                path.display()
+                "The project at `{}` has already been initialized for pyrefly. Run `pyrefly check` to see type errors.",
+                dir.display()
             );
             return Ok(CommandExitStatus::UserError);
         }
@@ -506,6 +513,26 @@ k = [\"v\"]
     fn test_bad_path() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let status = run_init_on_file(&tmp, "personal_configs.json")?;
+        assert_user_error(status);
+        Ok(())
+    }
+
+    #[test]
+    fn test_mypy_config_twice() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(tmp.path(), "mypy.ini", None)?;
+        let status1 = run_init_on_file(&tmp, "mypy.ini")?;
+        assert_success(status1);
+        let status2 = run_init_on_file(&tmp, "mypy.ini")?;
+        assert_user_error(status2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_pyproject_toml_with_existing_pyrefly_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(tmp.path(), "pyrefly.toml", None)?;
+        let status = run_init_on_file(&tmp, "pyproject.toml")?;
         assert_user_error(status);
         Ok(())
     }
