@@ -57,6 +57,7 @@ mod tests {
     use crate::error::style::ErrorStyle;
     use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
+    use crate::sys_info::PythonVersion;
 
     fn from_expr(x: &Expr) -> ShortIdentifier {
         match x {
@@ -72,10 +73,10 @@ mod tests {
             ModulePath::filesystem(Path::new("foo.py").to_owned()),
             Arc::new("hello_world = Baz123.attribute".to_owned()),
         );
-        let module = module_info.parse(&ErrorCollector::new(
-            module_info.dupe(),
-            ErrorStyle::Delayed,
-        ));
+        let module = module_info.parse(
+            PythonVersion::default(),
+            &ErrorCollector::new(module_info.dupe(), ErrorStyle::Delayed),
+        );
         let show = |x: &ShortIdentifier| module_info.display(x).to_string();
         if let Stmt::Assign(StmtAssign {
             targets: x1,
