@@ -1104,6 +1104,16 @@ impl Server {
             .insert(uri, Arc::new(params.text_document.text));
         self.validate_in_memory(ide_transaction_manager)?;
         self.populate_project_files_if_necessary(config_to_populate_files);
+        // rewatch files in case we loaded or dropped any configs
+        self.setup_file_watcher_if_necessary(
+            self.workspaces
+                .workspaces
+                .read()
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
         Ok(())
     }
 
@@ -1152,11 +1162,20 @@ impl Server {
 
     fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) -> anyhow::Result<()> {
         if !params.changes.is_empty() {
-            // TODO(connernilsen): need to handle when a config changes or when a new config is loaded after start
             self.invalidate(move |t| {
                 t.invalidate_events(&Self::categorized_events(params.changes))
             });
         }
+        // rewatch files in case we loaded or dropped any configs
+        self.setup_file_watcher_if_necessary(
+            self.workspaces
+                .workspaces
+                .read()
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
         Ok(())
     }
 
