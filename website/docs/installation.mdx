@@ -91,7 +91,7 @@ jobs:
         uses: actions/setup-python@v5
 
       # Install Python dependencies and create environment
-      - name: Install dependencies and run pytest
+      - name: Install dependencies and run type checking
         run: |
           python -m venv .venv
           source .venv/bin/activate
