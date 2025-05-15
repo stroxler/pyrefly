@@ -59,22 +59,15 @@ pub struct Args {
     /// If this is the path to a pyproject.toml, the config will be written as a `[tool.pyrefly]` entry in that file.
     #[arg(default_value_os_t = PathBuf::from("."))]
     path: PathBuf,
-    /// If not present, will output to the same directory as the input, to a pyrefly.toml file if no pyproject.toml exists.
-    /// If output_path points to a pyproject.toml file or a directory with a pyproject.toml file, the config will be written as a `[tool.pyrefly]` entry in that file.
-    /// Otherwise, the config will be written to a pyrefly.toml file.
-    output_path: Option<PathBuf>,
 }
 
 impl Args {
     pub fn new(path: PathBuf) -> Self {
-        Self {
-            path,
-            output_path: None,
-        }
+        Self { path }
     }
 
-    pub fn new_migration(path: PathBuf, output_path: Option<PathBuf>) -> Self {
-        Self { path, output_path }
+    pub fn new_migration(path: PathBuf) -> Self {
+        Self { path }
     }
 
     fn check_for_pyproject_file(path: &Path) -> bool {
@@ -137,7 +130,7 @@ impl Args {
             println!("Found an existing type checking configuration - setting up pyrefly ...");
             let args = config_migration::Args {
                 input_path: Some(path),
-                output_path: self.output_path.clone(),
+                output_path: None,
             };
             return args.run();
         }
