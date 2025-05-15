@@ -15,7 +15,7 @@ const PipInstallPyrefly: React.FC = () => {
         setIsLoaded(true);
     }, []);
 
-    const codeString = `pip install pyrefly`;
+    const codeString = `pip install pyrefly && pyrefly init`;
 
     const copyToClipboard = async () => {
         try {
@@ -122,7 +122,7 @@ const styles = stylex.create({
         transform: 'rotateX(0deg) translateY(0)',
     },
     pre: {
-        maxWidth: '400px',
+        maxWidth: '430px',
         width: '100%',
         borderRadius: '4px',
         color: 'var(--color-text)',

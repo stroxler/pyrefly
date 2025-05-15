@@ -33,7 +33,7 @@ exports[`Home page renders external site correctly 1`] = `
                 <pre>
                   <code>
                     $ 
-                    pip install pyrefly
+                    pip install pyrefly && pyrefly init
                   </code>
                   <button
                     title="Copy to clipboard"
@@ -347,7 +347,7 @@ exports[`Home page renders internal site correctly 1`] = `
                 <pre>
                   <code>
                     $ 
-                    pip install pyrefly
+                    pip install pyrefly && pyrefly init
                   </code>
                   <button
                     title="Copy to clipboard"
