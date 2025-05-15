@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 import * as docusaurusTheme from '@docusaurus/theme-common';
 import PipInstallPyrefly from './pipInstallPyrefly';
 import ThemedImage from '@theme/ThemedImage';
+import { log, LoggingEvent } from '../../utils/LoggingUtils';
 
 export default function LandingPageHeader(): React.ReactElement {
     const { colorMode } = docusaurusTheme.useColorMode();
@@ -68,6 +69,18 @@ export default function LandingPageHeader(): React.ReactElement {
                 <a
                     href="https://marketplace.visualstudio.com/items?itemName=meta.pyrefly"
                     target="_blank"
+                    onClick={() =>
+                        log(LoggingEvent.CLICK, {
+                            event_category: 'button',
+                            event_label: 'get_vscode_extension',
+                        })
+                    }
+                    onMouseEnter={() =>
+                        log(LoggingEvent.HOVER, {
+                            event_category: 'button',
+                            event_label: 'get_vscode_extension',
+                        })
+                    }
                     {...stylex.props(styles.buttonFullWidth, typography.p)}
                 >
                     {' '}

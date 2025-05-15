@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import typography from './typography';
 import { landingPageCardStyles } from './landingPageCardStyles';
+import { log, LoggingEvent } from '../../utils/LoggingUtils';
 
 const PipInstallPyrefly: React.FC = () => {
     const [isCopied, setIsCopied] = useState(false);
@@ -21,6 +22,10 @@ const PipInstallPyrefly: React.FC = () => {
             await navigator.clipboard.writeText(codeString);
             setIsCopied(true);
             setTimeout(() => setIsCopied(false), 2000);
+            log(LoggingEvent.CLICK, {
+                event_category: 'button',
+                event_label: 'copy_pip_install',
+            });
         } catch (err) {
             console.error('Failed to copy!', err);
         }
@@ -43,6 +48,12 @@ const PipInstallPyrefly: React.FC = () => {
                 <code>$ {codeString}</code>
                 <button
                     onClick={copyToClipboard}
+                    onMouseEnter={() =>
+                        log(LoggingEvent.HOVER, {
+                            event_category: 'button',
+                            event_label: 'copy_pip_install',
+                        })
+                    }
                     {...stylex.props(styles.copy)}
                     title="Copy to clipboard"
                 >
