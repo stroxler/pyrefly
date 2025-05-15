@@ -85,7 +85,11 @@ function ErrorMessage({
                 goToDef(startLineNumber, startColumn, endLineNumber, endColumn)
             }
         >
-            <span {...stylex.props(styles.ErrorMessageError)}>ERROR </span>
+            {error.message.includes('revealed type') ? (
+                <span {...stylex.props(styles.RevealTypeError)}>INFO </span>
+            ) : (
+                <span {...stylex.props(styles.ErrorMessageError)}>ERROR </span>
+            )}
             {message}
             {'['}
             {errorKindUrl}
@@ -249,6 +253,7 @@ const styles = stylex.create({
     tabsEnabled: {
         pointerEvents: 'auto',
     },
+
     tab: {
         borderRight: '1px solid var(--color-background-secondary)',
         cursor: 'pointer',
@@ -307,6 +312,9 @@ const styles = stylex.create({
     },
     ErrorMessageError: {
         color: '#ed0a0a',
+    },
+    RevealTypeError: {
+        color: '#007bff', // Blue color for reveal_type errors
     },
     PyodideDisclaimer: {
         color: 'var(--color-primary)',

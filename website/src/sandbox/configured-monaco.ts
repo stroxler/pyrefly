@@ -163,22 +163,23 @@ monaco.languages.registerCompletionItemProvider('python', {
 
     provideCompletionItems(model, position) {
         try {
-            const f =
-                autoCompleteFunctionsForMonaco.get(model) ??
-                defaultAutoCompleteFunctionForMonaco;
-            const result = f(position.lineNumber, position.column);
-            return {
-                suggestions: result.map((r) => ({
-                    ...r,
-                    insertText: r.label.toString(),
-                })),
-            };
+          const f =
+            autoCompleteFunctionsForMonaco.get(model) ??
+            defaultAutoCompleteFunctionForMonaco;
+          const result = f(position.lineNumber, position.column);
+          return {
+            suggestions: result.map((r) => ({
+              ...r,
+              insertText: r.label.toString(),
+            })),
+            markerSeverity: monaco.MarkerSeverity.Info, // Change this line
+          };
         } catch (e) {
-            console.error(e);
-            return null;
+          console.error(e);
+          return null;
         }
-    },
-});
+      },
+    });
 
 monaco.languages.registerDefinitionProvider('python', {
     provideDefinition(model, position) {
