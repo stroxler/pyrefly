@@ -78,6 +78,7 @@ use lsp_types::ReferenceParams;
 use lsp_types::Registration;
 use lsp_types::RegistrationParams;
 use lsp_types::RelatedFullDocumentDiagnosticReport;
+use lsp_types::RelativePattern;
 use lsp_types::ServerCapabilities;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
@@ -357,13 +358,19 @@ impl WeakConfigCache {
     }
 
     /// Given an [`ArcId<ConfigFile>`], get glob patterns that should be watched by a file watcher.
-    fn get_loaded_config_paths_to_watch(config: ArcId<ConfigFile>) -> SmallSet<PathBuf> {
-        let mut result = SmallSet::new();
-        if let ConfigSource::File(config_path) = &config.source {
-            result.insert(config_path.to_path_buf());
-        } else if let Some(project_root) = config.source.root() {
+    /// We return a tuple of root (non-pattern part of the path) and a pattern.
+    fn get_loaded_config_paths_to_watch(config: ArcId<ConfigFile>) -> Vec<(PathBuf, String)> {
+        let mut result = Vec::new();
+        let config_root = if let ConfigSource::File(config_path) = &config.source
+            && let Some(root) = config_path.parent()
+        {
+            Some(root)
+        } else {
+            config.source.root()
+        };
+        if let Some(config_root) = config_root {
             ConfigFile::CONFIG_FILE_NAMES.iter().for_each(|config| {
-                result.insert(project_root.join("**").join(config));
+                result.push((config_root.to_path_buf(), format!("**/{config}")));
             });
         }
         config
@@ -371,19 +378,18 @@ impl WeakConfigCache {
             .chain(config.site_package_path())
             .cartesian_product(PYTHON_FILE_SUFFIXES_TO_WATCH)
             .for_each(|(s, suffix)| {
-                result.insert(s.join(format!("**/*.{suffix}")));
+                result.push((s.to_owned(), format!("**/*.{suffix}")));
             });
         result
     }
 
     /// Get glob patterns to watch all Python files under [`ConfigFile::search_path`] and
     /// [`ConfigFile::site_package_path`], clearing out any removed [`ConfigFile`]s as we go.
-    fn get_patterns_for_cached_configs(&self) -> SmallSet<PathBuf> {
-        SmallSet::from_iter(
-            self.clean_and_get_configs()
-                .into_iter()
-                .flat_map(Self::get_loaded_config_paths_to_watch),
-        )
+    fn get_patterns_for_cached_configs(&self) -> Vec<(PathBuf, String)> {
+        self.clean_and_get_configs()
+            .into_iter()
+            .flat_map(Self::get_loaded_config_paths_to_watch)
+            .collect::<Vec<_>>()
     }
 }
 
@@ -1509,59 +1515,93 @@ impl Server {
         self.request_settings_for_all_workspaces();
     }
 
-    fn setup_file_watcher_if_necessary(&self, roots: &[PathBuf]) {
-        if matches!(
-            self.initialize_params.capabilities.workspace,
-            Some(WorkspaceClientCapabilities {
-                did_change_watched_files: Some(DidChangeWatchedFilesClientCapabilities {
-                    dynamic_registration: Some(true),
-                    ..
-                }),
-                ..
+    fn get_pattern_to_watch(
+        root: &Path,
+        pattern: String,
+        relative_pattern_support: bool,
+    ) -> GlobPattern {
+        if relative_pattern_support && let Ok(url) = Url::from_directory_path(root) {
+            GlobPattern::Relative(RelativePattern {
+                base_uri: OneOf::Right(url),
+                pattern,
             })
-        ) {
-            if self.filewatcher_registered.load(Ordering::Relaxed) {
-                self.send_request::<UnregisterCapability>(UnregistrationParams {
-                    unregisterations: Vec::from([Unregistration {
+        } else {
+            GlobPattern::String(root.join(pattern).to_string_lossy().into_owned())
+        }
+    }
+
+    fn setup_file_watcher_if_necessary(&self, roots: &[PathBuf]) {
+        match self.initialize_params.capabilities.workspace {
+            Some(WorkspaceClientCapabilities {
+                did_change_watched_files:
+                    Some(DidChangeWatchedFilesClientCapabilities {
+                        dynamic_registration: Some(true),
+                        relative_pattern_support,
+                        ..
+                    }),
+                ..
+            }) => {
+                let relative_pattern_support = relative_pattern_support.is_some_and(|b| b);
+                if self.filewatcher_registered.load(Ordering::Relaxed) {
+                    self.send_request::<UnregisterCapability>(UnregistrationParams {
+                        unregisterations: Vec::from([Unregistration {
+                            id: Self::FILEWATCHER_ID.to_owned(),
+                            method: DidChangeWatchedFiles::METHOD.to_owned(),
+                        }]),
+                    });
+                }
+                // TODO(connernilsen): we need to dedup filewatcher patterns
+                // preferably by figuring out if they're under another wildcard pattern with the same suffix
+                let mut glob_patterns = Vec::new();
+                for root in roots {
+                    PYTHON_FILE_SUFFIXES_TO_WATCH.iter().for_each(|suffix| {
+                        glob_patterns.push(Self::get_pattern_to_watch(
+                            root,
+                            format!("**/*.{suffix}"),
+                            relative_pattern_support,
+                        ));
+                    });
+                    ConfigFile::CONFIG_FILE_NAMES.iter().for_each(|config| {
+                        glob_patterns.push(Self::get_pattern_to_watch(
+                            root,
+                            format!("**/{config}"),
+                            relative_pattern_support,
+                        ))
+                    });
+                }
+                for (root, pattern) in self
+                    .workspaces
+                    .loaded_configs
+                    .get_patterns_for_cached_configs()
+                {
+                    glob_patterns.push(Self::get_pattern_to_watch(
+                        &root,
+                        pattern,
+                        relative_pattern_support,
+                    ));
+                }
+                let watchers = glob_patterns
+                    .into_iter()
+                    .map(|glob_pattern| FileSystemWatcher {
+                        glob_pattern,
+                        kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
+                    })
+                    .collect::<Vec<_>>();
+                self.send_request::<RegisterCapability>(RegistrationParams {
+                    registrations: Vec::from([Registration {
                         id: Self::FILEWATCHER_ID.to_owned(),
                         method: DidChangeWatchedFiles::METHOD.to_owned(),
+                        register_options: Some(
+                            serde_json::to_value(DidChangeWatchedFilesRegistrationOptions {
+                                watchers,
+                            })
+                            .unwrap(),
+                        ),
                     }]),
                 });
+                self.filewatcher_registered.store(true, Ordering::Relaxed);
             }
-            let mut glob_patterns = SmallSet::new();
-            for root in roots {
-                PYTHON_FILE_SUFFIXES_TO_WATCH.iter().for_each(|suffix| {
-                    glob_patterns.insert(root.join(format!("**/*.{suffix}")));
-                });
-                ConfigFile::CONFIG_FILE_NAMES.iter().for_each(|config| {
-                    glob_patterns.insert(root.join(format!("**/{config}")));
-                });
-            }
-            for pattern in self
-                .workspaces
-                .loaded_configs
-                .get_patterns_for_cached_configs()
-            {
-                glob_patterns.insert(pattern);
-            }
-            let watchers = glob_patterns
-                .into_iter()
-                .map(|pattern| FileSystemWatcher {
-                    glob_pattern: GlobPattern::String(pattern.to_string_lossy().into_owned()),
-                    kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
-                })
-                .collect::<Vec<_>>();
-            self.send_request::<RegisterCapability>(RegistrationParams {
-                registrations: Vec::from([Registration {
-                    id: Self::FILEWATCHER_ID.to_owned(),
-                    method: DidChangeWatchedFiles::METHOD.to_owned(),
-                    register_options: Some(
-                        serde_json::to_value(DidChangeWatchedFilesRegistrationOptions { watchers })
-                            .unwrap(),
-                    ),
-                }]),
-            });
-            self.filewatcher_registered.store(true, Ordering::Relaxed);
+            _ => (),
         }
     }
 
