@@ -27,7 +27,7 @@ However, projects with existing pyright configs may want to configure pyrefly to
 To make it as easy as possible to get started with pyrefly, we've provided a script for automatically migrating a pyright config to pyrefly.
 
 ```sh
-$ pyrefly init --migrate path/to/your/project
+$ pyrefly init path/to/your/project
 ```
 
 This will search for an existing `pyrightconfig.json` or `pyproject.toml` with a `tool.pyright` section, and then transform it into a `pyrefly.toml` (or `[tool.pyrefly]` section) while preserving as many options as possible. See `init --help` for more options.
