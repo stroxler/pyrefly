@@ -993,8 +993,17 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     fn check_targs(&mut self, got: &TArgs, want: &TArgs, params: &TParams) -> bool {
         let got = got.as_slice();
         let want = want.as_slice();
-        assert_eq!(got.len(), want.len());
-        assert_eq!(want.len(), params.len());
+        if !(got.len() == want.len() && want.len() == params.len()) {
+            // This state should be impossible in static code, but during an
+            // incremental update it's possible to get two `Class` values that are
+            // not the same because they come from different states of the codebase,
+            // and yet compare as equal. We need to treat them as not the same type here
+            // to avoid arity mismatches later.
+            //
+            // TODO(stroxler): Find a way to write a test that crashes if we try to assert here;
+            // having a test setup to stress what happens on code change will help us make
+            // Pyrefly incremental more robust.
+        }
         for (got_arg, want_arg, param) in izip!(got, want, params.iter()) {
             let result = if param.quantified.kind() == QuantifiedKind::TypeVarTuple {
                 self.is_equal(got_arg, want_arg)
