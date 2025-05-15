@@ -15,9 +15,9 @@ use path_absolutize::Absolutize;
 use tracing::error;
 
 use crate::commands::config_migration;
+use crate::commands::config_migration::write_pyproject;
 use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
-use crate::config::util::PyProject;
 use crate::util::fs_anyhow;
 
 // This should likely be moved into config.rs
@@ -155,14 +155,12 @@ impl Args {
 
         // 3. pyproject.toml configuration
         if Args::check_for_pyproject_file(&path) {
-            let config = PyProject::new(cfg);
-            let serialized = toml::to_string_pretty(&config)?;
-            if path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
-                fs_anyhow::append(&path, serialized.as_bytes())?;
+            let config_path = if path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
+                path
             } else {
-                let config_path = path.join(ConfigFile::PYPROJECT_FILE_NAME);
-                fs_anyhow::write(&config_path, serialized.as_bytes())?;
-            }
+                path.join(ConfigFile::PYPROJECT_FILE_NAME)
+            };
+            write_pyproject(&config_path, cfg)?;
             return Ok(CommandExitStatus::Success);
         }
 
@@ -362,7 +360,7 @@ mod test {
     }
 
     #[test]
-    fn test_non_empty_pyrefly_config() -> anyhow::Result<()> {
+    fn test_create_non_empty_pyrefly_config() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let args = Args::new(tmp.path().to_path_buf());
         let status = args.run()?;
@@ -375,7 +373,7 @@ mod test {
     }
 
     #[test]
-    fn test_non_empty_pyright_config() -> anyhow::Result<()> {
+    fn test_append_to_non_empty_pyproject_config() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let cfgpath = tmp.path().join(ConfigFile::PYPROJECT_FILE_NAME);
         fs_anyhow::write(
@@ -388,7 +386,8 @@ name = "test"
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
         let raw_cfg = fs_anyhow::read_to_string(&cfgpath)?;
-        assert!(!raw_cfg.is_empty());
+        assert!(raw_cfg.contains("[project]"));
+        assert!(raw_cfg.contains("[tool.pyrefly]"));
         from_file(&cfgpath)
     }
 }
