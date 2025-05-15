@@ -69,3 +69,8 @@ If there's a major issue on the website and you want to quickly roll it back to 
 
 **Internal Docs Site (for Meta Employees)**
 The internal docs page is deployed whenever diffs that touches the site lands. A manual deploy can also be triggered using the static docs hub: https://www.internalfb.com/staticdocs/hub.
+
+## Logging
+
+To debug logging, you can use the chrome extension [google analytics debugger](https://chromewebstore.google.com/detail/google-analytics-debugger/jnkmfdileelhofjcijamephohjechhna) to see events logged to google analytics. Note that for events to be logged, you need to not be in development mode, which can be done using `yarn build` and
+`yarn serve` instead of `yarn start`.
