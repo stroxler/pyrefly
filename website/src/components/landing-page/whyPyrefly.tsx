@@ -99,10 +99,7 @@ const styles = stylex.create({
         gap: '1.5rem',
         position: 'relative',
         zIndex: 2,
-        '@media (max-width: 800px)': {
-            gridTemplateColumns: 'repeat(2, 1fr)',
-        },
-        '@media (max-width: 550px)': {
+        '@media (max-width: 768px)': {
             gridTemplateColumns: 'repeat(1, 1fr)',
         },
     },
