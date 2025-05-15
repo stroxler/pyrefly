@@ -160,8 +160,10 @@ impl Args {
         } else if path.ends_with(ConfigFile::PYREFLY_FILE_NAME) {
             let serialized = toml::to_string_pretty(&cfg)?;
             fs_anyhow::append(&path, serialized.as_bytes())?;
+        } else if !path.exists() {
+            error!("Path `{}` does not exist", path.display());
+            return Ok(CommandExitStatus::UserError);
         } else {
-            println!("{} is not a directory", path.display());
             error!(
                 "Pyrefly configs must reside in `pyrefly.toml` or `pyproject.toml`, not {}",
                 path.display()
