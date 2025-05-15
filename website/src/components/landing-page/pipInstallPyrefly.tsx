@@ -43,9 +43,8 @@ const PipInstallPyrefly: React.FC = () => {
                     landingPageCardStyles.card,
                     styles.pre,
                     typography.p
-                )}
-            >
-                <code>$ {codeString}</code>
+                )}>
+                <code><span {...stylex.props(styles.noSelect)}>${' '}</span>{codeString}</code>
                 <button
                     onClick={copyToClipboard}
                     onMouseEnter={() =>
@@ -98,7 +97,7 @@ const PipInstallPyrefly: React.FC = () => {
                     )}
                 </button>
             </pre>
-        </div>
+        </div >
     );
 };
 
@@ -141,6 +140,9 @@ const styles = stylex.create({
             cursor: 'pointer',
         },
     },
+    noSelect: {
+        userSelect: 'none'
+    }
 });
 
 export default PipInstallPyrefly;
