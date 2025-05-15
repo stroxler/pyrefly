@@ -12,12 +12,12 @@ import React from 'react';
 // Mock implementation of ThemedImage component
 const ThemedImage: React.FC<{
     sources: {
-        light: string,
-        dark: string,
-    },
-    alt?: string,
-    className?: string,
-    [key: string]: any,
+        light: string;
+        dark: string;
+    };
+    alt?: string;
+    className?: string;
+    [key: string]: any;
 }> = (props) => {
     // Use the light source by default in tests
     const { sources, alt, className, ...restProps } = props;

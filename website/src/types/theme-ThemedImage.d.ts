@@ -8,14 +8,14 @@
  */
 
 declare module '@theme/ThemedImage' {
-  import type { ComponentProps, ReactNode } from 'react';
+    import type { ComponentProps, ReactNode } from 'react';
 
-  export interface Props extends Omit<ComponentProps<'img'>, 'src'> {
-    readonly sources: {
-      readonly light: string;
-      readonly dark: string;
-    };
-  }
+    export interface Props extends Omit<ComponentProps<'img'>, 'src'> {
+        readonly sources: {
+            readonly light: string;
+            readonly dark: string;
+        };
+    }
 
-  export default function ThemedImage(props: Props): ReactNode;
+    export default function ThemedImage(props: Props): ReactNode;
 }

@@ -364,7 +364,7 @@ function getPyreflyEditor(
 
     const editorTheme = colorMode === 'dark' ? 'vs-dark' : 'vs-light';
     if (isCodeSnippet) {
-                    return (
+        return (
             <Editor
                 defaultPath={fileName}
                 defaultValue={codeSample}
