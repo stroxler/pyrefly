@@ -125,7 +125,7 @@ impl Args {
         let config = if input_path.file_name() == Some("pyrightconfig.json".as_ref()) {
             let raw_file = fs_anyhow::read_to_string(input_path)?;
             info!("Detected pyright config file");
-            let pyr = serde_json::from_str::<PyrightConfig>(&raw_file)?;
+            let pyr = serde_jsonrc::from_str::<PyrightConfig>(&raw_file)?;
             pyr.convert()
         } else if input_path.file_name() == Some("mypy.ini".as_ref()) {
             info!("Detected mypy config file");
@@ -581,6 +581,24 @@ test = true
         assert!(matches!(status, CommandExitStatus::Success));
         let output = fs_anyhow::read_to_string(&output_path)?;
         assert_eq!(output, "[tool.pyrefly]\n");
+        Ok(())
+    }
+
+    #[test]
+    fn test_report_trailing_commas() -> anyhow::Result<()> {
+        let raw_file = r#"
+            {
+                "include": [
+                    "src/**/*.py",
+                    "test/**/*.py",
+                ],
+                "pythonVersion": "3.11",
+                "reportMissingImports": "none"
+            }
+            "#;
+        let pyr = serde_jsonrc::from_str::<PyrightConfig>(raw_file)?;
+        let config = pyr.convert();
+        assert!(!config.project_includes.is_empty());
         Ok(())
     }
 }
