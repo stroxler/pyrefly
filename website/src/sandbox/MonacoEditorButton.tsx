@@ -9,6 +9,7 @@
 
 import React, { useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
+import { log, LoggingEvent } from '../utils/LoggingUtils';
 
 export const BUTTON_HEIGHT = 40;
 
@@ -60,6 +61,10 @@ export default function MonacoEditorButton({
     async function handleClick(): Promise<void> {
         if (disabled) return;
 
+        log(LoggingEvent.CLICK, {
+            button_id: id,
+        });
+
         try {
             runOnClickForAtLeastOneSecond(setIsRunning, onClick);
         } catch (error) {
@@ -78,6 +83,11 @@ export default function MonacoEditorButton({
             onClick={handleClick}
             aria-label={ariaLabel || id}
             disabled={disabled}
+            onMouseEnter={() =>
+                log(LoggingEvent.HOVER, {
+                    button_id: id,
+                })
+            }
         >
             <span {...stylex.props(styles.buttonText)}>
                 {isRunning ? runningLabel : defaultLabel}
