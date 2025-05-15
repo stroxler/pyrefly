@@ -13,6 +13,7 @@ use clap::Parser;
 use parse_display::Display;
 use path_absolutize::Absolutize;
 use tracing::error;
+use tracing::info;
 
 use crate::commands::config_migration;
 use crate::commands::config_migration::write_pyproject;
@@ -92,7 +93,7 @@ impl Args {
         if path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) && path.exists() {
             let raw_pyproject = fs_anyhow::read_to_string(path).with_context(|| {
                 format!(
-                    "While trying to check for an existing {} config in {}",
+                    "While trying to check for an existing {} config in `{}`",
                     kind,
                     path.display()
                 )
@@ -157,26 +158,27 @@ impl Args {
                 path.join(ConfigFile::PYPROJECT_FILE_NAME)
             };
             write_pyproject(&config_path, cfg)?;
+            info!("Config written to `{}`", config_path.display());
             return Ok(CommandExitStatus::Success);
         }
 
-        if path.is_dir() {
-            let config_path = path.join(ConfigFile::PYREFLY_FILE_NAME);
-            let serialized = toml::to_string_pretty(&cfg)?;
-            fs_anyhow::write(&config_path, serialized.as_bytes())?;
+        let config_path = if path.is_dir() {
+            path.join(ConfigFile::PYREFLY_FILE_NAME)
         } else if path.ends_with(ConfigFile::PYREFLY_FILE_NAME) {
-            let serialized = toml::to_string_pretty(&cfg)?;
-            fs_anyhow::append(&path, serialized.as_bytes())?;
+            path
         } else if !path.exists() {
             error!("Path `{}` does not exist", path.display());
             return Ok(CommandExitStatus::UserError);
         } else {
             error!(
-                "Pyrefly configs must reside in `pyrefly.toml` or `pyproject.toml`, not {}",
+                "Pyrefly configs must reside in `pyrefly.toml` or `pyproject.toml`, not `{}`",
                 path.display()
             );
             return Ok(CommandExitStatus::UserError);
-        }
+        };
+        let serialized = toml::to_string_pretty(&cfg)?;
+        fs_anyhow::write(&config_path, serialized.as_bytes())?;
+        info!("New config written to `{}`", config_path.display());
         Ok(CommandExitStatus::Success)
     }
 }

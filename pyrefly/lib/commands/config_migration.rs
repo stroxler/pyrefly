@@ -120,7 +120,7 @@ impl Args {
             Self::load_from_pyproject(&raw_file)?
         } else {
             error!(
-                "Currently only migration from pyrightconfig.json, mypy.ini, and pyproject.toml is supported, not {}",
+                "Currently only migration from pyrightconfig.json, mypy.ini, and pyproject.toml is supported, not `{}`",
                 input_path.display(),
             );
             return Ok(CommandExitStatus::UserError);
@@ -142,7 +142,7 @@ impl Args {
             .parent()
             .ok_or_else(|| {
                 anyhow::anyhow!(
-                    "Could not check if parent directories of {} exist",
+                    "Could not check if parent directories of `{}` exist",
                     output_path.display()
                 )
             })?
@@ -153,11 +153,11 @@ impl Args {
         }
         if output_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
             write_pyproject(output_path, config)?;
-            info!("Config written to {}", output_path.display());
+            info!("Config written to `{}`", output_path.display());
         } else {
             let serialized = toml::to_string_pretty(&config)?;
             fs_anyhow::write(output_path, serialized.as_bytes())?;
-            info!("New config written to {}", output_path.display());
+            info!("New config written to `{}`", output_path.display());
         }
         Ok(CommandExitStatus::Success)
     }
