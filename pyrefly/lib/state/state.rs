@@ -1110,7 +1110,7 @@ impl<'a> Transaction<'a> {
     /// Invalidate based on what a watcher told you.
     pub fn invalidate_events(&mut self, events: &CategorizedEvents) {
         // If any files were added or removed, we need to invalidate the find step.
-        if !events.created.is_empty() && !events.removed.is_empty() && !events.unknown.is_empty() {
+        if !events.created.is_empty() || !events.removed.is_empty() || !events.unknown.is_empty() {
             self.invalidate_find();
         }
 
