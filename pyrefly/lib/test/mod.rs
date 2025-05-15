@@ -36,6 +36,7 @@ mod new_type;
 mod operators;
 mod overload;
 mod paramspec;
+mod pattern_match;
 mod perf;
 mod protocol;
 mod returns;
