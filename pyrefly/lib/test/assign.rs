@@ -328,6 +328,16 @@ x: str = ""
 );
 
 testcase!(
+    test_aug_assign_illegal_targets,
+    r#"
+x = 42
+(x,) += (42,)  # E: Parse error: Invalid augmented assignment target
+[x] += [42]  # E: Parse error: Invalid augmented assignment target
+*x += 42  # E: Parse error: Invalid augmented assignment target
+    "#,
+);
+
+testcase!(
     test_annot_flow_assign,
     r#"
 from typing import Literal
