@@ -843,8 +843,8 @@ x: list[int] = [1, 2, 3]
 match x:
     case [a] | a: # E: name capture `a` makes remaining patterns unreachable
         assert_type(a, list[int] | int)
-    case [b] | _:  # E: Could not find flow binding for `b`
-        assert_type(b, list[int] | int)
+    case [b] | _:
+        assert_type(b, int)
 
 match x:
     case _ | _:  # E: Only the last subpattern in MatchOr may be irrefutable

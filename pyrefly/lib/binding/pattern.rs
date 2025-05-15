@@ -244,9 +244,6 @@ impl<'a> BindingsBuilder<'a> {
             self.stmts(case.body);
             mem::swap(&mut self.scopes.current_mut().flow, &mut base);
             branches.push(base);
-            if exhaustive {
-                break;
-            }
         }
         if !exhaustive {
             branches.push(mem::take(&mut self.scopes.current_mut().flow));
