@@ -233,8 +233,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 {
                     Type::LiteralString
                 } else if x.op == Operator::Add
-                    && let Type::Tuple(ref l) = lhs
-                    && let Type::Tuple(ref r) = rhs
+                    && let Type::Tuple(l) = lhs
+                    && let Type::Tuple(r) = rhs
                 {
                     self.tuple_concat(l, r)
                 } else {
@@ -280,7 +280,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Type::LiteralString
                 } else if x.op == Operator::Add
                     && let Type::Tuple(ref l) = base
-                    && let Type::Tuple(ref r) = rhs
+                    && let Type::Tuple(r) = rhs
                 {
                     self.tuple_concat(l, r)
                 } else {

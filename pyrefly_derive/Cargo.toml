@@ -12,6 +12,7 @@ license = "MIT"
 test = false
 doctest = false
 proc-macro = true
+edition = "2024"
 
 [dependencies]
 proc-macro2 = { version = "1.0.70", features = ["span-locations"] }

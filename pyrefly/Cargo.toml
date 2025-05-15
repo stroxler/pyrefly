@@ -11,10 +11,12 @@ build = "build.rs"
 
 [lib]
 path = "lib/lib.rs"
+edition = "2024"
 
 [[bin]]
 name = "pyrefly"
 path = "bin/main.rs"
+edition = "2024"
 
 [dependencies]
 anstream = "0.6.11"
