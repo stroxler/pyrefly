@@ -113,6 +113,7 @@ use lsp_types::request::WorkspaceConfiguration;
 use path_absolutize::Absolutize;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::commands::config_finder::standard_config_finder;
 use crate::commands::run::CommandExitStatus;
@@ -389,6 +390,21 @@ impl Workspaces {
             loaded_configs.insert(config.downgrade());
             (config, Vec::new())
         }))
+    }
+
+    fn get_loaded_config_paths_to_watch(config: ArcId<ConfigFile>) -> SmallSet<PathBuf> {
+        let mut result = SmallSet::new();
+        if let Some(config_path) = config.source.root() {
+            result.insert(config_path.to_path_buf());
+        }
+        config
+            .search_path()
+            .chain(config.site_package_path())
+            .cartesian_product(PYTHON_FILE_SUFFIXES_TO_WATCH)
+            .for_each(|(s, suffix)| {
+                result.insert(s.join(format!("**/.{suffix}")));
+            });
+        result
     }
 }
 
@@ -1094,6 +1110,7 @@ impl Server {
 
     fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) -> anyhow::Result<()> {
         if !params.changes.is_empty() {
+            // TODO(connernilsen): need to handle when a config changes or when a new config is loaded after start
             self.invalidate(move |t| {
                 t.invalidate_events(&Self::categorized_events(params.changes))
             });
@@ -1450,29 +1467,25 @@ impl Server {
                     }]),
                 });
             }
-            let mut glob_patterns = Vec::new();
+            let mut glob_patterns = SmallSet::new();
             for root in roots {
-                PYTHON_FILE_SUFFIXES_TO_WATCH
-                    .iter()
-                    .for_each(|suffix| glob_patterns.push(root.join(format!("**/*.{suffix}"))));
-                ConfigFile::CONFIG_FILE_NAMES
-                    .iter()
-                    .for_each(|config| glob_patterns.push(root.join(format!("**/{config}"))));
+                PYTHON_FILE_SUFFIXES_TO_WATCH.iter().for_each(|suffix| {
+                    glob_patterns.insert(root.join(format!("**/*.{suffix}")));
+                });
+                ConfigFile::CONFIG_FILE_NAMES.iter().for_each(|config| {
+                    glob_patterns.insert(root.join(format!("**/{config}")));
+                });
             }
             let loaded_configs = self.workspaces.loaded_configs.read();
             loaded_configs
                 .iter()
                 .filter_map(|c| c.upgrade())
                 .for_each(|c| {
-                    if let Some(config_path) = c.source.root() {
-                        glob_patterns.push(config_path.to_path_buf());
-                    }
-                    c.search_path()
-                        .chain(c.site_package_path())
-                        .cartesian_product(PYTHON_FILE_SUFFIXES_TO_WATCH)
-                        .for_each(|(s, suffix)| {
-                            glob_patterns.push(s.join(format!("**/.{suffix}")))
-                        });
+                    Workspaces::get_loaded_config_paths_to_watch(c)
+                        .into_iter()
+                        .for_each(|pattern| {
+                            glob_patterns.insert(pattern);
+                        })
                 });
             drop(loaded_configs);
             let watchers = glob_patterns
