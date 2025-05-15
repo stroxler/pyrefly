@@ -14,7 +14,6 @@
  * For categories, the first item must be the index page.
  */
 
-import { fbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 
 const docsSidebar = [
@@ -41,7 +40,7 @@ const docsSidebar = [
         label: 'Migrating to Pyrefly',
         description: "Never used a type system before or just new to Pyrefly? Start here!",
         collapsed: false,
-        items: ['migrating-from-mypy',  'migrating-from-pyright']
+        items: ['migrating-to-pyrefly', 'migrating-from-mypy',  'migrating-from-pyright']
     },
     {
         type: 'doc' as const,
