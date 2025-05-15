@@ -346,6 +346,8 @@ impl ConfigFile {
         Globs::new(vec![
             // match any hidden file, but don't match `.` or `..` (equivalent to regex: `\.[^/\.]{0,1}.*`)
             "**/.[!/.]*".to_owned(),
+            // match any `.venv` or `venv` directory
+            "**/*venv/**".to_owned(),
         ])
     }
 
