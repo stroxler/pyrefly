@@ -186,6 +186,7 @@ impl Args {
 #[cfg(test)]
 mod test {
     use tempfile;
+    use tempfile::TempDir;
 
     use super::*;
 
@@ -198,23 +199,309 @@ mod test {
             Err(anyhow::anyhow!(format!(
                 "ConfigFile::from_file({}) failed: {:#?}",
                 path.display(),
-                ConfigFile::from_file(path).1
+                errs
             )))
         }
     }
 
-    #[test]
-    fn test_dir_path() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let dir = tmp.path().join("project");
-        let outpath = dir.join("pyrefly.toml");
-        std::fs::create_dir(&dir)?;
-        let args = Args::new(dir);
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
-        assert!(outpath.exists());
+    fn run_init_on_dir(dir: &TempDir) -> anyhow::Result<CommandExitStatus> {
+        let args = Args::new(dir.path().to_path_buf());
+        args.run()
+    }
 
-        from_file(&outpath)
+    fn run_init_on_file(dir: &TempDir, file: &str) -> anyhow::Result<CommandExitStatus> {
+        let args = Args::new(dir.path().join(file));
+        args.run()
+    }
+
+    fn assert_success(status: CommandExitStatus) {
+        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
+    }
+
+    fn assert_user_error(status: CommandExitStatus) {
+        assert!(
+            matches!(status, CommandExitStatus::UserError),
+            "{status:#?}"
+        );
+    }
+
+    fn create_file_in(dir: &Path, filename: &str, contents: Option<&[u8]>) -> anyhow::Result<()> {
+        let pyrefly_toml = dir.join(filename);
+        let contents = contents.unwrap_or(b"");
+        fs_anyhow::write(&pyrefly_toml, contents)
+    }
+
+    fn check_file_in(dir: &Path, filename: &str, contents: &[&str]) -> anyhow::Result<()> {
+        let fi = dir.join(filename);
+        let raw_cfg = fs_anyhow::read_to_string(&fi)?;
+        for snippet in contents {
+            assert!(raw_cfg.contains(snippet), "{snippet}");
+        }
+        from_file(&fi)
+    }
+
+    #[test]
+    fn test_empty_dir() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let status = run_init_on_dir(&tmp)?;
+        assert_success(status);
+        check_file_in(tmp.path(), "pyrefly.toml", &["project_includes"])
+    }
+
+    #[test]
+    fn test_path_to_new_pyrefly_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let status = run_init_on_file(&tmp, "pyrefly.toml")?;
+        assert_success(status);
+        check_file_in(tmp.path(), "pyrefly.toml", &["project_includes"])
+    }
+
+    #[test]
+    fn test_dir_with_existing_pyrefly_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(tmp.path(), "pyrefly.toml", None)?;
+        let status = run_init_on_dir(&tmp)?;
+        assert_user_error(status);
+        Ok(())
+    }
+
+    #[test]
+    fn test_path_to_existing_pyrefly_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(tmp.path(), "pyrefly.toml", None)?;
+        let status = run_init_on_file(&tmp, "pyrefly.toml")?;
+        assert_user_error(status);
+        Ok(())
+    }
+
+    #[test]
+    fn test_dir_with_mypy_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(tmp.path(), "mypy.ini", Some(b"[mypy]\nfiles = abc"))?;
+        let status = run_init_on_dir(&tmp)?;
+        assert_success(status);
+        check_file_in(
+            tmp.path(),
+            "pyrefly.toml",
+            &["project_includes = [\"abc\"]"],
+        )
+    }
+
+    #[test]
+    fn test_path_to_mypy_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(tmp.path(), "mypy.ini", Some(b"[mypy]\nfiles = abc"))?;
+        let status = run_init_on_file(&tmp, "mypy.ini")?;
+        assert_success(status);
+        check_file_in(
+            tmp.path(),
+            "pyrefly.toml",
+            &["project_includes = [\"abc\"]"],
+        )
+    }
+
+    #[test]
+    fn test_path_to_nonexistent_mypy_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let status = run_init_on_file(&tmp, "mypy.ini")?;
+        assert_user_error(status);
+        Ok(())
+    }
+
+    #[test]
+    fn test_dir_with_pyright_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(
+            tmp.path(),
+            "pyrightconfig.json",
+            Some(
+                b"\
+{
+    \"include\": [\"abc\"]
+}",
+            ),
+        )?;
+        let status = run_init_on_dir(&tmp)?;
+        assert_success(status);
+        check_file_in(
+            tmp.path(),
+            "pyrefly.toml",
+            &["project_includes = [\"abc\"]"],
+        )
+    }
+
+    #[test]
+    fn test_path_to_pyright_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(
+            tmp.path(),
+            "pyrightconfig.json",
+            Some(
+                b"\
+{
+    \"include\": [\"abc\"]
+}",
+            ),
+        )?;
+        let status = run_init_on_file(&tmp, "pyrightconfig.json")?;
+        assert_success(status);
+        check_file_in(
+            tmp.path(),
+            "pyrefly.toml",
+            &["project_includes = [\"abc\"]"],
+        )
+    }
+
+    #[test]
+    fn test_path_to_nonexistent_pyright_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let status = run_init_on_file(&tmp, "pyrightconfig.json")?;
+        assert_user_error(status);
+        Ok(())
+    }
+
+    #[test]
+    fn test_dir_with_pyproject_toml_no_typechecking_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(
+            tmp.path(),
+            "pyproject.toml",
+            Some(
+                b"\
+[tool.random_project]
+k = \"v\"
+",
+            ),
+        )?;
+        let status = run_init_on_dir(&tmp)?;
+        assert_success(status);
+        check_file_in(
+            tmp.path(),
+            "pyproject.toml",
+            &["tool.random_project", "tool.pyrefly"],
+        )
+    }
+
+    #[test]
+    fn test_dir_with_pyproject_toml_mypy_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(
+            tmp.path(),
+            "pyproject.toml",
+            Some(
+                b"\
+[tool.mypy]
+files = \"abc\"
+",
+            ),
+        )?;
+        let status = run_init_on_dir(&tmp)?;
+        assert_success(status);
+        check_file_in(
+            tmp.path(),
+            "pyproject.toml",
+            &["tool.mypy", "tool.pyrefly", "project_includes = [\"abc\"]"],
+        )
+    }
+
+    #[test]
+    fn test_dir_with_pyproject_toml_pyright_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(
+            tmp.path(),
+            "pyproject.toml",
+            Some(
+                b"\
+[tool.pyright]
+include = [\"abc\"]
+",
+            ),
+        )?;
+        let status = run_init_on_dir(&tmp)?;
+        assert_success(status);
+        check_file_in(
+            tmp.path(),
+            "pyproject.toml",
+            &[
+                "tool.pyright",
+                "tool.pyrefly",
+                "project_includes = [\"abc\"]",
+            ],
+        )
+    }
+
+    #[test]
+    fn test_path_to_pyproject_toml_pyright_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(
+            tmp.path(),
+            "pyproject.toml",
+            Some(
+                b"\
+[tool.pyright]
+include = [\"abc\"]
+",
+            ),
+        )?;
+        let status = run_init_on_file(&tmp, "pyproject.toml")?;
+        assert_success(status);
+        check_file_in(
+            tmp.path(),
+            "pyproject.toml",
+            &[
+                "tool.pyright",
+                "tool.pyrefly",
+                "project_includes = [\"abc\"]",
+            ],
+        )
+    }
+
+    #[test]
+    fn test_path_to_pyproject_toml_no_typechecking_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(
+            tmp.path(),
+            "pyproject.toml",
+            Some(
+                b"\
+[tool.random_project]
+k = [\"v\"]
+",
+            ),
+        )?;
+        let status = run_init_on_file(&tmp, "pyproject.toml")?;
+        assert_success(status);
+        check_file_in(
+            tmp.path(),
+            "pyproject.toml",
+            &["tool.random_project", "tool.pyrefly"],
+        )
+    }
+
+    #[test]
+    fn test_path_to_nonexistent_pyproject_toml() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let status = run_init_on_file(&tmp, "pyproject.toml")?;
+        assert_success(status);
+        check_file_in(tmp.path(), "pyproject.toml", &["tool.pyrefly"])
+    }
+
+    #[test]
+    fn test_dir_with_pyproject_toml_existing_pyrefly_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(tmp.path(), "pyproject.toml", Some(b"[tool.pyrefly]"))?;
+        let status = run_init_on_dir(&tmp)?;
+        assert_user_error(status);
+        Ok(())
+    }
+
+    #[test]
+    fn test_path_to_pyproject_toml_existing_pyrefly_config() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        create_file_in(tmp.path(), "pyproject.toml", Some(b"[tool.pyrefly]"))?;
+        let status = run_init_on_file(&tmp, "pyproject.toml")?;
+        assert_user_error(status);
+        Ok(())
     }
 
     #[test]
@@ -225,169 +512,10 @@ mod test {
     }
 
     #[test]
-    fn test_dir_path_existing_pyproject() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let dir = tmp.path().join("project");
-        let outpath = dir.join("pyproject.toml");
-        std::fs::create_dir(&dir)?;
-        fs_anyhow::write(
-            &dir.join("pyproject.toml"),
-            br#"[project]
- name = "test"
- "#,
-        )?;
-        let args = Args::new(dir);
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
-        assert!(outpath.exists());
-
-        from_file(&outpath)
-    }
-
-    #[test]
-    fn test_pyrefly_path() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let dir = tmp.path().join("project");
-        let cfgpath = dir.join("pyrefly.toml");
-        std::fs::create_dir(&dir)?;
-        let mut args = Args::new(cfgpath.clone());
-        args.migrate = true;
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
-        assert!(cfgpath.exists());
-        from_file(&cfgpath)
-    }
-
-    #[test]
-    fn test_pyproject_path() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let dir = tmp.path().join("project");
-        let cfgpath = dir.join("pyproject.toml");
-        std::fs::create_dir(&dir)?;
-        let args = Args::new(cfgpath.clone());
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}");
-        assert!(cfgpath.exists());
-        from_file(&cfgpath)
-    }
-
-    #[test]
     fn test_bad_path() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
-        let dir = tmp.path().join("project");
-        std::fs::create_dir(&dir)?;
-        let args = Args::new(dir.join("personal_configs.json"));
-        let status = args.run()?;
-        assert!(
-            matches!(status, CommandExitStatus::UserError),
-            "{status:#?}"
-        );
+        let status = run_init_on_file(&tmp, "personal_configs.json")?;
+        assert_user_error(status);
         Ok(())
-    }
-
-    #[test]
-    fn test_already_initialized_pyrefly() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let dir = tmp.path().join("project");
-        let cfgpath = dir.join("pyrefly.toml");
-        std::fs::create_dir(&dir)?;
-        fs_anyhow::write(
-            &cfgpath,
-            br#"[pyrefly]
- project_includes = ["."]
- "#,
-        )?;
-        let args = Args::new(dir);
-        let status = args.run()?;
-        assert!(
-            matches!(status, CommandExitStatus::UserError),
-            "{status:#?}",
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_already_initialized_pyproject() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let dir = tmp.path().join("project");
-        let cfgpath = dir.join("pyproject.toml");
-        std::fs::create_dir(&dir)?;
-        fs_anyhow::write(
-            &cfgpath,
-            br#"[project]
- name = "test"
-
- [tool.pyrefly]
- project_includes = ["."]
- "#,
-        )?;
-        let args = Args::new(dir);
-        let status = args.run()?;
-        assert!(
-            matches!(status, CommandExitStatus::UserError),
-            "{status:#?}",
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_not_initialized_pyproject() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let dir = tmp.path().join("project");
-        let cfgpath = dir.join("pyproject.toml");
-        std::fs::create_dir(&dir)?;
-        fs_anyhow::write(
-            &cfgpath,
-            br#"[project]
- name = "test"
- "#,
-        )?;
-        let args = Args::new(dir);
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
-        Ok(())
-    }
-
-    #[test]
-    fn test_not_initialized_no_config() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let dir = tmp.path().join("project");
-        std::fs::create_dir(&dir)?;
-        let args = Args::new(dir);
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
-        Ok(())
-    }
-
-    #[test]
-    fn test_create_non_empty_pyrefly_config() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let args = Args::new(tmp.path().to_path_buf());
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
-        let file = tmp.path().join(ConfigFile::PYREFLY_FILE_NAME);
-        assert!(file.exists());
-        let raw_cfg = fs_anyhow::read_to_string(&file)?;
-        assert!(!raw_cfg.is_empty());
-        from_file(&file)
-    }
-
-    #[test]
-    fn test_append_to_non_empty_pyproject_config() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let cfgpath = tmp.path().join(ConfigFile::PYPROJECT_FILE_NAME);
-        fs_anyhow::write(
-            &cfgpath,
-            br#"[project]
-name = "test"
-"#,
-        )?;
-        let args = Args::new(tmp.path().to_path_buf());
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success), "{status:#?}",);
-        let raw_cfg = fs_anyhow::read_to_string(&cfgpath)?;
-        assert!(raw_cfg.contains("[project]"));
-        assert!(raw_cfg.contains("[tool.pyrefly]"));
-        from_file(&cfgpath)
     }
 }
