@@ -52,13 +52,18 @@ correspond to different but useful ways we expect most people to interact with P
 
 In both project checking mode and single-file checking mode (see [Type Checking Modes](#type-checking-modes)
 for more info), we attempt to find a *project root* from which to check each file, both for reading
-config options and for import resolution  (see [Import Root](./import-resolution.mdx#import-root)). The
-project root is typically the directory containing the configuration file. More precisely:
+config options and for import resolution. The project root is typically the directory containing the
+configuration file. More precisely:
 
-1. If a configuration file is provided with `-c`/`--config`, we use its containing directory.
-1. Otherwise, we perform an upward file search from the 'start location' to the filesystem root,
+1. If a configuration file is provided with `-c`/`--config`, we use the directory the file is located in as the directory to check.
+2. If no configuration file is passed, we perform an upward file search from the 'start location' to the filesystem root,
    looking in each directory for any of the following files: `pyrefly.toml`, `pyproject.toml`,
-   `setup.py`, `mypy.ini`, and `pyrightconfig.json`. If we find one, we use the current directory.
+   `setup.py`, `mypy.ini`, and `pyrightconfig.json`. If we find one, we use the directory it's found in as the containing directory.
+3. If no configuration file is found, we will still attempt to resolve imports by walking up the tree looking for a matching import. For example: when
+   importing `from a.b.c import q`, if our project structure
+   looks like `/x/y/z/a/b/c`, we can walk up the components of `a.b.c` to find a root at
+   `/x/y/z`.
+
 
 Note that only `pyrefly.toml` and `pyproject.toml` are parsed for config options, but we look for
 additional files that mark the root of a project to aid import resolution.
