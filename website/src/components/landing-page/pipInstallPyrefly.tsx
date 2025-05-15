@@ -136,6 +136,7 @@ const styles = stylex.create({
         right: '4px',
         border: 'none',
         backgroundColor: 'transparent',
+        color: 'var(--color-text)',
         ':hover': {
             cursor: 'pointer',
         },
