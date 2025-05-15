@@ -26,24 +26,28 @@ Both absolute and config-relative paths are supported.
 
 ## Precedence in Options
 
-The following is the order in which configuration options are selected:
+[Configuration options](#configuration-options) are selected in the following order
 
-1. CLI flag
-2. Environment variable override -- This is the same as `PYREFLY_<CLI flag name>`
-3. Configuration option
-4. Hard-coded default
+1. CLI flags
+  1. Examples: `--project-excludes <value>`, `--python-version <value>`
+2. Environment variable overrides -- this is the same as `PYREFLY_<config option name>`
+  1. Examples: `export PROJECT_EXCLUDES=<value>`, `PYTHON_VERSION=<value> pyrefly ...`
+3. Configuration options
+  1. Examples: (in a `pyrefly.toml`) `project_excludes = <value>`, `python_version = <value>`
+4. Pyrefly defaults
+  1. See [Default `pyrefly.toml`](#default-pyreflytoml) for the default values used
 
 ## Type Checking Modes
 
 Pyrefly has two different modes it can run in when type checking your project, which
 correspond to different but useful ways we expect most people to interact with Pyrefly:
 
-- Project mode: attempt to load a config, falling back to Pyrefly's default config when
+- **Project** mode: attempt to load a config, falling back to Pyrefly's default config when
   none can be found, and type check using that one config. This involves getting the
   [`project_includes`](#project_includes) and [`project_excludes`](#project_excludes) from the file, expanding the patterns,
   and type checking on those files.
   - Project mode is used whenever no files are provided with the CLI invocation.
-- Per-file or Single-file mode: when given [`FILES...`](#project_includes) (and optionally [`--project-excludes`](#project_excludes))
+- **Per-file** or **Single-file** mode: when given [`FILES...`](#project_includes) (and optionally [`--project-excludes`](#project_excludes))
   during a CLI invocation, expand the patterns and find the relevant config file for each
   file listed. `project_includes` and `project_excludes` are ignored from the config file,
   but it is used for all remaining config options.
@@ -386,12 +390,12 @@ Absolute path globs can also be provided, though this is generally not recommend
 be compatible with other systems type checking your project.
 
 - We recognize the following wildcards:
-  - `*`, which matches zero or more characters in a single directory component
-  - `**`, which matches the current and any sub directories/files in those sub directories
-  - `?`, which matches any one character
-  - `[<pattern>]`, which matches any character or character range between the brackets (character range separated by `-`)
-  - `[!<pattern>]`, which excludes any character or character range between the brackets and after the `!`
-  - `[]` can be used to match `?`, `*`, `[`, `]` literally (e.g. `[?]`), although these are invalid as part of a Python path.
+  - `*` matches zero or more characters in a single directory component
+  - `**` matches the current and any sub directories/files in those sub directories
+  - `?` matches any one character
+  - `[<pattern>]` matches any character or character range between the brackets (character range separated by `-`)
+  - `[!<pattern>]` excludes any character or character range between the brackets and after the `!`
+  - Note: `[]` can be used to match `?`, `*`, `[`, `]` literally (e.g. `[?]`), although these are invalid as part of a Python path.
 
 We also support non-wildcard paths, so a relative (or absolute) path like `src/` will match all Python files under `src/`
 or `src/my_file.py` will match `src/my_file.py` exactly.
