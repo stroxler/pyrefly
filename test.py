@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import abc
 import argparse
+import dataclasses
 import os
 import signal
 import subprocess
@@ -38,6 +39,14 @@ class Colors(Enum):
     ENDC = "\033[0m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
+
+
+@dataclasses.dataclass(frozen=True)
+class TestFlags:
+    run_fmt: bool
+    run_lint: bool
+    run_test: bool
+    run_conformance: bool
 
 
 def print_running(msg: str) -> None:
@@ -190,19 +199,26 @@ class BuckExecutor(Executor):
         )
 
 
-def run_tests(executor: Executor) -> None:
-    print_running("Code formatting...")
-    with timing():
-        executor.rustfmt()
-    print_running("Code linting...")
-    with timing():
-        executor.clippy()
-    print_running("Run tests...)")
-    with timing():
-        executor.test()
-    print_running("Running conformance tests ...")
-    with timing():
-        executor.conformance()
+def run_tests(executor: Executor, test_flags: TestFlags) -> None:
+    if test_flags.run_fmt:
+        print_running("Code formatting...")
+        with timing():
+            executor.rustfmt()
+
+    if test_flags.run_lint:
+        print_running("Code linting...")
+        with timing():
+            executor.clippy()
+
+    if test_flags.run_test:
+        print_running("Run tests...")
+        with timing():
+            executor.test()
+
+    if test_flags.run_conformance:
+        print_running("Running conformance tests ...")
+        with timing():
+            executor.conformance()
 
 
 def get_executor(mode: str) -> Executor:
@@ -211,10 +227,10 @@ def get_executor(mode: str) -> Executor:
     return BuckExecutor() if mode == "buck" else CargoExecutor()
 
 
-def main(mode: str) -> None:
+def main(mode: str, test_flags: TestFlags) -> None:
     executor = get_executor(mode)
     executor.chdir()
-    run_tests(executor)
+    run_tests(executor, test_flags)
 
 
 def invoke_main() -> None:
@@ -229,9 +245,42 @@ def invoke_main() -> None:
             "Default is auto-detect based on the existence of BUCK file."
         ),
     )
+    # Requires Python 3.9+
+    parser.add_argument(
+        "--fmt",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether to run code formatting or not",
+    )
+    parser.add_argument(
+        "--lint",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether to run code linting or not",
+    )
+    parser.add_argument(
+        "--test",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether to run testing or not",
+    )
+    parser.add_argument(
+        "--conformance",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether to run conformance test or not",
+    )
     args = parser.parse_args()
     try:
-        main(args.mode)
+        main(
+            args.mode,
+            TestFlags(
+                run_fmt=args.fmt,
+                run_lint=args.lint,
+                run_test=args.test,
+                run_conformance=args.conformance,
+            ),
+        )
     except KeyboardInterrupt:
         # no stack trace on interrupt
         sys.exit(signal.SIGINT)
