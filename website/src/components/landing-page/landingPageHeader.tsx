@@ -71,14 +71,12 @@ export default function LandingPageHeader(): React.ReactElement {
                     target="_blank"
                     onClick={() =>
                         log(LoggingEvent.CLICK, {
-                            event_category: 'button',
-                            event_label: 'get_vscode_extension',
+                            button_id: 'get_vscode_extension',
                         })
                     }
                     onMouseEnter={() =>
                         log(LoggingEvent.HOVER, {
-                            event_category: 'button',
-                            event_label: 'get_vscode_extension',
+                            button_id: 'get_vscode_extension',
                         })
                     }
                     {...stylex.props(styles.buttonFullWidth, typography.p)}

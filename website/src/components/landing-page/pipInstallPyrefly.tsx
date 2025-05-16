@@ -23,8 +23,7 @@ const PipInstallPyrefly: React.FC = () => {
             setIsCopied(true);
             setTimeout(() => setIsCopied(false), 2000);
             log(LoggingEvent.CLICK, {
-                event_category: 'button',
-                event_label: 'copy_pip_install',
+                button_id: 'copy_pip_install',
             });
         } catch (err) {
             console.error('Failed to copy!', err);
@@ -43,14 +42,17 @@ const PipInstallPyrefly: React.FC = () => {
                     landingPageCardStyles.card,
                     styles.pre,
                     typography.p
-                )}>
-                <code><span {...stylex.props(styles.noSelect)}>${' '}</span>{codeString}</code>
+                )}
+            >
+                <code>
+                    <span {...stylex.props(styles.noSelect)}>$ </span>
+                    {codeString}
+                </code>
                 <button
                     onClick={copyToClipboard}
                     onMouseEnter={() =>
                         log(LoggingEvent.HOVER, {
-                            event_category: 'button',
-                            event_label: 'copy_pip_install',
+                            button_id: 'copy_pip_install',
                         })
                     }
                     {...stylex.props(styles.copy)}
@@ -97,7 +99,7 @@ const PipInstallPyrefly: React.FC = () => {
                     )}
                 </button>
             </pre>
-        </div >
+        </div>
     );
 };
 
@@ -141,8 +143,8 @@ const styles = stylex.create({
         },
     },
     noSelect: {
-        userSelect: 'none'
-    }
+        userSelect: 'none',
+    },
 });
 
 export default PipInstallPyrefly;
