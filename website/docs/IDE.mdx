@@ -38,6 +38,23 @@ Support for other editors is community-driven. If you would like to set this up,
 ### Jetbrains
 An unofficial Jetbrains extension has been developed [here](https://plugins.jetbrains.com/plugin/26829-pyrefly)
 
+### Neovim 0.11+
+Place the following file under `~/.config/nvim/lsp`
+```lua
+return {
+  cmd = { "pyrefly", "lsp" },
+  filetypes = { "python" },
+  settings = {},
+  on_exit = function(code, _, _)
+    vim.notify("Closing Pyrefly LSP exited with code: " .. code, vim.log.levels.INFO)
+  end,
+}
+```
+Then enable it in `init.lua`:
+```lua
+vim.lsp.enable({"pyrefly"})
+```
+
 ### Neovim + `lspconfig`
 With the `lspconfig` [plugin](https://github.com/neovim/nvim-lspconfig) and `uv` installed, you can use this configuration:
 ```lua
@@ -56,23 +73,6 @@ if not configs.pyrefly then
 end
 
 lspconfig.pyrefly.setup({})
-```
-
-### Neovim 0.11+
-Place the following file under `~/.config/nvim/lsp`
-```lua
-return {
-  cmd = { "pyrefly", "lsp" },
-  filetypes = { "python" },
-  settings = {},
-  on_exit = function(code, _, _)
-    vim.notify("Closing Pyrefly LSP exited with code: " .. code, vim.log.levels.INFO)
-  end,
-}
-```
-Then enable it in `init.lua`:
-```lua
-vim.lsp.enable({"pyrefly"})
 ```
 
 ### Vim + Ale
