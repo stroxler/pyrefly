@@ -124,9 +124,15 @@ class CargoExecutor(Executor):
         run(["cargo", "test", "--release"])
 
     def conformance(self) -> None:
-        # TODO(grievejia): Make it possible to pass cargo binary to
-        # conformance test script
-        print("TODO: conformance test in cargo mode not implemented yet")
+        run(
+            [
+                sys.executable,
+                "../conformance/conformance_output.py",
+                "../conformance/third_party",
+                "--executable",
+                "target/release/pyrefly",
+            ]
+        )
 
 
 @final

@@ -188,8 +188,12 @@ def compare_conformance_output(
     return messages
 
 
-def get_pyrefly_command() -> list[str]:
-    pyrefly_path = resources.files(__package__).joinpath("pyrefly.exe")
+def get_pyrefly_command(executable: Path | None) -> list[str]:
+    pyrefly_path = (
+        executable
+        if executable is not None
+        else resources.files(__package__).joinpath("pyrefly.exe")
+    )
     return [
         str(pyrefly_path),
         "check",
@@ -202,7 +206,9 @@ def get_pyrefly_command() -> list[str]:
     ]
 
 
-def get_conformance_output(directory: str) -> Dict[str, List[Dict[str, Any]]]:
+def get_conformance_output(
+    directory: str, executable: Path | None
+) -> Dict[str, List[Dict[str, Any]]]:
     """
     Run minpyre on conformance test suite, parse and group the output by file
     """
@@ -214,7 +220,7 @@ def get_conformance_output(directory: str) -> Dict[str, List[Dict[str, Any]]]:
     outputs = defaultdict(lambda: [])
     with tempfile.NamedTemporaryFile() as tmp_file:
         cmd = (
-            get_pyrefly_command()
+            get_pyrefly_command(executable)
             + [
                 "--output",
                 tmp_file.name,
@@ -241,7 +247,9 @@ def get_conformance_output(directory: str) -> Dict[str, List[Dict[str, Any]]]:
     return outputs
 
 
-def get_conformance_output_separate(directory: str) -> Dict[str, List[Dict[str, Any]]]:
+def get_conformance_output_separate(
+    directory: str, executable: Path | None
+) -> Dict[str, List[Dict[str, Any]]]:
     """
     Run minpyre on conformance test suite, parse and group the output by file
     This function runs Pyrefly separately for each file, which is slower but more robust to failures
@@ -255,7 +263,7 @@ def get_conformance_output_separate(directory: str) -> Dict[str, List[Dict[str, 
     for file in files_to_check:
         with tempfile.NamedTemporaryFile() as tmp_file:
             cmd = (
-                get_pyrefly_command()
+                get_pyrefly_command(executable)
                 + [
                     "--output",
                     tmp_file.name,
@@ -300,6 +308,12 @@ def main() -> None:
         "directory", help="path to directory containing files to process"
     )
     parser.add_argument(
+        "--executable",
+        "-e",
+        type=Path,
+        help="Path to Pyrefly executable. If not specified, use the executable bundled by Buck",
+    )
+    parser.add_argument(
         "--mode", "-m", choices=["update", "check", "compare"], default="update"
     )
     parser.add_argument(
@@ -309,10 +323,12 @@ def main() -> None:
     if args.separate:
         conformance_output = get_conformance_output_separate(
             directory=args.directory,
+            executable=args.executable,
         )
     else:
         conformance_output = get_conformance_output(
             directory=args.directory,
+            executable=args.executable,
         )
     if len(conformance_output) == 0:
         logger.error(f"Failed to get conformance output for directory {args.directory}")
