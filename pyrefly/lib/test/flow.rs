@@ -630,11 +630,11 @@ assert_type(x, int)
 );
 
 testcase!(
-    test_match_narrow,
+    test_match_narrow_simple,
     r#"
 from typing import assert_type, Literal
 
-def foo(x: int):
+def test(x: int):
     match x:
         case 1:
             assert_type(x, Literal[1])
@@ -644,6 +644,16 @@ def foo(x: int):
         case q:
             assert_type(x, int)
             assert_type(q, int)
+
+x: object = object()
+match x:
+    case int():
+        assert_type(x, int)
+
+y: int | str = 1
+match y:
+    case str():
+        assert_type(y, str)
 "#,
 );
 
