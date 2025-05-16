@@ -28,23 +28,6 @@ interface SidebarDocItem extends SidebarItemBase {
 interface SidebarCategoryItem extends SidebarItemBase {
     type: 'category';
     items: string[] | any[]; // Can be an array of strings or other sidebar items
-    link?: SidebarCategoryLink;
-}
-
-// Type for category links
-type SidebarCategoryLink =
-    | SidebarCategoryLinkDoc
-    | SidebarCategoryLinkGeneratedIndex;
-
-// Type for document links in category items
-interface SidebarCategoryLinkDoc {
-    type: 'doc';
-    id: string;
-}
-
-// Type for generated index links in category items
-interface SidebarCategoryLinkGeneratedIndex {
-    type: 'generated-index';
 }
 
 interface DocsCategory {
@@ -65,19 +48,7 @@ const docsCategories: DocsCategory[] = docsSidebar.map((item: SidebarItem) => {
         docId = item.id;
     } else if (item.type === 'category') {
         const categoryItem = item;
-        // For category type, check if it has a link property with an id
-        if (item.link) {
-            if (categoryItem.link.type === 'doc') {
-                // Use the link's id if available
-                docId = (categoryItem.link as SidebarCategoryLinkDoc).id;
-            } else if (categoryItem.link.type === 'generated-index') {
-                // Use the first item if link is generated index
-                docId = `category/${categoryItem.label.toLowerCase().replace(/\s+/g, '-')}`;
-            }
-        } else {
-            // Fall back to the first item if no link or link has no id
-            docId = categoryItem.items[0];
-        }
+        docId = categoryItem.items[0];
     }
 
     let href = `/en/docs/${docId}`;
