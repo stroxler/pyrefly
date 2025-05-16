@@ -149,9 +149,21 @@ impl AtomicNarrowOp {
 }
 
 #[derive(Clone, Debug)]
-enum NarrowingSubject {
+pub enum NarrowingSubject {
     Name(Name),
     Property(Name, PropertyChain),
+}
+
+impl NarrowingSubject {
+    pub fn with_property(&self, prop: PropertyKind) -> Self {
+        match self {
+            Self::Name(name) => Self::Property(name.clone(), PropertyChain::new(Vec1::new(prop))),
+            Self::Property(name, props) => {
+                let props = Vec1::from_vec_push(props.properties().to_vec(), prop);
+                Self::Property(name.clone(), PropertyChain::new(props))
+            }
+        }
+    }
 }
 
 impl NarrowOp {
@@ -239,6 +251,26 @@ impl NarrowOps {
                     .0
                     .insert(name, (NarrowOp::Atomic(prop, op.clone()), range));
             }
+        }
+        narrow_ops
+    }
+
+    pub fn from_single_narrow_op_for_subject(
+        subject: NarrowingSubject,
+        op: AtomicNarrowOp,
+        range: TextRange,
+    ) -> Self {
+        let mut narrow_ops = Self::new();
+        let (name, prop) = match subject {
+            NarrowingSubject::Name(name) => (name, None),
+            NarrowingSubject::Property(name, prop) => (name, Some(prop)),
+        };
+        if let Some((existing, _)) = narrow_ops.0.get_mut(&name) {
+            existing.and(NarrowOp::Atomic(prop, op.clone()));
+        } else {
+            narrow_ops
+                .0
+                .insert(name, (NarrowOp::Atomic(prop, op.clone()), range));
         }
         narrow_ops
     }
@@ -515,7 +547,7 @@ fn subject_for_property(expr: &Expr) -> Option<NarrowingSubject> {
         .map(|(identifier, attr)| NarrowingSubject::Property(identifier.id, attr))
 }
 
-fn expr_to_subjects(expr: &Expr) -> Vec<NarrowingSubject> {
+pub fn expr_to_subjects(expr: &Expr) -> Vec<NarrowingSubject> {
     fn f(expr: &Expr, res: &mut Vec<NarrowingSubject>) {
         match expr {
             Expr::Name(name) => res.push(NarrowingSubject::Name(name.id.clone())),
@@ -527,7 +559,6 @@ fn expr_to_subjects(expr: &Expr) -> Vec<NarrowingSubject> {
             _ => {}
         }
     }
-
     let mut res = Vec::new();
     f(expr, &mut res);
     res

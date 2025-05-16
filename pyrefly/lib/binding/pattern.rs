@@ -7,9 +7,6 @@
 
 use std::mem;
 
-use ruff_python_ast::Expr;
-use ruff_python_ast::ExprContext;
-use ruff_python_ast::ExprName;
 use ruff_python_ast::Pattern;
 use ruff_python_ast::PatternKeyword;
 use ruff_python_ast::StmtMatch;
@@ -24,6 +21,8 @@ use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
+use crate::binding::narrow::NarrowingSubject;
+use crate::binding::narrow::expr_to_subjects;
 use crate::binding::scope::FlowStyle;
 use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
@@ -33,7 +32,7 @@ impl<'a> BindingsBuilder<'a> {
     // Traverse a pattern and bind all the names; key is the reference for the value that's being matched on
     fn bind_pattern(
         &mut self,
-        match_subject: Option<&Expr>,
+        match_subject: Option<NarrowingSubject>,
         pattern: Pattern,
         key: Idx<Key>,
     ) -> NarrowOps {
@@ -41,7 +40,7 @@ impl<'a> BindingsBuilder<'a> {
             Pattern::MatchValue(mut p) => {
                 self.ensure_expr(&mut p.value);
                 if let Some(subject) = match_subject {
-                    NarrowOps::from_single_narrow_op(
+                    NarrowOps::from_single_narrow_op_for_subject(
                         subject,
                         AtomicNarrowOp::Eq((*p.value).clone()),
                         p.range(),
@@ -53,7 +52,11 @@ impl<'a> BindingsBuilder<'a> {
             Pattern::MatchSingleton(p) => {
                 let value = Ast::pattern_match_singleton_to_expr(&p);
                 if let Some(subject) = match_subject {
-                    NarrowOps::from_single_narrow_op(subject, AtomicNarrowOp::Is(value), p.range())
+                    NarrowOps::from_single_narrow_op_for_subject(
+                        subject,
+                        AtomicNarrowOp::Is(value),
+                        p.range(),
+                    )
                 } else {
                     NarrowOps::new()
                 }
@@ -61,17 +64,13 @@ impl<'a> BindingsBuilder<'a> {
             Pattern::MatchAs(p) => {
                 // If there's no name for this pattern, refine the variable being matched
                 // If there is a new name, refine that instead
-                let mut subject = match_subject.cloned();
+                let mut subject = match_subject;
                 if let Some(name) = &p.name {
                     self.bind_definition(name, Binding::Forward(key), FlowStyle::None);
-                    subject = Some(Expr::Name(ExprName {
-                        id: name.id.clone(),
-                        range: name.range(),
-                        ctx: ExprContext::Store,
-                    }));
+                    subject = Some(NarrowingSubject::Name(name.id.clone()));
                 };
                 if let Some(box pattern) = p.pattern {
-                    self.bind_pattern(subject.as_ref(), pattern, key)
+                    self.bind_pattern(subject, pattern, key)
                 } else {
                     NarrowOps::new()
                 }
@@ -138,7 +137,7 @@ impl<'a> BindingsBuilder<'a> {
             Pattern::MatchClass(mut x) => {
                 self.ensure_expr(&mut x.cls);
                 let mut narrow_ops = if let Some(subject) = match_subject {
-                    NarrowOps::from_single_narrow_op(
+                    NarrowOps::from_single_narrow_op_for_subject(
                         subject,
                         AtomicNarrowOp::IsInstance((*x.cls).clone()),
                         x.cls.range(),
@@ -192,7 +191,7 @@ impl<'a> BindingsBuilder<'a> {
                         )
                     }
                     let mut base = self.scopes.current().flow.clone();
-                    let new_narrow_ops = self.bind_pattern(match_subject, pattern, key);
+                    let new_narrow_ops = self.bind_pattern(match_subject.clone(), pattern, key);
                     if let Some(ref mut ops) = narrow_ops {
                         ops.or_all(new_narrow_ops)
                     } else {
@@ -210,7 +209,7 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn stmt_match(&mut self, mut x: StmtMatch) {
         self.ensure_expr(&mut x.subject);
-        let match_subject = Some(&*x.subject);
+        let match_subject = *x.subject.clone();
         let key = self.table.insert(
             Key::Anon(x.subject.range()),
             Binding::Expr(None, *x.subject.clone()),
@@ -232,7 +231,8 @@ impl<'a> BindingsBuilder<'a> {
             if case.pattern.is_wildcard() || case.pattern.is_irrefutable() {
                 exhaustive = true;
             }
-            let new_narrow_ops = self.bind_pattern(match_subject, case.pattern, key);
+            let match_narrowing_subject = expr_to_subjects(&match_subject).first().cloned();
+            let new_narrow_ops = self.bind_pattern(match_narrowing_subject, case.pattern, key);
             self.bind_narrow_ops(&negated_prev_ops, case.range);
             self.bind_narrow_ops(&new_narrow_ops, case.range);
             negated_prev_ops.and_all(new_narrow_ops.negate());
