@@ -7,6 +7,8 @@
 
 use std::mem;
 
+use ruff_python_ast::Expr;
+use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::Pattern;
 use ruff_python_ast::PatternKeyword;
 use ruff_python_ast::StmtMatch;
@@ -22,6 +24,7 @@ use crate::binding::bindings::BindingsBuilder;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::narrow::NarrowingSubject;
+use crate::binding::narrow::PropertyKind;
 use crate::binding::narrow::expr_to_subjects;
 use crate::binding::scope::FlowStyle;
 use crate::error::kind::ErrorKind;
@@ -123,11 +126,26 @@ impl<'a> BindingsBuilder<'a> {
                     .into_iter()
                     .zip(x.patterns)
                     .for_each(|(key_expr, pattern)| {
-                        let mapping_key = self.table.insert(
+                        let key_name = match &key_expr {
+                            Expr::StringLiteral(ExprStringLiteral { value: key, .. }) => {
+                                Some(key.to_string())
+                            }
+                            _ => None,
+                        };
+                        let subject_for_key = key_name.and_then(|key| {
+                            match_subject
+                                .clone()
+                                .map(|s| s.with_property(PropertyKind::Key(key)))
+                        });
+                        let binding_for_key = self.table.insert(
                             Key::Anon(key_expr.range()),
                             Binding::PatternMatchMapping(key_expr, key),
                         );
-                        narrow_ops.and_all(self.bind_pattern(None, pattern, mapping_key))
+                        narrow_ops.and_all(self.bind_pattern(
+                            subject_for_key,
+                            pattern,
+                            binding_for_key,
+                        ))
                     });
                 if let Some(rest) = x.rest {
                     self.bind_definition(&rest, Binding::Forward(key), FlowStyle::None);

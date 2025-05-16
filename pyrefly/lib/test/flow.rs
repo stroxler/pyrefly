@@ -653,11 +653,15 @@ testcase!(
 from typing import assert_type
 
 x: dict[str, int] = { "a": 1, "b": 2, "c": 3 }
-
 match x:
     case { "a": 1, "b": y, **c }:
         assert_type(y, int)
         assert_type(c, dict[str, int])
+
+y: dict[str, object] = {}
+match y:
+    case { "a": int() }:
+        assert_type(y["a"], int)
 "#,
 );
 
