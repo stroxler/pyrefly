@@ -54,33 +54,33 @@ impl VisitMut for Expr {
             }
             Expr::Set(x) => x.elts.recurse_mut(f),
             Expr::ListComp(x) => {
-                f(&mut x.elt);
                 for x in &mut x.generators {
                     f(&mut x.iter);
                     x.ifs.recurse_mut(f);
                 }
+                f(&mut x.elt);
             }
             Expr::SetComp(x) => {
-                f(&mut x.elt);
                 for x in &mut x.generators {
                     f(&mut x.iter);
                     x.ifs.recurse_mut(f);
                 }
+                f(&mut x.elt);
             }
             Expr::DictComp(x) => {
+                for x in &mut x.generators {
+                    f(&mut x.iter);
+                    x.ifs.recurse_mut(f);
+                }
                 f(&mut x.key);
                 f(&mut x.value);
-                for x in &mut x.generators {
-                    f(&mut x.iter);
-                    x.ifs.recurse_mut(f);
-                }
             }
             Expr::Generator(x) => {
-                f(&mut x.elt);
                 for x in &mut x.generators {
                     f(&mut x.iter);
                     x.ifs.recurse_mut(f);
                 }
+                f(&mut x.elt);
             }
             Expr::Await(x) => f(&mut x.value),
             Expr::Yield(x) => x.value.recurse_mut(f),

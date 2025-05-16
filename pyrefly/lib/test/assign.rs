@@ -617,6 +617,16 @@ def foo(c: C):
 );
 
 testcase!(
+    test_walrus_inside_comprehension_if,
+    r#"
+from typing import assert_type
+list1 = [1, 2, 3]
+list2 = [elt for x in list1 if (elt := x)]
+assert_type(list2, list[int])
+    "#,
+);
+
+testcase!(
     test_side_effecting_comprehension_targets,
     r#"
 class C:
