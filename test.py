@@ -24,6 +24,8 @@ from enum import Enum
 from pathlib import Path
 from typing import final, Generator, Iterable
 
+SCRIPT_PATH: Path = Path(__file__).parent
+
 
 class Colors(Enum):
     # Copied from https://stackoverflow.com/questions/287871/how-to-print-colored-text-to-the-terminal
@@ -110,7 +112,7 @@ class Executor(abc.ABC):
 class CargoExecutor(Executor):
     def chdir(self) -> None:
         # Change to the cargo root
-        script_dir = (Path(__file__).parent / "pyrefly").absolute()
+        script_dir = (SCRIPT_PATH / "pyrefly").absolute()
         os.chdir(str(script_dir))
 
     def rustfmt(self) -> None:
@@ -139,7 +141,7 @@ class CargoExecutor(Executor):
 class BuckExecutor(Executor):
     def chdir(self) -> None:
         # Change to the target_determinator directory
-        script_dir = Path(__file__).parent.absolute()
+        script_dir = SCRIPT_PATH.absolute()
         os.chdir(str(script_dir))
 
     def rustfmt(self) -> None:
@@ -203,8 +205,14 @@ def run_tests(executor: Executor) -> None:
         executor.conformance()
 
 
+def get_executor(mode: str) -> Executor:
+    if mode == "auto":
+        mode = "buck" if (SCRIPT_PATH / "pyrefly" / "BUCK").is_file() else "cargo"
+    return BuckExecutor() if mode == "buck" else CargoExecutor()
+
+
 def main(mode: str) -> None:
-    executor = BuckExecutor() if mode == "buck" else CargoExecutor()
+    executor = get_executor(mode)
     executor.chdir()
     run_tests(executor)
 
@@ -214,9 +222,12 @@ def invoke_main() -> None:
     parser.add_argument(
         "--mode",
         "-m",
-        choices=["buck", "cargo"],
-        default="buck",
-        help="Build the project with buck or cargo. Default is buck.",
+        choices=["buck", "cargo", "auto"],
+        default="auto",
+        help=(
+            "Build the project with buck or cargo."
+            "Default is auto-detect based on the existence of BUCK file."
+        ),
     )
     args = parser.parse_args()
     try:
