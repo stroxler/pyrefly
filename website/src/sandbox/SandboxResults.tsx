@@ -253,7 +253,6 @@ const styles = stylex.create({
     tabsEnabled: {
         pointerEvents: 'auto',
     },
-
     tab: {
         borderRight: '1px solid var(--color-background-secondary)',
         cursor: 'pointer',

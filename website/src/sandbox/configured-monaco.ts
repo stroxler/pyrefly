@@ -172,7 +172,6 @@ monaco.languages.registerCompletionItemProvider('python', {
               ...r,
               insertText: r.label.toString(),
             })),
-            markerSeverity: monaco.MarkerSeverity.Info, // Change this line
           };
         } catch (e) {
           console.error(e);
