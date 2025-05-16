@@ -11,7 +11,7 @@ $ echo "" > $TMPDIR/empty.py && $PYREFLY check --python-version 3.13.0 $TMPDIR/e
 ## No errors on our test script
 
 ```scrut {output_stream: stderr}
-$ $PYREFLY check $TEST_PY -a
+$ $PYREFLY check $TEST_PY
  INFO 0 errors* (glob)
 [0]
 ```

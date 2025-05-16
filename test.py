@@ -13,6 +13,7 @@ Test that everything works well
 from __future__ import annotations
 
 import abc
+import argparse
 import os
 import signal
 import subprocess
@@ -106,6 +107,29 @@ class Executor(abc.ABC):
 
 
 @final
+class CargoExecutor(Executor):
+    def chdir(self) -> None:
+        # Change to the cargo root
+        script_dir = (Path(__file__).parent / "pyrefly").absolute()
+        os.chdir(str(script_dir))
+
+    def rustfmt(self) -> None:
+        run(["cargo", "fmt"])
+
+    def clippy(self) -> None:
+        run(["cargo", "clippy", "--release"])
+
+    def test(self) -> None:
+        run(["cargo", "build", "--release"])
+        run(["cargo", "test", "--release"])
+
+    def conformance(self) -> None:
+        # TODO(grievejia): Make it possible to pass cargo binary to
+        # conformance test script
+        print("TODO: conformance test in cargo mode not implemented yet")
+
+
+@final
 class BuckExecutor(Executor):
     def chdir(self) -> None:
         # Change to the target_determinator directory
@@ -173,15 +197,24 @@ def run_tests(executor: Executor) -> None:
         executor.conformance()
 
 
-def main() -> None:
-    executor = BuckExecutor()
+def main(mode: str) -> None:
+    executor = BuckExecutor() if mode == "buck" else CargoExecutor()
     executor.chdir()
     run_tests(executor)
 
 
 def invoke_main() -> None:
+    parser = argparse.ArgumentParser(description="Pyrefly test script")
+    parser.add_argument(
+        "--mode",
+        "-m",
+        choices=["buck", "cargo"],
+        default="buck",
+        help="Build the project with buck or cargo. Default is buck.",
+    )
+    args = parser.parse_args()
     try:
-        main()
+        main(args.mode)
     except KeyboardInterrupt:
         # no stack trace on interrupt
         sys.exit(signal.SIGINT)
