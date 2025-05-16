@@ -12,6 +12,7 @@ Test that everything works well
 
 from __future__ import annotations
 
+import abc
 import os
 import signal
 import subprocess
@@ -20,7 +21,7 @@ import time
 from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
-from typing import Generator, Iterable
+from typing import final, Generator, Iterable
 
 
 class Colors(Enum):
@@ -82,73 +83,100 @@ def run(
         sys.exit(1)
 
 
-def rustfmt() -> None:
-    print_running("arc f")
-    run(["arc", "f"])
+class Executor(abc.ABC):
+    @abc.abstractmethod
+    def chdir(self) -> None:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def rustfmt(self) -> None:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def clippy(self) -> None:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def test(self) -> None:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def conformance(self) -> None:
+        raise NotImplementedError()
 
 
-def clippy() -> None:
-    print_running("arc rust-clippy ...")
-    run(
-        [
-            "arc",
-            "rust-clippy",
-            "...",
-            "--reuse-current-config",
-        ]
-    )
+@final
+class BuckExecutor(Executor):
+    def chdir(self) -> None:
+        # Change to the target_determinator directory
+        script_dir = Path(__file__).parent.absolute()
+        os.chdir(str(script_dir))
+
+    def rustfmt(self) -> None:
+        run(["arc", "f"])
+
+    def clippy(self) -> None:
+        run(
+            [
+                "arc",
+                "rust-clippy",
+                "...",
+                "--reuse-current-config",
+            ]
+        )
+
+    def test(self) -> None:
+        if "SANDCASTLE_NONCE" in os.environ:
+            print("Skipping tests on CI because they're already scheduled.")
+            return
+        res = run(
+            [
+                "buck2",
+                "uquery",
+                "kind('rust_test|rust_library', ...)",
+                "--reuse-current-config",
+            ],
+            capture_output=True,
+        )
+        tests = [line.strip() for line in res.stdout.splitlines()] + ["test:"]
+        run(
+            ["buck2", "test", "--reuse-current-config"]
+            + tests
+            + ["--", "--run-disabled", "--return-zero-on-skips"]
+        )
+
+    def conformance(self) -> None:
+        run(
+            [
+                "buck2",
+                "run",
+                "--reuse-current-config",
+                "conformance:conformance_output_script",
+                "--",
+                "./conformance/third_party",
+            ]
+        )
 
 
-def test() -> None:
-    if "SANDCASTLE_NONCE" in os.environ:
-        print("Skipping tests on CI because they're already scheduled.")
-        return
-
-    print_running("buck2 test kind('rust_test|rust_library', ...)")
-    res = run(
-        [
-            "buck2",
-            "uquery",
-            "kind('rust_test|rust_library', ...)",
-            "--reuse-current-config",
-        ],
-        capture_output=True,
-    )
-    tests = [line.strip() for line in res.stdout.splitlines()] + ["test:"]
-    run(
-        ["buck2", "test", "--reuse-current-config"]
-        + tests
-        + ["--", "--run-disabled", "--return-zero-on-skips"]
-    )
-
-
-def conformance() -> None:
-    print_running("conformance_output_script ...")
-    run(
-        [
-            "buck2",
-            "run",
-            "--reuse-current-config",
-            "conformance:conformance_output_script",
-            "--",
-            "./conformance/third_party",
-        ]
-    )
+def run_tests(executor: Executor) -> None:
+    print_running("Code formatting...")
+    with timing():
+        executor.rustfmt()
+    print_running("Code linting...")
+    with timing():
+        executor.clippy()
+    print_running("Run tests...)")
+    with timing():
+        executor.test()
+    print_running("Running conformance tests ...")
+    with timing():
+        executor.conformance()
 
 
 def main() -> None:
-    # Change to the target_determinator directory
-    script_dir = Path(__file__).parent.absolute()
-    os.chdir(str(script_dir))
-
-    with timing():
-        rustfmt()
-    with timing():
-        clippy()
-    with timing():
-        test()
-    with timing():
-        conformance()
+    executor = BuckExecutor()
+    executor.chdir()
+    run_tests(executor)
 
 
 def invoke_main() -> None:
