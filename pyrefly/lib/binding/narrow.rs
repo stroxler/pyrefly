@@ -228,16 +228,16 @@ impl NarrowOps {
     pub fn from_single_narrow_op(left: &Expr, op: AtomicNarrowOp, range: TextRange) -> Self {
         let mut narrow_ops = Self::new();
         for subject in expr_to_subjects(left) {
-            let (name, attr) = match subject {
+            let (name, prop) = match subject {
                 NarrowingSubject::Name(name) => (name, None),
-                NarrowingSubject::Property(name, attr) => (name, Some(attr)),
+                NarrowingSubject::Property(name, prop) => (name, Some(prop)),
             };
             if let Some((existing, _)) = narrow_ops.0.get_mut(&name) {
-                existing.and(NarrowOp::Atomic(attr, op.clone()));
+                existing.and(NarrowOp::Atomic(prop, op.clone()));
             } else {
                 narrow_ops
                     .0
-                    .insert(name, (NarrowOp::Atomic(attr, op.clone()), range));
+                    .insert(name, (NarrowOp::Atomic(prop, op.clone()), range));
             }
         }
         narrow_ops
