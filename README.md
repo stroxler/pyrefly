@@ -5,7 +5,7 @@
 Currently under active development with known issues. Please open an issue if
 you find bugs.
 
-Pyrefly is a fast type checker for Python, It's designed to replace the existing
+Pyrefly is a fast type checker for Python. It's designed to replace the existing
 Pyre type checker at Meta by the end of 2025. This README describes basic usage.
 See the [Pyrefly website](https://pyrefly.org) for full documentation and a tool
 for checking code.
