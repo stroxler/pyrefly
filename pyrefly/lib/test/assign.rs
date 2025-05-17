@@ -720,3 +720,20 @@ x = oops # E: Could not find name `oops`
 reveal_type(x) # E: revealed type: Unknown
     "#,
 );
+
+testcase!(
+    bug = "We have two functions with the same name which should be an error. Also, reveal_type should not change the bahavior of a function",
+    test_reveal_type_assign,
+    r#"
+from typing import reveal_type
+
+def f(x):
+    x = 3 # E: `Literal[3]` is not assignable to variable `x` with type `str`
+    x = "None"
+    reveal_type(x) # E: revealed type: Literal['None']
+
+def f(x):
+    x = 3
+    x = "None" 
+    "#,
+);
