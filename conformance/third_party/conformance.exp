@@ -4565,31 +4565,11 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "assert_type(type[Color], Color) failed",
-      "description": "assert_type(type[Color], Color) failed",
+      "concise_description": "assert_type(Literal[Color.RED], Color) failed",
+      "description": "assert_type(Literal[Color.RED], Color) failed",
       "line": 26,
       "name": "assert-type",
       "stop_column": 33,
-      "stop_line": 26
-    },
-    {
-      "code": -2,
-      "column": 13,
-      "concise_description": "Expected 0 type arguments for `Color`, got 1",
-      "description": "Expected 0 type arguments for `Color`, got 1",
-      "line": 26,
-      "name": "bad-specialization",
-      "stop_column": 25,
-      "stop_line": 26
-    },
-    {
-      "code": -2,
-      "column": 19,
-      "concise_description": "Expected a type form, got instance of `Literal['RED']`",
-      "description": "Expected a type form, got instance of `Literal['RED']`",
-      "line": 26,
-      "name": "not-a-type",
-      "stop_column": 24,
       "stop_line": 26
     }
   ],

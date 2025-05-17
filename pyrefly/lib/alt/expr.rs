@@ -911,6 +911,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ),
                     }
                 }
+                Type::ClassDef(ref cls)
+                    if let Expr::StringLiteral(ExprStringLiteral { value: key, .. }) = slice
+                        && self.get_enum_from_class(cls).is_some() =>
+                {
+                    if let Some(member) = self.get_enum_member(cls, &Name::new(key.to_str())) {
+                        Type::Literal(member)
+                    } else {
+                        self.error(
+                            errors,
+                            slice.range(),
+                            ErrorKind::IndexError,
+                            None,
+                            format!(
+                                "Enum `{}` does not have a member named `{}`",
+                                cls.name(),
+                                key.to_str()
+                            ),
+                        )
+                    }
+                }
                 Type::ClassDef(cls) => Type::type_form(self.specialize(
                     &cls,
                     xs.map(|x| self.expr_untype(x, TypeFormContext::TypeArgument, errors)),

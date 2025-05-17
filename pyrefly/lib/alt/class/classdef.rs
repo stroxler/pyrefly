@@ -94,7 +94,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.get_from_class(cls, &KeyClassMetadata(cls.index()))
     }
 
-    fn get_enum_from_class(&self, cls: &Class) -> Option<EnumMetadata> {
+    pub fn get_enum_from_class(&self, cls: &Class) -> Option<EnumMetadata> {
         self.get_metadata_for_class(cls).enum_metadata().cloned()
     }
 

@@ -33,7 +33,7 @@ class E(enum.Enum):
 }
 
 testcase!(
-    test_enum,
+    test_enum_basic,
     r#"
 from typing import assert_type, Literal
 from enum import Enum
@@ -44,11 +44,14 @@ class MyEnum(Enum):
     __PRIVATE = 3
 
 assert_type(MyEnum.X, Literal[MyEnum.X])
+assert_type(MyEnum["X"], Literal[MyEnum.X])
 assert_type(MyEnum.__PRIVATE, int)
 assert_type(MyEnum.X.name, Literal["X"])
 assert_type(MyEnum.X._name_, Literal["X"])
 assert_type(MyEnum.X.value, int)
 assert_type(MyEnum.X._value_, int)
+
+MyEnum["FOO"]  # E: Enum `MyEnum` does not have a member named `FOO`
 "#,
 );
 
