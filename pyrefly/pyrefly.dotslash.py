@@ -10,4 +10,11 @@ import dotslash
 dotslash.export_fbcode_build(
     target="fbcode//pyrefly/pyrefly:fbpyrefly",
     oncall="pyre",
+    install_platforms={
+        dotslash.InstallPlatform.LINUX_AARCH64,
+        dotslash.InstallPlatform.LINUX_X86_64,
+        dotslash.InstallPlatform.MAC_AARCH64,
+        dotslash.InstallPlatform.MAC_X86_64,
+        dotslash.InstallPlatform.WINDOWS,
+    },
 )
