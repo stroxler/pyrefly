@@ -28,21 +28,8 @@ use serde::Serialize;
 //    part may be dropped, e.g. in NotAType.
 // These categories are flexible; use them for guidance when naming new ErrorKinds, but
 // go with what feels right.
-#[derive(
-    Debug,
-    Clone,
-    PartialOrd,
-    Ord,
-    PartialEq,
-    Eq,
-    Hash,
-    Copy,
-    Dupe,
-    Display,
-    Sequence,
-    Deserialize,
-    Serialize
-)]
+#[derive(Debug, Copy, Dupe, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Display, Sequence, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ErrorKind {
     /// Attempting to annotate a name with incompatible annotations.

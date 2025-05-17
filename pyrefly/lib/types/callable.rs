@@ -27,9 +27,8 @@ use crate::util::prelude::SliceExt;
 use crate::util::visit::Visit;
 use crate::util::visit::VisitMut;
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct Callable {
     pub params: Params,
     pub ret: Type,
@@ -41,9 +40,8 @@ impl Display for Callable {
     }
 }
 
-#[derive(
-    Debug, Clone, Default, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct ParamList(Vec<Param>);
 
 impl ParamList {
@@ -114,9 +112,8 @@ impl ParamList {
     }
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum Params {
     List(ParamList),
     Ellipsis,
@@ -126,9 +123,8 @@ pub enum Params {
     ParamSpec(Box<[Type]>, Type),
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum Param {
     PosOnly(Type, Required),
     Pos(Name, Type, Required),
@@ -137,25 +133,22 @@ pub enum Param {
     Kwargs(Option<Name>, Type),
 }
 
-#[derive(
-    Debug, Clone, Copy, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum Required {
     Required,
     Optional,
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct Function {
     pub signature: Callable,
     pub metadata: FuncMetadata,
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct FuncMetadata {
     pub kind: FunctionKind,
     pub flags: FuncFlags,
@@ -174,9 +167,8 @@ impl FuncMetadata {
     }
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash, Default
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct FuncFlags {
     pub is_overload: bool,
     pub is_staticmethod: bool,
@@ -191,9 +183,8 @@ pub struct FuncFlags {
     pub has_final_decoration: bool,
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct FuncId {
     pub module: ModuleName,
     pub cls: Option<Name>,
@@ -218,9 +209,8 @@ impl FuncId {
     }
 }
 
-#[derive(
-    Debug, Clone, TypeEq, Visit, VisitMut, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum FunctionKind {
     IsInstance,
     IsSubclass,

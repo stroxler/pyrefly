@@ -33,9 +33,8 @@ impl TypedDictField {
     }
 }
 
-#[derive(
-    Debug, Visit, VisitMut, PartialOrd, Ord, Clone, TypeEq, Eq, PartialEq, Hash
-)]
+#[derive(Debug, PartialOrd, Ord, Clone, Eq, PartialEq, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct TypedDict {
     class: Class,
     args: TArgs,

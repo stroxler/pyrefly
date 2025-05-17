@@ -71,9 +71,8 @@ impl Steps {
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, Dupe, Eq, PartialEq, PartialOrd, Ord, Display, Sequence
-)]
+#[derive(Debug, Clone, Copy, Dupe, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Display, Sequence)]
 pub enum Step {
     Load,
     Ast,

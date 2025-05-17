@@ -24,10 +24,8 @@ use crate::types::annotation::Qualifier;
 use crate::types::types::NeverStyle;
 use crate::types::types::Type;
 
-#[derive(
-    Debug, Clone, Copy, Dupe, Visit, VisitMut, TypeEq, PartialEq, Eq, Hash, PartialOrd, Ord,
-    Display, FromStr
-)]
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Visit, VisitMut, TypeEq, Display, FromStr)]
 pub enum SpecialForm {
     Annotated,
     Callable,

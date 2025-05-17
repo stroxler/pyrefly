@@ -20,9 +20,8 @@ use memory_stats::memory_stats;
 use crate::util::display::commas_iter;
 use crate::util::lock::Mutex;
 
-#[derive(
-    Debug, Clone, Copy, Dupe, Default, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, Copy, Dupe, Default)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Bytes(u64);
 
 impl Display for Bytes {

@@ -50,9 +50,8 @@ use crate::util::visit::Visit;
 use crate::util::visit::VisitMut;
 
 /// An introduced synthetic variable to range over as yet unknown types.
-#[derive(
-    Debug, Copy, Clone, Dupe, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Copy, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct Var(Unique);
 
 impl Display for Var {
@@ -83,9 +82,8 @@ pub struct TParamInfo {
     pub variance: Option<Variance>,
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct TParam {
     pub quantified: Quantified,
     pub variance: Variance,
@@ -120,9 +118,8 @@ pub struct ValidatedTParams {
 
 /// Wraps a vector of type parameters. The constructor ensures that
 /// type parameters without defaults never follow ones with defaults.
-#[derive(
-    Debug, Clone, Default, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct TParams(Vec<TParam>);
 
 impl Display for TParams {
@@ -224,17 +221,15 @@ impl TParams {
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash, Display
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum NeverStyle {
     Never,
     NoReturn,
 }
 
-#[derive(
-    Debug, Clone, Copy, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash, Display
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum AnyStyle {
     /// The user wrote `Any` literally.
     Explicit,
@@ -254,9 +249,8 @@ impl AnyStyle {
     }
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash, Display
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum TypeAliasStyle {
     /// A type alias declared with the `type` keyword
     #[display("ScopedTypeAlias")]
@@ -269,9 +263,8 @@ pub enum TypeAliasStyle {
     LegacyImplicit,
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct TypeAlias {
     pub name: Box<Name>,
     ty: Box<Type>,
@@ -316,9 +309,8 @@ pub enum CalleeKind {
     Class(ClassKind),
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct BoundMethod {
     pub obj: Type,
     pub func: BoundMethodType,
@@ -334,9 +326,8 @@ impl BoundMethod {
     }
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum BoundMethodType {
     Function(Function),
     Forall(Forall<Function>),
@@ -398,9 +389,8 @@ impl BoundMethodType {
     }
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct Overload {
     pub signatures: Vec1<OverloadType>,
     pub metadata: Box<FuncMetadata>,
@@ -416,9 +406,8 @@ impl Overload {
     }
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum OverloadType {
     Callable(Callable),
     Forall(Forall<Function>),
@@ -463,18 +452,16 @@ impl OverloadType {
     }
 }
 
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub struct Forall<T> {
     pub tparams: TParams,
     pub body: T,
 }
 
 /// These are things that can have Forall around them, so often you see `Forall<Forallable>`
-#[derive(
-    Debug, Clone, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum Forallable {
     TypeAlias(TypeAlias),
     Function(Function),
@@ -524,9 +511,8 @@ impl Forallable {
 /// The second argument (implicit or explicit) to a super() call.
 /// Either an instance of a class (inside an instance method) or a
 /// class object (inside a classmethod or staticmethod)
-#[derive(
-    Debug, Clone, PartialEq, Eq, Visit, VisitMut, TypeEq, PartialOrd, Ord, Hash
-)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum SuperObj {
     Instance(ClassType),
     Class(Class),
