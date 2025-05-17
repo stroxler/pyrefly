@@ -364,6 +364,16 @@ assert_type(x.get(), Literal[42])
 );
 
 testcase!(
+    test_dict_infer_error,
+    r#"
+from typing import assert_type, Any
+def test(x: int):
+    assert_type({ **x }, dict[Any, Any])  # E: Expected a mapping, got int
+    assert_type({ "x": 1, **x }, dict[str, int])  # E: Expected a mapping, got int
+"#,
+);
+
+testcase!(
     test_override_classvar,
     r#"
 from typing import ClassVar

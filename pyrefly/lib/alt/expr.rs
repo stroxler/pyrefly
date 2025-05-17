@@ -1215,14 +1215,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     value_hint.as_ref(),
                                     errors,
                                 );
-                                key_tys.push(key_t);
-                                value_tys.push(value_t);
+                                if key_t != Type::any_error() {
+                                    key_tys.push(key_t);
+                                }
+                                if value_t != Type::any_error() {
+                                    value_tys.push(value_t);
+                                }
                             }
                             None => {
                                 let ty = self.expr_infer(&x.value, errors);
-                                if let Some((key_ty, value_ty)) = self.unwrap_mapping(&ty) {
-                                    key_tys.push(key_ty);
-                                    value_tys.push(value_ty);
+                                if let Some((key_t, value_t)) = self.unwrap_mapping(&ty) {
+                                    if key_t != Type::any_error() {
+                                        key_tys.push(key_t);
+                                    }
+                                    if value_t != Type::any_error() {
+                                        value_tys.push(value_t);
+                                    }
                                 } else {
                                     self.error(
                                         errors,
@@ -1234,6 +1242,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 }
                             }
                         });
+                        if key_tys.is_empty() {
+                            key_tys.push(Type::any_error())
+                        }
+                        if value_tys.is_empty() {
+                            value_tys.push(Type::any_error())
+                        }
                         let key_ty = self.unions(key_tys);
                         let value_ty = self.unions(value_tys);
                         self.stdlib.dict(key_ty, value_ty).to_type()
