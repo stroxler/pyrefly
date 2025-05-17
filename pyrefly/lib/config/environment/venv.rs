@@ -35,7 +35,6 @@ impl Venv {
 
 impl Finder for Venv {
     fn find(project_path: &Path) -> Option<PathBuf> {
-        // TODO(connernilsen): search for venv interpreters more efficiently (find CONFIG_FILE first, then search for interpreters)
         let interpreters =
             walk_interpreter(project_path, Venv::SEARCH_DEPTH).collect::<Vec<PathBuf>>();
 
