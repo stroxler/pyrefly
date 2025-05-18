@@ -16,7 +16,11 @@ class Coord(TypedDict):
     y: int
 def foo(c: Coord) -> Mapping[str, object]:
     return c
-    "#,
+def bar(c: Coord) -> Mapping[str, int]:
+    return c  # E: is not assignable
+def baz(c: Coord) -> Mapping[str, str]:
+    return c  # E: is not assignable
+"#,
 );
 
 testcase!(
