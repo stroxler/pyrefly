@@ -333,3 +333,16 @@ def test(x: tuple[int] | tuple[str]) -> None:
     assert_type(x + x, tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int])
 "#,
 );
+
+testcase!(
+    bug = "Pyrefly hangs on this example if we uncomment the second definition of f",
+    test_unpack_tuple_with_double_def,
+    r#"
+from typing import Unpack, Any
+def f(*args: Unpack[tuple[Any, ...]]):
+    pass
+# Uncomment me and the example will hang.
+# def f():
+#     pass
+"#,
+);
