@@ -341,8 +341,8 @@ testcase!(
 from typing import Unpack, Any
 def f(*args: Unpack[tuple[Any, ...]]):
     pass
-# Uncomment me and the example will hang.
-# def f():
-#     pass
+
+def f():
+     pass
 "#,
 );

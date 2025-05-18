@@ -71,7 +71,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 }
                 (Some(Param::VarArg(_, Type::Unpack(l))), None) => {
                     if self.is_subset_eq(&Type::tuple(Vec::new()), l) {
-                        l_arg = l_args.iter().next();
+                        l_arg = l_args_iter.next();
                     } else {
                         return false;
                     }
