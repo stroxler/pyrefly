@@ -19,10 +19,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver().fresh_unwrap(self.uniques)
     }
 
-    fn expand_var_opt(&self, var: Var) -> Option<Type> {
+    /// Resolve a var to a type, but only if it was pinned by the subtype
+    /// check we just ran. If it was not, return `None`.
+    fn resolve_var_opt(&self, ty: &Type, var: Var) -> Option<Type> {
+        let res = self.resolve_var(ty, var);
         // TODO: Really want to check if the Var is constrained in any way.
         // No way to do that currently, but this is close.
-        let res = self.expand_var(var);
         if matches!(res, Type::Var(..)) {
             None
         } else {
@@ -30,8 +32,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn expand_var(&self, var: Var) -> Type {
-        self.solver().expand(var.to_type())
+    /// Resolve a var to a type. This function assumes that the caller has just
+    /// run a successful subtype check of `ty` against a type we are trying to
+    /// decompose (for example `Awaitable[_]` or `Iterable[_]`).
+    ///
+    /// It is an error to call this if the subtype check failed. If the subtype
+    /// check succeeded, in most cases the solver will have pinned the Var to
+    /// the correct type argument.
+    ///
+    /// One tricky issue is that there are some scenarios where a subtype
+    /// check can pass without pinning vars; this function needs to handle
+    /// those as edge cases.
+    ///
+    /// As an example of how this works, if `x` is `CustomSubtypeOfAwaitable[int]`,
+    /// we will synthesize an `Awaitable[@v]` and when we do a subtype check of
+    /// `x`, the solver will pin `@v` to `int` and we will use that.
+    ///
+    /// Special cases we handle thus far (there may be bugs where we need more):
+    /// - if `ty` is `Any`, the stubtype check passes without pinning, and the
+    ///   right thing to do is propagate the `Any`, preserving its `AnyStyle`.
+    /// - TODO: if `ty` is bottom (`Never` or `NoReturn`), the subtype check
+    ///   will pass and we should propagate the type.
+    /// - TODO: all edge cases probably need to also be handled when they are
+    ///   the first entry in a union.
+    fn resolve_var(&self, ty: &Type, var: Var) -> Type {
+        match ty {
+            Type::Any(style) => Type::Any(*style),
+            _ => self.solver().expand(var.to_type()),
+        }
     }
 
     pub fn is_async_generator(&self, ty: &Type) -> bool {
@@ -54,7 +82,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .mapping(key.to_type(), value.to_type())
             .to_type();
         if self.is_subset_eq(ty, &dict_type) {
-            Some((self.expand_var(key), self.expand_var(value)))
+            Some((self.resolve_var(ty, key), self.resolve_var(ty, value)))
         } else {
             None
         }
@@ -64,7 +92,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let var = self.fresh_var();
         let awaitable_ty = self.stdlib.awaitable(var.to_type()).to_type();
         if self.is_subset_eq(ty, &awaitable_ty) {
-            Some(self.expand_var(var))
+            Some(self.resolve_var(ty, var))
         } else {
             None
         }
@@ -79,9 +107,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .generator(yield_ty.to_type(), send_ty.to_type(), return_ty.to_type())
             .to_type();
         if self.is_subset_eq(ty, &generator_ty) {
-            let yield_ty: Type = self.expand_var(yield_ty);
-            let send_ty = self.expand_var(send_ty);
-            let return_ty = self.expand_var(return_ty);
+            let yield_ty: Type = self.resolve_var(ty, yield_ty);
+            let send_ty = self.resolve_var(ty, send_ty);
+            let return_ty = self.resolve_var(ty, return_ty);
             Some((yield_ty, send_ty, return_ty))
         } else {
             None
@@ -92,7 +120,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let iter_ty = self.fresh_var();
         let iterable_ty = self.stdlib.iterable(iter_ty.to_type()).to_type();
         if self.is_subset_eq(ty, &iterable_ty) {
-            Some(self.expand_var(iter_ty))
+            Some(self.resolve_var(ty, iter_ty))
         } else {
             None
         }
@@ -102,7 +130,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let iter_ty = self.fresh_var();
         let iterable_ty = self.stdlib.async_iterable(iter_ty.to_type()).to_type();
         if self.is_subset_eq(ty, &iterable_ty) {
-            Some(self.expand_var(iter_ty))
+            Some(self.resolve_var(ty, iter_ty))
         } else {
             None
         }
@@ -113,8 +141,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let value = self.fresh_var();
         let dict_type = self.stdlib.dict(key.to_type(), value.to_type()).to_type();
         if self.is_subset_eq(&dict_type, ty) {
-            let key = self.expand_var_opt(key);
-            let value = self.expand_var_opt(value);
+            let key = self.resolve_var_opt(ty, key);
+            let value = self.resolve_var_opt(ty, value);
             (key, value)
         } else {
             (None, None)
@@ -125,7 +153,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let elem = self.fresh_var();
         let set_type = self.stdlib.set(elem.to_type()).to_type();
         if self.is_subset_eq(&set_type, ty) {
-            self.expand_var_opt(elem)
+            self.resolve_var_opt(ty, elem)
         } else {
             None
         }
@@ -135,7 +163,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let elem = self.fresh_var();
         let list_type = self.stdlib.list(elem.to_type()).to_type();
         if self.is_subset_eq(&list_type, ty) {
-            self.expand_var_opt(elem)
+            self.resolve_var_opt(ty, elem)
         } else {
             None
         }
@@ -150,7 +178,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let callable_ty = Type::callable(params, return_ty.to_type());
 
         if self.is_subset_eq(&callable_ty, ty) {
-            self.expand_var_opt(return_ty)
+            self.resolve_var_opt(ty, return_ty)
         } else {
             None
         }
@@ -167,7 +195,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )
             .to_type();
         if self.is_subset_eq(&generator_ty, ty) {
-            self.expand_var_opt(yield_ty)
+            self.resolve_var_opt(ty, yield_ty)
         } else {
             None
         }
@@ -182,9 +210,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .generator(yield_ty.to_type(), send_ty.to_type(), return_ty.to_type())
             .to_type();
         if self.is_subset_eq(&generator_ty, ty) {
-            let yield_ty: Type = self.expand_var_opt(yield_ty)?;
-            let send_ty = self.expand_var_opt(send_ty).unwrap_or(Type::None);
-            let return_ty = self.expand_var_opt(return_ty).unwrap_or(Type::None);
+            let yield_ty: Type = self.resolve_var_opt(ty, yield_ty)?;
+            let send_ty = self.resolve_var_opt(ty, send_ty).unwrap_or(Type::None);
+            let return_ty = self.resolve_var_opt(ty, return_ty).unwrap_or(Type::None);
             Some((yield_ty, send_ty, return_ty))
         } else if ty.is_any() {
             Some((
@@ -205,8 +233,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .async_generator(yield_ty.to_type(), send_ty.to_type())
             .to_type();
         if self.is_subset_eq(&async_generator_ty, ty) {
-            let yield_ty: Type = self.expand_var_opt(yield_ty)?;
-            let send_ty = self.expand_var_opt(send_ty).unwrap_or(Type::None);
+            let yield_ty: Type = self.resolve_var_opt(ty, yield_ty)?;
+            let send_ty = self.resolve_var_opt(ty, send_ty).unwrap_or(Type::None);
             Some((yield_ty, send_ty))
         } else if ty.is_any() {
             Some((Type::any_explicit(), Type::any_explicit()))

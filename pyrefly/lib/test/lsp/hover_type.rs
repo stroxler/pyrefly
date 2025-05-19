@@ -272,7 +272,7 @@ async def test() -> None:
         # main.py
 5 |     z = await foo()
         ^
-Hover Result: `@_`
+Hover Result: `Any`
 "#
         .trim(),
         report.trim(),
