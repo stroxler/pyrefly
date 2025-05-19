@@ -210,7 +210,7 @@ class N:
 def f(n: N):
     assert isinstance(n.args[0], N)
     t1 = n.args[0].type
-    reveal_type(t1) # E: revealed type: Never
+    reveal_type(t1) # E: revealed type: Any | None
 "#,
 );
 

@@ -71,8 +71,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
-    fn intersect(&self, left: &Type, right: &Type) -> Type {
-        // Get our best approximation of ty & right.
+    /// Get our best approximation of ty & right.
+    ///
+    /// If the intersection is empty - which does not necessarily indicate
+    /// an actual empty set because of multiple inheritance - use `fallback`
+    fn intersect_with_fallback(
+        &self,
+        left: &Type,
+        right: &Type,
+        fallback: impl Fn() -> Type,
+    ) -> Type {
         self.distribute_over_union(left, |l| {
             self.distribute_over_union(right, |r| {
                 if self.is_subset_eq(r, l) {
@@ -80,10 +88,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else if self.is_subset_eq(l, r) {
                     l.clone()
                 } else {
-                    Type::never()
+                    fallback()
                 }
             })
         })
+    }
+
+    fn intersect(&self, left: &Type, right: &Type) -> Type {
+        self.intersect_with_fallback(left, right, Type::never)
     }
 
     fn intersects(&self, ts: &[Type]) -> Type {
@@ -141,7 +153,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(ts) = right.as_decomposed_tuple_or_union() {
             self.unions(ts.iter().map(|t| self.narrow_isinstance(left, t)).collect())
         } else if let Some(right) = self.unwrap_class_object_silently(right) {
-            self.intersect(left, &right)
+            self.intersect_with_fallback(left, &right, || right.clone())
         } else {
             left.clone()
         }
