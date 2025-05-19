@@ -11,6 +11,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::thread::sleep;
 use std::time::Duration;
 use std::time::Instant;
@@ -89,7 +90,7 @@ fn default_path(module: ModuleName) -> PathBuf {
     PathBuf::from(format!("{}.py", module.as_str().replace('.', "/")))
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct TestEnv {
     modules: SmallMap<ModuleName, (ModulePath, Option<Arc<String>>)>,
     version: PythonVersion,
@@ -398,6 +399,8 @@ pub fn init_test() {
     init_thread_pool(ThreadCount::NumThreads(NonZeroUsize::new(3).unwrap()));
 }
 
+static SHARED_STATE: LazyLock<State> = LazyLock::new(|| TestEnv::new().to_state().0);
+
 /// Should only be used from the `testcase!` macro.
 pub fn testcase_for_macro(
     mut env: TestEnv,
@@ -406,6 +409,7 @@ pub fn testcase_for_macro(
     line: u32,
 ) -> anyhow::Result<()> {
     init_test();
+    let is_empty_env = env == TestEnv::default();
     let mut start_line = line as usize + 1;
     if !env.modules.is_empty() {
         start_line += 1;
@@ -420,11 +424,26 @@ pub fn testcase_for_macro(
     let limit = 10;
     for _ in 0..3 {
         let start = Instant::now();
-        let (state, handle) = env.clone().to_state();
-        state
-            .transaction()
-            .get_errors([&handle("main")])
+        if is_empty_env {
+            // Optimisation: For simple tests, just reuse the base state, to avoid rechecking stdlib.
+            let mut t = SHARED_STATE.transaction();
+            t.set_memory(vec![(
+                PathBuf::from(file),
+                Some(Arc::new(contents.to_owned())),
+            )]);
+            t.get_errors([&Handle::new(
+                ModuleName::from_str("main"),
+                ModulePath::memory(PathBuf::from(file)),
+                env.sys_info(),
+            )])
             .check_against_expectations()?;
+        } else {
+            let (state, handle) = env.clone().to_state();
+            state
+                .transaction()
+                .get_errors([&handle("main")])
+                .check_against_expectations()?;
+        }
         if start.elapsed().as_secs() <= limit {
             return Ok(());
         }
