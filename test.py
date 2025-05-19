@@ -50,7 +50,7 @@ class TestFlags:
 
 
 def print_running(msg: str) -> None:
-    print(Colors.OKGREEN.value + "Running " + msg + Colors.ENDC.value)
+    print(Colors.OKGREEN.value + "Running " + msg + "..." + Colors.ENDC.value)
 
 
 @contextmanager
@@ -201,22 +201,22 @@ class BuckExecutor(Executor):
 
 def run_tests(executor: Executor, test_flags: TestFlags) -> None:
     if test_flags.run_fmt:
-        print_running("Code formatting...")
+        print_running("formatting")
         with timing():
             executor.rustfmt()
 
     if test_flags.run_lint:
-        print_running("Code linting...")
+        print_running("linting")
         with timing():
             executor.clippy()
 
     if test_flags.run_test:
-        print_running("Run tests...")
+        print_running("tests")
         with timing():
             executor.test()
 
     if test_flags.run_conformance:
-        print_running("Running conformance tests ...")
+        print_running("conformance tests")
         with timing():
             executor.conformance()
 
