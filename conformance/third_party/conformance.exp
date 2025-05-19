@@ -5232,41 +5232,51 @@
     {
       "code": -2,
       "column": 34,
-      "concise_description": "Expected 2 type arguments for `Foo6`, got 3",
-      "description": "Expected 2 type arguments for `Foo6`, got 3",
+      "concise_description": "Expected a valid ParamSpec expression, got `int`",
+      "description": "Expected a valid ParamSpec expression, got `int`",
       "line": 151,
-      "name": "bad-specialization",
+      "name": "invalid-param-spec",
       "stop_column": 63,
       "stop_line": 151
     },
     {
       "code": -2,
       "column": 34,
-      "concise_description": "Expected a valid ParamSpec expression, got `int`",
-      "description": "Expected a valid ParamSpec expression, got `int`",
+      "concise_description": "Expected 2 type arguments for `Foo6`, got 3",
+      "description": "Expected 2 type arguments for `Foo6`, got 3",
       "line": 151,
-      "name": "invalid-param-spec",
+      "name": "bad-specialization",
       "stop_column": 63,
       "stop_line": 151
     },
     {
       "code": -2,
       "column": 13,
-      "concise_description": "Expected 2 type arguments for `Foo6`, got 3",
-      "description": "Expected 2 type arguments for `Foo6`, got 3",
+      "concise_description": "Expected a valid ParamSpec expression, got `int`",
+      "description": "Expected a valid ParamSpec expression, got `int`",
       "line": 152,
-      "name": "bad-specialization",
+      "name": "invalid-param-spec",
       "stop_column": 36,
       "stop_line": 152
     },
     {
       "code": -2,
       "column": 13,
+      "concise_description": "Expected 2 type arguments for `Foo6`, got 3",
+      "description": "Expected 2 type arguments for `Foo6`, got 3",
+      "line": 152,
+      "name": "bad-specialization",
+      "stop_column": 36,
+      "stop_line": 152
+    },
+    {
+      "code": -2,
+      "column": 43,
       "concise_description": "Expected a valid ParamSpec expression, got `int`",
       "description": "Expected a valid ParamSpec expression, got `int`",
       "line": 152,
       "name": "invalid-param-spec",
-      "stop_column": 36,
+      "stop_column": 66,
       "stop_line": 152
     },
     {
@@ -5276,16 +5286,6 @@
       "description": "Expected 2 type arguments for `Foo6`, got 3",
       "line": 152,
       "name": "bad-specialization",
-      "stop_column": 66,
-      "stop_line": 152
-    },
-    {
-      "code": -2,
-      "column": 43,
-      "concise_description": "Expected a valid ParamSpec expression, got `int`",
-      "description": "Expected a valid ParamSpec expression, got `int`",
-      "line": 152,
-      "name": "invalid-param-spec",
       "stop_column": 66,
       "stop_line": 152
     },
@@ -8313,20 +8313,20 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "Missing argument `x` in function `example1_1`",
-      "description": "Missing argument `x` in function `example1_1`",
+      "concise_description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: str) -> str`",
+      "description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: str) -> str`",
       "line": 38,
-      "name": "missing-argument",
+      "name": "no-matching-overload",
       "stop_column": 11,
       "stop_line": 38
     },
     {
       "code": -2,
       "column": 1,
-      "concise_description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: str) -> str`",
-      "description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: str) -> str`",
+      "concise_description": "Missing argument `x` in function `example1_1`",
+      "description": "Missing argument `x` in function `example1_1`",
       "line": 38,
-      "name": "no-matching-overload",
+      "name": "missing-argument",
       "stop_column": 11,
       "stop_line": 38
     },
@@ -8353,20 +8353,20 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "Missing argument `y` in function `example1_1`",
-      "description": "Missing argument `y` in function `example1_1`",
+      "concise_description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: int, y: str) -> int`",
+      "description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: int, y: str) -> int`",
       "line": 51,
-      "name": "missing-argument",
+      "name": "no-matching-overload",
       "stop_column": 11,
       "stop_line": 51
     },
     {
       "code": -2,
       "column": 1,
-      "concise_description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: int, y: str) -> int`",
-      "description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: int, y: str) -> int`",
+      "concise_description": "Missing argument `y` in function `example1_1`",
+      "description": "Missing argument `y` in function `example1_1`",
       "line": 51,
-      "name": "no-matching-overload",
+      "name": "missing-argument",
       "stop_column": 11,
       "stop_line": 51
     },

@@ -44,7 +44,9 @@ impl ModuleErrors {
             return;
         }
         self.clean = true;
-        self.items.sort();
+        // We want to sort only by source-range, not by message.
+        // When we get an overload error, we want that overload to remain before whatever the precise overload failure is.
+        self.items.sort_by_key(|x| x.source_range().clone());
         self.items.dedup();
     }
 
@@ -175,6 +177,7 @@ impl ErrorCollector {
 mod tests {
     use std::collections::HashMap;
     use std::path::Path;
+    use std::path::PathBuf;
     use std::sync::Arc;
 
     use ruff_python_ast::name::Name;
@@ -229,7 +232,10 @@ mod tests {
                 .collect(&ErrorConfig::new(&ErrorDisplayConfig::default(), false))
                 .shown
                 .map(|x| x.msg()),
-            vec!["a", "b", "a"]
+            // We do end up with two `b` with the same location.
+            // We could fix that by deduplicating within the same source location, but that
+            // requires more effort and is rare. So for now, let's just keep it simple.
+            vec!["b", "a", "b", "a"]
         );
     }
 
@@ -281,7 +287,7 @@ mod tests {
 
         assert_eq!(
             errors.collect(&config).shown.map(|x| x.msg()),
-            vec!["b", "a", "d"]
+            vec!["a", "b", "d"]
         );
     }
 
@@ -306,5 +312,34 @@ mod tests {
 
         let config1 = ErrorConfig::new(&display_config, true);
         assert!(errors.collect(&config1).shown.map(|x| x.msg()).is_empty());
+    }
+
+    #[test]
+    fn test_errors_not_sorted() {
+        let mi = ModuleInfo::new(
+            ModuleName::from_name(&Name::new_static("main")),
+            ModulePath::filesystem(PathBuf::from("main.py")),
+            Arc::new("test".to_owned()),
+        );
+        let errors = ErrorCollector::new(mi.dupe(), ErrorStyle::Delayed);
+        errors.add(
+            TextRange::new(TextSize::new(1), TextSize::new(1)),
+            "Overload".to_owned(),
+            ErrorKind::InternalError,
+            None,
+        );
+        errors.add(
+            TextRange::new(TextSize::new(1), TextSize::new(1)),
+            "A specific error".to_owned(),
+            ErrorKind::InternalError,
+            None,
+        );
+        assert_eq!(
+            errors
+                .collect(&ErrorConfig::new(&ErrorDisplayConfig::default(), false))
+                .shown
+                .map(|x| x.msg()),
+            vec!["Overload", "A specific error"]
+        );
     }
 }
