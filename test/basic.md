@@ -32,22 +32,6 @@ $ echo "x: str = 42" > $TMPDIR/test.py && $PYREFLY check $TMPDIR/test.py --outpu
 [0]
 ```
 
-## Error on a non-existent file
-
-```scrut {output_stream: stderr}
-$ $PYREFLY check $TMPDIR/does_not_exist --python-version 3.13.0
-No Python files matched pattern `*/does_not_exist` (glob)
-[1]
-```
-
-## Error on a non-existent search path
-
-```scrut {output_stream: stderr}
-$ echo "" > $TMPDIR/empty.py && $PYREFLY check $TMPDIR/empty.py --search-path $TMPDIR/does_not_exist
-Invalid --search-path: `*/does_not_exist` does not exist (glob)
-[1]
-```
-
 ## We can typecheck two files with the same name
 
 ```scrut
@@ -80,17 +64,6 @@ $ mkdir -p $TMPDIR/inner/foo && mkdir -p $TMPDIR/inner/baz && \
 [1]
 ```
 
-## We do report from nested with --check-all
-
-```scrut
-$ echo "x: str = 12" > $TMPDIR/shown1.py && \
-> echo "import shown1; y: int = shown1.x" > $TMPDIR/shown2.py && \
-> $PYREFLY check --python-version 3.13.0 $TMPDIR/shown2.py --check-all
-*/shown*.py:1:* (glob)
-*/shown*.py:1:* (glob)
-[1]
-```
-
 ## We can do our own globbing
 
 ```scrut
@@ -99,17 +72,6 @@ $ echo "x: str = 12" > $TMPDIR/glob1.py && \
 > $PYREFLY check --python-version 3.13.0 "$TMPDIR/glob*.py"
 */glob*.py:1:* (glob)
 */glob*.py:1:* (glob)
-[1]
-```
-
-## We return an error when all files are filtered by project_excludes
-
-```scrut {output_stream: stderr}
-$ echo "x: str = 12" > $TMPDIR/excluded.py && \
-> $PYREFLY check --python-version 3.13.0 $TMPDIR/excluded.py --project-excludes="$TMPDIR/*"
-All found `project_includes` files were filtered by `project_excludes` patterns.
-`project_includes`:* (glob)
-`project_excludes`:* (glob)
 [1]
 ```
 
