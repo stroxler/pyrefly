@@ -1012,6 +1012,22 @@ def f(x: int | None, y: int | None):
 );
 
 testcase!(
+    bug = "In scenarios where a narrow is theoretically an intersection, we should narrow and not use Never",
+    test_narrow_to_anonymous_intersection,
+    r#"
+from typing import assert_type
+class A: pass
+class B: pass
+class C(A, B): pass  # not used, but demonstrates why the narrow is not Never
+def f(x: A):
+    if isinstance(x, B):
+        # In theory we could use `A & B` here; any common sublcass like `C` is possible.
+        # If we do not have intersections, existing use cases suggest we should use `B`.
+        assert_type(x, B)  # E: assert_type(Never, B)
+"#,
+);
+
+testcase!(
     test_nested_or_with_multiple_vars,
     r#"
 from typing import assert_type
