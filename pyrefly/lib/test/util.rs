@@ -399,7 +399,9 @@ pub fn init_test() {
     init_thread_pool(ThreadCount::NumThreads(NonZeroUsize::new(3).unwrap()));
 }
 
-static SHARED_STATE: LazyLock<State> = LazyLock::new(|| TestEnv::new().to_state().0);
+/// Shared state with all the builtins already initialised (by a dummy module).
+static SHARED_STATE: LazyLock<State> =
+    LazyLock::new(|| TestEnv::one("_shared_state", "").to_state().0);
 
 /// Should only be used from the `testcase!` macro.
 pub fn testcase_for_macro(
@@ -425,20 +427,20 @@ pub fn testcase_for_macro(
     for _ in 0..3 {
         let start = Instant::now();
         // Disable the empty test optimisation for now, because it doesn't catch breakages
-        #[allow(clippy::overly_complex_bool_expr)]
-        if is_empty_env && false {
+        if is_empty_env {
             // Optimisation: For simple tests, just reuse the base state, to avoid rechecking stdlib.
             let mut t = SHARED_STATE.transaction();
+            let h = Handle::new(
+                ModuleName::from_str("main"),
+                ModulePath::memory(PathBuf::from(file)),
+                env.sys_info(),
+            );
             t.set_memory(vec![(
                 PathBuf::from(file),
                 Some(Arc::new(contents.to_owned())),
             )]);
-            t.get_errors([&Handle::new(
-                ModuleName::from_str("main"),
-                ModulePath::memory(PathBuf::from(file)),
-                env.sys_info(),
-            )])
-            .check_against_expectations()?;
+            t.run(&[(h.dupe(), Require::Everything)]);
+            t.get_errors([&h]).check_against_expectations()?;
         } else {
             let (state, handle) = env.clone().to_state();
             state
