@@ -431,7 +431,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorKind::InvalidAnnotation,
                         None,
                         format!(
-                            "Expected 1 type argument for {}, got {}",
+                            "Expected 1 type argument for `{}`, got {}",
                             qualifier,
                             unpacked_slice.len()
                         ),
@@ -764,7 +764,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::TypeAliasError,
                 None,
-                format!("Expected `{name}` to be a type alias, got {ty}"),
+                format!("Expected `{name}` to be a type alias, got `{ty}`"),
             );
             return Type::any_error();
         };
@@ -1590,7 +1590,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             subscript.range(),
                             ErrorKind::BadAssignment,
                             None,
-                            format!("Expected {}, got {}", field.ty, value),
+                            format!("Expected `{}`, got `{}`", field.ty, value),
                         )
                     } else {
                         Type::None
@@ -1781,7 +1781,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     ErrorKind::MatchError,
                                     Some(&context),
                                     format!(
-                                        "Expected literal string in `__match_args__`, got {}",
+                                        "Expected literal string in `__match_args__`, got `{}`",
                                         ts[*idx]
                                     ),
                                 )
@@ -1803,7 +1803,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorKind::MatchError,
                         Some(&context),
                         format!(
-                            "Expected concrete tuple for `__match_args__`, got {}",
+                            "Expected concrete tuple for `__match_args__`, got `{}`",
                             match_args
                         ),
                     ),
