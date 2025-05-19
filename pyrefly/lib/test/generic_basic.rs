@@ -758,3 +758,21 @@ class F(Generic[_b]):
     def f(self, b: _b = True) -> _b: ...
     "#,
 );
+
+testcase!(
+    bug = "Update should know about string arguments",
+    test_dict_update,
+    r#"
+# From https://github.com/facebook/pyrefly/issues/245
+from typing import assert_type, Any
+
+def f():
+    x = {}
+    x.update(a = 1)
+    assert_type(x, dict[Any, Any]) # should be dict[str, int]
+
+def g():
+    x: dict[int, int] = {}
+    x.update(a = 1) # This is bad
+"#,
+);
