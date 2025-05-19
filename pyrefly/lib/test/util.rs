@@ -424,7 +424,9 @@ pub fn testcase_for_macro(
     let limit = 10;
     for _ in 0..3 {
         let start = Instant::now();
-        if is_empty_env {
+        // Disable the empty test optimisation for now, because it doesn't catch breakages
+        #[allow(clippy::overly_complex_bool_expr)]
+        if is_empty_env && false {
             // Optimisation: For simple tests, just reuse the base state, to avoid rechecking stdlib.
             let mut t = SHARED_STATE.transaction();
             t.set_memory(vec![(
