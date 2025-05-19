@@ -1187,6 +1187,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::ClassType(class)) => {
                 Some(AttributeBase::ClassObject(class.class_object().dupe()))
             }
+            Type::Type(box Type::Quantified(q)) if q.is_type_var() => match q.restriction() {
+                // TODO(#119): this is wrong, because we lose the information that this is a type var
+                Restriction::Bound(bound) => {
+                    self.as_attribute_base_no_union(Type::type_form(bound.clone()))
+                }
+                _ => Some(AttributeBase::TypeVar(q)),
+            },
             Type::Type(box Type::Quantified(q)) => Some(AttributeBase::TypeVar(q)),
             Type::Type(box Type::Any(style)) => Some(AttributeBase::TypeAny(style)),
             Type::Module(module) => Some(AttributeBase::Module(module)),
@@ -1241,6 +1248,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::SuperInstance(box (cls, obj)) => Some(AttributeBase::SuperInstance(cls, obj)),
             Type::Quantified(q) if q.is_type_var() => match q.restriction() {
+                // TODO(#119): this is wrong, because we lose the information that this is a type var
                 Restriction::Bound(bound) => self.as_attribute_base_no_union(bound.clone()),
                 // TODO: handle constraints
                 Restriction::Constraints(_) => None,

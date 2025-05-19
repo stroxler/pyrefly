@@ -822,9 +822,10 @@ testcase!(
     r#"
 from typing import assert_type, Any
 class Foo:
-    x: int
+    x: int = 1
 def f[T: Foo](y: T) -> T:
-    assert_type(T.x, Any)  # E: Object of class `TypeVar` has no attribute `x`
+    assert_type(y.x, int)
+    assert_type(T.x, int)
     return y
     "#,
 );
