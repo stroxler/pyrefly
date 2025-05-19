@@ -700,28 +700,28 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     metadata: _,
                 }),
             ) => {
-                self.is_subset_eq(&l.ret, &u.ret)
-                    && match (&l.params, &u.params) {
-                        (Params::Ellipsis, Params::ParamSpec(_, pspec)) => {
-                            self.is_subset_eq(&Type::Ellipsis, pspec)
-                        }
-                        (Params::ParamSpec(_, pspec), Params::Ellipsis) => {
-                            self.is_subset_eq(pspec, &Type::Ellipsis)
-                        }
-                        (Params::Ellipsis, _) | (_, Params::Ellipsis) => true,
-                        (Params::List(l_args), Params::List(u_args)) => {
-                            self.is_subset_param_list(l_args.items(), u_args.items())
-                        }
-                        (Params::List(ls), Params::ParamSpec(args, pspec)) => {
-                            self.is_paramlist_subset_of_paramspec(ls, args, pspec)
-                        }
-                        (Params::ParamSpec(args, pspec), Params::List(ls)) => {
-                            self.is_paramspec_subset_of_paramlist(args, pspec, ls)
-                        }
-                        (Params::ParamSpec(box ls, p1), Params::ParamSpec(box us, p2)) => {
-                            self.is_paramspec_subset_of_paramspec(ls, p1, us, p2)
-                        }
+                let args_subset = match (&l.params, &u.params) {
+                    (Params::Ellipsis, Params::ParamSpec(_, pspec)) => {
+                        self.is_subset_eq(&Type::Ellipsis, pspec)
                     }
+                    (Params::ParamSpec(_, pspec), Params::Ellipsis) => {
+                        self.is_subset_eq(pspec, &Type::Ellipsis)
+                    }
+                    (Params::Ellipsis, _) | (_, Params::Ellipsis) => true,
+                    (Params::List(l_args), Params::List(u_args)) => {
+                        self.is_subset_param_list(l_args.items(), u_args.items())
+                    }
+                    (Params::List(ls), Params::ParamSpec(args, pspec)) => {
+                        self.is_paramlist_subset_of_paramspec(ls, args, pspec)
+                    }
+                    (Params::ParamSpec(args, pspec), Params::List(ls)) => {
+                        self.is_paramspec_subset_of_paramlist(args, pspec, ls)
+                    }
+                    (Params::ParamSpec(box ls, p1), Params::ParamSpec(box us, p2)) => {
+                        self.is_paramspec_subset_of_paramspec(ls, p1, us, p2)
+                    }
+                };
+                args_subset && self.is_subset_eq(&l.ret, &u.ret)
             }
             (Type::TypedDict(got), Type::TypedDict(want)) => {
                 // For each key in `want`, `got` has the corresponding key

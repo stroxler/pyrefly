@@ -1311,3 +1311,12 @@ g(type)
 g(42)  # E: not assignable to parameter `x` with type `type`
 "#,
 );
+
+testcase!(
+    test_round,
+    r#"
+from typing import assert_type
+assert_type(round(0.123456789, 3), float)
+assert_type(round(0.123456789), int)
+"#,
+);
