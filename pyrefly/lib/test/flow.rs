@@ -1070,3 +1070,15 @@ def test(b: bool, x: Foo) -> None:
     assert_type(x, Foo)
 "#,
 );
+
+testcase!(
+    test_loop_enumerate,
+    r#"
+# From https://github.com/facebook/pyrefly/issues/267
+def foo() -> list[int]:
+    results: list[int] = [1, 2, 3]
+    for i, x in enumerate(results):
+        results[i] = x * 10
+    return results  
+"#,
+);

@@ -617,8 +617,8 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Stmt::For(mut x) => {
-                self.setup_loop(x.range, &NarrowOps::new());
                 self.ensure_expr(&mut x.iter);
+                self.setup_loop(x.range, &NarrowOps::new());
                 let make_binding =
                     |k| Binding::IterableValue(k, *x.iter.clone(), IsAsync::new(x.is_async));
                 self.bind_target(&mut x.target, &make_binding, None);
