@@ -73,13 +73,13 @@ pub enum AtomicNarrowOp {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq, Hash)]
-pub enum PropertyKind {
+pub enum FacetKind {
     Attribute(Name),
     Index(usize),
     Key(String),
 }
 
-impl fmt::Display for PropertyKind {
+impl fmt::Display for FacetKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Attribute(name) => write!(f, ".{}", name),
@@ -89,7 +89,7 @@ impl fmt::Display for PropertyKind {
     }
 }
 
-impl PropertyKind {
+impl FacetKind {
     pub fn invalidate_on_unknown_assignment(&self) -> bool {
         match self {
             Self::Attribute(_) => false,
@@ -99,14 +99,14 @@ impl PropertyKind {
 }
 
 #[derive(Clone, Debug)]
-pub struct PropertyChain(pub Box<Vec1<PropertyKind>>);
+pub struct FacetChain(pub Box<Vec1<FacetKind>>);
 
-impl PropertyChain {
-    pub fn new(chain: Vec1<PropertyKind>) -> Self {
+impl FacetChain {
+    pub fn new(chain: Vec1<FacetKind>) -> Self {
         Self(Box::new(chain))
     }
 
-    pub fn properties(&self) -> &Vec1<PropertyKind> {
+    pub fn facets(&self) -> &Vec1<FacetKind> {
         match self {
             Self(box chain) => chain,
         }
@@ -115,7 +115,7 @@ impl PropertyChain {
 
 #[derive(Clone, Debug)]
 pub enum NarrowOp {
-    Atomic(Option<PropertyChain>, AtomicNarrowOp),
+    Atomic(Option<FacetChain>, AtomicNarrowOp),
     And(Vec<NarrowOp>),
     Or(Vec<NarrowOp>),
 }
@@ -151,16 +151,16 @@ impl AtomicNarrowOp {
 #[derive(Clone, Debug)]
 pub enum NarrowingSubject {
     Name(Name),
-    Property(Name, PropertyChain),
+    Facets(Name, FacetChain),
 }
 
 impl NarrowingSubject {
-    pub fn with_property(&self, prop: PropertyKind) -> Self {
+    pub fn with_facet(&self, prop: FacetKind) -> Self {
         match self {
-            Self::Name(name) => Self::Property(name.clone(), PropertyChain::new(Vec1::new(prop))),
-            Self::Property(name, props) => {
-                let props = Vec1::from_vec_push(props.properties().to_vec(), prop);
-                Self::Property(name.clone(), PropertyChain::new(props))
+            Self::Name(name) => Self::Facets(name.clone(), FacetChain::new(Vec1::new(prop))),
+            Self::Facets(name, props) => {
+                let props = Vec1::from_vec_push(props.facets().to_vec(), prop);
+                Self::Facets(name.clone(), FacetChain::new(props))
             }
         }
     }
@@ -242,7 +242,7 @@ impl NarrowOps {
         for subject in expr_to_subjects(left) {
             let (name, prop) = match subject {
                 NarrowingSubject::Name(name) => (name, None),
-                NarrowingSubject::Property(name, prop) => (name, Some(prop)),
+                NarrowingSubject::Facets(name, prop) => (name, Some(prop)),
             };
             if let Some((existing, _)) = narrow_ops.0.get_mut(&name) {
                 existing.and(NarrowOp::Atomic(prop, op.clone()));
@@ -263,7 +263,7 @@ impl NarrowOps {
         let mut narrow_ops = Self::new();
         let (name, prop) = match subject {
             NarrowingSubject::Name(name) => (name, None),
-            NarrowingSubject::Property(name, prop) => (name, Some(prop)),
+            NarrowingSubject::Facets(name, prop) => (name, Some(prop)),
         };
         if let Some((existing, _)) = narrow_ops.0.get_mut(&name) {
             existing.and(NarrowOp::Atomic(prop, op.clone()));
@@ -377,27 +377,22 @@ impl NarrowOps {
 /// Given an expression, determine whether it is a chain of properties (attribute/concrete index) rooted at a name,
 /// and if so, return the name and the chain of properties.
 /// For example: x.y.[0].z
-pub fn identifier_and_chain_for_property(expr: &Expr) -> Option<(Identifier, PropertyChain)> {
-    fn f(
-        expr: &Expr,
-        mut rev_property_chain: Vec<PropertyKind>,
-    ) -> Option<(Identifier, PropertyChain)> {
+pub fn identifier_and_chain_for_expr(expr: &Expr) -> Option<(Identifier, FacetChain)> {
+    fn f(expr: &Expr, mut rev_chain: Vec<FacetKind>) -> Option<(Identifier, FacetChain)> {
         if let Expr::Attribute(attr) = expr {
             match &*attr.value {
                 Expr::Name(name) => {
-                    let mut final_chain = Vec1::from_vec_push(
-                        rev_property_chain,
-                        PropertyKind::Attribute(attr.attr.id.clone()),
-                    );
+                    let mut final_chain =
+                        Vec1::from_vec_push(rev_chain, FacetKind::Attribute(attr.attr.id.clone()));
                     final_chain.reverse();
                     Some((
                         Ast::expr_name_identifier(name.clone()),
-                        PropertyChain::new(final_chain),
+                        FacetChain::new(final_chain),
                     ))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_property_chain.push(PropertyKind::Attribute(attr.attr.id.clone()));
-                    f(parent, rev_property_chain)
+                    rev_chain.push(FacetKind::Attribute(attr.attr.id.clone()));
+                    f(parent, rev_chain)
                 }
                 _ => None,
             }
@@ -415,17 +410,16 @@ pub fn identifier_and_chain_for_property(expr: &Expr) -> Option<(Identifier, Pro
         {
             match &*subscript.value {
                 Expr::Name(name) => {
-                    let mut final_chain =
-                        Vec1::from_vec_push(rev_property_chain, PropertyKind::Index(idx));
+                    let mut final_chain = Vec1::from_vec_push(rev_chain, FacetKind::Index(idx));
                     final_chain.reverse();
                     Some((
                         Ast::expr_name_identifier(name.clone()),
-                        PropertyChain::new(final_chain),
+                        FacetChain::new(final_chain),
                     ))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_property_chain.push(PropertyKind::Index(idx));
-                    f(parent, rev_property_chain)
+                    rev_chain.push(FacetKind::Index(idx));
+                    f(parent, rev_chain)
                 }
                 _ => None,
             }
@@ -439,16 +433,16 @@ pub fn identifier_and_chain_for_property(expr: &Expr) -> Option<(Identifier, Pro
             match &*subscript.value {
                 Expr::Name(name) => {
                     let mut final_chain =
-                        Vec1::from_vec_push(rev_property_chain, PropertyKind::Key(key.to_string()));
+                        Vec1::from_vec_push(rev_chain, FacetKind::Key(key.to_string()));
                     final_chain.reverse();
                     Some((
                         Ast::expr_name_identifier(name.clone()),
-                        PropertyChain::new(final_chain),
+                        FacetChain::new(final_chain),
                     ))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_property_chain.push(PropertyKind::Key(key.to_string()));
-                    f(parent, rev_property_chain)
+                    rev_chain.push(FacetKind::Key(key.to_string()));
+                    f(parent, rev_chain)
                 }
                 _ => None,
             }
@@ -459,26 +453,21 @@ pub fn identifier_and_chain_for_property(expr: &Expr) -> Option<(Identifier, Pro
     f(expr, Vec::new())
 }
 
-/// Similar to identifier_and_chain_for_property, except if we encounter a non-concrete subscript in the chain
+/// Similar to identifier_and_chain_for_expr, except if we encounter a non-concrete subscript in the chain
 /// we only return the prefix before that location.
 /// For example: w.x[y].z -> w.x
-pub fn identifier_and_chain_prefix_for_property(
-    expr: &Expr,
-) -> Option<(Identifier, Vec<PropertyKind>)> {
-    fn f(
-        expr: &Expr,
-        mut rev_property_chain: Vec<PropertyKind>,
-    ) -> Option<(Identifier, Vec<PropertyKind>)> {
+pub fn identifier_and_chain_prefix_for_expr(expr: &Expr) -> Option<(Identifier, Vec<FacetKind>)> {
+    fn f(expr: &Expr, mut rev_chain: Vec<FacetKind>) -> Option<(Identifier, Vec<FacetKind>)> {
         if let Expr::Attribute(attr) = expr {
             match &*attr.value {
                 Expr::Name(name) => {
-                    rev_property_chain.push(PropertyKind::Attribute(attr.attr.id.clone()));
-                    rev_property_chain.reverse();
-                    Some((Ast::expr_name_identifier(name.clone()), rev_property_chain))
+                    rev_chain.push(FacetKind::Attribute(attr.attr.id.clone()));
+                    rev_chain.reverse();
+                    Some((Ast::expr_name_identifier(name.clone()), rev_chain))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_property_chain.push(PropertyKind::Attribute(attr.attr.id.clone()));
-                    f(parent, rev_property_chain)
+                    rev_chain.push(FacetKind::Attribute(attr.attr.id.clone()));
+                    f(parent, rev_chain)
                 }
                 _ => None,
             }
@@ -496,13 +485,13 @@ pub fn identifier_and_chain_prefix_for_property(
         {
             match &*subscript.value {
                 Expr::Name(name) => {
-                    rev_property_chain.push(PropertyKind::Index(idx));
-                    rev_property_chain.reverse();
-                    Some((Ast::expr_name_identifier(name.clone()), rev_property_chain))
+                    rev_chain.push(FacetKind::Index(idx));
+                    rev_chain.reverse();
+                    Some((Ast::expr_name_identifier(name.clone()), rev_chain))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_property_chain.push(PropertyKind::Index(idx));
-                    f(parent, rev_property_chain)
+                    rev_chain.push(FacetKind::Index(idx));
+                    f(parent, rev_chain)
                 }
                 _ => None,
             }
@@ -515,13 +504,13 @@ pub fn identifier_and_chain_prefix_for_property(
         {
             match &*subscript.value {
                 Expr::Name(name) => {
-                    rev_property_chain.push(PropertyKind::Key(key.to_string()));
-                    rev_property_chain.reverse();
-                    Some((Ast::expr_name_identifier(name.clone()), rev_property_chain))
+                    rev_chain.push(FacetKind::Key(key.to_string()));
+                    rev_chain.reverse();
+                    Some((Ast::expr_name_identifier(name.clone()), rev_chain))
                 }
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_property_chain.push(PropertyKind::Key(key.to_string()));
-                    f(parent, rev_property_chain)
+                    rev_chain.push(FacetKind::Key(key.to_string()));
+                    f(parent, rev_chain)
                 }
                 _ => None,
             }
@@ -530,8 +519,8 @@ pub fn identifier_and_chain_prefix_for_property(
             match &*subscript.value {
                 Expr::Name(name) => Some((Ast::expr_name_identifier(name.clone()), Vec::new())),
                 parent @ (Expr::Attribute(_) | Expr::Subscript(_)) => {
-                    rev_property_chain.clear();
-                    f(parent, rev_property_chain)
+                    rev_chain.clear();
+                    f(parent, rev_chain)
                 }
                 _ => None,
             }
@@ -542,16 +531,16 @@ pub fn identifier_and_chain_prefix_for_property(
     f(expr, Vec::new())
 }
 
-fn subject_for_property(expr: &Expr) -> Option<NarrowingSubject> {
-    identifier_and_chain_for_property(expr)
-        .map(|(identifier, attr)| NarrowingSubject::Property(identifier.id, attr))
+fn subject_for_expr(expr: &Expr) -> Option<NarrowingSubject> {
+    identifier_and_chain_for_expr(expr)
+        .map(|(identifier, attr)| NarrowingSubject::Facets(identifier.id, attr))
 }
 
 pub fn expr_to_subjects(expr: &Expr) -> Vec<NarrowingSubject> {
     fn f(expr: &Expr, res: &mut Vec<NarrowingSubject>) {
         match expr {
             Expr::Name(name) => res.push(NarrowingSubject::Name(name.id.clone())),
-            Expr::Attribute(_) | Expr::Subscript(_) => res.extend(subject_for_property(expr)),
+            Expr::Attribute(_) | Expr::Subscript(_) => res.extend(subject_for_expr(expr)),
             Expr::Named(ExprNamed { target, value, .. }) => {
                 f(target, res);
                 f(value, res);

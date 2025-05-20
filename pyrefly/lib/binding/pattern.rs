@@ -22,9 +22,9 @@ use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::narrow::AtomicNarrowOp;
+use crate::binding::narrow::FacetKind;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::narrow::NarrowingSubject;
-use crate::binding::narrow::PropertyKind;
 use crate::binding::narrow::expr_to_subjects;
 use crate::binding::scope::FlowStyle;
 use crate::error::kind::ErrorKind;
@@ -135,7 +135,7 @@ impl<'a> BindingsBuilder<'a> {
                         let subject_for_key = key_name.and_then(|key| {
                             match_subject
                                 .clone()
-                                .map(|s| s.with_property(PropertyKind::Key(key)))
+                                .map(|s| s.with_facet(FacetKind::Key(key)))
                         });
                         let binding_for_key = self.table.insert(
                             Key::Anon(key_expr.range()),

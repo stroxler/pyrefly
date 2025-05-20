@@ -24,9 +24,9 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::attr::Narrowable;
 use crate::alt::callable::CallArg;
 use crate::binding::narrow::AtomicNarrowOp;
+use crate::binding::narrow::FacetChain;
+use crate::binding::narrow::FacetKind;
 use crate::binding::narrow::NarrowOp;
-use crate::binding::narrow::PropertyChain;
-use crate::binding::narrow::PropertyKind;
 use crate::error::collector::ErrorCollector;
 use crate::types::callable::FunctionKind;
 use crate::types::class::ClassType;
@@ -483,15 +483,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn get_property_type(&self, base: &TypeInfo, prop: &PropertyChain, range: TextRange) -> Type {
+    fn get_facet_chain_type(
+        &self,
+        base: &TypeInfo,
+        facet_chain: &FacetChain,
+        range: TextRange,
+    ) -> Type {
         // We don't want to throw any attribute access or indexing errors when narrowing - the same code is traversed
         // separately for type checking, and there might be error context then we don't have here.
         let ignore_errors = self.error_swallower();
-        let (first_prop, remaining_prop) = prop.properties().clone().split_off_first();
-        match self.narrowable_for_property_chain(
+        let (first_facet, remaining_facets) = facet_chain.facets().clone().split_off_first();
+        match self.narrowable_for_facet_chain(
             base,
-            &first_prop,
-            &remaining_prop,
+            &first_facet,
+            &remaining_facets,
             range,
             &ignore_errors,
         ) {
@@ -507,40 +512,40 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn narrowable_for_property_chain(
+    fn narrowable_for_facet_chain(
         &self,
         base: &TypeInfo,
-        first_prop: &PropertyKind,
-        remaining_prop: &[PropertyKind],
+        first_facet: &FacetKind,
+        remaining_facets: &[FacetKind],
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Narrowable {
-        match first_prop {
-            PropertyKind::Attribute(first_attr_name) => match remaining_prop.split_first() {
-                None => match base.type_at_property(first_prop) {
+        match first_facet {
+            FacetKind::Attribute(first_attr_name) => match remaining_facets.split_first() {
+                None => match base.type_at_facet(first_facet) {
                     Some(ty) => Narrowable::Simple(ty.clone()),
                     None => self.narrowable_for_attr(base.ty(), first_attr_name, range, errors),
                 },
-                Some((next_name, remaining_prop)) => {
+                Some((next_name, remaining_facets)) => {
                     let base = self.attr_infer(base, first_attr_name, range, errors, None);
-                    self.narrowable_for_property_chain(
+                    self.narrowable_for_facet_chain(
                         &base,
                         next_name,
-                        remaining_prop,
+                        remaining_facets,
                         range,
                         errors,
                     )
                 }
             },
-            PropertyKind::Index(idx) => {
+            FacetKind::Index(idx) => {
                 // We synthesize a slice expression for the subscript here
                 // The range doesn't matter, since narrowing logic swallows type errors
                 let synthesized_slice = Expr::NumberLiteral(ExprNumberLiteral {
                     range,
                     value: Number::Int(Int::from(*idx as u64)),
                 });
-                match remaining_prop.split_first() {
-                    None => match base.type_at_property(first_prop) {
+                match remaining_facets.split_first() {
+                    None => match base.type_at_facet(first_facet) {
                         Some(ty) => Narrowable::Simple(ty.clone()),
                         None => Narrowable::Simple(self.subscript_infer_for_type(
                             base.ty(),
@@ -549,19 +554,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             errors,
                         )),
                     },
-                    Some((next_name, remaining_prop)) => {
+                    Some((next_name, remaining_facets)) => {
                         let base_ty = self.subscript_infer(base, &synthesized_slice, range, errors);
-                        self.narrowable_for_property_chain(
+                        self.narrowable_for_facet_chain(
                             &base_ty,
                             next_name,
-                            remaining_prop,
+                            remaining_facets,
                             range,
                             errors,
                         )
                     }
                 }
             }
-            PropertyKind::Key(key) => {
+            FacetKind::Key(key) => {
                 // We synthesize a slice expression for the subscript here
                 // The range doesn't matter, since narrowing logic swallows type errors
                 let synthesized_slice = Expr::StringLiteral(ExprStringLiteral {
@@ -572,8 +577,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         flags: StringLiteralFlags::empty(),
                     }),
                 });
-                match remaining_prop.split_first() {
-                    None => match base.type_at_property(first_prop) {
+                match remaining_facets.split_first() {
+                    None => match base.type_at_facet(first_facet) {
                         Some(ty) => Narrowable::Simple(ty.clone()),
                         None => Narrowable::Simple(self.subscript_infer_for_type(
                             base.ty(),
@@ -582,12 +587,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             errors,
                         )),
                     },
-                    Some((next_name, remaining_prop)) => {
+                    Some((next_name, remaining_facets)) => {
                         let base_ty = self.subscript_infer(base, &synthesized_slice, range, errors);
-                        self.narrowable_for_property_chain(
+                        self.narrowable_for_facet_chain(
                             &base_ty,
                             next_name,
-                            remaining_prop,
+                            remaining_facets,
                             range,
                             errors,
                         )
@@ -610,14 +615,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .clone()
                     .with_ty(self.atomic_narrow(type_info.ty(), op, range, errors))
             }
-            NarrowOp::Atomic(Some(prop), op) => {
+            NarrowOp::Atomic(Some(facet_chain), op) => {
                 let ty = self.atomic_narrow(
-                    &self.get_property_type(type_info, prop, range),
+                    &self.get_facet_chain_type(type_info, facet_chain, range),
                     op,
                     range,
                     errors,
                 );
-                type_info.with_narrow(prop.properties(), ty)
+                type_info.with_narrow(facet_chain.facets(), ty)
             }
             NarrowOp::And(ops) => {
                 let mut ops_iter = ops.iter();

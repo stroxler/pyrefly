@@ -18,7 +18,7 @@ use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
 
 use crate::assert_bytes;
-use crate::binding::narrow::PropertyKind;
+use crate::binding::narrow::FacetKind;
 use crate::types::types::Type;
 use crate::util::visit::Visit;
 use crate::util::visit::VisitMut;
@@ -62,14 +62,14 @@ impl TypeInfo {
         }
     }
 
-    pub fn type_at_property(&self, property: &PropertyKind) -> Option<&Type> {
+    pub fn type_at_facet(&self, property: &FacetKind) -> Option<&Type> {
         match self.get_at_property(property) {
             None | Some(NarrowedProperty::WithoutRoot(..)) => None,
             Some(NarrowedProperty::Leaf(ty)) | Some(NarrowedProperty::WithRoot(ty, _)) => Some(ty),
         }
     }
 
-    pub fn at_property(&self, property: &PropertyKind, fallback: impl Fn() -> Type) -> Self {
+    pub fn at_property(&self, property: &FacetKind, fallback: impl Fn() -> Type) -> Self {
         match self.get_at_property(property) {
             None => TypeInfo::of_ty(fallback()),
             Some(NarrowedProperty::Leaf(ty)) => Self::of_ty(ty.clone()),
@@ -84,7 +84,7 @@ impl TypeInfo {
         }
     }
 
-    pub fn with_narrow(&self, properties: &Vec1<PropertyKind>, ty: Type) -> Self {
+    pub fn with_narrow(&self, properties: &Vec1<FacetKind>, ty: Type) -> Self {
         if ty == Type::any_error() {
             return self.clone();
         }
@@ -128,7 +128,7 @@ impl TypeInfo {
 
     /// Add a narrow to the TypeInfo. This is used for narrowing conditions, not assignment - it
     /// only adds a new narrow (possibly overwriting any preexisting narrow), without changing subtrees.
-    fn add_narrow(&mut self, names: &Vec1<PropertyKind>, ty: Type) {
+    fn add_narrow(&mut self, names: &Vec1<FacetKind>, ty: Type) {
         if let Some((name, more_properties)) = names.split_first() {
             if let Some(props) = &mut self.properties {
                 props.add_narrow(name.clone(), more_properties, ty);
@@ -149,7 +149,7 @@ impl TypeInfo {
     /// Update for an assignment. This is different from `add_narrow` for two reasons:
     /// - It invalidates any existing subtree at that property chain in addition to narrowing.
     /// - There may not be a type available for the assignment (in which case we *just* invalidate)
-    pub fn update_for_assignment(&mut self, properties: &Vec1<PropertyKind>, ty: Option<Type>) {
+    pub fn update_for_assignment(&mut self, properties: &Vec1<FacetKind>, ty: Option<Type>) {
         if let Some((prop, more_properties)) = properties.split_first() {
             if let Some(properties) = &mut self.properties {
                 // If there might be an existing narrow, we need to recurse down the chain of names and update.
@@ -171,7 +171,7 @@ impl TypeInfo {
 
     /// When we assign to a property chain containing an unknown index, we don't know which index changed
     /// and have to invalidate all of them.
-    pub fn invalidate_all_indexes_for_assignment(&mut self, properties: &[PropertyKind]) {
+    pub fn invalidate_all_indexes_for_assignment(&mut self, properties: &[FacetKind]) {
         if let Some(props) = &mut self.properties {
             props.clear_index_narrows(properties);
         }
@@ -193,7 +193,7 @@ impl TypeInfo {
         self.arc_clone().into_ty()
     }
 
-    fn get_at_property(&self, property: &PropertyKind) -> Option<&NarrowedProperty> {
+    fn get_at_property(&self, property: &FacetKind) -> Option<&NarrowedProperty> {
         if let Some(box props) = &self.properties {
             props.get(property)
         } else {
@@ -213,10 +213,10 @@ impl Display for TypeInfo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq)]
-struct NarrowedProperties(SmallMap<PropertyKind, NarrowedProperty>);
+struct NarrowedProperties(SmallMap<FacetKind, NarrowedProperty>);
 
 impl NarrowedProperties {
-    fn add_narrow(&mut self, property: PropertyKind, more_properties: &[PropertyKind], ty: Type) {
+    fn add_narrow(&mut self, property: FacetKind, more_properties: &[FacetKind], ty: Type) {
         let props = &mut self.0;
         match props.get_mut(&property) {
             Some(prop) => {
@@ -228,7 +228,7 @@ impl NarrowedProperties {
         };
     }
 
-    fn clear_index_narrows(&mut self, properties: &[PropertyKind]) {
+    fn clear_index_narrows(&mut self, properties: &[FacetKind]) {
         let props = &mut self.0;
         match properties {
             [] => {
@@ -245,8 +245,8 @@ impl NarrowedProperties {
 
     fn update_for_assignment(
         &mut self,
-        property: &PropertyKind,
-        more_properties: &[PropertyKind],
+        property: &FacetKind,
+        more_properties: &[FacetKind],
         ty: Option<Type>,
     ) {
         let props = &mut self.0;
@@ -269,11 +269,11 @@ impl NarrowedProperties {
         }
     }
 
-    fn get(&self, property: &PropertyKind) -> Option<&NarrowedProperty> {
+    fn get(&self, property: &FacetKind) -> Option<&NarrowedProperty> {
         self.0.get(property)
     }
 
-    fn of_narrow(name: PropertyKind, more_properties: &[PropertyKind], ty: Type) -> Self {
+    fn of_narrow(name: FacetKind, more_properties: &[FacetKind], ty: Type) -> Self {
         let mut props = SmallMap::with_capacity(1);
         props.insert(name.clone(), NarrowedProperty::new(more_properties, ty));
         Self(props)
@@ -314,7 +314,7 @@ impl NarrowedProperties {
 
     fn fmt_with_prefix(
         &self,
-        prefix: &mut Vec<PropertyKind>,
+        prefix: &mut Vec<FacetKind>,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         let props = &self.0;
@@ -342,8 +342,8 @@ impl NarrowedProperties {
 
     fn fmt_with_prefix_and_name<'a>(
         &self,
-        prefix: &mut Vec<PropertyKind>,
-        property: &'a PropertyKind,
+        prefix: &mut Vec<FacetKind>,
+        property: &'a FacetKind,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         prefix.push(property.clone());
@@ -353,8 +353,8 @@ impl NarrowedProperties {
     }
 
     fn fmt_type_with_label(
-        prefix: &[PropertyKind],
-        property: &PropertyKind,
+        prefix: &[FacetKind],
+        property: &FacetKind,
         ty: &Type,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
@@ -401,7 +401,7 @@ enum NarrowedProperty {
 }
 
 impl NarrowedProperty {
-    fn new(properties: &[PropertyKind], ty: Type) -> Self {
+    fn new(properties: &[FacetKind], ty: Type) -> Self {
         match properties {
             [] => Self::Leaf(ty),
             [first_property, more_properties @ ..] => Self::WithoutRoot(
@@ -410,14 +410,14 @@ impl NarrowedProperty {
         }
     }
 
-    fn add_narrow(&mut self, names: &[PropertyKind], narrowed_ty: Type) {
+    fn add_narrow(&mut self, names: &[FacetKind], narrowed_ty: Type) {
         // Take ownership of self so we can destructure it and potentially change enum variants.
         let mut current = NarrowedProperty::Leaf(Type::None);
         mem::swap(self, &mut current);
         *self = current.with_narrow(names, narrowed_ty)
     }
 
-    fn clear_index_narrows(&mut self, properties: &[PropertyKind]) {
+    fn clear_index_narrows(&mut self, properties: &[FacetKind]) {
         match self {
             Self::Leaf(_) => {}
             Self::WithRoot(_, props) | Self::WithoutRoot(props) => {
@@ -426,7 +426,7 @@ impl NarrowedProperty {
         }
     }
 
-    fn with_narrow(self, names: &[PropertyKind], narrowed_ty: Type) -> Self {
+    fn with_narrow(self, names: &[FacetKind], narrowed_ty: Type) -> Self {
         match names {
             [] => {
                 // We are setting a narrow at the current node (potentially overriding an existing narrow; it is
@@ -464,8 +464,8 @@ impl NarrowedProperty {
 
     fn update_for_assignment(
         &mut self,
-        property: &PropertyKind,
-        more_properties: &[PropertyKind],
+        property: &FacetKind,
+        more_properties: &[FacetKind],
         ty: Option<Type>,
     ) {
         match self {
@@ -521,7 +521,7 @@ mod tests {
     use ruff_python_ast::name::Name;
     use vec1::Vec1;
 
-    use crate::binding::narrow::PropertyKind;
+    use crate::binding::narrow::FacetKind;
     use crate::types::class::ClassType;
     use crate::types::class::TArgs;
     use crate::types::display::tests::fake_class;
@@ -537,8 +537,8 @@ mod tests {
 
     #[test]
     fn test_type_info_one_level_only() {
-        let x = || PropertyKind::Attribute(Name::new_static("x"));
-        let y = || PropertyKind::Attribute(Name::new_static("y"));
+        let x = || FacetKind::Attribute(Name::new_static("x"));
+        let y = || FacetKind::Attribute(Name::new_static("y"));
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         assert_eq!(type_info.to_string(), "Foo");
         type_info.add_narrow(&Vec1::new(x()), fake_class_type("Bar"));
@@ -549,9 +549,9 @@ mod tests {
 
     #[test]
     fn test_type_info_adding_sub_properties() {
-        let x = || PropertyKind::Attribute(Name::new_static("x"));
-        let y = || PropertyKind::Attribute(Name::new_static("y"));
-        let z = || PropertyKind::Attribute(Name::new_static("z"));
+        let x = || FacetKind::Attribute(Name::new_static("x"));
+        let y = || FacetKind::Attribute(Name::new_static("y"));
+        let z = || FacetKind::Attribute(Name::new_static("z"));
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         type_info.add_narrow(&Vec1::new(x()), fake_class_type("Bar"));
         type_info.add_narrow(&Vec1::from_vec_push(vec![x()], y()), fake_class_type("Baz"));
@@ -573,10 +573,10 @@ mod tests {
 
     #[test]
     fn test_type_info_creating_subtrees_and_narrowing_roots() {
-        let x = || PropertyKind::Attribute(Name::new_static("x"));
-        let y = || PropertyKind::Attribute(Name::new_static("y"));
-        let z = || PropertyKind::Attribute(Name::new_static("z"));
-        let w = || PropertyKind::Attribute(Name::new_static("w"));
+        let x = || FacetKind::Attribute(Name::new_static("x"));
+        let y = || FacetKind::Attribute(Name::new_static("y"));
+        let z = || FacetKind::Attribute(Name::new_static("z"));
+        let w = || FacetKind::Attribute(Name::new_static("w"));
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y()], z()),
@@ -597,9 +597,9 @@ mod tests {
 
     #[test]
     fn test_type_info_overwiting_existing_narrows() {
-        let x = || PropertyKind::Attribute(Name::new_static("x"));
-        let y = || PropertyKind::Attribute(Name::new_static("y"));
-        let z = || PropertyKind::Attribute(Name::new_static("z"));
+        let x = || FacetKind::Attribute(Name::new_static("x"));
+        let y = || FacetKind::Attribute(Name::new_static("y"));
+        let z = || FacetKind::Attribute(Name::new_static("z"));
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y()], z()),
@@ -633,11 +633,11 @@ mod tests {
 
     #[test]
     fn test_type_info_invalidating_prefix() {
-        let x = || PropertyKind::Attribute(Name::new_static("x"));
-        let y = || PropertyKind::Attribute(Name::new_static("y"));
-        let idx0 = || PropertyKind::Index(0);
-        let idx1 = || PropertyKind::Index(1);
-        let z = || PropertyKind::Attribute(Name::new_static("z"));
+        let x = || FacetKind::Attribute(Name::new_static("x"));
+        let y = || FacetKind::Attribute(Name::new_static("y"));
+        let idx0 = || FacetKind::Index(0);
+        let idx1 = || FacetKind::Index(1);
+        let z = || FacetKind::Attribute(Name::new_static("z"));
         let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y(), idx0()], z()),

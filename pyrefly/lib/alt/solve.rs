@@ -61,8 +61,8 @@ use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::SuperStyle;
 use crate::binding::binding::TypeParameter;
 use crate::binding::binding::UnpackedPosition;
-use crate::binding::narrow::identifier_and_chain_for_property;
-use crate::binding::narrow::identifier_and_chain_prefix_for_property;
+use crate::binding::narrow::identifier_and_chain_for_expr;
+use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::dunder;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -1493,15 +1493,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     errors,
                 );
                 if let Some((identifier, chain)) =
-                    identifier_and_chain_for_property(&Expr::Attribute(attr.clone()))
+                    identifier_and_chain_for_expr(&Expr::Attribute(attr.clone()))
                 {
                     let mut type_info = self
                         .get(&Key::Usage(ShortIdentifier::new(&identifier)))
                         .arc_clone();
-                    type_info.update_for_assignment(chain.properties(), narrowed);
+                    type_info.update_for_assignment(chain.facets(), narrowed);
                     type_info
                 } else if let Some((identifier, properties)) =
-                    identifier_and_chain_prefix_for_property(&Expr::Attribute(attr.clone()))
+                    identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
                 {
                     // If the chain contains an unknown subscript index, we clear narrowing for
                     // all indexes of its parent.
@@ -1530,15 +1530,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Some(value_ty)
                 };
                 if let Some((identifier, chain)) =
-                    identifier_and_chain_for_property(&Expr::Subscript(subscript.clone()))
+                    identifier_and_chain_for_expr(&Expr::Subscript(subscript.clone()))
                 {
                     let mut type_info = self
                         .get(&Key::Usage(ShortIdentifier::new(&identifier)))
                         .arc_clone();
-                    type_info.update_for_assignment(chain.properties(), narrowed);
+                    type_info.update_for_assignment(chain.facets(), narrowed);
                     type_info
                 } else if let Some((identifier, properties)) =
-                    identifier_and_chain_prefix_for_property(&Expr::Subscript(subscript.clone()))
+                    identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
                 {
                     // If the chain contains an unknown subscript index, we clear narrowing for
                     // all indexes of its parent.

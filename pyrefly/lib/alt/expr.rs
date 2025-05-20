@@ -30,7 +30,7 @@ use crate::alt::solve::TypeFormContext;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
-use crate::binding::narrow::PropertyKind;
+use crate::binding::narrow::FacetKind;
 use crate::dunder;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -185,7 +185,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> TypeInfo {
-        TypeInfo::at_property(base, &PropertyKind::Attribute(attr_name.clone()), || {
+        TypeInfo::at_property(base, &FacetKind::Attribute(attr_name.clone()), || {
             self.attr_infer_for_type(base.ty(), attr_name, range, errors, context)
         })
     }
@@ -202,12 +202,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 value: Number::Int(idx),
                 ..
             }) if let Some(idx) = idx.as_usize() => {
-                TypeInfo::at_property(base, &PropertyKind::Index(idx), || {
+                TypeInfo::at_property(base, &FacetKind::Index(idx), || {
                     self.subscript_infer_for_type(base.ty(), slice, range, errors)
                 })
             }
             Expr::StringLiteral(ExprStringLiteral { value: key, .. }) => {
-                TypeInfo::at_property(base, &PropertyKind::Key(key.to_string()), || {
+                TypeInfo::at_property(base, &FacetKind::Key(key.to_string()), || {
                     self.subscript_infer_for_type(base.ty(), slice, range, errors)
                 })
             }
