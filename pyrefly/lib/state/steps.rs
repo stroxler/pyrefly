@@ -168,7 +168,6 @@ impl Step {
         let enable_index = ctx.require.keep_index();
         let enable_trace = ctx.require.keep_answers_trace();
         let bindings = Bindings::new(
-            ast.range,
             Arc::unwrap_or_clone(ast),
             load.module_info.dupe(),
             exports,

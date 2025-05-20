@@ -288,7 +288,6 @@ impl Bindings {
     }
 
     pub fn new(
-        module_scope_range: TextRange,
         x: ModModule,
         module_info: ModuleInfo,
         exports: Exports,
@@ -309,7 +308,7 @@ impl Bindings {
             uniques,
             loop_depth: 0,
             class_count: 0,
-            scopes: Scopes::module(module_scope_range, enable_trace),
+            scopes: Scopes::module(x.range, enable_trace),
             function_yields_and_returns: Vec1::new(FuncYieldsAndReturns::default()),
             table: Default::default(),
             untyped_def_behavior,
