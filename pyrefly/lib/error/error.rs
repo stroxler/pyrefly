@@ -8,9 +8,12 @@
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::io;
+use std::io::Write;
 
 use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
+use yansi::Paint;
 
 use crate::error::kind::ErrorKind;
 use crate::module::module_info::SourceRange;
@@ -39,10 +42,31 @@ impl Display for Error {
     }
 }
 
+impl Error {
+    #[cfg(test)]
+    pub fn print_tracing(&self) {
+        tracing::error!("{self}");
+    }
+
+    pub fn write_line(&self, mut f: impl Write) -> io::Result<()> {
+        writeln!(f, "{self}")
+    }
+
+    pub fn print_colors(&self) {
+        anstream::println!(
+            "{}:{}: {} {}",
+            Paint::red(&self.path().as_path().display()),
+            Paint::yellow(self.source_range()),
+            Paint::new(self.msg()),
+            Paint::magenta(format!("[{}]", self.error_kind().to_name()).as_str()),
+        );
+    }
+}
+
 #[cfg(test)]
 pub fn print_errors(errors: &[Error]) {
     for err in errors {
-        tracing::error!("{err}");
+        err.print_tracing();
     }
 }
 
