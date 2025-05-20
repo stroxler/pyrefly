@@ -1592,7 +1592,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn index_bytes_literal(
         &self,
-        bytes: &Box<[u8]>,
+        bytes: &[u8],
         index_expr: &Expr,
         errors: &ErrorCollector,
         range: TextRange,
