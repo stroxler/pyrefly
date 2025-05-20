@@ -797,3 +797,10 @@ def test() -> Literal[derp()]: ...  # E:  Invalid literal expression
 def test2() -> Literal[foo.F.Y]: ... # E: `foo.F.Y` is not a valid enum member
 "#,
 );
+
+testcase!(
+    test_relative_import_missing_module_attribute,
+    r#"
+from . import foo  # E: Could not find import of `.`
+    "#,
+);
