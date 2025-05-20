@@ -16,6 +16,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use std::time::Instant;
 
+use anstream::ColorChoice;
 use anyhow::anyhow;
 use dupe::Dupe;
 use ruff_python_ast::name::Name;
@@ -394,6 +395,7 @@ pub fn get_batched_lsp_operations_report_no_cursor(
 }
 
 pub fn init_test() {
+    ColorChoice::write_global(ColorChoice::Always);
     init_tracing(true, true);
     // Enough threads to see parallelism bugs, but not too many to debug through.
     init_thread_pool(ThreadCount::NumThreads(NonZeroUsize::new(3).unwrap()));

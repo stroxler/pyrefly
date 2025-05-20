@@ -43,11 +43,6 @@ impl Display for Error {
 }
 
 impl Error {
-    #[cfg(test)]
-    pub fn print_tracing(&self) {
-        tracing::error!("{self}");
-    }
-
     pub fn write_line(&self, mut f: impl Write) -> io::Result<()> {
         writeln!(f, "{self}")
     }
@@ -66,7 +61,7 @@ impl Error {
 #[cfg(test)]
 pub fn print_errors(errors: &[Error]) {
     for err in errors {
-        err.print_tracing();
+        err.print_colors();
     }
 }
 
