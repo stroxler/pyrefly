@@ -553,8 +553,10 @@ fn test_import_fail_to_load() {
         .collect_errors()
         .shown;
     assert_eq!(errs.len(), 1);
-    let msg = errs[0].to_string();
-    assert!(msg.contains("foo.py:1:1: Failed to load"));
+    let err = &errs[0];
+    assert!(err.msg().contains("Failed to load"));
+    assert_eq!(err.source_range().to_string(), "1:1");
+    assert_eq!(err.path().as_path().file_name(), Some("foo.py".as_ref()));
 }
 
 testcase!(
