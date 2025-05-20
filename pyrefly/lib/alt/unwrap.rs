@@ -58,6 +58,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn resolve_var(&self, ty: &Type, var: Var) -> Type {
         match ty {
             Type::Any(style) => Type::Any(*style),
+            Type::Never(style) => Type::Never(*style),
             _ => self.solver().expand(var.to_type()),
         }
     }

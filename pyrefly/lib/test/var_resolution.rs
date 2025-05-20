@@ -21,7 +21,6 @@ async def test() -> None:
 );
 
 testcase!(
-    bug = "We should not leak vars here",
     test_await_bottom,
     r#"
 from typing import Never, NoReturn, reveal_type
@@ -29,8 +28,8 @@ def returns_never() -> Never: ...
 def returns_noreturn() -> NoReturn: ...
 async def test() -> None:
     z = await returns_never()
-    reveal_type(z)  # E: revealed type: @_
+    reveal_type(z)  # E: revealed type: Never
     z = await returns_noreturn()
-    reveal_type(z)  # E: revealed type: @_
+    reveal_type(z)  # E: revealed type: NoReturn
 "#,
 );
