@@ -14,6 +14,7 @@ use vec1::Vec1;
 use yansi::Paint;
 
 use crate::error::kind::ErrorKind;
+use crate::error::kind::Severity;
 use crate::module::module_info::SourceRange;
 use crate::module::module_path::ModulePath;
 use crate::util::display::number_thousands;
@@ -31,7 +32,12 @@ impl Error {
     pub fn write_line(&self, mut f: impl Write) -> io::Result<()> {
         writeln!(
             f,
-            "{}:{}: {} [{}]",
+            "{} {}:{}: {} [{}]",
+            match self.error_kind().severity() {
+                Severity::Error => "ERROR",
+                Severity::Warn => " WARN",
+                Severity::Info => " INFO",
+            },
             self.path,
             self.range,
             self.msg,
@@ -41,7 +47,12 @@ impl Error {
 
     pub fn print_colors(&self) {
         anstream::println!(
-            "{}:{}: {} {}",
+            "{} {}:{}: {} {}",
+            match self.error_kind().severity() {
+                Severity::Error => Paint::red("ERROR"),
+                Severity::Warn => Paint::yellow(" WARN"),
+                Severity::Info => Paint::green(" INFO"),
+            },
             Paint::red(&self.path().as_path().display()),
             Paint::yellow(self.source_range()),
             Paint::new(self.msg()),
