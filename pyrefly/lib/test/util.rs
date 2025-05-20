@@ -440,7 +440,9 @@ pub fn testcase_for_macro(
                 Some(Arc::new(contents.to_owned())),
             )]);
             t.run(&[(h.dupe(), Require::Everything)]);
-            t.get_errors([&h]).check_against_expectations()?;
+            let errors = t.get_errors([&h]);
+            print_errors(&errors.collect_errors().shown);
+            errors.check_against_expectations()?;
         } else {
             let (state, handle) = env.clone().to_state();
             state
