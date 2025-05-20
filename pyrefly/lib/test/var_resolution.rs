@@ -11,10 +11,12 @@ testcase!(
     test_awaitable_any,
     r#"
 from typing import Any, reveal_type
-async def foo() -> Any: ...
+async def async_return_any() -> Any: ...
+def return_any() -> Any: ...
 async def test() -> None:
-    z = await foo()
+    z = await async_return_any()
     reveal_type(z)  # E: revealed type: Any
-#   ^
+    z = await return_any()
+    reveal_type(z)  # E: revealed type: Any
 "#,
 );
