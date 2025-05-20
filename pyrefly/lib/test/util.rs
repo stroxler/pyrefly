@@ -418,11 +418,8 @@ pub fn testcase_for_macro(
     if !env.modules.is_empty() {
         start_line += 1;
     }
-    env.add_with_path(
-        "main",
-        file,
-        &format!("{}{}", "\n".repeat(start_line), contents),
-    );
+    let contents = format!("{}{}", "\n".repeat(start_line), contents);
+    env.add_with_path("main", file, &contents);
     // If any given test regularly takes > 10s, that's probably a bug.
     // Currently all are less than 3s in debug, even when running in parallel.
     let limit = 10;
@@ -439,7 +436,7 @@ pub fn testcase_for_macro(
             );
             t.set_memory(vec![(
                 PathBuf::from(file),
-                Some(Arc::new(contents.to_owned())),
+                Some(Arc::new(contents.clone())),
             )]);
             t.run(&[(h.dupe(), Require::Everything)]);
             let errors = t.get_errors([&h]);
