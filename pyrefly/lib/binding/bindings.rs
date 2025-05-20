@@ -1026,6 +1026,7 @@ impl<'a> BindingsBuilder<'a> {
 
         // We normally go through the visible branches, but if nothing is visible no one is going to
         // fill in the Phi keys we promised. So just give up and use the hidden branches instead.
+        let no_next = visible_branches.is_empty();
         if visible_branches.is_empty() {
             visible_branches = hidden_branches;
         }
@@ -1080,10 +1081,7 @@ impl<'a> BindingsBuilder<'a> {
                 },
             );
         }
-        Flow {
-            info: res,
-            no_next: false,
-        }
+        Flow { info: res, no_next }
     }
 
     fn merge_loop_into_current(&mut self, mut branches: Vec<Flow>, range: TextRange) {

@@ -1082,3 +1082,16 @@ def foo() -> list[int]:
     return results  
 "#,
 );
+
+testcase!(
+    test_if_which_exits,
+    r#"
+def foo(val: int | None, b: bool) -> int:
+    if val is None:
+        if b:
+            return 1
+        else:
+            return 2
+    return val
+"#,
+);
