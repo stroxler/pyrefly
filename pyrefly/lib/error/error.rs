@@ -53,10 +53,10 @@ impl Error {
                 Severity::Warn => Paint::yellow(" WARN"),
                 Severity::Info => Paint::green(" INFO"),
             },
-            Paint::red(&self.path().as_path().display()),
-            Paint::yellow(self.source_range()),
+            Paint::blue(&self.path().as_path().display()),
+            Paint::dim(self.source_range()),
             Paint::new(self.msg()),
-            Paint::magenta(format!("[{}]", self.error_kind().to_name()).as_str()),
+            Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
         );
     }
 }
