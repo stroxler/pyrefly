@@ -1320,3 +1320,11 @@ assert_type(round(0.123456789, 3), float)
 assert_type(round(0.123456789), int)
 "#,
 );
+
+testcase!(
+    test_debug,
+    r#"
+from typing import assert_type
+assert_type(__debug__, bool)
+    "#,
+);

@@ -2277,6 +2277,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             },
             Binding::Type(x) => x.clone(),
             Binding::StrType => self.stdlib.str().clone().to_type(),
+            Binding::BoolType => self.stdlib.bool().clone().to_type(),
             Binding::TypeParameter(box TypeParameter {
                 name,
                 unique,

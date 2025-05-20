@@ -214,6 +214,9 @@ impl<'a> BindingsBuilder<'a> {
             Err(_) if name.id == dunder::FILE || name.id == dunder::NAME => {
                 self.table.insert(key, Binding::StrType);
             }
+            Err(_) if name.id == dunder::DEBUG => {
+                self.table.insert(key, Binding::BoolType);
+            }
             Err(error) => {
                 // Record a type error and fall back to `Any`.
                 self.error(name.range, error.message(name), ErrorKind::UnknownName);

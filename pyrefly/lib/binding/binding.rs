@@ -729,6 +729,8 @@ pub enum Binding {
     Type(Type),
     /// The str type.
     StrType,
+    /// The bool type.
+    BoolType,
     /// A type parameter.
     TypeParameter(Box<TypeParameter>),
     /// The type of a function. The fields are:
@@ -869,6 +871,7 @@ impl DisplayWith<Bindings> for Binding {
             Self::AugAssign(_, s) => write!(f, "augmented_assign {:?}", s),
             Self::Type(t) => write!(f, "type {t}"),
             Self::StrType => write!(f, "strtype"),
+            Self::BoolType => write!(f, "booltype"),
             Self::TypeParameter(box TypeParameter { unique, kind, .. }) => {
                 write!(f, "type_parameter({unique}, {kind})")
             }
