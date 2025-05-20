@@ -1095,3 +1095,19 @@ def foo(val: int | None, b: bool) -> int:
     return val
 "#,
 );
+
+testcase!(
+    test_shortcuit_or_after_flow,
+    r#"
+bar: str = "bar"
+
+def func():
+    foo: str | None = None
+    
+    for x in []:
+        for y in []:
+            pass
+
+    baz: str = foo or bar
+"#,
+);
