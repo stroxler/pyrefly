@@ -5,9 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::fmt;
 use std::fmt::Debug;
-use std::fmt::Display;
 use std::io;
 use std::io::Write;
 
@@ -29,9 +27,9 @@ pub struct Error {
     is_ignored: bool,
 }
 
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
+impl Error {
+    pub fn write_line(&self, mut f: impl Write) -> io::Result<()> {
+        writeln!(
             f,
             "{}:{}: {} [{}]",
             self.path,
@@ -39,12 +37,6 @@ impl Display for Error {
             self.msg,
             self.error_kind.to_name()
         )
-    }
-}
-
-impl Error {
-    pub fn write_line(&self, mut f: impl Write) -> io::Result<()> {
-        writeln!(f, "{self}")
     }
 
     pub fn print_colors(&self) {
