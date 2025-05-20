@@ -21,6 +21,7 @@ use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprYield;
 use ruff_python_ast::ExprYieldFrom;
 use ruff_python_ast::Identifier;
+use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtReturn;
 use ruff_python_ast::TypeParam;
@@ -288,7 +289,7 @@ impl Bindings {
 
     pub fn new(
         module_scope_range: TextRange,
-        x: Vec<Stmt>,
+        x: ModModule,
         module_info: ModuleInfo,
         exports: Exports,
         solver: &Solver,
@@ -313,11 +314,11 @@ impl Bindings {
             table: Default::default(),
             untyped_def_behavior,
         };
-        builder.init_static_scope(&x, true);
+        builder.init_static_scope(&x.body, true);
         if module_info.name() != ModuleName::builtins() {
             builder.inject_builtins();
         }
-        builder.stmts(x);
+        builder.stmts(x.body);
         // Create dummy bindings for any invalid yield/yield from expressions.
         let (top_level_yields_and_returns, _) =
             builder.function_yields_and_returns.split_off_first();
