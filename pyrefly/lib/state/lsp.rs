@@ -591,8 +591,13 @@ impl<'a> Transaction<'a> {
                 Stmt::FunctionDef(stmt_function_def) => {
                     let mut children = Vec::new();
                     children.append(&mut recursed_symbols);
+                    // todo(kylei): better approach to filtering out "" for all symbols
+                    let name = match stmt_function_def.name.to_string().as_str() {
+                        "" => "unknown".to_owned(),
+                        name => name.to_owned(),
+                    };
                     symbols.push(DocumentSymbol {
-                        name: stmt_function_def.name.to_string(),
+                        name,
                         detail: None,
                         kind: lsp_types::SymbolKind::FUNCTION,
                         tags: None,
@@ -609,8 +614,12 @@ impl<'a> Transaction<'a> {
                 Stmt::ClassDef(stmt_class_def) => {
                     let mut children = Vec::new();
                     children.append(&mut recursed_symbols);
+                    let name = match stmt_class_def.name.to_string().as_str() {
+                        "" => "unknown".to_owned(),
+                        name => name.to_owned(),
+                    };
                     symbols.push(DocumentSymbol {
-                        name: stmt_class_def.name.to_string(),
+                        name,
                         detail: None,
                         kind: lsp_types::SymbolKind::CLASS,
                         tags: None,
