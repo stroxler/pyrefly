@@ -79,6 +79,7 @@ use crate::graph::index_map::IndexMap;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
+use crate::ruff::ast::Ast;
 use crate::solver::solver::Solver;
 use crate::state::loader::FindError;
 use crate::sys_info::SysInfo;
@@ -139,6 +140,7 @@ pub struct BindingsBuilder<'a> {
     errors: &'a ErrorCollector,
     solver: &'a Solver,
     uniques: &'a UniqueFactory,
+    pub has_docstring: bool,
     pub scopes: Scopes,
     pub function_yields_and_returns: Vec1<FuncYieldsAndReturns>,
     pub table: BindingTable,
@@ -308,6 +310,7 @@ impl Bindings {
             uniques,
             loop_depth: 0,
             class_count: 0,
+            has_docstring: Ast::has_docstring(&x),
             scopes: Scopes::module(x.range, enable_trace),
             function_yields_and_returns: Vec1::new(FuncYieldsAndReturns::default()),
             table: Default::default(),

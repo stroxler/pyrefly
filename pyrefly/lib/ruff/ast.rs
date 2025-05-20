@@ -24,6 +24,7 @@ use ruff_python_ast::PatternMatchSingleton;
 use ruff_python_ast::PySourceType;
 use ruff_python_ast::Singleton;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtExpr;
 use ruff_python_ast::StmtIf;
 use ruff_python_ast::StringFlags;
 use ruff_python_parser::ParseError;
@@ -269,5 +270,16 @@ impl Ast {
                 value: x.value == Singleton::True,
             }),
         }
+    }
+
+    /// Does the module have a docstring.
+    pub fn has_docstring(x: &ModModule) -> bool {
+        matches!(
+            x.body.first(),
+            Some(Stmt::Expr(StmtExpr {
+                range: _,
+                value: box Expr::StringLiteral(_),
+            }))
+        )
     }
 }

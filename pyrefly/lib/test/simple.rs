@@ -255,6 +255,23 @@ assert_type(__name__, str)
 );
 
 testcase!(
+    test_doc_yes,
+    r#"
+"""docstring"""
+from typing import assert_type
+assert_type(__doc__, str)
+"#,
+);
+
+testcase!(
+    test_doc_no,
+    r#"
+from typing import assert_type
+assert_type(__doc__, None)
+"#,
+);
+
+testcase!(
     test_argument_shadows_type,
     r#"
 class C: ...

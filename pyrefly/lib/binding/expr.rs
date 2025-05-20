@@ -217,6 +217,16 @@ impl<'a> BindingsBuilder<'a> {
             Err(_) if name.id == dunder::DEBUG => {
                 self.table.insert(key, Binding::BoolType);
             }
+            Err(_) if name.id == dunder::DOC => {
+                self.table.insert(
+                    key,
+                    if self.has_docstring {
+                        Binding::StrType
+                    } else {
+                        Binding::Type(Type::None)
+                    },
+                );
+            }
             Err(error) => {
                 // Record a type error and fall back to `Any`.
                 self.error(name.range, error.message(name), ErrorKind::UnknownName);
