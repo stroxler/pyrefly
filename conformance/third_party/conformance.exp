@@ -3146,8 +3146,8 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "revealed type: (ParamSpec(Unknown)) -> Unknown",
-      "description": "revealed type: (ParamSpec(Unknown)) -> Unknown",
+      "concise_description": "revealed type: (ParamSpec(@_)) -> @_",
+      "description": "revealed type: (ParamSpec(@_)) -> @_",
       "line": 193,
       "name": "reveal-type",
       "stop_column": 16,

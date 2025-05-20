@@ -672,16 +672,18 @@ def f(a: A[str]):  # E: Expected 4 type arguments for `A`, got 1
 testcase!(
     test_typevar_with_default_after_typevartuple,
     r#"
-from typing import reveal_type
+from typing import reveal_type, Any
 class A[*Ts, T = int]:  # E: TypeVar `T` with a default cannot follow TypeVarTuple `Ts`
     pass
 class B[*Ts, T1, T2 = T1]:  # E: TypeVar `T2` with a default cannot follow TypeVarTuple `Ts`
     pass
-# It doesn't matter too much how we fill in the type arguments, as long as it's plausible.
-reveal_type(B()) # E: B[tuple[Unknown, ...], Unknown, Unknown]
 reveal_type(B[int]()) # E: B[tuple[()], int, int]
 reveal_type(B[int, str]()) # E: B[tuple[()], int, str]
 reveal_type(B[int, str, float, bool, bytes]()) # E: B[tuple[int, str, float], bool, bytes]
+# It doesn't matter too much how we fill in the type arguments when they aren't
+# pinned by construction, as long as it's plausible.
+reveal_type(B()) # E: revealed type: B[@_, @_, @_]
+b: B[tuple[tuple[Any, ...], Any, Any]] = B()  # Here's one valid way to pin them
     "#,
 );
 

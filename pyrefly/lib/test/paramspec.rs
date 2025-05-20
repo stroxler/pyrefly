@@ -55,7 +55,7 @@ def identity[**P, R](x: Callable[P, R]) -> Callable[P, R]:
 def foo[T](x: T, y: T) -> T:
     return x
 foo2 = identity(foo)  # E: Argument `Forall[T, (x: TypeVar[T], y: TypeVar[T]) -> TypeVar[T]]` is not assignable to parameter `x` with type `(ParamSpec(@_)) -> @_` in function `identity`
-reveal_type(foo2)  # E: revealed type: (ParamSpec(Unknown)) -> Unknown
+reveal_type(foo2)  # E: revealed type: (ParamSpec(@_)) -> @_
 "#,
 );
 
