@@ -622,6 +622,16 @@ def test(c: Counter[str]) -> None:
 );
 
 testcase!(
+    test_dict_unpack_subtype,
+    r#"
+from typing import Literal
+
+d1: dict[str, Literal[1]] = {}
+d2: dict[str, int] = {**d1}
+"#,
+);
+
+testcase!(
     test_iterable,
     r#"
 from typing import Iterable, assert_type

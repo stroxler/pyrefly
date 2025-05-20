@@ -1250,10 +1250,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 let ty = self.expr_infer(&x.value, errors);
                                 if let Some((key_t, value_t)) = self.unwrap_mapping(&ty) {
                                     if key_t != Type::any_error() {
-                                        key_tys.push(key_t);
+                                        if let Some(key_hint) = &key_hint
+                                            && self.is_subset_eq(&key_t, key_hint)
+                                        {
+                                            key_tys.push(key_hint.clone());
+                                        } else {
+                                            key_tys.push(key_t);
+                                        }
                                     }
                                     if value_t != Type::any_error() {
-                                        value_tys.push(value_t);
+                                        if let Some(value_hint) = &value_hint
+                                            && self.is_subset_eq(&value_t, value_hint)
+                                        {
+                                            value_tys.push(value_hint.clone());
+                                        } else {
+                                            value_tys.push(value_t);
+                                        }
                                     }
                                 } else {
                                     self.error(
