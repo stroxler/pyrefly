@@ -52,6 +52,7 @@ mod typed_dict;
 mod typing_self;
 mod untyped_def_behaviors;
 pub mod util;
+mod var_resolution;
 mod variance_inference;
 mod with;
 mod yields;
