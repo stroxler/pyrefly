@@ -214,12 +214,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let send_ty = self.resolve_var_opt(ty, send_ty).unwrap_or(Type::None);
             let return_ty = self.resolve_var_opt(ty, return_ty).unwrap_or(Type::None);
             Some((yield_ty, send_ty, return_ty))
-        } else if ty.is_any() {
-            Some((
-                Type::any_explicit(),
-                Type::any_explicit(),
-                Type::any_explicit(),
-            ))
         } else {
             None
         }
