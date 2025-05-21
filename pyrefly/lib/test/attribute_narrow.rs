@@ -271,6 +271,28 @@ def f(foo: object):
 );
 
 testcase!(
+    bug = "The TypeInfo join gets this wrong, we fail to drop all facets",
+    test_join_empty_facets_vs_nonempty,
+    r#"
+from typing import reveal_type
+class A:
+    x: int | None
+def test(y: A | None) -> None:
+    if y is not None:
+        if y.x:
+            reveal_type(y)  # E: revealed type: A (_.x: int)
+        else:
+            reveal_type(y)  # E: revealed type: A (_.x: int | None)
+    else:
+        reveal_type(y)  # E: revealed type: None
+    # This one is wrong: we took a narrow on `y.x` from one branch of a
+    # union and propagated it to the join, but the join should have no attribute
+    # narrows because the else branch has none.
+    reveal_type(y)  # E: revealed type: A | None (_.x: int | None)
+"#,
+);
+
+testcase!(
     test_or_joins_subtrees,
     r#"
 from typing import reveal_type
