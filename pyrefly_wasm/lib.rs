@@ -5,6 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+// Things we disagree with
+#![allow(clippy::new_without_default)]
+
 use pyrefly::playground::Playground;
 use wasm_bindgen::prelude::*;
 
