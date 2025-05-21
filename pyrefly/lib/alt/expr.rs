@@ -186,7 +186,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> TypeInfo {
-        TypeInfo::at_property(base, &FacetKind::Attribute(attr_name.clone()), || {
+        TypeInfo::at_facet(base, &FacetKind::Attribute(attr_name.clone()), || {
             self.attr_infer_for_type(base.ty(), attr_name, range, errors, context)
         })
     }
@@ -203,12 +203,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 value: Number::Int(idx),
                 ..
             }) if let Some(idx) = idx.as_usize() => {
-                TypeInfo::at_property(base, &FacetKind::Index(idx), || {
+                TypeInfo::at_facet(base, &FacetKind::Index(idx), || {
                     self.subscript_infer_for_type(base.ty(), slice, range, errors)
                 })
             }
             Expr::StringLiteral(ExprStringLiteral { value: key, .. }) => {
-                TypeInfo::at_property(base, &FacetKind::Key(key.to_string()), || {
+                TypeInfo::at_facet(base, &FacetKind::Key(key.to_string()), || {
                     self.subscript_infer_for_type(base.ty(), slice, range, errors)
                 })
             }
