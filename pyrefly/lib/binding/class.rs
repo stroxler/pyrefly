@@ -93,6 +93,14 @@ impl<'a> BindingsBuilder<'a> {
 
         let class_index = self.class_index();
         let class_key = KeyClass(ShortIdentifier::new(&x.name));
+        // @nocommit(stroxler): clowntown
+        //
+        // This one is actually basically okay: the stack discipline I want is more or less
+        // that we *should* be creating this idx at the beginning of processing.
+        //
+        // It's only marked as clowntown because most inserts do the opposite and generate the
+        // key at the very end ... in reality we want *everything* to work like this, but
+        // ideally through some kind of abstraction that makes it easier.
         let definition_key = self.table.classes.0.insert(class_key);
 
         x.type_params.iter_mut().for_each(|x| {
@@ -336,6 +344,11 @@ impl<'a> BindingsBuilder<'a> {
     ) {
         let class_index = self.class_index();
         let class_key = KeyClass(ShortIdentifier::new(&class_name));
+        // @nocommit(stroxler): clowntown
+        //
+        // Same situation as above... this isn't really clowny, it's actually approximately
+        // the pattern i want to *go* to, except that the way it's done here is likely
+        // too manual.
         let definition_key = self.table.classes.0.insert(class_key.clone());
         self.table.insert(
             KeyClassMetadata(class_index),

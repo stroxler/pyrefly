@@ -440,6 +440,15 @@ impl<'a> BindingsBuilder<'a> {
                     }
                     match (class_key, method_name) {
                         (Some(key), Some(method)) => {
+                            // @nocommit(stroxler): clowntown
+                            //
+                            // This one is okay because, if class_key is non-None,
+                            // we know that we are currently 
+                            //
+                            // We can un-clown once everything is stack-oriented
+                            // by storing the Idx<KeyClass> inside the scope at
+                            // the very beginning of processing the class. In
+                            // the meantime it should be fine.
                             SuperStyle::ImplicitArgs(self.table.classes.0.insert(key), method)
                         }
                         _ => {

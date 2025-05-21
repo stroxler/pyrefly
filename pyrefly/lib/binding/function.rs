@@ -333,6 +333,15 @@ impl<'a> BindingsBuilder<'a> {
             x.into_map(|(last, x)| {
                 (
                     last,
+                    // @nocommit(stroxler): clowntown
+                    //
+                    // This one is relying on an invariant that we're going to type check all
+                    // of the statements, and the `function_last_expressions` traversal will
+                    // match the bindings traversal.
+                    //
+                    // There may not be a clean way to protect this one, there's no dataflow
+                    // invariant. It should just be extracted into a helper that explains why
+                    // this is safe.
                     self.table.types.0.insert(match last {
                         LastStmt::Expr => Key::StmtExpr(x.range()),
                         LastStmt::With(_) => Key::ContextExpr(x.range()),
@@ -547,8 +556,18 @@ impl<'a> BindingsBuilder<'a> {
             .insert(KeyFunction(ShortIdentifier::new(&func_name)));
         let (class_key, class_meta) = match &self.scopes.current().kind {
             ScopeKind::ClassBody(body) => (
+                // @nocommit(stroxler): clowntown
+                //
+                // Same situation and same solution as the one in `expr.rs`: *if* we are in a class
+                // body, then we can store the Idx in the scope and then we won't need this insert.
+                //
+                // In the meantime, it's probably okay
                 Some(self.table.classes.0.insert(body.as_class_key())),
                 Some(
+                    // @nocommit(stroxler): clowntown
+                    //
+                    // Similar situation as above (every class has both a class key *and* a class metadata key)
+                    // The solution is probably similar.
                     self.table
                         .class_metadata
                         .0
@@ -601,6 +620,10 @@ impl<'a> BindingsBuilder<'a> {
         );
 
         if let Some(pred_function_idx) = pred_function_idx {
+            // @nocommit(stroxler): clowntown
+            //
+            // (Note really - using a get is fine... but I should hide this behind an interface)
+            //
             let pred_binding = self.table.functions.1.get_mut(pred_function_idx).unwrap();
             pred_binding.successor = Some(function_idx);
         }

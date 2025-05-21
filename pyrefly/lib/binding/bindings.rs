@@ -610,6 +610,22 @@ impl<'a> BindingsBuilder<'a> {
                 if !info.is_nonlocal() && !info.is_global() {
                     match kind {
                         LookupKind::Regular => {
+                            // @nocommit(stroxler): clowntown???
+                            //
+                            // This one is okay because `info` is a static info, and we
+                            // are confident because we have (manually, by case analysis)
+                            // ensured that definitions and bindings are in sync enough that
+                            // whenever definitions gave us a static info, we're going to
+                            // have the equivalent binding (import, definition, or anywhere)
+                            // by the time we finish.
+                            //
+                            // this isn't particularly clear from the data flow since we're
+                            // doing two separate traversals, we just have to trust we got
+                            // it right (very similar to the implicit return case in function.rs)
+                            //
+                            // As with implicit returns, we could make it much less clowny by
+                            // pulling it into a helper and documenting why it's safe to use,
+                            // but no real refactors are needed.
                             let key = info.as_key(name.into_key());
                             return Ok(self.table.types.0.insert(key));
                         }
@@ -620,6 +636,9 @@ impl<'a> BindingsBuilder<'a> {
                         }
                         LookupKind::Nonlocal => {
                             if valid_nonlocal_reference {
+                                // @nocommit(stroxler): clowntown???
+                                //
+                                // Same situation as above (again, info.key is "safe by assumption")
                                 let key = info.as_key(name.into_key());
                                 result = Ok(self.table.types.0.insert(key));
                                 // We can't return immediately, because we need to override
@@ -632,6 +651,9 @@ impl<'a> BindingsBuilder<'a> {
                         }
                         LookupKind::Global => {
                             if valid_global_reference {
+                                // @nocommit(stroxler): clowntown???
+                                //
+                                // Same situation as above (again, info.key is "safe by assumption")
                                 let key = info.as_key(name.into_key());
                                 result = Ok(self.table.types.0.insert(key));
                                 // We can't return immediately, because we need to override
@@ -673,6 +695,9 @@ impl<'a> BindingsBuilder<'a> {
         let found = self.lookup_name(&name.id, LookupKind::Regular);
         if let Ok(mut idx) = found {
             loop {
+                // @nocommit(stroxler): clowntown
+                //
+                // This one isn't actually a problem, gets are safe enough.
                 if let Some(b) = self.table.types.1.get(idx) {
                     match b {
                         Binding::Forward(fwd_idx) => {
@@ -725,6 +750,10 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) {
         let key = Key::Definition(ShortIdentifier::expr_name(name));
+        // @nocommit(stroxler): clowntown???
+        //
+        // Actually this one is probably fine, it's basically already using the stack discipline
+        // I want to use.
         let idx = self.table.types.0.insert(key);
         let (ann, default) = self.bind_key(&name.id, idx, style);
         let mut binding = binding(ann);
@@ -942,6 +971,15 @@ impl<'a> BindingsBuilder<'a> {
     /// Helper for loops, inserts a phi key for every name in the given flow.
     fn insert_phi_keys(&mut self, mut flow: Flow, range: TextRange) -> Flow {
         for (name, info) in flow.info.iter_mut() {
+            // @nocommit(stroxler): clowntown???
+            //
+            // This one is okay because it is only used from `setup_loop`, and
+            // any `setup_loop` is associated with a `teardown_loop` that will
+            // make sure we do the right thing.
+            //
+            // This is pretty hard to manually verify; it would probably be
+            // a good idea to change the name to make it clear this should only
+            // be used in setup_loop.
             info.key = self.table.types.0.insert(Key::Phi(name.clone(), range));
         }
         flow.no_next = false;
@@ -1052,6 +1090,11 @@ impl<'a> BindingsBuilder<'a> {
                 match names.entry_hashed(name) {
                     Entry::Occupied(mut e) => f(e.get_mut()),
                     Entry::Vacant(e) => {
+                        // @nocommit(stroxler): clowntown
+                        //
+                        // This is actually the beginning of us insuring that the phi nodes *do*
+                        // exist, but the logic is pretty complex. We're going to create all of
+                        // these below in the `insert_idx` function.
                         let key = self.table.types.0.insert(Key::Phi(e.key().clone(), range));
                         f(e.insert((
                             key,

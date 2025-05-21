@@ -316,6 +316,16 @@ impl<'a> BindingsBuilder<'a> {
                     // If the target is a name, mark it as unbound
                     if let Expr::Name(name) = target {
                         let key = Key::Usage(ShortIdentifier::expr_name(name));
+                        // @nocommit(stroxler): clowntown
+                        //
+                        // This one really is pretty clowny... we already matched on exactly
+                        // this condition above, so we know the idx exists b/c of
+                        // ensure_mutable_name.
+                        //
+                        // Cleaning it up requires two things:
+                        // - first, move this into the branch
+                        // - then, rework the interface of ensure_mutable_name to just *return*
+                        //   the idx, it is wasteful to be re-hashing anyway!
                         let idx = self.table.types.0.insert(key);
                         self.scopes.update_flow_info(
                             self.loop_depth,
