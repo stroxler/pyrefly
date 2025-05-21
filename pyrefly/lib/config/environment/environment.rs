@@ -132,7 +132,7 @@ impl PythonEnvironment {
     fn get_env_from_interpreter(interpreter: &Path) -> anyhow::Result<PythonEnvironment> {
         if let Ok(pythonpath) = std::env::var("PYTHONPATH") {
             warn!(
-                "PYTHONPATH environment variable is set to '{}'. Checks on other computers may not include these paths.",
+                "PYTHONPATH environment variable is set to `{}`. Checks in other environments may not include these paths.",
                 pythonpath
             );
         }
