@@ -175,6 +175,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             None
         };
         let mut has_base_any = false;
+        let mut has_generic_base_class = false;
         let bases_with_metadata = bases
             .iter()
             .filter_map(|x| {
@@ -186,6 +187,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     BaseClass::CollectionsNamedTuple(range) => {
                         Some((self.stdlib.named_tuple_fallback().clone().to_type(), *range))
+                    }
+                    BaseClass::Generic(ts) | BaseClass::Protocol(ts) if !ts.is_empty() => {
+                        has_generic_base_class = true;
+                        None
                     }
                     _ => None,
                 };
@@ -421,6 +426,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             bases_with_metadata
         };
+        // We didn't find any type parameters for this class, but it may have ones we don't know about if:
+        // - the class inherits from Any, or
+        // - the class inherits from Generic[...] or Protocol [...]. We probably dropped the type
+        //   arguments because we found an error in them.
+        let has_unknown_tparams =
+            cls.tparams().is_empty() && (has_base_any || has_generic_base_class);
         ClassMetadata::new(
             cls,
             bases_with_metadata,
@@ -434,6 +445,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             has_base_any,
             is_new_type,
             is_final,
+            has_unknown_tparams,
             errors,
         )
     }

@@ -77,6 +77,7 @@ impl ClassMetadata {
         has_base_any: bool,
         is_new_type: bool,
         is_final: bool,
+        has_unknown_tparams: bool,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         let mro = Mro::new(cls, &bases_with_metadata, errors);
@@ -93,9 +94,7 @@ impl ClassMetadata {
             has_base_any,
             is_new_type,
             is_final,
-            // If we didn't find type parameters for a class that inherits from Any, we don't know
-            // how many parameters it has.
-            has_unknown_tparams: cls.tparams().is_empty() && has_base_any,
+            has_unknown_tparams,
         }
     }
 

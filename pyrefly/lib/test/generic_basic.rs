@@ -781,13 +781,12 @@ def g():
 );
 
 testcase!(
-    bug = "We shouldn't report [bad-specialization] when using a generic class if there was an issue when constructing it",
     test_use_of_bad_generic,
     r#"
 from typing import Generic
 class C(Generic[oops]):  # E:
     pass
-def f(c: C[int]):  # E: Expected 0 type arguments for `C`, got 1
+def f(c: C[int]):
     pass
     "#,
 );
