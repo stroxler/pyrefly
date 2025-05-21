@@ -960,7 +960,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
                 Type::Any(style) => style.propagate(),
                 Type::Literal(Lit::Bytes(bytes)) => {
-                    self.index_bytes_literal(&bytes, slice, errors, range)
+                    self.subscript_bytes_literal(&bytes, slice, errors, range)
                 }
                 Type::LiteralString | Type::Literal(Lit::Str(_)) if xs.len() <= 3 => {
                     // We could have a more precise type here, but this matches Pyright.
@@ -1640,7 +1640,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn index_bytes_literal(
+    fn subscript_bytes_literal(
         &self,
         bytes: &[u8],
         index_expr: &Expr,
@@ -1713,6 +1713,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )
                 }
             }
+            // TODO: This is not correct: using a slice to index gives back
+            // bytes but using an int to index gives back an int.
             _ => self.stdlib.bytes().clone().to_type(),
         }
     }

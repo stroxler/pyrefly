@@ -177,6 +177,7 @@ bad2: list[Literal]  # E: Expected a type argument for `Literal`
 );
 
 testcase!(
+    bug = "We have a couple of gaps relative to our desired end-state. The wrong type on int index is higher priority than slice literals.",
     test_literal_with_byte,
     r#"
 from typing import assert_type, Literal
@@ -189,6 +190,12 @@ x[3.14]  # E: Index `3.14` into bytearray is not an int
 assert_type(x[-1], Literal[114])
 x[-6.28]  # E: Index `-6.28` into bytearray is not an int
 
-assert_type(x[0:1], bytes)
+# The `bytes` type is correct, but ideally we would understand
+# literal slices and be able to give back the literal bytes.
+assert_type(x[0:1], Literal[b"f"])  # E: assert_type(bytes, Literal[b'f'])
+
+# Non-literal integers give back an `int` (one byte)
+i: int = 42
+assert_type(x[i], int)  # E: assert_type(bytes, int)
 "#,
 );
