@@ -120,8 +120,8 @@ class Executor(abc.ABC):
 @final
 class CargoExecutor(Executor):
     def chdir(self) -> None:
-        # Change to the cargo root
-        script_dir = (SCRIPT_PATH / "pyrefly").absolute()
+        # Change to the pyrefly directory
+        script_dir = SCRIPT_PATH.absolute()
         os.chdir(str(script_dir))
 
     def rustfmt(self) -> None:
@@ -138,8 +138,8 @@ class CargoExecutor(Executor):
         run(
             [
                 sys.executable,
-                "../conformance/conformance_output.py",
-                "../conformance/third_party",
+                "conformance/conformance_output.py",
+                "conformance/third_party",
                 "--executable",
                 "target/release/pyrefly",
             ]
@@ -149,7 +149,7 @@ class CargoExecutor(Executor):
 @final
 class BuckExecutor(Executor):
     def chdir(self) -> None:
-        # Change to the target_determinator directory
+        # Change to the pyrefly directory
         script_dir = SCRIPT_PATH.absolute()
         os.chdir(str(script_dir))
 
