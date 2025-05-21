@@ -543,3 +543,15 @@ class F:
     def memmove(self, arg: T | R) -> None: ...
     "#,
 );
+
+testcase!(
+    test_type_alias_implicit_bad_syntax,
+    r#"
+def get_class() -> type[object]:
+    return object
+
+get_class()
+foo = get_class() # Cannot be an alias because of syntax
+bar: type[object] = get_class()
+"#,
+);

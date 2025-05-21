@@ -69,6 +69,7 @@ use crate::error::context::ErrorContext;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
+use crate::error::style::ErrorStyle;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::types::annotation::Annotation;
@@ -1860,7 +1861,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     (Some(true), _) => {
                         self.as_type_alias(name, TypeAliasStyle::LegacyExplicit, ty, expr, errors)
                     }
-                    (None, ty_ref) if Self::may_be_implicit_type_alias(ty_ref) => {
+                    (None, ty_ref)
+                        if Self::may_be_implicit_type_alias(ty_ref)
+                            && Self::is_valid_annotation(
+                                expr,
+                                &ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Never),
+                            ) =>
+                    {
                         self.as_type_alias(name, TypeAliasStyle::LegacyImplicit, ty, expr, errors)
                     }
                     _ => ty,
