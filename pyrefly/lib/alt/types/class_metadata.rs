@@ -44,6 +44,9 @@ pub struct ClassMetadata {
     has_base_any: bool,
     is_new_type: bool,
     is_final: bool,
+    /// Is it possible for this class to have type parameters that we don't know about?
+    /// This can happen if, e.g., a class inherits from Any.
+    has_unknown_tparams: bool,
 }
 
 impl VisitMut<Type> for ClassMetadata {
@@ -90,6 +93,9 @@ impl ClassMetadata {
             has_base_any,
             is_new_type,
             is_final,
+            // If we didn't find type parameters for a class that inherits from Any, we don't know
+            // how many parameters it has.
+            has_unknown_tparams: cls.tparams().is_empty() && has_base_any,
         }
     }
 
@@ -107,6 +113,7 @@ impl ClassMetadata {
             has_base_any: false,
             is_new_type: false,
             is_final: false,
+            has_unknown_tparams: false,
         }
     }
 
@@ -129,6 +136,10 @@ impl ClassMetadata {
 
     pub fn has_base_any(&self) -> bool {
         self.has_base_any
+    }
+
+    pub fn has_unknown_tparams(&self) -> bool {
+        self.has_unknown_tparams
     }
 
     pub fn typed_dict_metadata(&self) -> Option<&TypedDictMetadata> {

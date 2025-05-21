@@ -160,9 +160,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        let targs = if cls.tparams().is_empty() && self.get_metadata_for_class(cls).has_base_any() {
-            // If we didn't find type parameters for a class that inherits from Any, we don't know
-            // how many parameters it has. Accept any number of arguments (by ignoring them).
+        let targs = if !targs.is_empty() && self.get_metadata_for_class(cls).has_unknown_tparams() {
+            // Accept any number of arguments (by ignoring them).
             TArgs::default()
         } else {
             self.check_and_create_targs(cls.name(), cls.tparams(), targs, range, errors)
