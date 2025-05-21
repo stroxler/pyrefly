@@ -41,6 +41,7 @@ use crate::types::literal::Lit;
 use crate::types::special_form::SpecialForm;
 use crate::types::tuple::Tuple;
 use crate::types::type_var::Variance;
+use crate::types::types::AnyStyle;
 use crate::types::types::CalleeKind;
 use crate::types::types::TParamInfo;
 use crate::types::types::TParams;
@@ -532,18 +533,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .collect::<SmallMap<_, _>>();
 
         let lookup_tparam = |t: &Type| {
-            let q = t.as_quantified()?;
-            let p = legacy_map.get(&q);
-            if p.is_none() {
+            let q = t.as_quantified();
+            if q.is_none() && !matches!(t, Type::Any(AnyStyle::Error) | Type::Unpack(_)) {
                 self.error(
                     errors,
                     name.range,
                     ErrorKind::InvalidTypeVar,
                     None,
-                    "Redundant type parameter declaration".to_owned(),
+                    format!(
+                        "Expected a type variable, got `{}`",
+                        self.for_display(t.clone())
+                    ),
                 );
             }
-            p.map(|x| (*x).clone())
+            q.and_then(|q| {
+                let p = legacy_map.get(&q);
+                if p.is_none() {
+                    self.error(
+                        errors,
+                        name.range,
+                        ErrorKind::InvalidTypeVar,
+                        None,
+                        "Redundant type parameter declaration".to_owned(),
+                    );
+                }
+                p.map(|x| (*x).clone())
+            })
         };
 
         // TODO(stroxler): There are a lot of checks, such as that `Generic` only appears once

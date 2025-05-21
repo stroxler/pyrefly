@@ -3,7 +3,7 @@
   "pass": 53,
   "fail": 83,
   "pass_rate": 0.39,
-  "differences": 429,
+  "differences": 427,
   "passing": [
     "aliases_newtype.py",
     "annotations_coroutines.py",
@@ -92,7 +92,7 @@
     "enums_members.py": 4,
     "exceptions_context_managers.py": 2,
     "generics_base_class.py": 2,
-    "generics_basic.py": 7,
+    "generics_basic.py": 5,
     "generics_defaults.py": 6,
     "generics_defaults_referential.py": 3,
     "generics_paramspec_components.py": 1,

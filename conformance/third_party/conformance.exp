@@ -5100,6 +5100,26 @@
     {
       "code": -2,
       "column": 7,
+      "concise_description": "Expected a type variable, got `int`",
+      "description": "Expected a type variable, got `int`",
+      "line": 162,
+      "name": "invalid-type-var",
+      "stop_column": 11,
+      "stop_line": 162
+    },
+    {
+      "code": -2,
+      "column": 7,
+      "concise_description": "Expected a type variable, got `int`",
+      "description": "Expected a type variable, got `int`",
+      "line": 163,
+      "name": "invalid-type-var",
+      "stop_column": 11,
+      "stop_line": 163
+    },
+    {
+      "code": -2,
+      "column": 7,
       "concise_description": "Class `Bad3` uses type variables not specified in `Generic` or `Protocol` base",
       "description": "Class `Bad3` uses type variables not specified in `Generic` or `Protocol` base",
       "line": 171,

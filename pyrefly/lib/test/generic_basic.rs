@@ -802,3 +802,26 @@ class C(typing.Generic[T]):
     pass
     "#,
 );
+
+testcase!(
+    test_error_on_bad_legacy_tparam,
+    r#"
+from typing import Any, Generic
+
+# Explicit or implicit Any is not allowed.
+class C1(Generic[Any]):  # E: Expected a type variable, got `Any`
+    pass
+def f() -> Any: ...
+x = f()
+class C2(Generic[x]):  # E: Expected a type variable, got `Unknown`
+    pass
+
+# But Any(Error) is.
+T = oops()  # E:
+class C3(Generic[T]):
+    pass
+
+class C4(Generic[int]):  # E: Expected a type variable, got `int`
+    pass
+    "#,
+);
