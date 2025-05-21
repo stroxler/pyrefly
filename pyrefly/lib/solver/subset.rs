@@ -1012,6 +1012,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     Variance::Covariant => self.is_subset_eq(got_arg, want_arg),
                     Variance::Contravariant => self.is_subset_eq(want_arg, got_arg),
                     Variance::Invariant => self.is_equal(got_arg, want_arg),
+                    Variance::Bivariant => true,
                 }
             };
             if !result {

@@ -59,6 +59,8 @@ pub enum Variance {
     Covariant,
     Contravariant,
     Invariant,
+    #[allow(dead_code)]
+    Bivariant,
 }
 
 impl Display for Variance {
@@ -67,6 +69,7 @@ impl Display for Variance {
             Variance::Covariant => write!(f, "covariant"),
             Variance::Contravariant => write!(f, "contravariant"),
             Variance::Invariant => write!(f, "invariant"),
+            Variance::Bivariant => write!(f, "bivariant"),
         }
     }
 }
