@@ -793,13 +793,12 @@ def f(c: C[int]):  # E: Expected 0 type arguments for `C`, got 1
 );
 
 testcase!(
-    bug = "Unexpected error",
     test_generic_with_type_checking_constant,
     r#"
 import typing
 if typing.TYPE_CHECKING: ...
 T = typing.TypeVar('T')
-class C(typing.Generic[T]):  # E: Expected a type form, got instance of `TypeVar`
+class C(typing.Generic[T]):
     pass
     "#,
 );

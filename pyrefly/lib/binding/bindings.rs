@@ -879,12 +879,8 @@ impl<'a> BindingsBuilder<'a> {
                     Key::Narrow(name.into_key().clone(), *op_range, use_range),
                     Binding::Narrow(name_key, Box::new(op.clone()), use_range),
                 );
-                self.scopes.update_flow_info_hashed(
-                    self.loop_depth,
-                    name,
-                    binding_key,
-                    Some(FlowStyle::None),
-                );
+                self.scopes
+                    .update_flow_info_hashed(self.loop_depth, name, binding_key, None);
             }
         }
     }
