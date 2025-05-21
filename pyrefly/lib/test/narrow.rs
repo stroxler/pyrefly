@@ -509,6 +509,23 @@ def f(x):
 );
 
 testcase!(
+    test_isinstance_of_none,
+    r#"
+from typing import assert_type
+def f(x):
+    if isinstance(x, None | int):
+        assert_type(x, None | int)
+        if isinstance(x, int):
+            assert_type(x, int)
+        else:
+            assert_type(x, None)
+
+def g(x):
+    isinstance(x, None) # E: `None` is not assignable to parameter
+"#,
+);
+
+testcase!(
     test_isinstance_tuple,
     r#"
 from typing import assert_type
