@@ -289,6 +289,18 @@ def test(y: A | None) -> None:
 );
 
 testcase!(
+    test_join_empty_facets_in_or,
+    r#"
+from typing import reveal_type
+class A:
+    kind: str
+def test(y: A | None) -> None:
+    if not y or y.kind:
+        reveal_type(y)  # E: revealed type: A | None
+"#,
+);
+
+testcase!(
     test_or_joins_subtrees,
     r#"
 from typing import reveal_type
