@@ -135,13 +135,14 @@ class CargoExecutor(Executor):
         run(["cargo", "test"])
 
     def conformance(self) -> None:
+        cargo_target_dir = os.environ.get("CARGO_TARGET_DIR", "target")
         run(
             [
                 sys.executable,
                 "conformance/conformance_output.py",
                 "conformance/third_party",
                 "--executable",
-                "target/release/pyrefly",
+                f"{cargo_target_dir}/release/pyrefly",
             ]
         )
 
