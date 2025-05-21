@@ -100,16 +100,21 @@ impl TypeInfo {
         match branches.len() {
             0 => Self::of_ty(Type::never()),
             1 => branches.pop().unwrap(),
-            _ => {
-                let (tys, facets): (Vec<Type>, Vec<Option<&NarrowedFacets>>) = branches
+            n => {
+                let (tys, facets_branches): (Vec<Type>, Vec<Option<&NarrowedFacets>>) = branches
                     .iter()
                     .map(|TypeInfo { ty, facets }| {
                         (ty.clone(), facets.as_ref().map(|a| a.as_ref()))
                     })
                     .unzip();
                 let ty = union_types(tys);
-                let facets =
-                    NarrowedFacets::join(facets.into_iter().flatten().collect(), union_types);
+                let branches = facets_branches.into_iter().flatten().collect::<Vec<_>>();
+                let facets = if branches.len() == n {
+                    NarrowedFacets::join(branches, union_types)
+                } else {
+                    // at least one branch had empty facets, we should drop facets from the join
+                    None
+                };
                 Self {
                     ty,
                     facets: facets.map(Box::new),
