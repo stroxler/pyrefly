@@ -5,42 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#![allow(dead_code)] // We don't yet generate this
+#![allow(warnings)] // It will be autogerated
 
 use serde::Serialize;
 
-/// The Schema ID for Python as specified by Glean
-pub const PYTHON_SCHEMA_ID: &str = "54195d609c9195d2bc09d8fa05050bf7";
-
-/// Represents a Glean JSON file containing Python indexer data
-#[derive(Debug, Clone, Serialize)]
-pub struct Glean {
-    /// The schema entries in the Glean file
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub entries: Vec<GleanEntry>,
-}
-
-/// Represents an entry in a Glean file, which can be either a schema ID or a predicate
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
-pub enum GleanEntry {
-    /// Schema ID entry
-    SchemaId { schema_id: String },
-    /// Predicate entry containing facts
-    Predicate { predicate: String, facts: Vec<Fact> },
-}
-
-/// Represents a fact in a predicate
-#[derive(Debug, Clone, Serialize)]
-pub struct Fact {
-    /// The ID of the fact
-    pub id: u64,
-    /// The key of the fact, which can contain various nested structures
-    pub key: serde_json::Value,
-    /// Optional value field that some facts may have
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<serde_json::Value>,
-}
+use crate::report::glean::schema::*;
 
 /// Represents a name in the Python code
 #[derive(Debug, Clone, Serialize)]
@@ -49,131 +18,123 @@ pub struct Name {
     pub key: String,
 }
 
-/// Represents a module in the Python code
 #[derive(Debug, Clone, Serialize)]
-pub struct Module {
-    pub name: Name,
-}
-
-/// Represents a byte span in the source code
-#[derive(Debug, Clone, Serialize)]
-pub struct ByteSpan {
-    pub start: u64,
-    pub length: u64,
-}
-
-/// Represents a file in the source code
-#[derive(Debug, Clone, Serialize)]
-pub struct File {
+pub struct Type {
     pub id: u64,
     pub key: String,
 }
 
-/// Represents a file digest
+/// Represents a module in the Python code
 #[derive(Debug, Clone, Serialize)]
-pub struct FileDigest {
-    pub file: File,
-    pub digest: Digest,
+pub struct Module {
+    pub id: u64,
+    pub key: Module_key,
 }
 
-/// Represents a digest with hash and size
+/// Represents a module in the Python code
 #[derive(Debug, Clone, Serialize)]
-pub struct Digest {
-    pub hash: String,
-    pub size: u64,
+pub struct Module_key {
+    pub name: Name,
+}
+
+/// Reference to a class
+#[derive(Debug, Clone, Serialize)]
+pub struct ClassDeclaration {
+    pub id: u64,
+    pub key: Box<ClassDeclaration_key>,
+}
+
+/// Represents a class declaration
+#[derive(Debug, Clone, Serialize)]
+pub struct ClassDeclaration_key {
+    pub name: Name,
+    // Add bases
+}
+
+/// Reference to a function
+#[derive(Debug, Clone, Serialize)]
+pub struct FunctionDeclaration {
+    pub id: u64,
+    pub key: Box<FunctionDeclaration_key>,
+}
+
+/// Represents a function declaration
+#[derive(Debug, Clone, Serialize)]
+pub struct FunctionDeclaration_key {
+    pub name: Name,
+}
+
+/// Reference to a variable
+#[derive(Debug, Clone, Serialize)]
+pub struct VariableDeclaration {
+    pub id: u64,
+    pub key: Box<VariableDeclaration_key>,
+}
+
+/// Represents a variable declaration
+#[derive(Debug, Clone, Serialize)]
+pub struct VariableDeclaration_key {
+    pub name: Name,
+}
+
+/// Reference to an import
+#[derive(Debug, Clone, Serialize)]
+pub struct ImportStatement {
+    pub id: u64,
+    pub key: Box<ImportStatement_key>,
+}
+
+/// Represents an import statement
+#[derive(Debug, Clone, Serialize)]
+pub struct ImportStatement_key {
+    pub from_name: Name,
+    pub as_name: Name,
 }
 
 /// Represents a declaration in the Python code
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum Declaration {
-    Module { module: Box<ModuleRef> },
-    Class { cls: Box<ClassRef> },
-    Function { func: Box<FunctionRef> },
-    Variable { variable: Box<VariableRef> },
-    Import { imp: Box<ImportRef> },
+    Module { module: Box<Module> },
+    Class { cls: Box<ClassDeclaration> },
+    Function { func: Box<FunctionDeclaration> },
+    Variable { variable: Box<VariableDeclaration> },
+    Import { imp: Box<ImportStatement> },
 }
 
-/// Reference to a module
 #[derive(Debug, Clone, Serialize)]
-pub struct ModuleRef {
+pub struct DeclarationLocation {
     pub id: u64,
-    pub key: Module,
-}
-
-/// Reference to a class
-#[derive(Debug, Clone, Serialize)]
-pub struct ClassRef {
-    pub id: u64,
-    pub key: ClassDeclaration,
-}
-
-/// Reference to a function
-#[derive(Debug, Clone, Serialize)]
-pub struct FunctionRef {
-    pub id: u64,
-    pub key: FunctionDeclaration,
-}
-
-/// Reference to a variable
-#[derive(Debug, Clone, Serialize)]
-pub struct VariableRef {
-    pub id: u64,
-    pub key: VariableDeclaration,
-}
-
-/// Reference to an import
-#[derive(Debug, Clone, Serialize)]
-pub struct ImportRef {
-    pub id: u64,
-    pub key: ImportStatement,
-}
-
-/// Represents a class declaration
-#[derive(Debug, Clone, Serialize)]
-pub struct ClassDeclaration {
-    pub name: Name,
-}
-
-/// Represents a function declaration
-#[derive(Debug, Clone, Serialize)]
-pub struct FunctionDeclaration {
-    pub name: Name,
-}
-
-/// Represents a variable declaration
-#[derive(Debug, Clone, Serialize)]
-pub struct VariableDeclaration {
-    pub name: Name,
-}
-
-/// Represents an import statement
-#[derive(Debug, Clone, Serialize)]
-pub struct ImportStatement {
-    pub from_name: Name,
-    pub as_name: Name,
+    pub key: Box<DeclarationLocation_key>,
 }
 
 /// Represents a declaration location
 #[derive(Debug, Clone, Serialize)]
-pub struct DeclarationLocation {
+pub struct DeclarationLocation_key {
     pub declaration: Declaration,
-    pub file: File,
-    pub span: ByteSpan,
+    pub file: src::File,
+    pub span: src::ByteSpan,
 }
 
 /// Represents a container for declarations
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum DeclarationContainer {
-    Module { module: ModuleRef },
-    Class { cls: ClassRef },
-    Function { func: FunctionRef },
+    Module { module: Module },
+    Class { cls: ClassDeclaration },
+    Function { func: FunctionDeclaration },
 }
 
 /// Represents a containing top-level declaration
 #[derive(Debug, Clone, Serialize)]
 pub struct ContainingTopLevelDeclaration {
+    pub id: u64,
+    pub key: Box<ContainingTopLevelDeclaration_key>,
+}
+
+/// Represents a containing top-level declaration
+#[derive(Debug, Clone, Serialize)]
+pub struct ContainingTopLevelDeclaration_key {
     pub declaration: Declaration,
     pub container: DeclarationContainer,
 }
@@ -182,40 +143,35 @@ pub struct ContainingTopLevelDeclaration {
 #[derive(Debug, Clone, Serialize)]
 pub struct XRefViaName {
     pub target: Name,
-    pub source: ByteSpan,
+    pub source: src::ByteSpan,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct XRefsViaNameByFile {
+    pub id: u64,
+    pub key: Box<XRefsViaNameByFile_key>,
 }
 
 /// Represents cross-references via name by file
 #[derive(Debug, Clone, Serialize)]
-pub struct XRefsViaNameByFile {
-    pub file: File,
+pub struct XRefsViaNameByFile_key {
+    pub file: src::File,
     pub xrefs: Vec<XRefViaName>,
-}
-
-/// Represents file lines information
-#[derive(Debug, Clone, Serialize)]
-pub struct FileLines {
-    pub file: File,
-    pub lengths: Vec<u64>,
-    #[serde(rename = "endsInNewline")]
-    pub ends_in_newline: bool,
-    #[serde(rename = "hasUnicodeOrTabs")]
-    pub has_unicode_or_tabs: bool,
-}
-
-/// Represents the language of a file
-#[derive(Debug, Clone, Serialize)]
-pub struct FileLanguage {
-    pub file: File,
-    pub language: u8,
 }
 
 /// Represents a structured name
 #[derive(Debug, Clone, Serialize)]
 pub struct SName {
+    pub id: u64,
+    pub key: Box<SName_key>,
+}
+
+/// Represents a structured name
+#[derive(Debug, Clone, Serialize)]
+pub struct SName_key {
     pub local_name: Name,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent: Option<Box<SName>>,
+    pub parent: Option<SName>,
 }
 
 /// Maps a name to a structured name
@@ -229,23 +185,30 @@ pub struct NameToSName {
 /// Represents an import star statement
 #[derive(Debug, Clone, Serialize)]
 pub struct ImportStarStatement {
+    pub id: u64,
+    pub key: Box<ImportStarStatement_key>,
+}
+
+/// Represents an import star statement
+#[derive(Debug, Clone, Serialize)]
+pub struct ImportStarStatement_key {
     pub from_name: Name,
-    pub into_module: ModuleRef,
+    pub into_module: Module,
 }
 
 /// Represents an import star location
 #[derive(Debug, Clone, Serialize)]
 pub struct ImportStarLocation {
-    pub import_star: ImportStarRef,
-    pub file: File,
-    pub span: ByteSpan,
+    pub id: u64,
+    pub key: Box<ImportStarLocation_key>,
 }
 
-/// Reference to an import star statement
+/// Represents an import star location
 #[derive(Debug, Clone, Serialize)]
-pub struct ImportStarRef {
-    pub id: u64,
-    pub key: ImportStarStatement,
+pub struct ImportStarLocation_key {
+    pub import_star: ImportStarStatement,
+    pub file: src::File,
+    pub span: src::ByteSpan,
 }
 
 /// Represents a definition
@@ -261,9 +224,16 @@ pub enum Definition {
 /// Represents a class definition
 #[derive(Debug, Clone, Serialize)]
 pub struct ClassDefinition {
-    pub declaration: ClassRef,
+    pub id: u64,
+    pub key: Box<ClassDefinition_key>,
+}
+
+/// Represents a class definition
+#[derive(Debug, Clone, Serialize)]
+pub struct ClassDefinition_key {
+    pub declaration: ClassDeclaration,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub bases: Vec<ClassRef>,
+    pub bases: Vec<ClassDeclaration>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub decorators: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -273,7 +243,14 @@ pub struct ClassDefinition {
 /// Represents a function definition
 #[derive(Debug, Clone, Serialize)]
 pub struct FunctionDefinition {
-    pub declaration: FunctionRef,
+    pub id: u64,
+    pub key: Box<FunctionDefinition_key>,
+}
+
+/// Represents a function definition
+#[derive(Debug, Clone, Serialize)]
+pub struct FunctionDefinition_key {
+    pub declaration: FunctionDeclaration,
     pub is_async: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "returnsInfo")]
@@ -297,7 +274,14 @@ pub struct FunctionDefinition {
 /// Represents a variable definition
 #[derive(Debug, Clone, Serialize)]
 pub struct VariableDefinition {
-    pub declaration: VariableRef,
+    pub id: u64,
+    pub key: Box<VariableDefinition_key>,
+}
+
+/// Represents a variable definition
+#[derive(Debug, Clone, Serialize)]
+pub struct VariableDefinition_key {
+    pub declaration: VariableDeclaration,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "typeInfo")]
     pub type_info: Option<TypeInfo>,
@@ -308,7 +292,14 @@ pub struct VariableDefinition {
 /// Represents a module definition
 #[derive(Debug, Clone, Serialize)]
 pub struct ModuleDefinition {
-    pub module: ModuleRef,
+    pub id: u64,
+    pub key: Box<ModuleDefinition_key>,
+}
+
+/// Represents a module definition
+#[derive(Debug, Clone, Serialize)]
+pub struct ModuleDefinition_key {
+    pub module: Module,
 }
 
 /// Represents a parameter
@@ -331,26 +322,33 @@ pub struct TypeInfo {
     pub xrefs: Vec<XRefViaName>,
 }
 
-/// Represents a type
+/// Represents a definition location
 #[derive(Debug, Clone, Serialize)]
-pub struct Type {
+pub struct DefinitionLocation {
     pub id: u64,
-    pub key: String,
+    pub key: Box<DefinitionLocation_key>,
 }
 
 /// Represents a definition location
 #[derive(Debug, Clone, Serialize)]
-pub struct DefinitionLocation {
+pub struct DefinitionLocation_key {
     pub definition: Definition,
-    pub file: File,
-    pub span: ByteSpan,
+    pub file: src::File,
+    pub span: src::ByteSpan,
 }
 
 /// Represents a declaration docstring
 #[derive(Debug, Clone, Serialize)]
 pub struct DeclarationDocstring {
+    pub id: u64,
+    pub key: Box<DeclarationDocstring_key>,
+}
+
+/// Represents a declaration docstring
+#[derive(Debug, Clone, Serialize)]
+pub struct DeclarationDocstring_key {
     pub declaration: Declaration,
-    pub location: ByteSpan,
+    pub location: src::ByteSpan,
     pub pretty_text: String,
 }
 
@@ -359,15 +357,15 @@ pub struct DeclarationDocstring {
 pub struct CallArgument {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<Name>,
-    pub span: ByteSpan,
+    pub span: src::ByteSpan,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub argument: Option<Argument>,
 }
 
 /// Represents an argument
 #[derive(Debug, Clone, Serialize)]
-pub struct Argument {
-    pub lit: StringLiteral,
+pub enum Argument {
+    StringLiteral { lit: StringLiteral },
 }
 
 /// Represents a string literal
@@ -377,17 +375,30 @@ pub struct StringLiteral {
     pub key: String,
 }
 
-/// Represents a file call
 #[derive(Debug, Clone, Serialize)]
 pub struct FileCall {
-    pub file: File,
-    pub callee_span: ByteSpan,
+    pub id: u64,
+    pub key: FileCall_key,
+}
+
+/// Represents a file call
+#[derive(Debug, Clone, Serialize)]
+pub struct FileCall_key {
+    pub file: src::File,
+    pub callee_span: src::ByteSpan,
     pub call_args: Vec<CallArgument>,
 }
 
 /// Represents a callee to caller relationship
 #[derive(Debug, Clone, Serialize)]
 pub struct CalleeToCaller {
+    pub id: u64,
+    pub key: Box<CalleeToCaller_key>,
+}
+
+/// Represents a callee to caller relationship
+#[derive(Debug, Clone, Serialize)]
+pub struct CalleeToCaller_key {
     pub callee: Name,
     pub caller: Name,
 }

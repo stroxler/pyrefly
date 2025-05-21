@@ -5,11 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use crate::report::glean::schema::Glean;
+use crate::report::glean::facts::Glean;
 use crate::state::handle::Handle;
 use crate::state::state::Transaction;
 
 pub mod convert;
+pub mod facts;
 pub mod schema;
 
 pub fn glean(transaction: &Transaction, handle: &Handle) -> String {

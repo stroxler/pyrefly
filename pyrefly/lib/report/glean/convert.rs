@@ -6,17 +6,12 @@
  */
 
 use ruff_python_ast::ModModule;
-use serde::Serialize;
-use serde_json::Value;
 
 use crate::alt::answers::Answers;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
+use crate::report::glean::facts::*;
 use crate::report::glean::schema::*;
-
-fn json(x: impl Serialize) -> Value {
-    serde_json::to_value(x).unwrap()
-}
 
 fn hash(x: &[u8]) -> String {
     // Glean uses blake3
@@ -31,47 +26,30 @@ impl Glean {
         bindings: &Bindings,
         answers: &Answers,
     ) -> Self {
+        let module_name = python::Name::new(module_info.name().as_str().to_owned());
+        let module_fact = python::Module::new(module_name);
+        let file_fact = src::File::new(module_info.path().to_string());
+        let digest = digest::Digest {
+            hash: hash(module_info.contents().as_bytes()),
+            size: module_info.len() as u64,
+        };
+        let digest_fact = digest::FileDigest::new(file_fact, digest);
+
         let entries = vec![
             GleanEntry::SchemaId {
                 schema_id: PYTHON_SCHEMA_ID.to_owned(),
             },
             GleanEntry::Predicate {
                 predicate: "python.Name.4".to_owned(),
-                facts: vec![Fact {
-                    id: 0,
-                    key: json(""),
-                    value: None,
-                }],
+                facts: vec![json(python::Name::new("".to_owned()))],
             },
             GleanEntry::Predicate {
                 predicate: "python.Module.4".to_owned(),
-                facts: vec![Fact {
-                    id: 0,
-                    key: json(Module {
-                        name: Name {
-                            id: 0,
-                            key: module_info.name().as_str().to_owned(),
-                        },
-                    }),
-                    value: None,
-                }],
+                facts: vec![json(module_fact)],
             },
             GleanEntry::Predicate {
                 predicate: "digest.FileDigest.1".to_owned(),
-                facts: vec![Fact {
-                    id: 0,
-                    key: json(FileDigest {
-                        file: File {
-                            id: 0,
-                            key: module_info.path().to_string(),
-                        },
-                        digest: Digest {
-                            hash: hash(module_info.contents().as_bytes()),
-                            size: module_info.len() as u64,
-                        },
-                    }),
-                    value: None,
-                }],
+                facts: vec![json(digest_fact)],
             },
         ];
 
