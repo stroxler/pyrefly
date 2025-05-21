@@ -5,8 +5,10 @@
 * LICENSE file in the root directory of this source tree.
 */
 
+use std::path::Path;
 use std::path::PathBuf;
 
+use anyhow::anyhow;
 use regex::Regex;
 use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
@@ -19,7 +21,7 @@ use crate::ruff::ast::Ast;
 use crate::util::fs_anyhow;
 
 /// Combines all errors that affect one line into a single entry.
-// The current format is: `# pyrefly: ignore  # error1, error2, ...`, because pyrefly does not currently support pyre-fixme.
+// The current format is: `# pyrefly: ignore  # error1, error2, ...`
 fn dedup_errors(errors: &[Error]) -> SmallMap<usize, String> {
     let mut deduped_errors = SmallMap::new();
     for error in errors {
@@ -40,6 +42,25 @@ fn dedup_errors(errors: &[Error]) -> SmallMap<usize, String> {
     deduped_errors
 }
 
+// TODO: In future have this return an ast as well as the string for comparison
+fn read_and_validate_file(path: &Path) -> anyhow::Result<String> {
+    let file = fs_anyhow::read_to_string(path);
+    match file {
+        Ok(file) => {
+            // Check for generated + parsable files
+            let (_ast, parse_errors) = Ast::parse(&file);
+            if !parse_errors.is_empty() {
+                return Err(anyhow!("File is not parsable"));
+            }
+            if file.contains(GENERATED_TOKEN) {
+                return Err(anyhow!("Generated file"));
+            }
+            Ok(file)
+        }
+        Err(e) => Err(e),
+    }
+}
+
 /// Adds error suppressions for the given errors in the given files.
 /// Returns a list of files that failed to be be patched, and a list of files that were patched.
 /// The list of failures includes the error that occurred, which may be a read or write error.
@@ -49,29 +70,13 @@ fn add_suppressions(
     let mut failures = vec![];
     let mut successes = vec![];
     for (path, errors) in path_errors {
-        let file = match fs_anyhow::read_to_string(path) {
+        let file = match read_and_validate_file(path) {
             Ok(f) => f,
             Err(e) => {
                 failures.push((path, e));
                 continue;
             }
         };
-        // Avoid adding suppressions to files that are not parsable.
-        // Save AST for comparison later
-        let (_ast, parse_errors) = Ast::parse(&file);
-        if !parse_errors.is_empty() {
-            eprintln!(
-                "Unable to silence errors in `{}` because it is not parsable",
-                path.display()
-            );
-            failures.push((path, anyhow::Error::msg("File is not parsable")));
-            continue;
-        }
-        if file.contains(GENERATED_TOKEN) {
-            eprintln!("Skipping `{}` because it is generated", path.display());
-            failures.push((path, anyhow::Error::msg("Generated file")));
-            continue;
-        }
         let deduped_errors = dedup_errors(errors);
         let mut buf = String::new();
         for (idx, line) in file.lines().enumerate() {
@@ -147,7 +152,7 @@ pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<OneIndexe
         let mut unused_ignore_count = 0;
         let zero_index_ignores: SmallSet<usize> =
             ignores.iter().map(|i| i.to_zero_indexed()).collect();
-        if let Ok(file) = fs_anyhow::read_to_string(path) {
+        if let Ok(file) = read_and_validate_file(path) {
             let mut buf = String::with_capacity(file.len());
             let lines = file.lines();
             for (idx, line) in lines.enumerate() {
@@ -469,5 +474,22 @@ def f() -> int:
     return 1
 "##;
         test_remove_suppressions(lines, input, output);
+    }
+
+    #[test]
+    fn test_no_remove_suppression_generated() {
+        let lines = SmallSet::from_iter([OneIndexed::new(3).unwrap(), OneIndexed::new(5).unwrap()]);
+        let input = format!(
+            r#"
+{}
+def g() -> str:
+    return "hello" # pyrefly: ignore # bad-return
+def f() -> int:
+    # pyrefly: ignore
+    return 1
+"#,
+            GENERATED_TOKEN
+        );
+        test_remove_suppressions(lines, &input, &input);
     }
 }
