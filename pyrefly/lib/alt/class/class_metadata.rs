@@ -40,7 +40,6 @@ use crate::types::class::ClassType;
 use crate::types::literal::Lit;
 use crate::types::special_form::SpecialForm;
 use crate::types::tuple::Tuple;
-use crate::types::type_var::Variance;
 use crate::types::types::AnyStyle;
 use crate::types::types::CalleeKind;
 use crate::types::types::TParamInfo;
@@ -631,12 +630,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 tparams.insert(p.clone());
-            }
-        }
-        // TODO: This is a very bad variance inference algorithm.
-        for tparam in tparams.iter_mut_unchecked() {
-            if tparam.variance.is_none() {
-                tparam.variance = Some(Variance::Invariant);
             }
         }
         self.type_params(name.range, tparams.into_iter().collect(), errors)

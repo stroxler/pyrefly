@@ -79,7 +79,7 @@ impl Var {
 pub struct TParamInfo {
     pub quantified: Quantified,
     /// The variance if known, or None for infer_variance=True or a scoped type parameter
-    pub variance: Option<Variance>,
+    pub variance: Variance,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -190,7 +190,7 @@ impl TParams {
                 quantified: tparam.quantified,
                 // Classes set the variance before getting here. For functions and aliases, the variance isn't meaningful;
                 // it doesn't matter what we set it to as long as we make it non-None to indicate that it's not missing.
-                variance: tparam.variance.unwrap_or(Variance::Invariant),
+                variance: tparam.variance,
             });
         }
         ValidatedTParams {

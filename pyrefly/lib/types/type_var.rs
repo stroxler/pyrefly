@@ -55,6 +55,26 @@ pub enum Restriction {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
+pub enum PreInferenceVariance {
+    PCovariant,
+    PContravariant,
+    PInvariant,
+    PUndefined,
+}
+
+impl Display for PreInferenceVariance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PreInferenceVariance::PCovariant => write!(f, "PCovariant"),
+            PreInferenceVariance::PContravariant => write!(f, "PContravariant"),
+            PreInferenceVariance::PInvariant => write!(f, "PInvariant"),
+            PreInferenceVariance::PUndefined => write!(f, "PUndefined"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum Variance {
     Covariant,
     Contravariant,
@@ -80,7 +100,7 @@ struct TypeVarInner {
     restriction: Restriction,
     default: Option<Type>,
     /// The variance if known, or None for infer_variance=True
-    variance: Option<Variance>,
+    variance: PreInferenceVariance,
 }
 
 impl TypeVar {
@@ -89,7 +109,7 @@ impl TypeVar {
         module: ModuleInfo,
         restriction: Restriction,
         default: Option<Type>,
-        variance: Option<Variance>,
+        variance: PreInferenceVariance,
     ) -> Self {
         Self(ArcId::new(TypeVarInner {
             qname: QName::new(name, module),
@@ -111,7 +131,7 @@ impl TypeVar {
         self.0.default.as_ref()
     }
 
-    pub fn variance(&self) -> Option<Variance> {
+    pub fn variance(&self) -> PreInferenceVariance {
         self.0.variance
     }
 

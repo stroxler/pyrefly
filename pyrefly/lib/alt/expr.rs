@@ -52,9 +52,9 @@ use crate::types::quantified::QuantifiedKind;
 use crate::types::special_form::SpecialForm;
 use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
+use crate::types::type_var::PreInferenceVariance;
 use crate::types::type_var::Restriction;
 use crate::types::type_var::TypeVar;
-use crate::types::type_var::Variance;
 use crate::types::type_var_tuple::TypeVarTuple;
 use crate::types::types::AnyStyle;
 use crate::types::types::CalleeKind;
@@ -276,7 +276,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut arg_name = false;
         let mut restriction = None;
         let mut default = None;
-        let mut variance = None;
+        let mut variance = PreInferenceVariance::PUndefined;
 
         let check_name_arg = |arg: &Expr| {
             if let Expr::StringLiteral(lit) = arg {
@@ -303,9 +303,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
 
-        let mut try_set_variance = |kw: &Keyword, v: Option<Variance>| {
+        let mut try_set_variance = |kw: &Keyword, v: PreInferenceVariance| {
             if self.literal_bool_infer(&kw.value, errors) {
-                if variance.is_some() {
+                if variance != PreInferenceVariance::PUndefined {
                     self.error(
                         errors,
                         kw.range,
@@ -314,7 +314,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         "Contradictory variance specifications".to_owned(),
                     );
                 } else {
-                    variance = Some(v);
+                    variance = v;
                 }
             }
         };
@@ -356,9 +356,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             kw.value.range(),
                         ))
                     }
-                    "covariant" => try_set_variance(kw, Some(Variance::Covariant)),
-                    "contravariant" => try_set_variance(kw, Some(Variance::Contravariant)),
-                    "infer_variance" => try_set_variance(kw, None),
+                    "covariant" => try_set_variance(kw, PreInferenceVariance::PCovariant),
+                    "contravariant" => try_set_variance(kw, PreInferenceVariance::PContravariant),
+                    "invariant" => try_set_variance(kw, PreInferenceVariance::PInvariant),
+                    "infer_variance" => try_set_variance(kw, PreInferenceVariance::PUndefined),
                     "name" => {
                         if arg_name {
                             self.error(
@@ -421,7 +422,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.module_info().dupe(),
             restriction,
             default_value,
-            variance.unwrap_or(Some(Variance::Invariant)),
+            variance,
         )
     }
 

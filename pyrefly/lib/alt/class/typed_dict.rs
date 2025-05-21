@@ -37,6 +37,7 @@ use crate::types::class::Class;
 use crate::types::class::Substitution;
 use crate::types::literal::Lit;
 use crate::types::quantified::Quantified;
+use crate::types::type_var::PreInferenceVariance;
 use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::typed_dict::TypedDictField;
@@ -260,7 +261,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 literal_signatures.push(OverloadType::Forall(Forall {
                     tparams: TParams::new(vec![TParamInfo {
                         quantified: q.clone(),
-                        variance: None,
+                        variance: Self::pre_to_post_variance(PreInferenceVariance::PUndefined),
                     }])
                     .tparams,
                     body: Function {

@@ -273,6 +273,7 @@ mod tests {
     use crate::types::quantified::QuantifiedInfo;
     use crate::types::quantified::QuantifiedKind;
     use crate::types::type_var::Restriction;
+    use crate::types::type_var::Variance;
     use crate::types::types::Forallable;
     use crate::types::types::TParamInfo;
     use crate::types::types::TParams;
@@ -368,7 +369,7 @@ mod tests {
             .forall(
                 TParams::new(vec![TParamInfo {
                     quantified: q,
-                    variance: None,
+                    variance: Variance::Invariant,
                 }])
                 .tparams,
             )

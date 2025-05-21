@@ -180,10 +180,7 @@ impl<'a> TypeDisplayContext<'a> {
                         write!(f, ", constraints=({})", commas_iter(|| constraints.iter()))?;
                     }
                 }
-                match t.variance() {
-                    Some(variance) => write!(f, ", {variance}")?,
-                    None => write!(f, ", infer_variance")?,
-                }
+                write!(f, ", variance={}", t.variance())?;
                 write!(f, ")")
             }
             Type::TypeVarTuple(t) => {
@@ -366,6 +363,7 @@ pub mod tests {
     use crate::types::quantified::QuantifiedInfo;
     use crate::types::quantified::QuantifiedKind;
     use crate::types::tuple::Tuple;
+    use crate::types::type_var::PreInferenceVariance;
     use crate::types::type_var::Restriction;
     use crate::types::type_var::TypeVar;
     use crate::types::type_var::Variance;
@@ -400,7 +398,7 @@ pub mod tests {
                     default: None,
                 },
             ),
-            variance: Some(Variance::Invariant),
+            variance: Variance::Invariant,
         }
     }
 
@@ -415,7 +413,7 @@ pub mod tests {
             mi,
             Restriction::Unrestricted,
             None,
-            Some(Variance::Invariant),
+            PreInferenceVariance::PInvariant,
         )
     }
 
@@ -486,11 +484,11 @@ pub mod tests {
 
         assert_eq!(
             Type::Union(vec![t1.to_type(), t2.to_type()]).to_string(),
-            "TypeVar(bar.foo@1:2, invariant) | TypeVar(bar.foo@1:3, invariant)"
+            "TypeVar(bar.foo@1:2, variance=PInvariant) | TypeVar(bar.foo@1:3, variance=PInvariant)"
         );
         assert_eq!(
             Type::Union(vec![t1.to_type(), t3.to_type()]).to_string(),
-            "TypeVar(foo, invariant) | TypeVar(qux, invariant)"
+            "TypeVar(foo, variance=PInvariant) | TypeVar(qux, variance=PInvariant)"
         );
     }
 

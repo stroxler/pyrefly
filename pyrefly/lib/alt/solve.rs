@@ -90,6 +90,7 @@ use crate::types::quantified::QuantifiedInfo;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
+use crate::types::type_var::PreInferenceVariance;
 use crate::types::type_var::Restriction;
 use crate::types::type_var::TypeVar;
 use crate::types::type_var::Variance;
@@ -160,7 +161,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 Arc::new(LegacyTypeParameterLookup::Parameter(TParamInfo {
                     quantified: q,
-                    variance: x.variance(),
+                    variance: Self::pre_to_post_variance(x.variance()),
                 }))
             }
             Type::Type(box Type::TypeVarTuple(x)) => {
@@ -171,7 +172,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 Arc::new(LegacyTypeParameterLookup::Parameter(TParamInfo {
                     quantified: q,
-                    variance: Some(Variance::Invariant),
+                    variance: Variance::Invariant,
                 }))
             }
             Type::Type(box Type::ParamSpec(x)) => {
@@ -182,7 +183,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 Arc::new(LegacyTypeParameterLookup::Parameter(TParamInfo {
                     quantified: q,
-                    variance: Some(Variance::Invariant),
+                    variance: Variance::Invariant,
                 }))
             }
             ty => Arc::new(LegacyTypeParameterLookup::NotParameter(ty.clone())),
@@ -315,6 +316,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         } else {
             None
+        }
+    }
+
+    pub fn pre_to_post_variance(pre_variance: PreInferenceVariance) -> Variance {
+        match pre_variance {
+            PreInferenceVariance::PCovariant => Variance::Covariant,
+            PreInferenceVariance::PContravariant => Variance::Contravariant,
+            PreInferenceVariance::PInvariant => Variance::Invariant,
+            // TODO: we should infer variance for this case
+            PreInferenceVariance::PUndefined => Variance::Invariant,
         }
     }
 
@@ -680,7 +691,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         e.insert(q.clone());
                         tparams.push(TParamInfo {
                             quantified: q.clone(),
-                            variance: ty_var.variance(),
+                            variance: Self::pre_to_post_variance(ty_var.variance()),
                         });
                         q
                     }
@@ -699,7 +710,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         e.insert(q.clone());
                         tparams.push(TParamInfo {
                             quantified: q.clone(),
-                            variance: Some(Variance::Invariant),
+                            variance: Variance::Invariant,
                         });
                         q
                     }
@@ -718,7 +729,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         e.insert(q.clone());
                         tparams.push(TParamInfo {
                             quantified: q.clone(),
-                            variance: Some(Variance::Invariant),
+                            variance: Variance::Invariant,
                         });
                         q
                     }
@@ -945,7 +956,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         get_quantified(self.get(&Key::Definition(ShortIdentifier::new(name))).ty());
                     params.push(TParamInfo {
                         quantified,
-                        variance: None,
+                        variance: Self::pre_to_post_variance(PreInferenceVariance::PUndefined),
                     });
                 }
                 params

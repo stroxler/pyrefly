@@ -25,10 +25,10 @@
     "Line 75: Expected 1 errors",
     "Line 30: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveTuple']`\"]",
     "Line 42: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveMapping']`\"]",
-    "Line 58: Unexpected errors [\"`|` is not supported between `Literal['GenericTypeAlias1[T1]']` and `type[TypeVar(T1, constraints=(str, int), invariant)]`\\n  TODO: Expr::binop_infer attribute base undefined for type: type[TypeVar(T1, constraints=(str, int), invariant)] (trying to access __ror__)\"]",
+    "Line 58: Unexpected errors [\"`|` is not supported between `Literal['GenericTypeAlias1[T1]']` and `type[TypeVar(T1, constraints=(str, int), variance=PUndefined)]`\\n  TODO: Expr::binop_infer attribute base undefined for type: type[TypeVar(T1, constraints=(str, int), variance=PUndefined)] (trying to access __ror__)\"]",
     "Line 59: Unexpected errors [\"Can't apply arguments to non-class, got LegacyImplicitTypeAlias[GenericTypeAlias1, type[list[Unknown]]]\"]",
     "Line 62: Unexpected errors [\"Can't apply arguments to non-class, got LegacyImplicitTypeAlias[GenericTypeAlias1, type[list[Unknown]]]\"]",
-    "Line 65: Unexpected errors [\"`|` is not supported between `Literal['GenericTypeAlias2[T1, T2]']` and `type[TypeVar(T1, constraints=(str, int), invariant)]`\\n  TODO: Expr::binop_infer attribute base undefined for type: type[TypeVar(T1, constraints=(str, int), invariant)] (trying to access __ror__)\"]",
+    "Line 65: Unexpected errors [\"`|` is not supported between `Literal['GenericTypeAlias2[T1, T2]']` and `type[TypeVar(T1, constraints=(str, int), variance=PUndefined)]`\\n  TODO: Expr::binop_infer attribute base undefined for type: type[TypeVar(T1, constraints=(str, int), variance=PUndefined)] (trying to access __ror__)\"]",
     "Line 67: Unexpected errors [\"Can't apply arguments to non-class, got LegacyImplicitTypeAlias[GenericTypeAlias2, type[list[Unknown]]]\"]",
     "Line 68: Unexpected errors [\"Can't apply arguments to non-class, got LegacyImplicitTypeAlias[GenericTypeAlias2, type[list[Unknown]]]\"]"
   ],
@@ -59,10 +59,10 @@
     "Line 62: Expected 1 errors",
     "Line 63: Expected 1 errors",
     "Line 64: Expected 1 errors",
-    "Line 17: Unexpected errors ['Argument `tuple[type[TypeVar(T, invariant)]]` is not assignable to parameter `type_params` with type `tuple[ParamSpec | TypeVar | TypeVarTuple, ...]` in function `typing.TypeAliasType.__new__`']",
-    "Line 18: Unexpected errors ['Argument `tuple[type[TypeVar(S, invariant)], type[TypeVar(T, invariant)]]` is not assignable to parameter `type_params` with type `tuple[ParamSpec | TypeVar | TypeVarTuple, ...]` in function `typing.TypeAliasType.__new__`']",
-    "Line 19: Unexpected errors ['Argument `tuple[type[TypeVar(T, invariant)]]` is not assignable to parameter `type_params` with type `tuple[ParamSpec | TypeVar | TypeVarTuple, ...]` in function `typing.TypeAliasType.__new__`']",
-    "Line 23: Unexpected errors ['Argument `tuple[type[TypeVar(S, invariant)], type[TypeVar(TStr, bound=str, invariant)], type[ParamSpec(P)], type[TypeVarTuple(Ts)]]` is not assignable to parameter `type_params` with type `tuple[ParamSpec | TypeVar | TypeVarTuple, ...]` in function `typing.TypeAliasType.__new__`']",
+    "Line 17: Unexpected errors ['Argument `tuple[type[TypeVar(T, variance=PUndefined)]]` is not assignable to parameter `type_params` with type `tuple[ParamSpec | TypeVar | TypeVarTuple, ...]` in function `typing.TypeAliasType.__new__`']",
+    "Line 18: Unexpected errors ['Argument `tuple[type[TypeVar(S, variance=PUndefined)], type[TypeVar(T, variance=PUndefined)]]` is not assignable to parameter `type_params` with type `tuple[ParamSpec | TypeVar | TypeVarTuple, ...]` in function `typing.TypeAliasType.__new__`']",
+    "Line 19: Unexpected errors ['Argument `tuple[type[TypeVar(T, variance=PUndefined)]]` is not assignable to parameter `type_params` with type `tuple[ParamSpec | TypeVar | TypeVarTuple, ...]` in function `typing.TypeAliasType.__new__`']",
+    "Line 23: Unexpected errors ['Argument `tuple[type[TypeVar(S, variance=PUndefined)], type[TypeVar(TStr, bound=str, variance=PUndefined)], type[ParamSpec(P)], type[TypeVarTuple(Ts)]]` is not assignable to parameter `type_params` with type `tuple[ParamSpec | TypeVar | TypeVarTuple, ...]` in function `typing.TypeAliasType.__new__`']",
     "Line 35: Unexpected errors ['Expected a type form, got instance of `GenericAlias`']",
     "Line 36: Unexpected errors ['Expected a type form, got instance of `GenericAlias`']",
     "Line 37: Unexpected errors ['Expected a type form, got instance of `GenericAlias`']",
@@ -290,9 +290,9 @@
     "Line 167: Unexpected errors ['assert_type(Any, int) failed', 'Instance-only attribute `attr` of class `Foo7` is not visible on the class']"
   ],
   "generics_defaults_referential.py": [
-    "Line 66: Unexpected errors ['Expected default `TypeVar(X1, bound=int, invariant)` of `Ok1` to be assignable to the upper bound of `float`']",
-    "Line 67: Unexpected errors ['Expected default `TypeVar(X1, bound=int, invariant)` of `AlsoOk1` to be assignable to the upper bound of `int`']",
-    "Line 77: Unexpected errors ['Expected default `TypeVar(Y2, constraints=(int, str), invariant)` of `AlsoOk2` to be one of the following constraints: `int`, `str`, `bool`']"
+    "Line 66: Unexpected errors ['Expected default `TypeVar(X1, bound=int, variance=PUndefined)` of `Ok1` to be assignable to the upper bound of `float`']",
+    "Line 67: Unexpected errors ['Expected default `TypeVar(X1, bound=int, variance=PUndefined)` of `AlsoOk1` to be assignable to the upper bound of `int`']",
+    "Line 77: Unexpected errors ['Expected default `TypeVar(Y2, constraints=(int, str), variance=PUndefined)` of `AlsoOk2` to be one of the following constraints: `int`, `str`, `bool`']"
   ],
   "generics_defaults_specialization.py": [],
   "generics_paramspec_basic.py": [],
@@ -583,8 +583,8 @@
     "Line 106: Unexpected errors ['assert_type(Any, tuple[type, ...]) failed']",
     "Line 110: Unexpected errors ['assert_type(Any, tuple[type, ...]) failed']",
     "Line 139: Unexpected errors ['assert_type(type, type[Any]) failed']",
-    "Line 152: Unexpected errors [\"Can't apply arguments to non-class, got LegacyExplicitTypeAlias[TA7, type[type[TypeVar(T, invariant)]]]\"]",
-    "Line 156: Unexpected errors [\"Can't apply arguments to non-class, got LegacyExplicitTypeAlias[TA8, type[type[TypeVar(T, invariant)]]]\"]",
+    "Line 152: Unexpected errors [\"Can't apply arguments to non-class, got LegacyExplicitTypeAlias[TA7, type[type[TypeVar(T, variance=PUndefined)]]]\"]",
+    "Line 156: Unexpected errors [\"Can't apply arguments to non-class, got LegacyExplicitTypeAlias[TA8, type[type[TypeVar(T, variance=PUndefined)]]]\"]",
     "Line 160: Unexpected errors ['assert_type(Any, int) failed']",
     "Line 161: Unexpected errors ['assert_type(Any, int) failed']"
   ],
