@@ -27,6 +27,7 @@ use crate::types::types::BoundMethod;
 use crate::types::types::NeverStyle;
 use crate::types::types::SuperObj;
 use crate::types::types::Type;
+use crate::types::types::TypeAliasStyle;
 use crate::util::display::Fmt;
 use crate::util::display::append;
 use crate::util::display::commas_iter;
@@ -304,14 +305,11 @@ impl<'a> TypeDisplayContext<'a> {
                 AnyStyle::Explicit => write!(f, "Any"),
                 AnyStyle::Implicit | AnyStyle::Error => write!(f, "Unknown"),
             },
+            Type::TypeAlias(ta) if ta.style == TypeAliasStyle::LegacyImplicit => {
+                write!(f, "{}", self.display(&ta.as_type()))
+            }
             Type::TypeAlias(ta) => {
-                write!(
-                    f,
-                    "{}[{}, {}]",
-                    ta.style,
-                    ta.name,
-                    self.display(&ta.as_type())
-                )
+                write!(f, "TypeAlias[{}, {}]", ta.name, self.display(&ta.as_type()))
             }
             Type::SuperInstance(box (cls, obj)) => {
                 write!(f, "super[")?;

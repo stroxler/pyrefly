@@ -26,11 +26,11 @@
     "Line 30: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveTuple']`\"]",
     "Line 42: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveMapping']`\"]",
     "Line 58: Unexpected errors [\"`|` is not supported between `Literal['GenericTypeAlias1[T1]']` and `type[TypeVar(T1, constraints=(str, int), variance=PUndefined)]`\\n  TODO: Expr::binop_infer attribute base undefined for type: type[TypeVar(T1, constraints=(str, int), variance=PUndefined)] (trying to access __ror__)\"]",
-    "Line 59: Unexpected errors [\"Can't apply arguments to non-class, got LegacyImplicitTypeAlias[GenericTypeAlias1, type[list[Unknown]]]\"]",
-    "Line 62: Unexpected errors [\"Can't apply arguments to non-class, got LegacyImplicitTypeAlias[GenericTypeAlias1, type[list[Unknown]]]\"]",
+    "Line 59: Unexpected errors [\"Can't apply arguments to non-class, got type[list[Unknown]]\"]",
+    "Line 62: Unexpected errors [\"Can't apply arguments to non-class, got type[list[Unknown]]\"]",
     "Line 65: Unexpected errors [\"`|` is not supported between `Literal['GenericTypeAlias2[T1, T2]']` and `type[TypeVar(T1, constraints=(str, int), variance=PUndefined)]`\\n  TODO: Expr::binop_infer attribute base undefined for type: type[TypeVar(T1, constraints=(str, int), variance=PUndefined)] (trying to access __ror__)\"]",
-    "Line 67: Unexpected errors [\"Can't apply arguments to non-class, got LegacyImplicitTypeAlias[GenericTypeAlias2, type[list[Unknown]]]\"]",
-    "Line 68: Unexpected errors [\"Can't apply arguments to non-class, got LegacyImplicitTypeAlias[GenericTypeAlias2, type[list[Unknown]]]\"]"
+    "Line 67: Unexpected errors [\"Can't apply arguments to non-class, got type[list[Unknown]]\"]",
+    "Line 68: Unexpected errors [\"Can't apply arguments to non-class, got type[list[Unknown]]\"]"
   ],
   "aliases_type_statement.py": [
     "Line 26: Expected 1 errors",
@@ -583,8 +583,8 @@
     "Line 106: Unexpected errors ['assert_type(Any, tuple[type, ...]) failed']",
     "Line 110: Unexpected errors ['assert_type(Any, tuple[type, ...]) failed']",
     "Line 139: Unexpected errors ['assert_type(type, type[Any]) failed']",
-    "Line 152: Unexpected errors [\"Can't apply arguments to non-class, got LegacyExplicitTypeAlias[TA7, type[type[TypeVar(T, variance=PUndefined)]]]\"]",
-    "Line 156: Unexpected errors [\"Can't apply arguments to non-class, got LegacyExplicitTypeAlias[TA8, type[type[TypeVar(T, variance=PUndefined)]]]\"]",
+    "Line 152: Unexpected errors [\"Can't apply arguments to non-class, got TypeAlias[TA7, type[type[TypeVar(T, variance=PUndefined)]]]\"]",
+    "Line 156: Unexpected errors [\"Can't apply arguments to non-class, got TypeAlias[TA8, type[type[TypeVar(T, variance=PUndefined)]]]\"]",
     "Line 160: Unexpected errors ['assert_type(Any, int) failed']",
     "Line 161: Unexpected errors ['assert_type(Any, int) failed']"
   ],

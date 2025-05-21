@@ -248,17 +248,14 @@ impl AnyStyle {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub enum TypeAliasStyle {
     /// A type alias declared with the `type` keyword
-    #[display("ScopedTypeAlias")]
     Scoped,
     /// A type alias declared with a `: TypeAlias` annotation
-    #[display("LegacyExplicitTypeAlias")]
     LegacyExplicit,
     /// An unannotated assignment that may be either an implicit type alias or an untyped value
-    #[display("LegacyImplicitTypeAlias")]
     LegacyImplicit,
 }
 
