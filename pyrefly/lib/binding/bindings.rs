@@ -775,7 +775,7 @@ impl<'a> BindingsBuilder<'a> {
         let name = Hashed::new(name);
         let default = self
             .scopes
-            .update_flow_info_hashed(self.loop_depth, name, key, style);
+            .update_flow_info_hashed(self.loop_depth, name, key, Some(style));
         let info = self
             .scopes
             .current()
@@ -883,7 +883,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.loop_depth,
                     name,
                     binding_key,
-                    FlowStyle::None,
+                    Some(FlowStyle::None),
                 );
             }
         }

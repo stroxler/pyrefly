@@ -561,26 +561,31 @@ impl Scopes {
     }
 
     /// Return the default to use, if inside a loop.
+    /// If `style` is `None`, try preserving the old flow style.
+    /// TODO(grievejia): Properly separate out `FlowStyle` from the keys
     pub fn update_flow_info(
         &mut self,
         loop_depth: u32,
         name: &Name,
         key: Idx<Key>,
-        style: FlowStyle,
+        style: Option<FlowStyle>,
     ) -> Option<Idx<Key>> {
         self.update_flow_info_hashed(loop_depth, Hashed::new(name), key, style)
     }
 
     /// Return the default to use, if inside a loop.
+    /// /// If `style` is `None`, try preserving the old flow style.
+    /// TODO(grievejia): Properly separate out `FlowStyle` from the indices
     pub fn update_flow_info_hashed(
         &mut self,
         loop_depth: u32,
         name: Hashed<&Name>,
         key: Idx<Key>,
-        style: FlowStyle,
+        style: Option<FlowStyle>,
     ) -> Option<Idx<Key>> {
         match self.current_mut().flow.info.entry_hashed(name.cloned()) {
             Entry::Vacant(e) => {
+                let style = style.unwrap_or(FlowStyle::None);
                 e.insert(FlowInfo {
                     key,
                     default: key,
@@ -593,6 +598,11 @@ impl Scopes {
                     Some(e.get().default)
                 } else {
                     None
+                };
+                let style = if let Some(style) = style {
+                    style
+                } else {
+                    e.get().style.clone()
                 };
                 *e.get_mut() = FlowInfo {
                     key,

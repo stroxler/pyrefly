@@ -321,7 +321,7 @@ impl<'a> BindingsBuilder<'a> {
                             self.loop_depth,
                             &name.id,
                             idx,
-                            FlowStyle::Uninitialized,
+                            Some(FlowStyle::Uninitialized),
                         );
                     }
                 }

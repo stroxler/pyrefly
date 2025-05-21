@@ -86,8 +86,12 @@ impl<'a> BindingsBuilder<'a> {
             );
             let name = Hashed::new(&identifier.id);
             if self.lookup_name_hashed(name, LookupKind::Regular).is_ok() {
-                self.scopes
-                    .update_flow_info_hashed(self.loop_depth, name, idx, FlowStyle::None);
+                self.scopes.update_flow_info_hashed(
+                    self.loop_depth,
+                    name,
+                    idx,
+                    Some(FlowStyle::None),
+                );
             }
         } else {
             self.table.insert(
@@ -107,8 +111,12 @@ impl<'a> BindingsBuilder<'a> {
             );
             let name = Hashed::new(&identifier.id);
             if self.lookup_name_hashed(name, LookupKind::Regular).is_ok() {
-                self.scopes
-                    .update_flow_info_hashed(self.loop_depth, name, idx, FlowStyle::None);
+                self.scopes.update_flow_info_hashed(
+                    self.loop_depth,
+                    name,
+                    idx,
+                    Some(FlowStyle::None),
+                );
             }
         } else {
             self.table.insert(
