@@ -588,8 +588,8 @@ impl<'a> BindingsBuilder<'a> {
             );
         }
 
-        let function_idx = self.table.insert(
-            KeyFunction(ShortIdentifier::new(&func_name)),
+        self.table.insert_idx(
+            function_idx,
             BindingFunction {
                 def: x,
                 stub_or_impl,
