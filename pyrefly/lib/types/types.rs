@@ -116,8 +116,7 @@ pub struct ValidatedTParams {
     pub errors: Vec<String>,
 }
 
-/// Wraps a vector of type parameters. The constructor ensures that
-/// type parameters without defaults never follow ones with defaults.
+/// Wraps a vector of type parameters.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct TParams(Vec<TParam>);
