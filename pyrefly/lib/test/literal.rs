@@ -136,6 +136,17 @@ def foo(x):
 );
 
 testcase!(
+    test_index_bool,
+    r#"
+from typing import assert_type, Literal
+t = ("a", "b")
+assert_type(t[False], Literal["a"])
+assert_type(t[True], Literal["b"])
+
+"#,
+);
+
+testcase!(
     test_literal_nesting,
     r#"
 from typing import Literal, assert_type

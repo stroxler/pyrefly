@@ -1534,7 +1534,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Some(box expr) => {
                         let lower_type = self.expr_infer(expr, errors);
                         match &lower_type {
-                            Type::Literal(Lit::Int(idx)) => idx.as_i64(),
+                            Type::Literal(lit) => lit.as_index_i64(),
                             _ => None,
                         }
                     }
@@ -1544,7 +1544,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Some(box expr) => {
                         let upper_type = self.expr_infer(expr, errors);
                         match &upper_type {
-                            Type::Literal(Lit::Int(idx)) => idx.as_i64(),
+                            Type::Literal(lit) => lit.as_index_i64(),
                             _ => None,
                         }
                     }
@@ -1575,7 +1575,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             _ => {
                 let idx_type = self.expr_infer(index, errors);
                 match &idx_type {
-                    Type::Literal(Lit::Int(idx)) if let Some(idx) = idx.as_i64() => {
+                    Type::Literal(lit) if let Some(idx) = lit.as_index_i64() => {
                         let elt_idx = if idx >= 0 {
                             idx
                         } else {
@@ -1620,8 +1620,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Type {
         let index_ty = self.expr_infer(index_expr, errors);
         match &index_ty {
-            Type::Literal(Lit::Int(value)) => {
-                if let Some(int_value) = value.as_i64() {
+            Type::Literal(lit) => {
+                if let Some(int_value) = lit.as_index_i64() {
                     if int_value >= 0
                         && let Some(byte) = bytes.get(int_value.to_usize().unwrap_or_default())
                     {

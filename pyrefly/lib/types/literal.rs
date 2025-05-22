@@ -153,4 +153,13 @@ impl Lit {
     pub fn is_string(&self) -> bool {
         matches!(self, Lit::Str(_))
     }
+
+    pub fn as_index_i64(&self) -> Option<i64> {
+        match self {
+            Lit::Int(x) => x.as_i64(),
+            Lit::Bool(true) => Some(1),
+            Lit::Bool(false) => Some(0),
+            _ => None,
+        }
+    }
 }
