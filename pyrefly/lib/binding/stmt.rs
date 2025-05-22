@@ -629,8 +629,14 @@ impl<'a> BindingsBuilder<'a> {
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.setup_loop(x.range, &narrow_ops);
                 self.ensure_expr(&mut x.test);
+                let range = x.test.range();
                 self.table
-                    .insert(Key::Anon(x.test.range()), Binding::Expr(None, *x.test));
+                    .insert(Key::Anon(range), Binding::Expr(None, *x.test.clone()));
+                // Typecheck the test condition during solving.
+                self.table.insert(
+                    KeyExpect(range),
+                    BindingExpect::Bool(Box::new(*x.test), range),
+                );
                 self.stmts(x.body);
                 self.teardown_loop(x.range, &narrow_ops, x.orelse);
             }
@@ -658,7 +664,12 @@ impl<'a> BindingsBuilder<'a> {
                     if let Some(mut e) = test {
                         self.ensure_expr(&mut e);
                         self.table
-                            .insert(Key::Anon(e.range()), Binding::Expr(None, e));
+                            .insert(Key::Anon(e.range()), Binding::Expr(None, e.clone()));
+                        // Typecheck the test condition during solving.
+                        self.table.insert(
+                            KeyExpect(e.range()),
+                            BindingExpect::Bool(Box::new(e.clone()), range),
+                        );
                     } else {
                         implicit_else = false;
                     }

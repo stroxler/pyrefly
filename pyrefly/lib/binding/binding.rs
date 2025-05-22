@@ -287,6 +287,8 @@ pub enum BindingExpect {
     },
     /// `del` statement
     Delete(Box<Expr>),
+    /// Expression used in a boolean context (`bool()`, `if`, or `while`)
+    Bool(Box<Expr>, TextRange),
 }
 
 impl DisplayWith<Bindings> for BindingExpect {
@@ -295,6 +297,9 @@ impl DisplayWith<Bindings> for BindingExpect {
         match self {
             Self::TypeCheckExpr(box x) => {
                 write!(f, "type check expr {}", m.display(x))
+            }
+            Self::Bool(box x, ..) => {
+                write!(f, "check bool expr {}", m.display(x))
             }
             Self::Delete(box x) => {
                 write!(f, "del {}", m.display(x))

@@ -1363,13 +1363,66 @@ class NotBoolable:
     __bool__: int = 3
 
 # bool()
-y = bool(NotBoolable())  # E: NotBoolable.__bool__ is not callable
+y = bool(NotBoolable())  # E: `NotBoolable.__bool__` has type `int`, which is not callable
 
 # if expressions
-x = 0 if NotBoolable() else 1  # E: NotBoolable.__bool__ is not callable
+x = 0 if NotBoolable() else 1  # E: `NotBoolable.__bool__` has type `int`, which is not callable
 
 # if statements
-# TODO: This should raise an error too
-if NotBoolable(): ...
+if NotBoolable(): ...  # E: `NotBoolable.__bool__` has type `int`, which is not callable
+
+# while statements
+while NotBoolable(): ...  # E: `NotBoolable.__bool__` has type `int`, which is not callable
+
+# expression evaluating to NotBoolable
+def f() -> NotBoolable:
+  return NotBoolable()
+
+if (f() if True else None): ...  # E: `NotBoolable.__bool__` has type `int`, which is not callable
+"#,
+);
+
+// Check that we don't raise false positives (or true positives that we want to avoid failing on)
+// for some corner cases
+testcase!(
+    test_valid_dunder_bool,
+    r#"
+
+from typing import Any, Literal, Never
+
+# Any is always assumed to be valid
+def f(x):
+  if x: ...
+
+def g(x: Any):
+  if x: ...
+
+# Never does not raise a type error
+def g() -> Never:
+    raise Exception()
+
+if g(): ...
+
+# Union types are not checked due to risk of false positives
+class B:
+  def __bool__(self) -> bool:
+    return True
+
+class C:
+  def __bool__(self) -> Literal[False]:
+    return False
+
+class D:
+    __bool__ = 42
+
+def j(x: B | C):
+    if x: ...
+
+# Invalid, but we don't check
+def k(x: B | D):
+    if x: ...
+
+def l(x: int | None):
+    if x: ...
 "#,
 );
