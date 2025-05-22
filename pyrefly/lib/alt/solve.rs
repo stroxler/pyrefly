@@ -1012,9 +1012,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BindingExpect::Bool(box x, range) => {
                 // See test::attribute_narrow::test_invalid_narrows_on_bad_attribute_access for a
                 // test that fails if we do not discard the errors from expr_infer() here.
-                let discarded_errors =
-                    ErrorCollector::new(errors.module_info().clone(), ErrorStyle::Delayed);
-                let ty = self.expr_infer(x, &discarded_errors);
+                let ty = self.expr_infer(x, &self.error_swallower());
                 self.check_dunder_bool_is_callable(&ty, *range, errors);
             }
             BindingExpect::Delete(box x) => match x {
@@ -1883,10 +1881,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     (None, ty_ref)
                         if Self::may_be_implicit_type_alias(ty_ref)
-                            && Self::is_valid_annotation(
-                                expr,
-                                &ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Never),
-                            ) =>
+                            && Self::is_valid_annotation(expr, &self.error_swallower()) =>
                     {
                         self.as_type_alias(name, TypeAliasStyle::LegacyImplicit, ty, expr, errors)
                     }
