@@ -1171,7 +1171,7 @@ impl DisplayWith<Bindings> for BindingClass {
 /// defining instance attributes.
 #[derive(Clone, Debug)]
 pub struct BindingClassField {
-    pub class: Idx<KeyClass>,
+    pub class_idx: Idx<KeyClass>,
     pub name: Name,
     pub value: ExprOrBinding,
     pub annotation: Option<Idx<KeyAnnotation>>,
@@ -1226,7 +1226,7 @@ impl DisplayWith<Bindings> for BindingClassSynthesizedFields {
 /// The `[Idx<Key>]` points to the class's decorators.
 #[derive(Clone, Debug)]
 pub struct BindingClassMetadata {
-    pub def: Idx<KeyClass>,
+    pub class_idx: Idx<KeyClass>,
     pub bases: Box<[Expr]>,
     pub keywords: Box<[(Name, Expr)]>,
     pub decorators: Box<[Idx<Key>]>,
@@ -1236,7 +1236,7 @@ pub struct BindingClassMetadata {
 
 impl DisplayWith<Bindings> for BindingClassMetadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
-        write!(f, "metadata {}", ctx.display(self.def))
+        write!(f, "metadata {}", ctx.display(self.class_idx))
     }
 }
 

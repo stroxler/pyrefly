@@ -196,7 +196,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Arc<ClassMetadata> {
         let BindingClassMetadata {
-            def: k,
+            class_idx: k,
             bases,
             keywords,
             decorators,
@@ -1202,7 +1202,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         field: &BindingClassField,
         errors: &ErrorCollector,
     ) -> Arc<ClassField> {
-        let field = match &self.get_idx(field.class).0 {
+        let field = match &self.get_idx(field.class_idx).0 {
             None => ClassField::recursive(),
             Some(class) => {
                 let annotation = field.annotation.map(|a| self.get_idx(a));

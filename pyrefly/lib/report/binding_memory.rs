@@ -156,7 +156,7 @@ mod tests {
         );
 
         let v = BindingClassMetadata {
-            def: Idx::new(42),
+            class_idx: Idx::new(42),
             bases: Default::default(),
             keywords: Default::default(),
             decorators: Default::default(),
