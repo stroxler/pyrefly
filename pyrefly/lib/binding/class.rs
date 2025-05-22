@@ -77,26 +77,11 @@ impl<'a> BindingsBuilder<'a> {
 
     fn class_indices(&mut self, class_name: &Identifier) -> ClassIndices {
         let def_index = self.def_index();
-        let class_idx = self
-            .table
-            .classes
-            .0
-            .insert(KeyClass(ShortIdentifier::new(class_name)));
-        let metadata_idx = self
-            .table
-            .class_metadata
-            .0
-            .insert(KeyClassMetadata(def_index));
-        let synthesized_fields_idx = self
-            .table
-            .class_synthesized_fields
-            .0
-            .insert(KeyClassSynthesizedFields(def_index));
         ClassIndices {
             def_index,
-            class_idx,
-            metadata_idx,
-            synthesized_fields_idx,
+            class_idx: self.idx_for_promise(KeyClass(ShortIdentifier::new(class_name))),
+            metadata_idx: self.idx_for_promise(KeyClassMetadata(def_index)),
+            synthesized_fields_idx: self.idx_for_promise(KeyClassSynthesizedFields(def_index)),
         }
     }
 
