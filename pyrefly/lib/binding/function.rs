@@ -328,18 +328,15 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    /// Compute a `Key::ReturnImplicit` / `Binding::ReturnImplicit` for the given function body.
+    ///
+    /// This function must not be called unless the function body statements will be bound;
+    /// it relies on that binding to ensure we don't have a dangling `Idx<Key>` (which could lead
+    /// to a panic).
     fn implicit_return(&mut self, body: &[Stmt], func_name: &Identifier) -> Idx<Key> {
         let last_exprs = function_last_expressions(body, self.sys_info).map(|x| {
-            x.into_map(|(last, x)| {
-                (
-                    last,
-                    self.table.types.0.insert(match last {
-                        LastStmt::Expr => Key::StmtExpr(x.range()),
-                        LastStmt::With(_) => Key::ContextExpr(x.range()),
-                    }),
-                )
-            })
-            .into_boxed_slice()
+            x.into_map(|(last, x)| (last, self.last_statement_idx_for_implicit_return(last, x)))
+                .into_boxed_slice()
         });
         self.table.insert(
             Key::ReturnImplicit(ShortIdentifier::new(func_name)),

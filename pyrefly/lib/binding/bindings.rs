@@ -53,6 +53,7 @@ use crate::binding::binding::KeyLegacyTypeParam;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::Keyed;
+use crate::binding::binding::LastStmt;
 use crate::binding::binding::TypeParameter;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Flow;
@@ -493,6 +494,17 @@ pub enum LookupKind {
 }
 
 impl<'a> BindingsBuilder<'a> {
+    /// Allow access to an `Idx<Key>` given a `LastStmt` coming from a scan of a function body.
+    /// This index will not be dangling under two assumptions:
+    /// - we bind the function body (note that this isn't true for, e.g. a `@no_type_check` function!)
+    /// - our scan of the function body is consistent with our traversal when binding
+    pub fn last_statement_idx_for_implicit_return(&mut self, last: LastStmt, x: &Expr) -> Idx<Key> {
+        self.table.types.0.insert(match last {
+            LastStmt::Expr => Key::StmtExpr(x.range()),
+            LastStmt::With(_) => Key::ContextExpr(x.range()),
+        })
+    }
+
     /// Given the name of a function def, return a new `Idx<KeyFunctionDef>` at which
     /// we will store the result of binding it along with an optional `Idx<Key>` at which
     /// we have the binding for the TypeInfo of any preceding function def of the same name.
