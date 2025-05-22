@@ -254,7 +254,7 @@ pub struct ClassIndices {
 #[derive(Clone, Debug)]
 pub struct ScopeClass {
     pub name: Identifier,
-    indices: ClassIndices,
+    pub indices: ClassIndices,
     attributes_from_recognized_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
     attributes_from_other_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
 }
@@ -281,10 +281,6 @@ impl ScopeClass {
 
     pub fn as_class_key(&self) -> KeyClass {
         KeyClass(ShortIdentifier::new(&self.name))
-    }
-
-    pub fn as_class_metadata_key(&self) -> KeyClassMetadata {
-        KeyClassMetadata(self.indices.def_index)
     }
 
     pub fn add_attributes_defined_by_method(

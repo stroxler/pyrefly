@@ -532,15 +532,10 @@ impl<'a> BindingsBuilder<'a> {
         // Get preceding function definition, if any. Used for building an overload type.
         let (function_idx, pred_idx) = self.create_function_index(&x.name);
 
-        let (class_key, class_meta) = match &self.scopes.current().kind {
+        let (class_key, metadata_key) = match &self.scopes.current().kind {
             ScopeKind::Class(class_scope) => (
-                Some(self.table.classes.0.insert(class_scope.as_class_key())),
-                Some(
-                    self.table
-                        .class_metadata
-                        .0
-                        .insert(class_scope.as_class_metadata_key()),
-                ),
+                Some(class_scope.indices.class_idx),
+                Some(class_scope.indices.metadata_idx),
             ),
             _ => (None, None),
         };
@@ -590,7 +585,7 @@ impl<'a> BindingsBuilder<'a> {
 
         self.bind_definition(
             &func_name,
-            Binding::Function(function_idx, pred_idx, class_meta),
+            Binding::Function(function_idx, pred_idx, metadata_key),
             FlowStyle::FunctionDef(function_idx, return_ann_with_range.is_some()),
         );
     }
