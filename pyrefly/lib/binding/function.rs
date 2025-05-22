@@ -530,21 +530,8 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn function_def(&mut self, mut x: StmtFunctionDef) {
         // Get preceding function definition, if any. Used for building an overload type.
-        let mut pred_idx = None;
-        let mut pred_function_idx = None;
-        if let Some(flow) = self.scopes.current().flow.info.get(&x.name.id) {
-            if let FlowStyle::FunctionDef(fidx, _) = flow.style {
-                pred_idx = Some(flow.key);
-                pred_function_idx = Some(fidx);
-            }
-        }
+        let (function_idx, pred_idx) = self.create_function_index(&x.name);
 
-        let func_name = x.name.clone();
-        let function_idx = self
-            .table
-            .functions
-            .0
-            .insert(KeyFunction(ShortIdentifier::new(&func_name)));
         let (class_key, class_meta) = match &self.scopes.current().kind {
             ScopeKind::ClassBody(body) => (
                 Some(self.table.classes.0.insert(body.as_class_key())),
@@ -558,6 +545,7 @@ impl<'a> BindingsBuilder<'a> {
             _ => (None, None),
         };
 
+        let func_name = x.name.clone();
         self.scopes.push(Scope::annotation(x.range));
         let (return_ann_with_range, legacy_tparams) =
             self.function_header(&mut x, &func_name, class_key);
@@ -599,11 +587,6 @@ impl<'a> BindingsBuilder<'a> {
                 successor: None,
             },
         );
-
-        if let Some(pred_function_idx) = pred_function_idx {
-            let pred_binding = self.table.functions.1.get_mut(pred_function_idx).unwrap();
-            pred_binding.successor = Some(function_idx);
-        }
 
         self.bind_definition(
             &func_name,

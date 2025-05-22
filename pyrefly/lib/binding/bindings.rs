@@ -493,6 +493,48 @@ pub enum LookupKind {
 }
 
 impl<'a> BindingsBuilder<'a> {
+    /// Given the name of a function def, return a new `Idx<KeyFunctionDef>` at which
+    /// we will store the result of binding it along with an optional `Idx<Key>` at which
+    /// we have the binding for the TypeInfo of any preceding function def of the same name.
+    ///
+    /// An invariant is that the caller must store a binding for the returned
+    /// `Idx<KeyFunctionDef>`; failure to do so will lead to a dangling Idx and
+    /// a panic at solve time.
+    ///
+    /// Function bindings are unusual because the `@overload` decorator causes bindings
+    /// that would normally be unrelated in control flow to become tied together.
+    ///
+    /// As a result, when we create a Idx<KeyFunction> for binding a function def, we
+    /// will want to track any pre-existing binding associated with the same name and
+    /// link the bindings together.
+    pub fn create_function_index(
+        &mut self,
+        function_identifier: &Identifier,
+    ) -> (Idx<KeyFunction>, Option<Idx<Key>>) {
+        // Get the index of both the `Key` and `KeyFunction` for the preceding function definition, if any
+        let mut pred_idx = None;
+        let mut pred_function_idx = None;
+        if let Some(flow) = self.scopes.current().flow.info.get(&function_identifier.id) {
+            if let FlowStyle::FunctionDef(fidx, _) = flow.style {
+                pred_idx = Some(flow.key);
+                pred_function_idx = Some(fidx);
+            }
+        }
+        // Create the Idx<KeyFunction> at which we'll store the def we are ready to bind now.
+        // The caller *must* eventually store a binding for it.
+        let function_idx = self
+            .table
+            .functions
+            .0
+            .insert(KeyFunction(ShortIdentifier::new(function_identifier)));
+        // If we found a previous def, we store a forward reference inside its `BindingFunction`.
+        if let Some(pred_function_idx) = pred_function_idx {
+            let pred_binding = self.table.functions.1.get_mut(pred_function_idx).unwrap();
+            pred_binding.successor = Some(function_idx);
+        }
+        (function_idx, pred_idx)
+    }
+
     pub fn init_static_scope(&mut self, x: &[Stmt], top_level: bool) {
         let current = self.scopes.current_mut();
         current.stat.stmts(
