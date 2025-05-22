@@ -235,12 +235,12 @@ impl<'a> BindingsBuilder<'a> {
         self.synthesize_typing_new_type(Ast::expr_name_identifier(name.clone()), base.clone());
     }
 
-    pub fn ensure_mutable_name(&mut self, x: &ExprName) {
+    pub fn ensure_mutable_name(&mut self, x: &ExprName) -> Idx<Key> {
         let name = Ast::expr_name_identifier(x.clone());
         let binding = self
             .lookup_name(&name.id, LookupKind::Mutable)
             .map(Binding::Forward);
-        self.ensure_name(&name, binding, LookupKind::Mutable);
+        self.ensure_name(&name, binding, LookupKind::Mutable)
     }
 
     fn ensure_nonlocal_name(&mut self, name: &Identifier) {
@@ -309,9 +309,7 @@ impl<'a> BindingsBuilder<'a> {
                         BindingExpect::Delete(Box::new(target.clone())),
                     );
                     if let Expr::Name(name) = target {
-                        self.ensure_mutable_name(name);
-                        let key = Key::Usage(ShortIdentifier::expr_name(name));
-                        let idx = self.table.types.0.insert(key);
+                        let idx = self.ensure_mutable_name(name);
                         self.scopes.update_flow_info(
                             self.loop_depth,
                             &name.id,
