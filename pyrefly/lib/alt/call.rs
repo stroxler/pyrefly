@@ -458,6 +458,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Type::TypedDict(typed_dict)
     }
 
+    fn first_arg_type(&self, args: &[CallArg], errors: &ErrorCollector) -> Option<Type> {
+        if let Some(first_arg) = args.first() {
+            match first_arg {
+                CallArg::Expr(e) => Some(self.expr_infer(e, errors)),
+                CallArg::Type(t, _) => Some((**t).clone()),
+                CallArg::Star(..) => None,
+            }
+        } else {
+            None
+        }
+    }
+
     pub fn call_infer(
         &self,
         call_target: CallTarget,
@@ -491,6 +503,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ),
                     );
                 }
+                if cls.has_qname("builtins", "bool") {
+                    match self.first_arg_type(args, errors) {
+                        None => (),
+                        Some(ty) => self.check_dunder_bool_is_callable(&ty, range, errors),
+                    }
+                };
                 self.construct_class(cls, args, keywords, range, errors, context)
             }
             Target::TypedDict(td) => {
@@ -520,14 +538,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Most instances of typing.Self are replaced in as_call_target, but __new__ is a
                 // staticmethod, so we don't have access to the first argument until we get here.
                 let id = metadata.kind.as_func_id();
-                let first_arg_type = if id.func == dunder::NEW
-                    && let Some(first_arg) = args.first()
-                {
-                    match first_arg {
-                        CallArg::Expr(e) => Some(self.expr_infer(e, errors)),
-                        CallArg::Type(t, _) => Some((**t).clone()),
-                        CallArg::Star(..) => None,
-                    }
+                let first_arg_type = if id.func == dunder::NEW {
+                    self.first_arg_type(args, errors)
                 } else {
                     None
                 };

@@ -1545,3 +1545,41 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         res
     }
 }
+
+impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    // When coercing an instance of condition_type to bool, check that either it does not override
+    // __bool__, or that condition_type.__bool__ is callable.
+    pub fn check_dunder_bool_is_callable(
+        &self,
+        condition_type: &Type,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        let cond_bool_ty = self.type_of_magic_dunder_attr(
+            condition_type,
+            &dunder::BOOL,
+            range,
+            errors,
+            None,
+            "__bool__",
+        );
+
+        if let Some(ty) = cond_bool_ty
+            && !matches!(
+                ty,
+                Type::Callable(_) | Type::BoundMethod(_) | Type::Function(_)
+            )
+        {
+            self.error(
+                errors,
+                range,
+                ErrorKind::InvalidArgument,
+                None,
+                format!(
+                    "{}.__bool__ is not callable",
+                    self.for_display(condition_type.clone())
+                ),
+            );
+        }
+    }
+}

@@ -1362,6 +1362,14 @@ testcase!(
 class NotBoolable:
     __bool__: int = 3
 
+# bool()
+y = bool(NotBoolable())  # E: NotBoolable.__bool__ is not callable
+
+# if expressions
 x = 0 if NotBoolable() else 1  # E: NotBoolable.__bool__ is not callable
+
+# if statements
+# TODO: This should raise an error too
+if NotBoolable(): ...
 "#,
 );
