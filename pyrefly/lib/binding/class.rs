@@ -39,6 +39,7 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
+use crate::binding::scope::ClassIndices;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::MethodThatSetsAttr;
@@ -74,6 +75,31 @@ impl<'a> BindingsBuilder<'a> {
         res
     }
 
+    fn class_indices(&mut self, class_name: &Identifier) -> ClassIndices {
+        let def_index = self.def_index();
+        let class_idx = self
+            .table
+            .classes
+            .0
+            .insert(KeyClass(ShortIdentifier::new(class_name)));
+        let metadata_idx = self
+            .table
+            .class_metadata
+            .0
+            .insert(KeyClassMetadata(def_index));
+        let synthesized_fields_idx = self
+            .table
+            .class_synthesized_fields
+            .0
+            .insert(KeyClassSynthesizedFields(def_index));
+        ClassIndices {
+            def_index,
+            class_idx,
+            metadata_idx,
+            synthesized_fields_idx,
+        }
+    }
+
     pub fn class_def(&mut self, mut x: StmtClassDef) {
         if self.module_info.name() == ModuleName::typing() && x.name.as_str() == "Any" {
             // We special case the definition of `Any`, because it isn't a `SpecialForm`,
@@ -86,17 +112,12 @@ impl<'a> BindingsBuilder<'a> {
             return;
         }
 
+        let class_indices = self.class_indices(&x.name);
+
         let body = mem::take(&mut x.body);
         let decorators = self.ensure_and_bind_decorators(mem::take(&mut x.decorator_list));
 
         self.scopes.push(Scope::annotation(x.range));
-
-        let def_index = self.def_index();
-        let class_idx = self
-            .table
-            .classes
-            .0
-            .insert(KeyClass(ShortIdentifier::new(&x.name)));
 
         x.type_params.iter_mut().for_each(|x| {
             self.type_params(x);
@@ -143,10 +164,10 @@ impl<'a> BindingsBuilder<'a> {
             });
         }
 
-        self.table.insert(
-            KeyClassMetadata(def_index),
+        self.table.insert_idx(
+            class_indices.metadata_idx,
             BindingClassMetadata {
-                class_idx,
+                class_idx: class_indices.class_idx,
                 bases: bases.clone().into_boxed_slice(),
                 keywords: keywords.into_boxed_slice(),
                 decorators: decorators.clone().into_boxed_slice(),
@@ -154,16 +175,18 @@ impl<'a> BindingsBuilder<'a> {
                 special_base: None,
             },
         );
-        self.table.insert(
-            KeyClassSynthesizedFields(def_index),
-            BindingClassSynthesizedFields(class_idx),
+        self.table.insert_idx(
+            class_indices.synthesized_fields_idx,
+            BindingClassSynthesizedFields(class_indices.class_idx),
         );
-
         let legacy_tparam_builder = legacy.unwrap();
         legacy_tparam_builder.add_name_definitions(self);
 
-        self.scopes
-            .push(Scope::class_body(x.range, def_index, x.name.clone()));
+        self.scopes.push(Scope::class_body(
+            x.range,
+            class_indices.clone(),
+            x.name.clone(),
+        ));
         self.init_static_scope(&body, false);
         self.stmts(body);
 
@@ -186,7 +209,7 @@ impl<'a> BindingsBuilder<'a> {
                     _ => ExprOrBinding::Binding(Binding::Forward(info.key)),
                 };
                 let binding = BindingClassField {
-                    class_idx,
+                    class_idx: class_indices.class_idx,
                     name: name.into_key().clone(),
                     value,
                     annotation: stat_info.annot,
@@ -198,8 +221,10 @@ impl<'a> BindingsBuilder<'a> {
                     name.cloned(),
                     ClassFieldProperties::new(stat_info.annot.is_some(), stat_info.loc),
                 );
-                self.table
-                    .insert(KeyClassField(def_index, name.into_key().clone()), binding);
+                self.table.insert(
+                    KeyClassField(class_indices.def_index, name.into_key().clone()),
+                    binding,
+                );
             }
         }
         if let ScopeKind::Class(class_scope) = last_scope.kind {
@@ -224,9 +249,9 @@ impl<'a> BindingsBuilder<'a> {
                         ClassFieldProperties::new(annotation.is_some(), range),
                     );
                     self.table.insert(
-                        KeyClassField(def_index, name.key().clone()),
+                        KeyClassField(class_indices.def_index, name.key().clone()),
                         BindingClassField {
-                            class_idx,
+                            class_idx: class_indices.class_idx,
                             name: name.into_key(),
                             value,
                             annotation,
@@ -249,14 +274,14 @@ impl<'a> BindingsBuilder<'a> {
 
         self.bind_definition(
             &x.name,
-            Binding::ClassDef(class_idx, decorators.into_boxed_slice()),
+            Binding::ClassDef(class_indices.class_idx, decorators.into_boxed_slice()),
             FlowStyle::None,
         );
         fields_defined_in_this_class.reserve(0); // Attempt to shrink to capacity
         self.table.insert_idx(
-            class_idx,
+            class_indices.class_idx,
             BindingClass::ClassDef(ClassBinding {
-                def_index,
+                def_index: class_indices.def_index,
                 def: x,
                 fields: fields_defined_in_this_class,
                 bases: bases.into_boxed_slice(),
@@ -337,16 +362,11 @@ impl<'a> BindingsBuilder<'a> {
         class_kind: SynthesizedClassKind,
         special_base: Option<Box<BaseClass>>,
     ) {
-        let def_index = self.def_index();
-        let class_idx = self
-            .table
-            .classes
-            .0
-            .insert(KeyClass(ShortIdentifier::new(&class_name)));
-        self.table.insert(
-            KeyClassMetadata(def_index),
+        let class_indices = self.class_indices(&class_name);
+        self.table.insert_idx(
+            class_indices.metadata_idx,
             BindingClassMetadata {
-                class_idx,
+                class_idx: class_indices.class_idx,
                 bases: base.into_iter().collect::<Vec<_>>().into_boxed_slice(),
                 keywords,
                 decorators: Box::new([]),
@@ -354,9 +374,9 @@ impl<'a> BindingsBuilder<'a> {
                 special_base,
             },
         );
-        self.table.insert(
-            KeyClassSynthesizedFields(def_index),
-            BindingClassSynthesizedFields(class_idx),
+        self.table.insert_idx(
+            class_indices.synthesized_fields_idx,
+            BindingClassSynthesizedFields(class_indices.class_idx),
         );
         let mut fields = SmallMap::new();
         for (idx, (member_name, range, member_annotation, member_value)) in
@@ -441,9 +461,9 @@ impl<'a> BindingsBuilder<'a> {
                 None
             };
             self.table.insert(
-                KeyClassField(def_index, member_name.clone()),
+                KeyClassField(class_indices.def_index, member_name.clone()),
                 BindingClassField {
-                    class_idx,
+                    class_idx: class_indices.class_idx,
                     name: member_name,
                     value,
                     annotation: annotation_binding,
@@ -455,12 +475,12 @@ impl<'a> BindingsBuilder<'a> {
         }
         self.bind_definition(
             &class_name,
-            Binding::ClassDef(class_idx, Box::new([])),
+            Binding::ClassDef(class_indices.class_idx, Box::new([])),
             FlowStyle::None,
         );
         self.table.insert_idx(
-            class_idx,
-            BindingClass::FunctionalClassDef(def_index, class_name, fields),
+            class_indices.class_idx,
+            BindingClass::FunctionalClassDef(class_indices.def_index, class_name, fields),
         );
     }
 

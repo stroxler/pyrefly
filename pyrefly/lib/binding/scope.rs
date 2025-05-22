@@ -29,6 +29,7 @@ use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
+use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyFunction;
 use crate::binding::bindings::BindingTable;
 use crate::dunder;
@@ -233,10 +234,27 @@ impl FlowInfo {
     }
 }
 
+/// Because of compliciations related both to recursion in the binding graph and to
+/// the need for efficient representations, Pyrefly relies on multiple different integer
+/// indexes used to refer to classes and retrieve different kinds of binding information.
+///
+/// This struct type captures the requirement that a class must always have all of these
+/// indexes available, and provides a convenient way to pass them.
+///
+/// This is used in bindings code, but the solver depends on the invariant that all these
+/// indexes, which get stored in various Binding nodes, must be valid.
+#[derive(Debug, Clone)]
+pub struct ClassIndices {
+    pub def_index: ClassDefIndex,
+    pub class_idx: Idx<KeyClass>,
+    pub metadata_idx: Idx<KeyClassMetadata>,
+    pub synthesized_fields_idx: Idx<KeyClassSynthesizedFields>,
+}
+
 #[derive(Clone, Debug)]
 pub struct ScopeClass {
     pub name: Identifier,
-    index: ClassDefIndex,
+    indices: ClassIndices,
     attributes_from_recognized_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
     attributes_from_other_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
 }
@@ -252,20 +270,21 @@ pub struct MethodThatSetsAttr {
 }
 
 impl ScopeClass {
-    pub fn new(name: Identifier, index: ClassDefIndex) -> Self {
+    pub fn new(name: Identifier, indices: ClassIndices) -> Self {
         Self {
             name,
-            index,
+            indices,
             attributes_from_recognized_methods: SmallMap::new(),
             attributes_from_other_methods: SmallMap::new(),
         }
     }
+
     pub fn as_class_key(&self) -> KeyClass {
         KeyClass(ShortIdentifier::new(&self.name))
     }
 
     pub fn as_class_metadata_key(&self) -> KeyClassMetadata {
-        KeyClassMetadata(self.index)
+        KeyClassMetadata(self.indices.def_index)
     }
 
     pub fn add_attributes_defined_by_method(
@@ -408,11 +427,11 @@ impl Scope {
         Self::new(range, false, ScopeKind::Annotation)
     }
 
-    pub fn class_body(range: TextRange, def_index: ClassDefIndex, name: Identifier) -> Self {
+    pub fn class_body(range: TextRange, indices: ClassIndices, name: Identifier) -> Self {
         Self::new(
             range,
             false,
-            ScopeKind::Class(ScopeClass::new(name, def_index)),
+            ScopeKind::Class(ScopeClass::new(name, indices)),
         )
     }
 
