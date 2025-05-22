@@ -199,7 +199,7 @@ impl<'a> BindingsBuilder<'a> {
                     .insert(KeyClassField(class_index, name.into_key().clone()), binding);
             }
         }
-        if let ScopeKind::ClassBody(body) = last_scope.kind {
+        if let ScopeKind::Class(class_scope) = last_scope.kind {
             for (
                 name,
                 MethodThatSetsAttr {
@@ -207,7 +207,7 @@ impl<'a> BindingsBuilder<'a> {
                     recognized_attribute_defining_method,
                 },
                 InstanceAttribute(value, annotation, range),
-            ) in body.method_defined_attributes()
+            ) in class_scope.method_defined_attributes()
             {
                 if !fields_defined_in_this_class.contains_key_hashed(name.as_ref()) {
                     if !recognized_attribute_defining_method {

@@ -204,11 +204,11 @@ impl<'a> BindingsBuilder<'a> {
             );
         }
         if let Scope {
-            kind: ScopeKind::Method(method),
+            kind: ScopeKind::Method(method_scope),
             ..
         } = self.scopes.current_mut()
         {
-            method.self_name = self_name;
+            method_scope.self_name = self_name;
         }
     }
 
@@ -293,9 +293,9 @@ impl<'a> BindingsBuilder<'a> {
         self.stmts(body);
         let func_scope = self.scopes.pop();
         let self_assignments = match func_scope.kind {
-            ScopeKind::Method(m) => Some(SelfAssignments {
-                method_name: m.name.id,
-                instance_attributes: m.instance_attributes,
+            ScopeKind::Method(method_scope) => Some(SelfAssignments {
+                method_name: method_scope.name.id,
+                instance_attributes: method_scope.instance_attributes,
             }),
             _ => None,
         };
@@ -533,13 +533,13 @@ impl<'a> BindingsBuilder<'a> {
         let (function_idx, pred_idx) = self.create_function_index(&x.name);
 
         let (class_key, class_meta) = match &self.scopes.current().kind {
-            ScopeKind::ClassBody(body) => (
-                Some(self.table.classes.0.insert(body.as_class_key())),
+            ScopeKind::Class(class_scope) => (
+                Some(self.table.classes.0.insert(class_scope.as_class_key())),
                 Some(
                     self.table
                         .class_metadata
                         .0
-                        .insert(body.as_class_metadata_key()),
+                        .insert(class_scope.as_class_metadata_key()),
                 ),
             ),
             _ => (None, None),
@@ -568,9 +568,9 @@ impl<'a> BindingsBuilder<'a> {
         // case where we need to track assignments to `self` from methods.
         self.scopes.pop();
         if let Some(self_assignments) = self_assignments
-            && let ScopeKind::ClassBody(body) = &mut self.scopes.current_mut().kind
+            && let ScopeKind::Class(class_scope) = &mut self.scopes.current_mut().kind
         {
-            body.add_attributes_defined_by_method(
+            class_scope.add_attributes_defined_by_method(
                 self_assignments.method_name,
                 self_assignments.instance_attributes,
             );

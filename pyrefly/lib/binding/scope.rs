@@ -234,7 +234,7 @@ impl FlowInfo {
 }
 
 #[derive(Clone, Debug)]
-pub struct ClassBodyInner {
+pub struct ScopeClass {
     pub name: Identifier,
     index: ClassIndex,
     attributes_from_recognized_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
@@ -251,7 +251,7 @@ pub struct MethodThatSetsAttr {
     pub recognized_attribute_defining_method: bool,
 }
 
-impl ClassBodyInner {
+impl ScopeClass {
     pub fn new(name: Identifier, index: ClassIndex) -> Self {
         Self {
             name,
@@ -343,7 +343,7 @@ pub struct InstanceAttribute(
 );
 
 #[derive(Clone, Debug)]
-pub struct MethodInner {
+pub struct ScopeMethod {
     pub name: Identifier,
     pub self_name: Option<Identifier>,
     pub instance_attributes: SmallMap<Name, InstanceAttribute>,
@@ -352,10 +352,10 @@ pub struct MethodInner {
 #[derive(Clone, Debug)]
 pub enum ScopeKind {
     Annotation,
-    ClassBody(ClassBodyInner),
+    Class(ScopeClass),
     Comprehension,
     Function,
-    Method(MethodInner),
+    Method(ScopeMethod),
     Module,
 }
 
@@ -409,11 +409,7 @@ impl Scope {
     }
 
     pub fn class_body(range: TextRange, index: ClassIndex, name: Identifier) -> Self {
-        Self::new(
-            range,
-            false,
-            ScopeKind::ClassBody(ClassBodyInner::new(name, index)),
-        )
+        Self::new(range, false, ScopeKind::Class(ScopeClass::new(name, index)))
     }
 
     pub fn comprehension(range: TextRange) -> Self {
@@ -428,7 +424,7 @@ impl Scope {
         Self::new(
             range,
             true,
-            ScopeKind::Method(MethodInner {
+            ScopeKind::Method(ScopeMethod {
                 name,
                 self_name: None,
                 instance_attributes: SmallMap::new(),

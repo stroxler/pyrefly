@@ -611,7 +611,7 @@ impl<'a> BindingsBuilder<'a> {
             let in_current_scope = idx == 0;
             let valid_nonlocal_reference = allow_nonlocal_reference
                 && !in_current_scope
-                && !matches!(scope.kind, ScopeKind::Module | ScopeKind::ClassBody(_));
+                && !matches!(scope.kind, ScopeKind::Module | ScopeKind::Class(_));
             let valid_global_reference = allow_global_reference
                 && !in_current_scope
                 && matches!(scope.kind, ScopeKind::Module);
@@ -645,7 +645,7 @@ impl<'a> BindingsBuilder<'a> {
                     }
                 }
             }
-            if !matches!(scope.kind, ScopeKind::ClassBody(_))
+            if !matches!(scope.kind, ScopeKind::Class(_))
                 && let Some(info) = scope.stat.0.get_hashed(name)
             {
                 if !info.is_nonlocal() && !info.is_global() {
@@ -789,12 +789,12 @@ impl<'a> BindingsBuilder<'a> {
         annotation: Option<Idx<KeyAnnotation>>,
     ) -> bool {
         for scope in self.scopes.iter_rev_mut() {
-            if let ScopeKind::Method(method) = &mut scope.kind
-                && let Some(self_name) = &method.self_name
+            if let ScopeKind::Method(method_scope) = &mut scope.kind
+                && let Some(self_name) = &method_scope.self_name
                 && matches!(&*x.value, Expr::Name(name) if name.id == self_name.id)
             {
-                if !method.instance_attributes.contains_key(&x.attr.id) {
-                    method.instance_attributes.insert(
+                if !method_scope.instance_attributes.contains_key(&x.attr.id) {
+                    method_scope.instance_attributes.insert(
                         x.attr.id.clone(),
                         InstanceAttribute(value, annotation, x.attr.range()),
                     );

@@ -33,9 +33,9 @@ use crate::binding::bindings::LookupError;
 use crate::binding::bindings::LookupKind;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
-use crate::binding::scope::ClassBodyInner;
 use crate::binding::scope::Flow;
 use crate::binding::scope::Scope;
+use crate::binding::scope::ScopeClass;
 use crate::binding::scope::ScopeKind;
 use crate::dunder;
 use crate::error::kind::ErrorKind;
@@ -278,7 +278,7 @@ impl<'a> BindingsBuilder<'a> {
 
     fn enclosing_class_name(&self) -> Option<&Identifier> {
         for scope in self.scopes.iter_rev() {
-            if let ScopeKind::ClassBody(ClassBodyInner { name, .. }) = &scope.kind {
+            if let ScopeKind::Class(ScopeClass { name, .. }) = &scope.kind {
                 return Some(name);
             }
         }
@@ -428,11 +428,11 @@ impl<'a> BindingsBuilder<'a> {
                     let mut class_key = None;
                     for scope in self.scopes.iter_rev() {
                         match &scope.kind {
-                            ScopeKind::Method(method) => {
-                                method_name = Some(method.name.clone());
+                            ScopeKind::Method(method_scope) => {
+                                method_name = Some(method_scope.name.clone());
                             }
-                            ScopeKind::ClassBody(class_body) if method_name.is_some() => {
-                                class_key = Some(class_body.as_class_key());
+                            ScopeKind::Class(class_scope) if method_name.is_some() => {
+                                class_key = Some(class_scope.as_class_key());
                                 break;
                             }
                             _ => {}
