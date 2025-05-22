@@ -279,10 +279,6 @@ impl ScopeClass {
         }
     }
 
-    pub fn as_class_key(&self) -> KeyClass {
-        KeyClass(ShortIdentifier::new(&self.name))
-    }
-
     pub fn add_attributes_defined_by_method(
         &mut self,
         method_name: Name,

@@ -432,15 +432,15 @@ impl<'a> BindingsBuilder<'a> {
                                 method_name = Some(method_scope.name.clone());
                             }
                             ScopeKind::Class(class_scope) if method_name.is_some() => {
-                                class_key = Some(class_scope.as_class_key());
+                                class_key = Some(class_scope.indices.class_idx);
                                 break;
                             }
                             _ => {}
                         }
                     }
                     match (class_key, method_name) {
-                        (Some(key), Some(method)) => {
-                            SuperStyle::ImplicitArgs(self.table.classes.0.insert(key), method)
+                        (Some(class_idx), Some(method)) => {
+                            SuperStyle::ImplicitArgs(class_idx, method)
                         }
                         _ => {
                             self.error(
