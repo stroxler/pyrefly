@@ -186,15 +186,19 @@ impl<'a> BindingsBuilder<'a> {
         name: &Identifier,
         value: Result<Binding, LookupError>,
         kind: LookupKind,
-    ) {
+    ) -> Idx<Key> {
+        let key = Key::Usage(ShortIdentifier::new(name));
         if name.is_empty() {
             // We only get empty identifiers if Ruff has done error correction,
             // so there must be a parse error.
+            //
             // Occasionally Ruff might give out the same Identifier twice in an error.
-            return;
+            //
+            // We still need to produce a `Key` here just to be safe, because other
+            // code may rely on all `Identifier`s having `Usage` keys and we could panic
+            // in an IDE setting if we don't ensure this is the case.
+            return self.table.insert(key, Binding::Type(Type::any_error()));
         }
-
-        let key = Key::Usage(ShortIdentifier::new(name));
         match value {
             Ok(value) => {
                 if !self.module_info.path().is_interface()
@@ -209,28 +213,24 @@ impl<'a> BindingsBuilder<'a> {
                         self.error(name.range, error_message, ErrorKind::UnboundName);
                     }
                 }
-                self.table.insert(key, value);
+                self.table.insert(key, value)
             }
             Err(_) if name.id == dunder::FILE || name.id == dunder::NAME => {
-                self.table.insert(key, Binding::StrType);
+                self.table.insert(key, Binding::StrType)
             }
-            Err(_) if name.id == dunder::DEBUG => {
-                self.table.insert(key, Binding::BoolType);
-            }
-            Err(_) if name.id == dunder::DOC => {
-                self.table.insert(
-                    key,
-                    if self.has_docstring {
-                        Binding::StrType
-                    } else {
-                        Binding::Type(Type::None)
-                    },
-                );
-            }
+            Err(_) if name.id == dunder::DEBUG => self.table.insert(key, Binding::BoolType),
+            Err(_) if name.id == dunder::DOC => self.table.insert(
+                key,
+                if self.has_docstring {
+                    Binding::StrType
+                } else {
+                    Binding::Type(Type::None)
+                },
+            ),
             Err(error) => {
                 // Record a type error and fall back to `Any`.
                 self.error(name.range, error.message(name), ErrorKind::UnknownName);
-                self.table.insert(key, Binding::Type(Type::any_error()));
+                self.table.insert(key, Binding::Type(Type::any_error()))
             }
         }
     }
