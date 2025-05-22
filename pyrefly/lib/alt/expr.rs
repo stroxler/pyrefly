@@ -6,6 +6,7 @@
  */
 
 use dupe::Dupe;
+use num_traits::ToPrimitive;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::Comprehension;
 use ruff_python_ast::Expr;
@@ -59,7 +60,6 @@ use crate::types::type_var_tuple::TypeVarTuple;
 use crate::types::types::AnyStyle;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
-use crate::util::display::DisplayWithCtx;
 use crate::util::prelude::SliceExt;
 use crate::util::prelude::VecExt;
 use crate::util::visit::Visit;
@@ -960,9 +960,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
                 ),
                 Type::Any(style) => style.propagate(),
-                Type::Literal(Lit::Bytes(bytes)) => {
-                    self.subscript_bytes_literal(&bytes, slice, errors, range)
-                }
+                Type::Literal(Lit::Bytes(ref bytes)) => self.subscript_bytes_literal(
+                    bytes,
+                    slice,
+                    errors,
+                    range,
+                    Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
+                ),
                 Type::LiteralString | Type::Literal(Lit::Str(_)) if xs.len() <= 3 => {
                     // We could have a more precise type here, but this matches Pyright.
                     self.stdlib.str().clone().to_type()
@@ -1612,46 +1616,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         index_expr: &Expr,
         errors: &ErrorCollector,
         range: TextRange,
+        context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Type {
-        match index_expr {
-            Expr::NumberLiteral(ExprNumberLiteral { value, .. }) => {
-                if let Number::Int(int_value) = value {
-                    if let Some(byte) = bytes.get(int_value.as_usize().unwrap_or_default()) {
+        let index_ty = self.expr_infer(index_expr, errors);
+        match &index_ty {
+            Type::Literal(Lit::Int(value)) => {
+                if let Some(int_value) = value.as_i64() {
+                    if int_value >= 0
+                        && let Some(byte) = bytes.get(int_value.to_usize().unwrap_or_default())
+                    {
                         Type::Literal(Lit::Int(LitInt::new((*byte).into())))
-                    } else {
-                        self.error(
-                            errors,
-                            range,
-                            ErrorKind::IndexError,
-                            None,
-                            format!(
-                                "Index `{int_value}` out of range bytes with {} elements",
-                                bytes.len()
-                            ),
-                        )
-                    }
-                } else {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorKind::IndexError,
-                        None,
-                        format!(
-                            "Index `{}` into bytearray is not an int",
-                            index_expr.display_with(self.module_info())
-                        ),
-                    )
-                }
-            }
-            // Support for negative indexes, e.g. x[-1]
-            Expr::UnaryOp(ruff_python_ast::ExprUnaryOp {
-                op: ruff_python_ast::UnaryOp::USub,
-                operand: box Expr::NumberLiteral(ExprNumberLiteral { value, .. }),
-                ..
-            }) => {
-                if let Number::Int(int_value) = value {
-                    if let Some(byte) =
-                        bytes.get(bytes.len() - int_value.as_usize().unwrap_or_default())
+                    } else if int_value < 0
+                        && let Some(byte) =
+                            bytes.get(bytes.len() - (-int_value).to_usize().unwrap_or_default())
                     {
                         Type::Literal(Lit::Int(LitInt::new((*byte).into())))
                     } else {
@@ -1661,27 +1638,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ErrorKind::IndexError,
                             None,
                             format!(
-                                "Index `-{int_value}` out of range bytes with {} elements",
+                                "Index `{int_value}` out of range for bytes with {} elements",
                                 bytes.len()
                             ),
                         )
                     }
                 } else {
-                    self.error(
-                        errors,
+                    self.call_method_or_error(
+                        &self.stdlib.bytes().clone().to_type(),
+                        &dunder::GETITEM,
                         range,
-                        ErrorKind::IndexError,
-                        None,
-                        format!(
-                            "Index `{}` into bytearray is not an int",
-                            index_expr.display_with(self.module_info())
-                        ),
+                        &[CallArg::Expr(index_expr)],
+                        &[],
+                        errors,
+                        context,
                     )
                 }
             }
-            // TODO: This is not correct: using a slice to index gives back
-            // bytes but using an int to index gives back an int.
-            _ => self.stdlib.bytes().clone().to_type(),
+            _ => self.call_method_or_error(
+                &self.stdlib.bytes().clone().to_type(),
+                &dunder::GETITEM,
+                range,
+                &[CallArg::Expr(index_expr)],
+                &[],
+                errors,
+                context,
+            ),
         }
     }
 }
