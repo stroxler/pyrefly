@@ -92,8 +92,11 @@ impl<'a> BindingsBuilder<'a> {
         self.scopes.push(Scope::annotation(x.range));
 
         let class_index = self.class_index();
-        let class_key = KeyClass(ShortIdentifier::new(&x.name));
-        let definition_key = self.table.classes.0.insert(class_key);
+        let class_idx_key = self
+            .table
+            .classes
+            .0
+            .insert(KeyClass(ShortIdentifier::new(&x.name)));
 
         x.type_params.iter_mut().for_each(|x| {
             self.type_params(x);
@@ -143,7 +146,7 @@ impl<'a> BindingsBuilder<'a> {
         self.table.insert(
             KeyClassMetadata(class_index),
             BindingClassMetadata {
-                def: definition_key,
+                def: class_idx_key,
                 bases: bases.clone().into_boxed_slice(),
                 keywords: keywords.into_boxed_slice(),
                 decorators: decorators.clone().into_boxed_slice(),
@@ -153,7 +156,7 @@ impl<'a> BindingsBuilder<'a> {
         );
         self.table.insert(
             KeyClassSynthesizedFields(class_index),
-            BindingClassSynthesizedFields(definition_key),
+            BindingClassSynthesizedFields(class_idx_key),
         );
 
         let legacy_tparam_builder = legacy.unwrap();
@@ -183,7 +186,7 @@ impl<'a> BindingsBuilder<'a> {
                     _ => ExprOrBinding::Binding(Binding::Forward(info.key)),
                 };
                 let binding = BindingClassField {
-                    class: definition_key,
+                    class: class_idx_key,
                     name: name.into_key().clone(),
                     value,
                     annotation: stat_info.annot,
@@ -223,7 +226,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.table.insert(
                         KeyClassField(class_index, name.key().clone()),
                         BindingClassField {
-                            class: definition_key,
+                            class: class_idx_key,
                             name: name.into_key(),
                             value,
                             annotation,
@@ -246,12 +249,12 @@ impl<'a> BindingsBuilder<'a> {
 
         self.bind_definition(
             &x.name,
-            Binding::ClassDef(definition_key, decorators.into_boxed_slice()),
+            Binding::ClassDef(class_idx_key, decorators.into_boxed_slice()),
             FlowStyle::None,
         );
         fields_defined_in_this_class.reserve(0); // Attempt to shrink to capacity
         self.table.insert_idx(
-            definition_key,
+            class_idx_key,
             BindingClass::ClassDef(ClassBinding {
                 index: class_index,
                 def: x,
@@ -335,12 +338,15 @@ impl<'a> BindingsBuilder<'a> {
         special_base: Option<Box<BaseClass>>,
     ) {
         let class_index = self.class_index();
-        let class_key = KeyClass(ShortIdentifier::new(&class_name));
-        let definition_key = self.table.classes.0.insert(class_key.clone());
+        let class_idx_key = self
+            .table
+            .classes
+            .0
+            .insert(KeyClass(ShortIdentifier::new(&class_name)));
         self.table.insert(
             KeyClassMetadata(class_index),
             BindingClassMetadata {
-                def: definition_key,
+                def: class_idx_key,
                 bases: base.into_iter().collect::<Vec<_>>().into_boxed_slice(),
                 keywords,
                 decorators: Box::new([]),
@@ -350,7 +356,7 @@ impl<'a> BindingsBuilder<'a> {
         );
         self.table.insert(
             KeyClassSynthesizedFields(class_index),
-            BindingClassSynthesizedFields(definition_key),
+            BindingClassSynthesizedFields(class_idx_key),
         );
         let mut fields = SmallMap::new();
         for (idx, (member_name, range, member_annotation, member_value)) in
@@ -437,7 +443,7 @@ impl<'a> BindingsBuilder<'a> {
             self.table.insert(
                 KeyClassField(class_index, member_name.clone()),
                 BindingClassField {
-                    class: definition_key,
+                    class: class_idx_key,
                     name: member_name,
                     value,
                     annotation: annotation_binding,
@@ -449,11 +455,11 @@ impl<'a> BindingsBuilder<'a> {
         }
         self.bind_definition(
             &class_name,
-            Binding::ClassDef(definition_key, Box::new([])),
+            Binding::ClassDef(class_idx_key, Box::new([])),
             FlowStyle::None,
         );
-        self.table.insert(
-            class_key,
+        self.table.insert_idx(
+            class_idx_key,
             BindingClass::FunctionalClassDef(class_index, class_name, fields),
         );
     }
