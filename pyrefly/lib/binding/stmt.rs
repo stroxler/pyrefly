@@ -310,11 +310,6 @@ impl<'a> BindingsBuilder<'a> {
                     );
                     if let Expr::Name(name) = target {
                         self.ensure_mutable_name(name);
-                    } else {
-                        self.ensure_expr(target);
-                    }
-                    // If the target is a name, mark it as unbound
-                    if let Expr::Name(name) = target {
                         let key = Key::Usage(ShortIdentifier::expr_name(name));
                         let idx = self.table.types.0.insert(key);
                         self.scopes.update_flow_info(
@@ -323,6 +318,8 @@ impl<'a> BindingsBuilder<'a> {
                             idx,
                             Some(FlowStyle::Uninitialized),
                         );
+                    } else {
+                        self.ensure_expr(target);
                     }
                 }
             }
