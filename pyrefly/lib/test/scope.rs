@@ -32,28 +32,74 @@ class C:
 );
 
 testcase!(
-    test_global,
+    test_global_simple,
     r#"
-def f1():
+x: str = ""
+def f():
   global x
+  x = "foo"
+"#,
+);
+
+testcase!(
+    test_global_ref_before_def,
+    r#"
+def f():
+  global x
+  x = "foo"
+x: str = ""
+"#,
+);
+
+testcase!(
+    test_global_not_found,
+    r#"
+x: str = ""
+global a  # E: Could not find name `a`
+"#,
+);
+
+testcase!(
+    test_global_assign_before_def,
+    r#"
 x: str = ""
 global x  # E: `x` was assigned in the current scope before the global declaration
-global a  # E: Could not find name `a`
-def f2() -> None:
+"#,
+);
+
+testcase!(
+    test_global_del,
+    r#"
+x: str = ""
+def f():
   del x  # E: `x` is not mutable from the current scope
-def f3() -> None:
+def g():
   global x
   del x  # OK
-def f4() -> None:
+def h0():
+  global x
+  def h1():
+    del x   # E: `x` is not mutable from the current scope
+"#,
+);
+
+testcase!(
+    test_global_assign_incompatible,
+    r#"
+x: str = ""
+def f():
   global x
   x = 1  # E: `Literal[1]` is not assignable to variable `x` with type `str`
-def f5() -> None:
+def g():
   x = 1  # OK, this is a new x
-def f6() -> None:
-  global x
-  def f7() -> None:
-    del x   # E: `x` is not mutable from the current scope
-def f8() -> None:
+"#,
+);
+
+testcase!(
+    test_global_not_in_global_scope,
+    r#"
+x: str = ""
+def f() -> None:
   y: int = 1
   global y  # E: `y` was assigned in the current scope before the global declaration
   def f9():
@@ -62,44 +108,92 @@ def f8() -> None:
 );
 
 testcase!(
-    test_nonlocal,
+    test_nonlocal_simple,
     r#"
-a: str = ""
-nonlocal a  # E: `a` was assigned in the current scope before the nonlocal declaration
-nonlocal b  # E: Could not find name `b`
-def f1() -> None:
-  nonlocal b  # E: Could not find name `b`
-  def f9():
+def f(x: int) -> None:
+  def g():
     nonlocal x
-  x: str = "John"
-  def f2() -> None:
-    del x  # E: `x` is not mutable from the current scope
-  def f3() -> None:
+    x = 1
+"#,
+);
+
+testcase!(
+    test_nonlocal_ref_before_def,
+    r#"
+def f(x: int) -> None:
+  def g():
     nonlocal x
-    del x  # OK
-  def f4() -> None:
-    nonlocal x
-    x = 1  # E: `Literal[1]` is not assignable to variable `x` with type `str`
-  def f5() -> None:
-    x = 1  # OK, this is a new x
-  def f6() -> None:
-    nonlocal x
-    def f7() -> None:
-      del x   # E: `x` is not mutable from the current scope
-  def f8() -> None:
-    y: int = 1
-    nonlocal y  # E: `y` was assigned in the current scope before the nonlocal declaration
-  def f10(c: str) -> None:
-    def f11() -> None:
-      nonlocal c
-      c = 1  # E: `Literal[1]` is not assignable to variable `c` with type `str`
-  def f12(c: str) -> None:
-    def f13() -> None:
-      c = 1  # OK, this is a new c
-  def f14() -> None:
-    nonlocal x
-    x: int = 1  # E: `x` cannot be annotated with `int`, it is already defined with type `str`
-  nonlocal a  # E: Found `a`, but it was not in a valid enclosing scope
+    x = 1
+"#,
+);
+
+testcase!(
+    test_nonlocal_not_found,
+    r#"
+def f() -> None:
+  def g() -> None:
+    nonlocal a
+    a = "foo"
+  a: str = ""
+"#,
+);
+
+testcase!(
+    test_nonlocal_assign_before_def,
+    r#"
+def f() -> None:
+  a: str = ""
+  nonlocal a  # E: `a` was assigned in the current scope before the nonlocal declaration
+"#,
+);
+
+testcase!(
+    test_nonlocal_del,
+    r#"
+def f() -> None:
+  a: str = ""
+  def g():
+    del a  # E: `a` is not mutable from the current scope
+  def h():
+    nonlocal a
+    del a  # OK
+  def i():
+    nonlocal a
+    def j():
+      del a   # E: `a` is not mutable from the current scope
+"#,
+);
+
+testcase!(
+    test_nonlocal_assign_incompatible,
+    r#"
+def f() -> None:
+  a: str = ""
+  def g() -> None:
+    nonlocal a
+    a = 1  # E: `Literal[1]` is not assignable to variable `a` with type `str`
+  def h() -> None:
+    a = 1  # OK, this is a new a
+"#,
+);
+
+testcase!(
+    test_nonlocal_multiple_annotations,
+    r#"
+def f() -> None:
+  a: str = ""
+  def g() -> None:
+    nonlocal a
+    a: int = 1  # E: `a` cannot be annotated with `int`, it is already defined with type `str`
+"#,
+);
+
+testcase!(
+    test_nonlocal_not_in_local_scope,
+    r#"
+x: str = ""
+def f() -> None:
+  nonlocal x  # E: Found `x`, but it was not in a valid enclosing scope
 "#,
 );
 
