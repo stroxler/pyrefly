@@ -120,7 +120,7 @@ mod tests {
     use crate::binding::binding::Key;
     use crate::graph::index::Idx;
     use crate::module::short_identifier::ShortIdentifier;
-    use crate::types::class::ClassIndex;
+    use crate::types::class::ClassDefIndex;
 
     #[test]
     fn test_binding_memory() {
@@ -141,7 +141,7 @@ mod tests {
         );
 
         let v = BindingClass::FunctionalClassDef(
-            ClassIndex(0),
+            ClassDefIndex(0),
             Identifier::new("my_class", TextRange::default()),
             SmallMap::new(),
         );

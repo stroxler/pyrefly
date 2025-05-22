@@ -51,8 +51,8 @@ use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::types::annotation::Annotation;
 use crate::types::class::Class;
+use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassFieldProperties;
-use crate::types::class::ClassIndex;
 use crate::types::equality::TypeEq;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::stdlib::Stdlib;
@@ -412,7 +412,7 @@ impl DisplayWith<ModuleInfo> for KeyClass {
 
 /// A reference to a field in a class.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct KeyClassField(pub ClassIndex, pub Name);
+pub struct KeyClassField(pub ClassDefIndex, pub Name);
 
 impl Ranged for KeyClassField {
     fn range(&self) -> TextRange {
@@ -430,7 +430,7 @@ impl DisplayWith<ModuleInfo> for KeyClassField {
 /// has to be its own key/binding type because of the dependencies between the various pieces of
 /// information about a class: ClassDef -> ClassMetadata -> ClassField -> ClassSynthesizedFields.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct KeyClassSynthesizedFields(pub ClassIndex);
+pub struct KeyClassSynthesizedFields(pub ClassDefIndex);
 
 impl Ranged for KeyClassSynthesizedFields {
     fn range(&self) -> TextRange {
@@ -478,7 +478,7 @@ impl DisplayWith<ModuleInfo> for KeyAnnotation {
 /// Keys that refer to a class's `Mro` (which tracks its ancestors, in method
 /// resolution order).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct KeyClassMetadata(pub ClassIndex);
+pub struct KeyClassMetadata(pub ClassDefIndex);
 
 impl Ranged for KeyClassMetadata {
     fn range(&self) -> TextRange {
@@ -618,7 +618,7 @@ impl DisplayWith<Bindings> for BindingFunction {
 #[derive(Clone, Debug)]
 pub struct ClassBinding {
     pub def: StmtClassDef,
-    pub index: ClassIndex,
+    pub def_index: ClassDefIndex,
     pub fields: SmallMap<Name, ClassFieldProperties>,
     pub bases: Box<[Expr]>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
@@ -1150,7 +1150,11 @@ impl DisplayWith<Bindings> for BindingAnnotation {
 #[derive(Clone, Debug)]
 pub enum BindingClass {
     ClassDef(ClassBinding),
-    FunctionalClassDef(ClassIndex, Identifier, SmallMap<Name, ClassFieldProperties>),
+    FunctionalClassDef(
+        ClassDefIndex,
+        Identifier,
+        SmallMap<Name, ClassFieldProperties>,
+    ),
 }
 
 impl DisplayWith<Bindings> for BindingClass {

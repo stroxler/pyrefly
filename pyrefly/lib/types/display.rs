@@ -354,7 +354,7 @@ pub mod tests {
     use crate::types::callable::ParamList;
     use crate::types::callable::Required;
     use crate::types::class::Class;
-    use crate::types::class::ClassIndex;
+    use crate::types::class::ClassDefIndex;
     use crate::types::class::ClassType;
     use crate::types::literal::Lit;
     use crate::types::quantified::Quantified;
@@ -377,7 +377,7 @@ pub mod tests {
             Arc::new("1234567890".to_owned()),
         );
         Class::new(
-            ClassIndex(0),
+            ClassDefIndex(0),
             Identifier::new(Name::new(name), TextRange::empty(TextSize::new(range))),
             mi,
             TParams::new(tparams).tparams,

@@ -26,8 +26,8 @@ use crate::graph::index::Idx;
 use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::Class;
+use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassFieldProperties;
-use crate::types::class::ClassIndex;
 use crate::types::class::ClassType;
 use crate::types::class::TArgs;
 use crate::types::typed_dict::TypedDict;
@@ -56,7 +56,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn class_definition(
         &self,
-        index: ClassIndex,
+        def_index: ClassDefIndex,
         x: &StmtClassDef,
         fields: SmallMap<Name, ClassFieldProperties>,
         bases: &[Expr],
@@ -67,7 +67,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let bases = bases.map(|x| self.base_class_of(x, errors));
         let tparams = self.class_tparams(&x.name, scoped_tparams, bases, legacy_tparams, errors);
         Class::new(
-            index,
+            def_index,
             x.name.clone(),
             self.module_info().dupe(),
             tparams,
@@ -77,12 +77,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn functional_class_definition(
         &self,
-        index: ClassIndex,
+        def_index: ClassDefIndex,
         name: &Identifier,
         fields: &SmallMap<Name, ClassFieldProperties>,
     ) -> Class {
         Class::new(
-            index,
+            def_index,
             name.clone(),
             self.module_info().dupe(),
             TParams::default(),

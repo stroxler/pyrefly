@@ -42,7 +42,7 @@ use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::sys_info::SysInfo;
-use crate::types::class::ClassIndex;
+use crate::types::class::ClassDefIndex;
 
 /// Many names may map to the same TextRange (e.g. from foo import *).
 /// But no other static will point at the same TextRange.
@@ -236,7 +236,7 @@ impl FlowInfo {
 #[derive(Clone, Debug)]
 pub struct ScopeClass {
     pub name: Identifier,
-    index: ClassIndex,
+    index: ClassDefIndex,
     attributes_from_recognized_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
     attributes_from_other_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
 }
@@ -252,7 +252,7 @@ pub struct MethodThatSetsAttr {
 }
 
 impl ScopeClass {
-    pub fn new(name: Identifier, index: ClassIndex) -> Self {
+    pub fn new(name: Identifier, index: ClassDefIndex) -> Self {
         Self {
             name,
             index,
@@ -408,8 +408,12 @@ impl Scope {
         Self::new(range, false, ScopeKind::Annotation)
     }
 
-    pub fn class_body(range: TextRange, index: ClassIndex, name: Identifier) -> Self {
-        Self::new(range, false, ScopeKind::Class(ScopeClass::new(name, index)))
+    pub fn class_body(range: TextRange, def_index: ClassDefIndex, name: Identifier) -> Self {
+        Self::new(
+            range,
+            false,
+            ScopeKind::Class(ScopeClass::new(name, def_index)),
+        )
     }
 
     pub fn comprehension(range: TextRange) -> Self {

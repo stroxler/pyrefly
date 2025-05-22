@@ -50,14 +50,14 @@ pub struct Class(Arc<ClassInner>);
 //   well as descriptor handling (including method binding).
 impl Class {
     pub fn new(
-        index: ClassIndex,
+        def_index: ClassDefIndex,
         name: Identifier,
         module_info: ModuleInfo,
         tparams: TParams,
         fields: SmallMap<Name, ClassFieldProperties>,
     ) -> Self {
         Self(Arc::new(ClassInner {
-            index,
+            def_index,
             qname: QName::new(name, module_info),
             tparams,
             fields,
@@ -105,8 +105,8 @@ impl Class {
         ClassType::new(self.dupe(), self.tparams_as_targs())
     }
 
-    pub fn index(&self) -> ClassIndex {
-        self.0.index
+    pub fn index(&self) -> ClassDefIndex {
+        self.0.def_index
     }
 
     pub fn module_name(&self) -> ModuleName {
@@ -142,9 +142,9 @@ impl Class {
 
     /// Key to use for equality purposes. If we have the same module and index,
     /// we must point at the same class underneath.
-    fn key_eq(&self) -> (ClassIndex, ModuleName, &ModulePath) {
+    fn key_eq(&self) -> (ClassDefIndex, ModuleName, &ModulePath) {
         (
-            self.0.index,
+            self.0.def_index,
             self.0.qname.module_name(),
             self.0.qname.module_info().path(),
         )
@@ -152,8 +152,8 @@ impl Class {
 
     /// Key to use for comparison purposes. Main used to sort identifiers in union,
     /// and then alphabetically sorting by the name gives a predictable answer.
-    fn key_ord(&self) -> (&QName, ClassIndex) {
-        (&self.0.qname, self.0.index)
+    fn key_ord(&self) -> (&QName, ClassDefIndex) {
+        (&self.0.qname, self.0.def_index)
     }
 }
 
@@ -212,7 +212,7 @@ impl TypeEq for ClassFieldProperties {}
 /// The index of a class within the file, used as a reference to data associated with the class.
 #[derive(Debug, Clone, Dupe, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
 #[derive(TypeEq, Display)]
-pub struct ClassIndex(pub u32);
+pub struct ClassDefIndex(pub u32);
 
 impl ClassFieldProperties {
     pub fn new(is_annotated: bool, range: TextRange) -> Self {
@@ -225,7 +225,7 @@ impl ClassFieldProperties {
 
 #[derive(TypeEq, Eq, PartialEq)]
 struct ClassInner {
-    index: ClassIndex,
+    def_index: ClassDefIndex,
     qname: QName,
     tparams: TParams,
     fields: SmallMap<Name, ClassFieldProperties>,
@@ -234,7 +234,7 @@ struct ClassInner {
 impl Debug for ClassInner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ClassInner")
-            .field("index", &self.index)
+            .field("index", &self.def_index)
             .field("qname", &self.qname)
             .field("tparams", &self.tparams)
             // We don't print `fields` because it's way too long.
