@@ -1213,6 +1213,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &field.initial_value,
                     class,
                     field.is_function_without_return_annotation,
+                    field.implicit_def_method.as_ref(),
                     field.range,
                     errors,
                 )
