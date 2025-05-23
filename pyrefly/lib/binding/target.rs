@@ -218,11 +218,17 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_target_impl(target, make_binding, None, false);
     }
 
-    /// Similar to `bind_target`, but allows passing the assigned expression to get
-    /// better contextual typing.
-    pub fn bind_target_with_value(&mut self, target: &mut Expr, value: &Expr) {
+    /// Similar to `bind_target`, but specifically for assignments:
+    /// - Handles multi-target assignment
+    /// - Takes the value as an `Expr` rather than a `make_binding` callaback, which enables
+    ///   better contextual typing in cases where the assignment might actually invoke
+    ///   a method (like descriptor attribute assigns and `__setitem__` calls).
+    pub fn bind_targets_with_value(&mut self, targets: &mut Vec<Expr>, value: &mut Expr) {
+        self.ensure_expr(value);
         let make_binding = |ann: Option<Idx<KeyAnnotation>>| Binding::Expr(ann, value.clone());
-        self.bind_target_impl(target, &make_binding, Some(value), false);
+        for target in targets {
+            self.bind_target_impl(target, &make_binding, Some(value), false);
+        }
     }
 
     pub fn bind_target_for_aug_assign(

@@ -424,11 +424,7 @@ impl<'a> BindingsBuilder<'a> {
                         flow_style,
                     );
                 } else {
-                    let mut value = *x.value;
-                    self.ensure_expr(&mut value);
-                    for target in &mut x.targets {
-                        self.bind_target_with_value(target, &value);
-                    }
+                    self.bind_targets_with_value(&mut x.targets, &mut x.value);
                 }
             }
             Stmt::AugAssign(mut x) => {
