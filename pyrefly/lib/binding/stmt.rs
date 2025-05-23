@@ -522,19 +522,25 @@ impl<'a> BindingsBuilder<'a> {
                     }
                 }
                 Expr::Attribute(mut attr) => {
+                    let attr_name = attr.attr.id.clone();
                     self.ensure_expr(&mut attr.value);
                     self.ensure_type(&mut x.annotation, &mut None);
                     let ann_key = self.table.insert(
                         KeyAnnotation::AttrAnnotation(x.annotation.range()),
                         BindingAnnotation::AnnotateExpr(
-                            AnnotationTarget::ClassMember(attr.attr.id.clone()),
+                            AnnotationTarget::ClassMember(attr_name.clone()),
                             *x.annotation,
                             None,
                         ),
                     );
-                    let value = match &x.value {
-                        Some(v) => ExprOrBinding::Expr(*v.clone()),
-                        None => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
+                    let value = match x.value {
+                        Some(box mut v) => {
+                            self.ensure_expr(&mut v);
+                            let value = ExprOrBinding::Expr(v);
+                            self.bind_attr_assign(attr.clone(), value.clone());
+                            value
+                        }
+                        _ => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
                     };
                     if !self.record_self_attr_assign(&attr, value.clone(), Some(ann_key)) {
                         self.error(
@@ -542,14 +548,10 @@ impl<'a> BindingsBuilder<'a> {
                              format!(
                                  "Type cannot be declared in assignment to non-self attribute `{}.{}`",
                                  self.module_info.display(&attr.value),
-                                 attr.attr.id,
+                                 attr_name,
                              ),
                              ErrorKind::BadAssignment,
                          );
-                    }
-                    if let Some(box mut v) = x.value {
-                        self.ensure_expr(&mut v);
-                        self.bind_attr_assign(attr, value);
                     }
                 }
                 mut target => {
