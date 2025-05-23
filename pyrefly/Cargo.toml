@@ -68,7 +68,7 @@ thiserror = "2"
 tokio = { version = "1.45.0", features = ["macros", "rt"] }
 toml = "0.8.19"
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
-tracing-subscriber = { version = "0.3.18", features = ["chrono", "env-filter", "json", "local-time", "parking_lot", "registry"] }
+tracing-subscriber = { version = "0.3.19", features = ["chrono", "env-filter", "json", "local-time", "parking_lot", "registry"] }
 vec1 = { version = "1", features = ["serde"] }
 walkdir = "2.3"
 yansi = { version = "1.0.0-rc.1", features = ["hyperlink"] }
