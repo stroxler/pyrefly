@@ -96,20 +96,18 @@ def g():
 );
 
 testcase!(
-    test_global_not_in_global_scope,
+    test_global_after_local_define,
     r#"
 x: str = ""
 def f() -> None:
   y: int = 1
   global y  # E: `y` was assigned in the current scope before the global declaration
-  def f9():
-    global y  # E: Found `y`, but it was not the global scope
 "#,
 );
 
 testcase!(
-    bug = "We should not take the first hit and error, we should actually find the global",
-    test_global_can_see_past_nonlocal,
+    bug = "We should not treat global like nonlocal with an error, we should actually find global",
+    test_global_can_see_past_enclosing_scopes,
     r#"
 from typing import assert_type
 x: str = ""
