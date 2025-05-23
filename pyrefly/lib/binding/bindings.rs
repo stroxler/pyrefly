@@ -779,11 +779,6 @@ impl<'a> BindingsBuilder<'a> {
         Err(LookupError::NotFound)
     }
 
-    pub fn forward_lookup(&mut self, name: &Identifier) -> Result<Binding, LookupError> {
-        self.lookup_name(&name.id, LookupKind::Regular)
-            .map(Binding::Forward)
-    }
-
     pub fn lookup_legacy_tparam(
         &mut self,
         name: &Identifier,
@@ -1242,12 +1237,14 @@ impl LegacyTParamBuilder {
         }
     }
 
-    /// Perform a forward lookup of a name used in either base classes of a class
-    /// or parameter/return annotations of a function. We do this to create bindings
-    /// that allow us to later determine whether this name points at a type variable
-    /// declaration, in which case we intercept it to treat it as a type parameter in
-    /// the current scope.
-    pub fn forward_lookup(
+    /// Perform a lookup of a name used in either base classes of a class or
+    /// parameter/return annotations of a function.
+    ///
+    /// We have a special "intercepted" lookup to create bindings that allow us
+    /// to later determine whether this name points at a type variable
+    /// declaration, in which case we intercept it to treat it as a type
+    /// parameter in the current scope.
+    pub fn intercept_lookup(
         &mut self,
         builder: &mut BindingsBuilder,
         name: &Identifier,

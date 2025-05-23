@@ -30,6 +30,7 @@ use crate::binding::binding::SuperStyle;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::bindings::LookupError;
+use crate::binding::bindings::LookupKind;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Flow;
@@ -517,7 +518,9 @@ impl<'a> BindingsBuilder<'a> {
             }
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
-                let binding = self.forward_lookup(&name);
+                let binding = self
+                    .lookup_name(&name.id, LookupKind::Regular)
+                    .map(Binding::Forward);
                 self.ensure_name(&name, binding);
                 false
             }
@@ -577,9 +580,11 @@ impl<'a> BindingsBuilder<'a> {
                 let name = Ast::expr_name_identifier(x.clone());
                 let binding = match tparams_builder {
                     Some(legacy) => legacy
-                        .forward_lookup(self, &name)
+                        .intercept_lookup(self, &name)
                         .ok_or(LookupError::NotFound),
-                    None => self.forward_lookup(&name),
+                    None => self
+                        .lookup_name(&name.id, LookupKind::Regular)
+                        .map(Binding::Forward),
                 };
                 self.ensure_name(&name, binding);
             }
