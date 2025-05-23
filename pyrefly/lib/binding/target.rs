@@ -216,7 +216,6 @@ impl<'a> BindingsBuilder<'a> {
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
         value: Option<&Expr>,
     ) {
-        // A normal target should not ensure top level `Name`
         self.bind_target_impl(target, make_binding, value, false);
     }
 
