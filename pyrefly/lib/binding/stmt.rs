@@ -414,10 +414,10 @@ impl<'a> BindingsBuilder<'a> {
                     };
                     self.bind_assign(
                         name,
-                        |k: Option<Idx<KeyAnnotation>>| {
+                        |ann: Option<Idx<KeyAnnotation>>| {
                             Binding::NameAssign(
                                 name.id.clone(),
-                                k.map(|k| (AnnotationStyle::Forwarded, k)),
+                                ann.map(|k| (AnnotationStyle::Forwarded, k)),
                                 x.value,
                             )
                         },
@@ -428,7 +428,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.ensure_expr(&mut value);
                     for target in &mut x.targets {
                         let make_binding =
-                            |k: Option<Idx<KeyAnnotation>>| Binding::Expr(k, value.clone());
+                            |ann: Option<Idx<KeyAnnotation>>| Binding::Expr(ann, value.clone());
                         self.bind_target(target, &make_binding, Some(&value));
                     }
                 }
@@ -436,7 +436,8 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::AugAssign(mut x) => {
                 self.ensure_expr(&mut x.value);
                 let mut target = x.target.as_ref().clone();
-                let make_binding = |k: Option<Idx<KeyAnnotation>>| Binding::AugAssign(k, x.clone());
+                let make_binding =
+                    |ann: Option<Idx<KeyAnnotation>>| Binding::AugAssign(ann, x.clone());
                 self.bind_target_for_aug_assign(&mut target, &make_binding, None);
             }
             Stmt::AnnAssign(mut x) => match *x.target {
@@ -606,7 +607,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut x.iter);
                 self.setup_loop(x.range, &NarrowOps::new());
                 let make_binding =
-                    |k| Binding::IterableValue(k, *x.iter.clone(), IsAsync::new(x.is_async));
+                    |ann| Binding::IterableValue(ann, *x.iter.clone(), IsAsync::new(x.is_async));
                 self.bind_target(&mut x.target, &make_binding, None);
                 self.stmts(x.body);
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse);
@@ -692,8 +693,8 @@ impl<'a> BindingsBuilder<'a> {
                         Binding::Expr(None, item.context_expr),
                     );
                     if let Some(mut opts) = item.optional_vars {
-                        let make_binding = |k: Option<Idx<KeyAnnotation>>| {
-                            Binding::ContextValue(k, context_idx, expr_range, kind)
+                        let make_binding = |ann: Option<Idx<KeyAnnotation>>| {
+                            Binding::ContextValue(ann, context_idx, expr_range, kind)
                         };
                         self.bind_target(&mut opts, &make_binding, None);
                     } else {
