@@ -1595,6 +1595,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::AssignToSubscript(box (subscript, value)) => {
+                // TODO: Solveing `test_context_assign_subscript` will require us to push
+                // this down further, so that we can use contextual typing to infer the Expr case.
                 let value_ty = match value {
                     ExprOrBinding::Expr(e) => self.expr_infer(e, errors),
                     ExprOrBinding::Binding(b) => self.solve_binding(b, errors).arc_clone_ty(),

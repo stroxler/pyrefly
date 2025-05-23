@@ -177,10 +177,14 @@ impl<'a> BindingsBuilder<'a> {
                 self.record_self_attr_assign(x, attr_value, None);
             }
             Expr::Subscript(x) => {
-                let binding = make_binding(None);
+                let assigned_value = if let Some(value) = value {
+                    ExprOrBinding::Expr(value.clone())
+                } else {
+                    ExprOrBinding::Binding(make_binding(None))
+                };
                 // Create a binding to verify that the assignment is valid and potentially narrow
                 // the name assigned to.
-                self.bind_subscript_assign(x.clone(), ExprOrBinding::Binding(binding.clone()));
+                self.bind_subscript_assign(x.clone(), assigned_value);
             }
             Expr::Tuple(tup) if !is_aug_assign => {
                 self.bind_unpacking(&mut tup.elts, make_binding, tup.range);
