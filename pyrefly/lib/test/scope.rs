@@ -99,6 +99,22 @@ x += "foo"  # This will crash at runtime!
 );
 
 testcase!(
+    bug = "It is not safe to treat global as a normal flow-sensitive definition",
+    test_unannotated_global_with_reassignment,
+    r#"
+from typing import assert_type, Literal
+x = "x"
+def f():
+    global x
+    x = 42  # Should be a type error, does not respect module-level static analysis
+    assert_type(x, Literal[42])
+f()
+# This is why allowing the reassignment is unsafe
+assert_type(x, Literal['x'])
+"#,
+);
+
+testcase!(
     test_global_assign_incompatible,
     r#"
 x: str = ""
@@ -208,6 +224,22 @@ def outer():
 "#,
 );
 
+testcase!(
+    bug = "It is not safe to treat nonlocal as a normal flow-sensitive definition",
+    test_unannotated_nonlocal_with_reassignment,
+    r#"
+from typing import assert_type, Literal
+def outer():
+    x = "x"
+    def f():
+        nonlocal x
+        x = 42  # Should be a type error, does not respect parent scope typing
+        assert_type(x, Literal[42])
+    f()
+    # This is why allowing reassignment with a different type is unsafe
+    assert_type(x, Literal['x'])
+"#,
+);
 testcase!(
     test_nonlocal_assign_incompatible,
     r#"
