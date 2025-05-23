@@ -30,7 +30,6 @@ use crate::binding::binding::SuperStyle;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::bindings::LookupError;
-use crate::binding::bindings::LookupKind;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Flow;
@@ -185,7 +184,6 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: &Identifier,
         value: Result<Binding, LookupError>,
-        kind: LookupKind,
     ) -> Idx<Key> {
         let key = Key::Usage(ShortIdentifier::new(name));
         if name.is_empty() {
@@ -201,9 +199,7 @@ impl<'a> BindingsBuilder<'a> {
         }
         match value {
             Ok(value) => {
-                if !self.module_info.path().is_interface()
-                    && matches!(kind, LookupKind::Regular | LookupKind::Mutable)
-                {
+                if !self.module_info.path().is_interface() {
                     // Don't check flow for global/nonlocal lookups
                     if let Some(error_message) = self
                         .scopes
@@ -522,7 +518,7 @@ impl<'a> BindingsBuilder<'a> {
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
                 let binding = self.forward_lookup(&name);
-                self.ensure_name(&name, binding, LookupKind::Regular);
+                self.ensure_name(&name, binding);
                 false
             }
             Expr::ListComp(x) => {
@@ -585,7 +581,7 @@ impl<'a> BindingsBuilder<'a> {
                         .ok_or(LookupError::NotFound),
                     None => self.forward_lookup(&name),
                 };
-                self.ensure_name(&name, binding, LookupKind::Regular);
+                self.ensure_name(&name, binding);
             }
             Expr::Subscript(ExprSubscript { value, .. })
                 if self.as_special_export(value) == Some(SpecialExport::Literal) =>
