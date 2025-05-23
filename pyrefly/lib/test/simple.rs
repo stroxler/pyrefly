@@ -1426,3 +1426,13 @@ def l(x: int | None):
     if x: ...
 "#,
 );
+
+testcase!(
+    bug = "False positives",
+    test_sum_map,
+    r#"
+from typing import Any, Callable
+def g(f: Callable[[Any], int], inputs: Any) -> None:
+    sum(map(f, inputs))  # E: No matching overload  # E: not assignable
+    "#,
+);
