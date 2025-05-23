@@ -52,15 +52,16 @@ impl<'a> BindingsBuilder<'a> {
                     self.bind_target(&mut e.value, &make_nested_binding, None);
                 }
                 _ => {
-                    let idx = if splat {
+                    let unpacked_position = if splat {
                         // If we've encountered a splat, we no longer know how many values have been consumed
                         // from the front, but we know how many are left at the back.
                         UnpackedPosition::ReverseIndex(len - i)
                     } else {
                         UnpackedPosition::Index(i)
                     };
-                    let make_nested_binding =
-                        |_: Option<Idx<KeyAnnotation>>| Binding::UnpackedValue(key, range, idx);
+                    let make_nested_binding = |_: Option<Idx<KeyAnnotation>>| {
+                        Binding::UnpackedValue(key, range, unpacked_position)
+                    };
                     self.bind_target(e, &make_nested_binding, None);
                 }
             }
