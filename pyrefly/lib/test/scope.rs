@@ -68,18 +68,33 @@ global x  # E: `x` was assigned in the current scope before the global declarati
 );
 
 testcase!(
+    bug = "We fail to correctly mark `g()` as allowing augmented assign.",
+    test_global_aug_assign,
+    r#"
+x: str = ""
+def f():
+    x += "a"  # E: `x` is not mutable from the current scope
+def g():
+    global x
+    # Should be okay!!
+    x += "a"  # E: `x` is not mutable from the current scope
+def h0():
+    global x
+    def h1():
+        x += "a"   # E: `x` is not mutable from the current scope
+"#,
+);
+
+testcase!(
+    bug = "We should not allow `del` on globals or nonlocals. It is allowed at runtime but is not safe / statically analyzable.",
     test_global_del,
     r#"
 x: str = ""
 def f():
-    del x  # E: `x` is not mutable from the current scope
-def g():
     global x
-    del x  # OK
-def h0():
-    global x
-    def h1():
-        del x   # E: `x` is not mutable from the current scope
+    del x  # Not okay: it will work at runtime, but is not statically analyzable
+f()
+x += "foo"  # This will crash at runtime!
 "#,
 );
 
@@ -161,19 +176,35 @@ def f() -> None:
 );
 
 testcase!(
+    bug = "We fail to correctly mark `g()` as allowing an aug assign",
+    test_nonlocal_aug_assign,
+    r#"
+def outer():
+    x: str = ""
+    def f():
+        x += "a"  # E: `x` is not mutable from the current scope
+    def g():
+        nonlocal x
+        # Should be okay!!
+        x += "a"  # E: `x` is not mutable from the current scope
+    def h0():
+        nonlocal x
+        def h1():
+            x += "a"   # E: `x` is not mutable from the current scope
+"#,
+);
+
+testcase!(
+    bug = "We should not allow `del` on globals or nonlocals. It is allowed at runtime but is not safe / statically analyzable.",
     test_nonlocal_del,
     r#"
-def f() -> None:
-    a: str = ""
-    def g():
-        del a  # E: `a` is not mutable from the current scope
-    def h():
-      nonlocal a
-      del a  # OK
-    def i():
-      nonlocal a
-      def j():
-          del a   # E: `a` is not mutable from the current scope
+def outer():
+    x: str = ""
+    def f():
+        nonlocal x
+        del x  # Not okay: it will work at runtime, but is not statically analyzable
+    f()
+    x += "foo"  # This will crash at runtime!
 "#,
 );
 
