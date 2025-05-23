@@ -368,7 +368,6 @@ badge: defaulty[bool, list[str]] = defaulty(list)
 );
 
 testcase!(
-    bug = "False positive",
     test_pass_generic_class_to_overload,
     r#"
 from typing import Iterable, Literal, overload, Self
@@ -384,6 +383,6 @@ class C[T](Iterable[T]):
     def __new__(cls, x: T) -> Self: ...
 
 def g(x: int):
-    f(C(x))  # E: Argument `int` is not assignable to parameter `x` with type `Literal[1]` in function `C.__new__`
+    f(C(x))
     "#,
 );
