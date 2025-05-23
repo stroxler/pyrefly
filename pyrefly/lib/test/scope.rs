@@ -108,6 +108,21 @@ def f() -> None:
 );
 
 testcase!(
+    bug = "We should not take the first hit and error, we should actually find the global",
+    test_global_can_see_past_nonlocal,
+    r#"
+from typing import assert_type
+x: str = ""
+def outer():
+    x: int = 5
+    def f():
+        # This works fine in Python, `x` is the global `x`, not the one from `outer`.
+        global x  # E: Found `x`, but it was not the global scope
+        assert_type(x, str)  # E: assert_type(int, str)
+"#,
+);
+
+testcase!(
     test_nonlocal_simple,
     r#"
 def f(x: int) -> None:
