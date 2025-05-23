@@ -49,7 +49,7 @@ impl<'a> BindingsBuilder<'a> {
                     let make_nested_binding = |_: Option<Idx<KeyAnnotation>>| {
                         Binding::UnpackedValue(key, range, UnpackedPosition::Slice(i, j))
                     };
-                    self.bind_target(&mut e.value, &make_nested_binding, None);
+                    self.bind_target(&mut e.value, &make_nested_binding);
                 }
                 _ => {
                     let unpacked_position = if splat {
@@ -62,7 +62,7 @@ impl<'a> BindingsBuilder<'a> {
                     let make_nested_binding = |_: Option<Idx<KeyAnnotation>>| {
                         Binding::UnpackedValue(key, range, unpacked_position)
                     };
-                    self.bind_target(e, &make_nested_binding, None);
+                    self.bind_target(e, &make_nested_binding);
                 }
             }
         }
@@ -199,7 +199,7 @@ impl<'a> BindingsBuilder<'a> {
                     "Starred assignment target must be in a list or tuple".to_owned(),
                     ErrorKind::InvalidSyntax,
                 );
-                self.bind_target(&mut x.value, make_binding, value);
+                self.bind_target_impl(&mut x.value, make_binding, value, false);
             }
             illegal_target => {
                 // Most structurally invalid targets become errors in the parser, which we propagate so there
@@ -214,16 +214,21 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         target: &mut Expr,
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
-        value: Option<&Expr>,
     ) {
-        self.bind_target_impl(target, make_binding, value, false);
+        self.bind_target_impl(target, make_binding, None, false);
+    }
+
+    /// Similar to `bind_target`, but allows passing the assigned expression to get
+    /// better contextual typing.
+    pub fn bind_target_with_value(&mut self, target: &mut Expr, value: &Expr) {
+        let make_binding = |ann: Option<Idx<KeyAnnotation>>| Binding::Expr(ann, value.clone());
+        self.bind_target_impl(target, &make_binding, Some(value), false);
     }
 
     pub fn bind_target_for_aug_assign(
         &mut self,
         target: &mut Expr,
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
-        value: Option<&Expr>,
     ) {
         // A normal target should not ensure top level `Name`, since it will *define*
         // that name (overwriting any previous value) but an `AugAssign` is a mutation
@@ -233,6 +238,6 @@ impl<'a> BindingsBuilder<'a> {
         // AugAssign cannot be used with multi-target assignment so it does not interact
         // with the `bind_unpacking` recursion (if a user attempts to do so, we'll throw
         // an error and otherwise treat it as a normal assignment from a binding standpoint).
-        self.bind_target_impl(target, make_binding, value, true);
+        self.bind_target_impl(target, make_binding, None, true);
     }
 }

@@ -427,9 +427,7 @@ impl<'a> BindingsBuilder<'a> {
                     let mut value = *x.value;
                     self.ensure_expr(&mut value);
                     for target in &mut x.targets {
-                        let make_binding =
-                            |ann: Option<Idx<KeyAnnotation>>| Binding::Expr(ann, value.clone());
-                        self.bind_target(target, &make_binding, Some(&value));
+                        self.bind_target_with_value(target, &value);
                     }
                 }
             }
@@ -438,7 +436,7 @@ impl<'a> BindingsBuilder<'a> {
                 let mut target = x.target.as_ref().clone();
                 let make_binding =
                     |ann: Option<Idx<KeyAnnotation>>| Binding::AugAssign(ann, x.clone());
-                self.bind_target_for_aug_assign(&mut target, &make_binding, None);
+                self.bind_target_for_aug_assign(&mut target, &make_binding);
             }
             Stmt::AnnAssign(mut x) => match *x.target {
                 Expr::Name(name) => {
@@ -572,11 +570,7 @@ impl<'a> BindingsBuilder<'a> {
                             value,
                         })),
                         None => {
-                            self.bind_target(
-                                &mut target,
-                                &|_| Binding::Type(Type::any_error()),
-                                None,
-                            );
+                            self.bind_target(&mut target, &|_| Binding::Type(Type::any_error()));
                         }
                     }
                 }
@@ -610,7 +604,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.setup_loop(x.range, &NarrowOps::new());
                 let make_binding =
                     |ann| Binding::IterableValue(ann, *x.iter.clone(), IsAsync::new(x.is_async));
-                self.bind_target(&mut x.target, &make_binding, None);
+                self.bind_target(&mut x.target, &make_binding);
                 self.stmts(x.body);
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse);
             }
@@ -698,7 +692,7 @@ impl<'a> BindingsBuilder<'a> {
                         let make_binding = |ann: Option<Idx<KeyAnnotation>>| {
                             Binding::ContextValue(ann, context_idx, expr_range, kind)
                         };
-                        self.bind_target(&mut opts, &make_binding, None);
+                        self.bind_target(&mut opts, &make_binding);
                     } else {
                         self.table.insert(
                             Key::Anon(item_range),
