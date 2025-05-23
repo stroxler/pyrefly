@@ -33,6 +33,7 @@ use crate::binding::binding::KeyExpect;
 use crate::binding::binding::RaisedException;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LookupKind;
+use crate::binding::bindings::MutableCaptureLookupKind;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
@@ -245,25 +246,27 @@ impl<'a> BindingsBuilder<'a> {
 
     fn define_nonlocal_name(&mut self, name: &Identifier) {
         let key = Key::Definition(ShortIdentifier::new(name));
-        let binding = match self.lookup_name(&name.id, LookupKind::Nonlocal) {
-            Ok(found) => Binding::Forward(found),
-            Err(error) => {
-                self.error(name.range, error.message(name), ErrorKind::UnknownName);
-                Binding::Type(Type::any_error())
-            }
-        };
+        let binding =
+            match self.lookup_mutable_captured_name(&name.id, MutableCaptureLookupKind::Nonlocal) {
+                Ok(found) => Binding::Forward(found),
+                Err(error) => {
+                    self.error(name.range, error.message(name), ErrorKind::UnknownName);
+                    Binding::Type(Type::any_error())
+                }
+            };
         self.table.insert(key, binding);
     }
 
     fn define_global_name(&mut self, name: &Identifier) {
         let key = Key::Definition(ShortIdentifier::new(name));
-        let binding = match self.lookup_name(&name.id, LookupKind::Global) {
-            Ok(found) => Binding::Forward(found),
-            Err(error) => {
-                self.error(name.range, error.message(name), ErrorKind::UnknownName);
-                Binding::Type(Type::any_error())
-            }
-        };
+        let binding =
+            match self.lookup_mutable_captured_name(&name.id, MutableCaptureLookupKind::Global) {
+                Ok(found) => Binding::Forward(found),
+                Err(error) => {
+                    self.error(name.range, error.message(name), ErrorKind::UnknownName);
+                    Binding::Type(Type::any_error())
+                }
+            };
         self.table.insert(key, binding);
     }
 
