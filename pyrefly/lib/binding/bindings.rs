@@ -807,49 +807,58 @@ impl<'a> BindingsBuilder<'a> {
         name: &Identifier,
     ) -> Either<Idx<KeyLegacyTypeParam>, Option<Idx<Key>>> {
         let found = self.lookup_name(&name.id, LookupKind::Regular).ok();
-        if let Some(mut idx) = found {
-            loop {
-                if let Some(b) = self.table.types.1.get(idx) {
-                    match b {
-                        Binding::Forward(fwd_idx) => {
-                            idx = *fwd_idx;
-                        }
-                        Binding::TypeVar(..)
-                        | Binding::ParamSpec(..)
-                        | Binding::TypeVarTuple(..) => {
-                            return Either::Left(self.insert_binding(
-                                KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                                BindingLegacyTypeParam(idx),
-                            ));
-                        }
-                        Binding::Import(..) => {
-                            // TODO: We need to recursively look through imports to determine
-                            // whether it is a legacy type parameter. We can't simply walk through
-                            // bindings, because we could recursively reach ourselves, resulting in
-                            // a deadlock.
-                            return Either::Left(self.insert_binding(
-                                KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                                BindingLegacyTypeParam(idx),
-                            ));
-                        }
-                        _ => {
-                            // If we hit anything other than a type variable, an import, or a Forward,
-                            // then we know this name does not point at a type variable
-                            return Either::Right(found);
-                        }
-                    }
-                } else {
-                    // This case happens if the name is associated with a promised binding
-                    // that is not yet in the table. I'm fuzzy when exactly this occurs, but
-                    // such names cannot point at legacy type variables.
-                    //
-                    // TODO(stroxler): it would be nice to have an actual example here, but I am
-                    // still not sure when exactly it happens.
-                    return Either::Right(found);
-                }
+        if let Some(idx) = found {
+            match self.lookup_legacy_tparam_from_idx(name, idx) {
+                Some(left) => Either::Left(left),
+                None => Either::Right(Some(idx)),
             }
         } else {
             Either::Right(None)
+        }
+    }
+
+    fn lookup_legacy_tparam_from_idx(
+        &mut self,
+        name: &Identifier,
+        mut idx: Idx<Key>,
+    ) -> Option<Idx<KeyLegacyTypeParam>> {
+        loop {
+            if let Some(b) = self.table.types.1.get(idx) {
+                match b {
+                    Binding::Forward(fwd_idx) => {
+                        idx = *fwd_idx;
+                    }
+                    Binding::TypeVar(..) | Binding::ParamSpec(..) | Binding::TypeVarTuple(..) => {
+                        return Some(self.insert_binding(
+                            KeyLegacyTypeParam(ShortIdentifier::new(name)),
+                            BindingLegacyTypeParam(idx),
+                        ));
+                    }
+                    Binding::Import(..) => {
+                        // TODO: We need to recursively look through imports to determine
+                        // whether it is a legacy type parameter. We can't simply walk through
+                        // bindings, because we could recursively reach ourselves, resulting in
+                        // a deadlock.
+                        return Some(self.insert_binding(
+                            KeyLegacyTypeParam(ShortIdentifier::new(name)),
+                            BindingLegacyTypeParam(idx),
+                        ));
+                    }
+                    _ => {
+                        // If we hit anything other than a type variable, an import, or a Forward,
+                        // then we know this name does not point at a type variable
+                        return None;
+                    }
+                }
+            } else {
+                // This case happens if the name is associated with a promised binding
+                // that is not yet in the table. I'm fuzzy when exactly this occurs, but
+                // such names cannot point at legacy type variables.
+                //
+                // TODO(stroxler): it would be nice to have an actual example here, but I am
+                // still not sure when exactly it happens.
+                return None;
+            }
         }
     }
 
