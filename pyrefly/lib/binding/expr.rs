@@ -196,7 +196,7 @@ impl<'a> BindingsBuilder<'a> {
             // We still need to produce a `Key` here just to be safe, because other
             // code may rely on all `Identifier`s having `Usage` keys and we could panic
             // in an IDE setting if we don't ensure this is the case.
-            return self.table.insert(key, Binding::Type(Type::any_error()));
+            return self.insert_binding(key, Binding::Type(Type::any_error()));
         }
         match value {
             Ok(value) => {
@@ -210,13 +210,13 @@ impl<'a> BindingsBuilder<'a> {
                         self.error(name.range, error_message, ErrorKind::UnboundName);
                     }
                 }
-                self.table.insert(key, value)
+                self.insert_binding(key, value)
             }
             Err(_) if name.id == dunder::FILE || name.id == dunder::NAME => {
-                self.table.insert(key, Binding::StrType)
+                self.insert_binding(key, Binding::StrType)
             }
-            Err(_) if name.id == dunder::DEBUG => self.table.insert(key, Binding::BoolType),
-            Err(_) if name.id == dunder::DOC => self.table.insert(
+            Err(_) if name.id == dunder::DEBUG => self.insert_binding(key, Binding::BoolType),
+            Err(_) if name.id == dunder::DOC => self.insert_binding(
                 key,
                 if self.has_docstring {
                     Binding::StrType
@@ -227,7 +227,7 @@ impl<'a> BindingsBuilder<'a> {
             Err(error) => {
                 // Record a type error and fall back to `Any`.
                 self.error(name.range, error.message(name), ErrorKind::UnknownName);
-                self.table.insert(key, Binding::Type(Type::any_error()))
+                self.insert_binding(key, Binding::Type(Type::any_error()))
             }
         }
     }
@@ -452,8 +452,10 @@ impl<'a> BindingsBuilder<'a> {
                 } else if nargs == 2 {
                     let mut bind = |expr: &mut Expr| {
                         self.ensure_expr(expr);
-                        self.table
-                            .insert(Key::Anon(expr.range()), Binding::Expr(None, expr.clone()))
+                        self.insert_binding(
+                            Key::Anon(expr.range()),
+                            Binding::Expr(None, expr.clone()),
+                        )
                     };
                     let cls_key = bind(&mut posargs[0]);
                     let obj_key = bind(&mut posargs[1]);
@@ -473,7 +475,7 @@ impl<'a> BindingsBuilder<'a> {
                     }
                     SuperStyle::Any
                 };
-                self.table.insert(
+                self.insert_binding(
                     Key::SuperInstance(*range),
                     Binding::SuperInstance(style, *range),
                 );
@@ -651,9 +653,7 @@ impl<'a> BindingsBuilder<'a> {
         let mut decorator_keys = Vec::with_capacity(decorators.len());
         for mut x in decorators {
             self.ensure_expr(&mut x.expression);
-            let k = self
-                .table
-                .insert(Key::Anon(x.range), Binding::Decorator(x.expression));
+            let k = self.insert_binding(Key::Anon(x.range), Binding::Decorator(x.expression));
             decorator_keys.push(k);
         }
         decorator_keys

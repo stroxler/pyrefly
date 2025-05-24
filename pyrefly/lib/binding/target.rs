@@ -35,7 +35,7 @@ impl<'a> BindingsBuilder<'a> {
         range: TextRange,
     ) {
         // We are going to use this binding many times, so compute it once.
-        let key = self.table.insert(Key::Unpack(range), make_binding(None));
+        let key = self.insert_binding(Key::Unpack(range), make_binding(None));
 
         // An unpacking has zero or one splats (starred expressions).
         let mut splat = false;
@@ -71,7 +71,7 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             SizeExpectation::Eq(elts.len())
         };
-        self.table.insert(
+        self.insert_binding(
             KeyExpect(range),
             BindingExpect::UnpackedLength(key, range, expect),
         );
@@ -81,7 +81,7 @@ impl<'a> BindingsBuilder<'a> {
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
         {
-            let idx = self.table.insert(
+            let idx = self.insert_binding(
                 Key::PropertyAssign(ShortIdentifier::new(&identifier)),
                 Binding::AssignToAttribute(Box::new((attr, value))),
             );
@@ -91,7 +91,7 @@ impl<'a> BindingsBuilder<'a> {
                     .update_flow_info_hashed(self.loop_depth, name, idx, None);
             }
         } else {
-            self.table.insert(
+            self.insert_binding(
                 Key::Anon(attr.range),
                 Binding::AssignToAttribute(Box::new((attr, value))),
             );
@@ -102,7 +102,7 @@ impl<'a> BindingsBuilder<'a> {
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
         {
-            let idx = self.table.insert(
+            let idx = self.insert_binding(
                 Key::PropertyAssign(ShortIdentifier::new(&identifier)),
                 Binding::AssignToSubscript(Box::new((subscript, value))),
             );
@@ -112,7 +112,7 @@ impl<'a> BindingsBuilder<'a> {
                     .update_flow_info_hashed(self.loop_depth, name, idx, None);
             }
         } else {
-            self.table.insert(
+            self.insert_binding(
                 Key::Anon(subscript.range),
                 Binding::AssignToSubscript(Box::new((subscript, value))),
             );

@@ -101,7 +101,7 @@ impl<'a> BindingsBuilder<'a> {
                             } else {
                                 UnpackedPosition::Index(idx)
                             };
-                            let key = self.table.insert(
+                            let key = self.insert_binding(
                                 Key::Anon(x.range()),
                                 Binding::UnpackedValue(key, x.range(), position),
                             );
@@ -114,7 +114,7 @@ impl<'a> BindingsBuilder<'a> {
                 } else {
                     SizeExpectation::Eq(num_patterns)
                 };
-                self.table.insert(
+                self.insert_binding(
                     KeyExpect(x.range),
                     BindingExpect::UnpackedLength(key, x.range, expect),
                 );
@@ -137,7 +137,7 @@ impl<'a> BindingsBuilder<'a> {
                                 .clone()
                                 .map(|s| s.with_facet(FacetKind::Key(key)))
                         });
-                        let binding_for_key = self.table.insert(
+                        let binding_for_key = self.insert_binding(
                             Key::Anon(key_expr.range()),
                             Binding::PatternMatchMapping(key_expr, key),
                         );
@@ -169,7 +169,7 @@ impl<'a> BindingsBuilder<'a> {
                     .into_iter()
                     .enumerate()
                     .for_each(|(idx, pattern)| {
-                        let attr_key = self.table.insert(
+                        let attr_key = self.insert_binding(
                             Key::Anon(pattern.range()),
                             Binding::PatternMatchClassPositional(
                                 x.cls.clone(),
@@ -186,7 +186,7 @@ impl<'a> BindingsBuilder<'a> {
                          attr,
                          pattern,
                      }| {
-                        let attr_key = self.table.insert(
+                        let attr_key = self.insert_binding(
                             Key::Anon(attr.range()),
                             Binding::PatternMatchClassKeyword(x.cls.clone(), attr, key),
                         );
@@ -228,7 +228,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn stmt_match(&mut self, mut x: StmtMatch) {
         self.ensure_expr(&mut x.subject);
         let match_subject = *x.subject.clone();
-        let key = self.table.insert(
+        let key = self.insert_binding(
             Key::Anon(x.subject.range()),
             Binding::Expr(None, *x.subject.clone()),
         );
@@ -256,8 +256,7 @@ impl<'a> BindingsBuilder<'a> {
             negated_prev_ops.and_all(new_narrow_ops.negate());
             if let Some(mut guard) = case.guard {
                 self.ensure_expr(&mut guard);
-                self.table
-                    .insert(Key::Anon(guard.range()), Binding::Expr(None, *guard));
+                self.insert_binding(Key::Anon(guard.range()), Binding::Expr(None, *guard));
             }
             self.stmts(case.body);
             mem::swap(&mut self.scopes.current_mut().flow, &mut base);

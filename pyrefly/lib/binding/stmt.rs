@@ -254,7 +254,7 @@ impl<'a> BindingsBuilder<'a> {
                     Binding::Type(Type::any_error())
                 }
             };
-        self.table.insert(key, binding);
+        self.insert_binding(key, binding);
     }
 
     fn define_global_name(&mut self, name: &Identifier) {
@@ -267,7 +267,7 @@ impl<'a> BindingsBuilder<'a> {
                     Binding::Type(Type::any_error())
                 }
             };
-        self.table.insert(key, binding);
+        self.insert_binding(key, binding);
     }
 
     /// If someone does `x = C["test"]`, that might be a type alias, it might not.
@@ -297,7 +297,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Delete(mut x) => {
                 for target in &mut x.targets {
-                    self.table.insert(
+                    self.insert_binding(
                         KeyExpect(target.range()),
                         BindingExpect::Delete(Box::new(target.clone())),
                     );
@@ -463,7 +463,7 @@ impl<'a> BindingsBuilder<'a> {
                             None,
                         )
                     };
-                    let ann_key = self.table.insert(ann_key, ann_val);
+                    let ann_key = self.insert_binding(ann_key, ann_val);
                     let flow_style = if in_class_body {
                         let initial_value = x.value.as_deref().cloned();
                         FlowStyle::ClassField { initial_value }
@@ -505,7 +505,7 @@ impl<'a> BindingsBuilder<'a> {
                     if let Some(ann) = self.bind_definition(&name, binding, flow_style)
                         && ann != ann_key
                     {
-                        self.table.insert(
+                        self.insert_binding(
                             KeyExpect(name.range),
                             BindingExpect::Redefinition {
                                 new: ann_key,
@@ -519,7 +519,7 @@ impl<'a> BindingsBuilder<'a> {
                     let attr_name = attr.attr.id.clone();
                     self.ensure_expr(&mut attr.value);
                     self.ensure_type(&mut x.annotation, &mut None);
-                    let ann_key = self.table.insert(
+                    let ann_key = self.insert_binding(
                         KeyAnnotation::AttrAnnotation(x.annotation.range()),
                         BindingAnnotation::AnnotateExpr(
                             AnnotationTarget::ClassMember(attr_name.clone()),
@@ -609,10 +609,9 @@ impl<'a> BindingsBuilder<'a> {
                 self.setup_loop(x.range, &narrow_ops);
                 self.ensure_expr(&mut x.test);
                 let range = x.test.range();
-                self.table
-                    .insert(Key::Anon(range), Binding::Expr(None, *x.test.clone()));
+                self.insert_binding(Key::Anon(range), Binding::Expr(None, *x.test.clone()));
                 // Typecheck the test condition during solving.
-                self.table.insert(
+                self.insert_binding(
                     KeyExpect(range),
                     BindingExpect::Bool(Box::new(*x.test), range),
                 );
@@ -642,10 +641,9 @@ impl<'a> BindingsBuilder<'a> {
                     let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
                     if let Some(mut e) = test {
                         self.ensure_expr(&mut e);
-                        self.table
-                            .insert(Key::Anon(e.range()), Binding::Expr(None, e.clone()));
+                        self.insert_binding(Key::Anon(e.range()), Binding::Expr(None, e.clone()));
                         // Typecheck the test condition during solving.
-                        self.table.insert(
+                        self.insert_binding(
                             KeyExpect(e.range()),
                             BindingExpect::Bool(Box::new(e.clone()), range),
                         );
@@ -680,7 +678,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.ensure_expr(&mut item.context_expr);
                     let item_range = item.range();
                     let expr_range = item.context_expr.range();
-                    let context_idx = self.table.insert(
+                    let context_idx = self.insert_binding(
                         Key::ContextExpr(expr_range),
                         Binding::Expr(None, item.context_expr),
                     );
@@ -690,7 +688,7 @@ impl<'a> BindingsBuilder<'a> {
                         };
                         self.bind_target(&mut opts, &make_binding);
                     } else {
-                        self.table.insert(
+                        self.insert_binding(
                             Key::Anon(item_range),
                             Binding::ContextValue(None, context_idx, expr_range, kind),
                         );
@@ -710,7 +708,7 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         RaisedException::WithoutCause(*exc)
                     };
-                    self.table.insert(
+                    self.insert_binding(
                         KeyExpect(x.range),
                         BindingExpect::CheckRaisedException(raised),
                     );
@@ -749,7 +747,7 @@ impl<'a> BindingsBuilder<'a> {
                         );
                     } else if let Some(mut type_) = h.type_ {
                         self.ensure_expr(&mut type_);
-                        self.table.insert(
+                        self.insert_binding(
                             Key::Anon(range),
                             Binding::ExceptionHandler(type_, x.is_star),
                         );
@@ -765,11 +763,10 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::Assert(mut x) => {
                 self.ensure_expr(&mut x.test);
                 self.bind_narrow_ops(&NarrowOps::from_expr(self, Some(&x.test)), x.range);
-                self.table
-                    .insert(Key::Anon(x.test.range()), Binding::Expr(None, *x.test));
+                self.insert_binding(Key::Anon(x.test.range()), Binding::Expr(None, *x.test));
                 if let Some(mut msg_expr) = x.msg {
                     self.ensure_expr(&mut msg_expr);
-                    self.table.insert(
+                    self.insert_binding(
                         KeyExpect(msg_expr.range()),
                         BindingExpect::TypeCheckExpr(Box::new(*msg_expr)),
                     );
@@ -800,7 +797,7 @@ impl<'a> BindingsBuilder<'a> {
                                 }
                                 _ => None,
                             };
-                            let key = self.table.insert(
+                            let key = self.insert_binding(
                                 Key::Import(first.clone(), x.name.range),
                                 Binding::Module(m, vec![first.clone()], module_key),
                             );
@@ -832,7 +829,7 @@ impl<'a> BindingsBuilder<'a> {
                                             );
                                             Binding::Type(Type::any_error())
                                         };
-                                        let key = self.table.insert(key, val);
+                                        let key = self.insert_binding(key, val);
                                         self.bind_key(
                                             name.key(),
                                             key,
@@ -915,7 +912,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Expr(mut x) => {
                 self.ensure_expr(&mut x.value);
-                self.table.insert(
+                self.insert_binding(
                     Key::StmtExpr(x.value.range()),
                     Binding::Expr(None, *x.value),
                 );

@@ -222,7 +222,7 @@ impl<'a> BindingsBuilder<'a> {
         self.ensure_type(&mut x, tparams_builder);
         (
             x.range(),
-            self.table.insert(
+            self.insert_binding(
                 KeyAnnotation::ReturnAnnotation(ShortIdentifier::new(func_name)),
                 BindingAnnotation::AnnotateExpr(
                     AnnotationTarget::Return(func_name.id.clone()),
@@ -338,7 +338,7 @@ impl<'a> BindingsBuilder<'a> {
             x.into_map(|(last, x)| (last, self.last_statement_idx_for_implicit_return(last, x)))
                 .into_boxed_slice()
         });
-        self.table.insert(
+        self.insert_binding(
             Key::ReturnImplicit(ShortIdentifier::new(func_name)),
             Binding::ReturnImplicit(ReturnImplicit { last_exprs }),
         )
@@ -366,7 +366,7 @@ impl<'a> BindingsBuilder<'a> {
         let return_keys = yields_and_returns
             .returns
             .into_map(|x| {
-                self.table.insert(
+                self.insert_binding(
                     Key::ReturnExplicit(x.range),
                     Binding::ReturnExplicit(ReturnExplicit {
                         annot: return_ann,
@@ -385,13 +385,12 @@ impl<'a> BindingsBuilder<'a> {
                 Either::Left(x) => {
                     // Add binding to get the send type for a yield expression.
                     Either::Left(
-                        self.table
-                            .insert(KeyYield(x.range), BindingYield::Yield(return_ann, x)),
+                        self.insert_binding(KeyYield(x.range), BindingYield::Yield(return_ann, x)),
                     )
                 }
                 Either::Right(x) => {
                     // Add binding to get the return type for a yield from expression.
-                    Either::Right(self.table.insert(
+                    Either::Right(self.insert_binding(
                         KeyYieldFrom(x.range),
                         BindingYieldFrom::YieldFrom(return_ann, x),
                     ))
@@ -417,14 +416,14 @@ impl<'a> BindingsBuilder<'a> {
                     None => inferred_any,
                 }
             };
-        self.table.insert(
+        self.insert_binding(
             Key::ReturnType(ShortIdentifier::new(func_name)),
             return_type_binding,
         );
     }
 
     fn mark_as_returns_any(&mut self, func_name: &Identifier) {
-        self.table.insert(
+        self.insert_binding(
             Key::ReturnType(ShortIdentifier::new(func_name)),
             Binding::Type(Type::any_implicit()),
         );
@@ -568,7 +567,7 @@ impl<'a> BindingsBuilder<'a> {
             );
         }
 
-        self.table.insert_idx(
+        self.insert_binding_idx(
             function_idx,
             BindingFunction {
                 def: x,

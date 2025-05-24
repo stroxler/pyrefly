@@ -143,7 +143,7 @@ pub struct BindingsBuilder<'a> {
     pub has_docstring: bool,
     pub scopes: Scopes,
     pub function_yields_and_returns: Vec1<FuncYieldsAndReturns>,
-    pub table: BindingTable,
+    table: BindingTable,
     pub untyped_def_behavior: UntypedDefBehavior,
 }
 
@@ -522,6 +522,22 @@ impl<'a> BindingsBuilder<'a> {
         self.table.get_mut::<K>().0.insert(key)
     }
 
+    /// Insert a binding into the bindings table immediately, given a `key`
+    pub fn insert_binding<K: Keyed>(&mut self, key: K, value: K::Value) -> Idx<K>
+    where
+        BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
+    {
+        self.table.insert(key, value)
+    }
+
+    /// Insert a binding into the bindings table, given the `idx` of a key that we obtained previously.
+    pub fn insert_binding_idx<K: Keyed>(&mut self, idx: Idx<K>, value: K::Value) -> Idx<K>
+    where
+        BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
+    {
+        self.table.insert_idx(idx, value)
+    }
+
     /// Allow access to an `Idx<Key>` given a `LastStmt` coming from a scan of a function body.
     /// This index will not be dangling under two assumptions:
     /// - we bind the function body (note that this isn't true for, e.g. a `@no_type_check` function!)
@@ -795,7 +811,7 @@ impl<'a> BindingsBuilder<'a> {
                         Binding::TypeVar(..)
                         | Binding::ParamSpec(..)
                         | Binding::TypeVarTuple(..) => {
-                            return Either::Left(self.table.insert(
+                            return Either::Left(self.insert_binding(
                                 KeyLegacyTypeParam(ShortIdentifier::new(name)),
                                 BindingLegacyTypeParam(idx),
                             ));
@@ -805,7 +821,7 @@ impl<'a> BindingsBuilder<'a> {
                             // whether it is a legacy type parameter. We can't simply walk through
                             // bindings, because we could recursively reach ourselves, resulting in
                             // a deadlock.
-                            return Either::Left(self.table.insert(
+                            return Either::Left(self.insert_binding(
                                 KeyLegacyTypeParam(ShortIdentifier::new(name)),
                                 BindingLegacyTypeParam(idx),
                             ));
@@ -843,7 +859,7 @@ impl<'a> BindingsBuilder<'a> {
         if let Some(default) = default {
             binding = Binding::Default(default, Box::new(binding));
         }
-        self.table.insert_idx(idx, binding);
+        self.insert_binding_idx(idx, binding);
     }
 
     /// In methods, we track assignments to `self` attribute targets so that we can
@@ -988,7 +1004,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn bind_narrow_ops(&mut self, narrow_ops: &NarrowOps, use_range: TextRange) {
         for (name, (op, op_range)) in narrow_ops.0.iter_hashed() {
             if let Ok(name_key) = self.lookup_name_hashed(name, LookupKind::Regular) {
-                let binding_key = self.table.insert(
+                let binding_key = self.insert_binding(
                     Key::Narrow(name.into_key().clone(), *op_range, use_range),
                     Binding::Narrow(name_key, Box::new(op.clone()), use_range),
                 );
@@ -1000,7 +1016,7 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn bind_lambda_param(&mut self, name: &Identifier) {
         let var = self.solver.fresh_contained(self.uniques);
-        let bind_key = self.table.insert(
+        let bind_key = self.insert_binding(
             Key::Definition(ShortIdentifier::new(name)),
             Binding::LambdaParameter(var),
         );
@@ -1020,7 +1036,7 @@ impl<'a> BindingsBuilder<'a> {
     ) {
         let name = x.name();
         let annot = x.annotation().map(|x| {
-            self.table.insert(
+            self.insert_binding(
                 KeyAnnotation::Annotation(ShortIdentifier::new(name)),
                 BindingAnnotation::AnnotateExpr(target.clone(), x.clone(), class_key),
             )
@@ -1029,14 +1045,14 @@ impl<'a> BindingsBuilder<'a> {
             Some(annot) => (annot, Either::Left(annot)),
             None => {
                 let var = self.solver.fresh_contained(self.uniques);
-                let annot = self.table.insert(
+                let annot = self.insert_binding(
                     KeyAnnotation::Annotation(ShortIdentifier::new(name)),
                     BindingAnnotation::Type(target.clone(), var.to_type()),
                 );
                 (annot, Either::Right((var, function_idx, target)))
             }
         };
-        let key = self.table.insert(
+        let key = self.insert_binding(
             Key::Definition(ShortIdentifier::new(name)),
             Binding::FunctionParameter(def),
         );
@@ -1181,7 +1197,7 @@ impl<'a> BindingsBuilder<'a> {
         let mut res = SmallMap::with_capacity(names.len());
         for (name, (key, default, values, styles)) in names.into_iter_hashed() {
             let style = self.merge_flow_style(styles);
-            self.table.insert_idx(
+            self.insert_binding_idx(
                 key,
                 match () {
                     _ if values.len() == 1 => Binding::Forward(values.into_iter().next().unwrap()),
