@@ -805,9 +805,9 @@ impl<'a> BindingsBuilder<'a> {
     fn lookup_legacy_tparam(
         &mut self,
         name: &Identifier,
-    ) -> Either<Idx<KeyLegacyTypeParam>, Result<Idx<Key>, LookupError>> {
-        let found = self.lookup_name(&name.id, LookupKind::Regular);
-        if let Ok(mut idx) = found {
+    ) -> Either<Idx<KeyLegacyTypeParam>, Option<Idx<Key>>> {
+        let found = self.lookup_name(&name.id, LookupKind::Regular).ok();
+        if let Some(mut idx) = found {
             loop {
                 if let Some(b) = self.table.types.1.get(idx) {
                     match b {
@@ -1277,7 +1277,6 @@ impl LegacyTParamBuilder {
                 builder
                     .lookup_legacy_tparam(name)
                     .map_left(|idx| (name.clone(), idx))
-                    .map_right(|right| right.ok())
             });
         match result {
             Either::Left((_, idx)) => {
