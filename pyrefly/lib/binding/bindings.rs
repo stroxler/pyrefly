@@ -813,7 +813,6 @@ impl<'a> BindingsBuilder<'a> {
                     match b {
                         Binding::Forward(fwd_idx) => {
                             idx = *fwd_idx;
-                            continue;
                         }
                         Binding::TypeVar(..)
                         | Binding::ParamSpec(..)
@@ -833,13 +832,25 @@ impl<'a> BindingsBuilder<'a> {
                                 BindingLegacyTypeParam(idx),
                             ));
                         }
-                        _ => {}
+                        _ => {
+                            // If we hit anything other than a type variable, an import, or a Forward,
+                            // then we know this name does not point at a type variable
+                            return Either::Right(found);
+                        }
                     }
+                } else {
+                    // This case happens if the name is associated with a promised binding
+                    // that is not yet in the table. I'm fuzzy when exactly this occurs, but
+                    // such names cannot point at legacy type variables.
+                    //
+                    // TODO(stroxler): it would be nice to have an actual example here, but I am
+                    // still not sure when exactly it happens.
+                    return Either::Right(found);
                 }
-                break;
             }
+        } else {
+            Either::Right(None)
         }
-        Either::Right(found)
     }
 
     pub fn bind_definition(
