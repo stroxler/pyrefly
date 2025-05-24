@@ -439,6 +439,15 @@ impl BindingTable {
             _ => unreachable!(),
         }
     }
+
+    fn link_predecessor_function(
+        &mut self,
+        pred_function_idx: Idx<KeyFunction>,
+        function_idx: Idx<KeyFunction>,
+    ) {
+        let pred_binding = self.functions.1.get_mut(pred_function_idx).unwrap();
+        pred_binding.successor = Some(function_idx);
+    }
 }
 
 /// Errors that can occur when we try to look up a name
@@ -580,8 +589,8 @@ impl<'a> BindingsBuilder<'a> {
             self.idx_for_promise(KeyFunction(ShortIdentifier::new(function_identifier)));
         // If we found a previous def, we store a forward reference inside its `BindingFunction`.
         if let Some(pred_function_idx) = pred_function_idx {
-            let pred_binding = self.table.functions.1.get_mut(pred_function_idx).unwrap();
-            pred_binding.successor = Some(function_idx);
+            self.table
+                .link_predecessor_function(pred_function_idx, function_idx);
         }
         (function_idx, pred_idx)
     }
