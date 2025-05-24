@@ -802,7 +802,7 @@ impl<'a> BindingsBuilder<'a> {
         Err(LookupError::NotFound)
     }
 
-    pub fn lookup_legacy_tparam(
+    fn lookup_legacy_tparam(
         &mut self,
         name: &Identifier,
     ) -> Either<Idx<KeyLegacyTypeParam>, Result<Idx<Key>, LookupError>> {
