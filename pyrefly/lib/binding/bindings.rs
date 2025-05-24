@@ -802,6 +802,20 @@ impl<'a> BindingsBuilder<'a> {
         Err(LookupError::NotFound)
     }
 
+    /// Look up a name that might refer to a legacy tparam. This is used by `intercept_lookup`
+    /// when in a setting where we have to check values currently in scope to see if they are
+    /// legacy type parameters and need to be re-bound into quantified type variables.
+    ///
+    /// The returned value will be:
+    /// - Either::Right(None) if the name is not in scope; we'll just skip it (the same
+    ///   code will be traversed elsewhere, so no need for a duplicate type error)
+    /// - Either::Right(Idx<Key>) if the name is in scope and does not point at a
+    ///   legacy type parameter. In this case, the intercepted lookup should just forward
+    ///   the existing binding.
+    /// - Either::Left(Idx<KeyLegacyTypeParameter>) if the name might be a legacy type
+    ///   parameter. We actually cannot currently be sure; imported names have to be treated
+    ///   as though they *might* be legacy type parameters. Making a final decision is deferred
+    ///   until the solve stage.
     fn lookup_legacy_tparam(
         &mut self,
         name: &Identifier,
@@ -817,6 +831,11 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    /// Perform the inner loop of looking up a possible legacy type parameter, given a starting
+    /// binding. The loop follows `Forward` nodes backward, and returns:
+    /// - Some(...) if we find either a legacy type variable or an import (in which case it *might*
+    ///   be a legacy type variable, so we'll let the solve stage decide)
+    /// - None if we find somethign that is definitely not a legacy type variable.
     fn lookup_legacy_tparam_from_idx(
         &mut self,
         name: &Identifier,
