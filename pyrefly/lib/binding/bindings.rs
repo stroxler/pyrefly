@@ -426,18 +426,16 @@ impl BindingTable {
         idx
     }
 
-    fn insert_anywhere(
-        &mut self,
-        name: Name,
-        range: TextRange,
-    ) -> (Idx<Key>, &mut SmallSet<Idx<Key>>) {
-        let idx = self.types.0.insert(Key::Anywhere(name, range));
+    fn insert_anywhere(&mut self, name: Name, range: TextRange, idx: Idx<Key>) {
+        let phi_idx = self.types.0.insert(Key::Anywhere(name, range));
         match self
             .types
             .1
-            .insert_if_missing(idx, || Binding::Phi(SmallSet::new()))
+            .insert_if_missing(phi_idx, || Binding::Phi(SmallSet::new()))
         {
-            Binding::Phi(phi) => (idx, phi),
+            Binding::Phi(phi) => {
+                phi.insert(idx);
+            }
             _ => unreachable!(),
         }
     }
@@ -898,13 +896,13 @@ impl<'a> BindingsBuilder<'a> {
     pub fn bind_key(
         &mut self,
         name: &Name,
-        key: Idx<Key>,
+        idx: Idx<Key>,
         style: FlowStyle,
     ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
         let name = Hashed::new(name);
         let default = self
             .scopes
-            .update_flow_info_hashed(self.loop_depth, name, key, Some(style));
+            .update_flow_info_hashed(self.loop_depth, name, idx, Some(style));
         let info = self
             .scopes
             .current()
@@ -917,9 +915,7 @@ impl<'a> BindingsBuilder<'a> {
             });
         if info.count > 1 {
             self.table
-                .insert_anywhere(name.into_key().clone(), info.loc)
-                .1
-                .insert(key);
+                .insert_anywhere(name.into_key().clone(), info.loc, idx);
         }
         (info.annot, default)
     }
