@@ -797,32 +797,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Expr::Attribute(x) => {
                 let base = self.expr_infer_type_info(&x.value, errors);
-                match (base.ty(), x.attr.id.as_str()) {
-                    (Type::Literal(Lit::Enum(box (_, member, _))), "_name_" | "name") => {
-                        TypeInfo::of_ty(Type::Literal(Lit::Str(member.as_str().into())))
-                    }
-                    (Type::Literal(Lit::Enum(box (_, _, raw_type))), "_value_" | "value") => {
-                        TypeInfo::of_ty(raw_type.clone())
-                    }
-                    (Type::SelfType(cls) | Type::ClassType(cls), "name")
-                        if self.get_metadata_for_class(cls.class_object()).is_enum() =>
-                    {
-                        self.attr_infer(&base, &Name::new_static("_name_"), x.range, errors, None)
-                    }
-                    (Type::SelfType(cls) | Type::ClassType(cls), "value")
-                        if self.get_metadata_for_class(cls.class_object()).is_enum() =>
-                    {
-                        self.attr_infer(&base, &Name::new_static("_value_"), x.range, errors, None)
-                    }
-                    _ => {
-                        self.record_external_attribute_definition_index(
-                            base.ty(),
-                            x.attr.id(),
-                            x.attr.range,
-                        );
-                        self.attr_infer(&base, &x.attr.id, x.range, errors, None)
-                    }
-                }
+                self.record_external_attribute_definition_index(
+                    base.ty(),
+                    x.attr.id(),
+                    x.attr.range,
+                );
+                self.attr_infer(&base, &x.attr.id, x.range, errors, None)
             }
             Expr::Subscript(x) => {
                 // TODO: We don't deal properly with hint here, we should.

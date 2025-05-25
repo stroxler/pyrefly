@@ -36,6 +36,7 @@ use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
+use crate::types::literal::Lit;
 use crate::types::module::Module;
 use crate::types::quantified::Quantified;
 use crate::types::tuple::Tuple;
@@ -1066,11 +1067,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // This function is intended as a low-level building block
     // Unions or intersections should be handled by callers
     fn lookup_attr_no_union(&self, base: &Type, attr_name: &Name) -> LookupResult {
-        match self.as_attribute_base_no_union(base.clone()) {
-            None => {
-                LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone()))
+        match (base, attr_name.as_str()) {
+            (Type::Literal(Lit::Enum(box (_, member, _))), "_name_" | "name") => {
+                LookupResult::found_type(Type::Literal(Lit::Str(member.as_str().into())))
             }
-            Some(base) => self.lookup_attr_from_base_no_union(base, attr_name),
+            (Type::Literal(Lit::Enum(box (_, _, raw_type))), "_value_" | "value") => {
+                LookupResult::found_type(raw_type.clone())
+            }
+            (Type::SelfType(cls) | Type::ClassType(cls), "name")
+                if self.get_metadata_for_class(cls.class_object()).is_enum() =>
+            {
+                self.lookup_attr_no_union(base, &Name::new_static("_name_"))
+            }
+            (Type::SelfType(cls) | Type::ClassType(cls), "value")
+                if self.get_metadata_for_class(cls.class_object()).is_enum() =>
+            {
+                self.lookup_attr_no_union(base, &Name::new_static("_value_"))
+            }
+            _ if let Some(base) = self.as_attribute_base_no_union(base.clone()) => {
+                self.lookup_attr_from_base_no_union(base, attr_name)
+            }
+            _ => LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone())),
         }
     }
 
