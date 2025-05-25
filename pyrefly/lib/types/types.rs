@@ -29,6 +29,7 @@ use crate::types::callable::ParamList;
 use crate::types::class::Class;
 use crate::types::class::ClassKind;
 use crate::types::class::ClassType;
+use crate::types::class::TArgs;
 use crate::types::literal::Lit;
 use crate::types::module::Module;
 use crate::types::param_spec::ParamSpec;
@@ -379,6 +380,18 @@ impl OverloadType {
 pub struct Forall<T> {
     pub tparams: TParams,
     pub body: T,
+}
+
+impl Forall<Forallable> {
+    pub fn subst(self, targs: TArgs) -> Type {
+        let param_map = self
+            .tparams
+            .quantified()
+            .cloned()
+            .zip(targs.as_slice().iter().cloned())
+            .collect::<SmallMap<_, _>>();
+        self.body.as_type().subst(&param_map)
+    }
 }
 
 /// These are things that can have Forall around them, so often you see `Forall<Forallable>`

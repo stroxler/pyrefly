@@ -23,6 +23,8 @@ use crate::types::class::TArgs;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::tuple::Tuple;
 use crate::types::typed_dict::TypedDict;
+use crate::types::types::Forall;
+use crate::types::types::Forallable;
 use crate::types::types::TParam;
 use crate::types::types::TParams;
 use crate::types::types::Type;
@@ -58,6 +60,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.check_and_create_targs(cls.name(), cls.tparams(), targs, range, errors)
         };
         self.type_of_instance(cls, targs)
+    }
+
+    pub fn specialize_forall(
+        &self,
+        forall: Forall<Forallable>,
+        targs: Vec<Type>,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let targs =
+            self.check_and_create_targs(&forall.body.name(), &forall.tparams, targs, range, errors);
+        forall.subst(targs)
     }
 
     /// Given a class or typed dictionary, create a `Type` that represents to an instance annotated
@@ -139,7 +153,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn check_and_create_targs(
+    fn check_and_create_targs(
         &self,
         name: &Name,
         tparams: &TParams,

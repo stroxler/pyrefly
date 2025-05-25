@@ -21,7 +21,6 @@ use ruff_python_ast::Number;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
-use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
@@ -857,23 +856,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 base = Type::type_form(Type::SpecialForm(SpecialForm::Tuple));
             }
             match base {
-                Type::Forall(forall) => {
+                Type::Forall(box forall) => {
                     let tys =
                         xs.map(|x| self.expr_untype(x, TypeFormContext::TypeArgument, errors));
-                    let targs = self.check_and_create_targs(
-                        &forall.body.name(),
-                        &forall.tparams,
-                        tys,
-                        range,
-                        errors,
-                    );
-                    let param_map = forall
-                        .tparams
-                        .quantified()
-                        .cloned()
-                        .zip(targs.as_slice().iter().cloned())
-                        .collect::<SmallMap<_, _>>();
-                    forall.body.as_type().subst(&param_map)
+                    self.specialize_forall(forall, tys, range, errors)
                 }
                 // Note that we have to check for `builtins.type` by name here because this code runs
                 // when we're bootstrapping the stdlib and don't have access to class objects yet.
