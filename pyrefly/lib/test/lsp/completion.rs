@@ -170,7 +170,7 @@ class Foo:
 5 |   x.
         ^
 Completion Results:
-- (Field) magic: Unknown
+- (Field) magic
 
 
 # lib.py

@@ -1531,27 +1531,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             if include_types {
                 for info in &mut res {
-                    if let Some(definition) = &info.definition {
-                        match definition {
-                            AttrDefinition::FullyResolved(..) => {
-                                info.ty = match self
-                                    .lookup_attr_from_attribute_base(base.clone(), &info.name)
-                                {
-                                    // Important we do not use the resolved TextRange, as it might be in a different module.
-                                    // Whereas the empty TextRange is valid for all modules.
-                                    LookupResult::Found(attr) => self
-                                        .resolve_get_access(
-                                            attr,
-                                            TextRange::default(),
-                                            &self.error_swallower(),
-                                            None,
-                                        )
-                                        .ok(),
-                                    _ => None,
-                                };
-                            }
-                            AttrDefinition::PartiallyResolvedImportedModuleAttribute { .. } => {}
-                        }
+                    if let Some(definition) = &info.definition
+                        && matches!(definition, AttrDefinition::FullyResolved(..))
+                        && let LookupResult::Found(attr) =
+                            self.lookup_attr_from_attribute_base(base.clone(), &info.name)
+                        && let Ok(ty) = self.resolve_get_access(
+                            attr,
+                            // Important we do not use the resolved TextRange, as it might be in a different module.
+                            // Whereas the empty TextRange is valid for all modules.
+                            TextRange::default(),
+                            &self.error_swallower(),
+                            None,
+                        )
+                        && !ty.is_error()
+                    {
+                        info.ty = Some(ty);
                     }
                 }
             }
