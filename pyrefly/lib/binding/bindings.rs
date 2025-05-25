@@ -537,7 +537,7 @@ impl<'a> BindingsBuilder<'a> {
         self.table.insert(key, value)
     }
 
-    /// Like `insert_binding` but will ignore subsequent calls
+    /// Like `insert_binding` but will overwrite any existing binding.
     /// Should only be used in exceptional cases.
     pub fn insert_binding_overwrite(&mut self, key: Key, value: Binding) -> Idx<Key> {
         let idx = self.table.types.0.insert(key);
