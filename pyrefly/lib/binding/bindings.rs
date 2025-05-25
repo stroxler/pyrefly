@@ -917,10 +917,11 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     /// In methods, we track assignments to `self` attribute targets so that we can
-    /// be aware of class fields defined in methods.
+    /// be aware of class fields implicitly defined in methods.
     ///
-    /// We currently apply this logic in all methods, although downstream code only uses
-    /// attributes defined in constructors; this may change in the future.
+    /// We currently apply this logic in all methods, although downstream code will
+    /// often complain if an attribute is implicitly defined outside of methods
+    /// (like constructors) that we recognize as always being called.
     ///
     /// Returns `true` if the attribute was a self attribute.
     pub fn record_self_attr_assign(
