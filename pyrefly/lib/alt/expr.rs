@@ -787,14 +787,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> TypeInfo {
         let res = match x {
-            Expr::Name(x) => {
-                match x.id.as_str() {
-                    "" => TypeInfo::of_ty(Type::any_error()), // Must already have a parse error
-                    _ => self
-                        .get(&Key::Usage(ShortIdentifier::expr_name(x)))
-                        .arc_clone(),
-                }
-            }
+            Expr::Name(x) => self
+                .get(&Key::Usage(ShortIdentifier::expr_name(x)))
+                .arc_clone(),
             Expr::Attribute(x) => {
                 let base = self.expr_infer_type_info(&x.value, errors);
                 self.record_external_attribute_definition_index(
