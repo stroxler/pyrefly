@@ -373,3 +373,28 @@ def test(cond: bool):
     h  # E: `h` is uninitialized
 "#,
 );
+
+testcase!(
+    test_local_defined_by_mutation_no_shadowing,
+    r#"
+def f() -> None:
+    x += 1  # E: Could not find name `x`
+    del y  # E: Could not find name `y`
+"#,
+);
+
+testcase!(
+    bug = "We incorrectly treat mutations as potentially modifying non-mutable captures",
+    test_local_defined_by_mutation_with_shadowing,
+    r#"
+x: int = 0
+y: int = 0
+def f() -> None:
+    # This is *not* an invalid mutation of the global `x` (that is impossible syntactically).
+    # Instead, it is *defining* a local (and should produce an uninitialaized local error in this case).
+    # The runtime error is pretty clear here: UnboundLocalError: local variable 'x' referenced before assignment
+    x += 1  # E: `x` is not mutable from the current scope
+    # Same problem here, `del` defines a local, and the runtime gives the same error.
+    del y  # E: `y` is not mutable from the current scope
+"#,
+);
