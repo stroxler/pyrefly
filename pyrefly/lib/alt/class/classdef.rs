@@ -109,13 +109,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Creates default type arguments for a class, falling back to Any for type parameters without defaults.
     fn create_default_targs(
         &self,
-        cls: &Class,
+        tparams: &TParams,
         // Placeholder for strict mode: we want to force callers to pass a range so
         // that we don't refactor in a way where none is available, but this is unused
         // because we do not have a strict mode yet.
         _range: Option<TextRange>,
     ) -> TArgs {
-        let tparams = cls.tparams();
         if tparams.is_empty() {
             TArgs::default()
         } else {
@@ -138,7 +137,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// caller to ensure they are not calling this method on a TypedDict class, which should be
     /// promoted to TypedDict instead of ClassType.
     pub fn promote_nontypeddict_silently_to_classtype(&self, cls: &Class) -> ClassType {
-        ClassType::new(cls.dupe(), self.create_default_targs(cls, None))
+        ClassType::new(cls.dupe(), self.create_default_targs(cls.tparams(), None))
     }
 
     fn type_of_instance(&self, cls: &Class, targs: TArgs) -> Type {
@@ -187,14 +186,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// promote(list) == list[Any]
     /// instantiate(list) == list[T]
     pub fn promote(&self, cls: &Class, range: TextRange) -> Type {
-        let targs = self.create_default_targs(cls, Some(range));
+        let targs = self.create_default_targs(cls.tparams(), Some(range));
         self.type_of_instance(cls, targs)
     }
 
     /// Version of `promote` that does not potentially raise errors.
     /// Should only be used for unusual scenarios.
     pub fn promote_silently(&self, cls: &Class) -> Type {
-        let targs = self.create_default_targs(cls, None);
+        let targs = self.create_default_targs(cls.tparams(), None);
         self.type_of_instance(cls, targs)
     }
 
