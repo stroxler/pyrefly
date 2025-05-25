@@ -2651,7 +2651,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn untype(&self, ty: Type, range: TextRange, errors: &ErrorCollector) -> Type {
         let mut ty = ty;
         if let Type::Forall(box forall) = ty {
-            ty = self.specialize_forall(forall, Vec::new(), range, errors);
+            ty = self.promote_forall(forall, range);
         };
         if let Some(t) = self.untype_opt(ty.clone(), range) {
             t

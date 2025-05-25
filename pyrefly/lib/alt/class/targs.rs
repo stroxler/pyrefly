@@ -92,6 +92,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.type_of_instance(cls, targs)
     }
 
+    pub fn promote_forall(&self, forall: Forall<Forallable>, range: TextRange) -> Type {
+        let targs = self.create_default_targs(&forall.tparams, Some(range));
+        forall.subst(targs)
+    }
+
     /// Version of `promote` that does not potentially raise errors.
     /// Should only be used for unusual scenarios.
     pub fn promote_silently(&self, cls: &Class) -> Type {

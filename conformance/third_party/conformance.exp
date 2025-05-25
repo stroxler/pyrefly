@@ -3,16 +3,6 @@
   "aliases_explicit.py": [
     {
       "code": -2,
-      "column": 10,
-      "concise_description": "Expected 1 type argument for `GoodTypeAlias12`, got 0",
-      "description": "Expected 1 type argument for `GoodTypeAlias12`, got 0",
-      "line": 44,
-      "name": "bad-specialization",
-      "stop_column": 25,
-      "stop_line": 44
-    },
-    {
-      "code": -2,
       "column": 9,
       "concise_description": "Can't apply arguments to non-class, got TypeAlias[GoodTypeAlias2, type[int | None]]",
       "description": "Can't apply arguments to non-class, got TypeAlias[GoodTypeAlias2, type[int | None]]",
@@ -243,16 +233,6 @@
     }
   ],
   "aliases_implicit.py": [
-    {
-      "code": -2,
-      "column": 10,
-      "concise_description": "Expected 1 type argument for `GoodTypeAlias13`, got 0",
-      "description": "Expected 1 type argument for `GoodTypeAlias13`, got 0",
-      "line": 58,
-      "name": "bad-specialization",
-      "stop_column": 25,
-      "stop_line": 58
-    },
     {
       "code": -2,
       "column": 9,
@@ -6933,26 +6913,6 @@
       "name": "invalid-type-var",
       "stop_column": 13,
       "stop_line": 59
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Expected 1 type argument for `Array1D`, got 0",
-      "description": "Expected 1 type argument for `Array1D`, got 0",
-      "line": 67,
-      "name": "bad-specialization",
-      "stop_column": 23,
-      "stop_line": 67
-    },
-    {
-      "code": -2,
-      "column": 67,
-      "concise_description": "Expected 2 type arguments for `VariadicTuple`, got 0",
-      "description": "Expected 2 type arguments for `VariadicTuple`, got 0",
-      "line": 92,
-      "name": "bad-specialization",
-      "stop_column": 80,
-      "stop_line": 92
     },
     {
       "code": -2,
