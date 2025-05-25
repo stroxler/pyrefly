@@ -1477,14 +1477,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .iter()
                     .filter_map(|e| e.map(|e| self.expr_infer(e, errors)))
                     .collect::<Vec<_>>();
-                let targs = self.check_and_create_targs(
-                    &Name::new_static("slice"),
-                    self.stdlib.slice_class_object().tparams(),
-                    elts,
-                    x.range(),
-                    errors,
-                );
-                self.stdlib.slice(targs.as_slice().to_vec()).to_type()
+                self.specialize(&self.stdlib.slice_class_object(), elts, x.range(), errors)
             }
             Expr::IpyEscapeCommand(x) => self.error(
                 errors,
