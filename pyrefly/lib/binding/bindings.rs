@@ -16,6 +16,7 @@ use itertools::Either;
 use itertools::Itertools;
 use ruff_python_ast::AnyParameterRef;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
@@ -61,7 +62,6 @@ use crate::error::kind::ErrorKind;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
 use crate::export::special::SpecialEntry;
-use crate::export::special::SpecialEnv;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::graph::index::Index;
@@ -599,8 +599,45 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    // Only works for things with `Foo`, or `source.Foo`, or `F` where `from module import Foo as F`.
+    // Does not work for things with nested modules - but no SpecialExport's have that.
     pub fn as_special_export(&self, e: &Expr) -> Option<SpecialExport> {
-        SpecialExport::as_special_export(self, e)
+        match e {
+            Expr::Name(name) => {
+                let name = &name.id;
+                match self.scopes.get_special_entry(name)? {
+                    SpecialEntry::ImportName(m, name2) => {
+                        let special = SpecialExport::new(name2)?;
+                        if special.defined_in(m) {
+                            Some(special)
+                        } else {
+                            None
+                        }
+                    }
+                    SpecialEntry::Local => {
+                        let special = SpecialExport::new(name)?;
+                        if special.defined_in(self.module_info.name()) {
+                            Some(special)
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                }
+            }
+            Expr::Attribute(ExprAttribute {
+                value: box Expr::Name(module),
+                attr: name,
+                ..
+            }) => {
+                let special = SpecialExport::new(&name.id)?;
+                match self.scopes.get_special_entry(&module.id)? {
+                    SpecialEntry::ImportModule(m) if special.defined_in(m) => Some(special),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
     }
 
     pub fn error(&self, range: TextRange, msg: String, error_kind: ErrorKind) {
@@ -1167,16 +1204,6 @@ impl<'a> BindingsBuilder<'a> {
     pub fn set_current_flow_to_merged_branches(&mut self, branches: Vec<Flow>, range: TextRange) {
         let flow = self.merge_flow(branches, range);
         self.scopes.replace_current_flow(flow);
-    }
-}
-
-impl SpecialEnv for BindingsBuilder<'_> {
-    fn current_module(&self) -> ModuleName {
-        self.module_info.name()
-    }
-
-    fn lookup_special(&self, name: &Name) -> Option<SpecialEntry> {
-        self.scopes.get_special_entry(name)
     }
 }
 
