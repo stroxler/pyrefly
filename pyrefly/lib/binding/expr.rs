@@ -241,7 +241,7 @@ impl<'a> BindingsBuilder<'a> {
     fn bind_comprehensions(&mut self, range: TextRange, comprehensions: &mut [Comprehension]) {
         self.scopes.push(Scope::comprehension(range));
         for comp in comprehensions {
-            self.scopes.current_mut().stat.expr_lvalue(&comp.target);
+            self.scopes.add_lvalue_to_current_static(&comp.target);
             let make_binding =
                 |ann| Binding::IterableValue(ann, comp.iter.clone(), IsAsync::new(comp.is_async));
             self.bind_target(&mut comp.target, &make_binding);
@@ -527,7 +527,7 @@ impl<'a> BindingsBuilder<'a> {
                 return;
             }
             Expr::Named(x) => {
-                self.scopes.current_mut().stat.expr_lvalue(&x.target);
+                self.scopes.add_lvalue_to_current_static(&x.target);
                 let make_binding = |ann| Binding::Expr(ann, (*x.value).clone());
                 self.bind_target(&mut x.target, &make_binding);
                 self.ensure_expr(&mut x.value);

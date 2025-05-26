@@ -700,6 +700,10 @@ impl Scopes {
         self.current_mut().stat.add(name, range, ann);
     }
 
+    pub fn add_lvalue_to_current_static(&mut self, x: &Expr) {
+        self.current_mut().stat.expr_lvalue(x);
+    }
+
     /// Add a loop exit point to the current innermost loop with the current flow.
     ///
     /// Return a bool indicating whether we were in a loop (if we weren't, we do nothing).
