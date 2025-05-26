@@ -1163,6 +1163,10 @@ impl<'a> BindingsBuilder<'a> {
     pub fn merge_branches_into_current(&mut self, branches: Vec<Flow>, range: TextRange) {
         self.merge_into_current(branches, range, false);
     }
+
+    pub fn set_current_flow_to_merged_branches(&mut self, branches: Vec<Flow>, range: TextRange) {
+        self.scopes.current_mut().flow = self.merge_flow(branches, range);
+    }
 }
 
 impl SpecialEnv for BindingsBuilder<'_> {

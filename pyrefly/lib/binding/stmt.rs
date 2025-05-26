@@ -682,7 +682,7 @@ impl<'a> BindingsBuilder<'a> {
                 // the flow above the `If`) because the if might be skipped
                 // entirely.
                 if exhaustive {
-                    self.scopes.current_mut().flow = self.merge_flow(branches, range);
+                    self.set_current_flow_to_merged_branches(branches, range);
                 } else {
                     if implicit_else {
                         // If there is no explicit else branch, we still want to merge the negated ops
@@ -779,7 +779,7 @@ impl<'a> BindingsBuilder<'a> {
                     branches.push(base);
                 }
 
-                self.scopes.current_mut().flow = self.merge_flow(branches, range);
+                self.set_current_flow_to_merged_branches(branches, range);
                 self.stmts(x.finalbody);
             }
             Stmt::Assert(mut x) => {

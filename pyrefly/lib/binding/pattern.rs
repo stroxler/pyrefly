@@ -216,7 +216,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.scopes.swap_current_flow_with(&mut base);
                     branches.push(base);
                 }
-                self.scopes.current_mut().flow = self.merge_flow(branches, range);
+                self.set_current_flow_to_merged_branches(branches, range);
                 narrow_ops.unwrap_or_default()
             }
             Pattern::MatchStar(_) => NarrowOps::new(),
@@ -265,7 +265,7 @@ impl<'a> BindingsBuilder<'a> {
         //
         // Otherwise, we need to merge the branches with the original `base` flow (which is current).
         if exhaustive {
-            self.scopes.current_mut().flow = self.merge_flow(branches, range);
+            self.set_current_flow_to_merged_branches(branches, range);
         } else {
             self.merge_branches_into_current(branches, range);
         }
