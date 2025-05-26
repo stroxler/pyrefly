@@ -165,8 +165,11 @@ impl Static {
 #[derive(Default, Clone, Debug)]
 pub struct Flow {
     pub info: SmallMap<Name, FlowInfo>,
-    // Should this flow be merged into the next? Flow merging occurs after constructs like branches and loops.
-    pub no_next: bool,
+    // Have we seen control flow terminate?
+    //
+    // We continue to analyze the rest of the code after a flow terminates, but
+    // we don't include terminated flows when merging after loops and branches.
+    pub has_terminated: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -672,7 +675,7 @@ impl Scopes {
         let flow = scope.flow.clone();
         if let Some(innermost) = scope.loops.last_mut() {
             innermost.0.push((exit, flow));
-            scope.flow.no_next = true;
+            scope.flow.has_terminated = true;
             true
         } else {
             false
@@ -680,7 +683,7 @@ impl Scopes {
     }
 
     pub fn mark_flow_termination(&mut self) {
-        self.current_mut().flow.no_next = true;
+        self.current_mut().flow.has_terminated = true;
     }
 }
 

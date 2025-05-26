@@ -1181,11 +1181,11 @@ impl<'a> BindingsBuilder<'a> {
         range: TextRange,
         is_loop: bool,
     ) -> Flow {
-        if xs.len() == 1 && xs[0].no_next {
+        if xs.len() == 1 && xs[0].has_terminated {
             return xs.pop().unwrap();
         }
         let (hidden_branches, mut visible_branches): (Vec<_>, Vec<_>) =
-            xs.into_iter().partition(|x| x.no_next);
+            xs.into_iter().partition(|x| x.has_terminated);
 
         // We normally go through the visible branches, but if nothing is visible no one is going to
         // fill in the Phi keys we promised. So just give up and use the hidden branches instead.
@@ -1253,7 +1253,10 @@ impl<'a> BindingsBuilder<'a> {
                 },
             );
         }
-        Flow { info: res, no_next }
+        Flow {
+            info: res,
+            has_terminated: no_next,
+        }
     }
 
     fn merge_loop_into_current(&mut self, mut branches: Vec<Flow>, range: TextRange) {
