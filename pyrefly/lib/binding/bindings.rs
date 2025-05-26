@@ -61,7 +61,6 @@ use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
-use crate::export::special::SpecialEntry;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::graph::index::Index;
@@ -604,38 +603,18 @@ impl<'a> BindingsBuilder<'a> {
     pub fn as_special_export(&self, e: &Expr) -> Option<SpecialExport> {
         match e {
             Expr::Name(name) => {
-                let name = &name.id;
-                match self.scopes.get_special_entry(name)? {
-                    SpecialEntry::ImportName(m, name2) => {
-                        let special = SpecialExport::new(name2)?;
-                        if special.defined_in(m) {
-                            Some(special)
-                        } else {
-                            None
-                        }
-                    }
-                    SpecialEntry::Local => {
-                        let special = SpecialExport::new(name)?;
-                        if special.defined_in(self.module_info.name()) {
-                            Some(special)
-                        } else {
-                            None
-                        }
-                    }
-                    _ => None,
-                }
+                self.scopes
+                    .as_special_export(&name.id, None, self.module_info.name())
             }
             Expr::Attribute(ExprAttribute {
-                value: box Expr::Name(module),
+                value: box Expr::Name(base_name),
                 attr: name,
                 ..
-            }) => {
-                let special = SpecialExport::new(&name.id)?;
-                match self.scopes.get_special_entry(&module.id)? {
-                    SpecialEntry::ImportModule(m) if special.defined_in(m) => Some(special),
-                    _ => None,
-                }
-            }
+            }) => self.scopes.as_special_export(
+                &name.id,
+                Some(&base_name.id),
+                self.module_info.name(),
+            ),
             _ => None,
         }
     }

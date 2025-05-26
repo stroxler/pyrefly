@@ -40,13 +40,6 @@ pub enum SpecialExport {
     NoTypeCheck,
 }
 
-#[derive(Debug)]
-pub enum SpecialEntry<'a> {
-    ImportModule(ModuleName),
-    ImportName(ModuleName, &'a Name),
-    Local,
-}
-
 impl SpecialExport {
     pub fn new(name: &Name) -> Option<Self> {
         match name.as_str() {

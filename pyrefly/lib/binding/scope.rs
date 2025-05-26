@@ -8,7 +8,6 @@
 use std::fmt::Debug;
 use std::mem;
 
-use dupe::Dupe;
 use itertools::Either;
 use parse_display::Display;
 use ruff_python_ast::Expr;
@@ -43,7 +42,7 @@ use crate::dunder;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
 use crate::export::exports::LookupExport;
-use crate::export::special::SpecialEntry;
+use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
@@ -743,16 +742,52 @@ impl Scopes {
         }
     }
 
-    pub fn get_special_entry<'a>(&'a self, name: &Name) -> Option<SpecialEntry<'a>> {
-        let flow = self.get_flow_info(name)?;
-        let entry = match &flow.style {
-            FlowStyle::Import(m, name) => SpecialEntry::ImportName(m.dupe(), name),
-            FlowStyle::MergeableImport(m) | FlowStyle::ImportAs(m) => {
-                SpecialEntry::ImportModule(m.dupe())
+    /// Look up either `name` or `base_name.name` in the current scope, assuming we are
+    /// in the module with name `module_name`. If it is a `SpecialExport`, return it (otherwise None)
+    pub fn as_special_export(
+        &self,
+        name: &Name,
+        base_name: Option<&Name>,
+        current_module: ModuleName,
+    ) -> Option<SpecialExport> {
+        if let Some(base_name) = base_name {
+            // Check to see whether there's an imported module `base_name` such that `base_name.name`
+            // is a special export.
+            let special = SpecialExport::new(name)?;
+            let flow = self.get_flow_info(base_name)?;
+            match &flow.style {
+                FlowStyle::MergeableImport(m) | FlowStyle::ImportAs(m) => {
+                    if special.defined_in(*m) {
+                        Some(special)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
             }
-            _ => SpecialEntry::Local,
-        };
-        Some(entry)
+        } else {
+            // Check to see whether `name` is a special export; either it must be
+            // defined in the current module, or be an imported name from some other module.
+            let flow = self.get_flow_info(name)?;
+            match &flow.style {
+                FlowStyle::Import(m, upstream_name) => {
+                    let special = SpecialExport::new(upstream_name)?;
+                    if special.defined_in(*m) {
+                        Some(special)
+                    } else {
+                        None
+                    }
+                }
+                _ => {
+                    let special = SpecialExport::new(name)?;
+                    if special.defined_in(current_module) {
+                        Some(special)
+                    } else {
+                        None
+                    }
+                }
+            }
+        }
     }
 
     pub fn add_to_current_static(
