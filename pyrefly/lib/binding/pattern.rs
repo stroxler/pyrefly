@@ -215,7 +215,7 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         narrow_ops = Some(new_narrow_ops);
                     }
-                    mem::swap(&mut self.scopes.current_mut().flow, &mut base);
+                    self.scopes.swap_current_flow_with(&mut base);
                     branches.push(base);
                 }
                 self.scopes.current_mut().flow = self.merge_flow(branches, range);
@@ -259,7 +259,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.insert_binding(Key::Anon(guard.range()), Binding::Expr(None, *guard));
             }
             self.stmts(case.body);
-            mem::swap(&mut self.scopes.current_mut().flow, &mut base);
+            self.scopes.swap_current_flow_with(&mut base);
             branches.push(base);
         }
         if !exhaustive {

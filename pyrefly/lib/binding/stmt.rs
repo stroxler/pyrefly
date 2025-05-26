@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::mem;
-
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprName;
@@ -676,7 +674,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.bind_narrow_ops(&new_narrow_ops, range);
                     negated_prev_ops.and_all(new_narrow_ops.negate());
                     self.stmts(body);
-                    mem::swap(&mut self.scopes.current_mut().flow, &mut base);
+                    self.scopes.swap_current_flow_with(&mut base);
                     branches.push(base);
                     if this_branch_chosen == Some(true) {
                         exhaustive = true;
@@ -758,7 +756,7 @@ impl<'a> BindingsBuilder<'a> {
 
                 self.stmts(x.body);
                 self.stmts(x.orelse);
-                mem::swap(&mut self.scopes.current_mut().flow, &mut base);
+                self.scopes.swap_current_flow_with(&mut base);
                 branches.push(base);
 
                 for h in x.handlers {
@@ -782,7 +780,7 @@ impl<'a> BindingsBuilder<'a> {
                         );
                     }
                     self.stmts(h.body);
-                    mem::swap(&mut self.scopes.current_mut().flow, &mut base);
+                    self.scopes.swap_current_flow_with(&mut base);
                     branches.push(base);
                 }
 

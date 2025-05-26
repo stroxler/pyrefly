@@ -6,6 +6,7 @@
  */
 
 use std::fmt::Debug;
+use std::mem;
 
 use dupe::Dupe;
 use parse_display::Display;
@@ -712,6 +713,10 @@ impl Scopes {
         } else {
             false
         }
+    }
+
+    pub fn swap_current_flow_with(&mut self, flow: &mut Flow) {
+        mem::swap(&mut self.current_mut().flow, flow);
     }
 
     pub fn mark_flow_termination(&mut self) {
