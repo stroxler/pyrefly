@@ -1063,29 +1063,6 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn merge_flow_style(&mut self, styles: Vec<FlowStyle>) -> FlowStyle {
-        let mut it = styles.into_iter();
-        let mut merged = it.next().unwrap_or(FlowStyle::None);
-        for x in it {
-            match (&merged, x) {
-                // If they're identical, keep it
-                (l, r) if l == &r => {}
-                // Uninitialized and initialized branches merge into PossiblyUninitialized
-                (FlowStyle::Uninitialized, _) => {
-                    return FlowStyle::PossiblyUninitialized;
-                }
-                (_, FlowStyle::PossiblyUninitialized | FlowStyle::Uninitialized) => {
-                    return FlowStyle::PossiblyUninitialized;
-                }
-                // Unclear how to merge, default to None
-                _ => {
-                    merged = FlowStyle::None;
-                }
-            }
-        }
-        merged
-    }
-
     pub fn merge_flow(&mut self, xs: Vec<Flow>, range: TextRange) -> Flow {
         self.merge_flow_is_loop(xs, range, false)
     }
@@ -1146,7 +1123,7 @@ impl<'a> BindingsBuilder<'a> {
 
         let mut res = SmallMap::with_capacity(names.len());
         for (name, (key, default, values, styles)) in names.into_iter_hashed() {
-            let style = self.merge_flow_style(styles);
+            let style = FlowStyle::merged(styles);
             self.insert_binding_idx(
                 key,
                 match () {

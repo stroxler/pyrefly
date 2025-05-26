@@ -214,6 +214,29 @@ impl FlowStyle {
             _ => None,
         }
     }
+
+    pub fn merged(styles: Vec<FlowStyle>) -> FlowStyle {
+        let mut it = styles.into_iter();
+        let mut merged = it.next().unwrap_or(FlowStyle::None);
+        for x in it {
+            match (&merged, x) {
+                // If they're identical, keep it
+                (l, r) if l == &r => {}
+                // Uninitialized and initialized branches merge into PossiblyUninitialized
+                (FlowStyle::Uninitialized, _) => {
+                    return FlowStyle::PossiblyUninitialized;
+                }
+                (_, FlowStyle::PossiblyUninitialized | FlowStyle::Uninitialized) => {
+                    return FlowStyle::PossiblyUninitialized;
+                }
+                // Unclear how to merge, default to None
+                _ => {
+                    merged = FlowStyle::None;
+                }
+            }
+        }
+        merged
+    }
 }
 
 #[derive(Debug, Clone)]
