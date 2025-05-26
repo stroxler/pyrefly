@@ -1165,7 +1165,8 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn set_current_flow_to_merged_branches(&mut self, branches: Vec<Flow>, range: TextRange) {
-        self.scopes.current_mut().flow = self.merge_flow(branches, range);
+        let flow = self.merge_flow(branches, range);
+        self.scopes.replace_current_flow(flow);
     }
 }
 

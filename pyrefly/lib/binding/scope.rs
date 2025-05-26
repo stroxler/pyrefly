@@ -787,6 +787,10 @@ impl Scopes {
         mem::swap(&mut self.current_mut().flow, flow);
     }
 
+    pub fn replace_current_flow(&mut self, flow: Flow) {
+        self.current_mut().flow = flow;
+    }
+
     pub fn mark_flow_termination(&mut self) {
         self.current_mut().flow.has_terminated = true;
     }
