@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::mem;
-
 use itertools::Either;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
@@ -289,12 +287,12 @@ impl<'a> BindingsBuilder<'a> {
         orelse: Option<&mut Expr>,
         range: TextRange,
     ) {
-        let if_branch = mem::take(&mut self.scopes.current_mut().flow);
-        self.scopes.current_mut().flow = base;
+        let if_branch = self.scopes.replace_current_flow(base);
         self.bind_narrow_ops(&ops.negate(), range);
         self.ensure_expr_opt(orelse);
-        let else_branch = mem::take(&mut self.scopes.current_mut().flow);
-        self.scopes.current_mut().flow = self.merge_flow(vec![if_branch, else_branch], range);
+        // Swap them back again, to make sure that the merge order is if, then else
+        let else_branch = self.scopes.replace_current_flow(if_branch);
+        self.merge_branches_into_current(vec![else_branch], range);
     }
 
     fn enclosing_class_name(&self) -> Option<&Identifier> {

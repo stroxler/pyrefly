@@ -1063,7 +1063,7 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn merge_flow(&mut self, xs: Vec<Flow>, range: TextRange) -> Flow {
+    fn merge_flow(&mut self, xs: Vec<Flow>, range: TextRange) -> Flow {
         self.merge_flow_is_loop(xs, range, false)
     }
 
