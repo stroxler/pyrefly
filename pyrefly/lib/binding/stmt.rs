@@ -661,7 +661,9 @@ impl<'a> BindingsBuilder<'a> {
                 // Otherwise, we need to merge branches with `base` (which was
                 // the flow above the `If`) because the if might be skipped
                 // entirely.
-                if !exhaustive {
+                if exhaustive {
+                    self.scopes.current_mut().flow = self.merge_flow(branches, range);
+                } else {
                     if implicit_else {
                         // If there is no explicit else branch, we still want to merge the negated ops
                         // from the previous branches into the flow env.
@@ -669,9 +671,8 @@ impl<'a> BindingsBuilder<'a> {
                         // key distinct from other keys.
                         self.bind_narrow_ops(&negated_prev_ops, TextRange::default());
                     }
-                    branches.push(mem::take(&mut self.scopes.current_mut().flow));
+                    self.merge_branches_into_current(branches, range);
                 }
-                self.scopes.current_mut().flow = self.merge_flow(branches, range);
             }
             Stmt::With(x) => {
                 let kind = IsAsync::new(x.is_async);

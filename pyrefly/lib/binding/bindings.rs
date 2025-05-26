@@ -1259,9 +1259,17 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn merge_loop_into_current(&mut self, mut branches: Vec<Flow>, range: TextRange) {
+    fn merge_into_current(&mut self, mut branches: Vec<Flow>, range: TextRange, is_loop: bool) {
         branches.push(mem::take(&mut self.scopes.current_mut().flow));
-        self.scopes.current_mut().flow = self.merge_flow_is_loop(branches, range, true);
+        self.scopes.current_mut().flow = self.merge_flow_is_loop(branches, range, is_loop);
+    }
+
+    fn merge_loop_into_current(&mut self, branches: Vec<Flow>, range: TextRange) {
+        self.merge_into_current(branches, range, true);
+    }
+
+    pub fn merge_branches_into_current(&mut self, branches: Vec<Flow>, range: TextRange) {
+        self.merge_into_current(branches, range, false);
     }
 }
 
