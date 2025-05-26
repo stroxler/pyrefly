@@ -285,14 +285,7 @@ impl<'a> BindingsBuilder<'a> {
         self.parameters(parameters, function_idx, class_key);
         self.init_static_scope(&body, false);
         self.stmts(body);
-        let func_scope = self.scopes.pop();
-        let self_assignments = match func_scope.kind {
-            ScopeKind::Method(method_scope) => Some(SelfAssignments {
-                method_name: method_scope.name.id,
-                instance_attributes: method_scope.instance_attributes,
-            }),
-            _ => None,
-        };
+        let self_assignments = self.scopes.pop_function_scope();
         let yields_and_returns = self.function_yields_and_returns.pop().unwrap();
         (yields_and_returns, self_assignments)
     }

@@ -569,6 +569,17 @@ impl Scopes {
         scope
     }
 
+    pub fn pop_function_scope(&mut self) -> Option<SelfAssignments> {
+        match self.pop().kind {
+            ScopeKind::Method(method_scope) => Some(SelfAssignments {
+                method_name: method_scope.name.id,
+                instance_attributes: method_scope.instance_attributes,
+            }),
+            ScopeKind::Function => None,
+            unexpected => unreachable!("Tried to pop a function scope, but got {unexpected:?}"),
+        }
+    }
+
     pub fn iter_rev(&self) -> impl ExactSizeIterator<Item = &Scope> {
         self.scopes.iter().map(|node| &node.scope).rev()
     }
