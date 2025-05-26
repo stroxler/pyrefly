@@ -576,6 +576,10 @@ impl Scopes {
         &self.scopes.last().scope
     }
 
+    pub fn clone_current_flow(&self) -> Flow {
+        self.current().flow.clone()
+    }
+
     pub fn current_mut(&mut self) -> &mut Scope {
         &mut self.current_mut_node().scope
     }

@@ -363,7 +363,7 @@ impl<'a> BindingsBuilder<'a> {
         let new_scope = match x {
             Expr::If(x) => {
                 // Ternary operation. We treat it like an if/else statement.
-                let base = self.scopes.current().flow.clone();
+                let base = self.scopes.clone_current_flow();
                 self.ensure_expr(&mut x.test);
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.bind_narrow_ops(&narrow_ops, x.body.range());
@@ -373,7 +373,7 @@ impl<'a> BindingsBuilder<'a> {
                 return;
             }
             Expr::BoolOp(ExprBoolOp { range, op, values }) => {
-                let base = self.scopes.current().flow.clone();
+                let base = self.scopes.clone_current_flow();
                 let mut narrow_ops = NarrowOps::new();
                 for value in values {
                     self.bind_narrow_ops(&narrow_ops, value.range());

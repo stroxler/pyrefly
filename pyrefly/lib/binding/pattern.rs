@@ -206,7 +206,7 @@ impl<'a> BindingsBuilder<'a> {
                             ErrorKind::MatchError,
                         )
                     }
-                    let mut base = self.scopes.current().flow.clone();
+                    let mut base = self.scopes.clone_current_flow();
                     let new_narrow_ops = self.bind_pattern(match_subject.clone(), pattern, key);
                     if let Some(ref mut ops) = narrow_ops {
                         ops.or_all(new_narrow_ops)
@@ -243,7 +243,7 @@ impl<'a> BindingsBuilder<'a> {
         // is carried over to the fallback case.
         let mut negated_prev_ops = NarrowOps::new();
         for case in x.cases {
-            let mut base = self.scopes.current().flow.clone();
+            let mut base = self.scopes.clone_current_flow();
             if case.pattern.is_wildcard() || case.pattern.is_irrefutable() {
                 exhaustive = true;
             }

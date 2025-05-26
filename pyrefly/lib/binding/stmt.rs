@@ -653,7 +653,7 @@ impl<'a> BindingsBuilder<'a> {
                         continue; // We definitely won't pick this branch
                     }
                     self.bind_narrow_ops(&negated_prev_ops, range);
-                    let mut base = self.scopes.current().flow.clone();
+                    let mut base = self.scopes.clone_current_flow();
                     let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
                     if let Some(mut e) = test {
                         self.ensure_expr(&mut e);
@@ -742,7 +742,7 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::Try(x) => {
                 let range = x.range;
                 let mut branches = Vec::new();
-                let mut base = self.scopes.current().flow.clone();
+                let mut base = self.scopes.clone_current_flow();
 
                 // We branch before the body, conservatively assuming that any statement can fail
                 // entry -> try -> else -> finally
@@ -755,7 +755,7 @@ impl<'a> BindingsBuilder<'a> {
                 branches.push(base);
 
                 for h in x.handlers {
-                    base = self.scopes.current().flow.clone();
+                    base = self.scopes.clone_current_flow();
                     let range = h.range();
                     let h = h.except_handler().unwrap(); // Only one variant for now
                     if let Some(name) = h.name
