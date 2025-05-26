@@ -1056,8 +1056,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn teardown_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps, orelse: Vec<Stmt>) {
-        assert!(self.scopes.loop_depth() > 0);
-        let done = self.scopes.current_mut().loops.pop().unwrap();
+        let done = self.scopes.finish_current_loop();
         let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) =
             done.0.into_iter().partition_map(|(exit, flow)| match exit {
                 LoopExit::Break => Either::Left(flow),

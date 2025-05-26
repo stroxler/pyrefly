@@ -722,6 +722,11 @@ impl Scopes {
     pub fn mark_flow_termination(&mut self) {
         self.current_mut().flow.has_terminated = true;
     }
+
+    pub fn finish_current_loop(&mut self) -> Loop {
+        assert!(self.loop_depth() > 0);
+        self.current_mut().loops.pop().unwrap()
+    }
 }
 
 #[derive(Clone, Debug)]
