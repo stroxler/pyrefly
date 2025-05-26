@@ -19,13 +19,19 @@ use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprLambda;
 use ruff_python_ast::ExprNoneLiteral;
 use ruff_python_ast::ExprSubscript;
+use ruff_python_ast::ExprYield;
+use ruff_python_ast::ExprYieldFrom;
 use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
 use crate::binding::binding::Binding;
+use crate::binding::binding::BindingYield;
+use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyYield;
+use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::SuperStyle;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
@@ -318,6 +324,28 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    fn record_yield(&mut self, x: ExprYield) {
+        match self.function_yields_and_returns.last_mut() {
+            Some(yields_and_returns) => {
+                yields_and_returns.yields.push(Either::Left(x));
+            }
+            None => {
+                self.insert_binding(KeyYield(x.range), BindingYield::Invalid(x));
+            }
+        }
+    }
+
+    fn record_yield_from(&mut self, x: ExprYieldFrom) {
+        match self.function_yields_and_returns.last_mut() {
+            Some(yields_and_returns) => {
+                yields_and_returns.yields.push(Either::Right(x));
+            }
+            None => {
+                self.insert_binding(KeyYieldFrom(x.range), BindingYieldFrom::Invalid(x));
+            }
+        }
+    }
+
     /// Execute through the expr, ensuring every name has a binding.
     pub fn ensure_expr(&mut self, x: &mut Expr) {
         let new_scope = match x {
@@ -547,17 +575,11 @@ impl<'a> BindingsBuilder<'a> {
                 true
             }
             Expr::Yield(x) => {
-                self.function_yields_and_returns
-                    .last_mut()
-                    .yields
-                    .push(Either::Left(x.clone()));
+                self.record_yield(x.clone());
                 false
             }
             Expr::YieldFrom(x) => {
-                self.function_yields_and_returns
-                    .last_mut()
-                    .yields
-                    .push(Either::Right(x.clone()));
+                self.record_yield_from(x.clone());
                 false
             }
             _ => false,

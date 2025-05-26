@@ -33,23 +33,18 @@ use starlark_map::Hashed;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
-use vec1::Vec1;
 
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingExport;
 use crate::binding::binding::BindingLegacyTypeParam;
-use crate::binding::binding::BindingYield;
-use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyExport;
 use crate::binding::binding::KeyFunction;
 use crate::binding::binding::KeyLegacyTypeParam;
-use crate::binding::binding::KeyYield;
-use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::Keyed;
 use crate::binding::binding::LastStmt;
 use crate::binding::binding::TypeParameter;
@@ -138,7 +133,7 @@ pub struct BindingsBuilder<'a> {
     uniques: &'a UniqueFactory,
     pub has_docstring: bool,
     pub scopes: Scopes,
-    pub function_yields_and_returns: Vec1<FuncYieldsAndReturns>,
+    pub function_yields_and_returns: Vec<FuncYieldsAndReturns>,
     table: BindingTable,
     pub untyped_def_behavior: UntypedDefBehavior,
 }
@@ -307,7 +302,7 @@ impl Bindings {
             class_count: 0,
             has_docstring: Ast::has_docstring(&x),
             scopes: Scopes::module(x.range, enable_trace),
-            function_yields_and_returns: Vec1::new(FuncYieldsAndReturns::default()),
+            function_yields_and_returns: Vec::new(),
             table: Default::default(),
             untyped_def_behavior,
         };
@@ -317,35 +312,7 @@ impl Bindings {
         }
         builder.stmts(x.body);
         // Create dummy bindings for any invalid yield/yield from expressions.
-        let (top_level_yields_and_returns, _) =
-            builder.function_yields_and_returns.split_off_first();
-        for x in top_level_yields_and_returns.yields {
-            match x {
-                Either::Left(x) => {
-                    builder
-                        .table
-                        .insert(KeyYield(x.range), BindingYield::Invalid(x));
-                }
-                Either::Right(x) => {
-                    builder
-                        .table
-                        .insert(KeyYieldFrom(x.range), BindingYieldFrom::Invalid(x));
-                }
-            }
-        }
-        for x in top_level_yields_and_returns.returns {
-            if let Some(x) = x.value {
-                builder
-                    .table
-                    .insert(Key::Anon(x.range()), Binding::Expr(None, *x));
-            }
-            errors.add(
-                x.range,
-                "Invalid `return` outside of a function".to_owned(),
-                ErrorKind::BadReturn,
-                None,
-            );
-        }
+        assert!(builder.function_yields_and_returns.is_empty());
         assert_eq!(builder.scopes.loop_depth(), 0);
         let scope_trace = builder.scopes.finish();
         let last_scope = scope_trace.toplevel_scope();

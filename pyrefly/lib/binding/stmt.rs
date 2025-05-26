@@ -15,6 +15,7 @@ use ruff_python_ast::Keyword;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtAssign;
 use ruff_python_ast::StmtImportFrom;
+use ruff_python_ast::StmtReturn;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -282,6 +283,31 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    /// Record a return statement for later analysis if we are in a function body, and mark
+    /// that the flow has terminated.
+    ///
+    /// If this is the top level, report a type error about the invalid return
+    /// and also create a binding to ensure we type check the expression.
+    fn record_return(&mut self, mut x: StmtReturn) {
+        self.ensure_expr_opt(x.value.as_deref_mut());
+        match self.function_yields_and_returns.last_mut() {
+            Some(yields_and_returns) => {
+                yields_and_returns.returns.push(x);
+            }
+            None => {
+                if let Some(x) = x.value {
+                    self.insert_binding(Key::Anon(x.range()), Binding::Expr(None, *x));
+                }
+                self.error(
+                    x.range,
+                    "Invalid `return` outside of a function".to_owned(),
+                    ErrorKind::BadReturn,
+                );
+            }
+        }
+        self.scopes.mark_flow_termination();
+    }
+
     /// Evaluate the statements and update the bindings.
     /// Every statement should end up in the bindings, perhaps with a location that is never used.
     pub fn stmt(&mut self, x: Stmt) {
@@ -290,10 +316,8 @@ impl<'a> BindingsBuilder<'a> {
                 self.function_def(x);
             }
             Stmt::ClassDef(x) => self.class_def(x),
-            Stmt::Return(mut x) => {
-                self.ensure_expr_opt(x.value.as_deref_mut());
-                self.function_yields_and_returns.last_mut().returns.push(x);
-                self.scopes.mark_flow_termination();
+            Stmt::Return(x) => {
+                self.record_return(x);
             }
             Stmt::Delete(mut x) => {
                 for target in &mut x.targets {
