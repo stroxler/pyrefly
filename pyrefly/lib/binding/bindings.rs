@@ -1111,7 +1111,6 @@ impl<'a> BindingsBuilder<'a> {
             // The promise is that we will insert a Phi binding when the control flow merges.
             info.key = self.idx_for_promise(Key::Phi(name.clone(), range));
         }
-        flow.no_next = false;
         flow
     }
 
