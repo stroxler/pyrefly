@@ -373,6 +373,12 @@ impl BindingTable {
         idx
     }
 
+    fn insert_overwrite(&mut self, key: Key, value: Binding) -> Idx<Key> {
+        let idx = self.types.0.insert(key);
+        self.types.1.insert(idx, value);
+        idx
+    }
+
     fn insert_anywhere(&mut self, name: Name, range: TextRange, idx: Idx<Key>) {
         let phi_idx = self.types.0.insert(Key::Anywhere(name, range));
         match self
@@ -487,9 +493,7 @@ impl<'a> BindingsBuilder<'a> {
     /// Like `insert_binding` but will overwrite any existing binding.
     /// Should only be used in exceptional cases.
     pub fn insert_binding_overwrite(&mut self, key: Key, value: Binding) -> Idx<Key> {
-        let idx = self.table.types.0.insert(key);
-        self.table.types.1.insert(idx, value);
-        idx
+        self.table.insert_overwrite(key, value)
     }
 
     /// Insert a binding into the bindings table, given the `idx` of a key that we obtained previously.
