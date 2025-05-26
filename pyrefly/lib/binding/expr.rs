@@ -252,13 +252,15 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn bind_lambda(&mut self, lambda: &ExprLambda) {
+    pub fn bind_lambda(&mut self, lambda: &mut ExprLambda) {
         self.scopes.push(Scope::function(lambda.range));
         if let Some(parameters) = &lambda.parameters {
             for x in parameters {
                 self.bind_lambda_param(x.name());
             }
         }
+        self.ensure_expr(&mut lambda.body);
+        self.scopes.pop();
     }
 
     /// Helper to clean up an expression that does type narrowing. We merge flows for the narrowing
@@ -533,6 +535,10 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut x.value);
                 return;
             }
+            Expr::Lambda(x) => {
+                self.bind_lambda(x);
+                return;
+            }
             Expr::Call(ExprCall {
                 range: _,
                 func,
@@ -568,10 +574,6 @@ impl<'a> BindingsBuilder<'a> {
             }
             Expr::Generator(x) => {
                 self.bind_comprehensions(x.range, &mut x.generators);
-                true
-            }
-            Expr::Lambda(x) => {
-                self.bind_lambda(x);
                 true
             }
             Expr::Yield(x) => {
