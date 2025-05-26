@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::mem;
-
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::Pattern;
@@ -262,9 +260,14 @@ impl<'a> BindingsBuilder<'a> {
             self.scopes.swap_current_flow_with(&mut base);
             branches.push(base);
         }
-        if !exhaustive {
-            branches.push(mem::take(&mut self.scopes.current_mut().flow));
+        // If the match branches cover all possibilities, then the flow after the match
+        // is just the merged branch flows.
+        //
+        // Otherwise, we need to merge the branches with the original `base` flow (which is current).
+        if exhaustive {
+            self.scopes.current_mut().flow = self.merge_flow(branches, range);
+        } else {
+            self.merge_branches_into_current(branches, range);
         }
-        self.scopes.current_mut().flow = self.merge_flow(branches, range);
     }
 }
