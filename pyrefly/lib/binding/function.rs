@@ -63,9 +63,9 @@ struct Decorators {
     decorators: Box<[Idx<Key>]>,
 }
 
-struct SelfAssignments {
-    method_name: Name,
-    instance_attributes: SmallMap<Name, InstanceAttribute>,
+pub struct SelfAssignments {
+    pub method_name: Name,
+    pub instance_attributes: SmallMap<Name, InstanceAttribute>,
 }
 
 /// Determine whether a function definition is annotated.
@@ -203,13 +203,7 @@ impl<'a> BindingsBuilder<'a> {
                 class_key,
             );
         }
-        if let Scope {
-            kind: ScopeKind::Method(method_scope),
-            ..
-        } = self.scopes.current_mut()
-        {
-            method_scope.self_name = self_name;
-        }
+        self.scopes.set_self_name_if_applicable(self_name);
     }
 
     fn to_return_annotation_with_range(
@@ -558,14 +552,8 @@ impl<'a> BindingsBuilder<'a> {
         // Pop the annotation scope to get back to the parent scope, and handle this
         // case where we need to track assignments to `self` from methods.
         self.scopes.pop();
-        if let Some(self_assignments) = self_assignments
-            && let ScopeKind::Class(class_scope) = &mut self.scopes.current_mut().kind
-        {
-            class_scope.add_attributes_defined_by_method(
-                self_assignments.method_name,
-                self_assignments.instance_attributes,
-            );
-        }
+        self.scopes
+            .record_self_assignments_if_applicable(self_assignments);
 
         self.insert_binding_idx(
             function_idx,

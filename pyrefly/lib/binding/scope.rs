@@ -34,6 +34,7 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyFunction;
 use crate::binding::bindings::BindingTable;
+use crate::binding::function::SelfAssignments;
 use crate::dunder;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
@@ -730,6 +731,36 @@ impl Scopes {
     pub fn finish_current_loop(&mut self) -> Loop {
         assert!(self.loop_depth() > 0);
         self.current_mut().loops.pop().unwrap()
+    }
+
+    /// Whenever we enter the scope of a method *and* we see a matching
+    /// parameter, we record the name of it so that we can detect `self` assignments
+    /// that might define class fields.
+    pub fn set_self_name_if_applicable(&mut self, self_name: Option<Identifier>) {
+        if let Scope {
+            kind: ScopeKind::Method(method_scope),
+            ..
+        } = self.current_mut()
+        {
+            method_scope.self_name = self_name;
+        }
+    }
+
+    /// Whenever we exit a function definition scope that was a method where we accumulated
+    /// assignments to `self`, we need to record those assignments on the parent class scope;
+    /// they may later be used to define class fields.
+    pub fn record_self_assignments_if_applicable(
+        &mut self,
+        self_assignments: Option<SelfAssignments>,
+    ) {
+        if let Some(self_assignments) = self_assignments
+            && let ScopeKind::Class(class_scope) = &mut self.current_mut().kind
+        {
+            class_scope.add_attributes_defined_by_method(
+                self_assignments.method_name,
+                self_assignments.instance_attributes,
+            );
+        }
     }
 }
 
