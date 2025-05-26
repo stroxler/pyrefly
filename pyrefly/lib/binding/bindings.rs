@@ -17,12 +17,9 @@ use itertools::Itertools;
 use ruff_python_ast::AnyParameterRef;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprName;
-use ruff_python_ast::ExprYield;
-use ruff_python_ast::ExprYieldFrom;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
-use ruff_python_ast::StmtReturn;
 use ruff_python_ast::TypeParam;
 use ruff_python_ast::TypeParams;
 use ruff_python_ast::name::Name;
@@ -133,16 +130,8 @@ pub struct BindingsBuilder<'a> {
     uniques: &'a UniqueFactory,
     pub has_docstring: bool,
     pub scopes: Scopes,
-    pub function_yields_and_returns: Vec<FuncYieldsAndReturns>,
     table: BindingTable,
     pub untyped_def_behavior: UntypedDefBehavior,
-}
-
-/// Things we collect from inside a function
-#[derive(Default, Clone, Debug)]
-pub struct FuncYieldsAndReturns {
-    pub returns: Vec<StmtReturn>,
-    pub yields: Vec<Either<ExprYield, ExprYieldFrom>>,
 }
 
 impl Bindings {
@@ -302,7 +291,6 @@ impl Bindings {
             class_count: 0,
             has_docstring: Ast::has_docstring(&x),
             scopes: Scopes::module(x.range, enable_trace),
-            function_yields_and_returns: Vec::new(),
             table: Default::default(),
             untyped_def_behavior,
         };
@@ -311,8 +299,6 @@ impl Bindings {
             builder.inject_builtins();
         }
         builder.stmts(x.body);
-        // Create dummy bindings for any invalid yield/yield from expressions.
-        assert!(builder.function_yields_and_returns.is_empty());
         assert_eq!(builder.scopes.loop_depth(), 0);
         let scope_trace = builder.scopes.finish();
         let last_scope = scope_trace.toplevel_scope();

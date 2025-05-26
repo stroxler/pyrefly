@@ -288,20 +288,15 @@ impl<'a> BindingsBuilder<'a> {
     /// and also create a binding to ensure we type check the expression.
     fn record_return(&mut self, mut x: StmtReturn) {
         self.ensure_expr_opt(x.value.as_deref_mut());
-        match self.function_yields_and_returns.last_mut() {
-            Some(yields_and_returns) => {
-                yields_and_returns.returns.push(x);
+        if let Err(oops_top_level) = self.scopes.record_or_reject_return(x) {
+            if let Some(x) = oops_top_level.value {
+                self.insert_binding(Key::Anon(x.range()), Binding::Expr(None, *x));
             }
-            None => {
-                if let Some(x) = x.value {
-                    self.insert_binding(Key::Anon(x.range()), Binding::Expr(None, *x));
-                }
-                self.error(
-                    x.range,
-                    "Invalid `return` outside of a function".to_owned(),
-                    ErrorKind::BadReturn,
-                );
-            }
+            self.error(
+                oops_top_level.range,
+                "Invalid `return` outside of a function".to_owned(),
+                ErrorKind::BadReturn,
+            );
         }
         self.scopes.mark_flow_termination();
     }

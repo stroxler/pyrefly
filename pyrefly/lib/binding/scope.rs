@@ -9,12 +9,16 @@ use std::fmt::Debug;
 use std::mem;
 
 use dupe::Dupe;
+use itertools::Either;
 use parse_display::Display;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
+use ruff_python_ast::ExprYield;
+use ruff_python_ast::ExprYieldFrom;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtReturn;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -352,6 +356,13 @@ fn is_test_setup_method(method_name: &Name) -> bool {
     }
 }
 
+/// Things we collect from inside a function
+#[derive(Default, Clone, Debug)]
+pub struct YieldsAndReturns {
+    pub returns: Vec<StmtReturn>,
+    pub yields: Vec<Either<ExprYield, ExprYieldFrom>>,
+}
+
 #[derive(Clone, Debug)]
 pub struct InstanceAttribute(
     pub ExprOrBinding,
@@ -364,6 +375,12 @@ pub struct ScopeMethod {
     pub name: Identifier,
     pub self_name: Option<Identifier>,
     pub instance_attributes: SmallMap<Name, InstanceAttribute>,
+    pub yields_and_returns: YieldsAndReturns,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ScopeFunction {
+    pub yields_and_returns: YieldsAndReturns,
 }
 
 #[derive(Clone, Debug)]
@@ -371,7 +388,7 @@ pub enum ScopeKind {
     Annotation,
     Class(ScopeClass),
     Comprehension,
-    Function,
+    Function(ScopeFunction),
     Method(ScopeMethod),
     Module,
 }
@@ -438,7 +455,7 @@ impl Scope {
     }
 
     pub fn function(range: TextRange) -> Self {
-        Self::new(range, true, ScopeKind::Function)
+        Self::new(range, true, ScopeKind::Function(Default::default()))
     }
 
     pub fn method(range: TextRange, name: Identifier) -> Self {
@@ -449,6 +466,7 @@ impl Scope {
                 name,
                 self_name: None,
                 instance_attributes: SmallMap::new(),
+                yields_and_returns: Default::default(),
             }),
         )
     }
@@ -577,13 +595,16 @@ impl Scopes {
         }
     }
 
-    pub fn pop_function_scope(&mut self) -> Option<SelfAssignments> {
+    pub fn pop_function_scope(&mut self) -> (YieldsAndReturns, Option<SelfAssignments>) {
         match self.pop().kind {
-            ScopeKind::Method(method_scope) => Some(SelfAssignments {
-                method_name: method_scope.name.id,
-                instance_attributes: method_scope.instance_attributes,
-            }),
-            ScopeKind::Function => None,
+            ScopeKind::Method(method_scope) => (
+                method_scope.yields_and_returns,
+                Some(SelfAssignments {
+                    method_name: method_scope.name.id,
+                    instance_attributes: method_scope.instance_attributes,
+                }),
+            ),
+            ScopeKind::Function(function_scope) => (function_scope.yields_and_returns, None),
             unexpected => unreachable!("Tried to pop a function scope, but got {unexpected:?}"),
         }
     }
@@ -779,6 +800,56 @@ impl Scopes {
                 self_assignments.method_name,
                 self_assignments.instance_attributes,
             );
+        }
+    }
+
+    fn current_yields_and_returns_mut(&mut self) -> Option<&mut YieldsAndReturns> {
+        for scope in self.iter_rev_mut() {
+            match &mut scope.kind {
+                ScopeKind::Function(scope) => return Some(&mut scope.yields_and_returns),
+                ScopeKind::Method(scope) => return Some(&mut scope.yields_and_returns),
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// Record a return in the enclosing function body there is one.
+    ///
+    /// Return `None` if this succeeded and Some(rejected_return) if we are at the top-level
+    pub fn record_or_reject_return(&mut self, x: StmtReturn) -> Result<(), StmtReturn> {
+        match self.current_yields_and_returns_mut() {
+            Some(yields_and_returns) => {
+                yields_and_returns.returns.push(x);
+                Ok(())
+            }
+            None => Err(x),
+        }
+    }
+
+    /// Record a yield in the enclosing function body there is one.
+    ///
+    /// Return `None` if this succeeded and Some(rejected_yield) if we are at the top-level
+    pub fn record_or_reject_yield(&mut self, x: ExprYield) -> Result<(), ExprYield> {
+        match self.current_yields_and_returns_mut() {
+            Some(yields_and_returns) => {
+                yields_and_returns.yields.push(Either::Left(x));
+                Ok(())
+            }
+            None => Err(x),
+        }
+    }
+
+    /// Record a yield in the enclosing function body there is one.
+    ///
+    /// Return `None` if this succeeded and Some(rejected_yield) if we are at the top-level
+    pub fn record_or_reject_yield_from(&mut self, x: ExprYieldFrom) -> Result<(), ExprYieldFrom> {
+        match self.current_yields_and_returns_mut() {
+            Some(yields_and_returns) => {
+                yields_and_returns.yields.push(Either::Right(x));
+                Ok(())
+            }
+            None => Err(x),
         }
     }
 }

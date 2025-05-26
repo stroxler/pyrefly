@@ -260,7 +260,23 @@ impl<'a> BindingsBuilder<'a> {
             }
         }
         self.ensure_expr(&mut lambda.body);
-        self.scopes.pop();
+        // Pyrefly currently does not support `yield` in lambdas, but we cannot drop them
+        // entirely or we will panic at solve time.
+        //
+        // TODO: We should properly handle `yield` and `yield from`; lambdas can be generators.
+        // One example of this is in the standard library, in `_collections_abc.pyi`:
+        // https://github.com/python/cpython/blob/965662ee4a986605b60da470d9e7c1e9a6f922b3/Lib/_collections_abc.py#L92
+        let (yields_and_returns, _) = self.scopes.pop_function_scope();
+        for y in yields_and_returns.yields {
+            match y {
+                Either::Left(y) => {
+                    self.insert_binding(KeyYield(y.range), BindingYield::Invalid(y));
+                }
+                Either::Right(y) => {
+                    self.insert_binding(KeyYieldFrom(y.range), BindingYieldFrom::Invalid(y));
+                }
+            }
+        }
     }
 
     /// Helper to clean up an expression that does type narrowing. We merge flows for the narrowing
@@ -327,24 +343,20 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn record_yield(&mut self, x: ExprYield) {
-        match self.function_yields_and_returns.last_mut() {
-            Some(yields_and_returns) => {
-                yields_and_returns.yields.push(Either::Left(x));
-            }
-            None => {
-                self.insert_binding(KeyYield(x.range), BindingYield::Invalid(x));
-            }
+        if let Err(oops_top_level) = self.scopes.record_or_reject_yield(x) {
+            self.insert_binding(
+                KeyYield(oops_top_level.range),
+                BindingYield::Invalid(oops_top_level),
+            );
         }
     }
 
     fn record_yield_from(&mut self, x: ExprYieldFrom) {
-        match self.function_yields_and_returns.last_mut() {
-            Some(yields_and_returns) => {
-                yields_and_returns.yields.push(Either::Right(x));
-            }
-            None => {
-                self.insert_binding(KeyYieldFrom(x.range), BindingYieldFrom::Invalid(x));
-            }
+        if let Err(oops_top_level) = self.scopes.record_or_reject_yield_from(x) {
+            self.insert_binding(
+                KeyYieldFrom(oops_top_level.range),
+                BindingYieldFrom::Invalid(oops_top_level),
+            );
         }
     }
 

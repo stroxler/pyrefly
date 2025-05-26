@@ -42,12 +42,12 @@ use crate::binding::binding::ReturnExplicit;
 use crate::binding::binding::ReturnImplicit;
 use crate::binding::binding::ReturnType;
 use crate::binding::bindings::BindingsBuilder;
-use crate::binding::bindings::FuncYieldsAndReturns;
 use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
+use crate::binding::scope::YieldsAndReturns;
 use crate::config::base::UntypedDefBehavior;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
@@ -274,17 +274,13 @@ impl<'a> BindingsBuilder<'a> {
         func_name: &Identifier,
         function_idx: Idx<KeyFunction>,
         class_key: Option<Idx<KeyClass>>,
-    ) -> (FuncYieldsAndReturns, Option<SelfAssignments>) {
+    ) -> (YieldsAndReturns, Option<SelfAssignments>) {
         self.scopes
             .push_function_scope(range, func_name, class_key.is_some());
-        self.function_yields_and_returns
-            .push(FuncYieldsAndReturns::default());
         self.parameters(parameters, function_idx, class_key);
         self.init_static_scope(&body, false);
         self.stmts(body);
-        let self_assignments = self.scopes.pop_function_scope();
-        let yields_and_returns = self.function_yields_and_returns.pop().unwrap();
-        (yields_and_returns, self_assignments)
+        self.scopes.pop_function_scope()
     }
 
     fn unchecked_function_body_scope(
@@ -334,7 +330,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         func_name: &Identifier,
         is_async: bool,
-        yields_and_returns: FuncYieldsAndReturns,
+        yields_and_returns: YieldsAndReturns,
         return_ann_with_range: Option<(TextRange, Idx<KeyAnnotation>)>,
         implicit_return_if_inferring_return_type: Option<Idx<Key>>,
         stub_or_impl: FunctionStubOrImpl,
