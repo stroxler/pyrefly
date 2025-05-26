@@ -173,7 +173,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_attr_assign(x.clone(), attr_value.clone());
                 // If this is a self-assignment, record it because we may use it to infer
                 // the existence of an instance-only attribute.
-                self.record_self_attr_assign(x, attr_value, None);
+                self.scopes.record_self_attr_assign(x, attr_value, None);
             }
             Expr::Subscript(x) => {
                 let assigned_value = if let Some(value) = value {

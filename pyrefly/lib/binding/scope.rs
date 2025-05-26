@@ -10,6 +10,7 @@ use std::fmt::Debug;
 use dupe::Dupe;
 use parse_display::Display;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Stmt;
@@ -570,8 +571,39 @@ impl Scopes {
         self.scopes.iter().map(|node| &node.scope).rev()
     }
 
-    pub fn iter_rev_mut(&mut self) -> impl ExactSizeIterator<Item = &mut Scope> {
+    fn iter_rev_mut(&mut self) -> impl ExactSizeIterator<Item = &mut Scope> {
         self.scopes.iter_mut().map(|node| &mut node.scope).rev()
+    }
+
+    /// In methods, we track assignments to `self` attribute targets so that we can
+    /// be aware of class fields implicitly defined in methods.
+    ///
+    /// We currently apply this logic in all methods, although downstream code will
+    /// often complain if an attribute is implicitly defined outside of methods
+    /// (like constructors) that we recognize as always being called.
+    ///
+    /// Returns `true` if the attribute was a self attribute.
+    pub fn record_self_attr_assign(
+        &mut self,
+        x: &ExprAttribute,
+        value: ExprOrBinding,
+        annotation: Option<Idx<KeyAnnotation>>,
+    ) -> bool {
+        for scope in self.iter_rev_mut() {
+            if let ScopeKind::Method(method_scope) = &mut scope.kind
+                && let Some(self_name) = &method_scope.self_name
+                && matches!(&*x.value, Expr::Name(name) if name.id == self_name.id)
+            {
+                if !method_scope.instance_attributes.contains_key(&x.attr.id) {
+                    method_scope.instance_attributes.insert(
+                        x.attr.id.clone(),
+                        InstanceAttribute(value, annotation, x.attr.range()),
+                    );
+                }
+                return true;
+            }
+        }
+        false
     }
 
     pub fn loop_depth(&self) -> u32 {

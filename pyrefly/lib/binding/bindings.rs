@@ -16,7 +16,6 @@ use itertools::Either;
 use itertools::Itertools;
 use ruff_python_ast::AnyParameterRef;
 use ruff_python_ast::Expr;
-use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprYield;
 use ruff_python_ast::ExprYieldFrom;
@@ -43,7 +42,6 @@ use crate::binding::binding::BindingExport;
 use crate::binding::binding::BindingLegacyTypeParam;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
-use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
@@ -59,7 +57,6 @@ use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Flow;
 use crate::binding::scope::FlowInfo;
 use crate::binding::scope::FlowStyle;
-use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::Loop;
 use crate::binding::scope::LoopExit;
 use crate::binding::scope::ScopeKind;
@@ -912,37 +909,6 @@ impl<'a> BindingsBuilder<'a> {
             binding = Binding::Default(default, Box::new(binding));
         }
         self.insert_binding_idx(idx, binding);
-    }
-
-    /// In methods, we track assignments to `self` attribute targets so that we can
-    /// be aware of class fields implicitly defined in methods.
-    ///
-    /// We currently apply this logic in all methods, although downstream code will
-    /// often complain if an attribute is implicitly defined outside of methods
-    /// (like constructors) that we recognize as always being called.
-    ///
-    /// Returns `true` if the attribute was a self attribute.
-    pub fn record_self_attr_assign(
-        &mut self,
-        x: &ExprAttribute,
-        value: ExprOrBinding,
-        annotation: Option<Idx<KeyAnnotation>>,
-    ) -> bool {
-        for scope in self.scopes.iter_rev_mut() {
-            if let ScopeKind::Method(method_scope) = &mut scope.kind
-                && let Some(self_name) = &method_scope.self_name
-                && matches!(&*x.value, Expr::Name(name) if name.id == self_name.id)
-            {
-                if !method_scope.instance_attributes.contains_key(&x.attr.id) {
-                    method_scope.instance_attributes.insert(
-                        x.attr.id.clone(),
-                        InstanceAttribute(value, annotation, x.attr.range()),
-                    );
-                }
-                return true;
-            }
-        }
-        false
     }
 
     /// Return a pair of:
