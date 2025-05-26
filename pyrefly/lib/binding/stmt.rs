@@ -663,6 +663,11 @@ impl<'a> BindingsBuilder<'a> {
                     // key distinct from other keys.
                     self.bind_narrow_ops(&negated_prev_ops, TextRange::default());
                 }
+                // If the conditions are exhaustive, then we only need to merge the branches.
+                //
+                // Otherwise, we need to merge branches with `base` (which was
+                // the flow above the `If`) because the if might be skipped
+                // entirely.
                 if !exhaustive {
                     branches.push(mem::take(&mut self.scopes.current_mut().flow));
                 }
