@@ -46,7 +46,6 @@ use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::Scope;
-use crate::binding::scope::ScopeKind;
 use crate::binding::scope::YieldsAndReturns;
 use crate::config::base::UntypedDefBehavior;
 use crate::export::special::SpecialExport;
@@ -505,11 +504,8 @@ impl<'a> BindingsBuilder<'a> {
         // Get preceding function definition, if any. Used for building an overload type.
         let (function_idx, pred_idx) = self.create_function_index(&x.name);
 
-        let (class_key, metadata_key) = match &self.scopes.current().kind {
-            ScopeKind::Class(class_scope) => (
-                Some(class_scope.indices.class_idx),
-                Some(class_scope.indices.metadata_idx),
-            ),
+        let (class_key, metadata_key) = match self.scopes.current_class_and_metadata_keys() {
+            Some((class_key, metadata_key)) => (Some(class_key), Some(metadata_key)),
             _ => (None, None),
         };
 

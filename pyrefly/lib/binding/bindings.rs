@@ -534,14 +534,13 @@ impl<'a> BindingsBuilder<'a> {
         function_identifier: &Identifier,
     ) -> (Idx<KeyFunction>, Option<Idx<Key>>) {
         // Get the index of both the `Key` and `KeyFunction` for the preceding function definition, if any
-        let mut pred_idx = None;
-        let mut pred_function_idx = None;
-        if let Some(flow) = self.scopes.current().flow.info.get(&function_identifier.id) {
-            if let FlowStyle::FunctionDef(fidx, _) = flow.style {
-                pred_idx = Some(flow.key);
-                pred_function_idx = Some(fidx);
-            }
-        }
+        let (pred_idx, pred_function_idx) = match self
+            .scopes
+            .function_predecessor_indices(&function_identifier.id)
+        {
+            Some((pred_idx, pred_function_idx)) => (Some(pred_idx), Some(pred_function_idx)),
+            None => (None, None),
+        };
         // Create the Idx<KeyFunction> at which we'll store the def we are ready to bind now.
         // The caller *must* eventually store a binding for it.
         let function_idx =

@@ -580,6 +580,37 @@ impl Scopes {
         self.current().flow.clone()
     }
 
+    pub fn in_class_body(&self) -> bool {
+        match self.current().kind {
+            ScopeKind::Class(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn current_class_and_metadata_keys(
+        &self,
+    ) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
+        match &self.current().kind {
+            ScopeKind::Class(class_scope) => Some((
+                class_scope.indices.class_idx,
+                class_scope.indices.metadata_idx,
+            )),
+            _ => None,
+        }
+    }
+
+    pub fn function_predecessor_indices(
+        &self,
+        name: &Name,
+    ) -> Option<(Idx<Key>, Idx<KeyFunction>)> {
+        if let Some(flow) = self.current().flow.info.get(name) {
+            if let FlowStyle::FunctionDef(fidx, _) = flow.style {
+                return Some((flow.key, fidx));
+            }
+        }
+        None
+    }
+
     pub fn current_mut(&mut self) -> &mut Scope {
         &mut self.current_mut_node().scope
     }

@@ -36,7 +36,6 @@ use crate::binding::bindings::MutableCaptureLookupKind;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
-use crate::binding::scope::ScopeKind;
 use crate::error::kind::ErrorKind;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
@@ -417,8 +416,7 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         self.ensure_expr(&mut x.value);
                     }
-                    let in_class_body = matches!(self.scopes.current().kind, ScopeKind::Class(_));
-                    let flow_style = if in_class_body {
+                    let flow_style = if self.scopes.in_class_body() {
                         FlowStyle::ClassField {
                             initial_value: Some((*x.value).clone()),
                         }
@@ -451,7 +449,7 @@ impl<'a> BindingsBuilder<'a> {
                 Expr::Name(name) => {
                     let name = Ast::expr_name_identifier(name);
                     let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(&name));
-                    let in_class_body = matches!(self.scopes.current().kind, ScopeKind::Class(_));
+                    let in_class_body = self.scopes.in_class_body();
                     self.ensure_type(&mut x.annotation, &mut None);
                     let ann_val = if let Some(special) = SpecialForm::new(&name.id, &x.annotation) {
                         BindingAnnotation::Type(
