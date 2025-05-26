@@ -1127,16 +1127,16 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn setup_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps) {
-        self.loop_depth += 1;
         let base = mem::take(&mut self.scopes.current_mut().flow);
         // To account for possible assignments to existing names in a loop, we
         // speculatively insert phi keys upfront.
         self.scopes.current_mut().flow = self.insert_phi_keys(base.clone(), range);
-        self.bind_narrow_ops(narrow_ops, range);
+        self.loop_depth += 1;
         self.scopes
             .current_mut()
             .loops
             .push(Loop(vec![(LoopExit::NeverRan, base)]));
+        self.bind_narrow_ops(narrow_ops, range);
     }
 
     pub fn teardown_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps, orelse: Vec<Stmt>) {
