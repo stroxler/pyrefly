@@ -656,19 +656,19 @@ impl<'a> BindingsBuilder<'a> {
                         break; // We definitely picked this branch if we got here, nothing below is reachable.
                     }
                 }
-                if implicit_else {
-                    // If there is no explicit else branch, we still want to merge the negated ops
-                    // from the previous branches into the flow env.
-                    // Note, using a default use_range is OK. The range is only needed to make the
-                    // key distinct from other keys.
-                    self.bind_narrow_ops(&negated_prev_ops, TextRange::default());
-                }
                 // If the conditions are exhaustive, then we only need to merge the branches.
                 //
                 // Otherwise, we need to merge branches with `base` (which was
                 // the flow above the `If`) because the if might be skipped
                 // entirely.
                 if !exhaustive {
+                    if implicit_else {
+                        // If there is no explicit else branch, we still want to merge the negated ops
+                        // from the previous branches into the flow env.
+                        // Note, using a default use_range is OK. The range is only needed to make the
+                        // key distinct from other keys.
+                        self.bind_narrow_ops(&negated_prev_ops, TextRange::default());
+                    }
                     branches.push(mem::take(&mut self.scopes.current_mut().flow));
                 }
                 self.scopes.current_mut().flow = self.merge_flow(branches, range);
