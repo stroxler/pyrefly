@@ -303,12 +303,8 @@ impl<'a> BindingsBuilder<'a> {
                     );
                     if let Expr::Name(name) = target {
                         let idx = self.ensure_mutable_name(name);
-                        self.scopes.update_flow_info(
-                            self.loop_depth,
-                            &name.id,
-                            idx,
-                            Some(FlowStyle::Uninitialized),
-                        );
+                        self.scopes
+                            .update_flow_info(&name.id, idx, Some(FlowStyle::Uninitialized));
                     } else {
                         self.ensure_expr(target);
                     }

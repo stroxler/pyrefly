@@ -136,7 +136,6 @@ pub struct BindingsBuilder<'a> {
     pub lookup: &'a dyn LookupExport,
     pub sys_info: &'a SysInfo,
     pub class_count: u32,
-    pub loop_depth: u32,
     errors: &'a ErrorCollector,
     solver: &'a Solver,
     uniques: &'a UniqueFactory,
@@ -308,7 +307,6 @@ impl Bindings {
             errors,
             solver,
             uniques,
-            loop_depth: 0,
             class_count: 0,
             has_docstring: Ast::has_docstring(&x),
             scopes: Scopes::module(x.range, enable_trace),
@@ -351,7 +349,7 @@ impl Bindings {
                 None,
             );
         }
-        assert_eq!(builder.loop_depth, 0);
+        assert_eq!(builder.scopes.loop_depth(), 0);
         let scope_trace = builder.scopes.finish();
         let last_scope = scope_trace.toplevel_scope();
         let exported = exports.exports(lookup);
@@ -957,9 +955,7 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
         let name = Hashed::new(name);
-        let default = self
-            .scopes
-            .update_flow_info_hashed(self.loop_depth, name, idx, Some(style));
+        let default = self.scopes.update_flow_info_hashed(name, idx, Some(style));
         let info = self
             .scopes
             .current()
@@ -1061,8 +1057,7 @@ impl<'a> BindingsBuilder<'a> {
                     Key::Narrow(name.into_key().clone(), *op_range, use_range),
                     Binding::Narrow(name_key, Box::new(op.clone()), use_range),
                 );
-                self.scopes
-                    .update_flow_info_hashed(self.loop_depth, name, binding_key, None);
+                self.scopes.update_flow_info_hashed(name, binding_key, None);
             }
         }
     }
@@ -1131,7 +1126,6 @@ impl<'a> BindingsBuilder<'a> {
         // To account for possible assignments to existing names in a loop, we
         // speculatively insert phi keys upfront.
         self.scopes.current_mut().flow = self.insert_phi_keys(base.clone(), range);
-        self.loop_depth += 1;
         self.scopes
             .current_mut()
             .loops
@@ -1140,8 +1134,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn teardown_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps, orelse: Vec<Stmt>) {
-        assert!(self.loop_depth > 0);
-        self.loop_depth -= 1;
+        assert!(self.scopes.loop_depth() > 0);
         let done = self.scopes.current_mut().loops.pop().unwrap();
         let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) =
             done.0.into_iter().partition_map(|(exit, flow)| match exit {
@@ -1262,7 +1255,11 @@ impl<'a> BindingsBuilder<'a> {
                 name,
                 FlowInfo {
                     key,
-                    default: if self.loop_depth > 0 { default } else { key },
+                    default: if self.scopes.loop_depth() > 0 {
+                        default
+                    } else {
+                        key
+                    },
                     style,
                 },
             );
