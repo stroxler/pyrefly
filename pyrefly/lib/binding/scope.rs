@@ -852,6 +852,20 @@ impl Scopes {
             None => Err(x),
         }
     }
+
+    /// Insert an annotation pulled from some ancester scope for a name
+    /// defined by a `global` or `nonlocal` declaration.
+    pub fn set_annotation_for_mutable_capture(
+        &mut self,
+        name: Hashed<&Name>,
+        ann: Option<Idx<KeyAnnotation>>,
+    ) {
+        if ann.is_some()
+            && let Some(current_scope_info) = self.current_mut().stat.0.get_mut_hashed(name)
+        {
+            current_scope_info.annot = ann;
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

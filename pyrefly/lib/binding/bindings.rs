@@ -686,11 +686,8 @@ impl<'a> BindingsBuilder<'a> {
             }
             barrier = barrier || scope.barrier;
         }
-        if let Some(annot) = static_annot_override
-            && let Some(current_scope_info) = self.scopes.current_mut().stat.0.get_mut_hashed(name)
-        {
-            current_scope_info.annot = Some(annot);
-        }
+        self.scopes
+            .set_annotation_for_mutable_capture(name, static_annot_override);
         result
     }
 
