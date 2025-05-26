@@ -628,9 +628,9 @@ impl<'a> BindingsBuilder<'a> {
                 let mut negated_prev_ops = NarrowOps::new();
                 let mut implicit_else = true;
                 for (range, test, body) in Ast::if_branches_owned(x) {
-                    let b = self.sys_info.evaluate_bool_opt(test.as_ref());
-                    if b == Some(false) {
-                        continue; // We won't pick this branch
+                    let this_branch_chosen = self.sys_info.evaluate_bool_opt(test.as_ref());
+                    if this_branch_chosen == Some(false) {
+                        continue; // We definitely won't pick this branch
                     }
                     self.bind_narrow_ops(&negated_prev_ops, range);
                     let mut base = self.scopes.current().flow.clone();
@@ -651,9 +651,9 @@ impl<'a> BindingsBuilder<'a> {
                     self.stmts(body);
                     mem::swap(&mut self.scopes.current_mut().flow, &mut base);
                     branches.push(base);
-                    if b == Some(true) {
+                    if this_branch_chosen == Some(true) {
                         exhaustive = true;
-                        break; // We picked this branch, none others stand a chance
+                        break; // We definitely picked this branch if we got here, nothing below is reachable.
                     }
                 }
                 if implicit_else {
