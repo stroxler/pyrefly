@@ -654,6 +654,15 @@ impl Scopes {
         };
         Some(entry)
     }
+
+    pub fn add_to_current_static(
+        &mut self,
+        name: Name,
+        range: TextRange,
+        ann: Option<Idx<KeyAnnotation>>,
+    ) {
+        self.current_mut().stat.add(name, range, ann);
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -1016,9 +1016,7 @@ impl<'a> BindingsBuilder<'a> {
                 }
             };
             self.scopes
-                .current_mut()
-                .stat
-                .add(name.id.clone(), name.range, None);
+                .add_to_current_static(name.id.clone(), name.range, None);
             self.bind_definition(
                 &name,
                 Binding::TypeParameter(Box::new(TypeParameter {
@@ -1069,9 +1067,7 @@ impl<'a> BindingsBuilder<'a> {
             Binding::LambdaParameter(var),
         );
         self.scopes
-            .current_mut()
-            .stat
-            .add(name.id.clone(), name.range, None);
+            .add_to_current_static(name.id.clone(), name.range, None);
         self.bind_key(&name.id, bind_key, FlowStyle::None);
     }
 
@@ -1105,9 +1101,7 @@ impl<'a> BindingsBuilder<'a> {
             Binding::FunctionParameter(def),
         );
         self.scopes
-            .current_mut()
-            .stat
-            .add(name.id.clone(), name.range, Some(annot));
+            .add_to_current_static(name.id.clone(), name.range, Some(annot));
         self.bind_key(&name.id, key, FlowStyle::None);
     }
 
@@ -1350,9 +1344,7 @@ impl LegacyTParamBuilder {
             if let Either::Left((name, idx)) = entry {
                 builder
                     .scopes
-                    .current_mut()
-                    .stat
-                    .add(name.id.clone(), name.range, None);
+                    .add_to_current_static(name.id.clone(), name.range, None);
                 builder.bind_definition(
                     name,
                     // Note: we use None as the range here because the range is
