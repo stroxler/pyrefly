@@ -569,6 +569,14 @@ impl Scopes {
         scope
     }
 
+    pub fn push_function_scope(&mut self, range: TextRange, name: &Identifier, in_class: bool) {
+        if in_class {
+            self.push(Scope::method(range, name.clone()));
+        } else {
+            self.push(Scope::function(range));
+        }
+    }
+
     pub fn pop_function_scope(&mut self) -> Option<SelfAssignments> {
         match self.pop().kind {
             ScopeKind::Method(method_scope) => Some(SelfAssignments {

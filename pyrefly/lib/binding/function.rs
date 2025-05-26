@@ -275,11 +275,8 @@ impl<'a> BindingsBuilder<'a> {
         function_idx: Idx<KeyFunction>,
         class_key: Option<Idx<KeyClass>>,
     ) -> (FuncYieldsAndReturns, Option<SelfAssignments>) {
-        if class_key.is_none() {
-            self.scopes.push(Scope::function(range));
-        } else {
-            self.scopes.push(Scope::method(range, func_name.clone()));
-        }
+        self.scopes
+            .push_function_scope(range, func_name, class_key.is_some());
         self.function_yields_and_returns
             .push(FuncYieldsAndReturns::default());
         self.parameters(parameters, function_idx, class_key);
@@ -300,11 +297,8 @@ impl<'a> BindingsBuilder<'a> {
         class_key: Option<Idx<KeyClass>>,
     ) -> Option<SelfAssignments> {
         // Push a scope to create the parameter keys (but do nothing else with it).
-        if class_key.is_none() {
-            self.scopes.push(Scope::function(range));
-        } else {
-            self.scopes.push(Scope::method(range, func_name.clone()));
-        }
+        self.scopes
+            .push_function_scope(range, func_name, class_key.is_some());
         self.parameters(parameters, function_idx, class_key);
         self.scopes.pop();
         // If we are in a class, use a simple visiter to find `self.<attr>` assignments.
