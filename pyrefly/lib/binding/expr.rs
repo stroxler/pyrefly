@@ -515,7 +515,7 @@ impl<'a> BindingsBuilder<'a> {
             ) =>
             {
                 // Control flow doesn't proceed after sys.exit(), exit(), quit(), or os._exit().
-                self.scopes.current_mut().flow.no_next = true;
+                self.scopes.mark_flow_termination();
                 false
             }
             Expr::Name(x) => {

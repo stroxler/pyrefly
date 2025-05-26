@@ -293,7 +293,7 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::Return(mut x) => {
                 self.ensure_expr_opt(x.value.as_deref_mut());
                 self.function_yields_and_returns.last_mut().returns.push(x);
-                self.scopes.current_mut().flow.no_next = true;
+                self.scopes.mark_flow_termination();
             }
             Stmt::Delete(mut x) => {
                 for target in &mut x.targets {
@@ -716,7 +716,7 @@ impl<'a> BindingsBuilder<'a> {
                 } else {
                     // If there's no exception raised, don't bother checking the cause.
                 }
-                self.scopes.current_mut().flow.no_next = true;
+                self.scopes.mark_flow_termination();
             }
             Stmt::Try(x) => {
                 let range = x.range;

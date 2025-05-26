@@ -1033,12 +1033,8 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn add_loop_exitpoint(&mut self, exit: LoopExit, range: TextRange) {
-        let scope = self.scopes.current_mut();
-        let flow = scope.flow.clone();
-        if let Some(innermost) = scope.loops.last_mut() {
-            innermost.0.push((exit, flow));
-            scope.flow.no_next = true;
-        } else {
+        let in_loop = self.scopes.add_loop_exitpoint(exit);
+        if !in_loop {
             // Python treats break and continue outside of a loop as a syntax error.
             self.error(
                 range,

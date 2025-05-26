@@ -370,7 +370,7 @@ pub enum ScopeKind {
     Module,
 }
 
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug, Display, Copy)]
 pub enum LoopExit {
     NeverRan,
     #[display("break")]
@@ -662,6 +662,25 @@ impl Scopes {
         ann: Option<Idx<KeyAnnotation>>,
     ) {
         self.current_mut().stat.add(name, range, ann);
+    }
+
+    /// Add a loop exit point to the current innermost loop with the current flow.
+    ///
+    /// Return a bool indicating whether we were in a loop (if we weren't, we do nothing).
+    pub fn add_loop_exitpoint(&mut self, exit: LoopExit) -> bool {
+        let scope = self.current_mut();
+        let flow = scope.flow.clone();
+        if let Some(innermost) = scope.loops.last_mut() {
+            innermost.0.push((exit, flow));
+            scope.flow.no_next = true;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn mark_flow_termination(&mut self) {
+        self.current_mut().flow.no_next = true;
     }
 }
 
