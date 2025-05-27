@@ -1044,8 +1044,8 @@ impl AnnotationWithTarget {
         let annotation_ty = self.annotation.ty.as_ref()?;
         match self.target {
             AnnotationTarget::ArgsParam(_) => {
-                if let Type::Unpack(box unpacked) = annotation_ty {
-                    Some(unpacked.clone())
+                if let Type::Unpack(unpacked) = annotation_ty {
+                    Some((**unpacked).clone())
                 } else if matches!(annotation_ty, Type::Args(_) | Type::Unpack(_)) {
                     Some(annotation_ty.clone())
                 } else {
@@ -1055,8 +1055,8 @@ impl AnnotationWithTarget {
                 }
             }
             AnnotationTarget::KwargsParam(_) => {
-                if let Type::Unpack(box unpacked) = annotation_ty {
-                    Some(unpacked.clone())
+                if let Type::Unpack(unpacked) = annotation_ty {
+                    Some((**unpacked).clone())
                 } else if matches!(annotation_ty, Type::Kwargs(_) | Type::Unpack(_)) {
                     Some(annotation_ty.clone())
                 } else {

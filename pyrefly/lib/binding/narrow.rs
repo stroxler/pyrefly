@@ -290,12 +290,12 @@ impl NarrowOps {
         match test {
             Some(Expr::Compare(ExprCompare {
                 range: _,
-                box left,
+                left,
                 ops: cmp_ops,
                 comparators,
             })) => {
                 // If the left expression is a call to len(), we're narrowing the argument
-                let mut left = left;
+                let mut left = &**left;
                 let mut lhs_is_len = false;
                 if let Expr::Call(ExprCall {
                     func, arguments, ..

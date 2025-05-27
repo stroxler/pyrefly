@@ -162,8 +162,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut enum_metadata = None;
         let mut dataclass_metadata = None;
         let mut bases: Vec<BaseClass> = bases.map(|x| self.base_class_of(x, errors));
-        if let Some(box special_base) = special_base {
-            bases.push(special_base.clone());
+        if let Some(special_base) = special_base {
+            bases.push((**special_base).clone());
         }
         let mut protocol_metadata = if bases.iter().any(|x| matches!(x, BaseClass::Protocol(_))) {
             Some(ProtocolMetadata {

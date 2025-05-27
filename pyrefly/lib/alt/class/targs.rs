@@ -294,12 +294,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         suffix.extend_from_slice(elts);
                     }
                 }
-                Type::Unpack(box t) => {
+                Type::Unpack(t) => {
                     if !suffix.is_empty() {
                         middle.push(Type::Tuple(Tuple::Unbounded(Box::new(self.unions(suffix)))));
                         suffix = Vec::new();
                     } else {
-                        middle.push(t.clone())
+                        middle.push((**t).clone())
                     }
                 }
                 arg => {

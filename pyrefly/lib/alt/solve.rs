@@ -1074,7 +1074,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let ty = self.expr_infer(x, &self.error_swallower());
                 self.check_dunder_bool_is_callable(&ty, *range, errors);
             }
-            BindingExpect::Delete(box x) => match x {
+            BindingExpect::Delete(x) => match &**x {
                 Expr::Name(_) => {
                     self.expr_infer(x, errors);
                 }
@@ -1495,10 +1495,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             QuantifiedKind::TypeVarTuple => {
-                if let Type::Unpack(box inner) = default
-                    && (matches!(inner, Type::Tuple(_)) || inner.is_kind_type_var_tuple())
+                if let Type::Unpack(inner) = default
+                    && (matches!(&**inner, Type::Tuple(_)) || inner.is_kind_type_var_tuple())
                 {
-                    inner.clone()
+                    (**inner).clone()
                 } else {
                     self.error(
                         errors,
@@ -2153,7 +2153,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Type::None
                 }
             }
-            Binding::ExceptionHandler(box ann, is_star) => {
+            Binding::ExceptionHandler(ann, is_star) => {
                 let base_exception_type = self.stdlib.base_exception().clone().to_type();
                 let base_exception_group_any_type = if *is_star {
                     // Only query for `BaseExceptionGroup` if we see an `except*` handler (which
@@ -2196,7 +2196,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     exception
                 };
-                let exceptions = match ann {
+                let exceptions = match &**ann {
                     // if the exception classes are written as a tuple literal, use each annotation's position for error reporting
                     Expr::Tuple(tup) => tup
                         .elts

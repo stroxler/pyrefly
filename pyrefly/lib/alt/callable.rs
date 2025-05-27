@@ -228,8 +228,8 @@ impl PosParam {
                 name: Some(name.clone()),
                 kind: PosParamKind::Positional,
             }),
-            Param::VarArg(name, Type::Unpack(box ty)) => Some(Self {
-                ty: ty.clone(),
+            Param::VarArg(name, Type::Unpack(ty)) => Some(Self {
+                ty: (**ty).clone(),
                 name: name.clone(),
                 kind: PosParamKind::Unpacked,
             }),
