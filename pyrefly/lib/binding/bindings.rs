@@ -868,12 +868,12 @@ impl<'a> BindingsBuilder<'a> {
     pub fn bind_assign(
         &mut self,
         name: &ExprName,
-        binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
+        make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
         style: FlowStyle,
     ) {
         let idx = self.idx_for_promise(Key::Definition(ShortIdentifier::expr_name(name)));
         let (ann, default) = self.bind_key(&name.id, idx, style);
-        let mut binding = binding(ann);
+        let mut binding = make_binding(ann);
         if let Some(default) = default {
             binding = Binding::Default(default, Box::new(binding));
         }
