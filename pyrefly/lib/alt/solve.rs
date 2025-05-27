@@ -2010,7 +2010,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ty
                 }
             }
-            Binding::ReturnType(box x) => {
+            Binding::ReturnType(x) => {
                 let is_generator = !x.yields.is_empty();
                 let implicit_return = self.get_idx(x.implicit_return);
                 if let Some((range, annot)) = &x.annot {

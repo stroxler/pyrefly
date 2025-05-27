@@ -725,7 +725,7 @@ impl Type {
                 signature: callable,
                 metadata: _,
             }) => callable.is_typeguard(),
-            Type::Forall(box forall) => forall.body.is_typeguard(),
+            Type::Forall(forall) => forall.body.is_typeguard(),
             Type::BoundMethod(method) => method.func.is_typeguard(),
             Type::Overload(overload) => overload.is_typeguard(),
             _ => false,
@@ -739,7 +739,7 @@ impl Type {
                 signature: callable,
                 metadata: _,
             }) => callable.is_typeis(),
-            Type::Forall(box forall) => forall.body.is_typeis(),
+            Type::Forall(forall) => forall.body.is_typeis(),
             Type::BoundMethod(method) => method.func.is_typeis(),
             Type::Overload(overload) => overload.is_typeis(),
             _ => false,
@@ -914,7 +914,7 @@ impl Type {
 
     fn transform_callable(&mut self, mut f: impl FnMut(&mut Callable)) {
         match self {
-            Type::Callable(box callable) => f(callable),
+            Type::Callable(callable) => f(callable),
             Type::Function(box func)
             | Type::Forall(box Forall {
                 body: Forallable::Function(func),

@@ -501,7 +501,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let mut type_var_tuple_count = 0;
             let args = Ast::unpack_slice(&subscript.slice).map(|x| {
                 let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
-                if let Type::Unpack(box unpacked) = &ty
+                if let Type::Unpack(unpacked) = &ty
                     && unpacked.is_kind_type_var_tuple()
                 {
                     if type_var_tuple_count == 1 {

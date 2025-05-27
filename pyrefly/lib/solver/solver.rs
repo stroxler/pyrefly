@@ -218,7 +218,7 @@ impl Solver {
                 *x = simplify_tuples(mem::take(tuple));
             }
             // When a param spec is resolved, collapse any Concatenate and Callable types that use it
-            if let Type::Concatenate(box ts, box Type::ParamSpecValue(paramlist)) = x {
+            if let Type::Concatenate(ts, box Type::ParamSpecValue(paramlist)) = x {
                 let params = mem::take(paramlist).prepend_types(ts).into_owned();
                 *x = Type::ParamSpecValue(params);
             }

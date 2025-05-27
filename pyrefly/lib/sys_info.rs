@@ -310,12 +310,7 @@ impl SysInfo {
                 ..
             }) if attr.as_str() == "TYPE_CHECKING" => Some(Value::Bool(true)),
             Expr::Call(ExprCall {
-                func:
-                    box Expr::Attribute(ExprAttribute {
-                        value: box value,
-                        attr,
-                        ..
-                    }),
+                func: box Expr::Attribute(ExprAttribute { value, attr, .. }),
                 arguments:
                     Arguments {
                         args: box [arg],

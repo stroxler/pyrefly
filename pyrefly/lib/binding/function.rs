@@ -186,7 +186,7 @@ impl<'a> BindingsBuilder<'a> {
                 class_key,
             );
         }
-        if let Some(box args) = &x.vararg {
+        if let Some(args) = &x.vararg {
             self.bind_function_param(
                 AnnotationTarget::ArgsParam(args.name.id.clone()),
                 AnyParameterRef::Variadic(args),

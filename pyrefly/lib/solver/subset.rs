@@ -182,8 +182,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     }
                 }
                 (
-                    Some(Param::VarArg(_, Type::Unpack(box l))),
-                    Some(Param::VarArg(_, Type::Unpack(box u))),
+                    Some(Param::VarArg(_, Type::Unpack(l))),
+                    Some(Param::VarArg(_, Type::Unpack(u))),
                 ) => {
                     if self.is_subset_eq(u, l) {
                         l_arg = l_args.next();
@@ -192,7 +192,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         return false;
                     }
                 }
-                (Some(Param::VarArg(_, l)), Some(Param::VarArg(_, Type::Unpack(box u)))) => {
+                (Some(Param::VarArg(_, l)), Some(Param::VarArg(_, Type::Unpack(u)))) => {
                     if self.is_subset_eq(u, &Type::Tuple(Tuple::unbounded(l.clone()))) {
                         l_arg = l_args.next();
                         u_arg = u_args.next();
@@ -200,7 +200,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         return false;
                     }
                 }
-                (Some(Param::VarArg(_, Type::Unpack(box l))), Some(Param::VarArg(_, u))) => {
+                (Some(Param::VarArg(_, Type::Unpack(l))), Some(Param::VarArg(_, u))) => {
                     if self.is_subset_eq(&Type::Tuple(Tuple::unbounded(u.clone())), l) {
                         l_arg = l_args.next();
                         u_arg = u_args.next();
@@ -400,7 +400,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 && let Some(want) =
                     self.try_lookup_attr_from_class(&protocol.clone().to_type(), &dunder::CALL)
             {
-                if let Type::BoundMethod(box ref method) = want
+                if let Type::BoundMethod(method) = &want
                     && let Some(want_no_self) = method.to_callable()
                 {
                     if !self.is_subset_eq(&got, &want_no_self) {
@@ -442,10 +442,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Tuple::Unbounded(box Type::Any(_)), _) | (_, Tuple::Unbounded(box Type::Any(_))) => {
                 true
             }
-            (Tuple::Concrete(lelts), Tuple::Unbounded(box u)) => {
+            (Tuple::Concrete(lelts), Tuple::Unbounded(u)) => {
                 lelts.iter().all(|l| self.is_subset_eq(l, u))
             }
-            (Tuple::Unbounded(box l), Tuple::Unbounded(box u)) => self.is_subset_eq(l, u),
+            (Tuple::Unbounded(l), Tuple::Unbounded(u)) => self.is_subset_eq(l, u),
             (Tuple::Concrete(lelts), Tuple::Unpacked(box (u_prefix, u_middle, u_suffix))) => {
                 if lelts.len() < u_prefix.len() + u_suffix.len() {
                     false
@@ -468,7 +468,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     && u_suffix.is_empty()
                     && self.is_subset_eq(&Type::Tuple(got.clone()), u_middle)
             }
-            (Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)), Tuple::Unbounded(box u)) => {
+            (Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)), Tuple::Unbounded(u)) => {
                 l_prefix.iter().all(|l| self.is_subset_eq(l, u))
                     && l_suffix.iter().all(|l| self.is_subset_eq(l, u))
                     && self.is_subset_eq(l_middle, &Type::Tuple(want.clone()))
@@ -672,17 +672,17 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 .signatures
                 .iter()
                 .any(|l| self.is_subset_eq(&l.as_type(), u)),
-            (Type::BoundMethod(box method), Type::Callable(_) | Type::Function(_))
+            (Type::BoundMethod(method), Type::Callable(_) | Type::Function(_))
                 if let Some(l_no_self) = method.to_callable() =>
             {
                 self.is_subset_eq_impl(&l_no_self, want)
             }
-            (Type::Callable(_) | Type::Function(_), Type::BoundMethod(box method))
+            (Type::Callable(_) | Type::Function(_), Type::BoundMethod(method))
                 if let Some(u_no_self) = method.to_callable() =>
             {
                 self.is_subset_eq_impl(got, &u_no_self)
             }
-            (Type::BoundMethod(box l), Type::BoundMethod(box u))
+            (Type::BoundMethod(l), Type::BoundMethod(u))
                 if let Some(l_no_self) = l.to_callable()
                     && let Some(u_no_self) = u.to_callable() =>
             {
@@ -717,7 +717,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     (Params::ParamSpec(args, pspec), Params::List(ls)) => {
                         self.is_paramspec_subset_of_paramlist(args, pspec, ls)
                     }
-                    (Params::ParamSpec(box ls, p1), Params::ParamSpec(box us, p2)) => {
+                    (Params::ParamSpec(ls, p1), Params::ParamSpec(us, p2)) => {
                         self.is_paramspec_subset_of_paramspec(ls, p1, us, p2)
                     }
                 };

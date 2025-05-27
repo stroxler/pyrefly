@@ -119,7 +119,7 @@ impl FacetChain {
 
     pub fn facets(&self) -> &Vec1<FacetKind> {
         match self {
-            Self(box chain) => chain,
+            Self(chain) => chain,
         }
     }
 }
@@ -298,9 +298,7 @@ impl NarrowOps {
                 let mut left = left;
                 let mut lhs_is_len = false;
                 if let Expr::Call(ExprCall {
-                    box func,
-                    arguments,
-                    ..
+                    func, arguments, ..
                 }) = left
                     && builder.as_special_export(func) == Some(SpecialExport::Len)
                     && arguments.args.len() == 1
@@ -359,7 +357,7 @@ impl NarrowOps {
             Some(Expr::UnaryOp(ExprUnaryOp {
                 range: _,
                 op: UnaryOp::Not,
-                operand: box e,
+                operand: e,
             })) => Self::from_expr(builder, Some(e)).negate(),
             Some(Expr::Call(ExprCall {
                 range,

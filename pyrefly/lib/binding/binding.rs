@@ -295,13 +295,13 @@ impl DisplayWith<Bindings> for BindingExpect {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         let m = ctx.module_info();
         match self {
-            Self::TypeCheckExpr(box x) => {
+            Self::TypeCheckExpr(x) => {
                 write!(f, "type check expr {}", m.display(x))
             }
-            Self::Bool(box x, ..) => {
+            Self::Bool(x, ..) => {
                 write!(f, "check bool expr {}", m.display(x))
             }
-            Self::Delete(box x) => {
+            Self::Delete(x) => {
                 write!(f, "del {}", m.display(x))
             }
             Self::UnpackedLength(x, range, expect) => {
@@ -846,8 +846,8 @@ impl DisplayWith<Bindings> for Binding {
             Self::IterableValue(Some(k), x, IsAsync::Sync) => {
                 write!(f, "iter {}: {}", ctx.display(*k), m.display(x))
             }
-            Self::ExceptionHandler(box x, true) => write!(f, "except* {}", m.display(x)),
-            Self::ExceptionHandler(box x, false) => write!(f, "except {}", m.display(x)),
+            Self::ExceptionHandler(x, true) => write!(f, "except* {}", m.display(x)),
+            Self::ExceptionHandler(x, false) => write!(f, "except {}", m.display(x)),
             Self::ContextValue(_ann, x, _, kind) => {
                 let name = match kind {
                     IsAsync::Sync => "context",
