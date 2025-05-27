@@ -449,6 +449,18 @@ foos: Sequence[int] = tuple(
 );
 
 testcase!(
+    test_walrus_ternary,
+    r#"
+from typing import assert_type
+def get_y(x: int | None) -> int | None:
+    return x
+def f(x: int | None):
+    val = y if (y := get_y(x)) else 0
+    assert_type(val, int)
+    "#,
+);
+
+testcase!(
     test_match_enum_fallback,
     r#"
 from typing import assert_type, Literal
