@@ -194,7 +194,7 @@ impl<'a> BindingsBuilder<'a> {
                 class_key,
             );
         }
-        if let Some(box kwargs) = &x.kwarg {
+        if let Some(kwargs) = &x.kwarg {
             self.bind_function_param(
                 AnnotationTarget::KwargsParam(kwargs.name.id.clone()),
                 AnyParameterRef::Variadic(kwargs),
@@ -251,9 +251,8 @@ impl<'a> BindingsBuilder<'a> {
             }
         }
 
-        let return_ann_with_range = mem::take(&mut x.returns).map(|box e| {
-            self.to_return_annotation_with_range(e, func_name, class_key, &mut legacy)
-        });
+        let return_ann_with_range = mem::take(&mut x.returns)
+            .map(|e| self.to_return_annotation_with_range(*e, func_name, class_key, &mut legacy));
 
         let legacy_tparam_builder = legacy.unwrap();
         legacy_tparam_builder.add_name_definitions(self);

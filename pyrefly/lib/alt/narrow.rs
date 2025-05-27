@@ -200,11 +200,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     Type::Tuple(Tuple::Unpacked(box (
                         prefix,
-                        Type::Tuple(Tuple::Unbounded(box middle)),
+                        Type::Tuple(Tuple::Unbounded(middle)),
                         suffix,
                     ))) if prefix.len() + suffix.len() < len => {
                         let middle_elements =
-                            vec![middle.clone(); len - prefix.len() - suffix.len()];
+                            vec![(**middle).clone(); len - prefix.len() - suffix.len()];
                         Type::tuple(
                             prefix
                                 .iter()
@@ -214,8 +214,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 .collect(),
                         )
                     }
-                    Type::Tuple(Tuple::Unbounded(box elements)) => {
-                        Type::tuple(vec![elements.clone(); len])
+                    Type::Tuple(Tuple::Unbounded(elements)) => {
+                        Type::tuple(vec![(**elements).clone(); len])
                     }
                     Type::ClassType(class)
                         if let Some(elements) = self.named_tuple_element_types(class)
@@ -402,7 +402,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         None,
                         None,
                     );
-                    if let Type::TypeIs(box t) = ret {
+                    if let Type::TypeIs(t) = ret {
                         return self.intersect(ty, &t);
                     }
                 }
@@ -423,7 +423,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         None,
                         None,
                     );
-                    if let Type::TypeIs(box t) = ret {
+                    if let Type::TypeIs(t) = ret {
                         return self.subtract(ty, &t);
                     }
                 }

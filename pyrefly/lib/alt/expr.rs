@@ -1428,8 +1428,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::BooleanLiteral(x) => Lit::from_boolean_literal(x).to_type(),
             Expr::NoneLiteral(_) => Type::None,
             Expr::EllipsisLiteral(_) => Type::Ellipsis,
-            Expr::Starred(ExprStarred { value: box x, .. }) => {
-                let ty = self.expr_untype(x, TypeFormContext::TypeArgument, errors);
+            Expr::Starred(ExprStarred { value, .. }) => {
+                let ty = self.expr_untype(value, TypeFormContext::TypeArgument, errors);
                 Type::Unpack(Box::new(ty))
             }
             Expr::Slice(x) => {
@@ -1485,7 +1485,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ..
             }) => {
                 let lower_literal = match lower_expr {
-                    Some(box expr) => {
+                    Some(expr) => {
                         let lower_type = self.expr_infer(expr, errors);
                         match &lower_type {
                             Type::Literal(lit) => lit.as_index_i64(),
@@ -1495,7 +1495,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None => Some(0),
                 };
                 let upper_literal = match upper_expr {
-                    Some(box expr) => {
+                    Some(expr) => {
                         let upper_type = self.expr_infer(expr, errors);
                         match &upper_type {
                             Type::Literal(lit) => lit.as_index_i64(),
