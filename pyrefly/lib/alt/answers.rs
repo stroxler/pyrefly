@@ -32,6 +32,7 @@ use crate::alt::attr::AttrInfo;
 use crate::alt::traits::Solve;
 use crate::alt::traits::SolveRecursive;
 use crate::binding::binding::Binding;
+use crate::binding::binding::Exported;
 use crate::binding::binding::Key;
 use crate::binding::binding::Keyed;
 use crate::binding::bindings::BindingEntry;
@@ -220,17 +221,14 @@ impl Display for SolutionsDifference<'_> {
 
 impl Solutions {
     #[allow(dead_code)] // Used in tests.
-    pub fn get<K: Keyed<EXPORTED = true>>(&self, key: &K) -> &Arc<<K as Keyed>::Answer>
+    pub fn get<K: Exported>(&self, key: &K) -> &Arc<<K as Keyed>::Answer>
     where
         SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
     {
         self.get_hashed(Hashed::new(key))
     }
 
-    pub fn get_hashed<K: Keyed<EXPORTED = true>>(
-        &self,
-        key: Hashed<&K>,
-    ) -> &Arc<<K as Keyed>::Answer>
+    pub fn get_hashed<K: Exported>(&self, key: Hashed<&K>) -> &Arc<<K as Keyed>::Answer>
     where
         SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
     {
@@ -331,7 +329,7 @@ pub struct AnswersSolver<'a, Ans: LookupAnswer> {
 }
 
 pub trait LookupAnswer: Sized {
-    fn get<K: Solve<Self> + Keyed<EXPORTED = true>>(
+    fn get<K: Solve<Self> + Exported>(
         &self,
         module: ModuleName,
         path: Option<&ModulePath>,
@@ -491,7 +489,7 @@ impl Answers {
         }
     }
 
-    pub fn solve_exported_key<Ans: LookupAnswer, K: Solve<Ans> + Keyed<EXPORTED = true>>(
+    pub fn solve_exported_key<Ans: LookupAnswer, K: Solve<Ans> + Exported>(
         &self,
         exports: &dyn LookupExport,
         answers: &Ans,
@@ -577,7 +575,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver().for_display(t)
     }
 
-    pub fn get_from_module<K: Solve<Ans> + Keyed<EXPORTED = true>>(
+    pub fn get_from_module<K: Solve<Ans> + Exported>(
         &self,
         module: ModuleName,
         path: Option<&ModulePath>,
@@ -597,11 +595,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn get_from_class<K: Solve<Ans> + Keyed<EXPORTED = true>>(
-        &self,
-        cls: &Class,
-        k: &K,
-    ) -> Arc<K::Answer>
+    pub fn get_from_class<K: Solve<Ans> + Exported>(&self, cls: &Class, k: &K) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,

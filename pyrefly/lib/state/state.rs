@@ -63,6 +63,7 @@ use crate::alt::answers::Solutions;
 use crate::alt::answers::SolutionsEntry;
 use crate::alt::answers::SolutionsTable;
 use crate::alt::traits::Solve;
+use crate::binding::binding::Exported;
 use crate::binding::binding::KeyExport;
 use crate::binding::binding::Keyed;
 use crate::binding::bindings::BindingEntry;
@@ -839,7 +840,7 @@ impl<'a> Transaction<'a> {
         lock.steps.exports.dupe().unwrap()
     }
 
-    fn lookup_answer<'b, K: Solve<TransactionHandle<'b>> + Keyed<EXPORTED = true>>(
+    fn lookup_answer<'b, K: Solve<TransactionHandle<'b>> + Exported>(
         &'b self,
         module_data: ArcId<ModuleDataMut>,
         key: &K,
@@ -1366,7 +1367,7 @@ impl<'a> LookupExport for TransactionHandle<'a> {
 }
 
 impl<'a> LookupAnswer for TransactionHandle<'a> {
-    fn get<K: Solve<Self> + Keyed<EXPORTED = true>>(
+    fn get<K: Solve<Self> + Exported>(
         &self,
         module: ModuleName,
         path: Option<&ModulePath>,

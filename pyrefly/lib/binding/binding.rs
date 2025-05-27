@@ -96,6 +96,8 @@ pub trait Keyed: Hash + Eq + Clone + DisplayWith<ModuleInfo> + Debug + Ranged + 
     type Value: Debug + DisplayWith<Bindings>;
     type Answer: Clone + Debug + Display + TypeEq + VisitMut<Type>;
 }
+pub trait Exported: Keyed<EXPORTED = true> {}
+impl<T> Exported for T where T: Keyed<EXPORTED = true> {}
 
 impl Keyed for Key {
     type Value = Binding;
