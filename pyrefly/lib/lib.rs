@@ -24,7 +24,6 @@
 #![deny(clippy::string_to_string)]
 #![deny(clippy::trivially_copy_pass_by_ref)]
 #![feature(associated_const_equality)]
-#![feature(associated_type_defaults)]
 #![feature(box_patterns)]
 #![feature(if_let_guard)]
 #![feature(let_chains)]
