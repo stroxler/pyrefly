@@ -1065,10 +1065,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Arc<EmptyAnswer> {
         match binding {
-            BindingExpect::TypeCheckExpr(box x) => {
+            BindingExpect::TypeCheckExpr(x) => {
                 self.expr_infer(x, errors);
             }
-            BindingExpect::Bool(box x, range) => {
+            BindingExpect::Bool(x, range) => {
                 // See test::attribute_narrow::test_invalid_narrows_on_bad_attribute_access for a
                 // test that fails if we do not discard the errors from expr_infer() here.
                 let ty = self.expr_infer(x, &self.error_swallower());
@@ -2210,8 +2210,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 .into_iter()
                                 .map(|t| check_exception_type(t, ann.range()))
                                 .collect(),
-                            Type::Tuple(Tuple::Unbounded(box t)) => {
-                                vec![check_exception_type(t, ann.range())]
+                            Type::Tuple(Tuple::Unbounded(t)) => {
+                                vec![check_exception_type(*t, ann.range())]
                             }
                             _ => vec![check_exception_type(exception_types, ann.range())],
                         }
@@ -2650,8 +2650,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// `type[int]`, then call `untype(type[int])` to get the `int` annotation.
     fn untype(&self, ty: Type, range: TextRange, errors: &ErrorCollector) -> Type {
         let mut ty = ty;
-        if let Type::Forall(box forall) = ty {
-            ty = self.promote_forall(forall, range);
+        if let Type::Forall(forall) = ty {
+            ty = self.promote_forall(*forall, range);
         };
         if let Some(t) = self.untype_opt(ty.clone(), range) {
             t
@@ -2682,7 +2682,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Var(v) if let Some(_guard) = self.recurser.recurse(v) => {
                 self.untype_opt(self.solver().force_var(v), range)
             }
-            Type::Type(box t) => Some(t),
+            Type::Type(t) => Some(*t),
             Type::None => Some(Type::None), // Both a value and a type
             Type::Ellipsis => Some(Type::Ellipsis), // A bit weird because of tuples, so just promote it
             Type::Any(style) => Some(style.propagate()),

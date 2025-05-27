@@ -539,9 +539,9 @@ impl<'a> BindingsBuilder<'a> {
                         ),
                     );
                     let value = match x.value {
-                        Some(box mut v) => {
+                        Some(mut v) => {
                             self.ensure_expr(&mut v);
-                            let value = ExprOrBinding::Expr(v);
+                            let value = ExprOrBinding::Expr(*v);
                             self.bind_attr_assign(attr.clone(), value.clone());
                             value
                         }

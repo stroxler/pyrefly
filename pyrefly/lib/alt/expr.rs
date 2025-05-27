@@ -831,10 +831,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 base = Type::type_form(Type::SpecialForm(SpecialForm::Tuple));
             }
             match base {
-                Type::Forall(box forall) => {
+                Type::Forall(forall) => {
                     let tys =
                         xs.map(|x| self.expr_untype(x, TypeFormContext::TypeArgument, errors));
-                    self.specialize_forall(forall, tys, range, errors)
+                    self.specialize_forall(*forall, tys, range, errors)
                 }
                 // Note that we have to check for `builtins.type` by name here because this code runs
                 // when we're bootstrapping the stdlib and don't have access to class objects yet.
