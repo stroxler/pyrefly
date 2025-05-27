@@ -239,15 +239,6 @@ mod tests {
     use super::*;
     use crate::util::test_path::TestPath;
 
-    impl TestPath {
-        fn partial_py_typed() -> Self {
-            TestPath::file_with_contents("py.typed", "partial\n")
-        }
-        fn py_typed() -> Self {
-            TestPath::file("py.typed")
-        }
-    }
-
     #[test]
     fn test_find_module_simple() {
         let tempdir = tempfile::tempdir().unwrap();
@@ -608,7 +599,10 @@ mod tests {
                         TestPath::dir("baz", vec![TestPath::file("__init__.pyi")]),
                     ],
                 ),
-                TestPath::dir("foo-stubs", vec![TestPath::partial_py_typed()]),
+                TestPath::dir(
+                    "foo-stubs",
+                    vec![TestPath::file_with_contents("py.typed", "partial\n")],
+                ),
             ],
         );
         assert_eq!(
@@ -654,7 +648,7 @@ mod tests {
             vec![TestPath::dir(
                 "foo",
                 vec![
-                    TestPath::py_typed(),
+                    TestPath::file("py.typed"),
                     TestPath::file("__init__.py"),
                     TestPath::dir("bar", vec![TestPath::file("__init__.py")]),
                     TestPath::dir("baz", vec![TestPath::file("__init__.pyi")]),
