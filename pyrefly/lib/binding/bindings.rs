@@ -900,8 +900,8 @@ impl<'a> BindingsBuilder<'a> {
             let mut constraints = None;
             let kind = match x {
                 TypeParam::TypeVar(tv) => {
-                    if let Some(box bound_expr) = &mut tv.bound {
-                        if let Expr::Tuple(tuple) = bound_expr {
+                    if let Some(bound_expr) = &mut tv.bound {
+                        if let Expr::Tuple(tuple) = &mut **bound_expr {
                             let mut constraint_exprs = Vec::new();
                             for constraint in &mut tuple.elts {
                                 self.ensure_type(constraint, &mut None);
@@ -910,26 +910,26 @@ impl<'a> BindingsBuilder<'a> {
                             constraints = Some((constraint_exprs, bound_expr.range()))
                         } else {
                             self.ensure_type(bound_expr, &mut None);
-                            bound = Some(bound_expr);
+                            bound = Some((**bound_expr).clone());
                         }
                     }
-                    if let Some(box default_expr) = &mut tv.default {
+                    if let Some(default_expr) = &mut tv.default {
                         self.ensure_type(default_expr, &mut None);
-                        default = Some(default_expr);
+                        default = Some((**default_expr).clone());
                     }
                     QuantifiedKind::TypeVar
                 }
                 TypeParam::ParamSpec(x) => {
-                    if let Some(box default_expr) = &mut x.default {
+                    if let Some(default_expr) = &mut x.default {
                         self.ensure_type(default_expr, &mut None);
-                        default = Some(default_expr);
+                        default = Some((**default_expr).clone());
                     }
                     QuantifiedKind::ParamSpec
                 }
                 TypeParam::TypeVarTuple(x) => {
-                    if let Some(box default_expr) = &mut x.default {
+                    if let Some(default_expr) = &mut x.default {
                         self.ensure_type(default_expr, &mut None);
-                        default = Some(default_expr);
+                        default = Some((**default_expr).clone());
                     }
                     QuantifiedKind::TypeVarTuple
                 }
@@ -942,8 +942,8 @@ impl<'a> BindingsBuilder<'a> {
                     name: name.id.clone(),
                     unique: self.uniques.fresh(),
                     kind,
-                    default: default.cloned(),
-                    bound: bound.cloned(),
+                    default,
+                    bound,
                     constraints,
                 })),
                 FlowStyle::None,
