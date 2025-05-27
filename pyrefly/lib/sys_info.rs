@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -160,7 +161,7 @@ impl PythonVersion {
 pub struct PythonPlatform(String);
 
 impl FromStr for PythonPlatform {
-    type Err = !;
+    type Err = Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self::new(s))
