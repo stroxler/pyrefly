@@ -99,32 +99,48 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
-    pub fn bind_attr_assign(&mut self, attr: ExprAttribute, value: ExprOrBinding) {
+    pub fn bind_attr_assign(
+        &mut self,
+        attr: ExprAttribute,
+        make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+    ) -> ExprOrBinding {
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
         {
-            let idx = self.insert_binding(
-                Key::PropertyAssign(ShortIdentifier::new(&identifier)),
-                Binding::AssignToAttribute(Box::new((attr, value))),
+            let idx = self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(&identifier)));
+            let value = make_assigned_value(None);
+            self.insert_binding_idx(
+                idx,
+                Binding::AssignToAttribute(Box::new((attr, value.clone()))),
             );
             let name = Hashed::new(&identifier.id);
             if self.lookup_name_hashed(name, LookupKind::Regular).is_ok() {
                 self.scopes.update_flow_info_hashed(name, idx, None);
             }
+            value
         } else {
-            self.insert_binding(
-                Key::Anon(attr.range),
-                Binding::AssignToAttribute(Box::new((attr, value))),
+            let idx = self.idx_for_promise(Key::Anon(attr.range));
+            let value = make_assigned_value(None);
+            self.insert_binding_idx(
+                idx,
+                Binding::AssignToAttribute(Box::new((attr, value.clone()))),
             );
+            value
         }
     }
 
-    fn bind_subscript_assign(&mut self, subscript: ExprSubscript, value: ExprOrBinding) {
+    fn bind_subscript_assign(
+        &mut self,
+        subscript: ExprSubscript,
+        make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+    ) {
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
         {
-            let idx = self.insert_binding(
-                Key::PropertyAssign(ShortIdentifier::new(&identifier)),
+            let idx = self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(&identifier)));
+            let value = make_assigned_value(None);
+            self.insert_binding_idx(
+                idx,
                 Binding::AssignToSubscript(Box::new((subscript, value))),
             );
             let name = Hashed::new(&identifier.id);
@@ -132,8 +148,10 @@ impl<'a> BindingsBuilder<'a> {
                 self.scopes.update_flow_info_hashed(name, idx, None);
             }
         } else {
-            self.insert_binding(
-                Key::Anon(subscript.range),
+            let idx = self.idx_for_promise(Key::Anon(subscript.range));
+            let value = make_assigned_value(None);
+            self.insert_binding_idx(
+                idx,
                 Binding::AssignToSubscript(Box::new((subscript, value))),
             );
         }
@@ -178,27 +196,31 @@ impl<'a> BindingsBuilder<'a> {
             Expr::Attribute(x) => {
                 // `make_binding` will give us a binding for inferring the value type, which we
                 // *might* use to compute the attribute type if there are no explicit annotations.
-                let attr_value = if let Some(value) = value {
-                    ExprOrBinding::Expr(value.clone())
-                } else {
-                    ExprOrBinding::Binding(make_binding(None))
+                let make_assigned_value = |ann| {
+                    if let Some(value) = value {
+                        ExprOrBinding::Expr(value.clone())
+                    } else {
+                        ExprOrBinding::Binding(make_binding(ann))
+                    }
                 };
                 // Create a binding to verify that the assignment is valid and potentially narrow
                 // the name assigned to.
-                self.bind_attr_assign(x.clone(), attr_value.clone());
+                let attr_value = self.bind_attr_assign(x.clone(), make_assigned_value);
                 // If this is a self-assignment, record it because we may use it to infer
                 // the existence of an instance-only attribute.
                 self.scopes.record_self_attr_assign(x, attr_value, None);
             }
             Expr::Subscript(x) => {
-                let assigned_value = if let Some(value) = value {
-                    ExprOrBinding::Expr(value.clone())
-                } else {
-                    ExprOrBinding::Binding(make_binding(None))
+                let make_assigned_value = |ann| {
+                    if let Some(value) = value {
+                        ExprOrBinding::Expr(value.clone())
+                    } else {
+                        ExprOrBinding::Binding(make_binding(ann))
+                    }
                 };
                 // Create a binding to verify that the assignment is valid and potentially narrow
                 // the name assigned to.
-                self.bind_subscript_assign(x.clone(), assigned_value);
+                self.bind_subscript_assign(x.clone(), make_assigned_value);
             }
             Expr::Tuple(tup) if !is_aug_assign => {
                 self.bind_unpacking(&mut tup.elts, make_binding, tup.range);

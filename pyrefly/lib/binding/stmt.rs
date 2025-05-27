@@ -541,9 +541,8 @@ impl<'a> BindingsBuilder<'a> {
                     let value = match x.value {
                         Some(mut v) => {
                             self.ensure_expr(&mut v);
-                            let value = ExprOrBinding::Expr(*v);
-                            self.bind_attr_assign(attr.clone(), value.clone());
-                            value
+                            let make_value = |_| ExprOrBinding::Expr(*v);
+                            self.bind_attr_assign(attr.clone(), make_value)
                         }
                         _ => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
                     };
