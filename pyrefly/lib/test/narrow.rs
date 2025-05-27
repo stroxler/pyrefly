@@ -413,6 +413,42 @@ if (x := f()) is None:
 );
 
 testcase!(
+    test_walrus_comprehension_if_simple,
+    r#"
+from typing import assert_type
+def f(xs: list[int | None]):
+    ys = [y111 for x in xs if (y111 := x)]
+    assert_type(ys, list[int])
+    "#,
+);
+
+testcase!(
+    test_walrus_comprehension_if_function,
+    r#"
+from typing import assert_type
+def get_y(x: int | None) -> int | None:
+    return x
+def f(xs: list[int | None]):
+    ys = [y111 for x in xs if (y111 := get_y(x))]
+    assert_type(ys, list[int])
+    "#,
+);
+
+testcase!(
+    test_walrus_generator_if,
+    r#"
+from typing import Sequence
+def foo(x: int) -> int | None:
+    return (x + 5) if x % 2 else None
+foos: Sequence[int] = tuple(
+    maybe_foo
+    for x in range(10)
+    if (maybe_foo := foo(x)) is not None
+)
+    "#,
+);
+
+testcase!(
     test_match_enum_fallback,
     r#"
 from typing import assert_type, Literal
@@ -866,20 +902,16 @@ def f(x: Any):
 );
 
 testcase!(
-    bug = "TODO(stroxler): We are binding narrows too early and miss errors in missing attributes that get narrowed.",
     test_listcomp_if_control_flow,
     r#"
 class C: pass
 class D(C): pass
 def accepts_d(x: D) -> None: pass
 def f(x: list[C], z: C):
-    # if statement control flow works as expected, we get an error.
     if accepts_d(z) and isinstance(z, D):  # E: Argument `C` is not assignable to parameter `x` with type `D`
         pass
-    # But here we don't get an error, it appears the narrowed binding is applied too early.
-    [y for y in x if (accepts_d(y) and isinstance(y, D))]
-    # Here we don't get an error, for the same reason - we narrow too early, hiding the no-such-attribute error.
-    [None for y in x if C.error]
+    [y for y in x if (accepts_d(y) and isinstance(y, D))]  # E: Argument `C` is not assignable to parameter `x` with type `D` in function `accepts_d`
+    [None for y in x if C.error]  # E: Class `C` has no class attribute `error`
     "#,
 );
 
