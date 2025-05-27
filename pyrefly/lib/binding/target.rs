@@ -36,7 +36,7 @@ impl<'a> BindingsBuilder<'a> {
         range: TextRange,
     ) {
         // We are going to use this binding many times, so compute it once.
-        let key = self.insert_binding(Key::Unpack(range), make_binding(None));
+        let idx_of_unpack = self.insert_binding(Key::Unpack(range), make_binding(None));
 
         // An unpacking has zero or one splats (starred expressions).
         let mut splat = false;
@@ -48,7 +48,7 @@ impl<'a> BindingsBuilder<'a> {
                     // Counts how many elements are after the splat.
                     let j = len - i - 1;
                     let make_nested_binding = |_: Option<Idx<KeyAnnotation>>| {
-                        Binding::UnpackedValue(key, range, UnpackedPosition::Slice(i, j))
+                        Binding::UnpackedValue(idx_of_unpack, range, UnpackedPosition::Slice(i, j))
                     };
                     self.bind_target(&mut e.value, &make_nested_binding);
                 }
@@ -61,7 +61,7 @@ impl<'a> BindingsBuilder<'a> {
                         UnpackedPosition::Index(i)
                     };
                     let make_nested_binding = |_: Option<Idx<KeyAnnotation>>| {
-                        Binding::UnpackedValue(key, range, unpacked_position)
+                        Binding::UnpackedValue(idx_of_unpack, range, unpacked_position)
                     };
                     self.bind_target(e, &make_nested_binding);
                 }
@@ -74,7 +74,7 @@ impl<'a> BindingsBuilder<'a> {
         };
         self.insert_binding(
             KeyExpect(range),
-            BindingExpect::UnpackedLength(key, range, expect),
+            BindingExpect::UnpackedLength(idx_of_unpack, range, expect),
         );
     }
 
