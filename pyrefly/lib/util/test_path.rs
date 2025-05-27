@@ -13,17 +13,24 @@ use std::io::Write;
 use std::path::Path;
 
 // Utility structure to facilitate setting up non-memory filesystem structure under test directories.
-pub enum TestPathKind {
+enum TestPathKind {
     File,
     FileWithContents(String),
     Directory(Vec<TestPath>),
 }
 pub struct TestPath {
-    pub name: String,
-    pub kind: TestPathKind,
+    name: String,
+    kind: TestPathKind,
 }
 
 impl TestPath {
+    pub fn file_with_contents(name: &str, contents: &str) -> Self {
+        Self {
+            name: name.to_owned(),
+            kind: TestPathKind::FileWithContents(contents.to_owned()),
+        }
+    }
+
     pub fn file(name: &str) -> Self {
         Self {
             name: name.to_owned(),

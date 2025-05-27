@@ -238,20 +238,13 @@ pub fn find_module_in_site_package_path(
 mod tests {
     use super::*;
     use crate::util::test_path::TestPath;
-    use crate::util::test_path::TestPathKind;
 
     impl TestPath {
         fn partial_py_typed() -> Self {
-            Self {
-                name: "py.typed".to_owned(),
-                kind: TestPathKind::FileWithContents("partial\n".to_owned()),
-            }
+            TestPath::file_with_contents("py.typed", "partial\n")
         }
         fn py_typed() -> Self {
-            Self {
-                name: "py.typed".to_owned(),
-                kind: TestPathKind::FileWithContents("".to_owned()),
-            }
+            TestPath::file("py.typed")
         }
     }
 
