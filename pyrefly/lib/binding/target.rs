@@ -47,8 +47,13 @@ impl<'a> BindingsBuilder<'a> {
                     splat = true;
                     // Counts how many elements are after the splat.
                     let j = len - i - 1;
-                    let make_nested_binding = |_: Option<Idx<KeyAnnotation>>| {
-                        Binding::UnpackedValue(idx_of_unpack, range, UnpackedPosition::Slice(i, j))
+                    let make_nested_binding = |ann| {
+                        Binding::UnpackedValue(
+                            ann,
+                            idx_of_unpack,
+                            range,
+                            UnpackedPosition::Slice(i, j),
+                        )
                     };
                     self.bind_target(&mut e.value, &make_nested_binding);
                 }
@@ -60,9 +65,8 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         UnpackedPosition::Index(i)
                     };
-                    let make_nested_binding = |_: Option<Idx<KeyAnnotation>>| {
-                        Binding::UnpackedValue(idx_of_unpack, range, unpacked_position)
-                    };
+                    let make_nested_binding =
+                        |ann| Binding::UnpackedValue(ann, idx_of_unpack, range, unpacked_position);
                     self.bind_target(e, &make_nested_binding);
                 }
             }
@@ -134,13 +138,6 @@ impl<'a> BindingsBuilder<'a> {
     /// it enables contextual typing. At the moment it is only used in the attribute case (because
     /// the other cases instead rely on `make_binding` to handle contextual typing, which works
     /// when the form is not an unpacking but results in false negatives when it is).
-    ///
-    /// TODO(stroxler): The way this is wired up does not work well in
-    /// the general case of an unpacking. The attempt to pass around a `make_binding`
-    /// callable for both inference and checking does not compose properly with `bind_unpacking`,
-    /// because for an unpack target there is no annotation for the entire RHS.
-    /// As a result, for all cases except attributes we wind up ignoring type errors
-    /// when the target is an unpacking pattern.
     fn bind_target_impl(
         &mut self,
         target: &mut Expr,

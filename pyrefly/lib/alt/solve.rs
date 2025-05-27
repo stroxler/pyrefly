@@ -2292,7 +2292,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None => context_value,
                 }
             }
-            Binding::UnpackedValue(b, range, pos) => {
+            Binding::UnpackedValue(ann, b, range, pos) => {
                 let iterables = self.iterate(self.get_idx(*b).ty(), *range, errors);
                 let mut values = Vec::new();
                 for iterable in iterables {
@@ -2336,7 +2336,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     })
                 }
-                self.unions(values)
+                let got = self.unions(values);
+                if let Some(want) = ann
+                    .map(|idx| self.get_idx(idx))
+                    .and_then(|ann| ann.ty(self.stdlib))
+                {
+                    self.check_type(&want, &got, *range, errors, &|| {
+                        TypeCheckContext::of_kind(TypeCheckKind::UnpackedAssign)
+                    });
+                }
+                got
             }
             &Binding::Function(idx, mut pred, class_meta) => {
                 self.solve_function_binding(idx, &mut pred, class_meta.as_ref(), errors)

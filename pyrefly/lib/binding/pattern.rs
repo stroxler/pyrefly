@@ -87,7 +87,7 @@ impl<'a> BindingsBuilder<'a> {
                                 let position = UnpackedPosition::Slice(idx, num_patterns - idx - 1);
                                 self.bind_definition(
                                     name,
-                                    Binding::UnpackedValue(key, p.range, position),
+                                    Binding::UnpackedValue(None, key, p.range, position),
                                     FlowStyle::None,
                                 );
                             }
@@ -101,7 +101,7 @@ impl<'a> BindingsBuilder<'a> {
                             };
                             let key = self.insert_binding(
                                 Key::Anon(x.range()),
-                                Binding::UnpackedValue(key, x.range(), position),
+                                Binding::UnpackedValue(None, key, x.range(), position),
                             );
                             narrow_ops.and_all(self.bind_pattern(None, x, key));
                         }

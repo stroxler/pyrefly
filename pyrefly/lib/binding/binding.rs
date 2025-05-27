@@ -730,7 +730,12 @@ pub enum Binding {
     ContextValue(Option<Idx<KeyAnnotation>>, Idx<Key>, TextRange, IsAsync),
     /// A value at a specific position in an unpacked iterable expression.
     /// Example: UnpackedValue(('a', 'b')), 1) represents 'b'.
-    UnpackedValue(Idx<Key>, TextRange, UnpackedPosition),
+    UnpackedValue(
+        Option<Idx<KeyAnnotation>>,
+        Idx<Key>,
+        TextRange,
+        UnpackedPosition,
+    ),
     /// A type where we have an annotation, but also a type we computed.
     /// If the annotation has a type inside it (e.g. `int` then use the annotation).
     /// If the annotation doesn't (e.g. it's `Final`), then use the binding.
@@ -863,7 +868,7 @@ impl DisplayWith<Bindings> for Binding {
                 };
                 write!(f, "{name} {}", ctx.display(*x))
             }
-            Self::UnpackedValue(x, range, pos) => {
+            Self::UnpackedValue(_ann, x, range, pos) => {
                 let pos = match pos {
                     UnpackedPosition::Index(i) => i.to_string(),
                     UnpackedPosition::ReverseIndex(i) => format!("-{i}"),
