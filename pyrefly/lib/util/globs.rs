@@ -389,7 +389,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::test::util::TestPath;
+    use crate::util::test_path::TestPath;
 
     #[test]
     fn test_roots() {

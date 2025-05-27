@@ -25,6 +25,7 @@ pub mod prelude;
 pub mod recurser;
 pub mod small_set1;
 pub mod task_heap;
+pub mod test_path;
 pub mod thread_pool;
 pub mod trace;
 pub mod uniques;

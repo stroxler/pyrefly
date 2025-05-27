@@ -237,8 +237,8 @@ pub fn find_module_in_site_package_path(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::util::TestPath;
-    use crate::test::util::TestPathKind;
+    use crate::util::test_path::TestPath;
+    use crate::util::test_path::TestPathKind;
 
     impl TestPath {
         fn partial_py_typed() -> Self {
