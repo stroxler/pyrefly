@@ -19,7 +19,6 @@ use pyrefly_util::uniques::UniqueFactory;
 use ruff_python_ast::AnyParameterRef;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
-use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -863,21 +862,6 @@ impl<'a> BindingsBuilder<'a> {
             .table
             .insert(Key::Definition(ShortIdentifier::new(name)), binding);
         self.bind_key(&name.id, idx, style).0
-    }
-
-    pub fn bind_assign(
-        &mut self,
-        name: &ExprName,
-        make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
-        style: FlowStyle,
-    ) {
-        let idx = self.idx_for_promise(Key::Definition(ShortIdentifier::expr_name(name)));
-        let (ann, default) = self.bind_key(&name.id, idx, style);
-        let mut binding = make_binding(ann);
-        if let Some(default) = default {
-            binding = Binding::Default(default, Box::new(binding));
-        }
-        self.insert_binding_idx(idx, binding);
     }
 
     /// Return a pair of:
