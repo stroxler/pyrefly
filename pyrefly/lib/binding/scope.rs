@@ -748,11 +748,7 @@ impl Scopes {
             }
             Entry::Occupied(mut e) => {
                 let default = if in_loop { Some(e.get().default) } else { None };
-                let style = if let Some(style) = style {
-                    style
-                } else {
-                    e.get().style.clone()
-                };
+                let style = style.unwrap_or_else(|| e.get().style.clone());
                 *e.get_mut() = FlowInfo {
                     key,
                     default: default.unwrap_or(key),
