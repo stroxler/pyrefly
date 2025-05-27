@@ -362,7 +362,10 @@ impl ScopeClass {
 }
 
 fn is_attribute_defining_method(method_name: &Name, class_name: &Name) -> bool {
-    if method_name == &dunder::INIT {
+    if method_name == &dunder::INIT
+        || method_name == &dunder::INIT_SUBCLASS
+        || method_name == &dunder::NEW
+    {
         true
     } else {
         (class_name.contains("Test") || class_name.contains("test"))
