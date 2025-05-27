@@ -23,6 +23,7 @@ pub mod memory;
 pub mod no_hash;
 pub mod prelude;
 pub mod recurser;
+pub mod ruff_visitors;
 pub mod small_set1;
 pub mod task_heap;
 pub mod test_path;
