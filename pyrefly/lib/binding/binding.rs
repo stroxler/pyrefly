@@ -96,8 +96,10 @@ pub trait Keyed: Hash + Eq + Clone + DisplayWith<ModuleInfo> + Debug + Ranged + 
     type Value: Debug + DisplayWith<Bindings>;
     type Answer: Clone + Debug + Display + TypeEq + VisitMut<Type>;
 }
-pub trait Exported: Keyed<EXPORTED = true> {}
-impl<T> Exported for T where T: Keyed<EXPORTED = true> {}
+
+/// Should be equivalent to Keyed<EXPORTED=true>.
+/// Once `associated_const_equality` is stabilised, can switch to that.
+pub trait Exported: Keyed {}
 
 impl Keyed for Key {
     type Value = Binding;
@@ -116,16 +118,19 @@ impl Keyed for KeyClassField {
     type Value = BindingClassField;
     type Answer = ClassField;
 }
+impl Exported for KeyClassField {}
 impl Keyed for KeyClassSynthesizedFields {
     const EXPORTED: bool = true;
     type Value = BindingClassSynthesizedFields;
     type Answer = ClassSynthesizedFields;
 }
+impl Exported for KeyClassSynthesizedFields {}
 impl Keyed for KeyExport {
     const EXPORTED: bool = true;
     type Value = BindingExport;
     type Answer = Type;
 }
+impl Exported for KeyExport {}
 impl Keyed for KeyFunction {
     type Value = BindingFunction;
     type Answer = DecoratedFunction;
@@ -139,6 +144,7 @@ impl Keyed for KeyClassMetadata {
     type Value = BindingClassMetadata;
     type Answer = ClassMetadata;
 }
+impl Exported for KeyClassMetadata {}
 impl Keyed for KeyLegacyTypeParam {
     type Value = BindingLegacyTypeParam;
     type Answer = LegacyTypeParameterLookup;
