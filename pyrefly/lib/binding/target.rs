@@ -29,6 +29,23 @@ use crate::graph::index::Idx;
 use crate::module::short_identifier::ShortIdentifier;
 
 impl<'a> BindingsBuilder<'a> {
+    /// Bind one level of an unpacked LHS target, for example in `x, (y, [*z]), q = foo`
+    /// - one level handles `x`, `(y, [*z])`, and `q`
+    /// - another level (called recursively via `bind_target`) handles `y` and `[*z]`
+    ///
+    /// Each potentially-recursive call results in two "levels" bindings:
+    /// - A single `Key::Unpack` -> binding pair from whatever the value we are unpacking is
+    /// - A `Binding::UnpackedValue` for each unpacked entry; these get passed back to
+    ///   `bind_target` and used in different ways depending on the context.
+    ///
+    /// A few notes on how this interacts with `bind_target`:
+    /// - We never contextually type unpacks, we do the unpacking at type level
+    ///   for simplicity (for now).
+    /// - Due to how `bind_target` works:
+    ///   - the `Binding::UnpackedValue` will include an `ann` to check against if and only if
+    ///     the individual unpack target is a name.
+    ///   - If the unpack target is an attribute or subscript, we will instead pass it along
+    ///     to the normal attribute-set or `__setitem__` call logic.
     fn bind_unpacking(
         &mut self,
         elts: &mut [Expr],
