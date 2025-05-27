@@ -179,12 +179,7 @@ impl<'a> BindingsBuilder<'a> {
         make_assigned_value: &dyn Fn(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
         is_aug_assign: bool,
     ) {
-        if is_aug_assign && let Expr::Name(name) = target {
-            // We normally should not ensure a top-level name, but if the target is for an
-            // AugAssign operation, then the name needs to already be in scope and will be used
-            // to resolve the target as a (possibly overwriting) mutation.
-            self.ensure_mutable_name(name);
-        } else if matches!(target, Expr::Subscript(..) | Expr::Attribute(..)) {
+        if matches!(target, Expr::Subscript(..) | Expr::Attribute(..)) {
             // We should always ensure a target that is an attribute or subscript, because
             // the base needs to already be in scope and will be used to resolve the target as
             // a mutation.
@@ -195,7 +190,15 @@ impl<'a> BindingsBuilder<'a> {
             ExprOrBinding::Binding(b) => b,
         };
         match target {
-            Expr::Name(name) => self.bind_assign(name, make_binding, FlowStyle::None),
+            Expr::Name(name) => {
+                if is_aug_assign {
+                    // We normally should not ensure a top-level name, but if the target is for an
+                    // AugAssign operation, then the name needs to already be in scope and will be used
+                    // to resolve the target as a (possibly overwriting) mutation.
+                    self.ensure_mutable_name(name);
+                }
+                self.bind_assign(name, make_binding, FlowStyle::None);
+            }
             Expr::Attribute(x) => {
                 // Create a binding to verify that the assignment is valid and potentially narrow
                 // the name assigned to.
