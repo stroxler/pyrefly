@@ -47,7 +47,6 @@ use crate::types::tuple::Tuple;
 use crate::types::type_var::PreInferenceVariance;
 use crate::types::type_var::Restriction;
 use crate::types::type_var::TypeVar;
-use crate::types::type_var::Variance;
 use crate::types::type_var_tuple::TypeVarTuple;
 use crate::types::typed_dict::TypedDict;
 
@@ -87,7 +86,7 @@ pub struct TParamInfo {
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct TParam {
     pub quantified: Quantified,
-    pub variance: Variance,
+    pub variance: PreInferenceVariance,
 }
 
 impl Display for TParam {

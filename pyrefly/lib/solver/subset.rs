@@ -16,6 +16,7 @@ use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
+use crate::alt::class::variance_inference::pre_to_post_variance;
 use crate::dunder;
 use crate::solver::solver::Subset;
 use crate::types::callable::Callable;
@@ -1012,7 +1013,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             let result = if param.quantified.kind() == QuantifiedKind::TypeVarTuple {
                 self.is_equal(got_arg, want_arg)
             } else {
-                match param.variance {
+                let param_variance = pre_to_post_variance(param.variance);
+                match param_variance {
                     Variance::Covariant => self.is_subset_eq(got_arg, want_arg),
                     Variance::Contravariant => self.is_subset_eq(want_arg, got_arg),
                     Variance::Invariant => self.is_equal(got_arg, want_arg),

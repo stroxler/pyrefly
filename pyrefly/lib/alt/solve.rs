@@ -29,7 +29,6 @@ use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::callable::CallArg;
 use crate::alt::class::class_field::ClassField;
-use crate::alt::class::variance_inference::pre_to_post_variance;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::alt::types::decorated_function::DecoratedFunction;
@@ -1018,7 +1017,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 quantified: tparam.quantified,
                 // Classes set the variance before getting here. For functions and aliases, the variance isn't meaningful;
                 // it doesn't matter what we set it to as long as we make it non-None to indicate that it's not missing.
-                variance: pre_to_post_variance(tparam.variance),
+                variance: tparam.variance,
             });
         }
 

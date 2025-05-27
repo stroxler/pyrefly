@@ -364,7 +364,6 @@ pub mod tests {
     use crate::types::type_var::PreInferenceVariance;
     use crate::types::type_var::Restriction;
     use crate::types::type_var::TypeVar;
-    use crate::types::type_var::Variance;
     use crate::types::typed_dict::TypedDict;
     use crate::types::types::TParam;
     use crate::types::types::TParams;
@@ -396,7 +395,7 @@ pub mod tests {
                     default: None,
                 },
             ),
-            variance: Variance::Invariant,
+            variance: PreInferenceVariance::PInvariant,
         }
     }
 

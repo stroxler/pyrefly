@@ -273,8 +273,8 @@ mod tests {
     use crate::types::quantified::Quantified;
     use crate::types::quantified::QuantifiedInfo;
     use crate::types::quantified::QuantifiedKind;
+    use crate::types::type_var::PreInferenceVariance;
     use crate::types::type_var::Restriction;
-    use crate::types::type_var::Variance;
     use crate::types::types::Forallable;
     use crate::types::types::TParam;
     use crate::types::types::TParams;
@@ -362,7 +362,7 @@ mod tests {
 
             let tparams = TParams::new(vec![TParam {
                 quantified: q.clone(),
-                variance: Variance::Invariant,
+                variance: PreInferenceVariance::PInvariant,
             }]);
 
             Forallable::Function(Function {
