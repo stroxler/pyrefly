@@ -81,15 +81,6 @@ pub mod library {
                 pub use crate::module::module_path::ModulePath;
                 pub use crate::sys_info::PythonPlatform;
                 pub use crate::sys_info::PythonVersion;
-                pub use crate::util::arc_id::ArcId;
-                pub use crate::util::args::clap_env;
-                pub use crate::util::args::get_args_expanded;
-                pub use crate::util::globs;
-                pub use crate::util::thread_pool::init_thread_pool;
-                pub use crate::util::trace::debug_log;
-                pub use crate::util::trace::init_tracing;
-                #[cfg(not(target_arch = "wasm32"))]
-                pub use crate::util::watcher::Watcher;
             }
         }
     }
