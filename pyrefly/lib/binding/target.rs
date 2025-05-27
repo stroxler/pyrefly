@@ -176,8 +176,7 @@ impl<'a> BindingsBuilder<'a> {
     fn bind_target_impl(
         &mut self,
         target: &mut Expr,
-        make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
-        value: Option<&Expr>,
+        make_assigned_value: &dyn Fn(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
         is_aug_assign: bool,
     ) {
         if is_aug_assign && let Expr::Name(name) = target {
@@ -191,18 +190,13 @@ impl<'a> BindingsBuilder<'a> {
             // a mutation.
             self.ensure_expr(target);
         }
+        let make_binding = &|ann| match make_assigned_value(ann) {
+            ExprOrBinding::Expr(e) => Binding::Expr(ann, e),
+            ExprOrBinding::Binding(b) => b,
+        };
         match target {
             Expr::Name(name) => self.bind_assign(name, make_binding, FlowStyle::None),
             Expr::Attribute(x) => {
-                // `make_binding` will give us a binding for inferring the value type, which we
-                // *might* use to compute the attribute type if there are no explicit annotations.
-                let make_assigned_value = |ann| {
-                    if let Some(value) = value {
-                        ExprOrBinding::Expr(value.clone())
-                    } else {
-                        ExprOrBinding::Binding(make_binding(ann))
-                    }
-                };
                 // Create a binding to verify that the assignment is valid and potentially narrow
                 // the name assigned to.
                 let attr_value = self.bind_attr_assign(x.clone(), make_assigned_value);
@@ -211,13 +205,6 @@ impl<'a> BindingsBuilder<'a> {
                 self.scopes.record_self_attr_assign(x, attr_value, None);
             }
             Expr::Subscript(x) => {
-                let make_assigned_value = |ann| {
-                    if let Some(value) = value {
-                        ExprOrBinding::Expr(value.clone())
-                    } else {
-                        ExprOrBinding::Binding(make_binding(ann))
-                    }
-                };
                 // Create a binding to verify that the assignment is valid and potentially narrow
                 // the name assigned to.
                 self.bind_subscript_assign(x.clone(), make_assigned_value);
@@ -234,7 +221,7 @@ impl<'a> BindingsBuilder<'a> {
                     "Starred assignment target must be in a list or tuple".to_owned(),
                     ErrorKind::InvalidSyntax,
                 );
-                self.bind_target_impl(&mut x.value, make_binding, value, false);
+                self.bind_target_impl(&mut x.value, make_assigned_value, false);
             }
             illegal_target => {
                 // Most structurally invalid targets become errors in the parser, which we propagate so there
@@ -250,7 +237,10 @@ impl<'a> BindingsBuilder<'a> {
         target: &mut Expr,
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
     ) {
-        self.bind_target_impl(target, make_binding, None, false);
+        // TODO(stroxler): Clean this up: we're wrapping the binding and then just unwrapping it later.
+        // Forcing all callers to produce an `ExprOrBinding` will also help us improve contextual typing.
+        let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
+        self.bind_target_impl(target, make_assigned_value, false);
     }
 
     /// Similar to `bind_target`, but specifically for assignments:
@@ -260,9 +250,10 @@ impl<'a> BindingsBuilder<'a> {
     ///   a method (like descriptor attribute assigns and `__setitem__` calls).
     pub fn bind_targets_with_value(&mut self, targets: &mut Vec<Expr>, value: &mut Expr) {
         self.ensure_expr(value);
-        let make_binding = |ann: Option<Idx<KeyAnnotation>>| Binding::Expr(ann, value.clone());
+        let make_assigned_value =
+            &|_: Option<Idx<KeyAnnotation>>| ExprOrBinding::Expr(value.clone());
         for target in targets {
-            self.bind_target_impl(target, &make_binding, Some(value), false);
+            self.bind_target_impl(target, make_assigned_value, false);
         }
     }
 
@@ -271,6 +262,9 @@ impl<'a> BindingsBuilder<'a> {
         target: &mut Expr,
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
     ) {
+        // TODO(stroxler): Clean this up: we're wrapping the binding and then just unwrapping it later.
+        // Forcing all callers to produce an `ExprOrBinding` will also help us improve contextual typing.
+        let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
         // A normal target should not ensure top level `Name`, since it will *define*
         // that name (overwriting any previous value) but an `AugAssign` is a mutation
         // (possibly in place, possibly overwriting) of an existing value so we do
@@ -279,7 +273,7 @@ impl<'a> BindingsBuilder<'a> {
         // AugAssign cannot be used with multi-target assignment so it does not interact
         // with the `bind_unpacking` recursion (if a user attempts to do so, we'll throw
         // an error and otherwise treat it as a normal assignment from a binding standpoint).
-        self.bind_target_impl(target, make_binding, None, true);
+        self.bind_target_impl(target, make_assigned_value, true);
     }
 
     pub fn bind_assign(
