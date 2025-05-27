@@ -11,6 +11,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use itertools::Either;
 use itertools::Itertools;
+use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::name::Name;
@@ -44,7 +45,6 @@ use crate::types::types::AnyStyle;
 use crate::types::types::CalleeKind;
 use crate::types::types::TParamInfo;
 use crate::types::types::Type;
-use crate::util::prelude::SliceExt;
 
 /// Private helper type used to share part of the logic needed for the
 /// binding-level work of finding legacy type parameters versus the type-level

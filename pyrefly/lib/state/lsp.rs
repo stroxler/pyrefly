@@ -10,6 +10,10 @@ use itertools::Itertools;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use lsp_types::DocumentSymbol;
+use pyrefly_util::gas::Gas;
+use pyrefly_util::prelude::VecExt;
+use pyrefly_util::task_heap::Cancelled;
+use pyrefly_util::visit::Visit;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::Identifier;
@@ -45,10 +49,6 @@ use crate::sys_info::SysInfo;
 use crate::types::lsp::source_range_to_range;
 use crate::types::module::Module;
 use crate::types::types::Type;
-use crate::util::gas::Gas;
-use crate::util::prelude::VecExt;
-use crate::util::task_heap::Cancelled;
-use crate::util::visit::Visit;
 
 const INITIAL_GAS: Gas = Gas::new(20);
 

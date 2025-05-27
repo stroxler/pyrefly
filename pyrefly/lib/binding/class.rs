@@ -8,6 +8,7 @@
 use std::mem;
 use std::sync::LazyLock;
 
+use pyrefly_util::prelude::SliceExt;
 use regex::Regex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprDict;
@@ -52,7 +53,6 @@ use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassFieldProperties;
 use crate::types::special_form::SpecialForm;
 use crate::types::types::Type;
-use crate::util::prelude::SliceExt;
 
 enum IllegalIdentifierHandling {
     Error,

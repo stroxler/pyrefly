@@ -6,6 +6,7 @@
  */
 
 use itertools::Either;
+use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::Comprehension;
@@ -49,7 +50,6 @@ use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::types::callable::unexpected_keyword;
 use crate::types::types::Type;
-use crate::util::visit::VisitMut;
 
 enum TestAssertion {
     AssertTrue,

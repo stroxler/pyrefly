@@ -11,6 +11,8 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use itertools::Either;
+use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::TypeParam;
@@ -105,8 +107,6 @@ use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::TypeAlias;
 use crate::types::types::TypeAliasStyle;
-use crate::util::prelude::SliceExt;
-use crate::util::visit::VisitMut;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TypeFormContext {

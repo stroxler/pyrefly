@@ -13,6 +13,13 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use pyrefly_util::display::DisplayWith;
+use pyrefly_util::display::DisplayWithCtx;
+use pyrefly_util::gas::Gas;
+use pyrefly_util::lock::Mutex;
+use pyrefly_util::recurser::Recurser;
+use pyrefly_util::uniques::UniqueFactory;
+use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -59,13 +66,6 @@ use crate::types::stdlib::Stdlib;
 use crate::types::type_info::TypeInfo;
 use crate::types::types::Type;
 use crate::types::types::Var;
-use crate::util::display::DisplayWith;
-use crate::util::display::DisplayWithCtx;
-use crate::util::gas::Gas;
-use crate::util::lock::Mutex;
-use crate::util::recurser::Recurser;
-use crate::util::uniques::UniqueFactory;
-use crate::util::visit::VisitMut;
 
 /// The index stores all the references where the definition is external to the current module.
 /// This is useful for fast references computation.

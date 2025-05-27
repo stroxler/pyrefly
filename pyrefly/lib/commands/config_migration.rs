@@ -17,6 +17,8 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use clap::Parser;
+use pyrefly_util::fs_anyhow;
+use pyrefly_util::upward_search::UpwardSearch;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
@@ -28,8 +30,6 @@ use crate::config::mypy::MypyConfig;
 use crate::config::pyright;
 use crate::config::pyright::PyrightConfig;
 use crate::config::util::PyProject;
-use crate::util::fs_anyhow;
-use crate::util::upward_search::UpwardSearch;
 
 #[derive(Clone, Debug, Parser)]
 pub struct Args {
@@ -174,10 +174,10 @@ pub fn write_pyproject(pyproject_path: &Path, config: ConfigFile) -> anyhow::Res
 
 #[cfg(test)]
 mod tests {
+    use pyrefly_util::globs::Globs;
     use serde::Deserialize;
 
     use super::*;
-    use crate::util::globs::Globs;
 
     // helper function for ConfigFile::from_file
     fn from_file(path: &Path) -> anyhow::Result<()> {

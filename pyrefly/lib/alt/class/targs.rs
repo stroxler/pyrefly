@@ -6,6 +6,8 @@
  */
 
 use dupe::Dupe;
+use pyrefly_util::display::count;
+use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
@@ -28,8 +30,6 @@ use crate::types::types::Forallable;
 use crate::types::types::TParam;
 use crate::types::types::TParams;
 use crate::types::types::Type;
-use crate::util::display::count;
-use crate::util::prelude::SliceExt;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Silently promotes a Class to a ClassType, using default type arguments. It is up to the

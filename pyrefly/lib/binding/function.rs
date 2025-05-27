@@ -8,6 +8,8 @@
 use std::mem;
 
 use itertools::Either;
+use pyrefly_util::prelude::VecExt;
+use pyrefly_util::visit::Visit;
 use ruff_python_ast::AnyParameterRef;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::ExceptHandler;
@@ -54,8 +56,6 @@ use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::sys_info::SysInfo;
 use crate::types::types::Type;
-use crate::util::prelude::VecExt;
-use crate::util::visit::Visit;
 
 struct Decorators {
     has_no_type_check: bool,

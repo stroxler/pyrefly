@@ -52,11 +52,6 @@ mod sys_info;
 mod test;
 mod types;
 
-mod util {
-    // TODO: Unwind this after it has landed.
-    pub use pyrefly_util::*;
-}
-
 /// This interface is NOT stable and should not be relied upon.
 /// It will change during minor version increments.
 ///

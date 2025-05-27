@@ -7,6 +7,8 @@
 
 use std::slice;
 
+use pyrefly_util::display::DisplayWithCtx;
+use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprList;
@@ -29,8 +31,6 @@ use crate::types::special_form::SpecialForm;
 use crate::types::tuple::Tuple;
 use crate::types::types::AnyStyle;
 use crate::types::types::Type;
-use crate::util::display::DisplayWithCtx;
-use crate::util::prelude::SliceExt;
 
 fn is_chained_attribute_access(x: &Expr) -> bool {
     match x {

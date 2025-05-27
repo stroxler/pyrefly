@@ -9,6 +9,7 @@ use std::fmt;
 
 use pyrefly_derive::TypeEq;
 use pyrefly_util::assert_words;
+use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::CmpOp;
@@ -34,7 +35,6 @@ use crate::binding::bindings::BindingsBuilder;
 use crate::export::special::SpecialExport;
 use crate::ruff::ast::Ast;
 use crate::types::types::Type;
-use crate::util::prelude::SliceExt;
 
 assert_words!(AtomicNarrowOp, 10);
 assert_words!(NarrowOp, 11);

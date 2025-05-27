@@ -13,6 +13,8 @@ use std::sync::Arc;
 use dupe::Dupe;
 use itertools::Itertools;
 use parse_display::Display;
+use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::with_hash::WithHash;
 use regex::Match;
 use regex::Regex;
 use ruff_python_ast::Arguments;
@@ -32,8 +34,6 @@ use serde::de;
 use serde::de::Visitor;
 
 use crate::ruff::ast::Ast;
-use crate::util::prelude::SliceExt;
-use crate::util::with_hash::WithHash;
 
 #[derive(Debug, Clone, Copy, Dupe, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PythonVersion {

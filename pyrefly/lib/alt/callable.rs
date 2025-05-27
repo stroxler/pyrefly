@@ -6,6 +6,8 @@
  */
 
 use append_only_vec::AppendOnlyVec;
+use pyrefly_util::display::count;
+use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
@@ -32,8 +34,6 @@ use crate::types::quantified::Quantified;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 use crate::types::types::Var;
-use crate::util::display::count;
-use crate::util::prelude::VecExt;
 
 #[derive(Clone, Debug)]
 pub enum CallArg<'a> {

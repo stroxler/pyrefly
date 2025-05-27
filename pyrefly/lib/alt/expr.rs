@@ -7,6 +7,9 @@
 
 use dupe::Dupe;
 use num_traits::ToPrimitive;
+use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::prelude::VecExt;
+use pyrefly_util::visit::Visit;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::Comprehension;
 use ruff_python_ast::Expr;
@@ -59,9 +62,6 @@ use crate::types::type_var_tuple::TypeVarTuple;
 use crate::types::types::AnyStyle;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
-use crate::util::prelude::SliceExt;
-use crate::util::prelude::VecExt;
-use crate::util::visit::Visit;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // Helper method for inferring the type of a boolean operation over a sequence of values.

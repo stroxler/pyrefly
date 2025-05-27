@@ -6,6 +6,7 @@
  */
 
 use num_traits::ToPrimitive;
+use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprNumberLiteral;
@@ -35,7 +36,6 @@ use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
-use crate::util::prelude::SliceExt;
 
 /// Beyond this size, don't try and narrow an enum.
 ///

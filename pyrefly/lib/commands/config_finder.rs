@@ -11,6 +11,9 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use dupe::Dupe;
+use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::lock::Mutex;
+use pyrefly_util::trace::debug_log;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
@@ -18,9 +21,6 @@ use crate::config::config::ProjectLayout;
 use crate::config::finder::ConfigFinder;
 use crate::module::bundled::BundledTypeshed;
 use crate::module::module_path::ModulePathDetails;
-use crate::util::arc_id::ArcId;
-use crate::util::lock::Mutex;
-use crate::util::trace::debug_log;
 
 /// Create a standard `ConfigFinder`. The `configure` function is expected to set any additional options,
 /// then call `configure` and `validate`.
@@ -129,6 +129,7 @@ mod tests {
 
     use clap::Parser;
     use pretty_assertions::assert_eq;
+    use pyrefly_util::test_path::TestPath;
 
     use super::*;
     use crate::commands::check::Args;
@@ -136,7 +137,6 @@ mod tests {
     use crate::config::environment::environment::PythonEnvironment;
     use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
-    use crate::util::test_path::TestPath;
 
     #[test]
     fn test_site_package_path_from_environment() {

@@ -14,6 +14,8 @@ use std::sync::Arc;
 use dupe::Dupe;
 use itertools::Either;
 use itertools::Itertools;
+use pyrefly_util::display::DisplayWithCtx;
+use pyrefly_util::uniques::UniqueFactory;
 use ruff_python_ast::AnyParameterRef;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
@@ -77,8 +79,6 @@ use crate::table_for_each;
 use crate::table_try_for_each;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::types::Var;
-use crate::util::display::DisplayWithCtx;
-use crate::util::uniques::UniqueFactory;
 
 #[derive(Clone, Dupe, Debug)]
 pub struct Bindings(Arc<BindingsInner>);

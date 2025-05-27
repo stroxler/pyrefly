@@ -15,6 +15,11 @@ use anyhow::Context;
 use anyhow::anyhow;
 use itertools::Itertools;
 use path_absolutize::Absolutize;
+use pyrefly_util::fs_anyhow;
+use pyrefly_util::globs::FilteredGlobs;
+use pyrefly_util::globs::Glob;
+use pyrefly_util::globs::Globs;
+use pyrefly_util::prelude::VecExt;
 use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
@@ -37,11 +42,6 @@ use crate::state::loader::FindError;
 use crate::sys_info::PythonPlatform;
 use crate::sys_info::PythonVersion;
 use crate::sys_info::SysInfo;
-use crate::util::fs_anyhow;
-use crate::util::globs::FilteredGlobs;
-use crate::util::globs::Glob;
-use crate::util::globs::Globs;
-use crate::util::prelude::VecExt;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct SubConfig {

@@ -15,6 +15,12 @@ use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_util::assert_words;
+use pyrefly_util::display::commas_iter;
+use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::uniques::Unique;
+use pyrefly_util::uniques::UniqueFactory;
+use pyrefly_util::visit::Visit;
+use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -44,12 +50,6 @@ use crate::types::type_var::TypeVar;
 use crate::types::type_var::Variance;
 use crate::types::type_var_tuple::TypeVarTuple;
 use crate::types::typed_dict::TypedDict;
-use crate::util::display::commas_iter;
-use crate::util::prelude::SliceExt;
-use crate::util::uniques::Unique;
-use crate::util::uniques::UniqueFactory;
-use crate::util::visit::Visit;
-use crate::util::visit::VisitMut;
 
 /// An introduced synthetic variable to range over as yet unknown types.
 #[derive(Debug, Copy, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]

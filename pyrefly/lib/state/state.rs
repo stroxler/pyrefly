@@ -29,6 +29,22 @@ use std::time::Instant;
 
 use dupe::Dupe;
 use enum_iterator::Sequence;
+use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::events::CategorizedEvents;
+use pyrefly_util::lock::Mutex;
+use pyrefly_util::lock::RwLock;
+use pyrefly_util::locked_map::LockedMap;
+use pyrefly_util::no_hash::BuildNoHash;
+use pyrefly_util::recurser::Recurser;
+use pyrefly_util::small_set1::SmallSet1;
+use pyrefly_util::task_heap::CancellationHandle;
+use pyrefly_util::task_heap::Cancelled;
+use pyrefly_util::task_heap::TaskHeap;
+use pyrefly_util::thread_pool::ThreadPool;
+use pyrefly_util::uniques::UniqueFactory;
+use pyrefly_util::upgrade_lock::UpgradeLock;
+use pyrefly_util::upgrade_lock::UpgradeLockExclusiveGuard;
+use pyrefly_util::upgrade_lock::UpgradeLockWriteGuard;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
@@ -88,22 +104,6 @@ use crate::sys_info::SysInfo;
 use crate::types::class::Class;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::Type;
-use crate::util::arc_id::ArcId;
-use crate::util::events::CategorizedEvents;
-use crate::util::lock::Mutex;
-use crate::util::lock::RwLock;
-use crate::util::locked_map::LockedMap;
-use crate::util::no_hash::BuildNoHash;
-use crate::util::recurser::Recurser;
-use crate::util::small_set1::SmallSet1;
-use crate::util::task_heap::CancellationHandle;
-use crate::util::task_heap::Cancelled;
-use crate::util::task_heap::TaskHeap;
-use crate::util::thread_pool::ThreadPool;
-use crate::util::uniques::UniqueFactory;
-use crate::util::upgrade_lock::UpgradeLock;
-use crate::util::upgrade_lock::UpgradeLockExclusiveGuard;
-use crate::util::upgrade_lock::UpgradeLockWriteGuard;
 
 /// `ModuleData` is a snapshot of `ArcId<ModuleDataMut>` in the main state.
 /// The snapshot is readonly most of the times. It will only be overwritten with updated information

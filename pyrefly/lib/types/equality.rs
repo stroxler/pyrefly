@@ -9,6 +9,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_util::uniques::Unique;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
@@ -23,7 +24,6 @@ use crate::module::module_name::ModuleName;
 use crate::types::param_spec::ParamSpec;
 use crate::types::type_var::TypeVar;
 use crate::types::type_var_tuple::TypeVarTuple;
-use crate::util::uniques::Unique;
 
 /// Compare a set of types using the same context.
 /// This will enable unique's to match, so important to use a single context
@@ -261,6 +261,7 @@ impl<T: TypeEq> TypeEq for SmallSet<T> {
 #[cfg(test)]
 mod tests {
     use pyrefly_derive::TypeEq;
+    use pyrefly_util::uniques::UniqueFactory;
 
     use super::*;
     use crate::types::callable::Callable;
@@ -278,7 +279,6 @@ mod tests {
     use crate::types::types::TParam;
     use crate::types::types::TParams;
     use crate::types::types::Type;
-    use crate::util::uniques::UniqueFactory;
 
     #[derive(TypeEq, PartialEq, Eq, Debug)]
     struct Foo {

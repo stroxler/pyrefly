@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_util::gas::Gas;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 
@@ -13,7 +14,6 @@ use crate::binding::binding::Key;
 use crate::binding::bindings::Bindings;
 use crate::export::exports::Export;
 use crate::module::module_name::ModuleName;
-use crate::util::gas::Gas;
 
 pub enum IntermediateDefinition {
     Local(Export),

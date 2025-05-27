@@ -13,14 +13,14 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use path_absolutize::Absolutize;
+use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::lock::Mutex;
+use pyrefly_util::upward_search::UpwardSearch;
 
 use crate::config::config::ConfigFile;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
-use crate::util::arc_id::ArcId;
-use crate::util::lock::Mutex;
-use crate::util::upward_search::UpwardSearch;
 
 /// A way to find a config file given a directory or Python file.
 /// Uses a lot of caching.

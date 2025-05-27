@@ -8,6 +8,7 @@
 use std::iter;
 use std::slice;
 
+use pyrefly_util::visit::Visit;
 use ruff_python_ast::DictItem;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBooleanLiteral;
@@ -35,7 +36,6 @@ use ruff_text_size::TextSize;
 use starlark_map::small_map::SmallMap;
 
 use crate::module::module_name::ModuleName;
-use crate::util::visit::Visit;
 
 /// Just used for convenient namespacing - not a real type
 pub struct Ast;
