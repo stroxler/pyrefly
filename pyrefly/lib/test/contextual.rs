@@ -338,14 +338,13 @@ xs: list[A] = []
 );
 
 testcase!(
-    bug = "TODO: No context propagated to subscript assignment target, error message is bad",
     test_context_assign_subscript,
     r#"
 class A: ...
 class B(A): ...
 
 xs: list[list[A]] = [[]]
-xs[0] = [B()] # E: No matching overload found for function `list.__setitem__`  # E: `list[B]` is not assignable to parameter with type `list[A]`
+xs[0] = [B()]
 "#,
 );
 

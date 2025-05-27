@@ -73,6 +73,7 @@ use crate::error::context::ErrorContext;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
+use crate::error::style::ErrorStyle;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::types::annotation::Annotation;
@@ -1595,19 +1596,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::AssignToSubscript(box (subscript, value)) => {
-                // TODO: Solveing `test_context_assign_subscript` will require us to push
-                // this down further, so that we can use contextual typing to infer the Expr case.
-                let value_ty = match value {
-                    ExprOrBinding::Expr(e) => self.expr_infer(e, errors),
-                    ExprOrBinding::Binding(b) => self.solve_binding(b, errors).arc_clone_ty(),
-                };
                 // If we can't assign to this subscript, then we don't narrow the type
-                let narrowed = if self.check_assign_to_subscript(subscript, &value_ty, errors)
-                    == Type::any_error()
-                {
+                let assigned_ty = self.check_assign_to_subscript(subscript, value, errors);
+                let narrowed = if assigned_ty.is_any() {
                     None
                 } else {
-                    Some(value_ty)
+                    Some(assigned_ty)
                 };
                 if let Some((identifier, chain)) =
                     identifier_and_chain_for_expr(&Expr::Subscript(subscript.clone()))
@@ -1644,14 +1638,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn check_assign_to_subscript(
         &self,
         subscript: &ExprSubscript,
-        value: &Type,
+        value: &ExprOrBinding,
         errors: &ErrorCollector,
     ) -> Type {
         let base = self.expr_infer(&subscript.value, errors);
         let slice_ty = self.expr_infer(&subscript.slice, errors);
         match (&base, &slice_ty) {
             (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
-                if let Some(field) = self.typed_dict_field(typed_dict, &Name::new(field_name)) {
+                let field_name = Name::new(field_name);
+                if let Some(field) = self.typed_dict_field(typed_dict, &field_name) {
                     if field.read_only {
                         self.error(
                             errors,
@@ -1664,16 +1659,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 typed_dict.name(),
                             ),
                         )
-                    } else if !self.is_subset_eq(value, &field.ty) {
-                        self.error(
-                            errors,
-                            subscript.range(),
-                            ErrorKind::BadAssignment,
-                            None,
-                            format!("Expected `{}`, got `{}`", field.ty, value),
-                        )
                     } else {
-                        Type::None
+                        let context = &|| {
+                            TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
+                                field_name.clone(),
+                            ))
+                        };
+                        match value {
+                            ExprOrBinding::Expr(e) => {
+                                self.expr(e, Some((&field.ty, context)), errors)
+                            }
+                            ExprOrBinding::Binding(b) => {
+                                let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
+                                self.check_and_return_type(
+                                    &field.ty,
+                                    binding_ty,
+                                    subscript.range(),
+                                    errors,
+                                    context,
+                                )
+                            }
+                        }
                     }
                 } else {
                     self.error(
@@ -1689,19 +1695,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )
                 }
             }
-            (_, _) => self.call_method_or_error(
-                &base,
-                &dunder::SETITEM,
-                subscript.range,
-                &[
-                    CallArg::Type(&slice_ty, subscript.slice.range()),
-                    // use the subscript's location
-                    CallArg::Type(value, subscript.range),
-                ],
-                &[],
-                errors,
-                Some(&|| ErrorContext::SetItem(self.for_display(base.clone()))),
-            ),
+            (_, _) => {
+                let call_setitem = |value_arg| {
+                    self.call_method_or_error(
+                        &base,
+                        &dunder::SETITEM,
+                        subscript.range,
+                        &[CallArg::Type(&slice_ty, subscript.slice.range()), value_arg],
+                        &[],
+                        errors,
+                        Some(&|| ErrorContext::SetItem(self.for_display(base.clone()))),
+                    )
+                };
+                match value {
+                    ExprOrBinding::Expr(e) => {
+                        call_setitem(CallArg::Expr(e));
+                        // We already emit errors for `e` during `call_method_or_error`
+                        self.expr_infer(
+                            e,
+                            &ErrorCollector::new(errors.module_info().clone(), ErrorStyle::Never),
+                        )
+                    }
+                    ExprOrBinding::Binding(b) => {
+                        let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
+                        // Use the subscript's location
+                        call_setitem(CallArg::Type(&binding_ty, subscript.range));
+                        binding_ty
+                    }
+                }
+            }
         }
     }
 
