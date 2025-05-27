@@ -380,8 +380,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         None,
                         None,
                     );
-                    if let Type::TypeGuard(box t) = ret {
-                        return t.clone();
+                    if let Type::TypeGuard(t) = ret {
+                        return *t;
                     }
                 }
                 ty.clone()
