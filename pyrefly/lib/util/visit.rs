@@ -16,7 +16,6 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use vec1::Vec1;
 
-use crate::module::module_name::ModuleName;
 use crate::util::uniques::Unique;
 
 /// Visitors based on <https://ndmitchell.com/#uniplate_30_sep_2007>.
@@ -147,7 +146,6 @@ visit_nothing!(Box<str>);
 // Pyrefly types that have nothing inside
 visit_nothing!(Name);
 visit_nothing!(Unique);
-visit_nothing!(ModuleName);
 visit_nothing!(TextRange);
 
 impl<To: 'static, T: Visit<To>> Visit<To> for Vec<T> {
