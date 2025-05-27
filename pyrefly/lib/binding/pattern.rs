@@ -70,8 +70,8 @@ impl<'a> BindingsBuilder<'a> {
                     self.bind_definition(name, Binding::Forward(key), FlowStyle::None);
                     subject = Some(NarrowingSubject::Name(name.id.clone()));
                 };
-                if let Some(box pattern) = p.pattern {
-                    self.bind_pattern(subject, pattern, key)
+                if let Some(pattern) = p.pattern {
+                    self.bind_pattern(subject, *pattern, key)
                 } else {
                     NarrowOps::new()
                 }

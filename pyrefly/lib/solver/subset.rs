@@ -864,21 +864,25 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     .to_type();
                 self.is_subset_eq(&tuple_type, want)
             }
-            (Type::Tuple(Tuple::Unbounded(box left_elt)), _) => {
-                let tuple_type = self.type_order.stdlib().tuple(left_elt.clone()).to_type();
+            (Type::Tuple(Tuple::Unbounded(left_elt)), _) => {
+                let tuple_type = self
+                    .type_order
+                    .stdlib()
+                    .tuple((**left_elt).clone())
+                    .to_type();
                 self.is_subset_eq(&tuple_type, want)
             }
             (
                 Type::Tuple(Tuple::Unpacked(box (
                     prefix,
-                    Type::Tuple(Tuple::Unbounded(box middle)),
+                    Type::Tuple(Tuple::Unbounded(middle)),
                     suffix,
                 ))),
                 _,
             ) => {
                 let elts = prefix
                     .iter()
-                    .chain(iter::once(middle))
+                    .chain(iter::once(&**middle))
                     .chain(suffix)
                     .cloned()
                     .collect::<Vec<_>>();
@@ -941,13 +945,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::ParamSpecValue(ls), Type::ParamSpecValue(us)) => {
                 self.is_subset_param_list(ls.items(), us.items())
             }
-            (Type::ParamSpecValue(ls), Type::Concatenate(box us, box u_pspec)) => {
+            (Type::ParamSpecValue(ls), Type::Concatenate(us, u_pspec)) => {
                 self.is_paramlist_subset_of_paramspec(ls, us, u_pspec)
             }
-            (Type::Concatenate(box ls, box l_pspec), Type::ParamSpecValue(us)) => {
+            (Type::Concatenate(ls, l_pspec), Type::ParamSpecValue(us)) => {
                 self.is_paramspec_subset_of_paramlist(ls, l_pspec, us)
             }
-            (Type::Concatenate(box ls, box l_pspec), Type::Concatenate(box us, box u_pspec)) => {
+            (Type::Concatenate(ls, l_pspec), Type::Concatenate(us, u_pspec)) => {
                 self.is_paramspec_subset_of_paramspec(ls, l_pspec, us, u_pspec)
             }
             (Type::Ellipsis, _)

@@ -122,9 +122,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 elements.extend(r.clone());
                 Type::Tuple(Tuple::Concrete(elements))
             }
-            (Tuple::Unbounded(box l), Tuple::Unbounded(box r)) => {
-                Type::Tuple(Tuple::Unbounded(Box::new(self.union(l.clone(), r.clone()))))
-            }
+            (Tuple::Unbounded(l), Tuple::Unbounded(r)) => Type::Tuple(Tuple::Unbounded(Box::new(
+                self.union((**l).clone(), (**r).clone()),
+            ))),
             (Tuple::Concrete(l), r @ Tuple::Unbounded(_)) => Type::Tuple(Tuple::Unpacked(
                 Box::new((l.clone(), Type::Tuple(r.clone()), Vec::new())),
             )),

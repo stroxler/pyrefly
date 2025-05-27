@@ -639,7 +639,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
                 callable.recurse_mut(&mut visit);
             }
-            Type::Concatenate(box prefix, box pspec) => {
+            Type::Concatenate(prefix, pspec) => {
                 for t in prefix {
                     self.tvars_to_tparams_for_type_alias(
                         t,
@@ -727,7 +727,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
                 *ty = Type::Quantified(q);
             }
-            Type::Unpack(box t) => self.tvars_to_tparams_for_type_alias(
+            Type::Unpack(t) => self.tvars_to_tparams_for_type_alias(
                 t,
                 seen_type_vars,
                 seen_type_var_tuples,
@@ -1845,7 +1845,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 match match_args {
                     Type::Tuple(Tuple::Concrete(ts)) => {
                         if *idx < ts.len() {
-                            if let Some(Type::Literal(Lit::Str(box attr_name))) = ts.get(*idx) {
+                            if let Some(Type::Literal(Lit::Str(attr_name))) = ts.get(*idx) {
                                 self.attr_infer(
                                     &binding,
                                     &Name::new(attr_name),

@@ -191,7 +191,7 @@ impl TypeInfo {
     }
 
     fn get_at_facet(&self, facet: &FacetKind) -> Option<&NarrowedFacet> {
-        if let Some(box narrowed_facets) = &self.facets {
+        if let Some(narrowed_facets) = &self.facets {
             narrowed_facets.get(facet)
         } else {
             None

@@ -73,7 +73,7 @@ impl Tuple {
                     format!("{}", commas_iter(|| elts.iter().map(&wrap)))
                 }
             }
-            Self::Unbounded(box ty) => format!("{}, ...", wrap(ty)),
+            Self::Unbounded(ty) => format!("{}, ...", wrap(ty)),
             Self::Unpacked(box (prefix, unpacked, suffix)) => {
                 let prefix = if prefix.is_empty() {
                     "".to_owned()

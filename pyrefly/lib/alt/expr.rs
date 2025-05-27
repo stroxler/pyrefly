@@ -1060,7 +1060,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     _ => &Vec::new(),
                 };
                 let default_hint = match hint {
-                    Some(Type::Tuple(Tuple::Unbounded(box elt))) => Some(elt),
+                    Some(Type::Tuple(Tuple::Unbounded(elt))) => Some(&**elt),
                     _ => None,
                 };
                 let mut prefix = Vec::new();
@@ -1070,7 +1070,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let mut encountered_invalid_star = false;
                 for elt in x.elts.iter() {
                     match elt {
-                        Expr::Starred(ExprStarred { box value, .. }) => {
+                        Expr::Starred(ExprStarred { value, .. }) => {
                             let ty = self.expr_infer(value, errors);
                             match ty {
                                 Type::Tuple(Tuple::Concrete(elts)) => {

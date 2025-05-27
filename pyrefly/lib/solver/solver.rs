@@ -222,14 +222,14 @@ impl Solver {
                 let params = mem::take(paramlist).prepend_types(ts).into_owned();
                 *x = Type::ParamSpecValue(params);
             }
-            if let Type::Concatenate(box ts, box Type::Concatenate(ts2, pspec)) = x {
+            if let Type::Concatenate(ts, box Type::Concatenate(ts2, pspec)) = x {
                 *x = Type::Concatenate(
                     ts.iter().chain(ts2.iter()).cloned().collect(),
                     pspec.clone(),
                 );
             }
             let (callable, kind) = match x {
-                Type::Callable(box c) => (Some(c), None),
+                Type::Callable(c) => (Some(&mut **c), None),
                 Type::Function(box Function {
                     signature: c,
                     metadata: k,
@@ -237,7 +237,7 @@ impl Solver {
                 _ => (None, None),
             };
             if let Some(Callable {
-                params: Params::ParamSpec(box ts, pspec),
+                params: Params::ParamSpec(ts, pspec),
                 ret,
             }) = callable
             {
@@ -260,10 +260,10 @@ impl Solver {
                     Type::Ellipsis if ts.is_empty() => {
                         *x = new_callable(Callable::ellipsis(ret.clone()));
                     }
-                    Type::Concatenate(box ts2, box pspec) => {
+                    Type::Concatenate(ts2, pspec) => {
                         *x = new_callable(Callable::concatenate(
                             ts.iter().chain(ts2.iter()).cloned().collect(),
-                            pspec.clone(),
+                            (**pspec).clone(),
                             ret.clone(),
                         ));
                     }
