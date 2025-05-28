@@ -42,6 +42,13 @@ impl ConfigError {
         }
     }
 
+    pub fn warn(msg: anyhow::Error) -> Self {
+        Self {
+            severity: Severity::Warn,
+            msg,
+        }
+    }
+
     pub fn print(&self) {
         match self.severity {
             Severity::Error => {

@@ -555,9 +555,9 @@ impl ConfigFile {
         }
         errors.extend(validate(&self.search_path_from_file, "search_path"));
         if let ConfigSource::File(path) = &self.source {
-            errors.into_map(|e| ConfigError::error(e.context(format!("{}", path.display()))))
+            errors.into_map(|e| ConfigError::warn(e.context(format!("{}", path.display()))))
         } else {
-            errors.into_map(ConfigError::error)
+            errors.into_map(ConfigError::warn)
         }
     }
 
