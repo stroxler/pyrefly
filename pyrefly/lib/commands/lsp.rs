@@ -184,6 +184,7 @@ struct IDETransactionManager<'a> {
 }
 
 impl<'a> IDETransactionManager<'a> {
+    #[expect(clippy::result_large_err)] // Both results are basically the same size
     /// Produce a possibly committable transaction in order to recheck in-memory files.
     fn get_possibly_committable_transaction(
         &mut self,

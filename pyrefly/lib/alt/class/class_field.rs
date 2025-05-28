@@ -492,6 +492,7 @@ impl<T> WithDefiningClass<T> {
     }
 }
 
+#[expect(clippy::large_enum_variant)] // the vast majority of `DataclassMember`s are `Field`
 /// The result of processing a raw dataclass member (any annotated assignment in its body).
 pub enum DataclassMember {
     /// A dataclass field
