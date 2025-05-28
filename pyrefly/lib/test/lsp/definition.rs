@@ -107,7 +107,7 @@ def f(x: list[int], y: str, z: Literal[42]):
     let code_test: &str = r#"
 from typing import Literal
 from .import_provider import f
-#           ^                ^
+# ^         ^                ^
 
 foo: Literal[1] = 1
 #        ^
@@ -125,6 +125,10 @@ bar = f([1], "", 42)
     assert_eq!(
         r#"
 # main.py
+3 | from .import_provider import f
+      ^
+Definition Result: None
+
 3 | from .import_provider import f
                 ^
 Definition Result:
