@@ -596,28 +596,32 @@ def f(x: object, y: type[str]) -> None:
 );
 
 testcase!(
-    bug = "issubclass union narrowing is not yet supported",
     test_issubclass_union,
     r#"
 from typing import assert_type
-def f(x: type[int | str | bool]):
-    if issubclass(x, str | int):
-        assert_type(x, type[str] | type[int])  # E: assert_type(type[bool | int | str], type[int] | type[str])
+class A: ...
+class B: ...
+class C: ...
+def f(x: type[A | B | C]):
+    if issubclass(x, A | B):
+        assert_type(x, type[A] | type[B])
     else:
-        assert_type(x, type[bool])  # E: assert_type(type[bool | int | str], type[bool])
+        assert_type(x, type[C])
     "#,
 );
 
 testcase!(
-    bug = "issubclass tuple narrowing is not yet supported",
     test_issubclass_tuple,
     r#"
 from typing import assert_type
-def f(x: type[int | str | bool]):
-    if issubclass(x, (str, int)):
-        assert_type(x, type[str] | type[int])  # E: assert_type(type[bool | int | str], type[int] | type[str])
+class A: ...
+class B: ...
+class C: ...
+def f(x: type[A | B | C]):
+    if issubclass(x, (A, B)):
+        assert_type(x, type[A] | type[B])
     else:
-        assert_type(x, type[bool])  # E: assert_type(type[bool | int | str], type[bool])
+        assert_type(x, type[C])
     "#,
 );
 

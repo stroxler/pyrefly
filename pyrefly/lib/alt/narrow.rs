@@ -169,6 +169,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn narrow_issubclass(&self, left: &Type, right: &Type, range: TextRange) -> Type {
+        if let Some(ts) = right.as_decomposed_tuple_or_union() {
+            self.unions(
+                ts.iter()
+                    .map(|t| self.narrow_issubclass(left, t, range))
+                    .collect(),
+            )
+        } else if let Some(left) = self.untype_opt(left.clone(), range)
+            && let Some(right) = self.unwrap_class_object_silently(right)
+        {
+            Type::type_form(self.intersect(&left, &right))
+        } else {
+            left.clone()
+        }
+    }
+
+    fn narrow_is_not_subclass(&self, left: &Type, right: &Type, range: TextRange) -> Type {
+        if let Some(ts) = right.as_decomposed_tuple_or_union() {
+            self.intersects(&ts.map(|t| self.narrow_is_not_subclass(left, t, range)))
+        } else if let Some(left) = self.untype_opt(left.clone(), range)
+            && let Some(right) = self.unwrap_class_object_silently(right)
+        {
+            Type::type_form(self.subtract(&left, &right))
+        } else {
+            left.clone()
+        }
+    }
+
     pub fn atomic_narrow(
         &self,
         ty: &Type,
@@ -347,23 +375,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AtomicNarrowOp::IsSubclass(v) => {
                 let right = self.expr_infer(v, errors);
-                if let Some(left) = self.untype_opt(ty.clone(), v.range())
-                    && let Some(right) = self.unwrap_class_object_silently(&right)
-                {
-                    Type::type_form(self.intersect(&left, &right))
-                } else {
-                    ty.clone()
-                }
+                self.narrow_issubclass(ty, &right, v.range())
             }
             AtomicNarrowOp::IsNotSubclass(v) => {
                 let right = self.expr_infer(v, errors);
-                if let Some(left) = self.untype_opt(ty.clone(), v.range())
-                    && let Some(right) = self.unwrap_class_object_silently(&right)
-                {
-                    Type::type_form(self.subtract(&left, &right))
-                } else {
-                    ty.clone()
-                }
+                self.narrow_is_not_subclass(ty, &right, v.range())
             }
             AtomicNarrowOp::TypeGuard(t, arguments) => {
                 if let Some(call_target) = self.as_call_target(t.clone()) {
