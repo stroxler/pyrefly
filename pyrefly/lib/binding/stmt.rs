@@ -436,8 +436,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::AugAssign(mut x) => {
                 self.ensure_expr(&mut x.value);
-                let make_binding =
-                    |ann: Option<Idx<KeyAnnotation>>| Binding::AugAssign(ann, x.clone());
+                let make_binding = |ann| Binding::AugAssign(ann, x.clone());
                 match x.target.as_ref() {
                     Expr::Name(name) => {
                         self.ensure_mutable_name(name);
@@ -716,9 +715,8 @@ impl<'a> BindingsBuilder<'a> {
                         Binding::Expr(None, item.context_expr),
                     );
                     if let Some(mut opts) = item.optional_vars {
-                        let make_binding = |ann: Option<Idx<KeyAnnotation>>| {
-                            Binding::ContextValue(ann, context_idx, expr_range, kind)
-                        };
+                        let make_binding =
+                            |ann| Binding::ContextValue(ann, context_idx, expr_range, kind);
                         self.bind_target(&mut opts, &make_binding);
                     } else {
                         self.insert_binding(

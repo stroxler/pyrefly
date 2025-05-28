@@ -246,8 +246,7 @@ impl<'a> BindingsBuilder<'a> {
     ///   a method (like descriptor attribute assigns and `__setitem__` calls).
     pub fn bind_targets_with_value(&mut self, targets: &mut Vec<Expr>, value: &mut Expr) {
         self.ensure_expr(value);
-        let make_assigned_value =
-            &|_: Option<Idx<KeyAnnotation>>| ExprOrBinding::Expr(value.clone());
+        let make_assigned_value = &|_| ExprOrBinding::Expr(value.clone());
         for target in targets {
             self.bind_target_impl(target, make_assigned_value);
         }
