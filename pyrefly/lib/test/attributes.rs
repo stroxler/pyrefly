@@ -934,3 +934,12 @@ class A[T]:
 assert_type(A.f(A[int]()), int)
     "#,
 );
+
+testcase!(
+    test_invalid_augmented_assign_in_init,
+    r#"
+class C:
+    def __init__(self):
+        self.x += 5  # E: Object of class `C` has no attribute `x`
+    "#,
+);

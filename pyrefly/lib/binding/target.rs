@@ -269,10 +269,7 @@ impl<'a> BindingsBuilder<'a> {
                 let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
                 // Create a binding to verify that the assignment is valid and potentially narrow
                 // the name assigned to.
-                let attr_value = self.bind_attr_assign(x.clone(), make_assigned_value);
-                // If this is a self-assignment, record it because we may use it to infer
-                // the existence of an instance-only attribute.
-                self.scopes.record_self_attr_assign(x, attr_value, None);
+                self.bind_attr_assign(x.clone(), make_assigned_value);
             }
             Expr::Subscript(x) => {
                 // TODO(stroxler): This means we lose contextual typing in augmented assignment of subscripts,
