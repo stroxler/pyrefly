@@ -46,6 +46,7 @@ use crate::commands::util::module_from_path;
 use crate::config::config::ConfigFile;
 use crate::config::config::validate_path;
 use crate::config::environment::environment::SitePackagePathSource;
+use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;
 use crate::error::error::print_error_counts;
@@ -485,10 +486,7 @@ impl Args {
         Ok(())
     }
 
-    pub fn override_config(
-        &self,
-        mut config: ConfigFile,
-    ) -> (ArcId<ConfigFile>, Vec<anyhow::Error>) {
+    pub fn override_config(&self, mut config: ConfigFile) -> (ArcId<ConfigFile>, Vec<ConfigError>) {
         if let Some(x) = &self.python_platform {
             config.python_environment.python_platform = Some(x.clone());
         }

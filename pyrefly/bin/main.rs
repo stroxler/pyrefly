@@ -21,6 +21,7 @@ use library::ConfigSource;
 use library::ModulePath;
 use library::ProjectLayout;
 use library::finder::ConfigFinder;
+use library::finder::debug_log;
 use library::run::BuckCheckArgs;
 use library::run::CheckArgs;
 use library::run::CommandExitStatus;
@@ -36,7 +37,6 @@ use pyrefly_util::args::clap_env;
 use pyrefly_util::args::get_args_expanded;
 use pyrefly_util::globs::FilteredGlobs;
 use pyrefly_util::globs::Globs;
-use pyrefly_util::trace::debug_log;
 use pyrefly_util::watcher::Watcher;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
@@ -155,11 +155,7 @@ fn get_explicit_config(
     let (config, validation_errors) = args.override_config(file_config);
     (
         config,
-        parse_errors
-            .into_iter()
-            .chain(validation_errors)
-            .map(ConfigError::error)
-            .collect(),
+        parse_errors.into_iter().chain(validation_errors).collect(),
     )
 }
 

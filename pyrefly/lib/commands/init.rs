@@ -189,10 +189,12 @@ mod test {
         if errs.is_empty() {
             Ok(())
         } else {
+            for e in errs {
+                e.print();
+            }
             Err(anyhow::anyhow!(format!(
-                "ConfigFile::from_file({}) failed: {:#?}",
+                "ConfigFile::from_file({}) failed",
                 path.display(),
-                errs
             )))
         }
     }

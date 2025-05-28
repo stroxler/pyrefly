@@ -13,12 +13,13 @@ use std::sync::LazyLock;
 use dupe::Dupe;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lock::Mutex;
-use pyrefly_util::trace::debug_log;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
 use crate::config::config::ProjectLayout;
+use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
+use crate::config::finder::debug_log;
 use crate::module::bundled::BundledTypeshed;
 use crate::module::module_path::ModulePathDetails;
 
@@ -33,7 +34,7 @@ use crate::module::module_path::ModulePathDetails;
 /// of the project may be `None` if it can't be found (no [`Path::parent()`]) or it's irrelevant (bundled typeshed).
 pub fn standard_config_finder(
     configure: Arc<
-        dyn Fn(Option<&Path>, ConfigFile) -> (ArcId<ConfigFile>, Vec<anyhow::Error>) + Send + Sync,
+        dyn Fn(Option<&Path>, ConfigFile) -> (ArcId<ConfigFile>, Vec<ConfigError>) + Send + Sync,
     >,
 ) -> ConfigFinder {
     let configure2 = configure.dupe();

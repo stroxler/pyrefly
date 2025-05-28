@@ -15,8 +15,10 @@ use dupe::Dupe;
 use path_absolutize::Absolutize;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lock::Mutex;
-use pyrefly_util::prelude::VecExt;
 use pyrefly_util::upward_search::UpwardSearch;
+use tracing::Level;
+use tracing::debug;
+use tracing::enabled;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
@@ -55,6 +57,15 @@ impl ConfigError {
     }
 }
 
+/// When debugging is enabled, log errors.
+pub fn debug_log(errors: Vec<ConfigError>) {
+    if enabled!(Level::DEBUG) {
+        for e in errors {
+            debug!("{:#}", e.msg);
+        }
+    }
+}
+
 /// A way to find a config file given a directory or Python file.
 /// Uses a lot of caching.
 pub struct ConfigFinder<T = ArcId<ConfigFile>> {
@@ -73,7 +84,7 @@ pub struct ConfigFinder<T = ArcId<ConfigFile>> {
 impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     /// Create a new ConfigFinder a way to load a config file, and a default if that errors or there is no file.
     pub fn new(
-        load: Box<dyn Fn(&Path) -> (T, Vec<anyhow::Error>) + Send + Sync>,
+        load: Box<dyn Fn(&Path) -> (T, Vec<ConfigError>) + Send + Sync>,
         fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
     ) -> Self {
         Self::new_custom(Box::new(|_, _| Ok(None)), load, fallback)
@@ -97,7 +108,7 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     /// The `before` function is not cached in any way.
     fn new_custom(
         before: Box<dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<T>> + Send + Sync>,
-        load: Box<dyn Fn(&Path) -> (T, Vec<anyhow::Error>) + Send + Sync>,
+        load: Box<dyn Fn(&Path) -> (T, Vec<ConfigError>) + Send + Sync>,
         fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
     ) -> Self {
         let errors = Arc::new(Mutex::new(Vec::new()));
@@ -112,7 +123,7 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
                     .collect(),
                 move |x| {
                     let (v, errors) = load(x);
-                    errors2.lock().extend(errors.into_map(ConfigError::error));
+                    errors2.lock().extend(errors);
                     v
                 },
             ),
