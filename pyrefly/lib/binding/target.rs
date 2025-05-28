@@ -253,10 +253,10 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn bind_target_for_aug_assign_impl(
+    pub fn bind_target_for_aug_assign(
         &mut self,
         target: &mut Expr,
-        make_assigned_value: &dyn Fn(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+        make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
     ) {
         if matches!(target, Expr::Subscript(..) | Expr::Attribute(..)) {
             // We should always ensure a target that is an attribute or subscript, because
@@ -264,10 +264,6 @@ impl<'a> BindingsBuilder<'a> {
             // a mutation.
             self.ensure_expr(target);
         }
-        let make_binding = &|ann| match make_assigned_value(ann) {
-            ExprOrBinding::Expr(e) => Binding::Expr(ann, e),
-            ExprOrBinding::Binding(b) => b,
-        };
         match target {
             Expr::Name(name) => {
                 // We normally should not ensure a top-level name, but if the target is for an
@@ -277,6 +273,9 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_assign(name, make_binding, FlowStyle::None);
             }
             Expr::Attribute(x) => {
+                // TODO(stroxler): This means we lose contextual typing in augmented assignment of attributes,
+                // can we avoid this?
+                let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
                 // Create a binding to verify that the assignment is valid and potentially narrow
                 // the name assigned to.
                 let attr_value = self.bind_attr_assign(x.clone(), make_assigned_value);
@@ -285,6 +284,9 @@ impl<'a> BindingsBuilder<'a> {
                 self.scopes.record_self_attr_assign(x, attr_value, None);
             }
             Expr::Subscript(x) => {
+                // TODO(stroxler): This means we lose contextual typing in augmented assignment of subscripts,
+                // can we avoid this?
+                let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
                 // Create a binding to verify that the assignment is valid and potentially narrow
                 // the name assigned to.
                 self.bind_subscript_assign(x.clone(), make_assigned_value);
@@ -296,25 +298,6 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(illegal_target);
             }
         }
-    }
-
-    pub fn bind_target_for_aug_assign(
-        &mut self,
-        target: &mut Expr,
-        make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
-    ) {
-        // TODO(stroxler): Clean this up: we're wrapping the binding and then just unwrapping it later.
-        // Forcing all callers to produce an `ExprOrBinding` will also help us improve contextual typing.
-        let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
-        // A normal target should not ensure top level `Name`, since it will *define*
-        // that name (overwriting any previous value) but an `AugAssign` is a mutation
-        // (possibly in place, possibly overwriting) of an existing value so we do
-        // need to ensure names.
-        //
-        // AugAssign cannot be used with multi-target assignment so it does not interact
-        // with the `bind_unpacking` recursion (if a user attempts to do so, we'll throw
-        // an error and otherwise treat it as a normal assignment from a binding standpoint).
-        self.bind_target_for_aug_assign_impl(target, make_assigned_value);
     }
 
     pub fn bind_assign(
