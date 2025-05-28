@@ -98,17 +98,13 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut kw.value);
             }
         }
-        self.bind_assign(
-            name,
-            |ann| {
-                Binding::TypeVar(
-                    ann,
-                    Ast::expr_name_identifier(name.clone()),
-                    Box::new(call.clone()),
-                )
-            },
-            FlowStyle::Other,
-        )
+        self.bind_assign(name, |ann| {
+            Binding::TypeVar(
+                ann,
+                Ast::expr_name_identifier(name.clone()),
+                Box::new(call.clone()),
+            )
+        })
     }
 
     fn ensure_type_var_tuple_and_param_spec_args(&mut self, call: &mut ExprCall) {
@@ -129,32 +125,24 @@ impl<'a> BindingsBuilder<'a> {
 
     fn assign_param_spec(&mut self, name: &ExprName, call: &mut ExprCall) {
         self.ensure_type_var_tuple_and_param_spec_args(call);
-        self.bind_assign(
-            name,
-            |ann| {
-                Binding::ParamSpec(
-                    ann,
-                    Ast::expr_name_identifier(name.clone()),
-                    Box::new(call.clone()),
-                )
-            },
-            FlowStyle::Other,
-        )
+        self.bind_assign(name, |ann| {
+            Binding::ParamSpec(
+                ann,
+                Ast::expr_name_identifier(name.clone()),
+                Box::new(call.clone()),
+            )
+        })
     }
 
     fn assign_type_var_tuple(&mut self, name: &ExprName, call: &mut ExprCall) {
         self.ensure_type_var_tuple_and_param_spec_args(call);
-        self.bind_assign(
-            name,
-            |ann| {
-                Binding::TypeVarTuple(
-                    ann,
-                    Ast::expr_name_identifier(name.clone()),
-                    Box::new(call.clone()),
-                )
-            },
-            FlowStyle::Other,
-        )
+        self.bind_assign(name, |ann| {
+            Binding::TypeVarTuple(
+                ann,
+                Ast::expr_name_identifier(name.clone()),
+                Box::new(call.clone()),
+            )
+        })
     }
 
     fn assign_enum(
@@ -281,6 +269,32 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    pub fn bind_name_assign(&mut self, name: &ExprName, mut value: Box<Expr>) {
+        let idx = self.idx_for_promise(Key::Definition(ShortIdentifier::expr_name(name)));
+        if self.is_definitely_type_alias_rhs(value.as_ref()) {
+            self.ensure_type(&mut value, &mut None);
+        } else {
+            self.ensure_expr(&mut value);
+        }
+        let style = if self.scopes.in_class_body() {
+            FlowStyle::ClassField {
+                initial_value: Some((*value).clone()),
+            }
+        } else {
+            FlowStyle::Other
+        };
+        let (ann, default) = self.bind_key(&name.id, idx, style);
+        let mut binding = Binding::NameAssign(
+            name.id.clone(),
+            ann.map(|k| (AnnotationStyle::Forwarded, k)),
+            value,
+        );
+        if let Some(default) = default {
+            binding = Binding::Default(default, Box::new(binding));
+        }
+        self.insert_binding_idx(idx, binding);
+    }
+
     /// Record a return statement for later analysis if we are in a function body, and mark
     /// that the flow has terminated.
     ///
@@ -335,7 +349,7 @@ impl<'a> BindingsBuilder<'a> {
                     && let Some((module, forward)) =
                         resolve_typeshed_alias(self.module_info.name(), &name.id, &x.value) =>
             {
-                self.bind_assign(name, |_| Binding::Import(module, forward), FlowStyle::Other)
+                self.bind_assign(name, |_| Binding::Import(module, forward))
             }
             Stmt::Assign(mut x) => {
                 if let [Expr::Name(name)] = x.targets.as_slice() {
@@ -415,29 +429,7 @@ impl<'a> BindingsBuilder<'a> {
                             _ => {}
                         }
                     }
-                    if self.is_definitely_type_alias_rhs(&x.value) {
-                        self.ensure_type(&mut x.value, &mut None);
-                    } else {
-                        self.ensure_expr(&mut x.value);
-                    }
-                    let flow_style = if self.scopes.in_class_body() {
-                        FlowStyle::ClassField {
-                            initial_value: Some((*x.value).clone()),
-                        }
-                    } else {
-                        FlowStyle::Other
-                    };
-                    self.bind_assign(
-                        name,
-                        |ann: Option<Idx<KeyAnnotation>>| {
-                            Binding::NameAssign(
-                                name.id.clone(),
-                                ann.map(|k| (AnnotationStyle::Forwarded, k)),
-                                x.value,
-                            )
-                        },
-                        flow_style,
-                    );
+                    self.bind_name_assign(name, x.value)
                 } else {
                     self.bind_targets_with_value(&mut x.targets, &mut x.value);
                 }
@@ -449,7 +441,7 @@ impl<'a> BindingsBuilder<'a> {
                 match x.target.as_ref() {
                     Expr::Name(name) => {
                         self.ensure_mutable_name(name);
-                        self.bind_assign(name, make_binding, FlowStyle::Other);
+                        self.bind_assign(name, make_binding);
                     }
                     Expr::Attribute(x) => {
                         let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));

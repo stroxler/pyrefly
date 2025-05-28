@@ -194,7 +194,7 @@ impl<'a> BindingsBuilder<'a> {
         };
         match target {
             Expr::Name(name) => {
-                self.bind_assign(name, make_binding, FlowStyle::Other);
+                self.bind_assign(name, make_binding);
             }
             Expr::Attribute(x) => {
                 let attr_value = self.bind_attr_assign(x.clone(), make_assigned_value);
@@ -257,10 +257,9 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: &ExprName,
         make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
-        style: FlowStyle,
     ) {
         let idx = self.idx_for_promise(Key::Definition(ShortIdentifier::expr_name(name)));
-        let (ann, default) = self.bind_key(&name.id, idx, style);
+        let (ann, default) = self.bind_key(&name.id, idx, FlowStyle::Other);
         let mut binding = make_binding(ann);
         if let Some(default) = default {
             binding = Binding::Default(default, Box::new(binding));
