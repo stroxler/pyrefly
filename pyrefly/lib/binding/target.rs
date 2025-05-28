@@ -177,7 +177,6 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         target: &mut Expr,
         make_assigned_value: &dyn Fn(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
-        is_aug_assign: bool,
     ) {
         if matches!(target, Expr::Subscript(..) | Expr::Attribute(..)) {
             // We should always ensure a target that is an attribute or subscript, because
@@ -191,12 +190,6 @@ impl<'a> BindingsBuilder<'a> {
         };
         match target {
             Expr::Name(name) => {
-                if is_aug_assign {
-                    // We normally should not ensure a top-level name, but if the target is for an
-                    // AugAssign operation, then the name needs to already be in scope and will be used
-                    // to resolve the target as a (possibly overwriting) mutation.
-                    self.ensure_mutable_name(name);
-                }
                 self.bind_assign(name, make_binding, FlowStyle::None);
             }
             Expr::Attribute(x) => {
@@ -212,19 +205,19 @@ impl<'a> BindingsBuilder<'a> {
                 // the name assigned to.
                 self.bind_subscript_assign(x.clone(), make_assigned_value);
             }
-            Expr::Tuple(tup) if !is_aug_assign => {
+            Expr::Tuple(tup) => {
                 self.bind_unpacking(&mut tup.elts, make_binding, tup.range);
             }
-            Expr::List(lst) if !is_aug_assign => {
+            Expr::List(lst) => {
                 self.bind_unpacking(&mut lst.elts, make_binding, lst.range);
             }
-            Expr::Starred(x) if !is_aug_assign => {
+            Expr::Starred(x) => {
                 self.error(
                     x.range,
                     "Starred assignment target must be in a list or tuple".to_owned(),
                     ErrorKind::InvalidSyntax,
                 );
-                self.bind_target_impl(&mut x.value, make_assigned_value, false);
+                self.bind_target_impl(&mut x.value, make_assigned_value);
             }
             illegal_target => {
                 // Most structurally invalid targets become errors in the parser, which we propagate so there
@@ -243,7 +236,7 @@ impl<'a> BindingsBuilder<'a> {
         // TODO(stroxler): Clean this up: we're wrapping the binding and then just unwrapping it later.
         // Forcing all callers to produce an `ExprOrBinding` will also help us improve contextual typing.
         let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
-        self.bind_target_impl(target, make_assigned_value, false);
+        self.bind_target_impl(target, make_assigned_value);
     }
 
     /// Similar to `bind_target`, but specifically for assignments:
@@ -256,7 +249,52 @@ impl<'a> BindingsBuilder<'a> {
         let make_assigned_value =
             &|_: Option<Idx<KeyAnnotation>>| ExprOrBinding::Expr(value.clone());
         for target in targets {
-            self.bind_target_impl(target, make_assigned_value, false);
+            self.bind_target_impl(target, make_assigned_value);
+        }
+    }
+
+    fn bind_target_for_aug_assign_impl(
+        &mut self,
+        target: &mut Expr,
+        make_assigned_value: &dyn Fn(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+    ) {
+        if matches!(target, Expr::Subscript(..) | Expr::Attribute(..)) {
+            // We should always ensure a target that is an attribute or subscript, because
+            // the base needs to already be in scope and will be used to resolve the target as
+            // a mutation.
+            self.ensure_expr(target);
+        }
+        let make_binding = &|ann| match make_assigned_value(ann) {
+            ExprOrBinding::Expr(e) => Binding::Expr(ann, e),
+            ExprOrBinding::Binding(b) => b,
+        };
+        match target {
+            Expr::Name(name) => {
+                // We normally should not ensure a top-level name, but if the target is for an
+                // AugAssign operation, then the name needs to already be in scope and will be used
+                // to resolve the target as a (possibly overwriting) mutation.
+                self.ensure_mutable_name(name);
+                self.bind_assign(name, make_binding, FlowStyle::None);
+            }
+            Expr::Attribute(x) => {
+                // Create a binding to verify that the assignment is valid and potentially narrow
+                // the name assigned to.
+                let attr_value = self.bind_attr_assign(x.clone(), make_assigned_value);
+                // If this is a self-assignment, record it because we may use it to infer
+                // the existence of an instance-only attribute.
+                self.scopes.record_self_attr_assign(x, attr_value, None);
+            }
+            Expr::Subscript(x) => {
+                // Create a binding to verify that the assignment is valid and potentially narrow
+                // the name assigned to.
+                self.bind_subscript_assign(x.clone(), make_assigned_value);
+            }
+            illegal_target => {
+                // Most structurally invalid targets become errors in the parser, which we propagate so there
+                // is no need for duplicate errors. But we do want to catch unbound names (which the parser
+                // will not catch)
+                self.ensure_expr(illegal_target);
+            }
         }
     }
 
@@ -276,7 +314,7 @@ impl<'a> BindingsBuilder<'a> {
         // AugAssign cannot be used with multi-target assignment so it does not interact
         // with the `bind_unpacking` recursion (if a user attempts to do so, we'll throw
         // an error and otherwise treat it as a normal assignment from a binding standpoint).
-        self.bind_target_impl(target, make_assigned_value, true);
+        self.bind_target_for_aug_assign_impl(target, make_assigned_value);
     }
 
     pub fn bind_assign(
