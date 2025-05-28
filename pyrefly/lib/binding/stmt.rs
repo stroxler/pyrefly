@@ -446,10 +446,10 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut x.value);
                 let make_binding =
                     |ann: Option<Idx<KeyAnnotation>>| Binding::AugAssign(ann, x.clone());
-                match x.target.as_ref().clone() {
+                match x.target.as_ref() {
                     Expr::Name(name) => {
-                        self.ensure_mutable_name(&name);
-                        self.bind_assign(&name, make_binding, FlowStyle::Other);
+                        self.ensure_mutable_name(name);
+                        self.bind_assign(name, make_binding, FlowStyle::Other);
                     }
                     Expr::Attribute(x) => {
                         let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
@@ -459,11 +459,12 @@ impl<'a> BindingsBuilder<'a> {
                         let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
                         self.bind_subscript_assign(x.clone(), make_assigned_value);
                     }
-                    mut illegal_target => {
+                    illegal_target => {
                         // Most structurally invalid targets become errors in the parser, which we propagate so there
                         // is no need for duplicate errors. But we do want to catch unbound names (which the parser
                         // will not catch)
-                        self.ensure_expr(&mut illegal_target);
+                        let mut e = illegal_target.clone();
+                        self.ensure_expr(&mut e);
                     }
                 }
             }
