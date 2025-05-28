@@ -139,6 +139,7 @@ fn test_go_to_def_basic(root: &TempDir, workspace_folders: Option<Vec<(String, U
         workspace_folders,
         "foo.py",
         vec![
+            (5, 7, "bar.py".to_owned(), 0, 0, 0, 0),
             (6, 16, "bar.py".to_owned(), 6, 6, 6, 9),
             (8, 9, "bar.py".to_owned(), 7, 4, 7, 7),
             (9, 7, "bar.py".to_owned(), 6, 6, 6, 9),
