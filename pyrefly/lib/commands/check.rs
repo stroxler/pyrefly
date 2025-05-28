@@ -38,7 +38,6 @@ use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
-use tracing::error;
 use tracing::info;
 
 use crate::commands::run::CommandExitStatus;
@@ -556,7 +555,7 @@ impl Args {
         let config_errors = transaction.get_config_errors();
         let config_errors_count = config_errors.len();
         for error in config_errors {
-            error!("{error:#}");
+            error.print();
         }
 
         let errors = loads.collect_errors();
@@ -672,7 +671,7 @@ impl Args {
 fn checkpoint<T>(result: anyhow::Result<T>, config_finder: &ConfigFinder) -> anyhow::Result<T> {
     if result.is_err() {
         for error in config_finder.errors() {
-            error!("{error:#}");
+            error.print();
         }
     }
     result

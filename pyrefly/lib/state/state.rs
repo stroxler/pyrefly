@@ -71,6 +71,7 @@ use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
 use crate::binding::table::TableKeyed;
 use crate::config::config::ConfigFile;
+use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
@@ -351,7 +352,7 @@ impl<'a> Transaction<'a> {
         Errors::new(res)
     }
 
-    pub fn get_config_errors(&self) -> Vec<anyhow::Error> {
+    pub fn get_config_errors(&self) -> Vec<ConfigError> {
         self.data.state.config_finder.errors()
     }
 

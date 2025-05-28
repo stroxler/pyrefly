@@ -30,6 +30,7 @@ use library::run::LspArgs;
 use library::standard_config_finder;
 use path_absolutize::Absolutize;
 use pyrefly::library::library::library::library;
+use pyrefly::library::library::library::library::finder::ConfigError;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::args::clap_env;
 use pyrefly_util::args::get_args_expanded;
@@ -39,7 +40,6 @@ use pyrefly_util::trace::debug_log;
 use pyrefly_util::watcher::Watcher;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
-use tracing::error;
 use tracing::info;
 
 // fbcode likes to set its own allocator in fbcode.default_allocator
@@ -150,12 +150,16 @@ fn absolutize(globs: Globs) -> anyhow::Result<Globs> {
 fn get_explicit_config(
     path: &Path,
     args: &library::run::CheckArgs,
-) -> (ArcId<ConfigFile>, Vec<anyhow::Error>) {
+) -> (ArcId<ConfigFile>, Vec<ConfigError>) {
     let (file_config, parse_errors) = ConfigFile::from_file(path);
     let (config, validation_errors) = args.override_config(file_config);
     (
         config,
-        parse_errors.into_iter().chain(validation_errors).collect(),
+        parse_errors
+            .into_iter()
+            .chain(validation_errors)
+            .map(ConfigError::error)
+            .collect(),
     )
 }
 
@@ -295,7 +299,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
                     .push(path.clone());
             }
             for error in config_finder.errors() {
-                error!("{error:#}");
+                error.print();
             }
             for (config, files) in configs_to_files.into_iter() {
                 match &config.source {
