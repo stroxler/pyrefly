@@ -526,9 +526,8 @@ impl<'a> BindingsBuilder<'a> {
                         );
                     }
                 }
-                Expr::Attribute(mut attr) => {
+                Expr::Attribute(attr) => {
                     let attr_name = attr.attr.id.clone();
-                    self.ensure_expr(&mut attr.value);
                     self.ensure_type(&mut x.annotation, &mut None);
                     let ann_key = self.insert_binding(
                         KeyAnnotation::AttrAnnotation(x.annotation.range()),

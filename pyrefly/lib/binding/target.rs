@@ -101,9 +101,10 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn bind_attr_assign(
         &mut self,
-        attr: ExprAttribute,
+        mut attr: ExprAttribute,
         make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
     ) -> ExprOrBinding {
+        self.ensure_expr(&mut attr.value);
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
         {
@@ -131,9 +132,11 @@ impl<'a> BindingsBuilder<'a> {
 
     fn bind_subscript_assign(
         &mut self,
-        subscript: ExprSubscript,
+        mut subscript: ExprSubscript,
         make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
     ) {
+        self.ensure_expr(&mut subscript.slice);
+        self.ensure_expr(&mut subscript.value);
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
         {
@@ -178,12 +181,6 @@ impl<'a> BindingsBuilder<'a> {
         target: &mut Expr,
         make_assigned_value: &dyn Fn(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
     ) {
-        if matches!(target, Expr::Subscript(..) | Expr::Attribute(..)) {
-            // We should always ensure a target that is an attribute or subscript, because
-            // the base needs to already be in scope and will be used to resolve the target as
-            // a mutation.
-            self.ensure_expr(target);
-        }
         let make_binding = &|ann| match make_assigned_value(ann) {
             ExprOrBinding::Expr(e) => Binding::Expr(ann, e),
             ExprOrBinding::Binding(b) => b,
@@ -258,12 +255,6 @@ impl<'a> BindingsBuilder<'a> {
         target: &mut Expr,
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
     ) {
-        if matches!(target, Expr::Subscript(..) | Expr::Attribute(..)) {
-            // We should always ensure a target that is an attribute or subscript, because
-            // the base needs to already be in scope and will be used to resolve the target as
-            // a mutation.
-            self.ensure_expr(target);
-        }
         match target {
             Expr::Name(name) => {
                 // We normally should not ensure a top-level name, but if the target is for an
