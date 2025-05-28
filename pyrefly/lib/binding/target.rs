@@ -99,6 +99,11 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
+    // Create a binding to verify that an attribute assignment is valid and
+    // potentially narrow (or invalidate narrows on) the name assigned to.
+    //
+    // Return the value of the attribute assignment (as an ExprOrBinding);
+    // this might be used to record self-attribute assignments.
     pub fn bind_attr_assign(
         &mut self,
         mut attr: ExprAttribute,
@@ -130,6 +135,8 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    // Create a binding to verify that a subscript assignment is valid and
+    // potentially narrow (or invalidate narrows on) the name assigned to.
     fn bind_subscript_assign(
         &mut self,
         mut subscript: ExprSubscript,
@@ -190,16 +197,12 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_assign(name, make_binding, FlowStyle::None);
             }
             Expr::Attribute(x) => {
-                // Create a binding to verify that the assignment is valid and potentially narrow
-                // the name assigned to.
                 let attr_value = self.bind_attr_assign(x.clone(), make_assigned_value);
                 // If this is a self-assignment, record it because we may use it to infer
                 // the existence of an instance-only attribute.
                 self.scopes.record_self_attr_assign(x, attr_value, None);
             }
             Expr::Subscript(x) => {
-                // Create a binding to verify that the assignment is valid and potentially narrow
-                // the name assigned to.
                 self.bind_subscript_assign(x.clone(), make_assigned_value);
             }
             Expr::Tuple(tup) => {
@@ -257,9 +260,6 @@ impl<'a> BindingsBuilder<'a> {
     ) {
         match target {
             Expr::Name(name) => {
-                // We normally should not ensure a top-level name, but if the target is for an
-                // AugAssign operation, then the name needs to already be in scope and will be used
-                // to resolve the target as a (possibly overwriting) mutation.
                 self.ensure_mutable_name(name);
                 self.bind_assign(name, make_binding, FlowStyle::None);
             }
@@ -267,16 +267,12 @@ impl<'a> BindingsBuilder<'a> {
                 // TODO(stroxler): This means we lose contextual typing in augmented assignment of attributes,
                 // can we avoid this?
                 let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
-                // Create a binding to verify that the assignment is valid and potentially narrow
-                // the name assigned to.
                 self.bind_attr_assign(x.clone(), make_assigned_value);
             }
             Expr::Subscript(x) => {
                 // TODO(stroxler): This means we lose contextual typing in augmented assignment of subscripts,
                 // can we avoid this?
                 let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
-                // Create a binding to verify that the assignment is valid and potentially narrow
-                // the name assigned to.
                 self.bind_subscript_assign(x.clone(), make_assigned_value);
             }
             illegal_target => {
