@@ -26,7 +26,6 @@ use crate::types::callable::ParamList;
 use crate::types::callable::Params;
 use crate::types::callable::Required;
 use crate::types::class::ClassType;
-use crate::types::class::TArgs;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::simplify::unions;
 use crate::types::tuple::Tuple;
@@ -34,7 +33,6 @@ use crate::types::type_var::Restriction;
 use crate::types::type_var::Variance;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
-use crate::types::types::TParams;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
@@ -784,7 +782,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     return false;
                 }
                 match self.type_order.as_superclass(got, want.class_object()) {
-                    Some(got) => self.check_targs(got.targs(), want.targs(), want.tparams()),
+                    Some(got) => self.check_targs(&got, want),
                     // Structural checking for assigning to protocols
                     None if want_is_protocol => {
                         self.is_subset_protocol(got.clone().to_type(), want.clone())
@@ -995,7 +993,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
     }
 
-    fn check_targs(&mut self, got: &TArgs, want: &TArgs, params: &TParams) -> bool {
+    fn check_targs(&mut self, got_class: &ClassType, want_class: &ClassType) -> bool {
+        let got = got_class.targs();
+        let want = want_class.targs();
+        let params = want_class.tparams();
         let got = got.as_slice();
         let want = want.as_slice();
         if !(got.len() == want.len() && want.len() == params.len()) {
