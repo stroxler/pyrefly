@@ -440,10 +440,32 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::AugAssign(mut x) => {
                 self.ensure_expr(&mut x.value);
-                let mut target = x.target.as_ref().clone();
                 let make_binding =
                     |ann: Option<Idx<KeyAnnotation>>| Binding::AugAssign(ann, x.clone());
-                self.bind_target_for_aug_assign(&mut target, &make_binding);
+                match x.target.as_ref().clone() {
+                    Expr::Name(name) => {
+                        self.ensure_mutable_name(&name);
+                        self.bind_assign(&name, make_binding, FlowStyle::None);
+                    }
+                    Expr::Attribute(x) => {
+                        // TODO(stroxler): This means we lose contextual typing in augmented assignment of attributes,
+                        // can we avoid this?
+                        let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
+                        self.bind_attr_assign(x, make_assigned_value);
+                    }
+                    Expr::Subscript(x) => {
+                        // TODO(stroxler): This means we lose contextual typing in augmented assignment of subscripts,
+                        // can we avoid this?
+                        let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
+                        self.bind_subscript_assign(x, make_assigned_value);
+                    }
+                    mut illegal_target => {
+                        // Most structurally invalid targets become errors in the parser, which we propagate so there
+                        // is no need for duplicate errors. But we do want to catch unbound names (which the parser
+                        // will not catch)
+                        self.ensure_expr(&mut illegal_target);
+                    }
+                }
             }
             Stmt::AnnAssign(mut x) => match *x.target {
                 Expr::Name(name) => {

@@ -137,7 +137,7 @@ impl<'a> BindingsBuilder<'a> {
 
     // Create a binding to verify that a subscript assignment is valid and
     // potentially narrow (or invalidate narrows on) the name assigned to.
-    fn bind_subscript_assign(
+    pub fn bind_subscript_assign(
         &mut self,
         mut subscript: ExprSubscript,
         make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
@@ -250,37 +250,6 @@ impl<'a> BindingsBuilder<'a> {
             &|_: Option<Idx<KeyAnnotation>>| ExprOrBinding::Expr(value.clone());
         for target in targets {
             self.bind_target_impl(target, make_assigned_value);
-        }
-    }
-
-    pub fn bind_target_for_aug_assign(
-        &mut self,
-        target: &mut Expr,
-        make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
-    ) {
-        match target {
-            Expr::Name(name) => {
-                self.ensure_mutable_name(name);
-                self.bind_assign(name, make_binding, FlowStyle::None);
-            }
-            Expr::Attribute(x) => {
-                // TODO(stroxler): This means we lose contextual typing in augmented assignment of attributes,
-                // can we avoid this?
-                let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
-                self.bind_attr_assign(x.clone(), make_assigned_value);
-            }
-            Expr::Subscript(x) => {
-                // TODO(stroxler): This means we lose contextual typing in augmented assignment of subscripts,
-                // can we avoid this?
-                let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
-                self.bind_subscript_assign(x.clone(), make_assigned_value);
-            }
-            illegal_target => {
-                // Most structurally invalid targets become errors in the parser, which we propagate so there
-                // is no need for duplicate errors. But we do want to catch unbound names (which the parser
-                // will not catch)
-                self.ensure_expr(illegal_target);
-            }
         }
     }
 
