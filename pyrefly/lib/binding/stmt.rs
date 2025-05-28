@@ -17,6 +17,7 @@ use ruff_python_ast::StmtReturn;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use starlark_map::Hashed;
 
 use crate::binding::binding::AnnotationStyle;
 use crate::binding::binding::AnnotationTarget;
@@ -319,8 +320,11 @@ impl<'a> BindingsBuilder<'a> {
                     );
                     if let Expr::Name(name) = target {
                         let idx = self.ensure_mutable_name(name);
-                        self.scopes
-                            .update_flow_info(&name.id, idx, Some(FlowStyle::Uninitialized));
+                        self.scopes.update_flow_info(
+                            Hashed::new(&name.id),
+                            idx,
+                            Some(FlowStyle::Uninitialized),
+                        );
                     } else {
                         self.ensure_expr(target);
                     }

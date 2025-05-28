@@ -715,21 +715,10 @@ impl Scopes {
     }
 
     /// Return the default to use, if inside a loop.
+    ///
     /// If `style` is `None`, try preserving the old flow style.
-    /// TODO(grievejia): Properly separate out `FlowStyle` from the keys
-    pub fn update_flow_info(
-        &mut self,
-        name: &Name,
-        key: Idx<Key>,
-        style: Option<FlowStyle>,
-    ) -> Option<Idx<Key>> {
-        self.update_flow_info_hashed(Hashed::new(name), key, style)
-    }
-
-    /// Return the default to use, if inside a loop.
-    /// /// If `style` is `None`, try preserving the old flow style.
     /// TODO(grievejia): Properly separate out `FlowStyle` from the indices
-    pub fn update_flow_info_hashed(
+    pub fn update_flow_info(
         &mut self,
         name: Hashed<&Name>,
         key: Idx<Key>,

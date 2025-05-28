@@ -121,7 +121,7 @@ impl<'a> BindingsBuilder<'a> {
             );
             let name = Hashed::new(&identifier.id);
             if self.lookup_name_hashed(name, LookupKind::Regular).is_ok() {
-                self.scopes.update_flow_info_hashed(name, idx, None);
+                self.scopes.update_flow_info(name, idx, None);
             }
             value
         } else {
@@ -155,7 +155,7 @@ impl<'a> BindingsBuilder<'a> {
             );
             let name = Hashed::new(&identifier.id);
             if self.lookup_name_hashed(name, LookupKind::Regular).is_ok() {
-                self.scopes.update_flow_info_hashed(name, idx, None);
+                self.scopes.update_flow_info(name, idx, None);
             }
         } else {
             let idx = self.idx_for_promise(Key::Anon(subscript.range));
