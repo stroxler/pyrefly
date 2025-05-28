@@ -714,9 +714,14 @@ impl Scopes {
             .fold(0, |depth, node| depth + node.scope.loops.len() as u32)
     }
 
-    /// Return the default to use, if inside a loop.
+    /// Update the flow info to bind `name` to `key`, maybe with `FlowStyle` `style`
     ///
-    /// If `style` is `None`, try preserving the old flow style.
+    /// - Return the `Idx<Key>` of the default binding, if inside a loop
+    /// - If `style` is `None` and a previous entry exists, preserve the old style
+    ///
+    /// A caller of this function promises to create a binding for `key`; the
+    /// binding may not exist yet (it might depend on the returned default).
+    ///
     /// TODO(grievejia): Properly separate out `FlowStyle` from the indices
     pub fn update_flow_info(
         &mut self,
