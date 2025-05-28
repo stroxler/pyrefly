@@ -775,6 +775,17 @@ def f(x:  A | B | C, y: A | C):
 );
 
 testcase!(
+    test_narrow_and,
+    r#"
+from typing import assert_type
+foo: dict[str, str] = {}
+if "foo" in foo and foo["foo"] is not "as":
+    val = foo["foo"]
+    assert_type(val, str)
+"#,
+);
+
+testcase!(
     test_issubclass,
     r#"
 from typing import assert_type
