@@ -182,7 +182,12 @@ pub struct Flow {
 pub enum FlowStyle {
     /// Not one of the styles below.
     Other,
-    /// Am I an assignment in a class body?
+    /// I am a name defined by an Assign or AnnAssign in a class body.
+    /// - If `initial_value` is `None`, then I am defined by an `AnnAssign`
+    ///   with no value (in other words, I am an instance attribute annotation)
+    /// - If `initial_value` is `Some(_)`, then I am defined by an assignment,
+    ///   and the initial value may be needed later (if I turn out to be a dataclass
+    ///   field, which requires inspecting the actual expression).
     ClassField { initial_value: Option<Expr> },
     /// Am I the result of an import (which needs merging).
     /// E.g. `import foo.bar` and `import foo.baz` need merging.
