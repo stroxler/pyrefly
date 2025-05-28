@@ -448,14 +448,10 @@ impl<'a> BindingsBuilder<'a> {
                         self.bind_assign(&name, make_binding, FlowStyle::None);
                     }
                     Expr::Attribute(x) => {
-                        // TODO(stroxler): This means we lose contextual typing in augmented assignment of attributes,
-                        // can we avoid this?
                         let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
                         self.bind_attr_assign(x, make_assigned_value);
                     }
                     Expr::Subscript(x) => {
-                        // TODO(stroxler): This means we lose contextual typing in augmented assignment of subscripts,
-                        // can we avoid this?
                         let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
                         self.bind_subscript_assign(x, make_assigned_value);
                     }
