@@ -551,7 +551,28 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
     ) -> Option<Vec<CompletionItem>> {
-        if self.identifier_at(handle, position).is_some() {
+        if let Some(import) = self.import_at(handle, position) {
+            return match import {
+                ImportIdentifier::Name(module_name) => {
+                    let handle = self.import_handle(handle, module_name, None).ok()?;
+                    let exports = self.get_exports(&handle);
+                    let completions = exports
+                        .keys()
+                        .map(|name| CompletionItem {
+                            label: name.to_string(),
+                            // todo(kylei): completion kind for exports
+                            kind: Some(CompletionItemKind::VARIABLE),
+                            ..Default::default()
+                        })
+                        .collect();
+                    Some(completions)
+                }
+                ImportIdentifier::Module(_module_name) => {
+                    // TODO(kylei): completion for module names
+                    None
+                }
+            };
+        } else if self.identifier_at(handle, position).is_some() {
             let bindings = self.get_bindings(handle)?;
             let module_info = self.get_module_info(handle)?;
             let names = bindings
