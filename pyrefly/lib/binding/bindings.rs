@@ -977,13 +977,13 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn bind_lambda_param(&mut self, name: &Identifier) {
         let var = self.solver.fresh_contained(self.uniques);
-        let bind_key = self.insert_binding(
+        let idx = self.insert_binding(
             Key::Definition(ShortIdentifier::new(name)),
             Binding::LambdaParameter(var),
         );
         self.scopes
             .add_to_current_static(name.id.clone(), name.range, None);
-        self.bind_key(&name.id, bind_key, FlowStyle::None);
+        self.bind_key(&name.id, idx, FlowStyle::None);
     }
 
     pub fn bind_function_param(
