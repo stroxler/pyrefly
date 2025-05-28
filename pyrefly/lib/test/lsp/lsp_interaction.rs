@@ -178,6 +178,21 @@ fn test_go_to_def_no_folder_capability() {
 }
 
 #[test]
+fn test_go_to_def_relative_path() {
+    test_go_to_def(
+        &get_test_files_root(),
+        None,
+        "foo_relative.py",
+        vec![
+            (5, 14, "bar.py".to_owned(), 0, 0, 0, 0),
+            (6, 17, "bar.py".to_owned(), 6, 6, 6, 9),
+            (8, 9, "bar.py".to_owned(), 7, 4, 7, 7),
+            (9, 7, "bar.py".to_owned(), 6, 6, 6, 9),
+        ],
+    );
+}
+
+#[test]
 fn definition_in_builtins_enabled() {
     let root = get_test_files_root();
     run_test_lsp(TestCase {
