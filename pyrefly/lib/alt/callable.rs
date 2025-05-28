@@ -246,13 +246,19 @@ impl PosParam {
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn is_param_spec_args(&self, x: &CallArg, q: Quantified, errors: &ErrorCollector) -> bool {
         match x {
-            CallArg::Star(x, _) => self.expr_infer(x, errors) == Type::Args(q),
+            CallArg::Star(x, _) => {
+                let mut ty = self.expr_infer(x, errors);
+                self.expand_type_mut(&mut ty);
+                ty == Type::Args(q)
+            }
             _ => false,
         }
     }
 
     fn is_param_spec_kwargs(&self, x: &Keyword, q: Quantified, errors: &ErrorCollector) -> bool {
-        self.expr_infer(&x.value, errors) == Type::Kwargs(q)
+        let mut ty = self.expr_infer(&x.value, errors);
+        self.expand_type_mut(&mut ty);
+        ty == Type::Kwargs(q)
     }
 
     // See comment on `callable_infer` about `arg_errors` and `call_errors`.
