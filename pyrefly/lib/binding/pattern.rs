@@ -67,7 +67,7 @@ impl<'a> BindingsBuilder<'a> {
                 // If there is a new name, refine that instead
                 let mut subject = match_subject;
                 if let Some(name) = &p.name {
-                    self.bind_definition(name, Binding::Forward(key), FlowStyle::None);
+                    self.bind_definition(name, Binding::Forward(key), FlowStyle::Other);
                     subject = Some(NarrowingSubject::Name(name.id.clone()));
                 };
                 if let Some(pattern) = p.pattern {
@@ -88,7 +88,7 @@ impl<'a> BindingsBuilder<'a> {
                                 self.bind_definition(
                                     name,
                                     Binding::UnpackedValue(None, key, p.range, position),
-                                    FlowStyle::None,
+                                    FlowStyle::Other,
                                 );
                             }
                             unbounded = true;
@@ -146,7 +146,7 @@ impl<'a> BindingsBuilder<'a> {
                         ))
                     });
                 if let Some(rest) = x.rest {
-                    self.bind_definition(&rest, Binding::Forward(key), FlowStyle::None);
+                    self.bind_definition(&rest, Binding::Forward(key), FlowStyle::Other);
                 }
                 narrow_ops
             }

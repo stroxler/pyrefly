@@ -181,7 +181,7 @@ pub struct Flow {
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlowStyle {
     /// Not one of the styles below.
-    None,
+    Other,
     /// Am I an assignment in a class body?
     ClassField { initial_value: Option<Expr> },
     /// Am I the result of an import (which needs merging).
@@ -216,7 +216,7 @@ impl FlowStyle {
 
     pub fn merged(styles: Vec<FlowStyle>) -> FlowStyle {
         let mut it = styles.into_iter();
-        let mut merged = it.next().unwrap_or(FlowStyle::None);
+        let mut merged = it.next().unwrap_or(FlowStyle::Other);
         for x in it {
             match (&merged, x) {
                 // If they're identical, keep it
@@ -230,7 +230,7 @@ impl FlowStyle {
                 }
                 // Unclear how to merge, default to None
                 _ => {
-                    merged = FlowStyle::None;
+                    merged = FlowStyle::Other;
                 }
             }
         }
@@ -727,7 +727,7 @@ impl Scopes {
         let in_loop = self.loop_depth() != 0;
         match self.current_mut().flow.info.entry_hashed(name.cloned()) {
             Entry::Vacant(e) => {
-                let style = style.unwrap_or(FlowStyle::None);
+                let style = style.unwrap_or(FlowStyle::Other);
                 e.insert(FlowInfo {
                     key,
                     default: key,
@@ -761,7 +761,7 @@ impl Scopes {
     pub fn get_flow_style(&self, name: &Name) -> &FlowStyle {
         match self.get_flow_info(name) {
             Some(flow) => &flow.style,
-            None => &FlowStyle::None,
+            None => &FlowStyle::Other,
         }
     }
 

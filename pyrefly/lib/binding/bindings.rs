@@ -946,7 +946,7 @@ impl<'a> BindingsBuilder<'a> {
                     bound,
                     constraints,
                 })),
-                FlowStyle::None,
+                FlowStyle::Other,
             );
         }
     }
@@ -983,7 +983,7 @@ impl<'a> BindingsBuilder<'a> {
         );
         self.scopes
             .add_to_current_static(name.id.clone(), name.range, None);
-        self.bind_key(&name.id, idx, FlowStyle::None);
+        self.bind_key(&name.id, idx, FlowStyle::Other);
     }
 
     pub fn bind_function_param(
@@ -1017,7 +1017,7 @@ impl<'a> BindingsBuilder<'a> {
         );
         self.scopes
             .add_to_current_static(name.id.clone(), name.range, Some(annot));
-        self.bind_key(&name.id, key, FlowStyle::None);
+        self.bind_key(&name.id, key, FlowStyle::Other);
     }
 
     /// Helper for loops, inserts a phi key for every name in the given flow.
@@ -1248,7 +1248,7 @@ impl LegacyTParamBuilder {
                     // tparams, and we only want to do that once (which we do in
                     // the binding created by `forward_lookup`).
                     Binding::CheckLegacyTypeParam(*idx, None),
-                    FlowStyle::None,
+                    FlowStyle::Other,
                 );
             }
         }

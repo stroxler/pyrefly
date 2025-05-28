@@ -92,7 +92,7 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_definition(
                 &x.name,
                 Binding::Type(Type::type_form(Type::any_explicit())),
-                FlowStyle::None,
+                FlowStyle::Other,
             );
             return;
         }
@@ -262,7 +262,7 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_definition(
             &x.name,
             Binding::ClassDef(class_indices.class_idx, decorators.into_boxed_slice()),
-            FlowStyle::None,
+            FlowStyle::Other,
         );
         fields_possibly_defined_by_this_class.reserve(0); // Attempt to shrink to capacity
         self.insert_binding_idx(
@@ -464,7 +464,7 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_definition(
             &class_name,
             Binding::ClassDef(class_indices.class_idx, Box::new([])),
-            FlowStyle::None,
+            FlowStyle::Other,
         );
         self.insert_binding_idx(
             class_indices.class_idx,

@@ -194,7 +194,7 @@ impl<'a> BindingsBuilder<'a> {
         };
         match target {
             Expr::Name(name) => {
-                self.bind_assign(name, make_binding, FlowStyle::None);
+                self.bind_assign(name, make_binding, FlowStyle::Other);
             }
             Expr::Attribute(x) => {
                 let attr_value = self.bind_attr_assign(x.clone(), make_assigned_value);

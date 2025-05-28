@@ -54,7 +54,7 @@ impl<'a> BindingsBuilder<'a> {
             if &x.name != "*" {
                 let asname = x.asname.as_ref().unwrap_or(&x.name);
                 // We pass None as imported_from, since we are really faking up a local error definition
-                self.bind_definition(asname, Binding::Type(Type::any_error()), FlowStyle::None);
+                self.bind_definition(asname, Binding::Type(Type::any_error()), FlowStyle::Other);
             }
         }
     }
@@ -107,7 +107,7 @@ impl<'a> BindingsBuilder<'a> {
                     Box::new(call.clone()),
                 )
             },
-            FlowStyle::None,
+            FlowStyle::Other,
         )
     }
 
@@ -138,7 +138,7 @@ impl<'a> BindingsBuilder<'a> {
                     Box::new(call.clone()),
                 )
             },
-            FlowStyle::None,
+            FlowStyle::Other,
         )
     }
 
@@ -153,7 +153,7 @@ impl<'a> BindingsBuilder<'a> {
                     Box::new(call.clone()),
                 )
             },
-            FlowStyle::None,
+            FlowStyle::Other,
         )
     }
 
@@ -335,7 +335,7 @@ impl<'a> BindingsBuilder<'a> {
                     && let Some((module, forward)) =
                         resolve_typeshed_alias(self.module_info.name(), &name.id, &x.value) =>
             {
-                self.bind_assign(name, |_| Binding::Import(module, forward), FlowStyle::None)
+                self.bind_assign(name, |_| Binding::Import(module, forward), FlowStyle::Other)
             }
             Stmt::Assign(mut x) => {
                 if let [Expr::Name(name)] = x.targets.as_slice() {
@@ -425,7 +425,7 @@ impl<'a> BindingsBuilder<'a> {
                             initial_value: Some((*x.value).clone()),
                         }
                     } else {
-                        FlowStyle::None
+                        FlowStyle::Other
                     };
                     self.bind_assign(
                         name,
@@ -449,15 +449,15 @@ impl<'a> BindingsBuilder<'a> {
                 match x.target.as_ref().clone() {
                     Expr::Name(name) => {
                         self.ensure_mutable_name(&name);
-                        self.bind_assign(&name, make_binding, FlowStyle::None);
+                        self.bind_assign(&name, make_binding, FlowStyle::Other);
                     }
                     Expr::Attribute(x) => {
                         let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
-                        self.bind_attr_assign(x, make_assigned_value);
+                        self.bind_attr_assign(x.clone(), make_assigned_value);
                     }
                     Expr::Subscript(x) => {
                         let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
-                        self.bind_subscript_assign(x, make_assigned_value);
+                        self.bind_subscript_assign(x.clone(), make_assigned_value);
                     }
                     mut illegal_target => {
                         // Most structurally invalid targets become errors in the parser, which we propagate so there
@@ -501,7 +501,7 @@ impl<'a> BindingsBuilder<'a> {
                         let initial_value = x.value.as_deref().cloned();
                         FlowStyle::ClassField { initial_value }
                     } else if x.value.is_some() {
-                        FlowStyle::None
+                        FlowStyle::Other
                     } else {
                         FlowStyle::Uninitialized
                     };
@@ -619,7 +619,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.bind_definition(
                         &Ast::expr_name_identifier(name),
                         binding,
-                        FlowStyle::None,
+                        FlowStyle::Other,
                     );
                 } else {
                     self.error(
@@ -783,7 +783,7 @@ impl<'a> BindingsBuilder<'a> {
                         self.bind_definition(
                             &name,
                             Binding::ExceptionHandler(type_, x.is_star),
-                            FlowStyle::None,
+                            FlowStyle::Other,
                         );
                     } else if let Some(mut type_) = h.type_ {
                         self.ensure_expr(&mut type_);
