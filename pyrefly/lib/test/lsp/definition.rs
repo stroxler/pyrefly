@@ -97,6 +97,30 @@ Definition Result:
 }
 
 #[test]
+fn narrow_test() {
+    let code = r#"
+def f(x: int | None) -> int:
+    if x is None:
+        raise ValueError("x is None")
+    return 0 if x else 1
+#               ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+5 |     return 0 if x else 1
+                    ^
+Definition Result:
+2 | def f(x: int | None) -> int:
+          ^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn named_import_tests() {
     let code_import_provider: &str = r#"
 from typing import Literal
