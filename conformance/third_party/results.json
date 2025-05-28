@@ -3,7 +3,7 @@
   "pass": 55,
   "fail": 81,
   "pass_rate": 0.4,
-  "differences": 421,
+  "differences": 418,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -126,7 +126,7 @@
     "protocols_merging.py": 1,
     "protocols_modules.py": 1,
     "protocols_recursive.py": 2,
-    "protocols_runtime_checkable.py": 6,
+    "protocols_runtime_checkable.py": 3,
     "protocols_self.py": 2,
     "protocols_variance.py": 7,
     "qualifiers_annotated.py": 6,

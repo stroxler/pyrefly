@@ -48,6 +48,7 @@ use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Params;
 use crate::types::callable::Required;
+use crate::types::class::Class;
 use crate::types::lit_int::LitInt;
 use crate::types::literal::Lit;
 use crate::types::param_spec::ParamSpec;
@@ -661,11 +662,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ty: Type,
         contains_subscript: bool,
         range: TextRange,
+        is_isinstance: bool,
         errors: &ErrorCollector,
     ) {
         if let Some(ts) = ty.as_decomposed_tuple_or_union() {
             for t in ts {
-                self.check_type_is_class_object(t, contains_subscript, range, errors);
+                self.check_type_is_class_object(
+                    t,
+                    contains_subscript,
+                    range,
+                    is_isinstance,
+                    errors,
+                );
             }
         } else if let Type::ClassDef(cls) = &ty {
             let metadata = self.get_metadata_for_class(cls);
@@ -677,6 +685,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None,
                     format!("NewType `{}` not allowed in isinstance", cls.name()),
                 );
+            }
+            // Check if this is a protocol that needs @runtime_checkable
+            if metadata.is_protocol() && !metadata.is_runtime_checkable_protocol() {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::InvalidArgument,
+                    None,
+                    format!("Protocol `{}` is not decorated with @runtime_checkable and cannot be used with isinstance() or issubclass()", cls.name()),
+                );
+            } else if metadata.is_protocol() && metadata.is_runtime_checkable_protocol() {
+                // Additional validation for runtime checkable protocols:
+                // issubclass() can only be used with non-data protocols
+                if !is_isinstance && self.is_data_protocol(cls, range) {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::InvalidArgument,
+                        None,
+                        format!("Data protocol `{}` cannot be used with issubclass(). Use isinstance() instead", cls.name()),
+                    );
+                }
             }
         } else if contains_subscript
             && matches!(&ty, Type::Type(box Type::ClassType(cls)) if !cls.targs().is_empty())
@@ -705,6 +735,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Check if a protocol is a data protocol (has non-method members)
+    fn is_data_protocol(&self, cls: &Class, range: TextRange) -> bool {
+        // A data protocol has at least one non-method member
+        // Use protocol metadata to get the member names
+        let metadata = self.get_metadata_for_class(cls);
+        if let Some(protocol_metadata) = metadata.protocol_metadata() {
+            for field_name in &protocol_metadata.members {
+                // Use the class type to access the field
+                let class_type = cls.as_class_type();
+                let ty = self.type_of_attr_get(
+                    &class_type.to_type(),
+                    field_name,
+                    range,
+                    &self.error_swallower(),
+                    None,
+                    "is_data_protocol",
+                );
+
+                // If it's not a callable type, it's a data member
+                if !matches!(
+                    ty,
+                    Type::Callable(_) | Type::Function(_) | Type::BoundMethod(_)
+                ) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     fn check_second_arg_is_class_object(&self, x: &ExprCall, errors: &ErrorCollector) {
         if x.arguments.args.len() == 2 {
             let arg_expr = &x.arguments.args[1];
@@ -715,12 +775,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     contains_subscript = true;
                 }
             });
-            self.check_type_is_class_object(
-                isinstance_class_type,
-                contains_subscript,
-                x.range,
-                errors,
-            );
+
+            // Determine if this is isinstance or issubclass
+            let func_ty = self.expr_infer(&x.func, errors);
+            match func_ty.callee_kind() {
+                Some(CalleeKind::Function(FunctionKind::IsInstance)) => {
+                    self.check_type_is_class_object(
+                        isinstance_class_type,
+                        contains_subscript,
+                        x.range,
+                        true, // is_isinstance = true
+                        errors,
+                    );
+                }
+                Some(CalleeKind::Function(FunctionKind::IsSubclass)) => {
+                    self.check_type_is_class_object(
+                        isinstance_class_type,
+                        contains_subscript,
+                        x.range,
+                        false, // is_isinstance = false
+                        errors,
+                    );
+                }
+                _ => {
+                    // Not isinstance or issubclass, no validation needed
+                }
+            }
         }
     }
 
