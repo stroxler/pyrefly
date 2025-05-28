@@ -662,28 +662,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ty: Type,
         contains_subscript: bool,
         range: TextRange,
-        is_isinstance: bool,
+        func_kind: &FunctionKind,
         errors: &ErrorCollector,
     ) {
         if let Some(ts) = ty.as_decomposed_tuple_or_union() {
             for t in ts {
-                self.check_type_is_class_object(
-                    t,
-                    contains_subscript,
-                    range,
-                    is_isinstance,
-                    errors,
-                );
+                self.check_type_is_class_object(t, contains_subscript, range, func_kind, errors);
             }
         } else if let Type::ClassDef(cls) = &ty {
             let metadata = self.get_metadata_for_class(cls);
+            let func_display = || {
+                format!(
+                    "{}()",
+                    func_kind.as_func_id().format(self.module_info().name())
+                )
+            };
             if metadata.is_new_type() {
                 self.error(
                     errors,
                     range,
                     ErrorKind::InvalidArgument,
                     None,
-                    format!("NewType `{}` not allowed in isinstance", cls.name()),
+                    format!("NewType `{}` not allowed in {}", cls.name(), func_display(),),
                 );
             }
             // Check if this is a protocol that needs @runtime_checkable
@@ -693,18 +693,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorKind::InvalidArgument,
                     None,
-                    format!("Protocol `{}` is not decorated with @runtime_checkable and cannot be used with isinstance() or issubclass()", cls.name()),
+                    format!("Protocol `{}` is not decorated with @runtime_checkable and cannot be used with {}", cls.name(), func_display()),
                 );
             } else if metadata.is_protocol() && metadata.is_runtime_checkable_protocol() {
                 // Additional validation for runtime checkable protocols:
                 // issubclass() can only be used with non-data protocols
-                if !is_isinstance && self.is_data_protocol(cls, range) {
+                if *func_kind == FunctionKind::IsSubclass && self.is_data_protocol(cls, range) {
                     self.error(
                         errors,
                         range,
                         ErrorKind::InvalidArgument,
                         None,
-                        format!("Data protocol `{}` cannot be used with issubclass(). Use isinstance() instead", cls.name()),
+                        format!("Protocol `{}` has non-method members and cannot be used with issubclass()", cls.name()),
                     );
                 }
             }
@@ -774,7 +774,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) {
         if args.len() == 2 {
             let arg_expr = &args[1];
-            let isinstance_class_type = self.expr_infer(arg_expr, errors);
+            let arg_class_type = self.expr_infer(arg_expr, errors);
             let mut contains_subscript = false;
             arg_expr.visit(&mut |e| {
                 if matches!(e, Expr::Subscript(_)) {
@@ -782,30 +782,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             });
 
-            // Determine if this is isinstance or issubclass
-            match func_kind {
-                FunctionKind::IsInstance => {
-                    self.check_type_is_class_object(
-                        isinstance_class_type,
-                        contains_subscript,
-                        range,
-                        true, // is_isinstance = true
-                        errors,
-                    );
-                }
-                FunctionKind::IsSubclass => {
-                    self.check_type_is_class_object(
-                        isinstance_class_type,
-                        contains_subscript,
-                        range,
-                        false, // is_isinstance = false
-                        errors,
-                    );
-                }
-                _ => {
-                    // Not isinstance or issubclass, no validation needed
-                }
-            }
+            self.check_type_is_class_object(
+                arg_class_type,
+                contains_subscript,
+                range,
+                func_kind,
+                errors,
+            );
         }
     }
 

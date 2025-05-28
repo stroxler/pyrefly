@@ -418,8 +418,8 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "NewType `UserId` not allowed in isinstance",
-      "description": "NewType `UserId` not allowed in isinstance",
+      "concise_description": "NewType `UserId` not allowed in isinstance()",
+      "description": "NewType `UserId` not allowed in isinstance()",
       "line": 20,
       "name": "invalid-argument",
       "stop_column": 23,
@@ -9029,8 +9029,8 @@
     {
       "code": -2,
       "column": 8,
-      "concise_description": "Protocol `Proto1` is not decorated with @runtime_checkable and cannot be used with isinstance() or issubclass()",
-      "description": "Protocol `Proto1` is not decorated with @runtime_checkable and cannot be used with isinstance() or issubclass()",
+      "concise_description": "Protocol `Proto1` is not decorated with @runtime_checkable and cannot be used with isinstance()",
+      "description": "Protocol `Proto1` is not decorated with @runtime_checkable and cannot be used with isinstance()",
       "line": 23,
       "name": "invalid-argument",
       "stop_column": 29,
@@ -9039,8 +9039,8 @@
     {
       "code": -2,
       "column": 8,
-      "concise_description": "Data protocol `DataProtocol` cannot be used with issubclass(). Use isinstance() instead",
-      "description": "Data protocol `DataProtocol` cannot be used with issubclass(). Use isinstance() instead",
+      "concise_description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
+      "description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
       "line": 55,
       "name": "invalid-argument",
       "stop_column": 35,
@@ -9049,8 +9049,8 @@
     {
       "code": -2,
       "column": 8,
-      "concise_description": "Data protocol `DataProtocol` cannot be used with issubclass(). Use isinstance() instead",
-      "description": "Data protocol `DataProtocol` cannot be used with issubclass(). Use isinstance() instead",
+      "concise_description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
+      "description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
       "line": 61,
       "name": "invalid-argument",
       "stop_column": 54,

@@ -387,8 +387,8 @@ class ConcreteClass:
 obj = ConcreteClass()
 
 # These should fail - protocol not decorated with @runtime_checkable
-isinstance(obj, NonRuntimeProtocol)  # E: Protocol `NonRuntimeProtocol` is not decorated with @runtime_checkable and cannot be used with isinstance() or issubclass()
-issubclass(ConcreteClass, NonRuntimeProtocol)  # E: Protocol `NonRuntimeProtocol` is not decorated with @runtime_checkable and cannot be used with isinstance() or issubclass()
+isinstance(obj, NonRuntimeProtocol)  # E: Protocol `NonRuntimeProtocol` is not decorated with @runtime_checkable and cannot be used with isinstance()
+issubclass(ConcreteClass, NonRuntimeProtocol)  # E: Protocol `NonRuntimeProtocol` is not decorated with @runtime_checkable and cannot be used with issubclass()
 
 # These should work - protocol is decorated with @runtime_checkable
 isinstance(obj, RuntimeProtocol)
@@ -427,7 +427,7 @@ isinstance(obj, NonDataProtocol)
 issubclass(ConcreteClass, NonDataProtocol)
 
 # issubclass should fail for data protocols
-issubclass(ConcreteClass, DataProtocol)  # E: Data protocol `DataProtocol` cannot be used with issubclass(). Use isinstance() instead
+issubclass(ConcreteClass, DataProtocol)  # E: Protocol `DataProtocol` has non-method members and cannot be used with issubclass()
 "#,
 );
 
@@ -457,10 +457,10 @@ class ConcreteClass:
 obj = ConcreteClass()
 
 # Union with non-runtime-checkable protocol should fail
-isinstance(obj, (Protocol1, NonRuntimeProtocol))  # E: Protocol `NonRuntimeProtocol` is not decorated with @runtime_checkable and cannot be used with isinstance() or issubclass()
+isinstance(obj, (Protocol1, NonRuntimeProtocol))  # E: Protocol `NonRuntimeProtocol` is not decorated with @runtime_checkable and cannot be used with isinstance()
 
 # issubclass with data protocol in union should fail
-issubclass(ConcreteClass, (Protocol1, DataProtocol))  # E: Data protocol `DataProtocol` cannot be used with issubclass(). Use isinstance() instead
+issubclass(ConcreteClass, (Protocol1, DataProtocol))  # E: Protocol `DataProtocol` has non-method members and cannot be used with issubclass()
 "#,
 );
 
@@ -540,8 +540,8 @@ isinstance(Implementation(), DataOnlyProtocol)
 
 # issubclass should only work for non-data protocols
 issubclass(Implementation, MethodOnlyProtocol)  # OK - only methods
-issubclass(Implementation, MixedDataProtocol)   # E: Data protocol `MixedDataProtocol` cannot be used with issubclass(). Use isinstance() instead
-issubclass(Implementation, DataOnlyProtocol)   # E: Data protocol `DataOnlyProtocol` cannot be used with issubclass(). Use isinstance() instead
+issubclass(Implementation, MixedDataProtocol)   # E: Protocol `MixedDataProtocol` has non-method members and cannot be used with issubclass()
+issubclass(Implementation, DataOnlyProtocol)   # E: Protocol `DataOnlyProtocol` has non-method members and cannot be used with issubclass()
 "#,
 );
 
