@@ -765,9 +765,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         false
     }
 
-    fn check_second_arg_is_class_object(&self, x: &ExprCall, errors: &ErrorCollector) {
-        if x.arguments.args.len() == 2 {
-            let arg_expr = &x.arguments.args[1];
+    fn check_second_arg_is_class_object(
+        &self,
+        args: &[Expr],
+        func_kind: &FunctionKind,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        if args.len() == 2 {
+            let arg_expr = &args[1];
             let isinstance_class_type = self.expr_infer(arg_expr, errors);
             let mut contains_subscript = false;
             arg_expr.visit(&mut |e| {
@@ -777,22 +783,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             });
 
             // Determine if this is isinstance or issubclass
-            let func_ty = self.expr_infer(&x.func, errors);
-            match func_ty.callee_kind() {
-                Some(CalleeKind::Function(FunctionKind::IsInstance)) => {
+            match func_kind {
+                FunctionKind::IsInstance => {
                     self.check_type_is_class_object(
                         isinstance_class_type,
                         contains_subscript,
-                        x.range,
+                        range,
                         true, // is_isinstance = true
                         errors,
                     );
                 }
-                Some(CalleeKind::Function(FunctionKind::IsSubclass)) => {
+                FunctionKind::IsSubclass => {
                     self.check_type_is_class_object(
                         isinstance_class_type,
                         contains_subscript,
-                        x.range,
+                        range,
                         false, // is_isinstance = false
                         errors,
                     );
@@ -1451,13 +1456,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 errors,
                             ),
                         _ => {
-                            if matches!(
-                                ty_fun.callee_kind(),
-                                Some(CalleeKind::Function(
+                            if let Some(CalleeKind::Function(func_kind)) = ty_fun.callee_kind()
+                                && matches!(
+                                    func_kind,
                                     FunctionKind::IsInstance | FunctionKind::IsSubclass
-                                ))
-                            ) {
-                                self.check_second_arg_is_class_object(x, errors);
+                                )
+                            {
+                                self.check_second_arg_is_class_object(
+                                    &x.arguments.args,
+                                    &func_kind,
+                                    x.range,
+                                    errors,
+                                );
                             }
                             let args = x.arguments.args.map(|arg| match arg {
                                 Expr::Starred(x) => CallArg::Star(&x.value, x.range),
