@@ -1107,7 +1107,7 @@ impl<'a> BindingsBuilder<'a> {
                 match names.entry_hashed(name) {
                     Entry::Occupied(mut e) => f(e.get_mut()),
                     Entry::Vacant(e) => {
-                        // The promise is that the next block will create a binding for all names in `namesA`.
+                        // The promise is that the next block will create a binding for all names in `names`.
                         //
                         // Note that in some cases (e.g. variables defined above a loop) we already promised
                         // a binding and this lookup will just give us back the same `Idx<Key::Phi(...)>` we
