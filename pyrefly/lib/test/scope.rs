@@ -398,3 +398,13 @@ def f() -> None:
     del y  # E: `y` is not mutable from the current scope
 "#,
 );
+
+testcase!(
+    test_comprehension_shadows_variable,
+    r#"
+from typing import assert_type, reveal_type
+x: list[int] = [1, 2, 3]
+y = [x for x in x]
+assert_type(y, list[int])
+"#,
+);
