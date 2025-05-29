@@ -70,7 +70,7 @@ impl Ignore {
         false
     }
 
-    fn get_suppression_kind(line: &str) -> Option<SuppressionKind> {
+    pub fn get_suppression_kind(line: &str) -> Option<SuppressionKind> {
         fn match_pyrefly_ignore(line: &str) -> bool {
             let mut words = line.split_whitespace();
             if let Some("pyrefly:") = words.next() {

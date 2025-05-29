@@ -177,10 +177,32 @@ impl ModuleInfo {
         )
     }
 
+    fn content_at_line(&self, line: OneIndexed) -> &str {
+        let start = self.0.index.line_start(line, &self.0.contents);
+        let end = self.0.index.line_end(line, &self.0.contents);
+        &self.0.contents[start.to_usize()..end.to_usize()]
+    }
+
     pub fn is_ignored(&self, source_range: &SourceRange, msg: &str) -> bool {
+        // Extend the range of the error to include comment lines before it.
+        // This makes it so that the preceding ignore could "see through" comments.
+        let start_line = {
+            let mut start_line = source_range.start.row;
+            while let Some(earlier_line) = start_line.checked_sub(OneIndexed::MIN) {
+                let earlier_line_content = &self.content_at_line(earlier_line).trim();
+                if Ignore::get_suppression_kind(earlier_line_content).is_some() {
+                    break;
+                } else if earlier_line_content.starts_with('#') {
+                    start_line = earlier_line;
+                } else {
+                    break;
+                }
+            }
+            start_line
+        };
         self.0
             .ignore
-            .is_ignored(source_range.start.row, source_range.end.row, msg)
+            .is_ignored(start_line, source_range.end.row, msg)
     }
 
     pub fn ignore(&self) -> &Ignore {
