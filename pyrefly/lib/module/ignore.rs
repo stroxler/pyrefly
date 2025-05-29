@@ -11,8 +11,6 @@ use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::module::module_info::SourceRange;
-
 #[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy)]
 pub enum SuppressionKind {
     Ignore,
@@ -94,7 +92,7 @@ impl Ignore {
         None
     }
 
-    pub fn is_ignored(&self, range: &SourceRange, msg: &str) -> bool {
+    pub fn is_ignored(&self, start_line: OneIndexed, end_line: OneIndexed, msg: &str) -> bool {
         if self.ignore_all {
             true
         } else {
@@ -102,7 +100,7 @@ impl Ignore {
             let _unused = msg;
             // We allow an ignore the line before the range, or on any line within the range.
             // We convert to/from zero-indexed because OneIndexed does not implement Step.
-            (range.start.row.to_zero_indexed().saturating_sub(1)..=range.end.row.to_zero_indexed())
+            (start_line.to_zero_indexed().saturating_sub(1)..=end_line.to_zero_indexed())
                 .any(|x| self.ignores.contains_key(&OneIndexed::from_zero_indexed(x)))
         }
     }
