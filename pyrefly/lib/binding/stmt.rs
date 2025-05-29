@@ -436,18 +436,30 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::AugAssign(mut x) => {
                 self.ensure_expr(&mut x.value);
-                let make_binding = |ann| Binding::AugAssign(ann, x.clone());
+                let make_assigned_value =
+                    |ann| ExprOrBinding::Binding(Binding::AugAssign(ann, x.clone()));
                 match x.target.as_ref() {
                     Expr::Name(name) => {
+                        // TODO(stroxler): Is this really a good key for an augmented assignment?
+                        // It works okay for type checking, but might have weird effects on the IDE.
+                        let idx =
+                            self.idx_for_promise(Key::Definition(ShortIdentifier::expr_name(name)));
+                        // Ensure the target name, which must already be in scope (it is part of the implicit dunder method call
+                        // used in augmented assignment).
                         self.ensure_mutable_name(name);
-                        self.bind_assign(name, make_binding);
+                        // TODO(stroxler): Should we really be using `bind_key` here? This will update the
+                        // flow info to define the name, even if it was not previously defined.
+                        let (ann, default) = self.bind_key(&name.id, idx, FlowStyle::Other);
+                        let mut binding = Binding::AugAssign(ann, x.clone());
+                        if let Some(default) = default {
+                            binding = Binding::Default(default, Box::new(binding));
+                        }
+                        self.insert_binding_idx(idx, binding);
                     }
                     Expr::Attribute(x) => {
-                        let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
                         self.bind_attr_assign(x.clone(), make_assigned_value);
                     }
                     Expr::Subscript(x) => {
-                        let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
                         self.bind_subscript_assign(x.clone(), make_assigned_value);
                     }
                     illegal_target => {
