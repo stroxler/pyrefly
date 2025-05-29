@@ -635,10 +635,10 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::For(mut x) => {
                 self.ensure_expr(&mut x.iter);
-                self.setup_loop(x.range, &NarrowOps::new());
                 let make_binding =
                     |ann| Binding::IterableValue(ann, *x.iter.clone(), IsAsync::new(x.is_async));
                 self.bind_target(&mut x.target, &make_binding);
+                self.setup_loop(x.range, &NarrowOps::new());
                 self.stmts(x.body);
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse);
             }
