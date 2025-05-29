@@ -40,6 +40,7 @@ use starlark_map::small_set::SmallSet;
 
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::class_metadata::BaseClass;
+use crate::alt::class::variance_inference::VarianceMap;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
@@ -124,6 +125,13 @@ impl Keyed for KeyClassSynthesizedFields {
     type Value = BindingClassSynthesizedFields;
     type Answer = ClassSynthesizedFields;
 }
+impl Exported for KeyVariance {}
+impl Keyed for KeyVariance {
+    const EXPORTED: bool = true;
+    type Value = BindingVariance;
+    type Answer = VarianceMap;
+}
+
 impl Exported for KeyClassSynthesizedFields {}
 impl Keyed for KeyExport {
     const EXPORTED: bool = true;
@@ -449,6 +457,22 @@ impl Ranged for KeyClassSynthesizedFields {
 impl DisplayWith<ModuleInfo> for KeyClassSynthesizedFields {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &ModuleInfo) -> fmt::Result {
         write!(f, "synthesized fields of {}", self.0)
+    }
+}
+
+// A key that denotes the variance of a type parameter
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyVariance(pub ClassDefIndex);
+
+impl Ranged for KeyVariance {
+    fn range(&self) -> TextRange {
+        TextRange::default()
+    }
+}
+
+impl DisplayWith<ModuleInfo> for KeyVariance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &ModuleInfo) -> fmt::Result {
+        write!(f, "variance of {}", self.0)
     }
 }
 
@@ -1228,6 +1252,15 @@ pub struct BindingClassSynthesizedFields(pub Idx<KeyClass>);
 impl DisplayWith<Bindings> for BindingClassSynthesizedFields {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         write!(f, "synthesized fields of {}", ctx.display(self.0))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BindingVariance(pub Idx<KeyClass>);
+
+impl DisplayWith<Bindings> for BindingVariance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
+        write!(f, "Variance of {}", ctx.display(self.0))
     }
 }
 

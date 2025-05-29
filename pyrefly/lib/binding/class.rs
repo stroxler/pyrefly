@@ -30,6 +30,7 @@ use crate::binding::binding::BindingClass;
 use crate::binding::binding::BindingClassField;
 use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassSynthesizedFields;
+use crate::binding::binding::BindingVariance;
 use crate::binding::binding::ClassBinding;
 use crate::binding::binding::ClassFieldInitialValue;
 use crate::binding::binding::ExprOrBinding;
@@ -38,6 +39,7 @@ use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassSynthesizedFields;
+use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::scope::ClassIndices;
@@ -82,6 +84,7 @@ impl<'a> BindingsBuilder<'a> {
             class_idx: self.idx_for_promise(KeyClass(ShortIdentifier::new(class_name))),
             metadata_idx: self.idx_for_promise(KeyClassMetadata(def_index)),
             synthesized_fields_idx: self.idx_for_promise(KeyClassSynthesizedFields(def_index)),
+            variance_idx: self.idx_for_promise(KeyVariance(def_index)),
         }
     }
 
@@ -164,6 +167,12 @@ impl<'a> BindingsBuilder<'a> {
             class_indices.synthesized_fields_idx,
             BindingClassSynthesizedFields(class_indices.class_idx),
         );
+
+        self.insert_binding_idx(
+            class_indices.variance_idx,
+            BindingVariance(class_indices.class_idx),
+        );
+
         let legacy_tparam_builder = legacy.unwrap();
         legacy_tparam_builder.add_name_definitions(self);
 
@@ -365,6 +374,12 @@ impl<'a> BindingsBuilder<'a> {
             class_indices.synthesized_fields_idx,
             BindingClassSynthesizedFields(class_indices.class_idx),
         );
+
+        self.insert_binding_idx(
+            class_indices.variance_idx,
+            BindingVariance(class_indices.class_idx),
+        );
+
         let mut fields = SmallMap::new();
         for (idx, (member_name, range, member_annotation, member_value)) in
             member_definitions.into_iter().enumerate()

@@ -36,6 +36,7 @@ use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyFunction;
+use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingTable;
 use crate::binding::function::SelfAssignments;
 use crate::dunder;
@@ -286,6 +287,7 @@ pub struct ClassIndices {
     pub class_idx: Idx<KeyClass>,
     pub metadata_idx: Idx<KeyClassMetadata>,
     pub synthesized_fields_idx: Idx<KeyClassSynthesizedFields>,
+    pub variance_idx: Idx<KeyVariance>,
 }
 
 #[derive(Clone, Debug)]

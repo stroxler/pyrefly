@@ -4,7 +4,6 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
-
 use std::iter;
 use std::mem;
 use std::sync::Arc;
@@ -29,6 +28,8 @@ use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::callable::CallArg;
 use crate::alt::class::class_field::ClassField;
+use crate::alt::class::variance_inference::VarianceMap;
+use crate::alt::class::variance_inference::pre_to_post_variance;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::alt::types::decorated_function::DecoratedFunction;
@@ -47,6 +48,7 @@ use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingFunction;
 use crate::binding::binding::BindingLegacyTypeParam;
+use crate::binding::binding::BindingVariance;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::EmptyAnswer;
@@ -1293,6 +1295,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .unwrap_or_default(),
         };
         Arc::new(fields)
+    }
+    // TODO: Extend the variance binding to include base classes and function signatures
+    // and use them to infer variance
+    // for now, we are just collecting variance info from type params and adding them to the map
+    // the map should be extended to inferred variances where we currently default to "invariant"
+    pub fn solve_variance_binding(&self, variance_info: &BindingVariance) -> Arc<VarianceMap> {
+        let class_idx = variance_info.0;
+        let class = self.get_idx(class_idx);
+
+        if let Some(class) = &class.0 {
+            let type_params = class.tparams();
+            let mut variances = SmallMap::with_capacity(type_params.len());
+            for tparam in type_params.iter() {
+                variances.insert(
+                    tparam.name().as_str().to_owned(),
+                    pre_to_post_variance(tparam.variance),
+                );
+            }
+            Arc::new(VarianceMap(variances))
+        } else {
+            Arc::new(VarianceMap(SmallMap::new()))
+        }
     }
 
     /// Get the class that attribute lookup on `super(cls, obj)` should be done on.

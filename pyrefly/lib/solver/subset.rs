@@ -16,7 +16,6 @@ use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
-use crate::alt::class::variance_inference::pre_to_post_variance;
 use crate::dunder;
 use crate::solver::solver::Subset;
 use crate::types::callable::Callable;
@@ -1010,11 +1009,22 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             // having a test setup to stress what happens on code change will help us make
             // Pyrefly incremental more robust.
         }
+
+        let variances = self
+            .type_order
+            .get_variance_from_class(got_class.class_object());
+
         for (got_arg, want_arg, param) in izip!(got, want, params.iter()) {
             let result = if param.quantified.kind() == QuantifiedKind::TypeVarTuple {
                 self.is_equal(got_arg, want_arg)
             } else {
-                let param_variance = pre_to_post_variance(param.variance);
+                let param_name = param.name().as_str();
+
+                let param_variance = match variances.0.get(param_name) {
+                    Some(variance) => *variance,
+                    None => Variance::Invariant,
+                };
+
                 match param_variance {
                     Variance::Covariant => self.is_subset_eq(got_arg, want_arg),
                     Variance::Contravariant => self.is_subset_eq(want_arg, got_arg),
