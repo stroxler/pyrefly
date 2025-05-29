@@ -338,13 +338,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .get(&Key::ReturnType(ShortIdentifier::new(&def.name)))
             .arc_clone_ty();
 
-        let ret = if def.is_async && !self.is_async_generator(&ret) {
-            self.stdlib
-                .coroutine(Type::any_implicit(), Type::any_implicit(), ret)
-                .to_type()
-        } else {
-            ret
-        };
         let mut tparams = self.scoped_type_params(def.type_params.as_deref(), errors);
         let legacy_tparams = legacy_tparams
             .iter()

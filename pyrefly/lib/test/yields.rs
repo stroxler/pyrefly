@@ -115,9 +115,9 @@ testcase!(
     r#"
 from typing import Iterator, assert_type
 
-def gen_numbers() -> Iterator[int]: 
-    yield 1 
-    yield 2 
+def gen_numbers() -> Iterator[int]:
+    yield 1
+    yield 2
     yield 3
 
 assert_type(gen_numbers(), Iterator[int])
@@ -165,6 +165,10 @@ from typing import AsyncGenerator, assert_type, Coroutine, Any
 async def async_count_up_to() -> AsyncGenerator[int, None]:
     yield 2
 assert_type(async_count_up_to(), AsyncGenerator[int, None])
+
+async def async_non_generator() -> int:
+    return 2
+assert_type(async_non_generator(), Coroutine[Any, Any, int])
 "#,
 );
 
@@ -217,7 +221,7 @@ testcase!(
     r#"
 from typing import assert_type, Any, Literal, AsyncGenerator
 
-async def async_count_up_to(): 
+async def async_count_up_to():
     yield 2
     return 4 # E: Return statement with value is not allowed in async generator
 assert_type(async_count_up_to(), AsyncGenerator[Literal[2], Any])

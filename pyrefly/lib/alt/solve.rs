@@ -2060,7 +2060,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             errors,
                         );
                     }
-                    ty
+                    if x.is_async && !is_generator {
+                        self.stdlib
+                            .coroutine(Type::any_implicit(), Type::any_implicit(), ty)
+                            .to_type()
+                    } else {
+                        ty
+                    }
                 } else {
                     let returns = x.returns.iter().map(|k| self.get_idx(*k).arc_clone_ty());
                     // TODO: It should always be a no-op to include a `Type::Never` in unions, but
@@ -2095,10 +2101,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 .generator(yield_ty, Type::any_implicit(), return_ty)
                                 .to_type()
                         }
+                    } else if x.is_async {
+                        self.stdlib
+                            .coroutine(Type::any_implicit(), Type::any_implicit(), return_ty)
+                            .to_type()
                     } else {
-                        // Do *not* modify the return type for a (non-generator) async def, we want the return type
-                        // here to match what would be annotated. We will handle creating an awaitable type when
-                        // binding the function def.
                         return_ty
                     }
                 }

@@ -1309,16 +1309,6 @@
     },
     {
       "code": -2,
-      "column": 61,
-      "concise_description": "`() -> AsyncIterator[int]` is not assignable to `() -> Coroutine[Any, Any, AsyncIterator[int]]`",
-      "description": "`() -> AsyncIterator[int]` is not assignable to `() -> Coroutine[Any, Any, AsyncIterator[int]]`",
-      "line": 185,
-      "name": "bad-assignment",
-      "stop_column": 72,
-      "stop_line": 185
-    },
-    {
-      "code": -2,
       "column": 5,
       "concise_description": "Expected to yield a value of type `int`, but a bare `yield` gives `None` instead",
       "description": "Expected to yield a value of type `int`, but a bare `yield` gives `None` instead",

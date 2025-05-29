@@ -85,7 +85,6 @@
   "annotations_generators.py": [
     "Line 87: Expected 1 errors",
     "Line 92: Expected 1 errors",
-    "Line 185: Unexpected errors ['`() -> AsyncIterator[int]` is not assignable to `() -> Coroutine[Any, Any, AsyncIterator[int]]`']",
     "Line 190: Unexpected errors ['Expected to yield a value of type `int`, but a bare `yield` gives `None` instead']"
   ],
   "annotations_methods.py": [],
