@@ -165,10 +165,35 @@ from typing import AsyncGenerator, assert_type, Coroutine, Any
 async def async_count_up_to() -> AsyncGenerator[int, None]:
     yield 2
 assert_type(async_count_up_to(), AsyncGenerator[int, None])
+"#,
+);
 
-async def async_non_generator() -> int:
+// Normal async functions have their annotated return types "wrapped"
+// into a coroutine. But async generators are annotated with their
+// actual return type `AsyncGenerator`.
+//
+// At one point, the logic we were using to determine whether to wrap
+// was based on checking the type, rather than a syntactic check. But
+// this produces multiple issues, because the subtype check can pass
+// when it shouldn't (e.g. if Any is in the return type, or if
+// the return type is actually an `AsyncGenerator` *value* without the
+// function itself being a generator).
+//
+// These tests are checks against regressing to that behavior.
+testcase!(
+    test_that_async_functions_are_not_incorrectly_treated_as_generators,
+    r#"
+from typing import AsyncGenerator, assert_type, Coroutine, Any, Never
+
+async def async_any_or_none() -> Any | None:
     return 2
-assert_type(async_non_generator(), Coroutine[Any, Any, int])
+assert_type(async_any_or_none(), Coroutine[Any, Any, Any | None])
+
+async def async_coroutine_of_async_generator() -> AsyncGenerator[int, None]:
+    async def inner() -> AsyncGenerator[int, None]:
+        yield 2
+    return inner()
+assert_type(async_coroutine_of_async_generator(), Coroutine[Any, Any, AsyncGenerator[int, None]])
 "#,
 );
 
