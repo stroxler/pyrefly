@@ -339,6 +339,17 @@ def f(x: int = ""):  # E: Default `Literal['']` is not assignable to parameter `
 );
 
 testcase!(
+    test_infer_param_type_from_default,
+    r#"
+from typing import Any, assert_type
+def f(x, y = "", z = None):
+    assert_type(x, Any)
+    assert_type(y, Any | str)
+    assert_type(z, Any | None)
+    "#,
+);
+
+testcase!(
     test_default_ellipsis,
     r#"
 def stub(x: int = ...): ... # OK

@@ -151,27 +151,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         legacy_tparams: &[Idx<KeyLegacyTypeParam>],
         errors: &ErrorCollector,
     ) -> Arc<DecoratedFunction> {
-        let check_default = |name: &Identifier, default: &Option<Box<Expr>>, ty: &Type| {
-            let mut required = Required::Required;
-            if let Some(default) = default {
-                required = Required::Optional;
-                if stub_or_impl != FunctionStubOrImpl::Stub
-                    || !matches!(default.as_ref(), Expr::EllipsisLiteral(_))
-                {
-                    self.expr(
-                        default,
-                        Some((ty, &|| {
-                            TypeCheckContext::of_kind(TypeCheckKind::FunctionParameterDefault(
-                                name.id.clone(),
-                            ))
-                        })),
-                        errors,
-                    );
-                }
-            }
-            required
-        };
-
         let defining_cls = class_key.and_then(|k| self.get_idx(*k).0.dupe());
         let mut self_type = if def.name.id == dunder::NEW || def.name.id == dunder::INIT_SUBCLASS {
             // __new__ and __init_subclass__ are staticmethods, and do not take a self parameter.
@@ -244,18 +223,46 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self_type = self_type.map(Type::type_form);
         }
 
-        let mut get_param_ty = |name: &Identifier| {
+        // Determine the type of the parameter based on its binding. Left is annotated parameter, right is unannotated
+        let mut get_param_ty = |name: &Identifier, default: Option<&Expr>| {
             let ty = match self.bindings().get_function_param(name) {
-                Either::Left(idx) => self.get_idx(idx).annotation.get_type().clone(),
+                Either::Left(idx) => {
+                    // If the parameter is annotated, we check the default value against the annotation
+                    let param_ty = self.get_idx(idx).annotation.get_type().clone();
+                    if let Some(default) = default
+                        && (stub_or_impl != FunctionStubOrImpl::Stub
+                            || !matches!(default, Expr::EllipsisLiteral(_)))
+                    {
+                        self.expr(
+                            default,
+                            Some((&param_ty, &|| {
+                                TypeCheckContext::of_kind(TypeCheckKind::FunctionParameterDefault(
+                                    name.id.clone(),
+                                ))
+                            })),
+                            errors,
+                        );
+                    }
+                    param_ty
+                }
                 Either::Right(var) => {
                     // If this is the first parameter and there is a self type, solve to `Self`.
                     // We only try to solve the first param for now. Other unannotated params
-                    // are also Var, but will always be forced to Any. In the future, we might
-                    // consider contextual information to infer parameter types, like decorator
-                    // applications.
+                    // are also Var. If a default value of type T is provided, it will resolve to Any | T.
+                    // Otherwise, it will be forced to Any
                     if let Some(ty) = &self_type {
                         self.solver()
                             .is_subset_eq(&var.to_type(), ty, self.type_order());
+                    } else if let Some(default) = default
+                        && (stub_or_impl != FunctionStubOrImpl::Stub
+                            || !matches!(default, Expr::EllipsisLiteral(_)))
+                    {
+                        let default_ty = self.expr(default, None, errors);
+                        self.solver().is_subset_eq(
+                            &self.union(Type::any_implicit(), default_ty),
+                            &var.to_type(),
+                            self.type_order(),
+                        );
                     }
                     self.solver().force_var(var)
                 }
@@ -267,17 +274,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut paramspec_kwargs = None;
         let mut params = Vec::with_capacity(def.parameters.len());
         params.extend(def.parameters.posonlyargs.iter().map(|x| {
-            let ty = get_param_ty(&x.parameter.name);
-            let required = check_default(&x.parameter.name, &x.default, &ty);
+            let ty = get_param_ty(&x.parameter.name, x.default.as_deref());
+            let required = if x.default.is_some() {
+                Required::Optional
+            } else {
+                Required::Required
+            };
             Param::PosOnly(ty, required)
         }));
         params.extend(def.parameters.args.iter().map(|x| {
-            let ty = get_param_ty(&x.parameter.name);
-            let required = check_default(&x.parameter.name, &x.default, &ty);
+            let ty = get_param_ty(&x.parameter.name, x.default.as_deref());
+            let required = if x.default.is_some() {
+                Required::Optional
+            } else {
+                Required::Required
+            };
             Param::Pos(x.parameter.name.id.clone(), ty, required)
         }));
         params.extend(def.parameters.vararg.iter().map(|x| {
-            let ty = get_param_ty(&x.name);
+            let ty = get_param_ty(&x.name, None);
             if let Type::Args(q) = &ty {
                 paramspec_args = Some(q.clone());
             }
@@ -298,8 +313,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
         }
         params.extend(def.parameters.kwonlyargs.iter().map(|x| {
-            let ty = get_param_ty(&x.parameter.name);
-            let required = check_default(&x.parameter.name, &x.default, &ty);
+            let ty = get_param_ty(&x.parameter.name, x.default.as_deref());
+            let required = if x.default.is_some() {
+                Required::Optional
+            } else {
+                Required::Required
+            };
             Param::KwOnly(x.parameter.name.id.clone(), ty, required)
         }));
         params.extend(def.parameters.kwarg.iter().map(|x| {
