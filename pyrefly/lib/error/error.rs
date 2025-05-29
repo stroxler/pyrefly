@@ -9,6 +9,7 @@ use std::fmt::Debug;
 use std::io;
 use std::io::Write;
 
+use itertools::Itertools;
 use pyrefly_util::display::number_thousands;
 use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
@@ -24,7 +25,12 @@ pub struct Error {
     path: ModulePath,
     range: SourceRange,
     error_kind: ErrorKind,
-    msg: Box<str>,
+    /// First line of the error message
+    msg_header: Box<str>,
+    /// The rest of the error message after the first line.
+    /// Note that this is formatted for pretty-printing, with a newline at the
+    /// beginning and two spaces after every newline.
+    msg_details: Option<Box<str>>,
     is_ignored: bool,
 }
 
@@ -32,7 +38,7 @@ impl Error {
     pub fn write_line(&self, mut f: impl Write) -> io::Result<()> {
         writeln!(
             f,
-            "{} {}:{}: {} [{}]",
+            "{} {}:{}: {} [{}]{}",
             match self.error_kind().severity() {
                 Severity::Error => "ERROR",
                 Severity::Warn => " WARN",
@@ -40,14 +46,15 @@ impl Error {
             },
             self.path,
             self.range,
-            self.msg,
-            self.error_kind.to_name()
+            self.msg_header,
+            self.error_kind.to_name(),
+            self.msg_details(),
         )
     }
 
     pub fn print_colors(&self) {
         anstream::println!(
-            "{} {}:{}: {} {}",
+            "{} {}:{}: {} {}{}",
             match self.error_kind().severity() {
                 Severity::Error => Paint::red("ERROR"),
                 Severity::Warn => Paint::yellow(" WARN"),
@@ -55,8 +62,9 @@ impl Error {
             },
             Paint::blue(&self.path().as_path().display()),
             Paint::dim(self.source_range()),
-            Paint::new(self.msg()),
+            Paint::new(&*self.msg_header),
             Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
+            Paint::new(self.msg_details()),
         );
     }
 }
@@ -98,16 +106,20 @@ impl Error {
         is_ignored: bool,
         error_kind: ErrorKind,
     ) -> Self {
-        let msg = if msg.len() == 1 {
-            msg.into_iter().next().unwrap().into_boxed_str()
+        let msg_has_details = msg.len() > 1;
+        let mut msg = msg.into_iter();
+        let msg_header = msg.next().unwrap().into_boxed_str();
+        let msg_details = if msg_has_details {
+            Some(msg.map(|s| format!("\n  {s}")).join("").into_boxed_str())
         } else {
-            msg.join("\n  ").into_boxed_str()
+            None
         };
         Self {
             path,
             range,
             error_kind,
-            msg,
+            msg_header,
+            msg_details,
             is_ignored,
         }
     }
@@ -120,8 +132,12 @@ impl Error {
         &self.path
     }
 
-    pub fn msg(&self) -> &str {
-        &self.msg
+    fn msg_details(&self) -> &str {
+        self.msg_details.as_ref().map_or("", |s| s)
+    }
+
+    pub fn msg(&self) -> String {
+        format!("{}{}", self.msg_header, self.msg_details())
     }
 
     pub fn is_ignored(&self) -> bool {
