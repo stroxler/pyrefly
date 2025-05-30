@@ -276,10 +276,13 @@ impl<'a> BindingsBuilder<'a> {
     /// - Takes the value as an `Expr` rather than a `make_binding` callaback, which enables
     ///   better contextual typing in cases where the assignment might actually invoke
     ///   a method (like descriptor attribute assigns and `__setitem__` calls).
-    pub fn bind_targets_with_value(&mut self, targets: &mut Vec<Expr>, value: &mut Expr) {
-        self.ensure_expr(value);
-        let make_assigned_value = &|_| ExprOrBinding::Expr(value.clone());
-        for target in targets {
+    pub fn bind_targets_with_value(&mut self, targets: &mut [Expr], value: &mut Expr) {
+        for (i, target) in targets.iter_mut().enumerate() {
+            let ensure_assigned = i == 0;
+            if ensure_assigned {
+                self.ensure_expr(value);
+            }
+            let make_assigned_value = &|_| ExprOrBinding::Expr(value.clone());
             self.bind_target_impl(target, make_assigned_value);
         }
     }
