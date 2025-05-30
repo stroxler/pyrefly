@@ -1066,16 +1066,7 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn merge_flow(&mut self, xs: Vec<Flow>, range: TextRange) -> Flow {
-        self.merge_flow_is_loop(xs, range, false)
-    }
-
-    pub fn merge_flow_is_loop(
-        &mut self,
-        mut xs: Vec<Flow>,
-        range: TextRange,
-        is_loop: bool,
-    ) -> Flow {
+    fn merge_flow(&mut self, mut xs: Vec<Flow>, range: TextRange, is_loop: bool) -> Flow {
         if xs.len() == 1 && xs[0].has_terminated {
             return xs.pop().unwrap();
         }
@@ -1156,7 +1147,7 @@ impl<'a> BindingsBuilder<'a> {
 
     fn merge_into_current(&mut self, mut branches: Vec<Flow>, range: TextRange, is_loop: bool) {
         branches.push(mem::take(&mut self.scopes.current_mut().flow));
-        self.scopes.current_mut().flow = self.merge_flow_is_loop(branches, range, is_loop);
+        self.scopes.current_mut().flow = self.merge_flow(branches, range, is_loop);
     }
 
     fn merge_loop_into_current(&mut self, branches: Vec<Flow>, range: TextRange) {
@@ -1168,7 +1159,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn set_current_flow_to_merged_branches(&mut self, branches: Vec<Flow>, range: TextRange) {
-        let flow = self.merge_flow(branches, range);
+        let flow = self.merge_flow(branches, range, false);
         self.scopes.replace_current_flow(flow);
     }
 }
