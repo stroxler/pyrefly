@@ -560,25 +560,6 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_lambda(x);
                 return;
             }
-            Expr::Call(ExprCall {
-                range: _,
-                func,
-                arguments: _,
-            }) if matches!(
-                self.as_special_export(func),
-                Some(SpecialExport::Exit | SpecialExport::Quit | SpecialExport::OsExit)
-            ) =>
-            {
-                // Control flow doesn't proceed after sys.exit(), exit(), quit(), or os._exit().
-                self.scopes.mark_flow_termination();
-            }
-            Expr::Name(x) => {
-                let name = Ast::expr_name_identifier(x.clone());
-                let binding = self
-                    .lookup_name(&name.id, LookupKind::Regular)
-                    .map(Binding::Forward);
-                self.ensure_name(&name, binding);
-            }
             Expr::ListComp(x) => {
                 self.bind_comprehensions(x.range, &mut x.generators);
                 self.ensure_expr(&mut x.elt);
@@ -603,6 +584,25 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut x.elt);
                 self.scopes.pop();
                 return;
+            }
+            Expr::Call(ExprCall {
+                range: _,
+                func,
+                arguments: _,
+            }) if matches!(
+                self.as_special_export(func),
+                Some(SpecialExport::Exit | SpecialExport::Quit | SpecialExport::OsExit)
+            ) =>
+            {
+                // Control flow doesn't proceed after sys.exit(), exit(), quit(), or os._exit().
+                self.scopes.mark_flow_termination();
+            }
+            Expr::Name(x) => {
+                let name = Ast::expr_name_identifier(x.clone());
+                let binding = self
+                    .lookup_name(&name.id, LookupKind::Regular)
+                    .map(Binding::Forward);
+                self.ensure_name(&name, binding);
             }
             Expr::Yield(x) => {
                 self.record_yield(x.clone());
