@@ -3379,28 +3379,7 @@
       "stop_line": 50
     }
   ],
-  "dataclasses_postinit.py": [
-    {
-      "code": -2,
-      "column": 17,
-      "concise_description": "Argument `Literal[3]` is not assignable to parameter `x` with type `InitVar[int]` in function `DC1.__init__`",
-      "description": "Argument `Literal[3]` is not assignable to parameter `x` with type `InitVar[int]` in function `DC1.__init__`",
-      "line": 23,
-      "name": "bad-argument-type",
-      "stop_column": 18,
-      "stop_line": 23
-    },
-    {
-      "code": -2,
-      "column": 23,
-      "concise_description": "Argument `Literal['']` is not assignable to parameter `y` with type `InitVar[str]` in function `DC1.__init__`",
-      "description": "Argument `Literal['']` is not assignable to parameter `y` with type `InitVar[str]` in function `DC1.__init__`",
-      "line": 23,
-      "name": "bad-argument-type",
-      "stop_column": 25,
-      "stop_line": 23
-    }
-  ],
+  "dataclasses_postinit.py": [],
   "dataclasses_slots.py": [
     {
       "code": -2,
@@ -4163,16 +4142,6 @@
       "name": "bad-argument-type",
       "stop_column": 37,
       "stop_line": 52
-    },
-    {
-      "code": -2,
-      "column": 23,
-      "concise_description": "`Literal[0]` is not assignable to `InitVar[int]`",
-      "description": "`Literal[0]` is not assignable to `InitVar[int]`",
-      "line": 72,
-      "name": "bad-assignment",
-      "stop_column": 24,
-      "stop_line": 72
     },
     {
       "code": -2,
