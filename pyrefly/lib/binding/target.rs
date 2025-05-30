@@ -54,10 +54,20 @@ impl<'a> BindingsBuilder<'a> {
         range: TextRange,
         ensure_assigned: bool,
     ) {
+        // Compute a binding for the RHS at this level of unpacking.
+        // - If there is only one unpacking, this will be the actual RHS
+        // - But if there are many layers of unpacking it might be an UnpackedValue pointing further up the tree
+        //
+        // The bindings directly used when binding components of LHS will be
+        // `UnpackedValue` bindings that point at this.
+        //
+        // For example, in `x, (y, z) = foo()`:
+        // - We will get two different `Key::Unpacked` bindings, one for the
+        //   entire RHS and another one, pointing at the first one, for `(y, z)`.
+        // - We will also get three `Key::Definition` bindings, one each for `x`, `y`, and `z`.
         if ensure_assigned {
             assigned.iter_mut().for_each(|e| self.ensure_expr(e))
         }
-        // We are going to use this binding many times, so compute it once.
         let idx_of_unpack =
             self.insert_binding(Key::Unpack(range), make_binding(assigned.as_deref(), None));
 
