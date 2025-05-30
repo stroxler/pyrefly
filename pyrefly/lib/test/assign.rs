@@ -52,6 +52,17 @@ y = x
 );
 
 testcase!(
+    test_reassign_myself,
+    r#"
+from typing import assert_type
+x = [1, 2, 3]
+for x in x:
+    pass
+assert_type(x, int)
+"#,
+);
+
+testcase!(
     test_class_var_assign_from_instance,
     r#"
 from typing import ClassVar
