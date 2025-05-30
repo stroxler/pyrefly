@@ -98,7 +98,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut kw.value);
             }
         }
-        self.bind_assign(name, |ann| {
+        self.bind_assign_no_term(name, |ann| {
             Binding::TypeVar(
                 ann,
                 Ast::expr_name_identifier(name.clone()),
@@ -125,7 +125,7 @@ impl<'a> BindingsBuilder<'a> {
 
     fn assign_param_spec(&mut self, name: &ExprName, call: &mut ExprCall) {
         self.ensure_type_var_tuple_and_param_spec_args(call);
-        self.bind_assign(name, |ann| {
+        self.bind_assign_no_term(name, |ann| {
             Binding::ParamSpec(
                 ann,
                 Ast::expr_name_identifier(name.clone()),
@@ -136,7 +136,7 @@ impl<'a> BindingsBuilder<'a> {
 
     fn assign_type_var_tuple(&mut self, name: &ExprName, call: &mut ExprCall) {
         self.ensure_type_var_tuple_and_param_spec_args(call);
-        self.bind_assign(name, |ann| {
+        self.bind_assign_no_term(name, |ann| {
             Binding::TypeVarTuple(
                 ann,
                 Ast::expr_name_identifier(name.clone()),
@@ -349,7 +349,8 @@ impl<'a> BindingsBuilder<'a> {
                     && let Some((module, forward)) =
                         resolve_typeshed_alias(self.module_info.name(), &name.id, &x.value) =>
             {
-                self.bind_assign(name, |_| Binding::Import(module, forward))
+                // TODO(stroxler): should we complain here if there's an existing annotation?
+                self.bind_assign_no_term(name, |_| Binding::Import(module, forward))
             }
             Stmt::Assign(mut x) => {
                 if let [Expr::Name(name)] = x.targets.as_slice() {

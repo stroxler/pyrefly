@@ -225,7 +225,7 @@ impl<'a> BindingsBuilder<'a> {
         };
         match target {
             Expr::Name(name) => {
-                self.bind_assign(name, make_binding);
+                self.bind_assign_no_term(name, make_binding);
             }
             Expr::Attribute(x) => {
                 let attr_value =
@@ -284,17 +284,40 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn bind_assign(
+    /// Given a function that produces a binding from an ensured expression:
+    /// - Ensure the expression, if there is one we are supposed to ensure
+    /// - Update the bindings table and flow info to note that:
+    ///   - the name is now bound to a `Key::Definition` + the computed binding
+    ///   - the flow style is `FlowStyle::Other`
+    fn bind_assign_impl(
         &mut self,
         name: &ExprName,
-        make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
+        mut assigned: Option<&mut Expr>,
+        make_binding: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> Binding,
     ) {
         let idx = self.idx_for_promise(Key::Definition(ShortIdentifier::expr_name(name)));
+        assigned.iter_mut().for_each(|e| self.ensure_expr(e));
         let (ann, default) = self.bind_key(&name.id, idx, FlowStyle::Other);
-        let mut binding = make_binding(ann);
+        let mut binding = make_binding(assigned.as_deref(), ann);
         if let Some(default) = default {
             binding = Binding::Default(default, Box::new(binding));
         }
         self.insert_binding_idx(idx, binding);
+    }
+
+    /// Version of `bind_assign_impl` used when we don't want expression usage tracking.
+    ///
+    /// Used for:
+    /// - Scenarios where we inject a binding directly, without ever using an expression
+    ///   (for example, when the binding points at the `Idx<Key>` of another binding).
+    /// - Special cases - mainly in legacy type variables - where `ensure_expr` is not the
+    ///   right way to ensure because we might need to ensure as a type; we
+    ///   just skip these cases for usage tracking.
+    pub fn bind_assign_no_term(
+        &mut self,
+        name: &ExprName,
+        make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
+    ) {
+        self.bind_assign_impl(name, None, |_, ann| make_binding(ann))
     }
 }
