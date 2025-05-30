@@ -381,7 +381,6 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut x.body);
                 let range = x.range();
                 self.negate_and_merge_flow(base, &narrow_ops, Some(&mut x.orelse), range);
-                return;
             }
             Expr::BoolOp(ExprBoolOp { range, op, values }) => {
                 let base = self.scopes.clone_current_flow();
@@ -402,7 +401,6 @@ impl<'a> BindingsBuilder<'a> {
                     }
                 }
                 self.negate_and_merge_flow(base, &narrow_ops, None, *range);
-                return;
             }
             Expr::Call(ExprCall {
                 range: _,
@@ -423,7 +421,6 @@ impl<'a> BindingsBuilder<'a> {
                 for kw in arguments.keywords.iter_mut() {
                     self.ensure_expr(&mut kw.value);
                 }
-                return;
             }
             Expr::Call(ExprCall {
                 range: _,
@@ -449,7 +446,6 @@ impl<'a> BindingsBuilder<'a> {
                         self.ensure_expr(&mut kw.value);
                     }
                 }
-                return;
             }
             Expr::Call(ExprCall {
                 range,
@@ -530,7 +526,6 @@ impl<'a> BindingsBuilder<'a> {
                     Key::SuperInstance(*range),
                     Binding::SuperInstance(style, *range),
                 );
-                return;
             }
             Expr::Call(ExprCall {
                 range,
@@ -547,43 +542,36 @@ impl<'a> BindingsBuilder<'a> {
                     self.ensure_expr(&mut kw.value);
                 }
                 self.bind_narrow_ops(&narrow_op, *range);
-                return;
             }
             Expr::Named(x) => {
                 self.scopes.add_lvalue_to_current_static(&x.target);
                 self.bind_target_with_expr(&mut x.target, &mut x.value, &|expr, ann| {
                     Binding::Expr(ann, expr.clone())
                 });
-                return;
             }
             Expr::Lambda(x) => {
                 self.bind_lambda(x);
-                return;
             }
             Expr::ListComp(x) => {
                 self.bind_comprehensions(x.range, &mut x.generators);
                 self.ensure_expr(&mut x.elt);
                 self.scopes.pop();
-                return;
             }
             Expr::SetComp(x) => {
                 self.bind_comprehensions(x.range, &mut x.generators);
                 self.ensure_expr(&mut x.elt);
                 self.scopes.pop();
-                return;
             }
             Expr::DictComp(x) => {
                 self.bind_comprehensions(x.range, &mut x.generators);
                 self.ensure_expr(&mut x.key);
                 self.ensure_expr(&mut x.value);
                 self.scopes.pop();
-                return;
             }
             Expr::Generator(x) => {
                 self.bind_comprehensions(x.range, &mut x.generators);
                 self.ensure_expr(&mut x.elt);
                 self.scopes.pop();
-                return;
             }
             Expr::Call(ExprCall {
                 range: _,
@@ -594,6 +582,7 @@ impl<'a> BindingsBuilder<'a> {
                 Some(SpecialExport::Exit | SpecialExport::Quit | SpecialExport::OsExit)
             ) =>
             {
+                x.recurse_mut(&mut |x| self.ensure_expr(x));
                 // Control flow doesn't proceed after sys.exit(), exit(), quit(), or os._exit().
                 self.scopes.mark_flow_termination();
             }
@@ -605,14 +594,17 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_name(&name, binding);
             }
             Expr::Yield(x) => {
+                self.ensure_expr_opt(x.value.as_deref_mut());
                 self.record_yield(x.clone());
             }
             Expr::YieldFrom(x) => {
+                self.ensure_expr(&mut x.value);
                 self.record_yield_from(x.clone());
             }
-            _ => {}
+            _ => {
+                x.recurse_mut(&mut |x| self.ensure_expr(x));
+            }
         }
-        x.recurse_mut(&mut |x| self.ensure_expr(x));
     }
 
     /// Execute through the expr, ensuring every name has a binding.
