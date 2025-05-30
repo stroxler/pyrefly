@@ -351,7 +351,8 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn record_yield(&mut self, x: ExprYield) {
+    fn record_yield(&mut self, mut x: ExprYield) {
+        self.ensure_expr_opt(x.value.as_deref_mut());
         if let Err(oops_top_level) = self.scopes.record_or_reject_yield(x) {
             self.insert_binding(
                 KeyYield(oops_top_level.range),
@@ -360,7 +361,8 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn record_yield_from(&mut self, x: ExprYieldFrom) {
+    fn record_yield_from(&mut self, mut x: ExprYieldFrom) {
+        self.ensure_expr(&mut x.value);
         if let Err(oops_top_level) = self.scopes.record_or_reject_yield_from(x) {
             self.insert_binding(
                 KeyYieldFrom(oops_top_level.range),
@@ -594,11 +596,9 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_name(&name, binding);
             }
             Expr::Yield(x) => {
-                self.ensure_expr_opt(x.value.as_deref_mut());
                 self.record_yield(x.clone());
             }
             Expr::YieldFrom(x) => {
-                self.ensure_expr(&mut x.value);
                 self.record_yield_from(x.clone());
             }
             _ => {
