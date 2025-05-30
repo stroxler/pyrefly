@@ -49,11 +49,17 @@ impl<'a> BindingsBuilder<'a> {
     fn bind_unpacking(
         &mut self,
         elts: &mut [Expr],
-        make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
+        mut assigned: Option<&mut Expr>,
+        make_binding: &dyn Fn(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> Binding,
         range: TextRange,
+        ensure_assigned: bool,
     ) {
+        if ensure_assigned {
+            assigned.iter_mut().for_each(|e| self.ensure_expr(e))
+        }
         // We are going to use this binding many times, so compute it once.
-        let idx_of_unpack = self.insert_binding(Key::Unpack(range), make_binding(None));
+        let idx_of_unpack =
+            self.insert_binding(Key::Unpack(range), make_binding(assigned.as_deref(), None));
 
         // An unpacking has zero or one splats (starred expressions).
         let mut splat = false;
@@ -257,10 +263,22 @@ impl<'a> BindingsBuilder<'a> {
                 );
             }
             Expr::Tuple(tup) => {
-                self.bind_unpacking(&mut tup.elts, make_binding, tup.range);
+                self.bind_unpacking(
+                    &mut tup.elts,
+                    None,
+                    &|_, ann| make_binding(ann),
+                    tup.range,
+                    false,
+                );
             }
             Expr::List(lst) => {
-                self.bind_unpacking(&mut lst.elts, make_binding, lst.range);
+                self.bind_unpacking(
+                    &mut lst.elts,
+                    None,
+                    &|_, ann| make_binding(ann),
+                    lst.range,
+                    false,
+                );
             }
             Expr::Starred(x) => {
                 self.error(
