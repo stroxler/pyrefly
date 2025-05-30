@@ -109,9 +109,12 @@ impl<'a> BindingsBuilder<'a> {
         mut attr: ExprAttribute,
         mut assigned: Option<&mut Expr>,
         make_assigned_value: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+        ensure_assigned: bool,
     ) -> ExprOrBinding {
         self.ensure_expr(&mut attr.value);
-        assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+        if ensure_assigned {
+            assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+        }
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
         {
@@ -143,9 +146,12 @@ impl<'a> BindingsBuilder<'a> {
         assigned: &mut Expr,
         make_assigned_value: impl FnOnce(&Expr, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
     ) -> ExprOrBinding {
-        self.bind_attr_assign_impl(attr, Some(assigned), |expr, ann| {
-            make_assigned_value(expr.unwrap(), ann)
-        })
+        self.bind_attr_assign_impl(
+            attr,
+            Some(assigned),
+            |expr, ann| make_assigned_value(expr.unwrap(), ann),
+            true,
+        )
     }
 
     pub fn bind_attr_assign_with_binding(
@@ -153,7 +159,7 @@ impl<'a> BindingsBuilder<'a> {
         attr: ExprAttribute,
         make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
     ) -> ExprOrBinding {
-        self.bind_attr_assign_impl(attr, None, |_, ann| make_assigned_value(ann))
+        self.bind_attr_assign_impl(attr, None, |_, ann| make_assigned_value(ann), false)
     }
 
     // Create a binding to verify that a subscript assignment is valid and
@@ -163,10 +169,13 @@ impl<'a> BindingsBuilder<'a> {
         mut subscript: ExprSubscript,
         mut assigned: Option<&mut Expr>,
         make_assigned_value: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+        ensure_assigned: bool,
     ) {
         self.ensure_expr(&mut subscript.slice);
         self.ensure_expr(&mut subscript.value);
-        assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+        if ensure_assigned {
+            assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+        }
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
         {
@@ -195,7 +204,7 @@ impl<'a> BindingsBuilder<'a> {
         subscript: ExprSubscript,
         make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
     ) {
-        self.bind_subscript_assign_impl(subscript, None, |_, ann| make_assigned_value(ann))
+        self.bind_subscript_assign_impl(subscript, None, |_, ann| make_assigned_value(ann), false)
     }
 
     /// Bind the LHS of a target in a syntactic form (e.g. assignments, variables
@@ -218,6 +227,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         target: &mut Expr,
         make_assigned_value: &dyn Fn(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+        _ensure_assigned: bool,
     ) {
         let make_binding = &|ann| match make_assigned_value(ann) {
             ExprOrBinding::Expr(e) => Binding::Expr(ann, e),
@@ -228,14 +238,23 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_assign_no_term(name, make_binding);
             }
             Expr::Attribute(x) => {
-                let attr_value =
-                    self.bind_attr_assign_impl(x.clone(), None, |_, ann| make_assigned_value(ann));
+                let attr_value = self.bind_attr_assign_impl(
+                    x.clone(),
+                    None,
+                    |_, ann| make_assigned_value(ann),
+                    false,
+                );
                 // If this is a self-assignment, record it because we may use it to infer
                 // the existence of an instance-only attribute.
                 self.scopes.record_self_attr_assign(x, attr_value, None);
             }
             Expr::Subscript(x) => {
-                self.bind_subscript_assign_impl(x.clone(), None, |_, ann| make_assigned_value(ann));
+                self.bind_subscript_assign_impl(
+                    x.clone(),
+                    None,
+                    |_, ann| make_assigned_value(ann),
+                    false,
+                );
             }
             Expr::Tuple(tup) => {
                 self.bind_unpacking(&mut tup.elts, make_binding, tup.range);
@@ -249,7 +268,7 @@ impl<'a> BindingsBuilder<'a> {
                     "Starred assignment target must be in a list or tuple".to_owned(),
                     ErrorKind::InvalidSyntax,
                 );
-                self.bind_target_impl(&mut x.value, make_assigned_value);
+                self.bind_target_impl(&mut x.value, make_assigned_value, _ensure_assigned);
             }
             illegal_target => {
                 // Most structurally invalid targets become errors in the parser, which we propagate so there
@@ -268,7 +287,7 @@ impl<'a> BindingsBuilder<'a> {
         // TODO(stroxler): Clean this up: we're wrapping the binding and then just unwrapping it later.
         // Forcing all callers to produce an `ExprOrBinding` will also help us improve contextual typing.
         let make_assigned_value = &|ann| ExprOrBinding::Binding(make_binding(ann));
-        self.bind_target_impl(target, make_assigned_value);
+        self.bind_target_impl(target, make_assigned_value, false);
     }
 
     /// Similar to `bind_target`, but specifically for assignments:
@@ -283,7 +302,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(value);
             }
             let make_assigned_value = &|_| ExprOrBinding::Expr(value.clone());
-            self.bind_target_impl(target, make_assigned_value);
+            self.bind_target_impl(target, make_assigned_value, ensure_assigned);
         }
     }
 
