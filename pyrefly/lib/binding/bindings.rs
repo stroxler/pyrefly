@@ -514,12 +514,12 @@ impl<'a> BindingsBuilder<'a> {
         })
     }
 
-    /// Given the name of a function def, return a new `Idx<KeyFunctionDef>` at which
+    /// Given the name of a function def, return a new `Idx<KeyFunction>` at which
     /// we will store the result of binding it along with an optional `Idx<Key>` at which
     /// we have the binding for the TypeInfo of any preceding function def of the same name.
     ///
     /// An invariant is that the caller must store a binding for the returned
-    /// `Idx<KeyFunctionDef>`; failure to do so will lead to a dangling Idx and
+    /// `Idx<KeyFunction>`; failure to do so will lead to a dangling Idx and
     /// a panic at solve time.
     ///
     /// Function bindings are unusual because the `@overload` decorator causes bindings
