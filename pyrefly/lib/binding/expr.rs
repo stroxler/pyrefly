@@ -239,10 +239,18 @@ impl<'a> BindingsBuilder<'a> {
     fn bind_comprehensions(&mut self, range: TextRange, comprehensions: &mut [Comprehension]) {
         self.scopes.push(Scope::comprehension(range));
         for comp in comprehensions {
+            // Resolve the type of the iteration value *before* binding the target of the iteration.
+            // This is necessary so that, e.g. `[x for x in x]` correctly uses the outer scope for
+            // the `in x` lookup.
             self.ensure_expr(&mut comp.iter);
+            let iterable_value_idx = self.insert_binding(
+                Key::Anon(comp.iter.range()),
+                Binding::IterableValue(None, comp.iter.clone(), IsAsync::new(comp.is_async)),
+            );
             self.scopes.add_lvalue_to_current_static(&comp.target);
-            let make_binding =
-                |ann| Binding::IterableValue(ann, comp.iter.clone(), IsAsync::new(comp.is_async));
+            // A comprehension target cannot be annotated, so it is safe to ignore the
+            // annotation (which is None) and just use a `Forward` here.
+            let make_binding = |_ann_is_none| Binding::Forward(iterable_value_idx);
             self.bind_target(&mut comp.target, &make_binding);
             for x in comp.ifs.iter_mut() {
                 self.ensure_expr(x);
