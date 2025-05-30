@@ -640,6 +640,8 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_target_with_term(&mut x.target, &mut x.iter, &|expr, ann| {
                     Binding::IterableValue(ann, expr.clone(), IsAsync::new(x.is_async))
                 });
+                // Note that we set up the loop *after* the header is fully bound, because the
+                // loop iterator is only evaluated once before the loop begins.
                 self.setup_loop(x.range, &NarrowOps::new());
                 self.stmts(x.body);
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse);
@@ -647,6 +649,9 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::While(mut x) => {
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.setup_loop(x.range, &narrow_ops);
+                // Note that is is important we ensure *after* we set up the loop, so that both the
+                // narrowing and type checking are aware that the test might be impacted by changes
+                // made in the loop (e.g. if we reassign the test variable).
                 self.ensure_expr(&mut x.test);
                 let range = x.test.range();
                 self.insert_binding(Key::Anon(range), Binding::Expr(None, *x.test.clone()));
