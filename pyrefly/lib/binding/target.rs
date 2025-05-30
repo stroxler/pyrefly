@@ -127,37 +127,30 @@ impl<'a> BindingsBuilder<'a> {
         make_assigned_value: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
         ensure_assigned: bool,
     ) -> ExprOrBinding {
-        if let Some((identifier, _)) =
+        let narrowing_identifier =
             identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
-        {
-            let idx = self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(&identifier)));
-            self.ensure_expr(&mut attr.value);
-            if ensure_assigned {
-                assigned.iter_mut().for_each(|e| self.ensure_expr(e));
-            }
-            let value = make_assigned_value(assigned.as_deref(), None);
-            self.insert_binding_idx(
-                idx,
-                Binding::AssignToAttribute(Box::new((attr, value.clone()))),
-            );
+                .map(|(identifier, _)| identifier);
+        let idx = if let Some(identifier) = &narrowing_identifier {
+            self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(identifier)))
+        } else {
+            self.idx_for_promise(Key::Anon(attr.range))
+        };
+        self.ensure_expr(&mut attr.value);
+        if ensure_assigned {
+            assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+        }
+        let value = make_assigned_value(assigned.as_deref(), None);
+        self.insert_binding_idx(
+            idx,
+            Binding::AssignToAttribute(Box::new((attr, value.clone()))),
+        );
+        if let Some(identifier) = narrowing_identifier {
             let name = Hashed::new(&identifier.id);
             if self.lookup_name_hashed(name, LookupKind::Regular).is_ok() {
                 self.scopes.update_flow_info(name, idx, None);
             }
-            value
-        } else {
-            let idx = self.idx_for_promise(Key::Anon(attr.range));
-            self.ensure_expr(&mut attr.value);
-            if ensure_assigned {
-                assigned.iter_mut().for_each(|e| self.ensure_expr(e));
-            }
-            let value = make_assigned_value(assigned.as_deref(), None);
-            self.insert_binding_idx(
-                idx,
-                Binding::AssignToAttribute(Box::new((attr, value.clone()))),
-            );
-            value
         }
+        value
     }
 
     pub fn bind_attr_assign(
@@ -191,36 +184,29 @@ impl<'a> BindingsBuilder<'a> {
         make_assigned_value: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
         ensure_assigned: bool,
     ) {
-        if let Some((identifier, _)) =
+        let narrowing_identifier =
             identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
-        {
-            let idx = self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(&identifier)));
-            self.ensure_expr(&mut subscript.slice);
-            self.ensure_expr(&mut subscript.value);
-            if ensure_assigned {
-                assigned.iter_mut().for_each(|e| self.ensure_expr(e));
-            }
-            let value = make_assigned_value(assigned.as_deref(), None);
-            self.insert_binding_idx(
-                idx,
-                Binding::AssignToSubscript(Box::new((subscript, value))),
-            );
+                .map(|(identifier, _)| identifier);
+        let idx = if let Some(identifier) = &narrowing_identifier {
+            self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(identifier)))
+        } else {
+            self.idx_for_promise(Key::Anon(subscript.range))
+        };
+        self.ensure_expr(&mut subscript.slice);
+        self.ensure_expr(&mut subscript.value);
+        if ensure_assigned {
+            assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+        }
+        let value = make_assigned_value(assigned.as_deref(), None);
+        self.insert_binding_idx(
+            idx,
+            Binding::AssignToSubscript(Box::new((subscript, value))),
+        );
+        if let Some(identifier) = narrowing_identifier {
             let name = Hashed::new(&identifier.id);
             if self.lookup_name_hashed(name, LookupKind::Regular).is_ok() {
                 self.scopes.update_flow_info(name, idx, None);
             }
-        } else {
-            let idx = self.idx_for_promise(Key::Anon(subscript.range));
-            self.ensure_expr(&mut subscript.slice);
-            self.ensure_expr(&mut subscript.value);
-            if ensure_assigned {
-                assigned.iter_mut().for_each(|e| self.ensure_expr(e));
-            }
-            let value = make_assigned_value(assigned.as_deref(), None);
-            self.insert_binding_idx(
-                idx,
-                Binding::AssignToSubscript(Box::new((subscript, value))),
-            );
         }
     }
 
