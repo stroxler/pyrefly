@@ -369,3 +369,12 @@ def f(x: int):
 assert_type(f(1), list[int])  # E: assert_type(list[Any], list[int])
 "#,
 );
+
+testcase!(
+    test_generator_only_yield_from,
+    r#"
+from typing import Iterator
+def generator_with_only_yield_from() -> Iterator[int]:
+    yield from [1, 2, 3]
+    "#,
+);
