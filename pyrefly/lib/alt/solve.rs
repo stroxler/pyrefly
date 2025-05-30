@@ -1296,13 +1296,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         Arc::new(fields)
     }
-    // TODO: Extend the variance binding to include base classes and function signatures
-    // and use them to infer variance
-    // for now, we are just collecting variance info from type params and adding them to the map
-    // the map should be extended to inferred variances where we currently default to "invariant"
+    // TODO zeina: After doing the full implementation, look into extracting fields and
+    // base types from existing bindings
     pub fn solve_variance_binding(&self, variance_info: &BindingVariance) -> Arc<VarianceMap> {
-        let class_idx = variance_info.0;
+        let class_idx = variance_info.class_key;
         let class = self.get_idx(class_idx);
+
+        let base_classes = &variance_info.base_classes;
+        let field_keys = &variance_info.fields;
+        let mut fields = Vec::with_capacity(field_keys.len());
+        let mut base_types = Vec::with_capacity(base_classes.len());
+
+        for field_idx in field_keys {
+            let field = self.get_idx(*field_idx);
+            fields.push(field);
+        }
+
+        for base in base_classes {
+            let base_type = self.expr_infer(
+                base,
+                &ErrorCollector::new(self.module_info().clone(), ErrorStyle::Never),
+            );
+            base_types.push(base_type);
+        }
 
         if let Some(class) = &class.0 {
             let type_params = class.tparams();

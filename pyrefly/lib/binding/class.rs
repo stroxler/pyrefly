@@ -21,6 +21,7 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::alt::class::class_metadata::BaseClass;
 use crate::binding::binding::AnnotationTarget;
@@ -49,6 +50,7 @@ use crate::binding::scope::MethodThatSetsAttr;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
 use crate::error::kind::ErrorKind;
+use crate::graph::index::Idx;
 use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::types::class::ClassDefIndex;
@@ -101,6 +103,7 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         let class_indices = self.class_indices(&x.name);
+        let mut key_class_fields: SmallSet<Idx<KeyClassField>> = SmallSet::new();
 
         let body = mem::take(&mut x.body);
         let decorators = self.ensure_and_bind_decorators(mem::take(&mut x.decorator_list));
@@ -168,11 +171,6 @@ impl<'a> BindingsBuilder<'a> {
             BindingClassSynthesizedFields(class_indices.class_idx),
         );
 
-        self.insert_binding_idx(
-            class_indices.variance_idx,
-            BindingVariance(class_indices.class_idx),
-        );
-
         let legacy_tparam_builder = legacy.unwrap();
         legacy_tparam_builder.add_name_definitions(self);
 
@@ -217,10 +215,12 @@ impl<'a> BindingsBuilder<'a> {
                     name.cloned(),
                     ClassFieldProperties::new(stat_info.annot.is_some(), stat_info.loc),
                 );
-                self.insert_binding(
-                    KeyClassField(class_indices.def_index, name.into_key().clone()),
-                    binding,
-                );
+
+                let key_field = KeyClassField(class_indices.def_index, name.into_key().clone());
+
+                key_class_fields.insert(self.idx_for_promise(key_field.clone()));
+
+                self.insert_binding(key_field, binding);
             }
         }
         if let ScopeKind::Class(class_scope) = last_scope.kind {
@@ -243,8 +243,12 @@ impl<'a> BindingsBuilder<'a> {
                         name.clone(),
                         ClassFieldProperties::new(annotation.is_some(), range),
                     );
+
+                    let key_field = KeyClassField(class_indices.def_index, name.key().clone());
+                    key_class_fields.insert(self.idx_for_promise(key_field.clone()));
+
                     self.insert_binding(
-                        KeyClassField(class_indices.def_index, name.key().clone()),
+                        key_field,
                         BindingClassField {
                             class_idx: class_indices.class_idx,
                             name: name.into_key(),
@@ -280,9 +284,18 @@ impl<'a> BindingsBuilder<'a> {
                 def_index: class_indices.def_index,
                 def: x,
                 fields: fields_possibly_defined_by_this_class,
-                bases: bases.into_boxed_slice(),
+                bases: bases.clone().into_boxed_slice(),
                 legacy_tparams: legacy_tparams.into_boxed_slice(),
             }),
+        );
+
+        self.insert_binding_idx(
+            class_indices.variance_idx,
+            BindingVariance {
+                class_key: class_indices.class_idx,
+                base_classes: bases.into_boxed_slice(),
+                fields: key_class_fields,
+            },
         );
     }
 
@@ -359,11 +372,17 @@ impl<'a> BindingsBuilder<'a> {
         special_base: Option<Box<BaseClass>>,
     ) {
         let class_indices = self.class_indices(&class_name);
+        let mut key_class_fields: SmallSet<Idx<KeyClassField>> = SmallSet::new();
+
         self.insert_binding_idx(
             class_indices.metadata_idx,
             BindingClassMetadata {
                 class_idx: class_indices.class_idx,
-                bases: base.into_iter().collect::<Vec<_>>().into_boxed_slice(),
+                bases: base
+                    .clone()
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
                 keywords,
                 decorators: Box::new([]),
                 is_new_type: class_kind == SynthesizedClassKind::NewType,
@@ -373,11 +392,6 @@ impl<'a> BindingsBuilder<'a> {
         self.insert_binding_idx(
             class_indices.synthesized_fields_idx,
             BindingClassSynthesizedFields(class_indices.class_idx),
-        );
-
-        self.insert_binding_idx(
-            class_indices.variance_idx,
-            BindingVariance(class_indices.class_idx),
         );
 
         let mut fields = SmallMap::new();
@@ -462,8 +476,12 @@ impl<'a> BindingsBuilder<'a> {
             } else {
                 None
             };
+
+            let key_field = KeyClassField(class_indices.def_index, member_name.clone());
+            key_class_fields.insert(self.idx_for_promise(key_field.clone()));
+
             self.insert_binding(
-                KeyClassField(class_indices.def_index, member_name.clone()),
+                key_field,
                 BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: member_name,
@@ -484,6 +502,19 @@ impl<'a> BindingsBuilder<'a> {
         self.insert_binding_idx(
             class_indices.class_idx,
             BindingClass::FunctionalClassDef(class_indices.def_index, class_name, fields),
+        );
+
+        self.insert_binding_idx(
+            class_indices.variance_idx,
+            BindingVariance {
+                class_key: class_indices.class_idx,
+                base_classes: base
+                    .clone()
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+                fields: key_class_fields,
+            },
         );
     }
 

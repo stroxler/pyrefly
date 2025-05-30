@@ -1256,11 +1256,15 @@ impl DisplayWith<Bindings> for BindingClassSynthesizedFields {
 }
 
 #[derive(Clone, Debug)]
-pub struct BindingVariance(pub Idx<KeyClass>);
+pub struct BindingVariance {
+    pub class_key: Idx<KeyClass>,
+    pub base_classes: Box<[Expr]>,
+    pub fields: SmallSet<Idx<KeyClassField>>,
+}
 
 impl DisplayWith<Bindings> for BindingVariance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
-        write!(f, "Variance of {}", ctx.display(self.0))
+        write!(f, "Variance of {}", ctx.display(self.class_key))
     }
 }
 
