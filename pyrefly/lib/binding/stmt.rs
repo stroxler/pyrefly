@@ -457,10 +457,10 @@ impl<'a> BindingsBuilder<'a> {
                         self.insert_binding_idx(idx, binding);
                     }
                     Expr::Attribute(x) => {
-                        self.bind_attr_assign(x.clone(), make_assigned_value);
+                        self.bind_attr_assign_with_binding(x.clone(), make_assigned_value);
                     }
                     Expr::Subscript(x) => {
-                        self.bind_subscript_assign(x.clone(), make_assigned_value);
+                        self.bind_subscript_assign_with_binding(x.clone(), make_assigned_value);
                     }
                     illegal_target => {
                         // Most structurally invalid targets become errors in the parser, which we propagate so there
@@ -564,10 +564,10 @@ impl<'a> BindingsBuilder<'a> {
                         ),
                     );
                     let value = match x.value {
-                        Some(mut v) => {
-                            self.ensure_expr(&mut v);
-                            let make_value = |_| ExprOrBinding::Expr(*v);
-                            self.bind_attr_assign(attr.clone(), make_value)
+                        Some(mut assigned) => {
+                            self.bind_attr_assign(attr.clone(), &mut assigned, |v, _| {
+                                ExprOrBinding::Expr(v.clone())
+                            })
                         }
                         _ => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
                     };

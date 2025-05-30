@@ -104,17 +104,19 @@ impl<'a> BindingsBuilder<'a> {
     //
     // Return the value of the attribute assignment (as an ExprOrBinding);
     // this might be used to record self-attribute assignments.
-    pub fn bind_attr_assign(
+    pub fn bind_attr_assign_impl(
         &mut self,
         mut attr: ExprAttribute,
-        make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+        mut assigned: Option<&mut Expr>,
+        make_assigned_value: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
     ) -> ExprOrBinding {
         self.ensure_expr(&mut attr.value);
+        assigned.iter_mut().for_each(|e| self.ensure_expr(e));
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
         {
             let idx = self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(&identifier)));
-            let value = make_assigned_value(None);
+            let value = make_assigned_value(assigned.as_deref(), None);
             self.insert_binding_idx(
                 idx,
                 Binding::AssignToAttribute(Box::new((attr, value.clone()))),
@@ -126,7 +128,7 @@ impl<'a> BindingsBuilder<'a> {
             value
         } else {
             let idx = self.idx_for_promise(Key::Anon(attr.range));
-            let value = make_assigned_value(None);
+            let value = make_assigned_value(assigned.as_deref(), None);
             self.insert_binding_idx(
                 idx,
                 Binding::AssignToAttribute(Box::new((attr, value.clone()))),
@@ -135,20 +137,41 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    pub fn bind_attr_assign(
+        &mut self,
+        attr: ExprAttribute,
+        assigned: &mut Expr,
+        make_assigned_value: impl FnOnce(&Expr, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+    ) -> ExprOrBinding {
+        self.bind_attr_assign_impl(attr, Some(assigned), |expr, ann| {
+            make_assigned_value(expr.unwrap(), ann)
+        })
+    }
+
+    pub fn bind_attr_assign_with_binding(
+        &mut self,
+        attr: ExprAttribute,
+        make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+    ) -> ExprOrBinding {
+        self.bind_attr_assign_impl(attr, None, |_, ann| make_assigned_value(ann))
+    }
+
     // Create a binding to verify that a subscript assignment is valid and
     // potentially narrow (or invalidate narrows on) the name assigned to.
-    pub fn bind_subscript_assign(
+    pub fn bind_subscript_assign_impl(
         &mut self,
         mut subscript: ExprSubscript,
-        make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+        mut assigned: Option<&mut Expr>,
+        make_assigned_value: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
     ) {
         self.ensure_expr(&mut subscript.slice);
         self.ensure_expr(&mut subscript.value);
+        assigned.iter_mut().for_each(|e| self.ensure_expr(e));
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
         {
             let idx = self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(&identifier)));
-            let value = make_assigned_value(None);
+            let value = make_assigned_value(assigned.as_deref(), None);
             self.insert_binding_idx(
                 idx,
                 Binding::AssignToSubscript(Box::new((subscript, value))),
@@ -159,12 +182,20 @@ impl<'a> BindingsBuilder<'a> {
             }
         } else {
             let idx = self.idx_for_promise(Key::Anon(subscript.range));
-            let value = make_assigned_value(None);
+            let value = make_assigned_value(assigned.as_deref(), None);
             self.insert_binding_idx(
                 idx,
                 Binding::AssignToSubscript(Box::new((subscript, value))),
             );
         }
+    }
+
+    pub fn bind_subscript_assign_with_binding(
+        &mut self,
+        subscript: ExprSubscript,
+        make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+    ) {
+        self.bind_subscript_assign_impl(subscript, None, |_, ann| make_assigned_value(ann))
     }
 
     /// Bind the LHS of a target in a syntactic form (e.g. assignments, variables
@@ -197,13 +228,14 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_assign(name, make_binding);
             }
             Expr::Attribute(x) => {
-                let attr_value = self.bind_attr_assign(x.clone(), make_assigned_value);
+                let attr_value =
+                    self.bind_attr_assign_impl(x.clone(), None, |_, ann| make_assigned_value(ann));
                 // If this is a self-assignment, record it because we may use it to infer
                 // the existence of an instance-only attribute.
                 self.scopes.record_self_attr_assign(x, attr_value, None);
             }
             Expr::Subscript(x) => {
-                self.bind_subscript_assign(x.clone(), make_assigned_value);
+                self.bind_subscript_assign_impl(x.clone(), None, |_, ann| make_assigned_value(ann));
             }
             Expr::Tuple(tup) => {
                 self.bind_unpacking(&mut tup.elts, make_binding, tup.range);
