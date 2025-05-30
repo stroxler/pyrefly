@@ -78,7 +78,7 @@ impl<'a> BindingsBuilder<'a> {
                             UnpackedPosition::Slice(i, j),
                         )
                     };
-                    self.bind_target_no_term(&mut e.value, &make_nested_binding);
+                    self.bind_target_no_expr(&mut e.value, &make_nested_binding);
                 }
                 _ => {
                     let unpacked_position = if splat {
@@ -90,7 +90,7 @@ impl<'a> BindingsBuilder<'a> {
                     };
                     let make_nested_binding =
                         |ann| Binding::UnpackedValue(ann, idx_of_unpack, range, unpacked_position);
-                    self.bind_target_no_term(e, &make_nested_binding);
+                    self.bind_target_no_expr(e, &make_nested_binding);
                 }
             }
         }
@@ -303,7 +303,7 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn bind_target_with_term(
+    pub fn bind_target_with_expr(
         &mut self,
         target: &mut Expr,
         assigned: &mut Expr,
@@ -317,7 +317,7 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
-    pub fn bind_target_no_term(
+    pub fn bind_target_no_expr(
         &mut self,
         target: &mut Expr,
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
@@ -379,7 +379,7 @@ impl<'a> BindingsBuilder<'a> {
     /// - Special cases - mainly in legacy type variables - where `ensure_expr` is not the
     ///   right way to ensure because we might need to ensure as a type; we
     ///   just skip these cases for usage tracking.
-    pub fn bind_assign_no_term(
+    pub fn bind_assign_no_expr(
         &mut self,
         name: &ExprName,
         make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,

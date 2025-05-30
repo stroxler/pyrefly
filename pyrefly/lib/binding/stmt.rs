@@ -98,7 +98,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut kw.value);
             }
         }
-        self.bind_assign_no_term(name, |ann| {
+        self.bind_assign_no_expr(name, |ann| {
             Binding::TypeVar(
                 ann,
                 Ast::expr_name_identifier(name.clone()),
@@ -125,7 +125,7 @@ impl<'a> BindingsBuilder<'a> {
 
     fn assign_param_spec(&mut self, name: &ExprName, call: &mut ExprCall) {
         self.ensure_type_var_tuple_and_param_spec_args(call);
-        self.bind_assign_no_term(name, |ann| {
+        self.bind_assign_no_expr(name, |ann| {
             Binding::ParamSpec(
                 ann,
                 Ast::expr_name_identifier(name.clone()),
@@ -136,7 +136,7 @@ impl<'a> BindingsBuilder<'a> {
 
     fn assign_type_var_tuple(&mut self, name: &ExprName, call: &mut ExprCall) {
         self.ensure_type_var_tuple_and_param_spec_args(call);
-        self.bind_assign_no_term(name, |ann| {
+        self.bind_assign_no_expr(name, |ann| {
             Binding::TypeVarTuple(
                 ann,
                 Ast::expr_name_identifier(name.clone()),
@@ -350,7 +350,7 @@ impl<'a> BindingsBuilder<'a> {
                         resolve_typeshed_alias(self.module_info.name(), &name.id, &x.value) =>
             {
                 // TODO(stroxler): should we complain here if there's an existing annotation?
-                self.bind_assign_no_term(name, |_| Binding::Import(module, forward))
+                self.bind_assign_no_expr(name, |_| Binding::Import(module, forward))
             }
             Stmt::Assign(mut x) => {
                 if let [Expr::Name(name)] = x.targets.as_slice() {
@@ -605,7 +605,7 @@ impl<'a> BindingsBuilder<'a> {
                             value,
                         })),
                         None => {
-                            self.bind_target_no_term(&mut target, &|_| {
+                            self.bind_target_no_expr(&mut target, &|_| {
                                 Binding::Type(Type::any_error())
                             });
                         }
@@ -637,7 +637,7 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Stmt::For(mut x) => {
-                self.bind_target_with_term(&mut x.target, &mut x.iter, &|expr, ann| {
+                self.bind_target_with_expr(&mut x.target, &mut x.iter, &|expr, ann| {
                     Binding::IterableValue(ann, expr.clone(), IsAsync::new(x.is_async))
                 });
                 // Note that we set up the loop *after* the header is fully bound, because the
@@ -736,7 +736,7 @@ impl<'a> BindingsBuilder<'a> {
                     if let Some(mut opts) = item.optional_vars {
                         let make_binding =
                             |ann| Binding::ContextValue(ann, context_idx, expr_range, kind);
-                        self.bind_target_no_term(&mut opts, &make_binding);
+                        self.bind_target_no_expr(&mut opts, &make_binding);
                     } else {
                         self.insert_binding(
                             Key::Anon(item_range),

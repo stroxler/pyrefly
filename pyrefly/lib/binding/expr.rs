@@ -250,7 +250,7 @@ impl<'a> BindingsBuilder<'a> {
             self.scopes.add_lvalue_to_current_static(&comp.target);
             // A comprehension target cannot be annotated, so it is safe to ignore the
             // annotation (which is None) and just use a `Forward` here.
-            self.bind_target_no_term(&mut comp.target, &|_ann_is_none| {
+            self.bind_target_no_expr(&mut comp.target, &|_ann_is_none| {
                 Binding::Forward(iterable_value_idx)
             });
             for x in comp.ifs.iter_mut() {
@@ -551,7 +551,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             Expr::Named(x) => {
                 self.scopes.add_lvalue_to_current_static(&x.target);
-                self.bind_target_with_term(&mut x.target, &mut x.value, &|expr, ann| {
+                self.bind_target_with_expr(&mut x.target, &mut x.value, &|expr, ann| {
                     Binding::Expr(ann, expr.clone())
                 });
                 return;
