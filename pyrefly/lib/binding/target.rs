@@ -127,14 +127,14 @@ impl<'a> BindingsBuilder<'a> {
         make_assigned_value: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
         ensure_assigned: bool,
     ) -> ExprOrBinding {
-        self.ensure_expr(&mut attr.value);
-        if ensure_assigned {
-            assigned.iter_mut().for_each(|e| self.ensure_expr(e));
-        }
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
         {
             let idx = self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(&identifier)));
+            self.ensure_expr(&mut attr.value);
+            if ensure_assigned {
+                assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+            }
             let value = make_assigned_value(assigned.as_deref(), None);
             self.insert_binding_idx(
                 idx,
@@ -147,6 +147,10 @@ impl<'a> BindingsBuilder<'a> {
             value
         } else {
             let idx = self.idx_for_promise(Key::Anon(attr.range));
+            self.ensure_expr(&mut attr.value);
+            if ensure_assigned {
+                assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+            }
             let value = make_assigned_value(assigned.as_deref(), None);
             self.insert_binding_idx(
                 idx,
@@ -187,15 +191,15 @@ impl<'a> BindingsBuilder<'a> {
         make_assigned_value: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
         ensure_assigned: bool,
     ) {
-        self.ensure_expr(&mut subscript.slice);
-        self.ensure_expr(&mut subscript.value);
-        if ensure_assigned {
-            assigned.iter_mut().for_each(|e| self.ensure_expr(e));
-        }
         if let Some((identifier, _)) =
             identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
         {
             let idx = self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(&identifier)));
+            self.ensure_expr(&mut subscript.slice);
+            self.ensure_expr(&mut subscript.value);
+            if ensure_assigned {
+                assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+            }
             let value = make_assigned_value(assigned.as_deref(), None);
             self.insert_binding_idx(
                 idx,
@@ -207,6 +211,11 @@ impl<'a> BindingsBuilder<'a> {
             }
         } else {
             let idx = self.idx_for_promise(Key::Anon(subscript.range));
+            self.ensure_expr(&mut subscript.slice);
+            self.ensure_expr(&mut subscript.value);
+            if ensure_assigned {
+                assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+            }
             let value = make_assigned_value(assigned.as_deref(), None);
             self.insert_binding_idx(
                 idx,
