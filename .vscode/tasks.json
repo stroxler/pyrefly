@@ -41,7 +41,10 @@
       },
       "options": {
         "cwd": "${workspaceFolder}/lsp"
-      }
+      },
+      "dependsOn": [
+        "npm install"
+      ]
     },
     {
       "type": "npm",
@@ -54,7 +57,22 @@
       },
       "options": {
         "cwd": "${workspaceFolder}/lsp"
-      }
+      },
+      "dependsOn": [
+        "npm install"
+      ]
+    },
+    {
+      "label": "npm install",
+      "type": "npm",
+      "script": "install",
+      "presentation": {
+        "reveal": "never"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/lsp"
+      },
+      "group": "build"
     },
     {
       "type": "shell",
@@ -93,7 +111,10 @@
       },
       "options": {
         "cwd": "${workspaceFolder}/lsp"
-      }
+      },
+      "dependsOn": [
+        "npm install"
+      ]
     }
   ]
 }
