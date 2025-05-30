@@ -65,11 +65,11 @@ impl<'a> BindingsBuilder<'a> {
         // - We will get two different `Key::Unpacked` bindings, one for the
         //   entire RHS and another one, pointing at the first one, for `(y, z)`.
         // - We will also get three `Key::Definition` bindings, one each for `x`, `y`, and `z`.
+        let unpack_idx = self.idx_for_promise(Key::Unpack(range));
         if ensure_assigned {
             assigned.iter_mut().for_each(|e| self.ensure_expr(e))
         }
-        let idx_of_unpack =
-            self.insert_binding(Key::Unpack(range), make_binding(assigned.as_deref(), None));
+        self.insert_binding_idx(unpack_idx, make_binding(assigned.as_deref(), None));
 
         // An unpacking has zero or one splats (starred expressions).
         let mut splat = false;
@@ -83,7 +83,7 @@ impl<'a> BindingsBuilder<'a> {
                     let make_nested_binding = |ann| {
                         Binding::UnpackedValue(
                             ann,
-                            idx_of_unpack,
+                            unpack_idx,
                             range,
                             UnpackedPosition::Slice(i, j),
                         )
@@ -99,7 +99,7 @@ impl<'a> BindingsBuilder<'a> {
                         UnpackedPosition::Index(i)
                     };
                     let make_nested_binding =
-                        |ann| Binding::UnpackedValue(ann, idx_of_unpack, range, unpacked_position);
+                        |ann| Binding::UnpackedValue(ann, unpack_idx, range, unpacked_position);
                     self.bind_target_no_expr(e, &make_nested_binding);
                 }
             }
@@ -111,7 +111,7 @@ impl<'a> BindingsBuilder<'a> {
         };
         self.insert_binding(
             KeyExpect(range),
-            BindingExpect::UnpackedLength(idx_of_unpack, range, expect),
+            BindingExpect::UnpackedLength(unpack_idx, range, expect),
         );
     }
 
