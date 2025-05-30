@@ -78,7 +78,7 @@ impl<'a> BindingsBuilder<'a> {
                             UnpackedPosition::Slice(i, j),
                         )
                     };
-                    self.bind_target(&mut e.value, &make_nested_binding);
+                    self.bind_target_no_term(&mut e.value, &make_nested_binding);
                 }
                 _ => {
                     let unpacked_position = if splat {
@@ -90,7 +90,7 @@ impl<'a> BindingsBuilder<'a> {
                     };
                     let make_nested_binding =
                         |ann| Binding::UnpackedValue(ann, idx_of_unpack, range, unpacked_position);
-                    self.bind_target(e, &make_nested_binding);
+                    self.bind_target_no_term(e, &make_nested_binding);
                 }
             }
         }
@@ -303,13 +303,25 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn bind_target(
+    pub fn bind_target_with_term(
+        &mut self,
+        target: &mut Expr,
+        assigned: &mut Expr,
+        make_binding: &dyn Fn(&Expr, Option<Idx<KeyAnnotation>>) -> Binding,
+    ) {
+        self.bind_target_impl(
+            target,
+            Some(assigned),
+            &|expr, ann| ExprOrBinding::Binding(make_binding(expr.unwrap(), ann)),
+            true,
+        );
+    }
+
+    pub fn bind_target_no_term(
         &mut self,
         target: &mut Expr,
         make_binding: &dyn Fn(Option<Idx<KeyAnnotation>>) -> Binding,
     ) {
-        // TODO(stroxler): Clean this up: we're wrapping the binding and then just unwrapping it later.
-        // Forcing all callers to produce an `ExprOrBinding` will also help us improve contextual typing.
         self.bind_target_impl(
             target,
             None,

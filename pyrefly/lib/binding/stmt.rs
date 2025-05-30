@@ -605,7 +605,9 @@ impl<'a> BindingsBuilder<'a> {
                             value,
                         })),
                         None => {
-                            self.bind_target(&mut target, &|_| Binding::Type(Type::any_error()));
+                            self.bind_target_no_term(&mut target, &|_| {
+                                Binding::Type(Type::any_error())
+                            });
                         }
                     }
                 }
@@ -635,10 +637,9 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Stmt::For(mut x) => {
-                self.ensure_expr(&mut x.iter);
-                let make_binding =
-                    |ann| Binding::IterableValue(ann, *x.iter.clone(), IsAsync::new(x.is_async));
-                self.bind_target(&mut x.target, &make_binding);
+                self.bind_target_with_term(&mut x.target, &mut x.iter, &|expr, ann| {
+                    Binding::IterableValue(ann, expr.clone(), IsAsync::new(x.is_async))
+                });
                 self.setup_loop(x.range, &NarrowOps::new());
                 self.stmts(x.body);
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse);
@@ -730,7 +731,7 @@ impl<'a> BindingsBuilder<'a> {
                     if let Some(mut opts) = item.optional_vars {
                         let make_binding =
                             |ann| Binding::ContextValue(ann, context_idx, expr_range, kind);
-                        self.bind_target(&mut opts, &make_binding);
+                        self.bind_target_no_term(&mut opts, &make_binding);
                     } else {
                         self.insert_binding(
                             Key::Anon(item_range),

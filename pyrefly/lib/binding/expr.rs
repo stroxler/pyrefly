@@ -250,8 +250,9 @@ impl<'a> BindingsBuilder<'a> {
             self.scopes.add_lvalue_to_current_static(&comp.target);
             // A comprehension target cannot be annotated, so it is safe to ignore the
             // annotation (which is None) and just use a `Forward` here.
-            let make_binding = |_ann_is_none| Binding::Forward(iterable_value_idx);
-            self.bind_target(&mut comp.target, &make_binding);
+            self.bind_target_no_term(&mut comp.target, &|_ann_is_none| {
+                Binding::Forward(iterable_value_idx)
+            });
             for x in comp.ifs.iter_mut() {
                 self.ensure_expr(x);
                 let narrow_ops = NarrowOps::from_expr(self, Some(x));
@@ -550,9 +551,9 @@ impl<'a> BindingsBuilder<'a> {
             }
             Expr::Named(x) => {
                 self.scopes.add_lvalue_to_current_static(&x.target);
-                let make_binding = |ann| Binding::Expr(ann, (*x.value).clone());
-                self.bind_target(&mut x.target, &make_binding);
-                self.ensure_expr(&mut x.value);
+                self.bind_target_with_term(&mut x.target, &mut x.value, &|expr, ann| {
+                    Binding::Expr(ann, expr.clone())
+                });
                 return;
             }
             Expr::Lambda(x) => {
