@@ -224,12 +224,10 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn stmt_match(&mut self, mut x: StmtMatch) {
+        let subject_idx = self.idx_for_promise(Key::Anon(x.subject.range()));
         self.ensure_expr(&mut x.subject);
         let match_subject = *x.subject.clone();
-        let key = self.insert_binding(
-            Key::Anon(x.subject.range()),
-            Binding::Expr(None, *x.subject.clone()),
-        );
+        let key = self.insert_binding_idx(subject_idx, Binding::Expr(None, *x.subject.clone()));
         let mut exhaustive = false;
         let range = x.range;
         let mut branches = Vec::new();
@@ -253,8 +251,9 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_narrow_ops(&new_narrow_ops, case.range);
             negated_prev_ops.and_all(new_narrow_ops.negate());
             if let Some(mut guard) = case.guard {
+                let guard_idx = self.idx_for_promise(Key::Anon(guard.range()));
                 self.ensure_expr(&mut guard);
-                self.insert_binding(Key::Anon(guard.range()), Binding::Expr(None, *guard));
+                self.insert_binding_idx(guard_idx, Binding::Expr(None, *guard));
             }
             self.stmts(case.body);
             self.scopes.swap_current_flow_with(&mut base);
