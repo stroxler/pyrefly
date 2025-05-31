@@ -36,6 +36,8 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyFunction;
 use crate::binding::binding::KeyVariance;
+use crate::binding::binding::KeyYield;
+use crate::binding::binding::KeyYieldFrom;
 use crate::binding::bindings::BindingTable;
 use crate::binding::function::SelfAssignments;
 use crate::dunder;
@@ -391,8 +393,8 @@ fn is_test_setup_method(method_name: &Name) -> bool {
 #[derive(Default, Clone, Debug)]
 pub struct YieldsAndReturns {
     pub returns: Vec<(Idx<Key>, StmtReturn)>,
-    pub yields: Vec<ExprYield>,
-    pub yield_froms: Vec<ExprYieldFrom>,
+    pub yields: Vec<(Idx<KeyYield>, ExprYield)>,
+    pub yield_froms: Vec<(Idx<KeyYieldFrom>, ExprYieldFrom)>,
 }
 
 #[derive(Clone, Debug)]
@@ -932,10 +934,14 @@ impl Scopes {
     /// Record a yield in the enclosing function body there is one.
     ///
     /// Return `None` if this succeeded and Some(rejected_yield) if we are at the top-level
-    pub fn record_or_reject_yield(&mut self, x: ExprYield) -> Result<(), ExprYield> {
+    pub fn record_or_reject_yield(
+        &mut self,
+        idx: Idx<KeyYield>,
+        x: ExprYield,
+    ) -> Result<(), ExprYield> {
         match self.current_yields_and_returns_mut() {
             Some(yields_and_returns) => {
-                yields_and_returns.yields.push(x);
+                yields_and_returns.yields.push((idx, x));
                 Ok(())
             }
             None => Err(x),
@@ -945,10 +951,14 @@ impl Scopes {
     /// Record a yield in the enclosing function body there is one.
     ///
     /// Return `None` if this succeeded and Some(rejected_yield) if we are at the top-level
-    pub fn record_or_reject_yield_from(&mut self, x: ExprYieldFrom) -> Result<(), ExprYieldFrom> {
+    pub fn record_or_reject_yield_from(
+        &mut self,
+        idx: Idx<KeyYieldFrom>,
+        x: ExprYieldFrom,
+    ) -> Result<(), ExprYieldFrom> {
         match self.current_yields_and_returns_mut() {
             Some(yields_and_returns) => {
-                yields_and_returns.yield_froms.push(x);
+                yields_and_returns.yield_froms.push((idx, x));
                 Ok(())
             }
             None => Err(x),

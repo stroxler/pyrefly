@@ -36,8 +36,6 @@ use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyFunction;
 use crate::binding::binding::KeyLegacyTypeParam;
-use crate::binding::binding::KeyYield;
-use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::LastStmt;
 use crate::binding::binding::ReturnExplicit;
 use crate::binding::binding::ReturnImplicit;
@@ -356,17 +354,12 @@ impl<'a> BindingsBuilder<'a> {
         // Collect the keys of yield expressions.
         let yield_keys = yields_and_returns
             .yields
-            .into_map(|x| {
-                self.insert_binding(KeyYield(x.range), BindingYield::Yield(return_ann, x))
-            })
+            .into_map(|(idx, x)| self.insert_binding_idx(idx, BindingYield::Yield(return_ann, x)))
             .into_boxed_slice();
         let yield_from_keys = yields_and_returns
             .yield_froms
-            .into_map(|x| {
-                self.insert_binding(
-                    KeyYieldFrom(x.range),
-                    BindingYieldFrom::YieldFrom(return_ann, x),
-                )
+            .into_map(|(idx, x)| {
+                self.insert_binding_idx(idx, BindingYieldFrom::YieldFrom(return_ann, x))
             })
             .into_boxed_slice();
 

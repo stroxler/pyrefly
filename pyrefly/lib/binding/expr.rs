@@ -275,11 +275,11 @@ impl<'a> BindingsBuilder<'a> {
         // One example of this is in the standard library, in `_collections_abc.pyi`:
         // https://github.com/python/cpython/blob/965662ee4a986605b60da470d9e7c1e9a6f922b3/Lib/_collections_abc.py#L92
         let (yields_and_returns, _) = self.scopes.pop_function_scope();
-        for y in yields_and_returns.yields {
-            self.insert_binding(KeyYield(y.range), BindingYield::Invalid(y));
+        for (idx, y) in yields_and_returns.yields {
+            self.insert_binding_idx(idx, BindingYield::Invalid(y));
         }
-        for y in yields_and_returns.yield_froms {
-            self.insert_binding(KeyYieldFrom(y.range), BindingYieldFrom::Invalid(y));
+        for (idx, y) in yields_and_returns.yield_froms {
+            self.insert_binding_idx(idx, BindingYieldFrom::Invalid(y));
         }
     }
 
@@ -347,22 +347,18 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn record_yield(&mut self, mut x: ExprYield) {
+        let idx = self.idx_for_promise(KeyYield(x.range));
         self.ensure_expr_opt(x.value.as_deref_mut());
-        if let Err(oops_top_level) = self.scopes.record_or_reject_yield(x) {
-            self.insert_binding(
-                KeyYield(oops_top_level.range),
-                BindingYield::Invalid(oops_top_level),
-            );
+        if let Err(oops_top_level) = self.scopes.record_or_reject_yield(idx, x) {
+            self.insert_binding_idx(idx, BindingYield::Invalid(oops_top_level));
         }
     }
 
     fn record_yield_from(&mut self, mut x: ExprYieldFrom) {
+        let idx = self.idx_for_promise(KeyYieldFrom(x.range));
         self.ensure_expr(&mut x.value);
-        if let Err(oops_top_level) = self.scopes.record_or_reject_yield_from(x) {
-            self.insert_binding(
-                KeyYieldFrom(oops_top_level.range),
-                BindingYieldFrom::Invalid(oops_top_level),
-            );
+        if let Err(oops_top_level) = self.scopes.record_or_reject_yield_from(idx, x) {
+            self.insert_binding_idx(idx, BindingYieldFrom::Invalid(oops_top_level));
         }
     }
 
