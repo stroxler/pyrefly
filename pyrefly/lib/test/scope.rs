@@ -86,13 +86,12 @@ def h0():
 );
 
 testcase!(
-    bug = "We should not allow `del` on globals or nonlocals. It is allowed at runtime but is not safe / statically analyzable.",
     test_global_del,
     r#"
 x: str = ""
 def f():
     global x
-    del x  # Not okay: it will work at runtime, but is not statically analyzable
+    del x  # E: `x` is not mutable from the current scope
 f()
 x += "foo"  # This will crash at runtime!
 "#,
@@ -238,14 +237,13 @@ def outer():
 );
 
 testcase!(
-    bug = "We should not allow `del` on globals or nonlocals. It is allowed at runtime but is not safe / statically analyzable.",
     test_nonlocal_del,
     r#"
 def outer():
     x: str = ""
     def f():
         nonlocal x
-        del x  # Not okay: it will work at runtime, but is not statically analyzable
+        del x  # E: `x` is not mutable from the current scope
     f()
     x += "foo"  # This will crash at runtime!
 "#,
