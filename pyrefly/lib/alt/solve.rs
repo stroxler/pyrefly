@@ -962,13 +962,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn construct_and_validate_type_params(tparams: Vec<TParam>) -> (Vec<TParam>, Vec<String>) {
+    fn validate_type_params(tparams: &[TParam]) -> Vec<String> {
         let mut errors = Vec::new();
-        let mut validated_tparams: Vec<TParam> = Vec::with_capacity(tparams.len());
+        let mut last_tparam: Option<&TParam> = None;
         let mut seen = SmallSet::new();
         let mut typevartuple = None;
         for tparam in tparams {
-            if let Some(p) = validated_tparams.last()
+            if let Some(p) = last_tparam
                 && p.quantified.default().is_some()
             {
                 // Check for missing default
@@ -1019,15 +1019,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if tparam.quantified.is_type_var_tuple() {
                 typevartuple = Some(tparam.quantified.name().clone());
             }
-            validated_tparams.push(TParam {
-                quantified: tparam.quantified,
-                // Classes set the variance before getting here. For functions and aliases, the variance isn't meaningful;
-                // it doesn't matter what we set it to as long as we make it non-None to indicate that it's not missing.
-                variance: tparam.variance,
-            });
+            last_tparam = Some(tparam);
         }
-
-        (validated_tparams, errors)
+        errors
     }
 
     pub fn type_params(
@@ -1036,11 +1030,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         tparams: Vec<TParam>,
         errors: &ErrorCollector,
     ) -> TParams {
-        let (validated_tparams, t_param_errors) = Self::construct_and_validate_type_params(tparams);
-        for error in t_param_errors {
+        let tparam_errors = Self::validate_type_params(&tparams);
+        for error in tparam_errors {
             self.error(errors, range, ErrorKind::InvalidTypeVar, None, error);
         }
-        TParams::new(validated_tparams)
+        TParams::new(tparams)
     }
 
     pub fn solve_binding(&self, binding: &Binding, errors: &ErrorCollector) -> Arc<TypeInfo> {
