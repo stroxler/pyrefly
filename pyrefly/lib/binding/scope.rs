@@ -390,7 +390,7 @@ fn is_test_setup_method(method_name: &Name) -> bool {
 /// Things we collect from inside a function
 #[derive(Default, Clone, Debug)]
 pub struct YieldsAndReturns {
-    pub returns: Vec<StmtReturn>,
+    pub returns: Vec<(Idx<Key>, StmtReturn)>,
     pub yields: Vec<ExprYield>,
     pub yield_froms: Vec<ExprYieldFrom>,
 }
@@ -915,10 +915,14 @@ impl Scopes {
     /// Record a return in the enclosing function body there is one.
     ///
     /// Return `None` if this succeeded and Some(rejected_return) if we are at the top-level
-    pub fn record_or_reject_return(&mut self, x: StmtReturn) -> Result<(), StmtReturn> {
+    pub fn record_or_reject_return(
+        &mut self,
+        idx: Idx<Key>,
+        x: StmtReturn,
+    ) -> Result<(), StmtReturn> {
         match self.current_yields_and_returns_mut() {
             Some(yields_and_returns) => {
-                yields_and_returns.returns.push(x);
+                yields_and_returns.returns.push((idx, x));
                 Ok(())
             }
             None => Err(x),

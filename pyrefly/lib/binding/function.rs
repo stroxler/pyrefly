@@ -340,9 +340,9 @@ impl<'a> BindingsBuilder<'a> {
         // Collect the keys of explicit returns.
         let return_keys = yields_and_returns
             .returns
-            .into_map(|x| {
-                self.insert_binding(
-                    Key::ReturnExplicit(x.range),
+            .into_map(|(idx, x)| {
+                self.insert_binding_idx(
+                    idx,
                     Binding::ReturnExplicit(ReturnExplicit {
                         annot: return_ann,
                         expr: x.value,
