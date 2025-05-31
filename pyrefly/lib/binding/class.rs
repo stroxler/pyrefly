@@ -368,6 +368,7 @@ impl<'a> BindingsBuilder<'a> {
     fn synthesize_class_def(
         &mut self,
         class_name: Identifier,
+        class_indices: ClassIndices,
         base: Option<Expr>,
         keywords: Box<[(Name, Expr)]>,
         // name, position, annotation, value
@@ -377,7 +378,6 @@ impl<'a> BindingsBuilder<'a> {
         class_kind: SynthesizedClassKind,
         special_base: Option<Box<BaseClass>>,
     ) {
-        let class_indices = self.class_indices(&class_name);
         let mut key_class_fields: SmallSet<Idx<KeyClassField>> = SmallSet::new();
 
         self.insert_binding_idx(
@@ -533,6 +533,7 @@ impl<'a> BindingsBuilder<'a> {
         members: &mut [Expr],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
+        let class_indices = self.class_indices(&class_name);
         self.check_functional_definition_name(&name.id, arg_name);
         self.ensure_expr(func);
         self.ensure_expr(arg_name);
@@ -621,6 +622,7 @@ impl<'a> BindingsBuilder<'a> {
             .collect();
         self.synthesize_class_def(
             class_name,
+            class_indices,
             Some(func.clone()),
             Box::new([]),
             member_definitions,
@@ -642,6 +644,7 @@ impl<'a> BindingsBuilder<'a> {
         keywords: &mut [Keyword],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
+        let class_indices = self.class_indices(&class_name);
         self.ensure_expr(func);
         self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>)> = match members {
@@ -729,6 +732,7 @@ impl<'a> BindingsBuilder<'a> {
         let range = class_name.range();
         self.synthesize_class_def(
             class_name,
+            class_indices,
             None,
             Box::new([]),
             member_definitions_with_defaults,
@@ -748,6 +752,7 @@ impl<'a> BindingsBuilder<'a> {
         members: &[Expr],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
+        let class_indices = self.class_indices(&class_name);
         self.ensure_expr(func);
         self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>, Option<Expr>)> =
@@ -785,6 +790,7 @@ impl<'a> BindingsBuilder<'a> {
             .collect();
         self.synthesize_class_def(
             class_name,
+            class_indices,
             Some(func.clone()),
             Box::new([]),
             member_definitions,
@@ -803,11 +809,13 @@ impl<'a> BindingsBuilder<'a> {
         base: &mut Expr,
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
+        let class_indices = self.class_indices(&class_name);
         self.ensure_expr(new_type_name);
         self.check_functional_definition_name(&name.id, new_type_name);
         self.ensure_type(base, &mut None);
         self.synthesize_class_def(
             class_name,
+            class_indices,
             Some(base.clone()),
             Box::new([]),
             Vec::new(),
@@ -827,6 +835,7 @@ impl<'a> BindingsBuilder<'a> {
         keywords: &mut [Keyword],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
+        let class_indices = self.class_indices(&class_name);
         self.ensure_expr(func);
         self.check_functional_definition_name(&name.id, arg_name);
         let mut base_class_keywords: Box<[(Name, Expr)]> = Box::new([]);
@@ -888,6 +897,7 @@ impl<'a> BindingsBuilder<'a> {
         };
         self.synthesize_class_def(
             class_name,
+            class_indices,
             Some(func.clone()),
             base_class_keywords,
             member_definitions,
