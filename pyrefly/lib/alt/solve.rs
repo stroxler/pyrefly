@@ -962,8 +962,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn validate_type_params(tparams: &[TParam]) -> Vec<String> {
-        let mut errors = Vec::new();
+    fn validate_type_params(&self, range: TextRange, tparams: &[TParam], errors: &ErrorCollector) {
         let mut last_tparam: Option<&TParam> = None;
         let mut seen = SmallSet::new();
         let mut typevartuple = None;
@@ -973,11 +972,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 // Check for missing default
                 if tparam.quantified.default().is_none() {
-                    errors.push(format!(
-                        "Type parameter `{}` without a default cannot follow type parameter `{}` with a default",
-                        tparam.quantified.name(),
-                        p.name()
-                    ));
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::InvalidTypeVar,
+                        None,
+                        format!(
+                            "Type parameter `{}` without a default cannot follow type parameter `{}` with a default",
+                            tparam.quantified.name(),
+                            p.name()
+                        )
+                    );
                 }
             }
             if let Some(default) = tparam.quantified.default() {
@@ -994,7 +999,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 });
                 if !out_of_scope_names.is_empty() {
-                    errors.push(format!(
+                    self.error(errors, range, ErrorKind::InvalidTypeVar, None, format!(
                         "Default of type parameter `{}` refers to out-of-scope type parameter{} {}",
                         tparam.quantified.name(),
                         if out_of_scope_names.len() != 1 {
@@ -1008,11 +1013,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if tparam.quantified.is_type_var()
                     && let Some(tvt) = &typevartuple
                 {
-                    errors.push(format!(
-                        "TypeVar `{}` with a default cannot follow TypeVarTuple `{}`",
-                        tparam.quantified.name(),
-                        tvt
-                    ))
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::InvalidTypeVar,
+                        None,
+                        format!(
+                            "TypeVar `{}` with a default cannot follow TypeVarTuple `{}`",
+                            tparam.quantified.name(),
+                            tvt
+                        ),
+                    );
                 }
             }
             seen.insert(tparam.quantified.name().clone());
@@ -1021,7 +1032,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             last_tparam = Some(tparam);
         }
-        errors
     }
 
     pub fn type_params(
@@ -1030,10 +1040,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         tparams: Vec<TParam>,
         errors: &ErrorCollector,
     ) -> TParams {
-        let tparam_errors = Self::validate_type_params(&tparams);
-        for error in tparam_errors {
-            self.error(errors, range, ErrorKind::InvalidTypeVar, None, error);
-        }
+        self.validate_type_params(range, &tparams, errors);
         TParams::new(tparams)
     }
 
