@@ -304,7 +304,7 @@ impl<'a> BindingsBuilder<'a> {
         self.ensure_expr_opt(x.value.as_deref_mut());
         if let Err(oops_top_level) = self.scopes.record_or_reject_return(x) {
             if let Some(x) = oops_top_level.value {
-                self.insert_binding(Key::Anon(x.range()), Binding::Expr(None, *x));
+                self.insert_binding(Key::ReturnExplicit(x.range()), Binding::Expr(None, *x));
             }
             self.error(
                 oops_top_level.range,
