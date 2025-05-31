@@ -38,10 +38,6 @@ use crate::sys_info::SysInfo;
 pub enum DefinitionStyle {
     /// Defined in this module, e.g. `x = 1` or `def x(): ...`
     Local,
-    /// Defined in this scope from `nonlocal x`
-    Nonlocal,
-    /// Defined in this scope from `global x`
-    Global,
     /// Imported with an alias, e.g. `from x import y as z`
     ImportAs(ModuleName),
     /// Imported with an alias, where the alias is identical, e.g. `from x import y as y`

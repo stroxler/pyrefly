@@ -85,14 +85,6 @@ impl StaticInfo {
             Key::Anywhere(name.clone(), self.loc)
         }
     }
-
-    pub fn is_global(&self) -> bool {
-        self.style == DefinitionStyle::Global
-    }
-
-    pub fn is_nonlocal(&self) -> bool {
-        self.style == DefinitionStyle::Nonlocal
-    }
 }
 
 impl Static {
