@@ -75,13 +75,6 @@ impl Var {
     }
 }
 
-/// Bundles together type param info for passing around while building TParams.
-#[derive(Debug, Clone, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TParamInfo {
-    pub quantified: Quantified,
-    pub variance: PreInferenceVariance,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct TParam {

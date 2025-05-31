@@ -43,7 +43,7 @@ use crate::types::special_form::SpecialForm;
 use crate::types::tuple::Tuple;
 use crate::types::types::AnyStyle;
 use crate::types::types::CalleeKind;
-use crate::types::types::TParamInfo;
+use crate::types::types::TParam;
 use crate::types::types::Type;
 
 /// Private helper type used to share part of the logic needed for the
@@ -545,11 +545,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn class_tparams(
         &self,
         name: &Identifier,
-        scoped_tparams: Vec<TParamInfo>,
+        scoped_tparams: Vec<TParam>,
         bases: Vec<BaseClass>,
         legacy: &[Idx<KeyLegacyTypeParam>],
         errors: &ErrorCollector,
-    ) -> Vec<TParamInfo> {
+    ) -> Vec<TParam> {
         let legacy_tparams = legacy
             .iter()
             .filter_map(|key| self.get_idx(*key).deref().parameter().cloned())

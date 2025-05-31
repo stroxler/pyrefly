@@ -104,7 +104,6 @@ use crate::types::types::CalleeKind;
 use crate::types::types::Forallable;
 use crate::types::types::SuperObj;
 use crate::types::types::TParam;
-use crate::types::types::TParamInfo;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::TypeAlias;
@@ -162,7 +161,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     x.default().cloned(),
                     x.restriction().clone(),
                 );
-                Arc::new(LegacyTypeParameterLookup::Parameter(TParamInfo {
+                Arc::new(LegacyTypeParameterLookup::Parameter(TParam {
                     quantified: q,
                     variance: x.variance(),
                 }))
@@ -173,7 +172,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.uniques,
                     x.default().cloned(),
                 );
-                Arc::new(LegacyTypeParameterLookup::Parameter(TParamInfo {
+                Arc::new(LegacyTypeParameterLookup::Parameter(TParam {
                     quantified: q,
                     variance: PreInferenceVariance::PInvariant,
                 }))
@@ -184,7 +183,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.uniques,
                     x.default().cloned(),
                 );
-                Arc::new(LegacyTypeParameterLookup::Parameter(TParamInfo {
+                Arc::new(LegacyTypeParameterLookup::Parameter(TParam {
                     quantified: q,
                     variance: PreInferenceVariance::PInvariant,
                 }))
@@ -605,7 +604,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         seen_type_vars: &mut SmallMap<TypeVar, Quantified>,
         seen_type_var_tuples: &mut SmallMap<TypeVarTuple, Quantified>,
         seen_param_specs: &mut SmallMap<ParamSpec, Quantified>,
-        tparams: &mut Vec<TParamInfo>,
+        tparams: &mut Vec<TParam>,
     ) {
         match ty {
             Type::Union(ts) => {
@@ -687,7 +686,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ty_var.restriction().clone(),
                         );
                         e.insert(q.clone());
-                        tparams.push(TParamInfo {
+                        tparams.push(TParam {
                             quantified: q.clone(),
                             variance: ty_var.variance(),
                         });
@@ -706,7 +705,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ty_var_tuple.default().cloned(),
                         );
                         e.insert(q.clone());
-                        tparams.push(TParamInfo {
+                        tparams.push(TParam {
                             quantified: q.clone(),
                             variance: PreInferenceVariance::PInvariant,
                         });
@@ -725,7 +724,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             param_spec.default().cloned(),
                         );
                         e.insert(q.clone());
-                        tparams.push(TParamInfo {
+                        tparams.push(TParam {
                             quantified: q.clone(),
                             variance: PreInferenceVariance::PInvariant,
                         });
@@ -924,7 +923,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         x: Option<&TypeParams>,
         errors: &ErrorCollector,
-    ) -> Vec<TParamInfo> {
+    ) -> Vec<TParam> {
         match x {
             Some(x) => {
                 fn get_quantified(t: &Type) -> Quantified {
@@ -952,7 +951,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let name = raw_param.name();
                     let quantified =
                         get_quantified(self.get(&Key::Definition(ShortIdentifier::new(name))).ty());
-                    params.push(TParamInfo {
+                    params.push(TParam {
                         quantified,
                         variance: PreInferenceVariance::PUndefined,
                     });
@@ -963,7 +962,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn construct_and_validate_type_params(info: Vec<TParamInfo>) -> (Vec<TParam>, Vec<String>) {
+    fn construct_and_validate_type_params(info: Vec<TParam>) -> (Vec<TParam>, Vec<String>) {
         let mut errors = Vec::new();
         let mut tparams: Vec<TParam> = Vec::with_capacity(info.len());
         let mut seen = SmallSet::new();
@@ -1034,7 +1033,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn type_params(
         &self,
         range: TextRange,
-        info: Vec<TParamInfo>,
+        info: Vec<TParam>,
         errors: &ErrorCollector,
     ) -> TParams {
         let (tparams, t_param_errors) = Self::construct_and_validate_type_params(info);
