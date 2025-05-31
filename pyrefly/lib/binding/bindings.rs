@@ -862,7 +862,6 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_key(&name.id, idx, style).0
     }
 
-    #[expect(dead_code)]
     pub fn bind_definition_idx(
         &mut self,
         name: &Identifier,

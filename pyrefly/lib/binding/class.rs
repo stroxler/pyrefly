@@ -35,6 +35,7 @@ use crate::binding::binding::BindingVariance;
 use crate::binding::binding::ClassBinding;
 use crate::binding::binding::ClassFieldInitialValue;
 use crate::binding::binding::ExprOrBinding;
+use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassField;
@@ -87,6 +88,8 @@ impl<'a> BindingsBuilder<'a> {
             metadata_idx: self.idx_for_promise(KeyClassMetadata(def_index)),
             synthesized_fields_idx: self.idx_for_promise(KeyClassSynthesizedFields(def_index)),
             variance_idx: self.idx_for_promise(KeyVariance(def_index)),
+            class_object_idx: self
+                .idx_for_promise(Key::Definition(ShortIdentifier::new(class_name))),
         }
     }
 
@@ -272,8 +275,9 @@ impl<'a> BindingsBuilder<'a> {
 
         let legacy_tparams = legacy_tparam_builder.lookup_keys();
 
-        self.bind_definition(
+        self.bind_definition_idx(
             &x.name,
+            class_indices.class_object_idx,
             Binding::ClassDef(class_indices.class_idx, decorators.into_boxed_slice()),
             FlowStyle::Other,
         );
@@ -494,8 +498,9 @@ impl<'a> BindingsBuilder<'a> {
                 },
             );
         }
-        self.bind_definition(
+        self.bind_definition_idx(
             &class_name,
+            class_indices.class_object_idx,
             Binding::ClassDef(class_indices.class_idx, Box::new([])),
             FlowStyle::Other,
         );
