@@ -8,7 +8,6 @@
 use std::fmt::Debug;
 use std::mem;
 
-use itertools::Either;
 use parse_display::Display;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
@@ -392,7 +391,8 @@ fn is_test_setup_method(method_name: &Name) -> bool {
 #[derive(Default, Clone, Debug)]
 pub struct YieldsAndReturns {
     pub returns: Vec<StmtReturn>,
-    pub yields: Vec<Either<ExprYield, ExprYieldFrom>>,
+    pub yields: Vec<ExprYield>,
+    pub yield_froms: Vec<ExprYieldFrom>,
 }
 
 #[derive(Clone, Debug)]
@@ -931,7 +931,7 @@ impl Scopes {
     pub fn record_or_reject_yield(&mut self, x: ExprYield) -> Result<(), ExprYield> {
         match self.current_yields_and_returns_mut() {
             Some(yields_and_returns) => {
-                yields_and_returns.yields.push(Either::Left(x));
+                yields_and_returns.yields.push(x);
                 Ok(())
             }
             None => Err(x),
@@ -944,7 +944,7 @@ impl Scopes {
     pub fn record_or_reject_yield_from(&mut self, x: ExprYieldFrom) -> Result<(), ExprYieldFrom> {
         match self.current_yields_and_returns_mut() {
             Some(yields_and_returns) => {
-                yields_and_returns.yields.push(Either::Right(x));
+                yields_and_returns.yield_froms.push(x);
                 Ok(())
             }
             None => Err(x),

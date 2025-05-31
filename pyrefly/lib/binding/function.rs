@@ -7,7 +7,6 @@
 
 use std::mem;
 
-use itertools::Either;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::AnyParameterRef;
@@ -334,7 +333,8 @@ impl<'a> BindingsBuilder<'a> {
         stub_or_impl: FunctionStubOrImpl,
         decorators: Box<[Idx<Key>]>,
     ) {
-        let is_generator = !yields_and_returns.yields.is_empty();
+        let is_generator =
+            !(yields_and_returns.yields.is_empty() && yields_and_returns.yield_froms.is_empty());
         let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
 
         // Collect the keys of explicit returns.
@@ -356,20 +356,17 @@ impl<'a> BindingsBuilder<'a> {
         // Collect the keys of yield expressions.
         let yield_keys = yields_and_returns
             .yields
-            .into_map(|x| match x {
-                Either::Left(x) => {
-                    // Add binding to get the send type for a yield expression.
-                    Either::Left(
-                        self.insert_binding(KeyYield(x.range), BindingYield::Yield(return_ann, x)),
-                    )
-                }
-                Either::Right(x) => {
-                    // Add binding to get the return type for a yield from expression.
-                    Either::Right(self.insert_binding(
-                        KeyYieldFrom(x.range),
-                        BindingYieldFrom::YieldFrom(return_ann, x),
-                    ))
-                }
+            .into_map(|x| {
+                self.insert_binding(KeyYield(x.range), BindingYield::Yield(return_ann, x))
+            })
+            .into_boxed_slice();
+        let yield_from_keys = yields_and_returns
+            .yield_froms
+            .into_map(|x| {
+                self.insert_binding(
+                    KeyYieldFrom(x.range),
+                    BindingYieldFrom::YieldFrom(return_ann, x),
+                )
             })
             .into_boxed_slice();
 
@@ -380,6 +377,7 @@ impl<'a> BindingsBuilder<'a> {
                     returns: return_keys,
                     implicit_return,
                     yields: yield_keys,
+                    yield_froms: yield_from_keys,
                     is_async,
                     stub_or_impl,
                     decorators,

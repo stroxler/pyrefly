@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use itertools::Either;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
@@ -277,14 +276,10 @@ impl<'a> BindingsBuilder<'a> {
         // https://github.com/python/cpython/blob/965662ee4a986605b60da470d9e7c1e9a6f922b3/Lib/_collections_abc.py#L92
         let (yields_and_returns, _) = self.scopes.pop_function_scope();
         for y in yields_and_returns.yields {
-            match y {
-                Either::Left(y) => {
-                    self.insert_binding(KeyYield(y.range), BindingYield::Invalid(y));
-                }
-                Either::Right(y) => {
-                    self.insert_binding(KeyYieldFrom(y.range), BindingYieldFrom::Invalid(y));
-                }
-            }
+            self.insert_binding(KeyYield(y.range), BindingYield::Invalid(y));
+        }
+        for y in yields_and_returns.yield_froms {
+            self.insert_binding(KeyYieldFrom(y.range), BindingYieldFrom::Invalid(y));
         }
     }
 

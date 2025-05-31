@@ -671,9 +671,9 @@ pub struct ReturnType {
     /// The returns from the function.
     pub returns: Box<[Idx<Key>]>,
     pub implicit_return: Idx<Key>,
-    /// The explicit yields from the function. Left for `yield`, Right for `yield from`.
-    /// If this is non-empty, the function is a generator.
-    pub yields: Box<[Either<Idx<KeyYield>, Idx<KeyYieldFrom>>]>,
+    /// The yeilds and yield froms. If either of these are nonempty, this is a generator function.
+    pub yields: Box<[Idx<KeyYield>]>,
+    pub yield_froms: Box<[Idx<KeyYieldFrom>]>,
     pub is_async: bool,
     /// Used to ignore the implicit return type for stub functions (returning `...`). This is
     /// unsafe, but is convenient and matches Pyright's behavior.

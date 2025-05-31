@@ -2077,7 +2077,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::ReturnType(x) => {
-                let is_generator = !x.yields.is_empty();
+                let is_generator = !(x.yields.is_empty() && x.yield_froms.is_empty());
                 let implicit_return = self.get_idx(x.implicit_return);
                 if let Some((range, annot)) = &x.annot {
                     // TODO: A return type annotation like `Final` is invalid in this context.
@@ -2128,15 +2128,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         )
                     };
                     if is_generator {
-                        let yield_ty = self.unions(
-                            x.yields
+                        let yield_ty = self.unions({
+                            let yield_tys = x
+                                .yields
                                 .iter()
-                                .map(|x| match x {
-                                    Either::Left(k) => self.get_idx(*k).yield_ty.clone(),
-                                    Either::Right(k) => self.get_idx(*k).yield_ty.clone(),
-                                })
-                                .collect(),
-                        );
+                                .map(|idx| self.get_idx(*idx).yield_ty.clone());
+                            let yield_from_tys = x
+                                .yield_froms
+                                .iter()
+                                .map(|idx| self.get_idx(*idx).yield_ty.clone());
+                            yield_tys.chain(yield_from_tys).collect()
+                        });
                         if x.is_async {
                             self.stdlib
                                 .async_generator(yield_ty, Type::any_implicit())
