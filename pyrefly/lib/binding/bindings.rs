@@ -858,9 +858,19 @@ impl<'a> BindingsBuilder<'a> {
         binding: Binding,
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
-        let idx = self
-            .table
-            .insert(Key::Definition(ShortIdentifier::new(name)), binding);
+        let idx = self.insert_binding(Key::Definition(ShortIdentifier::new(name)), binding);
+        self.bind_key(&name.id, idx, style).0
+    }
+
+    #[expect(dead_code)]
+    pub fn bind_definition_idx(
+        &mut self,
+        name: &Identifier,
+        idx: Idx<Key>,
+        binding: Binding,
+        style: FlowStyle,
+    ) -> Option<Idx<KeyAnnotation>> {
+        let idx = self.insert_binding_idx(idx, binding);
         self.bind_key(&name.id, idx, style).0
     }
 
