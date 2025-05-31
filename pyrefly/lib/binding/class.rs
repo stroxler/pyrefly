@@ -13,6 +13,7 @@ use regex::Regex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprDict;
 use ruff_python_ast::ExprList;
+use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprTuple;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Keyword;
@@ -54,6 +55,7 @@ use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
+use crate::ruff::ast::Ast;
 use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassFieldProperties;
 use crate::types::special_form::SpecialForm;
@@ -523,7 +525,20 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
-    pub fn synthesize_enum_def(&mut self, class_name: Identifier, base: Expr, members: &[Expr]) {
+    pub fn synthesize_enum_def(
+        &mut self,
+        name: &ExprName,
+        func: &mut Expr,
+        arg_name: &mut Expr,
+        members: &mut [Expr],
+    ) {
+        let class_name = Ast::expr_name_identifier(name.clone());
+        self.check_functional_definition_name(&name.id, arg_name);
+        self.ensure_expr(func);
+        self.ensure_expr(arg_name);
+        for arg in &mut *members {
+            self.ensure_expr(arg);
+        }
         let member_definitions: Vec<(String, TextRange, Option<Expr>, Option<Expr>)> =
             match members {
                 // Enum('Color', 'RED, GREEN, BLUE')
@@ -606,7 +621,7 @@ impl<'a> BindingsBuilder<'a> {
             .collect();
         self.synthesize_class_def(
             class_name,
-            Some(base),
+            Some(func.clone()),
             Box::new([]),
             member_definitions,
             IllegalIdentifierHandling::Error,
@@ -620,10 +635,15 @@ impl<'a> BindingsBuilder<'a> {
     // but cannot specify the type of each element
     pub fn synthesize_collections_named_tuple_def(
         &mut self,
-        class_name: Identifier,
-        members: &[Expr],
+        name: &ExprName,
+        func: &mut Expr,
+        arg_name: &Expr,
+        members: &mut [Expr],
         keywords: &mut [Keyword],
     ) {
+        let class_name = Ast::expr_name_identifier(name.clone());
+        self.ensure_expr(func);
+        self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>)> = match members {
             // namedtuple('Point', 'x y')
             // namedtuple('Point', 'x, y')
@@ -722,10 +742,14 @@ impl<'a> BindingsBuilder<'a> {
     // This functional form allows specifying types for each element, but not default values
     pub fn synthesize_typing_named_tuple_def(
         &mut self,
-        class_name: Identifier,
-        base: Expr,
+        name: &ExprName,
+        func: &mut Expr,
+        arg_name: &Expr,
         members: &[Expr],
     ) {
+        let class_name = Ast::expr_name_identifier(name.clone());
+        self.ensure_expr(func);
+        self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>, Option<Expr>)> =
             match members {
                 // NamedTuple('Point', [('x', int), ('y', int)])
@@ -761,7 +785,7 @@ impl<'a> BindingsBuilder<'a> {
             .collect();
         self.synthesize_class_def(
             class_name,
-            Some(base),
+            Some(func.clone()),
             Box::new([]),
             member_definitions,
             IllegalIdentifierHandling::Error,
@@ -772,10 +796,19 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     // Synthesize a class definition for NewType
-    pub fn synthesize_typing_new_type(&mut self, class_name: Identifier, base: Expr) {
+    pub fn synthesize_typing_new_type(
+        &mut self,
+        name: &ExprName,
+        new_type_name: &mut Expr,
+        base: &mut Expr,
+    ) {
+        let class_name = Ast::expr_name_identifier(name.clone());
+        self.ensure_expr(new_type_name);
+        self.check_functional_definition_name(&name.id, new_type_name);
+        self.ensure_type(base, &mut None);
         self.synthesize_class_def(
             class_name,
-            Some(base),
+            Some(base.clone()),
             Box::new([]),
             Vec::new(),
             IllegalIdentifierHandling::Error,
@@ -787,11 +820,15 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn synthesize_typed_dict_def(
         &mut self,
-        class_name: Identifier,
-        base: Expr,
+        name: &ExprName,
+        func: &mut Expr,
+        arg_name: &Expr,
         args: &mut [Expr],
         keywords: &mut [Keyword],
     ) {
+        let class_name = Ast::expr_name_identifier(name.clone());
+        self.ensure_expr(func);
+        self.check_functional_definition_name(&name.id, arg_name);
         let mut base_class_keywords: Box<[(Name, Expr)]> = Box::new([]);
         for kw in keywords {
             self.ensure_expr(&mut kw.value);
@@ -851,7 +888,7 @@ impl<'a> BindingsBuilder<'a> {
         };
         self.synthesize_class_def(
             class_name,
-            Some(base),
+            Some(func.clone()),
             base_class_keywords,
             member_definitions,
             IllegalIdentifierHandling::Allow,
@@ -859,6 +896,25 @@ impl<'a> BindingsBuilder<'a> {
             SynthesizedClassKind::TypedDict,
             None,
         );
+    }
+
+    // Check that the variable name in a functional class definition matches the first argument string
+    fn check_functional_definition_name(&mut self, name: &Name, arg: &Expr) {
+        if let Expr::StringLiteral(x) = arg {
+            if x.value.to_str() != name.as_str() {
+                self.error(
+                    arg.range(),
+                    format!("Expected string literal \"{}\"", name),
+                    ErrorKind::InvalidArgument,
+                );
+            }
+        } else {
+            self.error(
+                arg.range(),
+                format!("Expected string literal \"{}\"", name),
+                ErrorKind::InvalidArgument,
+            );
+        }
     }
 }
 

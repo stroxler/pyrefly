@@ -9,12 +9,10 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
-use ruff_python_ast::Keyword;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtAssign;
 use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::StmtReturn;
-use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
@@ -56,25 +54,6 @@ impl<'a> BindingsBuilder<'a> {
                 // We pass None as imported_from, since we are really faking up a local error definition
                 self.bind_definition(asname, Binding::Type(Type::any_error()), FlowStyle::Other);
             }
-        }
-    }
-
-    // Check that the variable name in a functional definition matches the first argument string
-    fn check_functional_definition_name(&mut self, name: &Name, arg: &Expr) {
-        if let Expr::StringLiteral(x) = arg {
-            if x.value.to_str() != name.as_str() {
-                self.error(
-                    arg.range(),
-                    format!("Expected string literal \"{}\"", name),
-                    ErrorKind::InvalidArgument,
-                );
-            }
-        } else {
-            self.error(
-                arg.range(),
-                format!("Expected string literal \"{}\"", name),
-                ErrorKind::InvalidArgument,
-            );
         }
     }
 
@@ -143,84 +122,6 @@ impl<'a> BindingsBuilder<'a> {
                 Box::new(call.clone()),
             )
         })
-    }
-
-    fn assign_enum(
-        &mut self,
-        name: &ExprName,
-        func: &mut Expr,
-        arg_name: &mut Expr,
-        members: &mut [Expr],
-    ) {
-        self.ensure_expr(func);
-        self.ensure_expr(arg_name);
-        for arg in &mut *members {
-            self.ensure_expr(arg);
-        }
-        self.check_functional_definition_name(&name.id, arg_name);
-        self.synthesize_enum_def(
-            Ast::expr_name_identifier(name.clone()),
-            func.clone(),
-            members,
-        );
-    }
-
-    fn assign_typed_dict(
-        &mut self,
-        name: &ExprName,
-        func: &mut Expr,
-        arg_name: &Expr,
-        args: &mut [Expr],
-        keywords: &mut [Keyword],
-    ) {
-        self.ensure_expr(func);
-        self.check_functional_definition_name(&name.id, arg_name);
-        self.synthesize_typed_dict_def(
-            Ast::expr_name_identifier(name.clone()),
-            func.clone(),
-            args,
-            keywords,
-        );
-    }
-
-    fn assign_typing_named_tuple(
-        &mut self,
-        name: &ExprName,
-        func: &mut Expr,
-        arg_name: &Expr,
-        members: &[Expr],
-    ) {
-        self.ensure_expr(func);
-        self.check_functional_definition_name(&name.id, arg_name);
-        self.synthesize_typing_named_tuple_def(
-            Ast::expr_name_identifier(name.clone()),
-            func.clone(),
-            members,
-        );
-    }
-
-    fn assign_collections_named_tuple(
-        &mut self,
-        name: &ExprName,
-        func: &mut Expr,
-        arg_name: &Expr,
-        members: &mut [Expr],
-        keywords: &mut [Keyword],
-    ) {
-        self.ensure_expr(func);
-        self.check_functional_definition_name(&name.id, arg_name);
-        self.synthesize_collections_named_tuple_def(
-            Ast::expr_name_identifier(name.clone()),
-            members,
-            keywords,
-        );
-    }
-
-    fn assign_new_type(&mut self, name: &ExprName, new_type_name: &mut Expr, base: &mut Expr) {
-        self.ensure_expr(new_type_name);
-        self.check_functional_definition_name(&name.id, new_type_name);
-        self.ensure_type(base, &mut None);
-        self.synthesize_typing_new_type(Ast::expr_name_identifier(name.clone()), base.clone());
     }
 
     pub fn ensure_mutable_name(&mut self, x: &ExprName) -> Idx<Key> {
@@ -377,7 +278,12 @@ impl<'a> BindingsBuilder<'a> {
                                 if let Some((arg_name, members)) =
                                     call.arguments.args.split_first_mut()
                                 {
-                                    self.assign_enum(name, &mut call.func, arg_name, members);
+                                    self.synthesize_enum_def(
+                                        name,
+                                        &mut call.func,
+                                        arg_name,
+                                        members,
+                                    );
                                     return;
                                 }
                             }
@@ -385,7 +291,7 @@ impl<'a> BindingsBuilder<'a> {
                                 if let Some((arg_name, members)) =
                                     call.arguments.args.split_first_mut()
                                 {
-                                    self.assign_typed_dict(
+                                    self.synthesize_typed_dict_def(
                                         name,
                                         &mut call.func,
                                         arg_name,
@@ -399,7 +305,7 @@ impl<'a> BindingsBuilder<'a> {
                                 if let Some((arg_name, members)) =
                                     call.arguments.args.split_first_mut()
                                 {
-                                    self.assign_typing_named_tuple(
+                                    self.synthesize_typing_named_tuple_def(
                                         name,
                                         &mut call.func,
                                         arg_name,
@@ -412,7 +318,7 @@ impl<'a> BindingsBuilder<'a> {
                                 if let Some((arg_name, members)) =
                                     call.arguments.args.split_first_mut()
                                 {
-                                    self.assign_collections_named_tuple(
+                                    self.synthesize_collections_named_tuple_def(
                                         name,
                                         &mut call.func,
                                         arg_name,
@@ -424,7 +330,7 @@ impl<'a> BindingsBuilder<'a> {
                             }
                             SpecialExport::NewType => {
                                 if let [new_type_name, base] = &mut *call.arguments.args {
-                                    self.assign_new_type(name, new_type_name, base);
+                                    self.synthesize_typing_new_type(name, new_type_name, base);
                                     return;
                                 }
                             }
