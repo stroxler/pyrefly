@@ -63,9 +63,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let scoped_tparams = self.scoped_type_params(x.type_params.as_deref(), errors);
         let bases = bases.map(|x| self.base_class_of(x, errors));
         let name = &x.name;
-        let tparams_info = self.class_tparams(name, scoped_tparams, bases, legacy_tparams, errors);
+        let class_tparams = self.class_tparams(name, scoped_tparams, bases, legacy_tparams, errors);
 
-        let tparams = self.type_params(name.range, tparams_info, errors);
+        let tparams = self.type_params(name.range, class_tparams, errors);
 
         Class::new(
             def_index,
