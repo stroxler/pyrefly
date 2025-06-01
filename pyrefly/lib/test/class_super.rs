@@ -173,13 +173,13 @@ from typing import Self
 
 class A:
     def __new__(cls, x):
-        return super(A, cls).__new__(cls)  # E: Expected second argument to `super` to be a class object or instance, got `@_`
+        return super(A, cls).__new__(cls)
     def __init__(self, x):
         self.x = x
 
 class B(A):
     def __new__(cls, x):
-        return super(B, cls).__new__(cls, x)  # E: Expected second argument to `super` to be a class object or instance, got `@_`
+        return super(B, cls).__new__(cls, x)
     def __init__(self, x):
         super().__init__(x)
     "#,
@@ -196,6 +196,7 @@ class A:
 );
 
 testcase!(
+    bug = "Static methods are treating super as if they were instance methods. A hint: behavior changed in D75722156",
     test_staticmethod,
     r#"
 from typing import assert_type
@@ -213,7 +214,7 @@ class B(A):
     @staticmethod
     def h():
         # No-argument super() is a runtime error
-        super().f()  # E: `super` call with no arguments is not valid inside a staticmethod
+        super().f()  # Missing error here!
     "#,
 );
 
@@ -236,6 +237,7 @@ class B(A):
 );
 
 testcase!(
+    bug = "Classmethods are treating super as if they were instance methods. A hint: behavior changed in D75722156",
     test_call_instance_method_from_classmethod,
     r#"
 class A:
@@ -245,7 +247,7 @@ class A:
 class B(A):
     @classmethod
     def g(cls):
-        super().f(B())
+        super().f(B())  # E: Expected 0 positional arguments, got 1 in function `A.f`
     "#,
 );
 

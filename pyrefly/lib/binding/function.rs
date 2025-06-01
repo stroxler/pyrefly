@@ -491,6 +491,9 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn function_def(&mut self, mut x: StmtFunctionDef) {
+        let func_name = x.name.clone();
+        let def_idx = self.idx_for_promise(Key::Definition(ShortIdentifier::new(&func_name)));
+
         // Get preceding function definition, if any. Used for building an overload type.
         let (function_idx, pred_idx) = self.create_function_index(&x.name);
 
@@ -499,7 +502,6 @@ impl<'a> BindingsBuilder<'a> {
             _ => (None, None),
         };
 
-        let func_name = x.name.clone();
         self.scopes.push(Scope::annotation(x.range));
         let (return_ann_with_range, legacy_tparams) =
             self.function_header(&mut x, &func_name, class_key);
@@ -536,8 +538,9 @@ impl<'a> BindingsBuilder<'a> {
             },
         );
 
-        self.bind_definition(
+        self.bind_definition_idx(
             &func_name,
+            def_idx,
             Binding::Function(function_idx, pred_idx, metadata_key),
             FlowStyle::FunctionDef(function_idx, return_ann_with_range.is_some()),
         );
