@@ -167,14 +167,14 @@ impl Bindings {
         }
     }
 
-    /// Within the LSP, check if a Usage key exists.
+    /// Within the LSP, check if a BoundName key exists.
     /// It may not exist within `if False:` or `if sys.version == 0:` style code.
     pub fn is_valid_usage(&self, k: &Identifier) -> bool {
         self.0
             .table
             .get::<Key>()
             .0
-            .key_to_idx(&Key::Usage(ShortIdentifier::new(k)))
+            .key_to_idx(&Key::BoundName(ShortIdentifier::new(k)))
             .is_some()
     }
 

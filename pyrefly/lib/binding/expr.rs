@@ -189,7 +189,7 @@ impl<'a> BindingsBuilder<'a> {
         name: &Identifier,
         value: Result<Binding, LookupError>,
     ) -> Idx<Key> {
-        let key = Key::Usage(ShortIdentifier::new(name));
+        let key = Key::BoundName(ShortIdentifier::new(name));
         if name.is_empty() {
             // We only get empty identifiers if Ruff has done error correction,
             // so there must be a parse error.

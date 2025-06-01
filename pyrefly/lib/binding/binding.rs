@@ -183,8 +183,8 @@ pub enum Key {
     ReturnImplicit(ShortIdentifier),
     /// The actual type of the return for a function.
     ReturnType(ShortIdentifier),
-    /// I am a use in this module at this location.
-    Usage(ShortIdentifier),
+    /// I am a name in this module at this location, bound to the associated binding.
+    BoundName(ShortIdentifier),
     /// I am an expression that does not have a simple name but needs its type inferred.
     Anon(TextRange),
     /// I am an expression that appears in a statement. The range for this key is the range of the expr itself, which is different than the range of the stmt expr.
@@ -219,7 +219,7 @@ impl Ranged for Key {
             Self::ReturnExplicit(r) => *r,
             Self::ReturnImplicit(x) => x.range(),
             Self::ReturnType(x) => x.range(),
-            Self::Usage(x) => x.range(),
+            Self::BoundName(x) => x.range(),
             Self::Anon(r) => *r,
             Self::StmtExpr(r) => *r,
             Self::ContextExpr(r) => *r,
@@ -240,7 +240,7 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::PropertyAssign(x) => {
                 write!(f, "prop assign {}._ = _ {:?}", ctx.display(x), x.range())
             }
-            Self::Usage(x) => write!(f, "use {} {:?}", ctx.display(x), x.range()),
+            Self::BoundName(x) => write!(f, "use {} {:?}", ctx.display(x), x.range()),
             Self::Anon(r) => write!(f, "anon {r:?}"),
             Self::StmtExpr(r) => write!(f, "stmt expr {r:?}"),
             Self::ContextExpr(r) => write!(f, "context expr {r:?}"),

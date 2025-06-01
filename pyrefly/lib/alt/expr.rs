@@ -856,7 +856,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> TypeInfo {
         let res = match x {
             Expr::Name(x) => self
-                .get(&Key::Usage(ShortIdentifier::expr_name(x)))
+                .get(&Key::BoundName(ShortIdentifier::expr_name(x)))
                 .arc_clone(),
             Expr::Attribute(x) => {
                 let base = self.expr_infer_type_info(&x.value, errors);

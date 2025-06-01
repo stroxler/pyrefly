@@ -1619,7 +1619,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     identifier_and_chain_for_expr(&Expr::Attribute(attr.clone()))
                 {
                     let mut type_info = self
-                        .get(&Key::Usage(ShortIdentifier::new(&identifier)))
+                        .get(&Key::BoundName(ShortIdentifier::new(&identifier)))
                         .arc_clone();
                     type_info.update_for_assignment(chain.facets(), narrowed);
                     type_info
@@ -1629,7 +1629,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // If the chain contains an unknown subscript index, we clear narrowing for
                     // all indexes of its parent.
                     let mut type_info = self
-                        .get(&Key::Usage(ShortIdentifier::new(&identifier)))
+                        .get(&Key::BoundName(ShortIdentifier::new(&identifier)))
                         .arc_clone();
                     type_info.invalidate_all_indexes_for_assignment(&properties);
                     type_info
@@ -1651,7 +1651,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     identifier_and_chain_for_expr(&Expr::Subscript(subscript.clone()))
                 {
                     let mut type_info = self
-                        .get(&Key::Usage(ShortIdentifier::new(&identifier)))
+                        .get(&Key::BoundName(ShortIdentifier::new(&identifier)))
                         .arc_clone();
                     type_info.update_for_assignment(chain.facets(), narrowed);
                     type_info
@@ -1661,7 +1661,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // If the chain contains an unknown subscript index, we clear narrowing for
                     // all indexes of its parent.
                     let mut type_info = self
-                        .get(&Key::Usage(ShortIdentifier::new(&identifier)))
+                        .get(&Key::BoundName(ShortIdentifier::new(&identifier)))
                         .arc_clone();
                     type_info.invalidate_all_indexes_for_assignment(&properties);
                     type_info
