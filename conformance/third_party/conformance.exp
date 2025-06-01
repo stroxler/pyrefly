@@ -4192,16 +4192,6 @@
       "name": "bad-argument-type",
       "stop_column": 7,
       "stop_line": 179
-    },
-    {
-      "code": -2,
-      "column": 22,
-      "concise_description": "`DC15` is not assignable to `DataclassProto`",
-      "description": "`DC15` is not assignable to `DataclassProto`",
-      "line": 205,
-      "name": "bad-assignment",
-      "stop_column": 26,
-      "stop_line": 205
     }
   ],
   "directives_assert_type.py": [

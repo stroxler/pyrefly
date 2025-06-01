@@ -3,7 +3,7 @@
   "pass": 55,
   "fail": 81,
   "pass_rate": 0.4,
-  "differences": 415,
+  "differences": 414,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -86,7 +86,7 @@
     "dataclasses_transform_field.py": 2,
     "dataclasses_transform_func.py": 7,
     "dataclasses_transform_meta.py": 9,
-    "dataclasses_usage.py": 4,
+    "dataclasses_usage.py": 3,
     "directives_deprecated.py": 12,
     "enums_behaviors.py": 4,
     "enums_members.py": 4,
