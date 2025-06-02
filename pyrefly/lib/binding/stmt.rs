@@ -187,11 +187,11 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn bind_name_assign(&mut self, name: &ExprName, mut value: Box<Expr>) {
-        let idx = self.idx_for_promise(Key::Definition(ShortIdentifier::expr_name(name)));
+        let user = self.declare_user(Key::Definition(ShortIdentifier::expr_name(name)));
         if self.is_definitely_type_alias_rhs(value.as_ref()) {
             self.ensure_type(&mut value, &mut None);
         } else {
-            self.ensure_expr(&mut value, Usage::NotImplemented);
+            self.ensure_expr(&mut value, user.usage());
         }
         let style = if self.scopes.in_class_body() {
             FlowStyle::ClassField {
@@ -200,7 +200,7 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             FlowStyle::Other
         };
-        let (ann, default) = self.bind_key(&name.id, idx, style);
+        let (ann, default) = self.bind_user(&name.id, &user, style);
         let mut binding = Binding::NameAssign(
             name.id.clone(),
             ann.map(|k| (AnnotationStyle::Forwarded, k)),
@@ -209,7 +209,7 @@ impl<'a> BindingsBuilder<'a> {
         if let Some(default) = default {
             binding = Binding::Default(default, Box::new(binding));
         }
-        self.insert_binding_idx(idx, binding);
+        self.insert_binding_user(user, binding);
     }
 
     /// Record a return statement for later analysis if we are in a function body, and mark
@@ -463,12 +463,13 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         None
                     };
+                    let user = self.declare_user(Key::Definition(ShortIdentifier::new(&name)));
                     let binding = if let Some(mut value) = binding_value {
                         // Handle forward references in explicit type aliases.
                         if self.as_special_export(&x.annotation) == Some(SpecialExport::TypeAlias) {
                             self.ensure_type(&mut value, &mut None);
                         } else {
-                            self.ensure_expr(&mut value, Usage::NotImplemented);
+                            self.ensure_expr(&mut value, user.usage());
                         }
                         Binding::NameAssign(
                             name.id.clone(),
@@ -481,7 +482,7 @@ impl<'a> BindingsBuilder<'a> {
                             Box::new(Binding::Type(Type::any_implicit())),
                         )
                     };
-                    if let Some(ann) = self.bind_definition(&name, binding, flow_style)
+                    if let Some(ann) = self.bind_definition_user(&name, user, binding, flow_style)
                         && ann != ann_key
                     {
                         self.insert_binding(
@@ -597,9 +598,10 @@ impl<'a> BindingsBuilder<'a> {
                 // Note that is is important we ensure *after* we set up the loop, so that both the
                 // narrowing and type checking are aware that the test might be impacted by changes
                 // made in the loop (e.g. if we reassign the test variable).
-                self.ensure_expr(&mut x.test, Usage::NotImplemented);
                 let range = x.test.range();
-                self.insert_binding(Key::Anon(range), Binding::Expr(None, *x.test.clone()));
+                let user = self.declare_user(Key::Anon(range));
+                self.ensure_expr(&mut x.test, user.usage());
+                self.insert_binding_user(user, Binding::Expr(None, *x.test.clone()));
                 // Typecheck the test condition during solving.
                 self.insert_binding(
                     KeyExpect(range),
@@ -630,8 +632,9 @@ impl<'a> BindingsBuilder<'a> {
                     let mut base = self.scopes.clone_current_flow();
                     let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
                     if let Some(mut e) = test {
-                        self.ensure_expr(&mut e, Usage::NotImplemented);
-                        self.insert_binding(Key::Anon(e.range()), Binding::Expr(None, e.clone()));
+                        let user = self.declare_user(Key::Anon(e.range()));
+                        self.ensure_expr(&mut e, user.usage());
+                        self.insert_binding_user(user, Binding::Expr(None, e.clone()));
                         // Typecheck the test condition during solving.
                         self.insert_binding(
                             KeyExpect(e.range()),
@@ -671,13 +674,12 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::With(x) => {
                 let kind = IsAsync::new(x.is_async);
                 for mut item in x.items {
-                    self.ensure_expr(&mut item.context_expr, Usage::NotImplemented);
                     let item_range = item.range();
                     let expr_range = item.context_expr.range();
-                    let context_idx = self.insert_binding(
-                        Key::ContextExpr(expr_range),
-                        Binding::Expr(None, item.context_expr),
-                    );
+                    let context_user = self.declare_user(Key::ContextExpr(expr_range));
+                    self.ensure_expr(&mut item.context_expr, context_user.usage());
+                    let context_idx = self
+                        .insert_binding_user(context_user, Binding::Expr(None, item.context_expr));
                     if let Some(mut opts) = item.optional_vars {
                         let make_binding =
                             |ann| Binding::ContextValue(ann, context_idx, expr_range, kind);
@@ -736,18 +738,18 @@ impl<'a> BindingsBuilder<'a> {
                     if let Some(name) = h.name
                         && let Some(mut type_) = h.type_
                     {
-                        self.ensure_expr(&mut type_, Usage::NotImplemented);
-                        self.bind_definition(
+                        let user = self.declare_user(Key::Definition(ShortIdentifier::new(&name)));
+                        self.ensure_expr(&mut type_, user.usage());
+                        self.bind_definition_user(
                             &name,
+                            user,
                             Binding::ExceptionHandler(type_, x.is_star),
                             FlowStyle::Other,
                         );
                     } else if let Some(mut type_) = h.type_ {
-                        self.ensure_expr(&mut type_, Usage::NotImplemented);
-                        self.insert_binding(
-                            Key::Anon(range),
-                            Binding::ExceptionHandler(type_, x.is_star),
-                        );
+                        let user = self.declare_user(Key::Anon(range));
+                        self.ensure_expr(&mut type_, user.usage());
+                        self.insert_binding_user(user, Binding::ExceptionHandler(type_, x.is_star));
                     }
                     self.stmts(h.body);
                     self.scopes.swap_current_flow_with(&mut base);
@@ -758,9 +760,10 @@ impl<'a> BindingsBuilder<'a> {
                 self.stmts(x.finalbody);
             }
             Stmt::Assert(mut x) => {
-                self.ensure_expr(&mut x.test, Usage::NotImplemented);
+                let test_user = self.declare_user(Key::Anon(x.test.range()));
+                self.ensure_expr(&mut x.test, test_user.usage());
                 self.bind_narrow_ops(&NarrowOps::from_expr(self, Some(&x.test)), x.range);
-                self.insert_binding(Key::Anon(x.test.range()), Binding::Expr(None, *x.test));
+                self.insert_binding_user(test_user, Binding::Expr(None, *x.test));
                 if let Some(mut msg_expr) = x.msg {
                     let msg_user = self.declare_user(Key::UsageLink(msg_expr.range()));
                     self.ensure_expr(&mut msg_expr, msg_user.usage());
@@ -915,11 +918,9 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Stmt::Expr(mut x) => {
-                self.ensure_expr(&mut x.value, Usage::NotImplemented);
-                self.insert_binding(
-                    Key::StmtExpr(x.value.range()),
-                    Binding::Expr(None, *x.value),
-                );
+                let user = self.declare_user(Key::StmtExpr(x.value.range()));
+                self.ensure_expr(&mut x.value, user.usage());
+                self.insert_binding_user(user, Binding::Expr(None, *x.value));
             }
             Stmt::Pass(_) => { /* no-op */ }
             Stmt::Break(x) => {

@@ -59,9 +59,6 @@ use crate::types::types::Type;
 /// tracking.
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum Usage {
-    /// Placeholder to last us until usage tracking is implemented.
-    /// TODO(stroxler) Remove this once the cutover to usage tracking is finished.
-    NotImplemented,
     /// Usage to create a `Binding`.
     Idx(Idx<Key>),
     /// I am a scenario where we need to ensure expressions with no usage tracking.
