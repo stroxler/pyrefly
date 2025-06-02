@@ -28,6 +28,7 @@ use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyExpect;
+use crate::binding::binding::LinkedKey;
 use crate::binding::binding::RaisedException;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LookupKind;
@@ -242,10 +243,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Delete(mut x) => {
                 for target in &mut x.targets {
-                    self.insert_binding(
-                        KeyExpect(target.range()),
-                        BindingExpect::Delete(Box::new(target.clone())),
-                    );
+                    let user = self.declare_user(Key::UsageLink(target.range()));
                     if let Expr::Name(name) = target {
                         let idx = self.ensure_mutable_name(name);
                         self.scopes.update_flow_info(
@@ -254,8 +252,16 @@ impl<'a> BindingsBuilder<'a> {
                             Some(FlowStyle::Uninitialized),
                         );
                     } else {
-                        self.ensure_expr(target, Usage::NotImplemented);
+                        self.ensure_expr(target, user.usage());
                     }
+                    let delete_idx = self.insert_binding(
+                        KeyExpect(target.range()),
+                        BindingExpect::Delete(Box::new(target.clone())),
+                    );
+                    self.insert_binding_user(
+                        user,
+                        Binding::UsageLink(LinkedKey::Expect(delete_idx)),
+                    );
                 }
             }
             Stmt::Assign(ref x)

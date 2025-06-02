@@ -2606,6 +2606,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     LinkedKey::YieldFrom(idx) => {
                         self.get_idx(*idx);
                     }
+                    LinkedKey::Expect(idx) => {
+                        self.get_idx(*idx);
+                    }
                 }
                 // Produce a placeholder type; it will not be used.
                 Type::None

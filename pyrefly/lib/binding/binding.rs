@@ -739,6 +739,7 @@ pub struct TypeParameter {
 pub enum LinkedKey {
     Yield(Idx<KeyYield>),
     YieldFrom(Idx<KeyYieldFrom>),
+    Expect(Idx<KeyExpect>),
 }
 
 #[derive(Clone, Debug)]
@@ -1074,6 +1075,9 @@ impl DisplayWith<Bindings> for Binding {
                         write!(f, "{}", m.display(ctx.idx_to_key(*idx)))
                     }
                     LinkedKey::YieldFrom(idx) => {
+                        write!(f, "{}", m.display(ctx.idx_to_key(*idx)))
+                    }
+                    LinkedKey::Expect(idx) => {
                         write!(f, "{}", m.display(ctx.idx_to_key(*idx)))
                     }
                 }
