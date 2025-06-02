@@ -22,7 +22,7 @@ edition = "2024"
 anstream = "0.6.11"
 anyhow = "1.0.95"
 append-only-vec = "0.1.2"
-base64 = { version = "0.21", features = ["alloc"] }
+base64 = "0.22.1"
 blake3 = { version = "=1.5.5", features = ["mmap", "rayon", "traits-preview"] }
 clap = { version = "4.5.38", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 configparser = { version = "3.0.3", features = ["indexmap"] }
