@@ -17,8 +17,10 @@ use lsp_types::ConfigurationParams;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeConfiguration;
 use lsp_types::notification::DidChangeWorkspaceFolders;
+use lsp_types::notification::Exit;
 use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
+use lsp_types::request::Shutdown;
 use lsp_types::request::WorkspaceConfiguration;
 use tempfile::TempDir;
 
@@ -31,6 +33,58 @@ use crate::test::lsp::lsp_interaction_util::run_test_lsp;
 #[test]
 fn test_initialize_basic() {
     run_test_lsp(TestCase::default());
+}
+
+#[test]
+#[should_panic]
+fn test_shutdown() {
+    run_test_lsp(TestCase {
+        messages_from_language_client: vec![
+            Message::Request(Request {
+                id: RequestId::from(2),
+                method: Shutdown::METHOD.to_owned(),
+                params: serde_json::json!(null),
+            }),
+            Message::Notification(Notification {
+                method: Exit::METHOD.to_owned(),
+                params: serde_json::json!(null),
+            }),
+            // This second request should never be received by the server since it has already shut down.
+            // `run_test_lsp` panics if any request does not get handled.
+            Message::Request(Request {
+                id: RequestId::from(3),
+                method: "should not get here".to_owned(),
+                params: serde_json::json!(null),
+            }),
+        ],
+        expected_messages_from_language_server: vec![Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(serde_json::json!(null)),
+            error: None,
+        })],
+        ..Default::default()
+    });
+}
+
+#[test]
+#[should_panic]
+fn test_exit_without_shutdown() {
+    run_test_lsp(TestCase {
+        messages_from_language_client: vec![
+            Message::Notification(Notification {
+                method: Exit::METHOD.to_owned(),
+                params: serde_json::json!(null),
+            }),
+            // This second request should never be received by the server since it has already shut down.
+            // `run_test_lsp` panics if any request does not get handled.
+            Message::Request(Request {
+                id: RequestId::from(3),
+                method: "should not get here".to_owned(),
+                params: serde_json::json!(null),
+            }),
+        ],
+        ..Default::default()
+    });
 }
 
 #[test]
