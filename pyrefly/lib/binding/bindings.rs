@@ -869,6 +869,17 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_key(&name.id, idx, style).0
     }
 
+    pub fn bind_definition_user(
+        &mut self,
+        name: &Identifier,
+        user: User,
+        binding: Binding,
+        style: FlowStyle,
+    ) -> Option<Idx<KeyAnnotation>> {
+        let idx = self.insert_binding_user(user, binding);
+        self.bind_key(&name.id, idx, style).0
+    }
+
     /// Return a pair of:
     /// 1. The annotation that should be used at the moment, if one was provided.
     /// 2. The default that should be used if you are in a loop.

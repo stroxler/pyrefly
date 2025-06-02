@@ -229,6 +229,7 @@ impl<'a> BindingsBuilder<'a> {
         x: &mut StmtFunctionDef,
         func_name: &Identifier,
         class_key: Option<Idx<KeyClass>>,
+        usage: Usage,
     ) -> (
         Option<(TextRange, Idx<KeyAnnotation>)>,
         Vec<Idx<KeyLegacyTypeParam>>,
@@ -245,7 +246,7 @@ impl<'a> BindingsBuilder<'a> {
         for (param, default) in Ast::parameters_iter_mut(&mut x.parameters) {
             self.ensure_type_opt(param.annotation.as_deref_mut(), &mut legacy);
             if let Some(default) = default {
-                self.ensure_expr_opt(default.as_deref_mut(), Usage::NotImplemented);
+                self.ensure_expr_opt(default.as_deref_mut(), usage);
             }
         }
 
@@ -396,13 +397,13 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
-    fn decorators(&mut self, decorator_list: Vec<Decorator>) -> Decorators {
+    fn decorators(&mut self, decorator_list: Vec<Decorator>, usage: Usage) -> Decorators {
         let has_no_type_check = decorator_list
             .iter()
             .any(|d| self.as_special_export(&d.expression) == Some(SpecialExport::NoTypeCheck));
 
         let decorators = self
-            .ensure_and_bind_decorators(decorator_list, Usage::NotImplemented)
+            .ensure_and_bind_decorators(decorator_list, usage)
             .into_boxed_slice();
         Decorators {
             has_no_type_check,
@@ -493,7 +494,7 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn function_def(&mut self, mut x: StmtFunctionDef) {
         let func_name = x.name.clone();
-        let def_idx = self.idx_for_promise(Key::Definition(ShortIdentifier::new(&func_name)));
+        let def_user = self.declare_user(Key::Definition(ShortIdentifier::new(&func_name)));
 
         // Get preceding function definition, if any. Used for building an overload type.
         let (function_idx, pred_idx) = self.create_function_index(&x.name);
@@ -505,9 +506,9 @@ impl<'a> BindingsBuilder<'a> {
 
         self.scopes.push(Scope::annotation(x.range));
         let (return_ann_with_range, legacy_tparams) =
-            self.function_header(&mut x, &func_name, class_key);
+            self.function_header(&mut x, &func_name, class_key, def_user.usage());
 
-        let decorators = self.decorators(mem::take(&mut x.decorator_list));
+        let decorators = self.decorators(mem::take(&mut x.decorator_list), def_user.usage());
 
         let (stub_or_impl, self_assignments) = self.function_body(
             &mut x.parameters,
@@ -539,9 +540,9 @@ impl<'a> BindingsBuilder<'a> {
             },
         );
 
-        self.bind_definition_idx(
+        self.bind_definition_user(
             &func_name,
-            def_idx,
+            def_user,
             Binding::Function(function_idx, pred_idx, metadata_key),
             FlowStyle::FunctionDef(function_idx, return_ann_with_range.is_some()),
         );
