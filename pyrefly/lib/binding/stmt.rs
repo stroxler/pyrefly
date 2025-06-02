@@ -60,10 +60,12 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn assign_type_var(&mut self, name: &ExprName, call: &mut ExprCall) {
-        self.ensure_expr(&mut call.func, Usage::NotImplemented);
+        // Type var declarations are static types only; skip them for first-usage type inference.
+        let no_usage = Usage::NoUsageTracking;
+        self.ensure_expr(&mut call.func, no_usage);
         let mut iargs = call.arguments.args.iter_mut();
         if let Some(expr) = iargs.next() {
-            self.ensure_expr(expr, Usage::NotImplemented);
+            self.ensure_expr(expr, no_usage);
         }
         // The constraints (i.e., any positional arguments after the first)
         // and some keyword arguments are types.
@@ -76,7 +78,7 @@ impl<'a> BindingsBuilder<'a> {
             {
                 self.ensure_type(&mut kw.value, &mut None);
             } else {
-                self.ensure_expr(&mut kw.value, Usage::NotImplemented);
+                self.ensure_expr(&mut kw.value, no_usage);
             }
         }
         self.bind_assign_no_expr(name, |ann| {
@@ -89,9 +91,11 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn ensure_type_var_tuple_and_param_spec_args(&mut self, call: &mut ExprCall) {
-        self.ensure_expr(&mut call.func, Usage::NotImplemented);
+        // Type var declarations are static types only; skip them for first-usage type inference.
+        let no_usage = Usage::NoUsageTracking;
+        self.ensure_expr(&mut call.func, no_usage);
         for arg in call.arguments.args.iter_mut() {
-            self.ensure_expr(arg, Usage::NotImplemented);
+            self.ensure_expr(arg, no_usage);
         }
         for kw in call.arguments.keywords.iter_mut() {
             if let Some(id) = &kw.arg
@@ -99,7 +103,7 @@ impl<'a> BindingsBuilder<'a> {
             {
                 self.ensure_type(&mut kw.value, &mut None);
             } else {
-                self.ensure_expr(&mut kw.value, Usage::NotImplemented);
+                self.ensure_expr(&mut kw.value, no_usage);
             }
         }
     }
