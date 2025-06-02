@@ -133,7 +133,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn ensure_mutable_name(&mut self, x: &ExprName) -> Idx<Key> {
         let name = Ast::expr_name_identifier(x.clone());
         let binding = self
-            .lookup_name(&name.id, LookupKind::Mutable)
+            .lookup_name(Hashed::new(&name.id), LookupKind::Mutable)
             .map(Binding::Forward);
         self.ensure_name(&name, binding)
     }

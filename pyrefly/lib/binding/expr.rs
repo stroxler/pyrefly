@@ -22,6 +22,7 @@ use ruff_python_ast::ExprYieldFrom;
 use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use starlark_map::Hashed;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingYield;
@@ -619,7 +620,7 @@ impl<'a> BindingsBuilder<'a> {
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
                 let binding = self
-                    .lookup_name(&name.id, LookupKind::Regular)
+                    .lookup_name(Hashed::new(&name.id), LookupKind::Regular)
                     .map(Binding::Forward);
                 self.ensure_name(&name, binding);
             }
@@ -654,7 +655,7 @@ impl<'a> BindingsBuilder<'a> {
                         .intercept_lookup(self, &name)
                         .ok_or(LookupError::NotFound),
                     None => self
-                        .lookup_name(&name.id, LookupKind::Regular)
+                        .lookup_name(Hashed::new(&name.id), LookupKind::Regular)
                         .map(Binding::Forward),
                 };
                 self.ensure_name(&name, binding);
