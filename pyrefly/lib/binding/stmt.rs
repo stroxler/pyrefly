@@ -139,7 +139,12 @@ impl<'a> BindingsBuilder<'a> {
             match self.lookup_mutable_captured_name(&name.id, MutableCaptureLookupKind::Nonlocal) {
                 Ok(found) => Binding::Forward(found),
                 Err(error) => {
-                    self.error(name.range, error.message(name), ErrorKind::UnknownName);
+                    self.error(
+                        name.range,
+                        error.message(name),
+                        ErrorKind::UnknownName,
+                        None,
+                    );
                     Binding::Type(Type::any_error())
                 }
             };
@@ -152,7 +157,12 @@ impl<'a> BindingsBuilder<'a> {
             match self.lookup_mutable_captured_name(&name.id, MutableCaptureLookupKind::Global) {
                 Ok(found) => Binding::Forward(found),
                 Err(error) => {
-                    self.error(name.range, error.message(name), ErrorKind::UnknownName);
+                    self.error(
+                        name.range,
+                        error.message(name),
+                        ErrorKind::UnknownName,
+                        None,
+                    );
                     Binding::Type(Type::any_error())
                 }
             };
@@ -213,6 +223,7 @@ impl<'a> BindingsBuilder<'a> {
                 oops_top_level.range,
                 "Invalid `return` outside of a function".to_owned(),
                 ErrorKind::BadReturn,
+                None,
             );
         }
         self.scopes.mark_flow_termination();
@@ -492,6 +503,7 @@ impl<'a> BindingsBuilder<'a> {
                                  attr_name,
                              ),
                              ErrorKind::BadAssignment,
+                             None,
                          );
                     }
                 }
@@ -503,6 +515,7 @@ impl<'a> BindingsBuilder<'a> {
                             x.annotation.range(),
                             "Subscripts should not be annotated".to_owned(),
                             ErrorKind::InvalidSyntax,
+                            None,
                         );
                     }
                     // Try and continue as much as we can, by throwing away the type or just binding to error
@@ -541,6 +554,7 @@ impl<'a> BindingsBuilder<'a> {
                         x.range,
                         "Invalid assignment target".to_owned(),
                         ErrorKind::InvalidSyntax,
+                        None,
                     );
                 }
             }
@@ -734,7 +748,7 @@ impl<'a> BindingsBuilder<'a> {
                 for x in x.names {
                     let m = ModuleName::from_name(&x.name.id);
                     if let Err(err @ FindError::NotFound(..)) = self.lookup.get(m) {
-                        self.error(x.range, err.display(), ErrorKind::ImportError);
+                        self.error(x.range, err.display(), ErrorKind::ImportError, None);
                     }
                     match x.asname {
                         Some(asname) => {
@@ -784,6 +798,7 @@ impl<'a> BindingsBuilder<'a> {
                                                 x.range,
                                                 format!("Could not import `{name}` from `{m}`"),
                                                 ErrorKind::MissingModuleAttribute,
+                                                None,
                                             );
                                             Binding::Type(Type::any_error())
                                         };
@@ -824,6 +839,7 @@ impl<'a> BindingsBuilder<'a> {
                                                     x.name.id
                                                 ),
                                                 ErrorKind::MissingModuleAttribute,
+                                                None,
                                             );
                                             Binding::Type(Type::any_error())
                                         }
@@ -842,7 +858,7 @@ impl<'a> BindingsBuilder<'a> {
                             | FindError::NoSource(_)
                             | FindError::NotFound(..)),
                         ) => {
-                            self.error(x.range, err.display(), ErrorKind::ImportError);
+                            self.error(x.range, err.display(), ErrorKind::ImportError, None);
                             self.bind_unimportable_names(&x);
                         }
                     }
@@ -854,6 +870,7 @@ impl<'a> BindingsBuilder<'a> {
                             ".".repeat(x.level as usize)
                         ),
                         ErrorKind::ImportError,
+                        None,
                     );
                     self.bind_unimportable_names(&x);
                 }
@@ -886,6 +903,7 @@ impl<'a> BindingsBuilder<'a> {
                 x.range,
                 "IPython escapes are not supported".to_owned(),
                 ErrorKind::Unsupported,
+                None,
             ),
         }
     }

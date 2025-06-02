@@ -60,6 +60,7 @@ use crate::binding::scope::Scopes;
 use crate::binding::table::TableKeyed;
 use crate::config::base::UntypedDefBehavior;
 use crate::error::collector::ErrorCollector;
+use crate::error::context::ErrorContext;
 use crate::error::kind::ErrorKind;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
@@ -615,6 +616,7 @@ impl<'a> BindingsBuilder<'a> {
                     TextRange::default(),
                     err.display(),
                     ErrorKind::InternalError,
+                    None,
                 );
             }
             Err(FindError::Ignored | FindError::NoPyTyped | FindError::NoSource(_)) => (),
@@ -642,8 +644,14 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn error(&self, range: TextRange, msg: String, error_kind: ErrorKind) {
-        self.errors.add(range, msg, error_kind, None);
+    pub fn error(
+        &self,
+        range: TextRange,
+        msg: String,
+        error_kind: ErrorKind,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) {
+        self.errors.add(range, msg, error_kind, context);
     }
 
     pub fn lookup_mutable_captured_name(
@@ -984,6 +992,7 @@ impl<'a> BindingsBuilder<'a> {
                 range,
                 format!("Cannot `{exit}` outside loop"),
                 ErrorKind::ParseError,
+                None,
             );
         }
     }

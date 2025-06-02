@@ -303,6 +303,7 @@ impl<'a> BindingsBuilder<'a> {
                     x.range,
                     "Starred assignment target must be in a list or tuple".to_owned(),
                     ErrorKind::InvalidSyntax,
+                    None,
                 );
                 self.bind_target_impl(&mut x.value, assigned, make_assigned_value, ensure_assigned);
             }

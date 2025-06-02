@@ -232,7 +232,7 @@ impl<'a> BindingsBuilder<'a> {
                         .get_flow_style(&name.id)
                         .uninitialized_error_message(name)
                     {
-                        self.error(name.range, error_message, ErrorKind::UnboundName);
+                        self.error(name.range, error_message, ErrorKind::UnboundName, None);
                     }
                 }
                 self.insert_binding(key, value)
@@ -251,7 +251,12 @@ impl<'a> BindingsBuilder<'a> {
             ),
             Err(error) => {
                 // Record a type error and fall back to `Any`.
-                self.error(name.range, error.message(name), ErrorKind::UnknownName);
+                self.error(
+                    name.range,
+                    error.message(name),
+                    ErrorKind::UnknownName,
+                    None,
+                );
                 self.insert_binding(key, Binding::Type(Type::any_error()))
             }
         }
@@ -482,7 +487,7 @@ impl<'a> BindingsBuilder<'a> {
                 for kw in keywords {
                     self.ensure_expr(&mut kw.value, usage);
                     unexpected_keyword(
-                        &|msg| self.error(*range, msg, ErrorKind::UnexpectedKeyword),
+                        &|msg| self.error(*range, msg, ErrorKind::UnexpectedKeyword, None),
                         "super",
                         kw,
                     );
@@ -513,6 +518,7 @@ impl<'a> BindingsBuilder<'a> {
                                 "`super` call with no arguments is valid only inside a method"
                                     .to_owned(),
                                 ErrorKind::InvalidSuperCall,
+                                None,
                             );
                             SuperStyle::Any
                         }
@@ -536,6 +542,7 @@ impl<'a> BindingsBuilder<'a> {
                             *range,
                             format!("`super` takes at most 2 arguments, got {}", nargs),
                             ErrorKind::InvalidSuperCall,
+                            None,
                         );
                     }
                     for arg in posargs {
@@ -685,6 +692,7 @@ impl<'a> BindingsBuilder<'a> {
                             literal.value.to_str()
                         ),
                         ErrorKind::ParseError,
+                        None,
                     );
                 }
             },
