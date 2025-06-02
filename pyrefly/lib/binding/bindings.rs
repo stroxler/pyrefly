@@ -477,6 +477,10 @@ impl User {
     pub fn usage(&self) -> Usage {
         Usage::Idx(self.0)
     }
+
+    pub fn into_idx(self) -> Idx<Key> {
+        self.0
+    }
 }
 
 impl<'a> BindingsBuilder<'a> {

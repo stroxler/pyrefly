@@ -218,11 +218,11 @@ impl<'a> BindingsBuilder<'a> {
     /// If this is the top level, report a type error about the invalid return
     /// and also create a binding to ensure we type check the expression.
     fn record_return(&mut self, mut x: StmtReturn) {
-        let idx = self.idx_for_promise(Key::ReturnExplicit(x.range()));
-        self.ensure_expr_opt(x.value.as_deref_mut(), Usage::NotImplemented);
-        if let Err(oops_top_level) = self.scopes.record_or_reject_return(idx, x) {
+        let user = self.declare_user(Key::ReturnExplicit(x.range()));
+        self.ensure_expr_opt(x.value.as_deref_mut(), user.usage());
+        if let Err((user, oops_top_level)) = self.scopes.record_or_reject_return(user, x) {
             if let Some(v) = oops_top_level.value {
-                self.insert_binding_idx(idx, Binding::Expr(None, *v));
+                self.insert_binding_user(user, Binding::Expr(None, *v));
             }
             self.error(
                 oops_top_level.range,
