@@ -101,7 +101,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         error_kind: ErrorKind,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> CallTarget {
-        errors.add(range, msg, error_kind, context);
+        self.error(errors, range, error_kind, context, msg);
         CallTarget::new(Target::Any(AnyStyle::Error))
     }
 

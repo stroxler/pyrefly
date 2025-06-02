@@ -326,7 +326,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn is_valid_annotation(x: &Expr, errors: &ErrorCollector) -> bool {
+    fn is_valid_annotation(&self, x: &Expr, errors: &ErrorCollector) -> bool {
         // Note that this function only checks for correct syntax.
         // Semantic validation (e.g. that `typing.Self` is used in a class
         // context, or that a string evaluates to a proper type expression) is
@@ -372,11 +372,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // expression constructs if desired.
             _ => "expression",
         };
-        errors.add(
+        self.error(
+            errors,
             x.range(),
-            format!("{problem} cannot be used in annotations"),
             ErrorKind::InvalidAnnotation,
             None,
+            format!("{problem} cannot be used in annotations"),
         );
         false
     }
@@ -387,7 +388,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         type_form_context: TypeFormContext,
         errors: &ErrorCollector,
     ) -> Annotation {
-        if !Self::is_valid_annotation(x, errors) {
+        if !self.is_valid_annotation(x, errors) {
             return Annotation::new_type(Type::any_error());
         }
         match x {
@@ -753,7 +754,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         let range = expr.range();
-        if !Self::is_valid_annotation(expr, errors) {
+        if !self.is_valid_annotation(expr, errors) {
             return Type::any_error();
         }
         let untyped = self.untype_opt(ty.clone(), range);
@@ -2008,7 +2009,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     (None, ty_ref)
                         if Self::may_be_implicit_type_alias(ty_ref)
-                            && Self::is_valid_annotation(expr, &self.error_swallower()) =>
+                            && self.is_valid_annotation(expr, &self.error_swallower()) =>
                     {
                         self.as_type_alias(name, TypeAliasStyle::LegacyImplicit, ty, expr, errors)
                     }
