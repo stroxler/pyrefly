@@ -172,14 +172,6 @@ impl<'a> BindingsBuilder<'a> {
         )
     }
 
-    pub fn bind_attr_assign_with_binding(
-        &mut self,
-        attr: ExprAttribute,
-        make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
-    ) -> ExprOrBinding {
-        self.bind_attr_assign_impl(attr, None, |_, ann| make_assigned_value(ann), false)
-    }
-
     // Create a binding to verify that a subscript assignment is valid and
     // potentially narrow (or invalidate narrows on) the name assigned to.
     pub fn bind_subscript_assign_impl(
@@ -217,12 +209,18 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn bind_subscript_assign_with_binding(
+    pub fn bind_subscript_assign(
         &mut self,
         subscript: ExprSubscript,
-        make_assigned_value: impl FnOnce(Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+        assigned: &mut Expr,
+        make_assigned_value: impl FnOnce(&Expr, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
     ) {
-        self.bind_subscript_assign_impl(subscript, None, |_, ann| make_assigned_value(ann), false)
+        self.bind_subscript_assign_impl(
+            subscript,
+            Some(assigned),
+            |expr, ann| make_assigned_value(expr.unwrap(), ann),
+            true,
+        )
     }
 
     /// Bind the LHS of a target in a syntactic form (e.g. assignments, variables
