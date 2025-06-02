@@ -748,7 +748,8 @@ impl<'a> BindingsBuilder<'a> {
                 for x in x.names {
                     let m = ModuleName::from_name(&x.name.id);
                     if let Err(err @ FindError::NotFound(..)) = self.lookup.get(m) {
-                        self.error(x.range, err.display(), ErrorKind::ImportError, None);
+                        let (ctx, msg) = err.display();
+                        self.error(x.range, msg, ErrorKind::ImportError, ctx.as_deref());
                     }
                     match x.asname {
                         Some(asname) => {
@@ -858,7 +859,8 @@ impl<'a> BindingsBuilder<'a> {
                             | FindError::NoSource(_)
                             | FindError::NotFound(..)),
                         ) => {
-                            self.error(x.range, err.display(), ErrorKind::ImportError, None);
+                            let (ctx, msg) = err.display();
+                            self.error(x.range, msg, ErrorKind::ImportError, ctx.as_deref());
                             self.bind_unimportable_names(&x);
                         }
                     }

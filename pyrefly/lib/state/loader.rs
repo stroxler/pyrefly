@@ -18,6 +18,7 @@ use pyrefly_util::locked_map::LockedMap;
 use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::config::config::ImportLookupPathPart;
+use crate::error::context::ErrorContext;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 
@@ -70,30 +71,35 @@ impl FindError {
             })
             .join("");
         let explanation = if path_dump.is_empty() {
-            format!("no search path or site package path{config_suffix}")
+            format!("No search path or site package path{config_suffix}")
         } else {
-            format!("looked in these locations{config_suffix}:{path_dump}")
+            format!("Looked in these locations{config_suffix}:{path_dump}")
         };
         FindError::NotFound(Arc::new(anyhow!(explanation)), module)
     }
 
-    pub fn display(&self) -> String {
+    pub fn display(&self) -> (Option<Box<dyn Fn() -> ErrorContext + '_>>, String) {
         match self {
-            Self::NotFound(err, module) => {
-                format!("Could not find import of `{module}`, {:#}", err)
-            }
-            Self::Ignored => "Ignored import".to_owned(),
-            Self::NoPyTyped => "Imported package does not contain a py.typed file, \
+            Self::NotFound(err, module) => (
+                Some(Box::new(|| ErrorContext::ImportNotFound(*module))),
+                format!("{err:#}"),
+            ),
+            Self::Ignored => (None, "Ignored import".to_owned()),
+            Self::NoPyTyped => (
+                None,
+                "Imported package does not contain a py.typed file, \
                 and therefore cannot be typed. Try installing a `<package name>-stubs` version
                 of your package to get the released stubs, or enable `use_untyped_imports` to
                 disable this error."
-                .to_owned(),
-            Self::NoSource(module) => {
+                    .to_owned(),
+            ),
+            Self::NoSource(module) => (
+                None,
                 format!(
                     "Found stubs for `{module}`, but no source. This means it's likely not \
                     installed/unimportable. See `ignore_missing_source` to disable this error."
-                )
-            }
+                ),
+            ),
         }
     }
 }

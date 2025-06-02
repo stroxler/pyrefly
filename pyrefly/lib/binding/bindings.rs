@@ -612,11 +612,12 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Err(err @ FindError::NotFound(..)) => {
+                let (ctx, msg) = err.display();
                 self.error(
                     TextRange::default(),
-                    err.display(),
+                    msg,
                     ErrorKind::InternalError,
-                    None,
+                    ctx.as_deref(),
                 );
             }
             Err(FindError::Ignored | FindError::NoPyTyped | FindError::NoSource(_)) => (),
