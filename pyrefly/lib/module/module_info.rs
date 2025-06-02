@@ -11,6 +11,7 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_util::arc_id::ArcId;
 use ruff_python_ast::ModModule;
 use ruff_source_file::LineIndex;
 use ruff_source_file::OneIndexed;
@@ -57,8 +58,8 @@ impl Display for SourceRange {
 }
 
 /// Information about a module, notably its name, path, and contents.
-#[derive(Debug, Clone, Dupe)]
-pub struct ModuleInfo(Arc<ModuleInfoInner>);
+#[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash)]
+pub struct ModuleInfo(ArcId<ModuleInfoInner>);
 
 #[derive(Debug, Clone)]
 struct ModuleInfoInner {
@@ -76,7 +77,7 @@ impl ModuleInfo {
         let index = LineIndex::from_source_text(&contents);
         let ignore = Ignore::new(&contents);
         let is_generated = contents.contains(GENERATED_TOKEN);
-        Self(Arc::new(ModuleInfoInner {
+        Self(ArcId::new(ModuleInfoInner {
             name,
             path,
             index,
