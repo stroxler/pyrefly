@@ -1000,7 +1000,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // We could have a more precise type here, but this matches Pyright.
                     self.stdlib.str().clone().to_type()
                 }
-                Type::ClassType(ref cls)
+                Type::ClassType(ref cls) | Type::SelfType(ref cls)
                     if let Some(elts) = self.named_tuple_element_types(cls) =>
                 {
                     self.infer_tuple_index(
@@ -1011,7 +1011,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
                     )
                 }
-                Type::ClassType(_) => self.call_method_or_error(
+                Type::ClassType(_) | Type::SelfType(_) => self.call_method_or_error(
                     &base,
                     &dunder::GETITEM,
                     range,

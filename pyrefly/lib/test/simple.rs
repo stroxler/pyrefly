@@ -1436,6 +1436,30 @@ def l(x: int | None):
 );
 
 testcase!(
+    test_self_subscript,
+    r#"
+from collections.abc import Mapping
+
+class Repro(Mapping):
+    def __init__(self, settings) -> None:
+        self._settings = settings
+
+    def __getitem__(self, key):
+        return self._settings[key]
+
+    def __len__(self) -> int:
+        return len(self._settings)
+
+    def __iter__(self):
+        raise NotImplementedError
+
+    def f(self):
+        print(self)
+        print(self["test"])
+"#,
+);
+
+testcase!(
     test_sum_map,
     r#"
 from typing import Any, Callable
