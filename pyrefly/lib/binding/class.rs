@@ -45,6 +45,7 @@ use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
+use crate::binding::bindings::User;
 use crate::binding::expr::Usage;
 use crate::binding::scope::ClassIndices;
 use crate::binding::scope::FlowStyle;
@@ -83,17 +84,19 @@ impl<'a> BindingsBuilder<'a> {
         res
     }
 
-    fn class_indices(&mut self, class_name: &Identifier) -> ClassIndices {
+    fn class_object_and_indices(&mut self, class_name: &Identifier) -> (User, ClassIndices) {
         let def_index = self.def_index();
-        ClassIndices {
+        let class_indices = ClassIndices {
             def_index,
             class_idx: self.idx_for_promise(KeyClass(ShortIdentifier::new(class_name))),
             metadata_idx: self.idx_for_promise(KeyClassMetadata(def_index)),
             synthesized_fields_idx: self.idx_for_promise(KeyClassSynthesizedFields(def_index)),
             variance_idx: self.idx_for_promise(KeyVariance(def_index)),
-            class_object_idx: self
-                .idx_for_promise(Key::Definition(ShortIdentifier::new(class_name))),
-        }
+        };
+        // The user - used for first-usage tracking of any expressions we analyze in a class definition -
+        // is the `Idx<Key>` of the class object bound to the class name.
+        let class_object = self.declare_user(Key::Definition(ShortIdentifier::new(class_name)));
+        (class_object, class_indices)
     }
 
     pub fn class_def(&mut self, mut x: StmtClassDef) {
@@ -108,7 +111,7 @@ impl<'a> BindingsBuilder<'a> {
             return;
         }
 
-        let class_indices = self.class_indices(&x.name);
+        let (class_object, class_indices) = self.class_object_and_indices(&x.name);
         let mut key_class_fields: SmallSet<Idx<KeyClassField>> = SmallSet::new();
 
         let body = mem::take(&mut x.body);
@@ -281,9 +284,9 @@ impl<'a> BindingsBuilder<'a> {
 
         let legacy_tparams = legacy_tparam_builder.lookup_keys();
 
-        self.bind_definition_idx(
+        self.bind_definition_user(
             &x.name,
-            class_indices.class_object_idx,
+            class_object,
             Binding::ClassDef(class_indices.class_idx, decorators.into_boxed_slice()),
             FlowStyle::Other,
         );
@@ -376,6 +379,7 @@ impl<'a> BindingsBuilder<'a> {
     fn synthesize_class_def(
         &mut self,
         class_name: Identifier,
+        class_object: User,
         class_indices: ClassIndices,
         base: Option<Expr>,
         keywords: Box<[(Name, Expr)]>,
@@ -512,9 +516,9 @@ impl<'a> BindingsBuilder<'a> {
                 },
             );
         }
-        self.bind_definition_idx(
+        self.bind_definition_user(
             &class_name,
-            class_indices.class_object_idx,
+            class_object,
             Binding::ClassDef(class_indices.class_idx, Box::new([])),
             FlowStyle::Other,
         );
@@ -545,7 +549,7 @@ impl<'a> BindingsBuilder<'a> {
         members: &mut [Expr],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
-        let class_indices = self.class_indices(&class_name);
+        let (class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.check_functional_definition_name(&name.id, arg_name);
         self.ensure_expr(func, Usage::NotImplemented);
         self.ensure_expr(arg_name, Usage::NotImplemented);
@@ -637,6 +641,7 @@ impl<'a> BindingsBuilder<'a> {
             .collect();
         self.synthesize_class_def(
             class_name,
+            class_object,
             class_indices,
             Some(func.clone()),
             Box::new([]),
@@ -659,7 +664,7 @@ impl<'a> BindingsBuilder<'a> {
         keywords: &mut [Keyword],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
-        let class_indices = self.class_indices(&class_name);
+        let (class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.ensure_expr(func, Usage::NotImplemented);
         self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>)> = match members {
@@ -750,6 +755,7 @@ impl<'a> BindingsBuilder<'a> {
         let range = class_name.range();
         self.synthesize_class_def(
             class_name,
+            class_object,
             class_indices,
             None,
             Box::new([]),
@@ -770,7 +776,7 @@ impl<'a> BindingsBuilder<'a> {
         members: &[Expr],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
-        let class_indices = self.class_indices(&class_name);
+        let (class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.ensure_expr(func, Usage::NotImplemented);
         self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>, Option<Expr>)> =
@@ -809,6 +815,7 @@ impl<'a> BindingsBuilder<'a> {
             .collect();
         self.synthesize_class_def(
             class_name,
+            class_object,
             class_indices,
             Some(func.clone()),
             Box::new([]),
@@ -828,12 +835,13 @@ impl<'a> BindingsBuilder<'a> {
         base: &mut Expr,
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
-        let class_indices = self.class_indices(&class_name);
+        let (class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.ensure_expr(new_type_name, Usage::NotImplemented);
         self.check_functional_definition_name(&name.id, new_type_name);
         self.ensure_type(base, &mut None);
         self.synthesize_class_def(
             class_name,
+            class_object,
             class_indices,
             Some(base.clone()),
             Box::new([]),
@@ -854,7 +862,7 @@ impl<'a> BindingsBuilder<'a> {
         keywords: &mut [Keyword],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
-        let class_indices = self.class_indices(&class_name);
+        let (class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.ensure_expr(func, Usage::NotImplemented);
         self.check_functional_definition_name(&name.id, arg_name);
         let mut base_class_keywords: Box<[(Name, Expr)]> = Box::new([]);
@@ -920,6 +928,7 @@ impl<'a> BindingsBuilder<'a> {
         };
         self.synthesize_class_def(
             class_name,
+            class_object,
             class_indices,
             Some(func.clone()),
             base_class_keywords,

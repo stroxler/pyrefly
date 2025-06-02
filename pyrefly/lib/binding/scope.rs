@@ -281,7 +281,6 @@ pub struct ClassIndices {
     pub metadata_idx: Idx<KeyClassMetadata>,
     pub synthesized_fields_idx: Idx<KeyClassSynthesizedFields>,
     pub variance_idx: Idx<KeyVariance>,
-    pub class_object_idx: Idx<Key>,
 }
 
 #[derive(Clone, Debug)]
