@@ -66,13 +66,13 @@ impl<'a> BindingsBuilder<'a> {
         // - We will get two different `Key::Unpacked` bindings, one for the
         //   entire RHS and another one, pointing at the first one, for `(y, z)`.
         // - We will also get three `Key::Definition` bindings, one each for `x`, `y`, and `z`.
-        let unpack_idx = self.idx_for_promise(Key::Unpack(range));
+        let user = self.declare_user(Key::Unpack(range));
         if ensure_assigned {
             assigned
                 .iter_mut()
-                .for_each(|e| self.ensure_expr(e, Usage::NotImplemented))
+                .for_each(|e| self.ensure_expr(e, user.usage()))
         }
-        self.insert_binding_idx(unpack_idx, make_binding(assigned.as_deref(), None));
+        let unpack_idx = self.insert_binding_user(user, make_binding(assigned.as_deref(), None));
 
         // An unpacking has zero or one splats (starred expressions).
         let mut splat = false;
@@ -133,20 +133,20 @@ impl<'a> BindingsBuilder<'a> {
         let narrowing_identifier =
             identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
                 .map(|(identifier, _)| identifier);
-        let idx = if let Some(identifier) = &narrowing_identifier {
-            self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(identifier)))
+        let user = if let Some(identifier) = &narrowing_identifier {
+            self.declare_user(Key::PropertyAssign(ShortIdentifier::new(identifier)))
         } else {
-            self.idx_for_promise(Key::Anon(attr.range))
+            self.declare_user(Key::Anon(attr.range))
         };
-        self.ensure_expr(&mut attr.value, Usage::NotImplemented);
+        self.ensure_expr(&mut attr.value, user.usage());
         if ensure_assigned {
             assigned
                 .iter_mut()
-                .for_each(|e| self.ensure_expr(e, Usage::NotImplemented));
+                .for_each(|e| self.ensure_expr(e, user.usage()));
         }
         let value = make_assigned_value(assigned.as_deref(), None);
-        self.insert_binding_idx(
-            idx,
+        let idx = self.insert_binding_user(
+            user,
             Binding::AssignToAttribute(Box::new((attr, value.clone()))),
         );
         if let Some(identifier) = narrowing_identifier {
@@ -192,21 +192,21 @@ impl<'a> BindingsBuilder<'a> {
         let narrowing_identifier =
             identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
                 .map(|(identifier, _)| identifier);
-        let idx = if let Some(identifier) = &narrowing_identifier {
-            self.idx_for_promise(Key::PropertyAssign(ShortIdentifier::new(identifier)))
+        let user = if let Some(identifier) = &narrowing_identifier {
+            self.declare_user(Key::PropertyAssign(ShortIdentifier::new(identifier)))
         } else {
-            self.idx_for_promise(Key::Anon(subscript.range))
+            self.declare_user(Key::Anon(subscript.range))
         };
-        self.ensure_expr(&mut subscript.slice, Usage::NotImplemented);
-        self.ensure_expr(&mut subscript.value, Usage::NotImplemented);
+        self.ensure_expr(&mut subscript.slice, user.usage());
+        self.ensure_expr(&mut subscript.value, user.usage());
         if ensure_assigned {
             assigned
                 .iter_mut()
-                .for_each(|e| self.ensure_expr(e, Usage::NotImplemented));
+                .for_each(|e| self.ensure_expr(e, user.usage()));
         }
         let value = make_assigned_value(assigned.as_deref(), None);
-        self.insert_binding_idx(
-            idx,
+        let idx = self.insert_binding_user(
+            user,
             Binding::AssignToSubscript(Box::new((subscript, value))),
         );
         if let Some(identifier) = narrowing_identifier {
@@ -309,8 +309,11 @@ impl<'a> BindingsBuilder<'a> {
             illegal_target => {
                 // Most structurally invalid targets become errors in the parser, which we propagate so there
                 // is no need for duplicate errors. But we do want to catch unbound names (which the parser
-                // will not catch)
-                self.ensure_expr(illegal_target, Usage::NotImplemented);
+                // will not catch).
+                //
+                // We ignore such names for first-usage-tracking purposes, since
+                // we are not going to analyze the code at all.
+                self.ensure_expr(illegal_target, Usage::NoUsageTracking);
             }
         }
     }
@@ -371,18 +374,18 @@ impl<'a> BindingsBuilder<'a> {
         make_binding: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> Binding,
         ensure_assigned: bool,
     ) {
-        let idx = self.idx_for_promise(Key::Definition(ShortIdentifier::expr_name(name)));
+        let user = self.declare_user(Key::Definition(ShortIdentifier::expr_name(name)));
         if ensure_assigned {
             assigned
                 .iter_mut()
-                .for_each(|e| self.ensure_expr(e, Usage::NotImplemented));
+                .for_each(|e| self.ensure_expr(e, user.usage()));
         }
-        let (ann, default) = self.bind_key(&name.id, idx, FlowStyle::Other);
+        let (ann, default) = self.bind_user(&name.id, &user, FlowStyle::Other);
         let mut binding = make_binding(assigned.as_deref(), ann);
         if let Some(default) = default {
             binding = Binding::Default(default, Box::new(binding));
         }
-        self.insert_binding_idx(idx, binding);
+        self.insert_binding_user(user, binding);
     }
 
     /// Version of `bind_assign_impl` used when we don't want expression usage tracking.

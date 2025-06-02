@@ -880,6 +880,15 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_key(&name.id, idx, style).0
     }
 
+    pub fn bind_user(
+        &mut self,
+        name: &Name,
+        user: &User,
+        style: FlowStyle,
+    ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
+        self.bind_key(name, user.0, style)
+    }
+
     /// Return a pair of:
     /// 1. The annotation that should be used at the moment, if one was provided.
     /// 2. The default that should be used if you are in a loop.
