@@ -620,7 +620,7 @@ impl<'a> BindingsBuilder<'a> {
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
                 let binding = self
-                    .lookup_name(Hashed::new(&name.id), LookupKind::Regular)
+                    .lookup_name_usage(Hashed::new(&name.id), usage)
                     .map(Binding::Forward);
                 self.ensure_name(&name, binding);
             }

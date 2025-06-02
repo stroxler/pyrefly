@@ -740,12 +740,30 @@ impl<'a> BindingsBuilder<'a> {
         name: Hashed<&Name>,
         kind: LookupKind,
     ) -> Result<Idx<Key>, LookupError> {
+        self.lookup_name_impl(name, kind, Usage::NoUsageTracking)
+    }
+
+    pub fn lookup_name_usage(
+        &mut self,
+        name: Hashed<&Name>,
+        usage: Usage,
+    ) -> Result<Idx<Key>, LookupError> {
+        self.lookup_name_impl(name, LookupKind::Regular, usage)
+    }
+
+    fn lookup_name_impl(
+        &mut self,
+        name: Hashed<&Name>,
+        kind: LookupKind,
+        _usage: Usage,
+    ) -> Result<Idx<Key>, LookupError> {
         let mut barrier = false;
         for scope in self.scopes.iter_rev() {
             if let Some(flow) = scope.flow.info.get_hashed(name) {
                 match kind {
                     LookupKind::Regular => {
                         if !barrier {
+                            // TODO: track usage
                             return Ok(flow.key);
                         }
                     }
@@ -763,6 +781,7 @@ impl<'a> BindingsBuilder<'a> {
             {
                 match kind {
                     LookupKind::Regular => {
+                        // TODO: track usage
                         let key = info.as_key(name.into_key());
                         return Ok(self.table.types.0.insert(key));
                     }
