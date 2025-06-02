@@ -183,7 +183,7 @@ impl ModuleInfo {
         &self.0.contents[start.to_usize()..end.to_usize()]
     }
 
-    pub fn is_ignored(&self, source_range: &SourceRange, msg: &str) -> bool {
+    pub fn is_ignored(&self, source_range: &SourceRange) -> bool {
         // Extend the range of the error to include comment lines before it.
         // This makes it so that the preceding ignore could "see through" comments.
         let start_line = {
@@ -200,9 +200,7 @@ impl ModuleInfo {
             }
             start_line
         };
-        self.0
-            .ignore
-            .is_ignored(start_line, source_range.end.row, msg)
+        self.0.ignore.is_ignored(start_line, source_range.end.row)
     }
 
     pub fn ignore(&self) -> &Ignore {

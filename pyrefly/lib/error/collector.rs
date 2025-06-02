@@ -110,7 +110,7 @@ impl ErrorCollector {
             return;
         }
         let source_range = self.module_info.source_range(range);
-        let is_ignored = self.module_info.is_ignored(&source_range, &msg);
+        let is_ignored = self.module_info.is_ignored(&source_range);
         let full_msg = match context {
             Some(ctx) => vec1![ctx().format(), msg],
             None => vec1![msg],

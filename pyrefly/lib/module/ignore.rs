@@ -92,12 +92,10 @@ impl Ignore {
         None
     }
 
-    pub fn is_ignored(&self, start_line: OneIndexed, end_line: OneIndexed, msg: &str) -> bool {
+    pub fn is_ignored(&self, start_line: OneIndexed, end_line: OneIndexed) -> bool {
         if self.ignore_all {
             true
         } else {
-            // for now, we ignore the msg
-            let _unused = msg;
             // We allow an ignore the line before the range, or on any line within the range.
             // We convert to/from zero-indexed because OneIndexed does not implement Step.
             (start_line.to_zero_indexed().saturating_sub(1)..=end_line.to_zero_indexed())
