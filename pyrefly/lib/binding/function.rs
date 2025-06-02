@@ -42,6 +42,7 @@ use crate::binding::binding::ReturnImplicit;
 use crate::binding::binding::ReturnType;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
+use crate::binding::expr::Usage;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::Scope;
@@ -244,7 +245,7 @@ impl<'a> BindingsBuilder<'a> {
         for (param, default) in Ast::parameters_iter_mut(&mut x.parameters) {
             self.ensure_type_opt(param.annotation.as_deref_mut(), &mut legacy);
             if let Some(default) = default {
-                self.ensure_expr_opt(default.as_deref_mut());
+                self.ensure_expr_opt(default.as_deref_mut(), Usage::NotImplemented);
             }
         }
 
@@ -401,7 +402,7 @@ impl<'a> BindingsBuilder<'a> {
             .any(|d| self.as_special_export(&d.expression) == Some(SpecialExport::NoTypeCheck));
 
         let decorators = self
-            .ensure_and_bind_decorators(decorator_list)
+            .ensure_and_bind_decorators(decorator_list, Usage::NotImplemented)
             .into_boxed_slice();
         Decorators {
             has_no_type_check,

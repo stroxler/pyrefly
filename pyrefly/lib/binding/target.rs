@@ -22,6 +22,7 @@ use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LookupKind;
+use crate::binding::expr::Usage;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::binding::scope::FlowStyle;
 use crate::error::kind::ErrorKind;
@@ -67,7 +68,9 @@ impl<'a> BindingsBuilder<'a> {
         // - We will also get three `Key::Definition` bindings, one each for `x`, `y`, and `z`.
         let unpack_idx = self.idx_for_promise(Key::Unpack(range));
         if ensure_assigned {
-            assigned.iter_mut().for_each(|e| self.ensure_expr(e))
+            assigned
+                .iter_mut()
+                .for_each(|e| self.ensure_expr(e, Usage::NotImplemented))
         }
         self.insert_binding_idx(unpack_idx, make_binding(assigned.as_deref(), None));
 
@@ -135,9 +138,11 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             self.idx_for_promise(Key::Anon(attr.range))
         };
-        self.ensure_expr(&mut attr.value);
+        self.ensure_expr(&mut attr.value, Usage::NotImplemented);
         if ensure_assigned {
-            assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+            assigned
+                .iter_mut()
+                .for_each(|e| self.ensure_expr(e, Usage::NotImplemented));
         }
         let value = make_assigned_value(assigned.as_deref(), None);
         self.insert_binding_idx(
@@ -192,10 +197,12 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             self.idx_for_promise(Key::Anon(subscript.range))
         };
-        self.ensure_expr(&mut subscript.slice);
-        self.ensure_expr(&mut subscript.value);
+        self.ensure_expr(&mut subscript.slice, Usage::NotImplemented);
+        self.ensure_expr(&mut subscript.value, Usage::NotImplemented);
         if ensure_assigned {
-            assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+            assigned
+                .iter_mut()
+                .for_each(|e| self.ensure_expr(e, Usage::NotImplemented));
         }
         let value = make_assigned_value(assigned.as_deref(), None);
         self.insert_binding_idx(
@@ -303,7 +310,7 @@ impl<'a> BindingsBuilder<'a> {
                 // Most structurally invalid targets become errors in the parser, which we propagate so there
                 // is no need for duplicate errors. But we do want to catch unbound names (which the parser
                 // will not catch)
-                self.ensure_expr(illegal_target);
+                self.ensure_expr(illegal_target, Usage::NotImplemented);
             }
         }
     }
@@ -366,7 +373,9 @@ impl<'a> BindingsBuilder<'a> {
     ) {
         let idx = self.idx_for_promise(Key::Definition(ShortIdentifier::expr_name(name)));
         if ensure_assigned {
-            assigned.iter_mut().for_each(|e| self.ensure_expr(e));
+            assigned
+                .iter_mut()
+                .for_each(|e| self.ensure_expr(e, Usage::NotImplemented));
         }
         let (ann, default) = self.bind_key(&name.id, idx, FlowStyle::Other);
         let mut binding = make_binding(assigned.as_deref(), ann);

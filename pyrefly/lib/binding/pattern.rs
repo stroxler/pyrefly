@@ -19,6 +19,7 @@ use crate::binding::binding::KeyExpect;
 use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
+use crate::binding::expr::Usage;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::FacetKind;
 use crate::binding::narrow::NarrowOps;
@@ -39,7 +40,7 @@ impl<'a> BindingsBuilder<'a> {
     ) -> NarrowOps {
         match pattern {
             Pattern::MatchValue(mut p) => {
-                self.ensure_expr(&mut p.value);
+                self.ensure_expr(&mut p.value, Usage::NotImplemented);
                 if let Some(subject) = match_subject {
                     NarrowOps::from_single_narrow_op_for_subject(
                         subject,
@@ -151,7 +152,7 @@ impl<'a> BindingsBuilder<'a> {
                 narrow_ops
             }
             Pattern::MatchClass(mut x) => {
-                self.ensure_expr(&mut x.cls);
+                self.ensure_expr(&mut x.cls, Usage::NotImplemented);
                 let mut narrow_ops = if let Some(subject) = match_subject {
                     NarrowOps::from_single_narrow_op_for_subject(
                         subject,
@@ -225,7 +226,7 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn stmt_match(&mut self, mut x: StmtMatch) {
         let subject_idx = self.idx_for_promise(Key::Anon(x.subject.range()));
-        self.ensure_expr(&mut x.subject);
+        self.ensure_expr(&mut x.subject, Usage::NotImplemented);
         let match_subject = *x.subject.clone();
         let key = self.insert_binding_idx(subject_idx, Binding::Expr(None, *x.subject.clone()));
         let mut exhaustive = false;
@@ -252,7 +253,7 @@ impl<'a> BindingsBuilder<'a> {
             negated_prev_ops.and_all(new_narrow_ops.negate());
             if let Some(mut guard) = case.guard {
                 let guard_idx = self.idx_for_promise(Key::Anon(guard.range()));
-                self.ensure_expr(&mut guard);
+                self.ensure_expr(&mut guard, Usage::NotImplemented);
                 self.insert_binding_idx(guard_idx, Binding::Expr(None, *guard));
             }
             self.stmts(case.body);

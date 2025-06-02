@@ -32,6 +32,7 @@ use crate::binding::binding::RaisedException;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LookupKind;
 use crate::binding::bindings::MutableCaptureLookupKind;
+use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
@@ -58,10 +59,10 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn assign_type_var(&mut self, name: &ExprName, call: &mut ExprCall) {
-        self.ensure_expr(&mut call.func);
+        self.ensure_expr(&mut call.func, Usage::NotImplemented);
         let mut iargs = call.arguments.args.iter_mut();
         if let Some(expr) = iargs.next() {
-            self.ensure_expr(expr);
+            self.ensure_expr(expr, Usage::NotImplemented);
         }
         // The constraints (i.e., any positional arguments after the first)
         // and some keyword arguments are types.
@@ -74,7 +75,7 @@ impl<'a> BindingsBuilder<'a> {
             {
                 self.ensure_type(&mut kw.value, &mut None);
             } else {
-                self.ensure_expr(&mut kw.value);
+                self.ensure_expr(&mut kw.value, Usage::NotImplemented);
             }
         }
         self.bind_assign_no_expr(name, |ann| {
@@ -87,9 +88,9 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn ensure_type_var_tuple_and_param_spec_args(&mut self, call: &mut ExprCall) {
-        self.ensure_expr(&mut call.func);
+        self.ensure_expr(&mut call.func, Usage::NotImplemented);
         for arg in call.arguments.args.iter_mut() {
-            self.ensure_expr(arg);
+            self.ensure_expr(arg, Usage::NotImplemented);
         }
         for kw in call.arguments.keywords.iter_mut() {
             if let Some(id) = &kw.arg
@@ -97,7 +98,7 @@ impl<'a> BindingsBuilder<'a> {
             {
                 self.ensure_type(&mut kw.value, &mut None);
             } else {
-                self.ensure_expr(&mut kw.value);
+                self.ensure_expr(&mut kw.value, Usage::NotImplemented);
             }
         }
     }
@@ -175,7 +176,7 @@ impl<'a> BindingsBuilder<'a> {
         if self.is_definitely_type_alias_rhs(value.as_ref()) {
             self.ensure_type(&mut value, &mut None);
         } else {
-            self.ensure_expr(&mut value);
+            self.ensure_expr(&mut value, Usage::NotImplemented);
         }
         let style = if self.scopes.in_class_body() {
             FlowStyle::ClassField {
@@ -203,7 +204,7 @@ impl<'a> BindingsBuilder<'a> {
     /// and also create a binding to ensure we type check the expression.
     fn record_return(&mut self, mut x: StmtReturn) {
         let idx = self.idx_for_promise(Key::ReturnExplicit(x.range()));
-        self.ensure_expr_opt(x.value.as_deref_mut());
+        self.ensure_expr_opt(x.value.as_deref_mut(), Usage::NotImplemented);
         if let Err(oops_top_level) = self.scopes.record_or_reject_return(idx, x) {
             if let Some(v) = oops_top_level.value {
                 self.insert_binding_idx(idx, Binding::Expr(None, *v));
@@ -242,7 +243,7 @@ impl<'a> BindingsBuilder<'a> {
                             Some(FlowStyle::Uninitialized),
                         );
                     } else {
-                        self.ensure_expr(target);
+                        self.ensure_expr(target, Usage::NotImplemented);
                     }
                 }
             }
@@ -343,7 +344,7 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Stmt::AugAssign(mut x) => {
-                self.ensure_expr(&mut x.value);
+                self.ensure_expr(&mut x.value, Usage::NotImplemented);
                 let make_assigned_value =
                     |ann| ExprOrBinding::Binding(Binding::AugAssign(ann, x.clone()));
                 match x.target.as_ref() {
@@ -375,7 +376,7 @@ impl<'a> BindingsBuilder<'a> {
                         // is no need for duplicate errors. But we do want to catch unbound names (which the parser
                         // will not catch)
                         let mut e = illegal_target.clone();
-                        self.ensure_expr(&mut e);
+                        self.ensure_expr(&mut e, Usage::NotImplemented);
                     }
                 }
             }
@@ -434,7 +435,7 @@ impl<'a> BindingsBuilder<'a> {
                         if self.as_special_export(&x.annotation) == Some(SpecialExport::TypeAlias) {
                             self.ensure_type(&mut value, &mut None);
                         } else {
-                            self.ensure_expr(&mut value);
+                            self.ensure_expr(&mut value, Usage::NotImplemented);
                         }
                         Binding::NameAssign(
                             name.id.clone(),
@@ -559,7 +560,7 @@ impl<'a> BindingsBuilder<'a> {
                 // Note that is is important we ensure *after* we set up the loop, so that both the
                 // narrowing and type checking are aware that the test might be impacted by changes
                 // made in the loop (e.g. if we reassign the test variable).
-                self.ensure_expr(&mut x.test);
+                self.ensure_expr(&mut x.test, Usage::NotImplemented);
                 let range = x.test.range();
                 self.insert_binding(Key::Anon(range), Binding::Expr(None, *x.test.clone()));
                 // Typecheck the test condition during solving.
@@ -592,7 +593,7 @@ impl<'a> BindingsBuilder<'a> {
                     let mut base = self.scopes.clone_current_flow();
                     let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
                     if let Some(mut e) = test {
-                        self.ensure_expr(&mut e);
+                        self.ensure_expr(&mut e, Usage::NotImplemented);
                         self.insert_binding(Key::Anon(e.range()), Binding::Expr(None, e.clone()));
                         // Typecheck the test condition during solving.
                         self.insert_binding(
@@ -633,7 +634,7 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::With(x) => {
                 let kind = IsAsync::new(x.is_async);
                 for mut item in x.items {
-                    self.ensure_expr(&mut item.context_expr);
+                    self.ensure_expr(&mut item.context_expr, Usage::NotImplemented);
                     let item_range = item.range();
                     let expr_range = item.context_expr.range();
                     let context_idx = self.insert_binding(
@@ -658,9 +659,9 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Raise(x) => {
                 if let Some(mut exc) = x.exc {
-                    self.ensure_expr(&mut exc);
+                    self.ensure_expr(&mut exc, Usage::NotImplemented);
                     let raised = if let Some(mut cause) = x.cause {
-                        self.ensure_expr(&mut cause);
+                        self.ensure_expr(&mut cause, Usage::NotImplemented);
                         RaisedException::WithCause(Box::new((*exc, *cause)))
                     } else {
                         RaisedException::WithoutCause(*exc)
@@ -696,14 +697,14 @@ impl<'a> BindingsBuilder<'a> {
                     if let Some(name) = h.name
                         && let Some(mut type_) = h.type_
                     {
-                        self.ensure_expr(&mut type_);
+                        self.ensure_expr(&mut type_, Usage::NotImplemented);
                         self.bind_definition(
                             &name,
                             Binding::ExceptionHandler(type_, x.is_star),
                             FlowStyle::Other,
                         );
                     } else if let Some(mut type_) = h.type_ {
-                        self.ensure_expr(&mut type_);
+                        self.ensure_expr(&mut type_, Usage::NotImplemented);
                         self.insert_binding(
                             Key::Anon(range),
                             Binding::ExceptionHandler(type_, x.is_star),
@@ -718,11 +719,11 @@ impl<'a> BindingsBuilder<'a> {
                 self.stmts(x.finalbody);
             }
             Stmt::Assert(mut x) => {
-                self.ensure_expr(&mut x.test);
+                self.ensure_expr(&mut x.test, Usage::NotImplemented);
                 self.bind_narrow_ops(&NarrowOps::from_expr(self, Some(&x.test)), x.range);
                 self.insert_binding(Key::Anon(x.test.range()), Binding::Expr(None, *x.test));
                 if let Some(mut msg_expr) = x.msg {
-                    self.ensure_expr(&mut msg_expr);
+                    self.ensure_expr(&mut msg_expr, Usage::NotImplemented);
                     self.insert_binding(
                         KeyExpect(msg_expr.range()),
                         BindingExpect::TypeCheckExpr(Box::new(*msg_expr)),
@@ -868,7 +869,7 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Stmt::Expr(mut x) => {
-                self.ensure_expr(&mut x.value);
+                self.ensure_expr(&mut x.value, Usage::NotImplemented);
                 self.insert_binding(
                     Key::StmtExpr(x.value.range()),
                     Binding::Expr(None, *x.value),

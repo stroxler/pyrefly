@@ -50,6 +50,29 @@ use crate::ruff::ast::Ast;
 use crate::types::callable::unexpected_keyword;
 use crate::types::types::Type;
 
+/// Looking up names in an expression requires knowing the identity of the binding
+/// we are computing for usage tracking.
+///
+/// There are some cases - particularly in type declaration contexts like annotations,
+/// type variable declarations, and match patterns - that we want to skip for usage
+/// tracking.
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
+pub enum Usage {
+    /// Placeholder to last us until usage tracking is implemented.
+    /// TODO(stroxler) Remove this once the cutover to usage tracking is finished.
+    NotImplemented,
+    /// Usage to create a `Binding`.
+    #[expect(dead_code)]
+    Idx(Idx<Key>),
+    /// I am a scenario where we need to ensure expressions with no usage tracking.
+    ///
+    /// This should only be used when handling expressions that create values whose
+    /// runtime meaning is primarily static and type-level, for example:
+    /// - type annotations, type variable declarations, and other type contexts
+    /// - match patterns
+    NoUsageTracking,
+}
+
 enum TestAssertion {
     AssertTrue,
     AssertFalse,
@@ -235,13 +258,18 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn bind_comprehensions(&mut self, range: TextRange, comprehensions: &mut [Comprehension]) {
+    fn bind_comprehensions(
+        &mut self,
+        range: TextRange,
+        comprehensions: &mut [Comprehension],
+        usage: Usage,
+    ) {
         self.scopes.push(Scope::comprehension(range));
         for comp in comprehensions {
             // Resolve the type of the iteration value *before* binding the target of the iteration.
             // This is necessary so that, e.g. `[x for x in x]` correctly uses the outer scope for
             // the `in x` lookup.
-            self.ensure_expr(&mut comp.iter);
+            self.ensure_expr(&mut comp.iter, usage);
             let iterable_value_idx = self.insert_binding(
                 Key::Anon(comp.iter.range()),
                 Binding::IterableValue(None, comp.iter.clone(), IsAsync::new(comp.is_async)),
@@ -253,21 +281,21 @@ impl<'a> BindingsBuilder<'a> {
                 Binding::Forward(iterable_value_idx)
             });
             for x in comp.ifs.iter_mut() {
-                self.ensure_expr(x);
+                self.ensure_expr(x, usage);
                 let narrow_ops = NarrowOps::from_expr(self, Some(x));
                 self.bind_narrow_ops(&narrow_ops, comp.range);
             }
         }
     }
 
-    pub fn bind_lambda(&mut self, lambda: &mut ExprLambda) {
+    pub fn bind_lambda(&mut self, lambda: &mut ExprLambda, usage: Usage) {
         self.scopes.push(Scope::function(lambda.range));
         if let Some(parameters) = &lambda.parameters {
             for x in parameters {
                 self.bind_lambda_param(x.name());
             }
         }
-        self.ensure_expr(&mut lambda.body);
+        self.ensure_expr(&mut lambda.body, usage);
         // Pyrefly currently does not support `yield` in lambdas, but we cannot drop them
         // entirely or we will panic at solve time.
         //
@@ -292,10 +320,11 @@ impl<'a> BindingsBuilder<'a> {
         ops: &NarrowOps,
         orelse: Option<&mut Expr>,
         range: TextRange,
+        usage: Usage,
     ) {
         let if_branch = self.scopes.replace_current_flow(base);
         self.bind_narrow_ops(&ops.negate(), range);
-        self.ensure_expr_opt(orelse);
+        self.ensure_expr_opt(orelse, usage);
         // Swap them back again, to make sure that the merge order is if, then else
         let else_branch = self.scopes.replace_current_flow(if_branch);
         self.merge_branches_into_current(vec![else_branch], range);
@@ -348,7 +377,7 @@ impl<'a> BindingsBuilder<'a> {
 
     fn record_yield(&mut self, mut x: ExprYield) {
         let idx = self.idx_for_promise(KeyYield(x.range));
-        self.ensure_expr_opt(x.value.as_deref_mut());
+        self.ensure_expr_opt(x.value.as_deref_mut(), Usage::NotImplemented);
         if let Err(oops_top_level) = self.scopes.record_or_reject_yield(idx, x) {
             self.insert_binding_idx(idx, BindingYield::Invalid(oops_top_level));
         }
@@ -356,31 +385,31 @@ impl<'a> BindingsBuilder<'a> {
 
     fn record_yield_from(&mut self, mut x: ExprYieldFrom) {
         let idx = self.idx_for_promise(KeyYieldFrom(x.range));
-        self.ensure_expr(&mut x.value);
+        self.ensure_expr(&mut x.value, Usage::NotImplemented);
         if let Err(oops_top_level) = self.scopes.record_or_reject_yield_from(idx, x) {
             self.insert_binding_idx(idx, BindingYieldFrom::Invalid(oops_top_level));
         }
     }
 
     /// Execute through the expr, ensuring every name has a binding.
-    pub fn ensure_expr(&mut self, x: &mut Expr) {
+    pub fn ensure_expr(&mut self, x: &mut Expr, usage: Usage) {
         match x {
             Expr::If(x) => {
                 // Ternary operation. We treat it like an if/else statement.
                 let base = self.scopes.clone_current_flow();
-                self.ensure_expr(&mut x.test);
+                self.ensure_expr(&mut x.test, usage);
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.bind_narrow_ops(&narrow_ops, x.body.range());
-                self.ensure_expr(&mut x.body);
+                self.ensure_expr(&mut x.body, usage);
                 let range = x.range();
-                self.negate_and_merge_flow(base, &narrow_ops, Some(&mut x.orelse), range);
+                self.negate_and_merge_flow(base, &narrow_ops, Some(&mut x.orelse), range, usage);
             }
             Expr::BoolOp(ExprBoolOp { range, op, values }) => {
                 let base = self.scopes.clone_current_flow();
                 let mut narrow_ops = NarrowOps::new();
                 for value in values {
                     self.bind_narrow_ops(&narrow_ops, value.range());
-                    self.ensure_expr(value);
+                    self.ensure_expr(value, usage);
                     let new_narrow_ops = NarrowOps::from_expr(self, Some(value));
                     match op {
                         BoolOp::And => {
@@ -393,7 +422,7 @@ impl<'a> BindingsBuilder<'a> {
                         }
                     }
                 }
-                self.negate_and_merge_flow(base, &narrow_ops, None, *range);
+                self.negate_and_merge_flow(base, &narrow_ops, None, *range, usage);
             }
             Expr::Call(ExprCall {
                 range: _,
@@ -403,16 +432,16 @@ impl<'a> BindingsBuilder<'a> {
                 && arguments.args.len() > 1 =>
             {
                 // Handle forward references in the second argument to an assert_type call
-                self.ensure_expr(func);
+                self.ensure_expr(func, usage);
                 for (i, arg) in arguments.args.iter_mut().enumerate() {
                     if i == 1 {
                         self.ensure_type(arg, &mut None);
                     } else {
-                        self.ensure_expr(arg);
+                        self.ensure_expr(arg, usage);
                     }
                 }
                 for kw in arguments.keywords.iter_mut() {
-                    self.ensure_expr(&mut kw.value);
+                    self.ensure_expr(&mut kw.value, usage);
                 }
             }
             Expr::Call(ExprCall {
@@ -423,12 +452,12 @@ impl<'a> BindingsBuilder<'a> {
                 && !arguments.is_empty() =>
             {
                 // Handle forward references in the first argument to a cast call
-                self.ensure_expr(func);
+                self.ensure_expr(func, usage);
                 if let Some(arg) = arguments.args.first_mut() {
                     self.ensure_type(arg, &mut None)
                 }
                 for arg in arguments.args.iter_mut().skip(1) {
-                    self.ensure_expr(arg);
+                    self.ensure_expr(arg, usage);
                 }
                 for kw in arguments.keywords.iter_mut() {
                     if let Some(id) = &kw.arg
@@ -436,7 +465,7 @@ impl<'a> BindingsBuilder<'a> {
                     {
                         self.ensure_type(&mut kw.value, &mut None);
                     } else {
-                        self.ensure_expr(&mut kw.value);
+                        self.ensure_expr(&mut kw.value, usage);
                     }
                 }
             }
@@ -450,9 +479,9 @@ impl<'a> BindingsBuilder<'a> {
                         keywords,
                     },
             }) if self.as_special_export(func) == Some(SpecialExport::Super) => {
-                self.ensure_expr(func);
+                self.ensure_expr(func, usage);
                 for kw in keywords {
-                    self.ensure_expr(&mut kw.value);
+                    self.ensure_expr(&mut kw.value, usage);
                     unexpected_keyword(
                         &|msg| self.error(*range, msg, ErrorKind::UnexpectedKeyword),
                         "super",
@@ -491,7 +520,7 @@ impl<'a> BindingsBuilder<'a> {
                     }
                 } else if nargs == 2 {
                     let mut bind = |expr: &mut Expr| {
-                        self.ensure_expr(expr);
+                        self.ensure_expr(expr, usage);
                         self.insert_binding(
                             Key::Anon(expr.range()),
                             Binding::Expr(None, expr.clone()),
@@ -511,7 +540,7 @@ impl<'a> BindingsBuilder<'a> {
                         );
                     }
                     for arg in posargs {
-                        self.ensure_expr(arg);
+                        self.ensure_expr(arg, usage);
                     }
                     SuperStyle::Any
                 };
@@ -527,12 +556,12 @@ impl<'a> BindingsBuilder<'a> {
             }) if let Some(test_assert) = self.as_assert_in_test(func)
                 && let Some(narrow_op) = test_assert.to_narrow_ops(self, &arguments.args) =>
             {
-                self.ensure_expr(func);
+                self.ensure_expr(func, usage);
                 for arg in arguments.args.iter_mut() {
-                    self.ensure_expr(arg);
+                    self.ensure_expr(arg, usage);
                 }
                 for kw in arguments.keywords.iter_mut() {
-                    self.ensure_expr(&mut kw.value);
+                    self.ensure_expr(&mut kw.value, usage);
                 }
                 self.bind_narrow_ops(&narrow_op, *range);
             }
@@ -543,27 +572,27 @@ impl<'a> BindingsBuilder<'a> {
                 });
             }
             Expr::Lambda(x) => {
-                self.bind_lambda(x);
+                self.bind_lambda(x, usage);
             }
             Expr::ListComp(x) => {
-                self.bind_comprehensions(x.range, &mut x.generators);
-                self.ensure_expr(&mut x.elt);
+                self.bind_comprehensions(x.range, &mut x.generators, usage);
+                self.ensure_expr(&mut x.elt, usage);
                 self.scopes.pop();
             }
             Expr::SetComp(x) => {
-                self.bind_comprehensions(x.range, &mut x.generators);
-                self.ensure_expr(&mut x.elt);
+                self.bind_comprehensions(x.range, &mut x.generators, usage);
+                self.ensure_expr(&mut x.elt, usage);
                 self.scopes.pop();
             }
             Expr::DictComp(x) => {
-                self.bind_comprehensions(x.range, &mut x.generators);
-                self.ensure_expr(&mut x.key);
-                self.ensure_expr(&mut x.value);
+                self.bind_comprehensions(x.range, &mut x.generators, usage);
+                self.ensure_expr(&mut x.key, usage);
+                self.ensure_expr(&mut x.value, usage);
                 self.scopes.pop();
             }
             Expr::Generator(x) => {
-                self.bind_comprehensions(x.range, &mut x.generators);
-                self.ensure_expr(&mut x.elt);
+                self.bind_comprehensions(x.range, &mut x.generators, usage);
+                self.ensure_expr(&mut x.elt, usage);
                 self.scopes.pop();
             }
             Expr::Call(ExprCall {
@@ -575,7 +604,7 @@ impl<'a> BindingsBuilder<'a> {
                 Some(SpecialExport::Exit | SpecialExport::Quit | SpecialExport::OsExit)
             ) =>
             {
-                x.recurse_mut(&mut |x| self.ensure_expr(x));
+                x.recurse_mut(&mut |x| self.ensure_expr(x, usage));
                 // Control flow doesn't proceed after sys.exit(), exit(), quit(), or os._exit().
                 self.scopes.mark_flow_termination();
             }
@@ -593,20 +622,22 @@ impl<'a> BindingsBuilder<'a> {
                 self.record_yield_from(x.clone());
             }
             _ => {
-                x.recurse_mut(&mut |x| self.ensure_expr(x));
+                x.recurse_mut(&mut |x| self.ensure_expr(x, usage));
             }
         }
     }
 
     /// Execute through the expr, ensuring every name has a binding.
-    pub fn ensure_expr_opt(&mut self, x: Option<&mut Expr>) {
+    pub fn ensure_expr_opt(&mut self, x: Option<&mut Expr>, usage: Usage) {
         if let Some(x) = x {
-            self.ensure_expr(x);
+            self.ensure_expr(x, usage);
         }
     }
 
     /// Execute through the expr, ensuring every name has a binding.
     pub fn ensure_type(&mut self, x: &mut Expr, tparams_builder: &mut Option<LegacyTParamBuilder>) {
+        // We do not treat static types as usage for the purpose of first-usage-based type inference.
+        let no_usage = Usage::NoUsageTracking;
         match x {
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
@@ -624,7 +655,7 @@ impl<'a> BindingsBuilder<'a> {
                 if self.as_special_export(value) == Some(SpecialExport::Literal) =>
             {
                 // Don't go inside a literal, since you might find strings which are really strings, not string-types
-                self.ensure_expr(x);
+                self.ensure_expr(x, no_usage);
             }
             Expr::Subscript(ExprSubscript {
                 value,
@@ -637,7 +668,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_type(&mut *value, tparams_builder);
                 self.ensure_type(&mut tup.elts[0], tparams_builder);
                 for e in tup.elts[1..].iter_mut() {
-                    self.ensure_expr(e);
+                    self.ensure_expr(e, no_usage);
                 }
             }
             Expr::StringLiteral(literal) => match Ast::parse_type_literal(literal) {
@@ -659,11 +690,11 @@ impl<'a> BindingsBuilder<'a> {
                 }
             },
             // Bind the lambda so we don't crash on undefined parameter names.
-            Expr::Lambda(_) => self.ensure_expr(x),
+            Expr::Lambda(_) => self.ensure_expr(x, no_usage),
             // Bind the call so we generate all expected bindings. See
             // test::class_super::test_super_in_base_classes for an example of a SuperInstance
             // binding that we crash looking for if we don't do this.
-            Expr::Call(_) => self.ensure_expr(x),
+            Expr::Call(_) => self.ensure_expr(x, no_usage),
             _ => x.recurse_mut(&mut |x| self.ensure_type(x, tparams_builder)),
         }
     }
@@ -679,10 +710,14 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn ensure_and_bind_decorators(&mut self, decorators: Vec<Decorator>) -> Vec<Idx<Key>> {
+    pub fn ensure_and_bind_decorators(
+        &mut self,
+        decorators: Vec<Decorator>,
+        usage: Usage,
+    ) -> Vec<Idx<Key>> {
         let mut decorator_keys = Vec::with_capacity(decorators.len());
         for mut x in decorators {
-            self.ensure_expr(&mut x.expression);
+            self.ensure_expr(&mut x.expression, usage);
             let k = self.insert_binding(Key::Anon(x.range), Binding::Decorator(x.expression));
             decorator_keys.push(k);
         }
