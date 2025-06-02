@@ -62,7 +62,6 @@ pub enum Usage {
     /// TODO(stroxler) Remove this once the cutover to usage tracking is finished.
     NotImplemented,
     /// Usage to create a `Binding`.
-    #[expect(dead_code)]
     Idx(Idx<Key>),
     /// I am a scenario where we need to ensure expressions with no usage tracking.
     ///

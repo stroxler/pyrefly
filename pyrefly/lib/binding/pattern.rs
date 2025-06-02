@@ -38,9 +38,12 @@ impl<'a> BindingsBuilder<'a> {
         pattern: Pattern,
         key: Idx<Key>,
     ) -> NarrowOps {
+        // In typical code, match patterns are more like static types than normal values, so
+        // we ignore match patterns for first-usage tracking.
+        let no_usage = Usage::NoUsageTracking;
         match pattern {
             Pattern::MatchValue(mut p) => {
-                self.ensure_expr(&mut p.value, Usage::NotImplemented);
+                self.ensure_expr(&mut p.value, no_usage);
                 if let Some(subject) = match_subject {
                     NarrowOps::from_single_narrow_op_for_subject(
                         subject,
@@ -152,7 +155,7 @@ impl<'a> BindingsBuilder<'a> {
                 narrow_ops
             }
             Pattern::MatchClass(mut x) => {
-                self.ensure_expr(&mut x.cls, Usage::NotImplemented);
+                self.ensure_expr(&mut x.cls, no_usage);
                 let mut narrow_ops = if let Some(subject) = match_subject {
                     NarrowOps::from_single_narrow_op_for_subject(
                         subject,
@@ -225,10 +228,10 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn stmt_match(&mut self, mut x: StmtMatch) {
-        let subject_idx = self.idx_for_promise(Key::Anon(x.subject.range()));
-        self.ensure_expr(&mut x.subject, Usage::NotImplemented);
+        let subject_user = self.declare_user(Key::Anon(x.subject.range()));
+        self.ensure_expr(&mut x.subject, subject_user.usage());
         let match_subject = *x.subject.clone();
-        let key = self.insert_binding_idx(subject_idx, Binding::Expr(None, *x.subject.clone()));
+        let key = self.insert_binding_user(subject_user, Binding::Expr(None, *x.subject.clone()));
         let mut exhaustive = false;
         let range = x.range;
         let mut branches = Vec::new();
@@ -252,9 +255,9 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_narrow_ops(&new_narrow_ops, case.range);
             negated_prev_ops.and_all(new_narrow_ops.negate());
             if let Some(mut guard) = case.guard {
-                let guard_idx = self.idx_for_promise(Key::Anon(guard.range()));
-                self.ensure_expr(&mut guard, Usage::NotImplemented);
-                self.insert_binding_idx(guard_idx, Binding::Expr(None, *guard));
+                let guard_user = self.declare_user(Key::Anon(guard.range()));
+                self.ensure_expr(&mut guard, guard_user.usage());
+                self.insert_binding_user(guard_user, Binding::Expr(None, *guard));
             }
             self.stmts(case.body);
             self.scopes.swap_current_flow_with(&mut base);

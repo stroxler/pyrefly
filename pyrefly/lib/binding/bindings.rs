@@ -47,6 +47,7 @@ use crate::binding::binding::KeyLegacyTypeParam;
 use crate::binding::binding::Keyed;
 use crate::binding::binding::LastStmt;
 use crate::binding::binding::TypeParameter;
+use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Flow;
 use crate::binding::scope::FlowInfo;
@@ -465,6 +466,18 @@ pub enum MutableCaptureLookupKind {
     Nonlocal,
 }
 
+/// An abstraction representing the `Idx<Key>` for a binding that we
+/// are currently constructing, which can be used as a factory to create
+/// usage values for `ensure_expr`.
+#[derive(Debug)]
+pub struct User(Idx<Key>);
+
+impl User {
+    pub fn usage(&self) -> Usage {
+        Usage::Idx(self.0)
+    }
+}
+
 impl<'a> BindingsBuilder<'a> {
     /// Given a `key: K = impl Keyed`, get an `Idx<K>` for it. The intended use case
     /// is when creating a complex binding where the process of creating the binding
@@ -475,6 +488,12 @@ impl<'a> BindingsBuilder<'a> {
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
         self.table.get_mut::<K>().0.insert(key)
+    }
+
+    /// Declare a `Key` as a usage, which can be used for name lookups. Like `idx_for_promise`,
+    /// this is a promise to later provide a `Binding` corresponding this key.
+    pub fn declare_user(&mut self, key: Key) -> User {
+        User(self.idx_for_promise(key))
     }
 
     /// Insert a binding into the bindings table immediately, given a `key`
@@ -497,6 +516,12 @@ impl<'a> BindingsBuilder<'a> {
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
         self.table.insert_idx(idx, value)
+    }
+
+    /// Insert a binding into the bindings table, given a `Usage`. This will panic if the usage
+    /// is `Usage::NoUsageTracking`.
+    pub fn insert_binding_user(&mut self, user: User, value: Binding) -> Idx<Key> {
+        self.insert_binding_idx(user.0, value)
     }
 
     /// Allow access to an `Idx<Key>` given a `LastStmt` coming from a scan of a function body.
