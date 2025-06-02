@@ -263,3 +263,26 @@ class Alias(types.GenericAlias):
         return (C,)
     "#,
 );
+
+testcase!(
+    test_super_multiple_inheritance,
+    r#"
+class A:
+    def method_a(self):
+        print("Method from A")
+class B(A):
+    def method_b(self):
+        super().method_a()
+        print("Method from B")
+class MixinC:
+    def method_c(self):
+        print("Method from MixinC")
+class D(MixinC, B):
+    def method_a(self):
+        super().method_a()
+    def method_b(self):
+        super().method_b()
+    def method_c(self):
+        super().method_c()
+    "#,
+);

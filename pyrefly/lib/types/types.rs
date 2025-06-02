@@ -506,8 +506,8 @@ pub enum Type {
     Any(AnyStyle),
     Never(NeverStyle),
     TypeAlias(TypeAlias),
-    /// Represents the result of a super() call. The first ClassType is the class that attribute lookup
-    /// on the super instance should be done on (*not* the class passed to the super() call), and the second
+    /// Represents the result of a super() call. The first ClassType is the point in the MRO that attribute lookup
+    /// on the super instance should start at (*not* the class passed to the super() call), and the second
     /// ClassType is the second argument (implicit or explicit) to the super() call. For example, in:
     ///   class A: ...
     ///   class B(A): ...
