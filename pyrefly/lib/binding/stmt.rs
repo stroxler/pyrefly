@@ -680,17 +680,19 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Raise(x) => {
                 if let Some(mut exc) = x.exc {
-                    self.ensure_expr(&mut exc, Usage::NotImplemented);
+                    let user = self.declare_user(Key::UsageLink(x.range));
+                    self.ensure_expr(&mut exc, user.usage());
                     let raised = if let Some(mut cause) = x.cause {
-                        self.ensure_expr(&mut cause, Usage::NotImplemented);
+                        self.ensure_expr(&mut cause, user.usage());
                         RaisedException::WithCause(Box::new((*exc, *cause)))
                     } else {
                         RaisedException::WithoutCause(*exc)
                     };
-                    self.insert_binding(
+                    let idx = self.insert_binding(
                         KeyExpect(x.range),
                         BindingExpect::CheckRaisedException(raised),
                     );
+                    self.insert_binding_user(user, Binding::UsageLink(LinkedKey::Expect(idx)));
                 } else {
                     // If there's no exception raised, don't bother checking the cause.
                 }
@@ -744,11 +746,13 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_narrow_ops(&NarrowOps::from_expr(self, Some(&x.test)), x.range);
                 self.insert_binding(Key::Anon(x.test.range()), Binding::Expr(None, *x.test));
                 if let Some(mut msg_expr) = x.msg {
-                    self.ensure_expr(&mut msg_expr, Usage::NotImplemented);
-                    self.insert_binding(
+                    let msg_user = self.declare_user(Key::UsageLink(msg_expr.range()));
+                    self.ensure_expr(&mut msg_expr, msg_user.usage());
+                    let idx = self.insert_binding(
                         KeyExpect(msg_expr.range()),
                         BindingExpect::TypeCheckExpr(Box::new(*msg_expr)),
                     );
+                    self.insert_binding_user(msg_user, Binding::UsageLink(LinkedKey::Expect(idx)));
                 };
             }
             Stmt::Import(x) => {
