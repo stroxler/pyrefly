@@ -30,6 +30,7 @@ use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
+use crate::binding::binding::LinkedKey;
 use crate::binding::binding::SuperStyle;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
@@ -380,19 +381,23 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn record_yield(&mut self, mut x: ExprYield) {
+        let user = self.declare_user(Key::UsageLink(x.range));
         let idx = self.idx_for_promise(KeyYield(x.range));
-        self.ensure_expr_opt(x.value.as_deref_mut(), Usage::NotImplemented);
+        self.ensure_expr_opt(x.value.as_deref_mut(), user.usage());
         if let Err(oops_top_level) = self.scopes.record_or_reject_yield(idx, x) {
             self.insert_binding_idx(idx, BindingYield::Invalid(oops_top_level));
         }
+        self.insert_binding_user(user, Binding::UsageLink(LinkedKey::Yield(idx)));
     }
 
     fn record_yield_from(&mut self, mut x: ExprYieldFrom) {
+        let user = self.declare_user(Key::UsageLink(x.range));
         let idx = self.idx_for_promise(KeyYieldFrom(x.range));
-        self.ensure_expr(&mut x.value, Usage::NotImplemented);
+        self.ensure_expr(&mut x.value, user.usage());
         if let Err(oops_top_level) = self.scopes.record_or_reject_yield_from(idx, x) {
             self.insert_binding_idx(idx, BindingYieldFrom::Invalid(oops_top_level));
         }
+        self.insert_binding_user(user, Binding::UsageLink(LinkedKey::YieldFrom(idx)));
     }
 
     /// Execute through the expr, ensuring every name has a binding.

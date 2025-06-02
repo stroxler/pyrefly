@@ -208,6 +208,8 @@ pub enum Key {
     SuperInstance(TextRange),
     /// The intermediate used in an unpacking assignment.
     Unpack(TextRange),
+    /// A usage link - a placeholder used for first-usage type inference.
+    UsageLink(TextRange),
 }
 
 impl Ranged for Key {
@@ -228,6 +230,7 @@ impl Ranged for Key {
             Self::Anywhere(_, r) => *r,
             Self::SuperInstance(r) => *r,
             Self::Unpack(r) => *r,
+            Self::UsageLink(r) => *r,
         }
     }
 }
@@ -254,6 +257,7 @@ impl DisplayWith<ModuleInfo> for Key {
             }
             Self::SuperInstance(r) => write!(f, "super {r:?}"),
             Self::Unpack(r) => write!(f, "unpack {r:?}"),
+            Self::UsageLink(r) => write!(f, "usage link {r:?}"),
         }
     }
 }
@@ -729,6 +733,14 @@ pub struct TypeParameter {
     pub constraints: Option<(Vec<Expr>, TextRange)>,
 }
 
+/// Represents an `Idx<K>` for some `K: Keyed` other than `Key`
+/// that we want to track for first-usage type inference.
+#[derive(Clone, Debug)]
+pub enum LinkedKey {
+    Yield(Idx<KeyYield>),
+    YieldFrom(Idx<KeyYieldFrom>),
+}
+
 #[derive(Clone, Debug)]
 pub enum Binding {
     /// An expression, optionally with a Key saying what the type must be.
@@ -842,6 +854,10 @@ pub enum Binding {
     AssignToAttribute(Box<(ExprAttribute, ExprOrBinding)>),
     /// The result of assigning to a subscript, used for narrowing.
     AssignToSubscript(Box<(ExprSubscript, ExprOrBinding)>),
+    /// A placeholder binding, used to force the solving of some other `K::Value` (for
+    /// example, forcing a `BindingExpect` to be solved) in the context of first-usage-based
+    /// type inference.
+    UsageLink(LinkedKey),
 }
 
 impl DisplayWith<Bindings> for Binding {
@@ -1050,6 +1066,17 @@ impl DisplayWith<Bindings> for Binding {
                     m.display(subscript.slice.as_ref()),
                     binding.display_with(ctx)
                 )
+            }
+            Self::UsageLink(usage_key) => {
+                write!(f, "usage link to ",)?;
+                match usage_key {
+                    LinkedKey::Yield(idx) => {
+                        write!(f, "{}", m.display(ctx.idx_to_key(*idx)))
+                    }
+                    LinkedKey::YieldFrom(idx) => {
+                        write!(f, "{}", m.display(ctx.idx_to_key(*idx)))
+                    }
+                }
             }
         }
     }

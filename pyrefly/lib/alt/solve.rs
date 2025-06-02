@@ -60,6 +60,7 @@ use crate::binding::binding::Key;
 use crate::binding::binding::KeyExport;
 use crate::binding::binding::KeyFunction;
 use crate::binding::binding::LastStmt;
+use crate::binding::binding::LinkedKey;
 use crate::binding::binding::NoneIfRecursive;
 use crate::binding::binding::RaisedException;
 use crate::binding::binding::SizeExpectation;
@@ -2595,6 +2596,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::SuperInstance(style, range) => self.solve_super_binding(style, *range, errors),
+            // For first-usage-based type inference, we occasionally just want a way to force
+            // some other `K::Value` type in order to deterministically pin `Var`s introduced by a definition.
+            Binding::UsageLink(linked_key) => {
+                match linked_key {
+                    LinkedKey::Yield(idx) => {
+                        self.get_idx(*idx);
+                    }
+                    LinkedKey::YieldFrom(idx) => {
+                        self.get_idx(*idx);
+                    }
+                }
+                // Produce a placeholder type; it will not be used.
+                Type::None
+            }
         }
     }
 
