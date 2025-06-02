@@ -46,7 +46,6 @@ use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::bindings::User;
-use crate::binding::expr::Usage;
 use crate::binding::scope::ClassIndices;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::InstanceAttribute;
@@ -115,8 +114,8 @@ impl<'a> BindingsBuilder<'a> {
         let mut key_class_fields: SmallSet<Idx<KeyClassField>> = SmallSet::new();
 
         let body = mem::take(&mut x.body);
-        let decorators = self
-            .ensure_and_bind_decorators(mem::take(&mut x.decorator_list), Usage::NotImplemented);
+        let decorators =
+            self.ensure_and_bind_decorators(mem::take(&mut x.decorator_list), class_object.usage());
 
         self.scopes.push(Scope::annotation(x.range));
 
@@ -151,7 +150,7 @@ impl<'a> BindingsBuilder<'a> {
         if let Some(args) = &mut x.arguments {
             args.keywords.iter_mut().for_each(|keyword| {
                 if let Some(name) = &keyword.arg {
-                    self.ensure_expr(&mut keyword.value, Usage::NotImplemented);
+                    self.ensure_expr(&mut keyword.value, class_object.usage());
                     keywords.push((name.id.clone(), keyword.value.clone()));
                 } else {
                     self.error(
@@ -551,10 +550,10 @@ impl<'a> BindingsBuilder<'a> {
         let class_name = Ast::expr_name_identifier(name.clone());
         let (class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.check_functional_definition_name(&name.id, arg_name);
-        self.ensure_expr(func, Usage::NotImplemented);
-        self.ensure_expr(arg_name, Usage::NotImplemented);
+        self.ensure_expr(func, class_object.usage());
+        self.ensure_expr(arg_name, class_object.usage());
         for arg in &mut *members {
-            self.ensure_expr(arg, Usage::NotImplemented);
+            self.ensure_expr(arg, class_object.usage());
         }
         let member_definitions: Vec<(String, TextRange, Option<Expr>, Option<Expr>)> =
             match members {
@@ -665,7 +664,7 @@ impl<'a> BindingsBuilder<'a> {
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
         let (class_object, class_indices) = self.class_object_and_indices(&class_name);
-        self.ensure_expr(func, Usage::NotImplemented);
+        self.ensure_expr(func, class_object.usage());
         self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>)> = match members {
             // namedtuple('Point', 'x y')
@@ -709,7 +708,7 @@ impl<'a> BindingsBuilder<'a> {
         let mut illegal_identifier_handling = IllegalIdentifierHandling::Error;
         let mut defaults: Vec<Option<Expr>> = vec![None; n_members];
         for kw in keywords {
-            self.ensure_expr(&mut kw.value, Usage::NotImplemented);
+            self.ensure_expr(&mut kw.value, class_object.usage());
             if let Some(name) = &kw.arg
                 && name.id == "rename"
                 && let Expr::BooleanLiteral(lit) = &kw.value
@@ -777,7 +776,7 @@ impl<'a> BindingsBuilder<'a> {
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
         let (class_object, class_indices) = self.class_object_and_indices(&class_name);
-        self.ensure_expr(func, Usage::NotImplemented);
+        self.ensure_expr(func, class_object.usage());
         self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>, Option<Expr>)> =
             match members {
@@ -836,7 +835,7 @@ impl<'a> BindingsBuilder<'a> {
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
         let (class_object, class_indices) = self.class_object_and_indices(&class_name);
-        self.ensure_expr(new_type_name, Usage::NotImplemented);
+        self.ensure_expr(new_type_name, class_object.usage());
         self.check_functional_definition_name(&name.id, new_type_name);
         self.ensure_type(base, &mut None);
         self.synthesize_class_def(
@@ -863,11 +862,11 @@ impl<'a> BindingsBuilder<'a> {
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
         let (class_object, class_indices) = self.class_object_and_indices(&class_name);
-        self.ensure_expr(func, Usage::NotImplemented);
+        self.ensure_expr(func, class_object.usage());
         self.check_functional_definition_name(&name.id, arg_name);
         let mut base_class_keywords: Box<[(Name, Expr)]> = Box::new([]);
         for kw in keywords {
-            self.ensure_expr(&mut kw.value, Usage::NotImplemented);
+            self.ensure_expr(&mut kw.value, class_object.usage());
             if let Some(name) = &kw.arg
                 && name.id == "total"
                 && matches!(kw.value, Expr::BooleanLiteral(_))
@@ -888,7 +887,7 @@ impl<'a> BindingsBuilder<'a> {
                 .iter_mut()
                 .filter_map(|item| {
                     if let Some(key) = &mut item.key {
-                        self.ensure_expr(key, Usage::NotImplemented);
+                        self.ensure_expr(key, class_object.usage());
                     }
                     self.ensure_type(&mut item.value.clone(), &mut None);
                     match (&item.key, &item.value) {

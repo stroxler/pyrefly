@@ -867,17 +867,6 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_key(&name.id, idx, style).0
     }
 
-    pub fn bind_definition_idx(
-        &mut self,
-        name: &Identifier,
-        idx: Idx<Key>,
-        binding: Binding,
-        style: FlowStyle,
-    ) -> Option<Idx<KeyAnnotation>> {
-        let idx = self.insert_binding_idx(idx, binding);
-        self.bind_key(&name.id, idx, style).0
-    }
-
     pub fn bind_definition_user(
         &mut self,
         name: &Identifier,
