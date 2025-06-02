@@ -116,7 +116,7 @@ impl ErrorCollector {
             None => vec1![msg],
         };
         let err = Error::new(
-            self.module_info.path().dupe(),
+            self.module_info.dupe(),
             source_range,
             full_msg,
             is_ignored,

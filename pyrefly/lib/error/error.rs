@@ -17,12 +17,13 @@ use yansi::Paint;
 
 use crate::error::kind::ErrorKind;
 use crate::error::kind::Severity;
+use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::SourceRange;
 use crate::module::module_path::ModulePath;
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Error {
-    path: ModulePath,
+    module_info: ModuleInfo,
     range: SourceRange,
     error_kind: ErrorKind,
     /// First line of the error message
@@ -44,7 +45,7 @@ impl Error {
                 Severity::Warn => " WARN",
                 Severity::Info => " INFO",
             },
-            self.path,
+            self.path(),
             self.range,
             self.msg_header,
             self.error_kind.to_name(),
@@ -100,7 +101,7 @@ pub fn print_error_counts(errors: &[Error], limit: usize) {
 
 impl Error {
     pub fn new(
-        path: ModulePath,
+        module_info: ModuleInfo,
         range: SourceRange,
         msg: Vec1<String>,
         is_ignored: bool,
@@ -115,7 +116,7 @@ impl Error {
             None
         };
         Self {
-            path,
+            module_info,
             range,
             error_kind,
             msg_header,
@@ -129,7 +130,7 @@ impl Error {
     }
 
     pub fn path(&self) -> &ModulePath {
-        &self.path
+        self.module_info.path()
     }
 
     fn msg_details(&self) -> &str {
