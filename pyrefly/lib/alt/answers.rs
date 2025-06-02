@@ -820,7 +820,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         msg: String,
     ) -> Type {
-        errors.add(range, msg, kind, context);
+        errors.add(range, kind, context, msg);
         Type::any_error()
     }
 

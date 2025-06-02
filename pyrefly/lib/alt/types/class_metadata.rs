@@ -491,13 +491,13 @@ impl Linearization {
                 } => {
                     errors.add(
                         cls.range(),
+                        ErrorKind::InvalidInheritance,
+                        None,
                         format!(
                             "Class `{}` inheriting from `{}` creates a cycle",
                             ClassName(cls.qname()),
                             ClassName(base.qname()),
                         ),
-                        ErrorKind::InvalidInheritance,
-                        None,
                     );
                     // Signal that we detected a cycle
                     return Linearization::Cyclic;
@@ -569,13 +569,13 @@ impl Linearization {
                 let first_candidate = &ancestor_chains.first().unwrap().0.last().class_object();
                 errors.add(
                     cls.range(),
+                    ErrorKind::InvalidInheritance,
+                    None,
                     format!(
                         "Class `{}` has a nonlinearizable inheritance chain detected at `{}`",
                         ClassName(cls.qname()),
                         ClassName(first_candidate.qname()),
                     ),
-                    ErrorKind::InvalidInheritance,
-                    None,
                 );
 
                 ancestor_chains = Vec::new()

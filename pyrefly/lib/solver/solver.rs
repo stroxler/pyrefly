@@ -378,10 +378,10 @@ impl Solver {
         let kind = tcc.kind.as_error_kind();
         match tcc.context {
             Some(ctx) => {
-                errors.add(loc, msg, kind, Some(&|| ctx.clone()));
+                errors.add(loc, kind, Some(&|| ctx.clone()), msg);
             }
             None => {
-                errors.add(loc, msg, kind, None);
+                errors.add(loc, kind, None, msg);
             }
         }
     }

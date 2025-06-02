@@ -141,9 +141,9 @@ impl<'a> BindingsBuilder<'a> {
                 Err(error) => {
                     self.error(
                         name.range,
-                        error.message(name),
                         ErrorKind::UnknownName,
                         None,
+                        error.message(name),
                     );
                     Binding::Type(Type::any_error())
                 }
@@ -159,9 +159,9 @@ impl<'a> BindingsBuilder<'a> {
                 Err(error) => {
                     self.error(
                         name.range,
-                        error.message(name),
                         ErrorKind::UnknownName,
                         None,
+                        error.message(name),
                     );
                     Binding::Type(Type::any_error())
                 }
@@ -221,9 +221,9 @@ impl<'a> BindingsBuilder<'a> {
             }
             self.error(
                 oops_top_level.range,
-                "Invalid `return` outside of a function".to_owned(),
                 ErrorKind::BadReturn,
                 None,
+                "Invalid `return` outside of a function".to_owned(),
             );
         }
         self.scopes.mark_flow_termination();
@@ -497,13 +497,14 @@ impl<'a> BindingsBuilder<'a> {
                     {
                         self.error(
                              x.range,
-                             format!(
-                                 "Type cannot be declared in assignment to non-self attribute `{}.{}`",
-                                 self.module_info.display(&attr.value),
-                                 attr_name,
-                             ),
                              ErrorKind::BadAssignment,
                              None,
+                             format!(
+                                "Type cannot be declared in assignment to non-self attribute `{}.{}`",
+                                self.module_info.display(&attr.value),
+                                attr_name,
+                            ),
+
                          );
                     }
                 }
@@ -513,9 +514,9 @@ impl<'a> BindingsBuilder<'a> {
                         // but Mypy and Pyright both error here, so let's do the same.
                         self.error(
                             x.annotation.range(),
-                            "Subscripts should not be annotated".to_owned(),
                             ErrorKind::InvalidSyntax,
                             None,
+                            "Subscripts should not be annotated".to_owned(),
                         );
                     }
                     // Try and continue as much as we can, by throwing away the type or just binding to error
@@ -552,9 +553,9 @@ impl<'a> BindingsBuilder<'a> {
                 } else {
                     self.error(
                         x.range,
-                        "Invalid assignment target".to_owned(),
                         ErrorKind::InvalidSyntax,
                         None,
+                        "Invalid assignment target".to_owned(),
                     );
                 }
             }
@@ -749,7 +750,7 @@ impl<'a> BindingsBuilder<'a> {
                     let m = ModuleName::from_name(&x.name.id);
                     if let Err(err @ FindError::NotFound(..)) = self.lookup.get(m) {
                         let (ctx, msg) = err.display();
-                        self.error(x.range, msg, ErrorKind::ImportError, ctx.as_deref());
+                        self.error(x.range, ErrorKind::ImportError, ctx.as_deref(), msg);
                     }
                     match x.asname {
                         Some(asname) => {
@@ -797,9 +798,9 @@ impl<'a> BindingsBuilder<'a> {
                                         } else {
                                             self.error(
                                                 x.range,
-                                                format!("Could not import `{name}` from `{m}`"),
                                                 ErrorKind::MissingModuleAttribute,
                                                 None,
+                                                format!("Could not import `{name}` from `{m}`"),
                                             );
                                             Binding::Type(Type::any_error())
                                         };
@@ -835,12 +836,12 @@ impl<'a> BindingsBuilder<'a> {
                                         } else {
                                             self.error(
                                                 x.range,
+                                                ErrorKind::MissingModuleAttribute,
+                                                None,
                                                 format!(
                                                     "Could not import `{}` from `{m}`",
                                                     x.name.id
                                                 ),
-                                                ErrorKind::MissingModuleAttribute,
-                                                None,
                                             );
                                             Binding::Type(Type::any_error())
                                         }
@@ -860,19 +861,19 @@ impl<'a> BindingsBuilder<'a> {
                             | FindError::NotFound(..)),
                         ) => {
                             let (ctx, msg) = err.display();
-                            self.error(x.range, msg, ErrorKind::ImportError, ctx.as_deref());
+                            self.error(x.range, ErrorKind::ImportError, ctx.as_deref(), msg);
                             self.bind_unimportable_names(&x);
                         }
                     }
                 } else {
                     self.error(
                         x.range,
+                        ErrorKind::ImportError,
+                        None,
                         format!(
                             "Could not resolve relative import `{}`",
                             ".".repeat(x.level as usize)
                         ),
-                        ErrorKind::ImportError,
-                        None,
                     );
                     self.bind_unimportable_names(&x);
                 }
@@ -903,9 +904,9 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::IpyEscapeCommand(x) => self.error(
                 x.range,
-                "IPython escapes are not supported".to_owned(),
                 ErrorKind::Unsupported,
                 None,
+                "IPython escapes are not supported".to_owned(),
             ),
         }
     }

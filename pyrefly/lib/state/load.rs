@@ -66,12 +66,12 @@ impl Load {
         if let Some(err) = self_error {
             errors.add(
                 TextRange::default(),
+                ErrorKind::ImportError,
+                None,
                 format!(
                     "Failed to load `{name}` from `{}`, got {err:#}",
                     module_info.path()
                 ),
-                ErrorKind::ImportError,
-                None,
             );
         }
         Self {

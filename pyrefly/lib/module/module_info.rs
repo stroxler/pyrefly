@@ -156,9 +156,9 @@ impl ModuleInfo {
         for err in parse_errors {
             errors.add(
                 err.location,
-                format!("Parse error: {}", err.error),
                 ErrorKind::ParseError,
                 None,
+                format!("Parse error: {}", err.error),
             );
         }
         SemanticSyntaxContext::new(version, errors).visit(&module);
@@ -263,9 +263,9 @@ impl<'me> ruff_python_parser::semantic_errors::SemanticSyntaxContext
     ) {
         self.errors.add(
             error.range,
-            error.to_string(),
             ErrorKind::InvalidSyntax,
             None,
+            error.to_string(),
         );
     }
 }

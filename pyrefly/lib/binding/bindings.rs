@@ -615,9 +615,9 @@ impl<'a> BindingsBuilder<'a> {
                 let (ctx, msg) = err.display();
                 self.error(
                     TextRange::default(),
-                    msg,
                     ErrorKind::InternalError,
                     ctx.as_deref(),
+                    msg,
                 );
             }
             Err(FindError::Ignored | FindError::NoPyTyped | FindError::NoSource(_)) => (),
@@ -648,11 +648,11 @@ impl<'a> BindingsBuilder<'a> {
     pub fn error(
         &self,
         range: TextRange,
-        msg: String,
         error_kind: ErrorKind,
         context: Option<&dyn Fn() -> ErrorContext>,
+        msg: String,
     ) {
-        self.errors.add(range, msg, error_kind, context);
+        self.errors.add(range, error_kind, context, msg);
     }
 
     pub fn lookup_mutable_captured_name(
@@ -991,9 +991,9 @@ impl<'a> BindingsBuilder<'a> {
             // Python treats break and continue outside of a loop as a syntax error.
             self.error(
                 range,
-                format!("Cannot `{exit}` outside loop"),
                 ErrorKind::ParseError,
                 None,
+                format!("Cannot `{exit}` outside loop"),
             );
         }
     }

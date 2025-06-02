@@ -206,9 +206,9 @@ impl<'a> BindingsBuilder<'a> {
                     if pattern.is_irrefutable() && idx != n_subpatterns - 1 {
                         self.error(
                             pattern.range(),
-                            "Only the last subpattern in MatchOr may be irrefutable".to_owned(),
                             ErrorKind::MatchError,
                             None,
+                            "Only the last subpattern in MatchOr may be irrefutable".to_owned(),
                         )
                     }
                     let mut base = self.scopes.clone_current_flow();

@@ -232,7 +232,7 @@ impl<'a> BindingsBuilder<'a> {
                         .get_flow_style(&name.id)
                         .uninitialized_error_message(name)
                     {
-                        self.error(name.range, error_message, ErrorKind::UnboundName, None);
+                        self.error(name.range, ErrorKind::UnboundName, None, error_message);
                     }
                 }
                 self.insert_binding(key, value)
@@ -253,9 +253,9 @@ impl<'a> BindingsBuilder<'a> {
                 // Record a type error and fall back to `Any`.
                 self.error(
                     name.range,
-                    error.message(name),
                     ErrorKind::UnknownName,
                     None,
+                    error.message(name),
                 );
                 self.insert_binding(key, Binding::Type(Type::any_error()))
             }
@@ -487,7 +487,7 @@ impl<'a> BindingsBuilder<'a> {
                 for kw in keywords {
                     self.ensure_expr(&mut kw.value, usage);
                     unexpected_keyword(
-                        &|msg| self.error(*range, msg, ErrorKind::UnexpectedKeyword, None),
+                        &|msg| self.error(*range, ErrorKind::UnexpectedKeyword, None, msg),
                         "super",
                         kw,
                     );
@@ -515,10 +515,10 @@ impl<'a> BindingsBuilder<'a> {
                         _ => {
                             self.error(
                                 *range,
-                                "`super` call with no arguments is valid only inside a method"
-                                    .to_owned(),
                                 ErrorKind::InvalidSuperCall,
                                 None,
+                                "`super` call with no arguments is valid only inside a method"
+                                    .to_owned(),
                             );
                             SuperStyle::Any
                         }
@@ -540,9 +540,9 @@ impl<'a> BindingsBuilder<'a> {
                         // This is a very niche use case, and we don't support it aside from not erroring.
                         self.error(
                             *range,
-                            format!("`super` takes at most 2 arguments, got {}", nargs),
                             ErrorKind::InvalidSuperCall,
                             None,
+                            format!("`super` takes at most 2 arguments, got {}", nargs),
                         );
                     }
                     for arg in posargs {
@@ -687,12 +687,12 @@ impl<'a> BindingsBuilder<'a> {
                 Err(e) => {
                     self.error(
                         literal.range,
+                        ErrorKind::ParseError,
+                        None,
                         format!(
                             "Could not parse type string: {}, got {e}",
                             literal.value.to_str()
                         ),
-                        ErrorKind::ParseError,
-                        None,
                     );
                 }
             },

@@ -102,9 +102,9 @@ impl ErrorCollector {
     pub fn add(
         &self,
         range: TextRange,
-        msg: String,
         kind: ErrorKind,
         context: Option<&dyn Fn() -> ErrorContext>,
+        msg: String,
     ) {
         if self.style == ErrorStyle::Never {
             return;
@@ -189,33 +189,33 @@ mod tests {
         let errors = ErrorCollector::new(mi.dupe(), ErrorStyle::Delayed);
         errors.add(
             TextRange::new(TextSize::new(1), TextSize::new(3)),
+            ErrorKind::InternalError,
+            None,
             "b".to_owned(),
-            ErrorKind::InternalError,
-            None,
         );
         errors.add(
             TextRange::new(TextSize::new(1), TextSize::new(3)),
-            "a".to_owned(),
             ErrorKind::InternalError,
             None,
+            "a".to_owned(),
         );
         errors.add(
             TextRange::new(TextSize::new(1), TextSize::new(3)),
-            "a".to_owned(),
             ErrorKind::InternalError,
             None,
+            "a".to_owned(),
         );
         errors.add(
             TextRange::new(TextSize::new(2), TextSize::new(3)),
-            "a".to_owned(),
             ErrorKind::InternalError,
             None,
+            "a".to_owned(),
         );
         errors.add(
             TextRange::new(TextSize::new(1), TextSize::new(3)),
-            "b".to_owned(),
             ErrorKind::InternalError,
             None,
+            "b".to_owned(),
         );
         assert_eq!(
             errors
@@ -239,33 +239,33 @@ mod tests {
         let errors = ErrorCollector::new(mi.dupe(), ErrorStyle::Delayed);
         errors.add(
             TextRange::new(TextSize::new(1), TextSize::new(3)),
-            "a".to_owned(),
             ErrorKind::InternalError,
             None,
+            "a".to_owned(),
         );
         errors.add(
             TextRange::new(TextSize::new(1), TextSize::new(3)),
-            "b".to_owned(),
             ErrorKind::AsyncError,
             None,
+            "b".to_owned(),
         );
         errors.add(
             TextRange::new(TextSize::new(1), TextSize::new(3)),
-            "c".to_owned(),
             ErrorKind::BadAssignment,
             None,
+            "c".to_owned(),
         );
         errors.add(
             TextRange::new(TextSize::new(2), TextSize::new(3)),
-            "d".to_owned(),
             ErrorKind::MatchError,
             None,
+            "d".to_owned(),
         );
         errors.add(
             TextRange::new(TextSize::new(1), TextSize::new(3)),
-            "e".to_owned(),
             ErrorKind::NotIterable,
             None,
+            "e".to_owned(),
         );
 
         let display_config = ErrorDisplayConfig::new(HashMap::from([
@@ -291,9 +291,9 @@ mod tests {
         let errors = ErrorCollector::new(mi.dupe(), ErrorStyle::Delayed);
         errors.add(
             TextRange::new(TextSize::new(1), TextSize::new(3)),
-            "a".to_owned(),
             ErrorKind::InternalError,
             None,
+            "a".to_owned(),
         );
 
         let display_config = ErrorDisplayConfig::default();
@@ -314,15 +314,15 @@ mod tests {
         let errors = ErrorCollector::new(mi.dupe(), ErrorStyle::Delayed);
         errors.add(
             TextRange::new(TextSize::new(1), TextSize::new(1)),
-            "Overload".to_owned(),
             ErrorKind::InternalError,
             None,
+            "Overload".to_owned(),
         );
         errors.add(
             TextRange::new(TextSize::new(1), TextSize::new(1)),
-            "A specific error".to_owned(),
             ErrorKind::InternalError,
             None,
+            "A specific error".to_owned(),
         );
         assert_eq!(
             errors

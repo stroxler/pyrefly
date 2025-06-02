@@ -788,7 +788,7 @@ impl<'a> Transaction<'a> {
         kind: ErrorKind,
     ) {
         let load = module_data.state.read().steps.load.dupe().unwrap();
-        load.errors.add(range, msg, kind, None);
+        load.errors.add(range, kind, None, msg);
     }
 
     fn lookup<'b>(&'b self, module_data: ArcId<ModuleDataMut>) -> TransactionHandle<'b> {
