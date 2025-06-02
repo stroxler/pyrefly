@@ -4,19 +4,17 @@
 name = "pyrefly"
 version = "0.18.0"
 authors = ["Meta"]
-edition = "2021"
+edition = "2024"
 repository = "https://github.com/facebook/pyrefly"
 license = "MIT"
 build = "build.rs"
 
 [lib]
 path = "lib/lib.rs"
-edition = "2024"
 
 [[bin]]
 name = "pyrefly"
 path = "bin/main.rs"
-edition = "2024"
 
 [dependencies]
 anstream = "0.6.11"
