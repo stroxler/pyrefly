@@ -560,17 +560,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .collect::<SmallMap<_, _>>();
 
         let lookup_tparam = |t: &Type| {
-            let q = t.as_quantified();
-            if q.is_none() && !matches!(t, Type::Any(AnyStyle::Error) | Type::Unpack(_)) {
+            let (q, kind) = match t {
+                Type::Unpack(t) => (t.as_quantified(), "TypeVarTuple"),
+                _ => (t.as_quantified(), "type variable"),
+            };
+            if q.is_none() && !matches!(t, Type::Any(AnyStyle::Error)) {
                 self.error(
                     errors,
                     name.range,
                     ErrorKind::InvalidTypeVar,
                     None,
-                    format!(
-                        "Expected a type variable, got `{}`",
-                        self.for_display(t.clone())
-                    ),
+                    format!("Expected a {kind}, got `{}`", self.for_display(t.clone())),
                 );
             }
             q.and_then(|q| {

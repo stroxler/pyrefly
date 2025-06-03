@@ -714,7 +714,7 @@ _T = TypeVar("_T")
 _R_co = TypeVar("_R_co", covariant=True)
 _Ts = TypeVarTuple("_Ts")
 
-class partial(Generic[_P1, _P2, _T, _R_co, *_Ts]):  # E: Class `partial` uses type variables not specified in `Generic` or `Protocol` base
+class partial(Generic[_P1, _P2, _T, _R_co, *_Ts]):
     @overload
     def __new__(cls, __func: Callable[_P1, _R_co]) -> partial[_P1, _P1, Any, _R_co]: ...
     @overload

@@ -273,9 +273,6 @@
   ],
   "generics_defaults.py": [
     "Line 127: Unexpected errors ['assert_type(Any, int) failed']",
-    "Line 148: Unexpected errors ['Class `Foo6` uses type variables not specified in `Generic` or `Protocol` base', 'Type parameter `Ts` without a default cannot follow type parameter `P` with a default']",
-    "Line 151: Unexpected errors ['Expected a valid ParamSpec expression, got `int`', 'Expected a valid ParamSpec expression, got `int`', 'Expected 2 type arguments for `Foo6`, got 3']",
-    "Line 152: Unexpected errors ['Expected a valid ParamSpec expression, got `int`', 'Expected 2 type arguments for `Foo6`, got 3', 'Expected a valid ParamSpec expression, got `int`', 'Expected 2 type arguments for `Foo6`, got 3']",
     "Line 166: Unexpected errors ['assert_type(Forall[DefaultIntT, (Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]]], (Foo7[int]) -> Foo7[int]) failed']",
     "Line 167: Unexpected errors ['assert_type(Any, int) failed', 'Instance-only attribute `attr` of class `Foo7` is not visible on the class']"
   ],
@@ -364,7 +361,6 @@
   "generics_typevartuple_overloads.py": [],
   "generics_typevartuple_specialization.py": [
     "Line 51: Unexpected errors ['assert_type(tuple[int, *tuple[Any, ...]], tuple[int]) failed']",
-    "Line 59: Unexpected errors ['Class `Array2` uses type variables not specified in `Generic` or `Protocol` base']",
     "Line 94: Unexpected errors ['assert_type(tuple[float, *tuple[Any, ...]], tuple[float]) failed']",
     "Line 153: Unexpected errors ['Unpacked argument cannot be used for type parameter T1']",
     "Line 157: Unexpected errors ['assert_type(tuple[Any], tuple[*tuple[int, ...], int]) failed']"
