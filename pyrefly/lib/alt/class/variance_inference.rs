@@ -1,11 +1,14 @@
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result as FmtResult;
+use std::sync::Arc;
 
 use pyrefly_derive::TypeEq;
 use pyrefly_util::visit::VisitMut;
 use starlark_map::small_map::SmallMap;
 
+use crate::alt::class::class_field::ClassField;
+use crate::types::class::Class;
 use crate::types::type_var::PreInferenceVariance;
 use crate::types::type_var::Variance;
 use crate::types::types::Type;
@@ -41,4 +44,21 @@ pub fn pre_to_post_variance(pre_variance: PreInferenceVariance) -> Variance {
         // TODO: we should infer variance for this case
         PreInferenceVariance::PUndefined => Variance::Invariant,
     }
+}
+
+pub fn variance_map(
+    class: &Class,
+    _base_types: Vec<Type>,
+    _fields: Vec<Arc<ClassField>>,
+) -> Arc<VarianceMap> {
+    // TODO: use base_types and fields to obtain a populated variance map
+    let mut variances = SmallMap::new();
+
+    for tparam in class.tparams().iter() {
+        variances.insert(
+            tparam.name().as_str().to_owned(),
+            pre_to_post_variance(tparam.variance),
+        );
+    }
+    Arc::new(VarianceMap(variances))
 }

@@ -29,7 +29,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::callable::CallArg;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
-use crate::alt::class::variance_inference::pre_to_post_variance;
+use crate::alt::class::variance_inference::variance_map;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::alt::types::decorated_function::DecoratedFunction;
@@ -1309,34 +1309,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let class_idx = variance_info.class_key;
         let class = self.get_idx(class_idx);
 
-        let base_classes = &variance_info.base_classes;
-        let field_keys = &variance_info.fields;
-        let mut fields = Vec::with_capacity(field_keys.len());
-        let mut base_types = Vec::with_capacity(base_classes.len());
-
-        for field_idx in field_keys {
-            let field = self.get_idx(*field_idx);
-            fields.push(field);
-        }
-
-        for base in base_classes {
-            let base_type = self.expr_infer(
-                base,
-                &ErrorCollector::new(self.module_info().clone(), ErrorStyle::Never),
-            );
-            base_types.push(base_type);
-        }
-
         if let Some(class) = &class.0 {
-            let type_params = class.tparams();
-            let mut variances = SmallMap::with_capacity(type_params.len());
-            for tparam in type_params.iter() {
-                variances.insert(
-                    tparam.name().as_str().to_owned(),
-                    pre_to_post_variance(tparam.variance),
-                );
+            let base_classes = &variance_info.base_classes;
+            let field_keys = &variance_info.fields;
+            let mut fields = Vec::with_capacity(field_keys.len());
+            let mut base_types = Vec::with_capacity(base_classes.len());
+
+            for field_idx in field_keys {
+                let field = self.get_idx(*field_idx);
+                fields.push(field);
             }
-            Arc::new(VarianceMap(variances))
+
+            for base in base_classes {
+                let base_type = self.expr_infer(
+                    base,
+                    &ErrorCollector::new(self.module_info().clone(), ErrorStyle::Never),
+                );
+                base_types.push(base_type);
+            }
+            variance_map(class, base_types, fields)
         } else {
             Arc::new(VarianceMap(SmallMap::new()))
         }
