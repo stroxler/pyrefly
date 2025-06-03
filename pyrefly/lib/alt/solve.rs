@@ -2362,8 +2362,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None => context_value,
                 }
             }
-            Binding::UnpackedValue(ann, b, range, pos) => {
-                let iterables = self.iterate(self.get_idx(*b).ty(), *range, errors);
+            Binding::UnpackedValue(ann, to_unpack, range, pos) => {
+                let iterables = self.iterate(self.get_idx(*to_unpack).ty(), *range, errors);
                 let mut values = Vec::new();
                 for iterable in iterables {
                     values.push(match iterable {
