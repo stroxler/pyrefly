@@ -18,6 +18,7 @@ use ruff_source_file::OneIndexed;
 use ruff_source_file::SourceLocation;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
+use vec1::vec1;
 
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
@@ -159,7 +160,7 @@ impl ModuleInfo {
                 err.location,
                 ErrorKind::ParseError,
                 None,
-                format!("Parse error: {}", err.error),
+                vec1![format!("Parse error: {}", err.error)],
             );
         }
         SemanticSyntaxContext::new(version, errors).visit(&module);
@@ -264,7 +265,7 @@ impl<'me> ruff_python_parser::semantic_errors::SemanticSyntaxContext
             error.range,
             ErrorKind::InvalidSyntax,
             None,
-            error.to_string(),
+            vec1![error.to_string()],
         );
     }
 }

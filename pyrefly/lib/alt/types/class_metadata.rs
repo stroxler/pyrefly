@@ -19,6 +19,7 @@ use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
+use vec1::vec1;
 
 use crate::alt::class::class_field::ClassField;
 use crate::error::collector::ErrorCollector;
@@ -493,11 +494,11 @@ impl Linearization {
                         cls.range(),
                         ErrorKind::InvalidInheritance,
                         None,
-                        format!(
+                        vec1![format!(
                             "Class `{}` inheriting from `{}` creates a cycle",
                             ClassName(cls.qname()),
                             ClassName(base.qname()),
-                        ),
+                        )],
                     );
                     // Signal that we detected a cycle
                     return Linearization::Cyclic;
@@ -571,11 +572,11 @@ impl Linearization {
                     cls.range(),
                     ErrorKind::InvalidInheritance,
                     None,
-                    format!(
+                    vec1![format!(
                         "Class `{}` has a nonlinearizable inheritance chain detected at `{}`",
                         ClassName(cls.qname()),
                         ClassName(first_candidate.qname()),
-                    ),
+                    )],
                 );
 
                 ancestor_chains = Vec::new()

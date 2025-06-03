@@ -10,7 +10,7 @@ use std::fmt::Debug;
 use dupe::Dupe;
 use pyrefly_util::lock::Mutex;
 use ruff_text_size::TextRange;
-use vec1::vec1;
+use vec1::Vec1;
 
 use crate::config::error::ErrorConfig;
 use crate::error::context::ErrorContext;
@@ -104,24 +104,17 @@ impl ErrorCollector {
         range: TextRange,
         kind: ErrorKind,
         context: Option<&dyn Fn() -> ErrorContext>,
-        msg: String,
+        mut msg: Vec1<String>,
     ) {
         if self.style == ErrorStyle::Never {
             return;
         }
         let source_range = self.module_info.source_range(range);
         let is_ignored = self.module_info.is_ignored(&source_range);
-        let full_msg = match context {
-            Some(ctx) => vec1![ctx().format(), msg],
-            None => vec1![msg],
-        };
-        let err = Error::new(
-            self.module_info.dupe(),
-            source_range,
-            full_msg,
-            is_ignored,
-            kind,
-        );
+        if let Some(ctx) = context {
+            msg.insert(0, ctx().format());
+        }
+        let err = Error::new(self.module_info.dupe(), source_range, msg, is_ignored, kind);
         self.errors.lock().push(err);
     }
 
@@ -173,11 +166,16 @@ mod tests {
     use pyrefly_util::prelude::SliceExt;
     use ruff_python_ast::name::Name;
     use ruff_text_size::TextSize;
+    use vec1::vec1;
 
     use super::*;
     use crate::config::error::ErrorDisplayConfig;
     use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
+
+    fn add(errors: &ErrorCollector, range: TextRange, kind: ErrorKind, msg: String) {
+        errors.add(range, kind, None, vec1![msg]);
+    }
 
     #[test]
     fn test_error_collector() {
@@ -187,34 +185,34 @@ mod tests {
             Arc::new("contents".to_owned()),
         );
         let errors = ErrorCollector::new(mi.dupe(), ErrorStyle::Delayed);
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(1), TextSize::new(3)),
             ErrorKind::InternalError,
-            None,
             "b".to_owned(),
         );
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(1), TextSize::new(3)),
             ErrorKind::InternalError,
-            None,
             "a".to_owned(),
         );
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(1), TextSize::new(3)),
             ErrorKind::InternalError,
-            None,
             "a".to_owned(),
         );
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(2), TextSize::new(3)),
             ErrorKind::InternalError,
-            None,
             "a".to_owned(),
         );
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(1), TextSize::new(3)),
             ErrorKind::InternalError,
-            None,
             "b".to_owned(),
         );
         assert_eq!(
@@ -237,34 +235,34 @@ mod tests {
             Arc::new("contents".to_owned()),
         );
         let errors = ErrorCollector::new(mi.dupe(), ErrorStyle::Delayed);
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(1), TextSize::new(3)),
             ErrorKind::InternalError,
-            None,
             "a".to_owned(),
         );
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(1), TextSize::new(3)),
             ErrorKind::AsyncError,
-            None,
             "b".to_owned(),
         );
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(1), TextSize::new(3)),
             ErrorKind::BadAssignment,
-            None,
             "c".to_owned(),
         );
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(2), TextSize::new(3)),
             ErrorKind::MatchError,
-            None,
             "d".to_owned(),
         );
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(1), TextSize::new(3)),
             ErrorKind::NotIterable,
-            None,
             "e".to_owned(),
         );
 
@@ -289,10 +287,10 @@ mod tests {
             Arc::new(format!("# {}{}\ncontents", "@", "generated")),
         );
         let errors = ErrorCollector::new(mi.dupe(), ErrorStyle::Delayed);
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(1), TextSize::new(3)),
             ErrorKind::InternalError,
-            None,
             "a".to_owned(),
         );
 
@@ -312,16 +310,16 @@ mod tests {
             Arc::new("test".to_owned()),
         );
         let errors = ErrorCollector::new(mi.dupe(), ErrorStyle::Delayed);
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(1), TextSize::new(1)),
             ErrorKind::InternalError,
-            None,
             "Overload".to_owned(),
         );
-        errors.add(
+        add(
+            &errors,
             TextRange::new(TextSize::new(1), TextSize::new(1)),
             ErrorKind::InternalError,
-            None,
             "A specific error".to_owned(),
         );
         assert_eq!(

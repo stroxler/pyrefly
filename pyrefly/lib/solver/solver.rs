@@ -20,6 +20,7 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::error::collector::ErrorCollector;
@@ -378,10 +379,10 @@ impl Solver {
         let kind = tcc.kind.as_error_kind();
         match tcc.context {
             Some(ctx) => {
-                errors.add(loc, kind, Some(&|| ctx.clone()), msg);
+                errors.add(loc, kind, Some(&|| ctx.clone()), vec1![msg]);
             }
             None => {
-                errors.add(loc, kind, None, msg);
+                errors.add(loc, kind, None, vec1![msg]);
             }
         }
     }

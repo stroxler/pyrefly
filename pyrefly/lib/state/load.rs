@@ -12,6 +12,7 @@ use dupe::Dupe;
 use dupe::OptionDupedExt;
 use pyrefly_util::fs_anyhow;
 use ruff_text_size::TextRange;
+use vec1::vec1;
 
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
@@ -68,10 +69,10 @@ impl Load {
                 TextRange::default(),
                 ErrorKind::ImportError,
                 None,
-                format!(
+                vec1![format!(
                     "Failed to load `{name}` from `{}`, got {err:#}",
                     module_info.path()
-                ),
+                )],
             );
         }
         Self {

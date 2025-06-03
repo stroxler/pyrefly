@@ -32,6 +32,7 @@ use starlark_map::Hashed;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use vec1::vec1;
 
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
@@ -656,7 +657,7 @@ impl<'a> BindingsBuilder<'a> {
         context: Option<&dyn Fn() -> ErrorContext>,
         msg: String,
     ) {
-        self.errors.add(range, error_kind, context, msg);
+        self.errors.add(range, error_kind, context, vec1![msg]);
     }
 
     pub fn lookup_mutable_captured_name(
