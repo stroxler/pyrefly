@@ -164,6 +164,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut is_overload = false;
         let mut is_staticmethod = false;
         let mut is_classmethod = false;
+        let mut is_deprecated = false;
         let mut is_property_getter = false;
         let mut is_property_setter_with_getter = None;
         let mut has_enum_member_decoration = false;
@@ -173,6 +174,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .iter()
             .filter(|k| {
                 let decorator = self.get_idx(**k);
+
                 match decorator.ty().callee_kind() {
                     Some(CalleeKind::Function(FunctionKind::Overload)) => {
                         is_overload = true;
@@ -185,6 +187,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Some(CalleeKind::Class(ClassKind::ClassMethod)) => {
                         is_classmethod = true;
                         false
+                    }
+                    Some(CalleeKind::Function(FunctionKind::Deprecated)) => {
+                        is_deprecated = true;
+                        true
                     }
                     Some(CalleeKind::Class(ClassKind::Property)) => {
                         is_property_getter = true;
@@ -209,7 +215,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         has_final_decoration = true;
                         false
                     }
-                    _ => true,
+                    _ => {
+                        if decorator.ty().to_string() == *"deprecated".to_owned() {
+                            is_deprecated = true;
+                        }
+                        true
+                    }
                 }
             })
             .collect::<Vec<_>>();
@@ -408,6 +419,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 is_overload,
                 is_staticmethod,
                 is_classmethod,
+                is_deprecated,
                 is_property_getter,
                 is_property_setter_with_getter,
                 has_enum_member_decoration,
