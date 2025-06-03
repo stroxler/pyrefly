@@ -779,7 +779,7 @@ impl<'a> BindingsBuilder<'a> {
                     let m = ModuleName::from_name(&x.name.id);
                     if let Err(err @ FindError::NotFound(..)) = self.lookup.get(m) {
                         let (ctx, msg) = err.display();
-                        self.error(x.range, ErrorKind::ImportError, ctx.as_deref(), msg);
+                        self.error_multiline(x.range, ErrorKind::ImportError, ctx.as_deref(), msg);
                     }
                     match x.asname {
                         Some(asname) => {
@@ -890,7 +890,12 @@ impl<'a> BindingsBuilder<'a> {
                             | FindError::NotFound(..)),
                         ) => {
                             let (ctx, msg) = err.display();
-                            self.error(x.range, ErrorKind::ImportError, ctx.as_deref(), msg);
+                            self.error_multiline(
+                                x.range,
+                                ErrorKind::ImportError,
+                                ctx.as_deref(),
+                                msg,
+                            );
                             self.bind_unimportable_names(&x);
                         }
                     }

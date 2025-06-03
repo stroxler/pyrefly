@@ -9,11 +9,11 @@ use std::fmt::Debug;
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use dupe::Dupe;
-use itertools::Itertools;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::locked_map::LockedMap;
+use vec1::Vec1;
+use vec1::vec1;
 
 use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
@@ -25,7 +25,7 @@ use crate::module::module_path::ModulePath;
 #[derive(Debug, Clone, Dupe)]
 pub enum FindError {
     /// This module could not be found, and we should emit an error
-    NotFound(Arc<anyhow::Error>, ModuleName),
+    NotFound(ModuleName, Arc<Vec1<String>>),
     /// This import could not be found, but the user configured it to be ignored
     Ignored,
     /// This site package path entry was found, but does not have a py.typed entry
@@ -38,7 +38,7 @@ pub enum FindError {
 
 impl FindError {
     pub fn not_found(err: anyhow::Error, module: ModuleName) -> Self {
-        Self::NotFound(Arc::new(err), module)
+        Self::NotFound(module, Arc::new(vec1![format!("{err:#}")]))
     }
 
     pub fn no_source(module: ModuleName) -> Self {
@@ -60,45 +60,48 @@ impl FindError {
             }
             _ => "".to_owned(),
         };
-        let path_dump = path
+        let nonempty_paths = path
             .iter()
             .filter_map(|path| {
                 if path.is_empty() {
                     None
                 } else {
-                    Some(format!("\n  {path}"))
+                    Some(format!("{path}"))
                 }
             })
-            .join("");
-        let explanation = if path_dump.is_empty() {
+            .collect::<Vec<_>>();
+        let mut explanation = vec1![if nonempty_paths.is_empty() {
             format!("No search path or site package path{config_suffix}")
         } else {
-            format!("Looked in these locations{config_suffix}:{path_dump}")
-        };
-        FindError::NotFound(Arc::new(anyhow!(explanation)), module)
+            format!("Looked in these locations{config_suffix}:")
+        }];
+        explanation.extend(nonempty_paths);
+        FindError::NotFound(module, Arc::new(explanation))
     }
 
-    pub fn display(&self) -> (Option<Box<dyn Fn() -> ErrorContext + '_>>, String) {
+    pub fn display(&self) -> (Option<Box<dyn Fn() -> ErrorContext + '_>>, Vec1<String>) {
         match self {
-            Self::NotFound(err, module) => (
+            Self::NotFound(module, err) => (
                 Some(Box::new(|| ErrorContext::ImportNotFound(*module))),
-                format!("{err:#}"),
+                (**err).clone(),
             ),
-            Self::Ignored => (None, "Ignored import".to_owned()),
+            Self::Ignored => (None, vec1!["Ignored import".to_owned()]),
             Self::NoPyTyped => (
                 None,
-                "Imported package does not contain a py.typed file, \
+                vec1![
+                    "Imported package does not contain a py.typed file, \
                 and therefore cannot be typed. Try installing a `<package name>-stubs` version
                 of your package to get the released stubs, or enable `use_untyped_imports` to
                 disable this error."
-                    .to_owned(),
+                        .to_owned()
+                ],
             ),
             Self::NoSource(module) => (
                 None,
-                format!(
+                vec1![format!(
                     "Found stubs for `{module}`, but no source. This means it's likely not \
                     installed/unimportable. See `ignore_missing_source` to disable this error."
-                ),
+                )],
             ),
         }
     }

@@ -32,6 +32,7 @@ use starlark_map::Hashed;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use vec1::Vec1;
 use vec1::vec1;
 
 use crate::binding::binding::AnnotationTarget;
@@ -618,7 +619,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             Err(err @ FindError::NotFound(..)) => {
                 let (ctx, msg) = err.display();
-                self.error(
+                self.error_multiline(
                     TextRange::default(),
                     ErrorKind::InternalError,
                     ctx.as_deref(),
@@ -658,6 +659,16 @@ impl<'a> BindingsBuilder<'a> {
         msg: String,
     ) {
         self.errors.add(range, error_kind, context, vec1![msg]);
+    }
+
+    pub fn error_multiline(
+        &self,
+        range: TextRange,
+        error_kind: ErrorKind,
+        context: Option<&dyn Fn() -> ErrorContext>,
+        msg: Vec1<String>,
+    ) {
+        self.errors.add(range, error_kind, context, msg);
     }
 
     pub fn lookup_mutable_captured_name(
