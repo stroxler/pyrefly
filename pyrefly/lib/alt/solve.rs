@@ -491,6 +491,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Given an `iterable` type, determine the iteration type; this is the type
     /// of `x` if we were to loop using `for x in iterable`.
+    ///
+    /// Returns a Vec of length 1 unless the iterable is a union, in which case the
+    /// caller must handle each case.
     pub fn iterate(
         &self,
         iterable: &Type,
