@@ -3,6 +3,7 @@ name: Build binaries
 on:
   push:
     paths:
+      - '**/*'
       - '!.*'
       - '.github/workflows/build_binaries.yml'
   workflow_dispatch:

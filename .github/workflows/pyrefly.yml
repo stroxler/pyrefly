@@ -2,6 +2,7 @@ name: pyrefly
 on:
   push:
     paths:
+      - '**/*'
       - '!.*'
       - '.github/workflows/pyrefly.yml'
   pull_request:
