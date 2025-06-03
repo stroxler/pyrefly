@@ -1957,6 +1957,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Binding::NameAssign(name, annot_key, expr) => {
                 let (has_type_alias_qualifier, ty) = match annot_key.as_ref() {
+                    // First infer the type as a normal value
                     Some((style, k)) => {
                         let annot = self.get_idx(*k);
                         let tcc: &dyn Fn() -> TypeCheckContext = &|| {
@@ -1995,6 +1996,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     None => (None, self.expr(expr, None, errors)),
                 };
+                // Then, handle the possibility that we need to treat the type as a type alias
                 match (has_type_alias_qualifier, &ty) {
                     (Some(true), _) => {
                         self.as_type_alias(name, TypeAliasStyle::LegacyExplicit, ty, expr, errors)
