@@ -32,6 +32,7 @@ use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
+use crate::types::callable::Params;
 use crate::types::class::Class;
 use crate::types::class::ClassKind;
 use crate::types::class::ClassType;
@@ -998,9 +999,26 @@ impl Type {
     }
 
     pub fn anon_callables(self) -> Self {
-        self.transform(&mut |ty| {
+        self.transform(&mut |mut ty| {
             if let Type::Function(func) = ty {
                 *ty = Type::Callable(Box::new(func.signature.clone()));
+            }
+            // Anonymize posonly parameters in callables and paramspec values.
+            fn transform_params(params: &mut ParamList) {
+                for param in params.items_mut() {
+                    if let Param::PosOnly(Some(_), ty, req) = param {
+                        *param = Param::PosOnly(None, ty.clone(), *req);
+                    }
+                }
+            }
+            ty.transform_callable(&mut |callable: &mut Callable| match &mut callable.params {
+                Params::List(params) => {
+                    transform_params(params);
+                }
+                _ => {}
+            });
+            if let Type::ParamSpecValue(params) = &mut ty {
+                transform_params(params);
             }
         })
     }

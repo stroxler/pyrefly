@@ -51,7 +51,7 @@ impl ParamList {
 
     /// Create a new ParamList from a list of types, as required position-only parameters.
     pub fn new_types(xs: &[Type]) -> Self {
-        Self(xs.map(|t| Param::PosOnly(t.clone(), Required::Required)))
+        Self(xs.map(|t| Param::PosOnly(None, t.clone(), Required::Required)))
     }
 
     /// Prepend some required position-only parameters.
@@ -61,7 +61,7 @@ impl ParamList {
         } else {
             Cow::Owned(ParamList(
                 pre.iter()
-                    .map(|t| Param::PosOnly(t.clone(), Required::Required))
+                    .map(|t| Param::PosOnly(None, t.clone(), Required::Required))
                     .chain(self.0.iter().cloned())
                     .collect(),
             ))
@@ -89,6 +89,10 @@ impl ParamList {
 
     pub fn items(&self) -> &[Param] {
         &self.0
+    }
+
+    pub fn items_mut(&mut self) -> &mut [Param] {
+        &mut self.0
     }
 
     pub fn len(&self) -> usize {
@@ -126,7 +130,7 @@ pub enum Params {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub enum Param {
-    PosOnly(Type, Required),
+    PosOnly(Option<Name>, Type, Required),
     Pos(Name, Type, Required),
     VarArg(Option<Name>, Type),
     KwOnly(Name, Type, Required),
@@ -428,8 +432,9 @@ impl Param {
         wrap: impl Fn(&'a Type) -> D,
     ) -> fmt::Result {
         match self {
-            Param::PosOnly(ty, Required::Required) => write!(f, "{}", wrap(ty)),
-            Param::PosOnly(ty, Required::Optional) => write!(f, "_: {} = ...", wrap(ty)),
+            // TODO(rechen): display the names of positional-only parameters
+            Param::PosOnly(_, ty, Required::Required) => write!(f, "{}", wrap(ty)),
+            Param::PosOnly(_, ty, Required::Optional) => write!(f, "_: {} = ...", wrap(ty)),
             Param::Pos(name, ty, required) => {
                 write!(
                     f,
@@ -453,7 +458,7 @@ impl Param {
     #[allow(dead_code)]
     pub fn is_required(&self) -> bool {
         match self {
-            Param::PosOnly(_, Required::Required)
+            Param::PosOnly(_, _, Required::Required)
             | Param::Pos(_, _, Required::Required)
             | Param::KwOnly(_, _, Required::Required) => true,
             _ => false,
@@ -466,7 +471,7 @@ impl Param {
         is_subset: &dyn Fn(&Type, &Type) -> bool,
     ) {
         match self {
-            Param::PosOnly(ty, _)
+            Param::PosOnly(_, ty, _)
             | Param::Pos(_, ty, _)
             | Param::VarArg(_, ty)
             | Param::KwOnly(_, ty, _)

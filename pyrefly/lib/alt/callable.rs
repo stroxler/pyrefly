@@ -218,7 +218,8 @@ struct PosParam {
 impl PosParam {
     fn new(p: &Param) -> Option<Self> {
         match p {
-            Param::PosOnly(ty, _required) => Some(Self {
+            // TODO(rechen): use the name of the positional-only parameter.
+            Param::PosOnly(_, ty, _required) => Some(Self {
                 ty: ty.clone(),
                 name: None,
                 kind: PosParamKind::Positional,
@@ -503,7 +504,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             };
             match p {
-                Param::PosOnly(_, required) => {
+                Param::PosOnly(_, _, required) => {
                     if required == Required::Required {
                         need_positional += 1;
                     }

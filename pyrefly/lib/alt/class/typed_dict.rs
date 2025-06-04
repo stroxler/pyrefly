@@ -50,6 +50,8 @@ use crate::types::types::Type;
 
 const GET_METHOD: Name = Name::new_static("get");
 const SETDEFAULT_METHOD: Name = Name::new_static("setdefault");
+const KEY_PARAM: Name = Name::new_static("key");
+const DEFAULT_PARAM: Name = Name::new_static("default");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn check_dict_items_against_typed_dict(
@@ -234,14 +236,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let object_ty = self.stdlib.object().clone().to_type();
         let mut literal_signatures = Vec::new();
         for (name, field) in self.names_to_fields(cls, fields) {
-            let key_param = Param::PosOnly(name_to_literal_type(name), Required::Required);
+            let key_param = Param::PosOnly(
+                Some(KEY_PARAM.clone()),
+                name_to_literal_type(name),
+                Required::Required,
+            );
             if field.required {
                 // (self, key: Literal["key"], default: object = ...) -> ValueType
                 literal_signatures.push(OverloadType::Callable(Callable::list(
                     ParamList::new(vec![
                         self_param.clone(),
                         key_param,
-                        Param::PosOnly(object_ty.clone(), Required::Optional),
+                        Param::PosOnly(
+                            Some(DEFAULT_PARAM.clone()),
+                            object_ty.clone(),
+                            Required::Optional,
+                        ),
                     ]),
                     field.ty.clone(),
                 )));
@@ -271,7 +281,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ParamList::new(vec![
                                 self_param.clone(),
                                 key_param.clone(),
-                                Param::PosOnly(q.clone().to_type(), Required::Required),
+                                Param::PosOnly(
+                                    Some(DEFAULT_PARAM.clone()),
+                                    q.clone().to_type(),
+                                    Required::Required,
+                                ),
                             ]),
                             Type::Union(vec![field.ty.clone(), q.to_type()]),
                         ),
@@ -285,8 +299,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             OverloadType::Callable(Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
-                    Param::PosOnly(self.stdlib.str().clone().to_type(), Required::Required),
-                    Param::PosOnly(object_ty.clone(), Required::Optional),
+                    Param::PosOnly(
+                        Some(KEY_PARAM.clone()),
+                        self.stdlib.str().clone().to_type(),
+                        Required::Required,
+                    ),
+                    Param::PosOnly(
+                        Some(DEFAULT_PARAM.clone()),
+                        object_ty.clone(),
+                        Required::Optional,
+                    ),
                 ]),
                 object_ty.clone(),
             )),
@@ -310,8 +332,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             OverloadType::Callable(Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
-                    Param::PosOnly(name_to_literal_type(name), Required::Required),
-                    Param::PosOnly(field.ty.clone(), Required::Required),
+                    Param::PosOnly(
+                        Some(KEY_PARAM.clone()),
+                        name_to_literal_type(name),
+                        Required::Required,
+                    ),
+                    Param::PosOnly(
+                        Some(DEFAULT_PARAM.clone()),
+                        field.ty.clone(),
+                        Required::Required,
+                    ),
                 ]),
                 field.ty.clone(),
             ))

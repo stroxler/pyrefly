@@ -2960,6 +2960,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .iter()
                     .map(|x| {
                         Param::PosOnly(
+                            None,
                             self.expr_untype(x, type_form_context, errors),
                             Required::Required,
                         )

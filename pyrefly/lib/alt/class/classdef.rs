@@ -151,13 +151,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.get_metadata_for_class(cls).has_base_any()
     }
 
+    // TODO(rechen): rename `named` parameter
     pub fn class_self_param(&self, cls: &Class, named: bool) -> Param {
         let ty = self.instantiate(cls);
         let req = Required::Required;
+        let name = Name::new_static("self");
         if named {
-            Param::Pos(Name::new_static("self"), ty, req)
+            Param::Pos(name, ty, req)
         } else {
-            Param::PosOnly(ty, req)
+            Param::PosOnly(Some(name), ty, req)
         }
     }
 }

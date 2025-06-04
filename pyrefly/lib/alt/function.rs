@@ -291,7 +291,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } else {
                 Required::Required
             };
-            Param::PosOnly(ty, required)
+            Param::PosOnly(Some(x.parameter.name.id.clone()), ty, required)
         }));
         params.extend(def.parameters.args.iter().map(|x| {
             let ty = get_param_ty(&x.parameter.name, x.default.as_deref());
@@ -397,7 +397,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 params
                     .into_iter()
                     .filter_map(|p| match p {
-                        Param::PosOnly(ty, _) => Some(ty),
+                        Param::PosOnly(_, ty, _) => Some(ty),
                         Param::Pos(_, ty, _) => Some(ty),
                         _ => None,
                     })

@@ -716,7 +716,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     is_subset(
                         want_setter,
                         &Type::callable(
-                            vec![Param::PosOnly(got.clone(), Required::Required)],
+                            vec![Param::PosOnly(None, got.clone(), Required::Required)],
                             Type::None,
                         ),
                     )
