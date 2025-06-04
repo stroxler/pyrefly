@@ -769,7 +769,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         args: &[Expr],
         func_kind: &FunctionKind,
-        range: TextRange,
         errors: &ErrorCollector,
     ) {
         if args.len() == 2 {
@@ -785,7 +784,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.check_type_is_class_object(
                 arg_class_type,
                 contains_subscript,
-                range,
+                arg_expr.range(),
                 func_kind,
                 errors,
             );
@@ -1447,7 +1446,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 self.check_second_arg_is_class_object(
                                     &x.arguments.args,
                                     &func_kind,
-                                    x.arguments.range,
                                     errors,
                                 );
                             }

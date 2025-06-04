@@ -417,12 +417,12 @@
     },
     {
       "code": -2,
-      "column": 11,
+      "column": 16,
       "concise_description": "NewType `UserId` not allowed in isinstance()",
       "description": "NewType `UserId` not allowed in isinstance()",
       "line": 20,
       "name": "invalid-argument",
-      "stop_column": 23,
+      "stop_column": 22,
       "stop_line": 20
     },
     {
@@ -661,12 +661,12 @@
     },
     {
       "code": -2,
-      "column": 18,
+      "column": 22,
       "concise_description": "Expected class object, got `TypeAlias[GoodAlias1, type[int]]`",
       "description": "Expected class object, got `TypeAlias[GoodAlias1, type[int]]`",
       "line": 31,
       "name": "invalid-argument",
-      "stop_column": 33,
+      "stop_column": 32,
       "stop_line": 31
     },
     {
@@ -8888,32 +8888,32 @@
   "protocols_runtime_checkable.py": [
     {
       "code": -2,
-      "column": 18,
+      "column": 22,
       "concise_description": "Protocol `Proto1` is not decorated with @runtime_checkable and cannot be used with isinstance()",
       "description": "Protocol `Proto1` is not decorated with @runtime_checkable and cannot be used with isinstance()",
       "line": 23,
       "name": "invalid-argument",
-      "stop_column": 29,
+      "stop_column": 28,
       "stop_line": 23
     },
     {
       "code": -2,
-      "column": 18,
+      "column": 22,
       "concise_description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
       "description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
       "line": 55,
       "name": "invalid-argument",
-      "stop_column": 35,
+      "stop_column": 34,
       "stop_line": 55
     },
     {
       "code": -2,
-      "column": 18,
+      "column": 22,
       "concise_description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
       "description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
       "line": 61,
       "name": "invalid-argument",
-      "stop_column": 54,
+      "stop_column": 53,
       "stop_line": 61
     }
   ],
