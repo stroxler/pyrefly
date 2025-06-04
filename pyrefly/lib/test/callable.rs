@@ -765,3 +765,12 @@ assert_type(f(), None)
 assert_type(g(), str)
     "#,
 );
+
+testcase!(
+    test_posonly_kwargs_duplicate_ok,
+    r#"
+def f(x: int, /, **kwargs: str):
+    pass
+f(0, x="1")
+    "#,
+);
