@@ -870,9 +870,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> LookupResult {
         match base {
             AttributeBase::ClassInstance(class) => {
-                match self.get_instance_attribute(&class, attr_name) {
+                let metadata = self.get_metadata_for_class(class.class_object());
+                let mut attr_name = attr_name.clone();
+                // Special case magic enum properties
+                if metadata.is_enum() && attr_name.as_str() == "value" {
+                    attr_name = Name::new("_value_")
+                }
+                if metadata.is_enum() && attr_name.as_str() == "name" {
+                    attr_name = Name::new("_name_")
+                }
+                match self.get_instance_attribute(&class, &attr_name) {
                     Some(attr) => LookupResult::Found(attr),
-                    None if self.extends_any(class.class_object()) => {
+                    None if metadata.has_base_any() => {
                         LookupResult::found_type(Type::Any(AnyStyle::Implicit))
                     }
                     None => {
@@ -1073,16 +1082,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             (Type::Literal(Lit::Enum(box (_, _, raw_type))), "_value_" | "value") => {
                 LookupResult::found_type(raw_type.clone())
-            }
-            (Type::SelfType(cls) | Type::ClassType(cls), "name")
-                if self.get_metadata_for_class(cls.class_object()).is_enum() =>
-            {
-                self.lookup_attr_no_union(base, &Name::new_static("_name_"))
-            }
-            (Type::SelfType(cls) | Type::ClassType(cls), "value")
-                if self.get_metadata_for_class(cls.class_object()).is_enum() =>
-            {
-                self.lookup_attr_no_union(base, &Name::new_static("_value_"))
             }
             _ if let Some(base) = self.as_attribute_base_no_union(base.clone()) => {
                 self.lookup_attr_from_base_no_union(base, attr_name)
