@@ -2000,8 +2000,8 @@
     {
       "code": -2,
       "column": 8,
-      "concise_description": "`(int, str) -> Any` is not assignable to variable `cb11` with type `Proto11`",
-      "description": "`(int, str) -> Any` is not assignable to variable `cb11` with type `Proto11`",
+      "concise_description": "`(x: int, y: str, /) -> Any` is not assignable to variable `cb11` with type `Proto11`",
+      "description": "`(x: int, y: str, /) -> Any` is not assignable to variable `cb11` with type `Proto11`",
       "line": 238,
       "name": "bad-assignment",
       "stop_column": 17,

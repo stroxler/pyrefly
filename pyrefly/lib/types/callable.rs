@@ -73,16 +73,29 @@ impl ParamList {
         f: &mut fmt::Formatter<'_>,
         wrap: &'a impl Fn(&'a Type) -> D,
     ) -> fmt::Result {
+        // Keep track of whether we encounter a posonly parameter with a name, so we can emit the
+        // `/` posonly marker. For conciseness, we don't want to emit this marker for
+        // `typing.Callable` and other situations where we only have anonymous posonly parameters.
+        let mut named_posonly = false;
         let mut kwonly = false;
         for (i, param) in self.0.iter().enumerate() {
             if i > 0 {
                 write!(f, ", ")?;
+            }
+            if matches!(param, Param::PosOnly(Some(_), _, _)) {
+                named_posonly = true;
+            } else if named_posonly {
+                named_posonly = false;
+                write!(f, "/, ")?;
             }
             if !kwonly && matches!(param, Param::KwOnly(..)) {
                 kwonly = true;
                 write!(f, "*, ")?;
             }
             param.fmt_with_type(f, wrap)?;
+        }
+        if named_posonly {
+            write!(f, ", /")?;
         }
         Ok(())
     }
@@ -432,10 +445,9 @@ impl Param {
         wrap: impl Fn(&'a Type) -> D,
     ) -> fmt::Result {
         match self {
-            // TODO(rechen): display the names of positional-only parameters
-            Param::PosOnly(_, ty, Required::Required) => write!(f, "{}", wrap(ty)),
-            Param::PosOnly(_, ty, Required::Optional) => write!(f, "_: {} = ...", wrap(ty)),
-            Param::Pos(name, ty, required) => {
+            Param::PosOnly(None, ty, Required::Required) => write!(f, "{}", wrap(ty)),
+            Param::PosOnly(None, ty, Required::Optional) => write!(f, "_: {} = ...", wrap(ty)),
+            Param::PosOnly(Some(name), ty, required) | Param::Pos(name, ty, required) => {
                 write!(
                     f,
                     "{}: {}{}",

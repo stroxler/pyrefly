@@ -15,7 +15,7 @@ from typing import assert_type
 
 x: list[int] = [0, 1, 2]
 x[0], x[1] = 3, 4
-x[0], x[1] = 3, "foo"  # E: Item assignment is not supported on `list[int]`\n  No matching overload found for function `list.__setitem__`, reporting errors for closest overload: `(SupportsIndex, int) -> None`  # E: Argument `Literal['foo']` is not assignable to parameter with type `int` in function `list.__setitem__`
+x[0], x[1] = 3, "foo"  # E: Item assignment is not supported on `list[int]`\n  No matching overload found for function `list.__setitem__`, reporting errors for closest overload: `(key: SupportsIndex, value: int, /) -> None`  # E: Argument `Literal['foo']` is not assignable to parameter with type `int` in function `list.__setitem__`
 "#,
 );
 
