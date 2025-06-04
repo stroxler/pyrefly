@@ -417,7 +417,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 11,
       "concise_description": "NewType `UserId` not allowed in isinstance()",
       "description": "NewType `UserId` not allowed in isinstance()",
       "line": 20,
@@ -661,7 +661,7 @@
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 18,
       "concise_description": "Expected class object, got `TypeAlias[GoodAlias1, type[int]]`",
       "description": "Expected class object, got `TypeAlias[GoodAlias1, type[int]]`",
       "line": 31,
@@ -1187,7 +1187,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Any, int) failed",
       "description": "assert_type(Any, int) failed",
       "line": 96,
@@ -1321,7 +1321,7 @@
   "annotations_methods.py": [
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(B, A) failed",
       "description": "assert_type(B, A) failed",
       "line": 42,
@@ -1485,12 +1485,12 @@
   "callables_annotation.py": [
     {
       "code": -2,
-      "column": 5,
+      "column": 7,
       "concise_description": "Expected 1 more positional argument",
       "description": "Expected 1 more positional argument",
       "line": 25,
       "name": "bad-argument-count",
-      "stop_column": 7,
+      "stop_column": 10,
       "stop_line": 25
     },
     {
@@ -1687,22 +1687,22 @@
   "callables_kwargs.py": [
     {
       "code": -2,
-      "column": 5,
+      "column": 10,
       "concise_description": "Missing argument `v1` in function `func1`",
       "description": "Missing argument `v1` in function `func1`",
       "line": 46,
       "name": "missing-argument",
-      "stop_column": 10,
+      "stop_column": 12,
       "stop_line": 46
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 10,
       "concise_description": "Missing argument `v3` in function `func1`",
       "description": "Missing argument `v3` in function `func1`",
       "line": 46,
       "name": "missing-argument",
-      "stop_column": 10,
+      "stop_column": 12,
       "stop_line": 46
     },
     {
@@ -1717,22 +1717,22 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 10,
       "concise_description": "Missing argument `v1` in function `func1`",
       "description": "Missing argument `v1` in function `func1`",
       "line": 52,
       "name": "missing-argument",
-      "stop_column": 10,
+      "stop_column": 22,
       "stop_line": 52
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 10,
       "concise_description": "Missing argument `v3` in function `func1`",
       "description": "Missing argument `v3` in function `func1`",
       "line": 52,
       "name": "missing-argument",
-      "stop_column": 10,
+      "stop_column": 22,
       "stop_line": 52
     },
     {
@@ -2647,17 +2647,17 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "Argument `Class4[str]` is not assignable to parameter `self` with type `Class4[int]` in function `Class4.__init__`",
       "description": "Argument `Class4[str]` is not assignable to parameter `self` with type `Class4[int]` in function `Class4.__init__`",
       "line": 56,
       "name": "bad-argument-type",
-      "stop_column": 12,
+      "stop_column": 14,
       "stop_line": 56
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Class5[list[int]], Class5[set[str]]) failed",
       "description": "assert_type(Class5[list[int]], Class5[set[str]]) failed",
       "line": 74,
@@ -2667,12 +2667,12 @@
     },
     {
       "code": -2,
-      "column": 13,
+      "column": 19,
       "concise_description": "No matching overload found for function `Class5.__init__`, reporting errors for closest overload: `(value: int) -> None`",
       "description": "No matching overload found for function `Class5.__init__`, reporting errors for closest overload: `(value: int) -> None`",
       "line": 74,
       "name": "no-matching-overload",
-      "stop_column": 19,
+      "stop_column": 23,
       "stop_line": 74
     },
     {
@@ -2687,7 +2687,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Class5[list[int]], Class5[float]) failed",
       "description": "assert_type(Class5[list[int]], Class5[float]) failed",
       "line": 75,
@@ -2697,12 +2697,12 @@
     },
     {
       "code": -2,
-      "column": 13,
+      "column": 19,
       "concise_description": "No matching overload found for function `Class5.__init__`, reporting errors for closest overload: `(value: int) -> None`",
       "description": "No matching overload found for function `Class5.__init__`, reporting errors for closest overload: `(value: int) -> None`",
       "line": 75,
       "name": "no-matching-overload",
-      "stop_column": 19,
+      "stop_column": 24,
       "stop_line": 75
     },
     {
@@ -2729,22 +2729,22 @@
   "constructors_call_metaclass.py": [
     {
       "code": -2,
-      "column": 1,
+      "column": 7,
       "concise_description": "Missing argument `x` in function `Class3.__new__`",
       "description": "Missing argument `x` in function `Class3.__new__`",
       "line": 51,
       "name": "missing-argument",
-      "stop_column": 7,
+      "stop_column": 9,
       "stop_line": 51
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 7,
       "concise_description": "Missing argument `x` in function `Class4.__new__`",
       "description": "Missing argument `x` in function `Class4.__new__`",
       "line": 65,
       "name": "missing-argument",
-      "stop_column": 7,
+      "stop_column": 9,
       "stop_line": 65
     }
   ],
@@ -2761,74 +2761,74 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 13,
       "concise_description": "Argument `type[Class11[str]]` is not assignable to parameter `cls` with type `type[Class11[int]]` in function `Class11.__new__`",
       "description": "Argument `type[Class11[str]]` is not assignable to parameter `cls` with type `type[Class11[int]]` in function `Class11.__new__`",
       "line": 145,
       "name": "bad-argument-type",
-      "stop_column": 13,
+      "stop_column": 15,
       "stop_line": 145
     }
   ],
   "constructors_call_type.py": [
     {
       "code": -2,
-      "column": 5,
+      "column": 8,
       "concise_description": "Missing argument `x` in function `Meta1.__call__`",
       "description": "Missing argument `x` in function `Meta1.__call__`",
       "line": 30,
       "name": "missing-argument",
-      "stop_column": 8,
+      "stop_column": 10,
       "stop_line": 30
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 8,
       "concise_description": "Missing argument `y` in function `Meta1.__call__`",
       "description": "Missing argument `y` in function `Meta1.__call__`",
       "line": 30,
       "name": "missing-argument",
-      "stop_column": 8,
+      "stop_column": 10,
       "stop_line": 30
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 8,
       "concise_description": "Missing argument `x` in function `Class2.__new__`",
       "description": "Missing argument `x` in function `Class2.__new__`",
       "line": 40,
       "name": "missing-argument",
-      "stop_column": 8,
+      "stop_column": 10,
       "stop_line": 40
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 8,
       "concise_description": "Missing argument `y` in function `Class2.__new__`",
       "description": "Missing argument `y` in function `Class2.__new__`",
       "line": 40,
       "name": "missing-argument",
-      "stop_column": 8,
+      "stop_column": 10,
       "stop_line": 40
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 8,
       "concise_description": "Missing argument `x` in function `Class3.__init__`",
       "description": "Missing argument `x` in function `Class3.__init__`",
       "line": 50,
       "name": "missing-argument",
-      "stop_column": 8,
+      "stop_column": 10,
       "stop_line": 50
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 8,
       "concise_description": "Missing argument `y` in function `Class3.__init__`",
       "description": "Missing argument `y` in function `Class3.__init__`",
       "line": 50,
       "name": "missing-argument",
-      "stop_column": 8,
+      "stop_column": 10,
       "stop_line": 50
     },
     {
@@ -2845,7 +2845,7 @@
   "constructors_callable.py": [
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "revealed type: (x: int) -> Class1",
       "description": "revealed type: (x: int) -> Class1",
       "line": 36,
@@ -2855,22 +2855,22 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 3,
       "concise_description": "Missing argument `x`",
       "description": "Missing argument `x`",
       "line": 38,
       "name": "missing-argument",
-      "stop_column": 3,
+      "stop_column": 5,
       "stop_line": 38
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 3,
       "concise_description": "Missing argument `x`",
       "description": "Missing argument `x`",
       "line": 39,
       "name": "missing-argument",
-      "stop_column": 3,
+      "stop_column": 8,
       "stop_line": 39
     },
     {
@@ -2885,7 +2885,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "revealed type: () -> Class2",
       "description": "revealed type: () -> Class2",
       "line": 49,
@@ -2915,7 +2915,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "revealed type: (*args: Unknown, **kwargs: Unknown) -> Self@Class3",
       "description": "revealed type: (*args: Unknown, **kwargs: Unknown) -> Self@Class3",
       "line": 63,
@@ -2925,7 +2925,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Self, Class3) failed",
       "description": "assert_type(Self, Class3) failed",
       "line": 64,
@@ -2935,7 +2935,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "revealed type: (x: int) -> int",
       "description": "revealed type: (x: int) -> int",
       "line": 77,
@@ -2945,22 +2945,22 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 3,
       "concise_description": "Missing argument `x`",
       "description": "Missing argument `x`",
       "line": 79,
       "name": "missing-argument",
-      "stop_column": 3,
+      "stop_column": 5,
       "stop_line": 79
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 3,
       "concise_description": "Missing argument `x`",
       "description": "Missing argument `x`",
       "line": 80,
       "name": "missing-argument",
-      "stop_column": 3,
+      "stop_column": 8,
       "stop_line": 80
     },
     {
@@ -2975,7 +2975,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "revealed type: (*args: Any, **kwargs: Any) -> NoReturn",
       "description": "revealed type: (*args: Any, **kwargs: Any) -> NoReturn",
       "line": 97,
@@ -2985,7 +2985,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "revealed type: () -> Class6Proxy",
       "description": "revealed type: () -> Class6Proxy",
       "line": 125,
@@ -3005,7 +3005,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "revealed type: () -> Any",
       "description": "revealed type: () -> Any",
       "line": 142,
@@ -3025,7 +3025,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "revealed type: (x: int) -> Class7[Unknown]",
       "description": "revealed type: (x: int) -> Class7[Unknown]",
       "line": 161,
@@ -3035,7 +3035,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Class7[Any], Class7[int]) failed",
       "description": "assert_type(Class7[Any], Class7[int]) failed",
       "line": 164,
@@ -3045,7 +3045,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Class7[Any], Class7[str]) failed",
       "description": "assert_type(Class7[Any], Class7[str]) failed",
       "line": 165,
@@ -3065,7 +3065,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "revealed type: (x: list[Unknown], y: list[Unknown]) -> Self@Class8",
       "description": "revealed type: (x: list[Unknown], y: list[Unknown]) -> Self@Class8",
       "line": 182,
@@ -3075,7 +3075,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Self, Class8[str]) failed",
       "description": "assert_type(Self, Class8[str]) failed",
       "line": 183,
@@ -3095,7 +3095,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "revealed type: (ParamSpec(@_)) -> @_",
       "description": "revealed type: (ParamSpec(@_)) -> @_",
       "line": 193,
@@ -3105,7 +3105,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Any, Class9) failed",
       "description": "assert_type(Any, Class9) failed",
       "line": 194,
@@ -3218,12 +3218,12 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Missing argument `a` in function `DC2.__init__`",
       "description": "Missing argument `a` in function `DC2.__init__`",
       "line": 32,
       "name": "missing-argument",
-      "stop_column": 4,
+      "stop_column": 10,
       "stop_line": 32
     },
     {
@@ -3238,12 +3238,12 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Missing argument `a` in function `DC2.__init__`",
       "description": "Missing argument `a` in function `DC2.__init__`",
       "line": 35,
       "name": "missing-argument",
-      "stop_column": 4,
+      "stop_column": 15,
       "stop_line": 35
     },
     {
@@ -3258,12 +3258,12 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Missing argument `a` in function `DC2.__init__`",
       "description": "Missing argument `a` in function `DC2.__init__`",
       "line": 38,
       "name": "missing-argument",
-      "stop_column": 4,
+      "stop_column": 13,
       "stop_line": 38
     },
     {
@@ -3278,12 +3278,12 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Missing argument `a` in function `DC3.__init__`",
       "description": "Missing argument `a` in function `DC3.__init__`",
       "line": 47,
       "name": "missing-argument",
-      "stop_column": 4,
+      "stop_column": 10,
       "stop_line": 47
     },
     {
@@ -3298,12 +3298,12 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Missing argument `a` in function `DC3.__init__`",
       "description": "Missing argument `a` in function `DC3.__init__`",
       "line": 50,
       "name": "missing-argument",
-      "stop_column": 4,
+      "stop_column": 15,
       "stop_line": 50
     },
     {
@@ -3318,12 +3318,12 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Missing argument `a` in function `DC3.__init__`",
       "description": "Missing argument `a` in function `DC3.__init__`",
       "line": 53,
       "name": "missing-argument",
-      "stop_column": 4,
+      "stop_column": 13,
       "stop_line": 53
     },
     {
@@ -3338,12 +3338,12 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Missing argument `c` in function `DC4.__init__`",
       "description": "Missing argument `c` in function `DC4.__init__`",
       "line": 61,
       "name": "missing-argument",
-      "stop_column": 4,
+      "stop_column": 18,
       "stop_line": 61
     },
     {
@@ -3425,12 +3425,12 @@
   "dataclasses_transform_class.py": [
     {
       "code": -2,
-      "column": 8,
+      "column": 17,
       "concise_description": "Missing argument `not_a_field` in function `ModelBase.__init__`",
       "description": "Missing argument `not_a_field` in function `ModelBase.__init__`",
       "line": 60,
       "name": "missing-argument",
-      "stop_column": 17,
+      "stop_column": 55,
       "stop_line": 60
     },
     {
@@ -3485,12 +3485,12 @@
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 17,
       "concise_description": "Missing argument `not_a_field` in function `ModelBase.__init__`",
       "description": "Missing argument `not_a_field` in function `ModelBase.__init__`",
       "line": 68,
       "name": "missing-argument",
-      "stop_column": 17,
+      "stop_column": 36,
       "stop_line": 68
     },
     {
@@ -3525,12 +3525,12 @@
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 17,
       "concise_description": "Missing argument `not_a_field` in function `ModelBase.__init__`",
       "description": "Missing argument `not_a_field` in function `ModelBase.__init__`",
       "line": 74,
       "name": "missing-argument",
-      "stop_column": 17,
+      "stop_column": 36,
       "stop_line": 74
     },
     {
@@ -3555,12 +3555,12 @@
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 17,
       "concise_description": "Missing argument `not_a_field` in function `ModelBase.__init__`",
       "description": "Missing argument `not_a_field` in function `ModelBase.__init__`",
       "line": 76,
       "name": "missing-argument",
-      "stop_column": 17,
+      "stop_column": 23,
       "stop_line": 76
     },
     {
@@ -4115,12 +4115,12 @@
   "dataclasses_usage.py": [
     {
       "code": -2,
-      "column": 6,
+      "column": 19,
       "concise_description": "Missing argument `unit_price` in function `InventoryItem.__init__`",
       "description": "Missing argument `unit_price` in function `InventoryItem.__init__`",
       "line": 50,
       "name": "missing-argument",
-      "stop_column": 19,
+      "stop_column": 27,
       "stop_line": 50
     },
     {
@@ -4175,12 +4175,12 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Missing argument `y` in function `DC8.__init__`",
       "description": "Missing argument `y` in function `DC8.__init__`",
       "line": 130,
       "name": "missing-argument",
-      "stop_column": 4,
+      "stop_column": 7,
       "stop_line": 130
     },
     {
@@ -4197,7 +4197,7 @@
   "directives_assert_type.py": [
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(int | str, int) failed",
       "description": "assert_type(int | str, int) failed",
       "line": 27,
@@ -4207,7 +4207,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Any, int) failed",
       "description": "assert_type(Any, int) failed",
       "line": 28,
@@ -4217,7 +4217,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Literal[4], int) failed",
       "description": "assert_type(Literal[4], int) failed",
       "line": 29,
@@ -4227,7 +4227,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type needs 2 positional arguments, got 0",
       "description": "assert_type needs 2 positional arguments, got 0",
       "line": 31,
@@ -4237,7 +4237,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Literal[''], int) failed",
       "description": "assert_type(Literal[''], int) failed",
       "line": 32,
@@ -4247,7 +4247,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type needs 2 positional arguments, got 3",
       "description": "assert_type needs 2 positional arguments, got 3",
       "line": 33,
@@ -4259,64 +4259,64 @@
   "directives_cast.py": [
     {
       "code": -2,
-      "column": 8,
+      "column": 12,
       "concise_description": "`typing.cast` missing required argument `typ`",
       "description": "`typing.cast` missing required argument `typ`",
       "line": 15,
       "name": "missing-argument",
-      "stop_column": 12,
+      "stop_column": 14,
       "stop_line": 15
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 12,
       "concise_description": "`typing.cast` missing required argument `val`",
       "description": "`typing.cast` missing required argument `val`",
       "line": 15,
       "name": "missing-argument",
-      "stop_column": 12,
+      "stop_column": 14,
       "stop_line": 15
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 12,
       "concise_description": "First argument to `typing.cast` must be a type",
       "description": "First argument to `typing.cast` must be a type",
       "line": 16,
       "name": "bad-argument-type",
-      "stop_column": 12,
+      "stop_column": 19,
       "stop_line": 16
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 12,
       "concise_description": "`typing.cast` expected 2 arguments, got 3",
       "description": "`typing.cast` expected 2 arguments, got 3",
       "line": 17,
       "name": "bad-argument-count",
-      "stop_column": 12,
+      "stop_column": 25,
       "stop_line": 17
     }
   ],
   "directives_deprecated.py": [
     {
       "code": -2,
-      "column": 1,
+      "column": 23,
       "concise_description": "Call to deprecated function `_directives_deprecated_library.norwegian_blue`",
       "description": "Call to deprecated function `_directives_deprecated_library.norwegian_blue`",
       "line": 24,
       "name": "deprecated",
-      "stop_column": 23,
+      "stop_column": 26,
       "stop_line": 24
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 6,
       "concise_description": "Call to deprecated function `lorem`",
       "description": "Call to deprecated function `lorem`",
       "line": 69,
       "name": "deprecated",
-      "stop_column": 6,
+      "stop_column": 8,
       "stop_line": 69
     }
   ],
@@ -4353,29 +4353,29 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 6,
       "concise_description": "Missing argument `a` in function `func1`",
       "description": "Missing argument `a` in function `func1`",
       "line": 32,
       "name": "missing-argument",
-      "stop_column": 6,
+      "stop_column": 8,
       "stop_line": 32
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 6,
       "concise_description": "Missing argument `b` in function `func1`",
       "description": "Missing argument `b` in function `func1`",
       "line": 32,
       "name": "missing-argument",
-      "stop_column": 6,
+      "stop_column": 8,
       "stop_line": 32
     }
   ],
   "directives_reveal_type.py": [
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "revealed type: int | str",
       "description": "revealed type: int | str",
       "line": 14,
@@ -4385,7 +4385,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "revealed type: list[int]",
       "description": "revealed type: list[int]",
       "line": 15,
@@ -4395,7 +4395,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "revealed type: Any",
       "description": "revealed type: Any",
       "line": 16,
@@ -4405,7 +4405,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "revealed type: ForwardReference",
       "description": "revealed type: ForwardReference",
       "line": 17,
@@ -4415,7 +4415,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "reveal_type needs 1 positional argument, got 0",
       "description": "reveal_type needs 1 positional argument, got 0",
       "line": 19,
@@ -4425,7 +4425,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "reveal_type needs 1 positional argument, got 2",
       "description": "reveal_type needs 1 positional argument, got 2",
       "line": 20,
@@ -4484,7 +4484,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Any, Color) failed",
       "description": "assert_type(Any, Color) failed",
       "line": 20,
@@ -4494,7 +4494,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Literal[Color.RED], Color) failed",
       "description": "assert_type(Literal[Color.RED], Color) failed",
       "line": 26,
@@ -4507,7 +4507,7 @@
   "enums_expansion.py": [
     {
       "code": -2,
-      "column": 9,
+      "column": 20,
       "concise_description": "assert_type(CustomFlags, Literal[CustomFlags.FLAG3]) failed",
       "description": "assert_type(CustomFlags, Literal[CustomFlags.FLAG3]) failed",
       "line": 53,
@@ -4519,7 +4519,7 @@
   "enums_member_names.py": [
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(str, Literal['BLUE', 'GREEN', 'RED']) failed",
       "description": "assert_type(str, Literal['BLUE', 'GREEN', 'RED']) failed",
       "line": 30,
@@ -4531,7 +4531,7 @@
   "enums_member_values.py": [
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(int, Literal[1]) failed",
       "description": "assert_type(int, Literal[1]) failed",
       "line": 21,
@@ -4541,7 +4541,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(int, Literal[1]) failed",
       "description": "assert_type(int, Literal[1]) failed",
       "line": 22,
@@ -4551,7 +4551,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(int, Literal[1, 3]) failed",
       "description": "assert_type(int, Literal[1, 3]) failed",
       "line": 26,
@@ -4561,7 +4561,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Any, Literal[1, 2, 3]) failed",
       "description": "assert_type(Any, Literal[1, 2, 3]) failed",
       "line": 30,
@@ -4571,7 +4571,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(tuple[Literal[1], float, float], Literal[1]) failed",
       "description": "assert_type(tuple[Literal[1], float, float], Literal[1]) failed",
       "line": 54,
@@ -4581,7 +4581,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(auto, Literal[1]) failed",
       "description": "assert_type(auto, Literal[1]) failed",
       "line": 68,
@@ -4611,7 +4611,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Ellipsis, int) failed",
       "description": "assert_type(Ellipsis, int) failed",
       "line": 96,
@@ -4623,7 +4623,7 @@
   "enums_members.py": [
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Any, str) failed",
       "description": "assert_type(Any, str) failed",
       "line": 27,
@@ -4643,7 +4643,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Any, str) failed",
       "description": "assert_type(Any, str) failed",
       "line": 28,
@@ -4673,7 +4673,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type((x: Any) -> str, Any) failed",
       "description": "assert_type((x: Any) -> str, Any) failed",
       "line": 82,
@@ -4693,7 +4693,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type((x: int) -> int, Any) failed",
       "description": "assert_type((x: int) -> int, Any) failed",
       "line": 83,
@@ -4713,7 +4713,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type((self: Self) -> str, Any) failed",
       "description": "assert_type((self: Self) -> str, Any) failed",
       "line": 84,
@@ -4733,7 +4733,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type((self: Self) -> None, Any) failed",
       "description": "assert_type((self: Self) -> None, Any) failed",
       "line": 85,
@@ -4753,7 +4753,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Literal[TrafficLight.AMBER], Literal[TrafficLight.YELLOW]) failed",
       "description": "assert_type(Literal[TrafficLight.AMBER], Literal[TrafficLight.YELLOW]) failed",
       "line": 100,
@@ -4763,7 +4763,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(nonmember[int], Any) failed",
       "description": "assert_type(nonmember[int], Any) failed",
       "line": 116,
@@ -4793,7 +4793,7 @@
     },
     {
       "code": -2,
-      "column": 9,
+      "column": 20,
       "concise_description": "revealed type: int",
       "description": "revealed type: int",
       "line": 128,
@@ -4803,7 +4803,7 @@
     },
     {
       "code": -2,
-      "column": 9,
+      "column": 20,
       "concise_description": "assert_type(int, Any) failed",
       "description": "assert_type(int, Any) failed",
       "line": 129,
@@ -4823,7 +4823,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Literal[Pet5.DOG], int) failed",
       "description": "assert_type(Literal[Pet5.DOG], int) failed",
       "line": 146,
@@ -4833,7 +4833,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Literal[Pet5.FISH], int) failed",
       "description": "assert_type(Literal[Pet5.FISH], int) failed",
       "line": 147,
@@ -4845,7 +4845,7 @@
   "exceptions_context_managers.py": [
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(str, int | str) failed",
       "description": "assert_type(str, int | str) failed",
       "line": 50,
@@ -4855,7 +4855,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(str, int | str) failed",
       "description": "assert_type(str, int | str) failed",
       "line": 57,
@@ -4959,7 +4959,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(MyStr, str) failed",
       "description": "assert_type(MyStr, str) failed",
       "line": 67,
@@ -4969,7 +4969,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(MyStr, str) failed",
       "description": "assert_type(MyStr, str) failed",
       "line": 68,
@@ -5111,7 +5111,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Any, int) failed",
       "description": "assert_type(Any, int) failed",
       "line": 127,
@@ -5131,7 +5131,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Forall[DefaultIntT, (Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]]], (Foo7[int]) -> Foo7[int]) failed",
       "description": "assert_type(Forall[DefaultIntT, (Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]]], (Foo7[int]) -> Foo7[int]) failed",
       "line": 166,
@@ -5141,7 +5141,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Any, int) failed",
       "description": "assert_type(Any, int) failed",
       "line": 167,
@@ -5479,12 +5479,12 @@
     },
     {
       "code": -2,
-      "column": 9,
+      "column": 10,
       "concise_description": "Expected *-unpacked P.args and **-unpacked P.kwargs",
       "description": "Expected *-unpacked P.args and **-unpacked P.kwargs",
       "line": 49,
       "name": "invalid-param-spec",
-      "stop_column": 10,
+      "stop_column": 27,
       "stop_line": 49
     },
     {
@@ -5509,22 +5509,22 @@
     },
     {
       "code": -2,
-      "column": 9,
+      "column": 10,
       "concise_description": "Expected *-unpacked P.args and **-unpacked P.kwargs",
       "description": "Expected *-unpacked P.args and **-unpacked P.kwargs",
       "line": 70,
       "name": "invalid-param-spec",
-      "stop_column": 10,
+      "stop_column": 30,
       "stop_line": 70
     },
     {
       "code": -2,
-      "column": 9,
+      "column": 10,
       "concise_description": "Expected 1 more positional argument",
       "description": "Expected 1 more positional argument",
       "line": 72,
       "name": "bad-argument-count",
-      "stop_column": 10,
+      "stop_column": 27,
       "stop_line": 72
     },
     {
@@ -5767,7 +5767,7 @@
   "generics_self_advanced.py": [
     {
       "code": -2,
-      "column": 9,
+      "column": 20,
       "concise_description": "assert_type(ChildB, Self) failed",
       "description": "assert_type(ChildB, Self) failed",
       "line": 38,
@@ -5777,7 +5777,7 @@
     },
     {
       "code": -2,
-      "column": 9,
+      "column": 20,
       "concise_description": "assert_type(Any, list[Self]) failed",
       "description": "assert_type(Any, list[Self]) failed",
       "line": 43,
@@ -5797,7 +5797,7 @@
     },
     {
       "code": -2,
-      "column": 9,
+      "column": 20,
       "concise_description": "assert_type(Any, Self) failed",
       "description": "assert_type(Any, Self) failed",
       "line": 44,
@@ -5817,7 +5817,7 @@
     },
     {
       "code": -2,
-      "column": 9,
+      "column": 20,
       "concise_description": "assert_type(ChildB, Self) failed",
       "description": "assert_type(ChildB, Self) failed",
       "line": 45,
@@ -6383,7 +6383,7 @@
     },
     {
       "code": -2,
-      "column": 13,
+      "column": 24,
       "concise_description": "assert_type(str, int) failed",
       "description": "assert_type(str, int) failed",
       "line": 67,
@@ -6393,7 +6393,7 @@
     },
     {
       "code": -2,
-      "column": 13,
+      "column": 24,
       "concise_description": "assert_type(type[TypeVar[T]], TypeVar) failed",
       "description": "assert_type(type[TypeVar[T]], TypeVar) failed",
       "line": 116,
@@ -6477,72 +6477,72 @@
   "generics_typevartuple_args.py": [
     {
       "code": -2,
-      "column": 1,
+      "column": 8,
       "concise_description": "Unpacked argument `tuple[Literal[0], Literal['']]` is not assignable to parameter `*args` with type `tuple[*@_, Env]` in function `exec_le`",
       "description": "Unpacked argument `tuple[Literal[0], Literal['']]` is not assignable to parameter `*args` with type `tuple[*@_, Env]` in function `exec_le`",
       "line": 33,
       "name": "bad-argument-type",
-      "stop_column": 8,
+      "stop_column": 19,
       "stop_line": 33
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 8,
       "concise_description": "Unpacked argument `tuple[Literal[0], Literal['']]` is not assignable to parameter `*args` with type `tuple[*@_, Env]` in function `exec_le`",
       "description": "Unpacked argument `tuple[Literal[0], Literal['']]` is not assignable to parameter `*args` with type `tuple[*@_, Env]` in function `exec_le`",
       "line": 34,
       "name": "bad-argument-type",
-      "stop_column": 8,
+      "stop_column": 30,
       "stop_line": 34
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 6,
       "concise_description": "Unpacked argument `tuple[Literal[1], Literal['2'], Literal[3]]` is not assignable to parameter `*args` with type `tuple[int, ...]` in function `func1`",
       "description": "Unpacked argument `tuple[Literal[1], Literal['2'], Literal[3]]` is not assignable to parameter `*args` with type `tuple[int, ...]` in function `func1`",
       "line": 48,
       "name": "bad-argument-type",
-      "stop_column": 6,
+      "stop_column": 17,
       "stop_line": 48
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 6,
       "concise_description": "Unpacked argument `tuple[Literal[1], Literal[1], Literal['']]` is not assignable to parameter `*args` with type `tuple[int, *tuple[str, ...], str]` in function `func2`",
       "description": "Unpacked argument `tuple[Literal[1], Literal[1], Literal['']]` is not assignable to parameter `*args` with type `tuple[int, *tuple[str, ...], str]` in function `func2`",
       "line": 57,
       "name": "bad-argument-type",
-      "stop_column": 6,
+      "stop_column": 16,
       "stop_line": 57
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 6,
       "concise_description": "Unpacked argument `tuple[Literal[1]]` is not assignable to parameter `*args` with type `tuple[int, *tuple[str, ...], str]` in function `func2`",
       "description": "Unpacked argument `tuple[Literal[1]]` is not assignable to parameter `*args` with type `tuple[int, *tuple[str, ...], str]` in function `func2`",
       "line": 58,
       "name": "bad-argument-type",
-      "stop_column": 6,
+      "stop_column": 9,
       "stop_line": 58
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 6,
       "concise_description": "Unpacked argument `tuple[Literal['']]` is not assignable to parameter `*args` with type `tuple[int, *tuple[str, ...], str]` in function `func2`",
       "description": "Unpacked argument `tuple[Literal['']]` is not assignable to parameter `*args` with type `tuple[int, *tuple[str, ...], str]` in function `func2`",
       "line": 59,
       "name": "bad-argument-type",
-      "stop_column": 6,
+      "stop_column": 10,
       "stop_line": 59
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 6,
       "concise_description": "Unpacked argument `tuple[Literal[1]]` is not assignable to parameter `*args` with type `tuple[int, str]` in function `func3`",
       "description": "Unpacked argument `tuple[Literal[1]]` is not assignable to parameter `*args` with type `tuple[int, str]` in function `func3`",
       "line": 67,
       "name": "bad-argument-type",
-      "stop_column": 6,
+      "stop_column": 9,
       "stop_line": 67
     },
     {
@@ -6756,7 +6756,7 @@
   "generics_typevartuple_specialization.py": [
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(tuple[int, *tuple[Any, ...]], tuple[int]) failed",
       "description": "assert_type(tuple[int, *tuple[Any, ...]], tuple[int]) failed",
       "line": 51,
@@ -6766,7 +6766,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(tuple[float, *tuple[Any, ...]], tuple[float]) failed",
       "description": "assert_type(tuple[float, *tuple[Any, ...]], tuple[float]) failed",
       "line": 94,
@@ -6836,7 +6836,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(tuple[Any], tuple[*tuple[int, ...], int]) failed",
       "description": "assert_type(tuple[Any], tuple[*tuple[int, ...], int]) failed",
       "line": 157,
@@ -6880,7 +6880,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(list[int], list[int] | set[int]) failed",
       "description": "assert_type(list[int], list[int] | set[int]) failed",
       "line": 43,
@@ -7307,7 +7307,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Matrix[Literal[2], int], Matrix[Literal[2], Literal[7]]) failed",
       "description": "assert_type(Matrix[Literal[2], int], Matrix[Literal[2], Literal[7]]) failed",
       "line": 72,
@@ -7349,7 +7349,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(str, LiteralString) failed",
       "description": "assert_type(str, LiteralString) failed",
       "line": 52,
@@ -7389,7 +7389,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(str, Literal['hello']) failed",
       "description": "assert_type(str, Literal['hello']) failed",
       "line": 111,
@@ -7655,22 +7655,22 @@
     },
     {
       "code": -2,
-      "column": 6,
+      "column": 11,
       "concise_description": "Missing argument `y` in function `Point.__new__`",
       "description": "Missing argument `y` in function `Point.__new__`",
       "line": 44,
       "name": "missing-argument",
-      "stop_column": 11,
+      "stop_column": 14,
       "stop_line": 44
     },
     {
       "code": -2,
-      "column": 6,
+      "column": 11,
       "concise_description": "Missing argument `y` in function `Point.__new__`",
       "description": "Missing argument `y` in function `Point.__new__`",
       "line": 45,
       "name": "missing-argument",
-      "stop_column": 11,
+      "stop_column": 16,
       "stop_line": 45
     },
     {
@@ -7737,32 +7737,32 @@
   "namedtuples_define_functional.py": [
     {
       "code": -2,
-      "column": 8,
+      "column": 14,
       "concise_description": "Missing argument `y` in function `Point1.__new__`",
       "description": "Missing argument `y` in function `Point1.__new__`",
       "line": 16,
       "name": "missing-argument",
-      "stop_column": 14,
+      "stop_column": 19,
       "stop_line": 16
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 14,
       "concise_description": "Missing argument `x` in function `Point2.__new__`",
       "description": "Missing argument `x` in function `Point2.__new__`",
       "line": 21,
       "name": "missing-argument",
-      "stop_column": 14,
+      "stop_column": 16,
       "stop_line": 21
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 14,
       "concise_description": "Missing argument `y` in function `Point2.__new__`",
       "description": "Missing argument `y` in function `Point2.__new__`",
       "line": 21,
       "name": "missing-argument",
-      "stop_column": 14,
+      "stop_column": 16,
       "stop_line": 21
     },
     {
@@ -7777,12 +7777,12 @@
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 14,
       "concise_description": "Missing argument `y` in function `Point4.__new__`",
       "description": "Missing argument `y` in function `Point4.__new__`",
       "line": 31,
       "name": "missing-argument",
-      "stop_column": 14,
+      "stop_column": 22,
       "stop_line": 31
     },
     {
@@ -7867,12 +7867,12 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Missing argument `a` in function `NT5.__new__`",
       "description": "Missing argument `a` in function `NT5.__new__`",
       "line": 66,
       "name": "missing-argument",
-      "stop_column": 4,
+      "stop_column": 6,
       "stop_line": 66
     }
   ],
@@ -8122,32 +8122,32 @@
   "overloads_evaluation.py": [
     {
       "code": -2,
-      "column": 1,
+      "column": 11,
       "concise_description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: str) -> str`",
       "description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: str) -> str`",
       "line": 38,
       "name": "no-matching-overload",
-      "stop_column": 11,
+      "stop_column": 13,
       "stop_line": 38
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 11,
       "concise_description": "Missing argument `x` in function `example1_1`",
       "description": "Missing argument `x` in function `example1_1`",
       "line": 38,
       "name": "missing-argument",
-      "stop_column": 11,
+      "stop_column": 13,
       "stop_line": 38
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 11,
       "concise_description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: int, y: str) -> int`",
       "description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: int, y: str) -> int`",
       "line": 46,
       "name": "no-matching-overload",
-      "stop_column": 11,
+      "stop_column": 17,
       "stop_line": 46
     },
     {
@@ -8162,32 +8162,32 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 11,
       "concise_description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: int, y: str) -> int`",
       "description": "No matching overload found for function `example1_1`, reporting errors for closest overload: `(x: int, y: str) -> int`",
       "line": 51,
       "name": "no-matching-overload",
-      "stop_column": 11,
+      "stop_column": 14,
       "stop_line": 51
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 11,
       "concise_description": "Missing argument `y` in function `example1_1`",
       "description": "Missing argument `y` in function `example1_1`",
       "line": 51,
       "name": "missing-argument",
-      "stop_column": 11,
+      "stop_column": 14,
       "stop_line": 51
     },
     {
       "code": -2,
-      "column": 12,
+      "column": 20,
       "concise_description": "No matching overload found for function `example2`, reporting errors for closest overload: `(x: int, y: str, z: int) -> str`",
       "description": "No matching overload found for function `example2`, reporting errors for closest overload: `(x: int, y: str, z: int) -> str`",
       "line": 105,
       "name": "no-matching-overload",
-      "stop_column": 20,
+      "stop_column": 29,
       "stop_line": 105
     },
     {
@@ -8202,7 +8202,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Any, int | str) failed",
       "description": "assert_type(Any, int | str) failed",
       "line": 106,
@@ -8212,12 +8212,12 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 13,
       "concise_description": "No matching overload found for function `example2`, reporting errors for closest overload: `(x: int, y: str, z: int) -> str`",
       "description": "No matching overload found for function `example2`, reporting errors for closest overload: `(x: int, y: str, z: int) -> str`",
       "line": 115,
       "name": "no-matching-overload",
-      "stop_column": 13,
+      "stop_column": 22,
       "stop_line": 115
     },
     {
@@ -8242,12 +8242,12 @@
     },
     {
       "code": -2,
-      "column": 12,
+      "column": 23,
       "concise_description": "No matching overload found for function `expand_bool`, reporting errors for closest overload: `(x: Literal[False]) -> Literal[0]`",
       "description": "No matching overload found for function `expand_bool`, reporting errors for closest overload: `(x: Literal[False]) -> Literal[0]`",
       "line": 134,
       "name": "no-matching-overload",
-      "stop_column": 23,
+      "stop_column": 26,
       "stop_line": 134
     },
     {
@@ -8262,7 +8262,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Any, Literal[0, 1]) failed",
       "description": "assert_type(Any, Literal[0, 1]) failed",
       "line": 135,
@@ -8272,12 +8272,12 @@
     },
     {
       "code": -2,
-      "column": 12,
+      "column": 23,
       "concise_description": "No matching overload found for function `expand_enum`, reporting errors for closest overload: `(x: Literal[Color.RED]) -> Literal[0]`",
       "description": "No matching overload found for function `expand_enum`, reporting errors for closest overload: `(x: Literal[Color.RED]) -> Literal[0]`",
       "line": 160,
       "name": "no-matching-overload",
-      "stop_column": 23,
+      "stop_column": 26,
       "stop_line": 160
     },
     {
@@ -8292,7 +8292,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Any, Literal[0, 1]) failed",
       "description": "assert_type(Any, Literal[0, 1]) failed",
       "line": 161,
@@ -8302,12 +8302,12 @@
     },
     {
       "code": -2,
-      "column": 12,
+      "column": 29,
       "concise_description": "No matching overload found for function `expand_type_union`, reporting errors for closest overload: `(x: type[int]) -> int`",
       "description": "No matching overload found for function `expand_type_union`, reporting errors for closest overload: `(x: type[int]) -> int`",
       "line": 180,
       "name": "no-matching-overload",
-      "stop_column": 29,
+      "stop_column": 32,
       "stop_line": 180
     },
     {
@@ -8322,7 +8322,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Any, int | str) failed",
       "description": "assert_type(Any, int | str) failed",
       "line": 181,
@@ -8332,12 +8332,12 @@
     },
     {
       "code": -2,
-      "column": 12,
+      "column": 24,
       "concise_description": "No matching overload found for function `expand_tuple`, reporting errors for closest overload: `(x: tuple[int, int]) -> int`",
       "description": "No matching overload found for function `expand_tuple`, reporting errors for closest overload: `(x: tuple[int, int]) -> int`",
       "line": 204,
       "name": "no-matching-overload",
-      "stop_column": 24,
+      "stop_column": 32,
       "stop_line": 204
     },
     {
@@ -8352,7 +8352,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Any, int | str) failed",
       "description": "assert_type(Any, int | str) failed",
       "line": 205,
@@ -8362,7 +8362,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(str, int) failed",
       "description": "assert_type(str, int) failed",
       "line": 234,
@@ -8372,7 +8372,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(list[int], Any) failed",
       "description": "assert_type(list[int], Any) failed",
       "line": 264,
@@ -8382,7 +8382,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(list[int], Any) failed",
       "description": "assert_type(list[int], Any) failed",
       "line": 280,
@@ -8392,7 +8392,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(list[int], Any) failed",
       "description": "assert_type(list[int], Any) failed",
       "line": 345,
@@ -8404,12 +8404,12 @@
   "protocols_class_objects.py": [
     {
       "code": -2,
-      "column": 12,
+      "column": 15,
       "concise_description": "Cannot instantiate `Proto` because it is a protocol",
       "description": "Cannot instantiate `Proto` because it is a protocol",
       "line": 26,
       "name": "bad-instantiation",
-      "stop_column": 15,
+      "stop_column": 17,
       "stop_line": 26
     },
     {
@@ -8876,7 +8876,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Any, list[int]) failed",
       "description": "assert_type(Any, list[int]) failed",
       "line": 81,
@@ -8888,7 +8888,7 @@
   "protocols_runtime_checkable.py": [
     {
       "code": -2,
-      "column": 8,
+      "column": 18,
       "concise_description": "Protocol `Proto1` is not decorated with @runtime_checkable and cannot be used with isinstance()",
       "description": "Protocol `Proto1` is not decorated with @runtime_checkable and cannot be used with isinstance()",
       "line": 23,
@@ -8898,7 +8898,7 @@
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 18,
       "concise_description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
       "description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
       "line": 55,
@@ -8908,7 +8908,7 @@
     },
     {
       "code": -2,
-      "column": 8,
+      "column": 18,
       "concise_description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
       "description": "Protocol `DataProtocol` has non-method members and cannot be used with issubclass()",
       "line": 61,
@@ -8942,12 +8942,12 @@
   "protocols_subtyping.py": [
     {
       "code": -2,
-      "column": 6,
+      "column": 12,
       "concise_description": "Cannot instantiate `Proto1` because it is a protocol",
       "description": "Cannot instantiate `Proto1` because it is a protocol",
       "line": 16,
       "name": "bad-instantiation",
-      "stop_column": 12,
+      "stop_column": 14,
       "stop_line": 16
     },
     {
@@ -9558,7 +9558,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(type, type[Any]) failed",
       "description": "assert_type(type, type[Any]) failed",
       "line": 84,
@@ -9588,7 +9588,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Any, tuple[type, ...]) failed",
       "description": "assert_type(Any, tuple[type, ...]) failed",
       "line": 102,
@@ -9598,7 +9598,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Any, tuple[type, ...]) failed",
       "description": "assert_type(Any, tuple[type, ...]) failed",
       "line": 106,
@@ -9608,7 +9608,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(Any, tuple[type, ...]) failed",
       "description": "assert_type(Any, tuple[type, ...]) failed",
       "line": 110,
@@ -9638,7 +9638,7 @@
     },
     {
       "code": -2,
-      "column": 5,
+      "column": 16,
       "concise_description": "assert_type(type, type[Any]) failed",
       "description": "assert_type(type, type[Any]) failed",
       "line": 139,
@@ -9708,7 +9708,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Any, int) failed",
       "description": "assert_type(Any, int) failed",
       "line": 160,
@@ -9718,7 +9718,7 @@
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 12,
       "concise_description": "assert_type(Any, int) failed",
       "description": "assert_type(Any, int) failed",
       "line": 161,
@@ -9800,7 +9800,7 @@
     },
     {
       "code": -2,
-      "column": 13,
+      "column": 24,
       "concise_description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int]) failed",
       "description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int]) failed",
       "line": 95,
@@ -9820,7 +9820,7 @@
     },
     {
       "code": -2,
-      "column": 13,
+      "column": 24,
       "concise_description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int, int] | tuple[str, str]) failed",
       "description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int, int] | tuple[str, str]) failed",
       "line": 99,
@@ -9850,7 +9850,7 @@
     },
     {
       "code": -2,
-      "column": 13,
+      "column": 24,
       "concise_description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int, str, int]) failed",
       "description": "assert_type(tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int], tuple[int, str, int]) failed",
       "line": 103,
@@ -9860,7 +9860,7 @@
     },
     {
       "code": -2,
-      "column": 13,
+      "column": 24,
       "concise_description": "assert_type(tuple[int | str, int | str], tuple[int | str, str]) failed",
       "description": "assert_type(tuple[int | str, int | str], tuple[int | str, str]) failed",
       "line": 115,
@@ -9870,7 +9870,7 @@
     },
     {
       "code": -2,
-      "column": 13,
+      "column": 24,
       "concise_description": "assert_type(tuple[int | str, int | str], tuple[int | str, int]) failed",
       "description": "assert_type(tuple[int | str, int | str], tuple[int | str, int]) failed",
       "line": 117,

@@ -1396,20 +1396,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Type::any_implicit()
                     }
                 } else {
-                    let func_range = x.func.range();
                     self.distribute_over_union(&ty_fun, |ty| match ty.callee_kind() {
                         Some(CalleeKind::Function(FunctionKind::AssertType)) => self
                             .call_assert_type(
                                 &x.arguments.args,
                                 &x.arguments.keywords,
-                                x.range,
+                                x.arguments.range,
                                 errors,
                             ),
                         Some(CalleeKind::Function(FunctionKind::RevealType)) => self
                             .call_reveal_type(
                                 &x.arguments.args,
                                 &x.arguments.keywords,
-                                x.range,
+                                x.arguments.range,
                                 errors,
                             ),
                         Some(CalleeKind::Function(FunctionKind::Cast)) => {
@@ -1418,7 +1417,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.call_typing_cast(
                                 &x.arguments.args,
                                 &x.arguments.keywords,
-                                func_range,
+                                x.arguments.range,
                                 errors,
                             )
                         }
@@ -1428,14 +1427,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .call_assert_type(
                                 &x.arguments.args,
                                 &x.arguments.keywords,
-                                x.range,
+                                x.arguments.range,
                                 errors,
                             ),
                         None if ty.is_error() && is_special_name(&x.func, "reveal_type") => self
                             .call_reveal_type(
                                 &x.arguments.args,
                                 &x.arguments.keywords,
-                                x.range,
+                                x.arguments.range,
                                 errors,
                             ),
                         _ => {
@@ -1448,7 +1447,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 self.check_second_arg_is_class_object(
                                     &x.arguments.args,
                                     &func_kind,
-                                    x.range,
+                                    x.arguments.range,
                                     errors,
                                 );
                             }
@@ -1459,7 +1458,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             let callable = self.as_call_target_or_error(
                                 ty.clone(),
                                 CallStyle::FreeForm,
-                                func_range,
+                                x.func.range(),
                                 errors,
                                 None,
                             );
@@ -1467,7 +1466,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 callable,
                                 &args,
                                 &x.arguments.keywords,
-                                func_range,
+                                x.arguments.range,
                                 errors,
                                 None,
                                 hint.cloned(),
