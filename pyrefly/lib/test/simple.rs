@@ -139,7 +139,7 @@ testcase!(
     test_list_class_inner_generic,
     r#"
 x = [3]
-x.append("test")  # E: Argument `Literal['test']` is not assignable to parameter with type `int`
+x.append("test")  # E: Argument `Literal['test']` is not assignable to parameter `object` with type `int`
 "#,
 );
 
@@ -579,7 +579,7 @@ class D:
 def f(x: list[int], y: dict[str, bool]) -> None:
     assert_type(x[0], int)
     assert_type(y["test"], bool)
-    x["foo"]  # E: Cannot index into `list[int]`  # E: `Literal['foo']` is not assignable to parameter with type `SupportsIndex`
+    x["foo"]  # E: Cannot index into `list[int]`  # E: `Literal['foo']` is not assignable to parameter `i` with type `SupportsIndex`
     c = C()
     c[0]  # E: Cannot index into `C`\n  Object of class `C` has no attribute `__getitem__`
     d = D()
@@ -961,7 +961,7 @@ assert_type(A, type[A])
 testcase!(
     test_compare_int_str_error,
     r#"
-0 < "oops"  # E: Argument `Literal['oops']` is not assignable to parameter with type `int`
+0 < "oops"  # E: Argument `Literal['oops']` is not assignable to parameter `value` with type `int`
     "#,
 );
 
