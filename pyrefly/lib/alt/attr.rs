@@ -298,6 +298,7 @@ impl InternalError {
 /// it's corresponding class type.
 #[derive(Clone, Debug)]
 enum AttributeBase {
+    EnumLiteral(ClassType, Name, Type),
     ClassInstance(ClassType),
     ClassObject(Class),
     Module(Module),
@@ -869,7 +870,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         attr_name: &Name,
     ) -> LookupResult {
         match base {
-            AttributeBase::ClassInstance(class) => {
+            AttributeBase::EnumLiteral(_, member, _)
+                if matches!(attr_name.as_str(), "name" | "_name_") =>
+            {
+                LookupResult::found_type(Type::Literal(Lit::Str(member.as_str().into())))
+            }
+            AttributeBase::EnumLiteral(_, _, raw_type)
+                if matches!(attr_name.as_str(), "value" | "_value_") =>
+            {
+                LookupResult::found_type(raw_type.clone())
+            }
+            AttributeBase::ClassInstance(class) | AttributeBase::EnumLiteral(class, _, _) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
                 let mut attr_name = attr_name.clone();
                 // Special case magic enum properties
@@ -1076,17 +1087,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // This function is intended as a low-level building block
     // Unions or intersections should be handled by callers
     fn lookup_attr_no_union(&self, base: &Type, attr_name: &Name) -> LookupResult {
-        match (base, attr_name.as_str()) {
-            (Type::Literal(Lit::Enum(box (_, member, _))), "_name_" | "name") => {
-                LookupResult::found_type(Type::Literal(Lit::Str(member.as_str().into())))
-            }
-            (Type::Literal(Lit::Enum(box (_, _, raw_type))), "_value_" | "value") => {
-                LookupResult::found_type(raw_type.clone())
-            }
-            _ if let Some(base) = self.as_attribute_base_no_union(base.clone()) => {
-                self.lookup_attr_from_base_no_union(base, attr_name)
-            }
-            _ => LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone())),
+        if let Some(base) = self.as_attribute_base_no_union(base.clone()) {
+            self.lookup_attr_from_base_no_union(base, attr_name)
+        } else {
+            LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone()))
         }
     }
 
@@ -1192,6 +1196,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.stdlib.tuple(Type::any_implicit()),
             )),
             Type::LiteralString => Some(AttributeBase::ClassInstance(self.stdlib.str().clone())),
+            Type::Literal(Lit::Enum(box (class, member, raw_ty))) => {
+                Some(AttributeBase::EnumLiteral(class, member, raw_ty))
+            }
             Type::Literal(lit) => Some(AttributeBase::ClassInstance(
                 lit.general_class_type(self.stdlib).clone(),
             )),
@@ -1494,7 +1501,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // TODO: expose attributes shared across all union members
         if let Some(base) = self.as_attribute_base_no_union(base) {
             match &base {
-                AttributeBase::ClassInstance(class) => {
+                AttributeBase::ClassInstance(class) | AttributeBase::EnumLiteral(class, _, _) => {
                     self.completions_class_type(class, expected_attribute_name, &mut res)
                 }
                 AttributeBase::TypedDict(_) => self.completions_class_type(
