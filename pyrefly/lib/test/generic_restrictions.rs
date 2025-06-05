@@ -283,3 +283,38 @@ class Foo[T: (A, B)]:
         self.y.__class__
     "#,
 );
+
+testcase!(
+    bug = "this should work",
+    test_constrained_typevar_protocol_subtype,
+    r#"
+from typing import Protocol
+class P(Protocol):
+    x: int
+class A:
+    x: int
+class B:
+    x: int
+class Foo[T: (A, B)]:
+    y: T
+    def foo(self) -> None:
+        p: P = self.y  # E: `TypeVar[T]` is not assignable to `P`
+    "#,
+);
+
+testcase!(
+    bug = "this should work",
+    test_constrained_typevar_mutate_attr,
+    r#"
+class A:
+    x: int
+class B:
+    x: int
+class Foo[T: (A, B)]:
+    y: T
+    def foo(self) -> None:
+        self.y.x = 1  # E: TODO: attr::check_assign_to_attribute_and_infer_narrow
+        self.y.x = ""  # Not OK # E: TODO: attr::check_assign_to_attribute_and_infer_narrow
+        del self.y.x  # E: TODO: Answers::solve_expectation::Delete
+    "#,
+);
