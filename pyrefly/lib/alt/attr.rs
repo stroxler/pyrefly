@@ -305,7 +305,8 @@ enum AttributeBase {
     /// The attribute access is on a quantified type form (as in `args: P.args` - this
     /// is only used when the base *is* a quantified type, not when the base is
     /// a term that *has* a quantified type.
-    TypeVar(Quantified),
+    /// The second element is a bound or constraint for the type variable.
+    TypeVar(Quantified, Option<ClassType>),
     Any(AnyStyle),
     Never,
     /// type[Any] is a special case where attribute lookups first check the
@@ -951,7 +952,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(attr) => LookupResult::found_type(attr),
                 None => LookupResult::NotFound(NotFound::ModuleExport(module)),
             },
-            AttributeBase::TypeVar(q) => match (q.is_param_spec(), attr_name.as_str()) {
+            AttributeBase::TypeVar(q, _) => match (q.is_param_spec(), attr_name.as_str()) {
                 // Note that is is for cases like `P.args` where `P` is a param spec, or `T.x` where
                 // `T` is a type variable (the latter is illegal, but a user could write it). It is
                 // not for cases where `base` is a term with a quantified type.
@@ -1215,9 +1216,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Restriction::Bound(bound) => {
                     self.as_attribute_base_no_union(Type::type_form(bound.clone()))
                 }
-                _ => Some(AttributeBase::TypeVar(q)),
+                _ => Some(AttributeBase::TypeVar(q, None)),
             },
-            Type::Type(box Type::Quantified(q)) => Some(AttributeBase::TypeVar(q)),
+            Type::Type(box Type::Quantified(q)) => Some(AttributeBase::TypeVar(q, None)),
             Type::Type(box Type::Any(style)) => Some(AttributeBase::TypeAny(style)),
             Type::Module(module) => Some(AttributeBase::Module(module)),
             Type::TypeVar(_) => Some(AttributeBase::ClassInstance(self.stdlib.type_var().clone())),
@@ -1515,7 +1516,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeBase::ClassObject(class) => {
                     self.completions_class(class, expected_attribute_name, &mut res)
                 }
-                AttributeBase::TypeVar(q) => self.completions_class_type(
+                AttributeBase::TypeVar(q, _) => self.completions_class_type(
                     q.as_value(self.stdlib),
                     expected_attribute_name,
                     &mut res,
