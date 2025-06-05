@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
@@ -140,3 +141,45 @@ x.append(1)
 assert_type(x, list[int])
 "#,
 );
+
+fn env_nondeterminism() -> TestEnv {
+    TestEnv::one(
+        "nondeterministic",
+        r#"
+x = []
+y = x.append(1)
+z = x.append("1")
+"#,
+    )
+}
+
+testcase!(
+    bug = "Forcing y first causes x to be list[int]. See version b for why this is a bug.",
+    emulate_nondeterminism_a,
+    env_nondeterminism(),
+    r#"
+from typing import assert_type
+from nondeterministic import y
+assert_type(y, None)
+from nondeterministic import x
+assert_type(x, list[int])
+"#,
+);
+
+/*
+// This test occasionally fails, particularly under cargo - it usually behaves as the assert_type
+// indicates, but it appears that in some cases the analysis of `nondeterminism` and `main` can race
+// one another, and we actually get nondeterministic test results.
+testcase!(
+    bug = "Forcing z first causes x to be list[str]. See version a for why this is a bug.",
+    emulate_nondeterminism_b,
+    env_nondeterminism(),
+    r#"
+from typing import assert_type
+from nondeterministic import z
+assert_type(z, None)
+from nondeterministic import x
+assert_type(x, list[str])
+"#,
+);
+*/
