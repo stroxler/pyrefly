@@ -797,8 +797,7 @@ def f():
 
 def g():
     x: dict[int, int] = {}
-    # Should probably be only one error message here (general overload)
-    x.update(a = 1) # E: No matching overload # E: Argument `dict[int, int]` is not assignable to parameter `self` with type `Mapping[str, int]`
+    x.update(a = 1) # E: No matching overload
 "#,
 );
 

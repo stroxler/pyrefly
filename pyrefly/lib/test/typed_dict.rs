@@ -471,7 +471,7 @@ def f(c: C, k1: str, k2: int):
     assert_type(c.get("x"), int)
     assert_type(c.get(k1), object)
     assert_type(c.get(k1, 0), object)
-    c.get(k2)  # E: No matching overload  # E: `int` is not assignable to parameter `key` with type `Literal['x']`
+    c.get(k2)  # E: No matching overload
     "#,
 );
 
@@ -556,9 +556,9 @@ class C(TypedDict):
     x: int
 def f(c: C, s: str):
     assert_type(c.setdefault("x", 0), int)
-    c.setdefault("x", 0.0)  # E: No matching overload  # E: `float` is not assignable to parameter `default` with type `int`
-    c.setdefault("x")  # E: No matching overload  # E: Missing positional argument `default`
-    c.setdefault(s, 0)  # E: No matching overload  # E: `str` is not assignable to parameter `key` with type `Literal['x']`
+    c.setdefault("x", 0.0)  # E: No matching overload
+    c.setdefault("x")  # E: No matching overload
+    c.setdefault(s, 0)  # E: No matching overload
     "#,
 );
 
@@ -570,7 +570,7 @@ class C(TypedDict):
     x: int
 def f(c: C):
     # Both of these methods take only positional arguments.
-    c.get(key="x")  # E: No matching overload  # E: Expected argument `key` to be positional
-    c.setdefault("x", default=0)  # E: No matching overload  # E: Expected argument `default` to be positional
+    c.get(key="x")  # E: No matching overload
+    c.setdefault("x", default=0)  # E: No matching overload
     "#,
 );
