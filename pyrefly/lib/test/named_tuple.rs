@@ -36,7 +36,7 @@ class Pair(NamedTuple):
     y: str
 p: Pair = Pair(1, "")
 del p.x  # E: Cannot delete read-only field `x`
-del p[0]  # E: Item deletion is not supported on `Pair`
+del p[0]  # E: Cannot delete item in `Pair`
     "#,
 );
 

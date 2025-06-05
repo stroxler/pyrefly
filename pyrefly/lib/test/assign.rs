@@ -15,7 +15,7 @@ from typing import assert_type
 
 x: list[int] = [0, 1, 2]
 x[0], x[1] = 3, 4
-x[0], x[1] = 3, "foo"  # E: Item assignment is not supported on `list[int]`\n  No matching overload found for function `list.__setitem__`
+x[0], x[1] = 3, "foo"  # E: Cannot set item in `list[int]`\n  No matching overload found for function `list.__setitem__`
 "#,
 );
 
@@ -700,7 +700,7 @@ testcase!(
 xs: list[int] = [1, 2, 3]
 xs[0]: int = 3 # E: Subscripts should not be annotated
 xs[1]: str = 3 # E: Subscripts should not be annotated
-xs[2]: str = "test" # E: Subscripts should not be annotated # E: Item assignment is not supported on
+xs[2]: str = "test" # E: Subscripts should not be annotated # E: Cannot set item in
 "#,
 );
 
@@ -713,11 +713,10 @@ testcase!(
 );
 
 testcase!(
-    bug = "The 'item assignment is not supported' message is misleading",
     test_assign_subscript_wrong_type,
     r#"
 xs: list[int] = [1, 2, 3]
-xs[1] = "test" # E: Item assignment is not supported on
+xs[1] = "test" # E: Cannot set item in
 "#,
 );
 
