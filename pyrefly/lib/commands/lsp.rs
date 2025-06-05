@@ -1441,7 +1441,9 @@ impl Server {
         let info = transaction.get_module_info(&handle)?;
         let range = position_to_text_size(&info, params.text_document_position_params.position);
         let t = transaction.get_type_at(&handle, range)?;
-        let docstring = transaction.docstring(&handle, range);
+        let docstring = transaction
+            .find_definition(&handle, range)
+            .and_then(|x| x.2);
         let value = match docstring {
             None => format!("```python\n{}\n```", t),
             Some(docstring) => format!(
