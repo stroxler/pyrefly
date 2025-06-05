@@ -276,7 +276,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut arg_name = false;
         let mut restriction = None;
         let mut default = None;
-        let mut variance = PreInferenceVariance::PUndefined;
+        let mut variance = None;
 
         let check_name_arg = |arg: &Expr| {
             if let Expr::StringLiteral(lit) = arg {
@@ -305,7 +305,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let mut try_set_variance = |kw: &Keyword, v: PreInferenceVariance| {
             if self.literal_bool_infer(&kw.value, errors) {
-                if variance != PreInferenceVariance::PUndefined {
+                if variance.is_some() {
                     self.error(
                         errors,
                         kw.range,
@@ -314,7 +314,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         "Contradictory variance specifications".to_owned(),
                     );
                 } else {
-                    variance = v;
+                    variance = Some(v);
                 }
             }
         };
@@ -417,6 +417,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
             ));
         }
+
+        let variance = variance.unwrap_or(PreInferenceVariance::PInvariant);
+
         TypeVar::new(
             name,
             self.module_info().dupe(),
