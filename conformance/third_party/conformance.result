@@ -181,7 +181,7 @@
   ],
   "dataclasses_transform_converter.py": [
     "Line 118: Expected 1 errors",
-    "Line 29: Unexpected errors ['Argument `tuple[[S, T](*, converter: (TypeVar[S]) -> TypeVar[T], default: TypeVar[S] | None, default_factory: (() -> TypeVar[S]) | None) -> TypeVar[T]]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`']",
+    "Line 29: Unexpected errors ['Argument `tuple[[S, T](*, converter: (S) -> T, default: S | None, default_factory: (() -> S) | None) -> T]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`']",
     "Line 112: Unexpected errors ['Expected 0 positional arguments, got 5 in function `object.__init__`']",
     "Line 114: Unexpected errors [\"`Literal['f1']` is not assignable to attribute `field0` with type `int`\"]",
     "Line 115: Unexpected errors [\"`Literal['f6']` is not assignable to attribute `field3` with type `ConverterClass`\"]",
@@ -265,13 +265,13 @@
   "generics_basic.py": [
     "Line 49: Expected 1 errors",
     "Line 121: Expected 1 errors",
-    "Line 34: Unexpected errors ['`+` is not supported between `TypeVar[AnyStr]` and `TypeVar[AnyStr]`\\n  TODO: Expr::binop_infer attribute base undefined for type: TypeVar[AnyStr] (trying to access __add__)']",
+    "Line 34: Unexpected errors ['`+` is not supported between `AnyStr` and `AnyStr`\\n  TODO: Expr::binop_infer attribute base undefined for type: AnyStr (trying to access __add__)']",
     "Line 67: Unexpected errors ['assert_type(MyStr, str) failed']",
     "Line 68: Unexpected errors ['assert_type(MyStr, str) failed', 'Argument `str` is not assignable to parameter `y` with type `MyStr` in function `concat`']"
   ],
   "generics_defaults.py": [
     "Line 127: Unexpected errors ['assert_type(Any, int) failed']",
-    "Line 166: Unexpected errors ['assert_type([DefaultIntT](Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]], (Foo7[int]) -> Foo7[int]) failed']",
+    "Line 166: Unexpected errors ['assert_type([DefaultIntT](Foo7[DefaultIntT]) -> Foo7[DefaultIntT], (Foo7[int]) -> Foo7[int]) failed']",
     "Line 167: Unexpected errors ['assert_type(Any, int) failed', 'Instance-only attribute `attr` of class `Foo7` is not visible on the class']"
   ],
   "generics_defaults_referential.py": [
@@ -345,7 +345,7 @@
     "Line 98: Expected 1 errors",
     "Line 66: Unexpected errors ['Found `S`, but it was not the global scope']",
     "Line 67: Unexpected errors ['assert_type(str, int) failed']",
-    "Line 116: Unexpected errors ['assert_type(type[TypeVar[T]], TypeVar) failed']"
+    "Line 116: Unexpected errors ['assert_type(type[T], TypeVar) failed']"
   ],
   "generics_type_erasure.py": [],
   "generics_typevartuple_args.py": [],
@@ -354,7 +354,7 @@
   ],
   "generics_typevartuple_callable.py": [],
   "generics_typevartuple_concat.py": [
-    "Line 56: Unexpected errors ['Returned type `tuple[*tuple[Unknown, ...], Unknown]` is not assignable to declared return type `tuple[*TypeVarTuple[Ts], TypeVar[T]]`']"
+    "Line 56: Unexpected errors ['Returned type `tuple[*tuple[Unknown, ...], Unknown]` is not assignable to declared return type `tuple[*Ts, T]`']"
   ],
   "generics_typevartuple_overloads.py": [],
   "generics_typevartuple_specialization.py": [
