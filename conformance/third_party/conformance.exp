@@ -672,16 +672,6 @@
     {
       "code": -2,
       "column": 22,
-      "concise_description": "Argument `TypeAlias[GoodAlias1, type[int]]` is not assignable to parameter `class_or_tuple` with type `UnionType | type | tuple[Unknown, ...]` in function `isinstance`",
-      "description": "Argument `TypeAlias[GoodAlias1, type[int]]` is not assignable to parameter `class_or_tuple` with type `UnionType | type | tuple[Unknown, ...]` in function `isinstance`",
-      "line": 31,
-      "name": "bad-argument-type",
-      "stop_column": 32,
-      "stop_line": 31
-    },
-    {
-      "code": -2,
-      "column": 22,
       "concise_description": "function call cannot be used in annotations",
       "description": "function call cannot be used in annotations",
       "line": 37,

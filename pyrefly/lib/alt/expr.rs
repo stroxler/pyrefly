@@ -10,6 +10,7 @@ use num_traits::ToPrimitive;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
+use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::Comprehension;
 use ruff_python_ast::Expr;
@@ -933,6 +934,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
+    fn has_exactly_two_posargs(&self, arguments: &Arguments) -> bool {
+        arguments.keywords.is_empty()
+            && arguments.args.len() == 2
+            && arguments
+                .args
+                .iter()
+                .all(|e| !matches!(e, Expr::Starred(_)))
+    }
+
     /// This function should not be used directly: we want every expression to record a type trace,
     /// and that is handled in expr_infer_type_info_with_hint. This function should *only* be called
     /// via expr_infer_type_info_with_hint.
@@ -1301,19 +1311,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 x.arguments.range,
                                 errors,
                             ),
+                        Some(CalleeKind::Function(FunctionKind::IsInstance))
+                            if self.has_exactly_two_posargs(&x.arguments) =>
+                        {
+                            self.call_isinstance(&x.arguments.args[0], &x.arguments.args[1], errors)
+                        }
+                        Some(CalleeKind::Function(FunctionKind::IsSubclass))
+                            if self.has_exactly_two_posargs(&x.arguments) =>
+                        {
+                            self.call_issubclass(&x.arguments.args[0], &x.arguments.args[1], errors)
+                        }
                         _ => {
-                            if let Some(CalleeKind::Function(func_kind)) = ty_fun.callee_kind()
-                                && matches!(
-                                    func_kind,
-                                    FunctionKind::IsInstance | FunctionKind::IsSubclass
-                                )
-                            {
-                                self.check_second_arg_is_class_object(
-                                    &x.arguments.args,
-                                    &func_kind,
-                                    errors,
-                                );
-                            }
                             let args = x.arguments.args.map(|arg| match arg {
                                 Expr::Starred(x) => CallArg::Star(&x.value, x.range),
                                 _ => CallArg::Expr(arg),

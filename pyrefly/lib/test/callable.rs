@@ -774,3 +774,11 @@ def f(x: int, /, **kwargs: str):
 f(0, x="1")
     "#,
 );
+
+testcase!(
+    test_not_a_class_object,
+    r#"
+isinstance(1, "not a class object")  # E: Expected class object
+issubclass(str, "not a class object")  # E: Expected class object
+    "#,
+);

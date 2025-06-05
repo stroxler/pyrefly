@@ -15,6 +15,7 @@ use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Keyword;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
@@ -22,6 +23,8 @@ use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::solve::TypeFormContext;
 use crate::error::collector::ErrorCollector;
+use crate::error::context::TypeCheckContext;
+use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
 use crate::types::callable::FunctionKind;
 use crate::types::callable::unexpected_keyword;
@@ -234,7 +237,43 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ret
     }
 
-    pub fn check_type_is_class_object(
+    pub fn call_isinstance(
+        &self,
+        obj: &Expr,
+        class_or_tuple: &Expr,
+        errors: &ErrorCollector,
+    ) -> Type {
+        // We call expr_infer in order to check for errors, but we don't need to do anything with
+        // the result, as the `obj` parameter has type `object`.
+        self.expr_infer(obj, errors);
+        self.check_arg_is_class_object(class_or_tuple, &FunctionKind::IsInstance, errors);
+        self.stdlib.bool().clone().to_type()
+    }
+
+    pub fn call_issubclass(
+        &self,
+        cls: &Expr,
+        class_or_tuple: &Expr,
+        errors: &ErrorCollector,
+    ) -> Type {
+        // Verify that the `cls` argument has type `type`.
+        self.check_type(
+            &self.stdlib.builtins_type().clone().to_type(),
+            &self.expr_infer(cls, errors),
+            cls.range(),
+            errors,
+            &|| {
+                TypeCheckContext::of_kind(TypeCheckKind::CallArgument(
+                    Some(Name::new_static("cls")),
+                    Some(FunctionKind::IsSubclass.as_func_id()),
+                ))
+            },
+        );
+        self.check_arg_is_class_object(class_or_tuple, &FunctionKind::IsSubclass, errors);
+        self.stdlib.bool().clone().to_type()
+    }
+
+    fn check_type_is_class_object(
         &self,
         ty: Type,
         contains_subscript: bool,
@@ -309,11 +348,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None,
                 format!("Expected class object, got `{}`", self.for_display(ty)),
             );
+        } else {
+            self.check_type(
+                &self.stdlib.builtins_type().clone().to_type(),
+                &ty,
+                range,
+                errors,
+                &|| {
+                    TypeCheckContext::of_kind(TypeCheckKind::CallArgument(
+                        Some(Name::new_static("class_or_tuple")),
+                        Some(func_kind.as_func_id()),
+                    ))
+                },
+            );
         }
     }
 
     /// Check if a protocol is a data protocol (has non-method members)
-    pub fn is_data_protocol(&self, cls: &Class, range: TextRange) -> bool {
+    fn is_data_protocol(&self, cls: &Class, range: TextRange) -> bool {
         // A data protocol has at least one non-method member
         // Use protocol metadata to get the member names
         let metadata = self.get_metadata_for_class(cls);
@@ -342,29 +394,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         false
     }
 
-    pub fn check_second_arg_is_class_object(
+    fn check_arg_is_class_object(
         &self,
-        args: &[Expr],
+        arg_expr: &Expr,
         func_kind: &FunctionKind,
         errors: &ErrorCollector,
     ) {
-        if args.len() == 2 {
-            let arg_expr = &args[1];
-            let arg_class_type = self.expr_infer(arg_expr, errors);
-            let mut contains_subscript = false;
-            arg_expr.visit(&mut |e| {
-                if matches!(e, Expr::Subscript(_)) {
-                    contains_subscript = true;
-                }
-            });
+        let arg_class_type = self.expr_infer(arg_expr, errors);
+        let mut contains_subscript = false;
+        arg_expr.visit(&mut |e| {
+            if matches!(e, Expr::Subscript(_)) {
+                contains_subscript = true;
+            }
+        });
 
-            self.check_type_is_class_object(
-                arg_class_type,
-                contains_subscript,
-                arg_expr.range(),
-                func_kind,
-                errors,
-            );
-        }
+        self.check_type_is_class_object(
+            arg_class_type,
+            contains_subscript,
+            arg_expr.range(),
+            func_kind,
+            errors,
+        );
     }
 }
