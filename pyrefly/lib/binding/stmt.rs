@@ -186,9 +186,21 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn bind_name_assign(&mut self, name: &ExprName, mut value: Box<Expr>) {
-        let user = self.declare_user(Key::Definition(ShortIdentifier::expr_name(name)));
-        if self.is_definitely_type_alias_rhs(value.as_ref()) {
+    pub fn bind_name_assign(
+        &mut self,
+        name: &Identifier,
+        mut value: Box<Expr>,
+        direct_ann: Option<(&Expr, Idx<KeyAnnotation>)>,
+    ) -> Option<Idx<KeyAnnotation>> {
+        let user = self.declare_user(Key::Definition(ShortIdentifier::new(name)));
+        let is_definitely_type_alias = if let Some((e, _)) = direct_ann
+            && self.as_special_export(e) == Some(SpecialExport::TypeAlias)
+        {
+            true
+        } else {
+            self.is_definitely_type_alias_rhs(value.as_ref())
+        };
+        if is_definitely_type_alias {
             self.ensure_type(&mut value, &mut None);
         } else {
             self.ensure_expr(&mut value, user.usage());
@@ -200,16 +212,17 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             FlowStyle::Other
         };
-        let (ann, default) = self.bind_user(&name.id, &user, style);
-        let mut binding = Binding::NameAssign(
-            name.id.clone(),
-            ann.map(|k| (AnnotationStyle::Forwarded, k)),
-            value,
-        );
+        let (cannonical_ann, default) = self.bind_user(&name.id, &user, style);
+        let ann = match direct_ann {
+            Some((_, idx)) => Some((AnnotationStyle::Direct, idx)),
+            None => cannonical_ann.map(|idx| (AnnotationStyle::Forwarded, idx)),
+        };
+        let mut binding = Binding::NameAssign(name.id.clone(), ann, value);
         if let Some(default) = default {
             binding = Binding::Default(default, Box::new(binding));
         }
         self.insert_binding_user(user, binding);
+        cannonical_ann
     }
 
     /// Bind the annotation in an `AnnAssign`
@@ -388,7 +401,7 @@ impl<'a> BindingsBuilder<'a> {
                             _ => {}
                         }
                     }
-                    self.bind_name_assign(name, x.value)
+                    self.bind_name_assign(&Ast::expr_name_identifier(name.clone()), x.value, None);
                 } else {
                     self.bind_targets_with_value(&mut x.targets, &mut x.value);
                 }
@@ -486,32 +499,8 @@ impl<'a> BindingsBuilder<'a> {
                             );
                             self.bind_definition_user(&name, user, binding, flow_style)
                         }
-                        Some(mut value) => {
-                            let user =
-                                self.declare_user(Key::Definition(ShortIdentifier::new(&name)));
-                            let flow_style = if self.scopes.in_class_body() {
-                                FlowStyle::ClassField {
-                                    initial_value: Some(*value.clone()),
-                                }
-                            } else {
-                                FlowStyle::Other
-                            };
-                            let binding = {
-                                // Handle forward references in explicit type aliases.
-                                if self.as_special_export(&x.annotation)
-                                    == Some(SpecialExport::TypeAlias)
-                                {
-                                    self.ensure_type(&mut value, &mut None);
-                                } else {
-                                    self.ensure_expr(&mut value, user.usage());
-                                }
-                                Binding::NameAssign(
-                                    name.id.clone(),
-                                    Some((AnnotationStyle::Direct, ann_idx)),
-                                    value,
-                                )
-                            };
-                            self.bind_definition_user(&name, user, binding, flow_style)
+                        Some(value) => {
+                            self.bind_name_assign(&name, value, Some((&x.annotation, ann_idx)))
                         }
                     };
                     // This assignment gets checked with the provided annotation. But if there exists a prior
