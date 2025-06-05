@@ -281,7 +281,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         func_kind: &FunctionKind,
         errors: &ErrorCollector,
     ) {
-        if let Some(ts) = ty.as_decomposed_tuple_or_union() {
+        if let Some(ts) = ty.as_decomposed_tuple_or_union(self.stdlib) {
             for t in ts {
                 self.check_type_is_class_object(t, contains_subscript, range, func_kind, errors);
             }
