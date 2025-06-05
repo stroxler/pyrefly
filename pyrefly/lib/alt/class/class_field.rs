@@ -1246,6 +1246,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
+    pub fn get_bounded_type_var_attribute(
+        &self,
+        type_var: Quantified,
+        upper_bound: &ClassType,
+        name: &Name,
+    ) -> Option<Attribute> {
+        self.get_class_member(upper_bound.class_object(), name)
+            .map(|member| {
+                self.as_instance_attribute(
+                    Arc::unwrap_or_clone(member.value),
+                    &Instance::of_type_var(type_var, upper_bound),
+                )
+            })
+    }
+
     pub fn get_typed_dict_attribute(&self, td: &TypedDict, name: &Name) -> Option<Attribute> {
         if let Some(meta) = self
             .get_metadata_for_class(td.class_object())

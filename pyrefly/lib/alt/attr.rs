@@ -39,6 +39,7 @@ use crate::types::class::ClassType;
 use crate::types::literal::Lit;
 use crate::types::module::Module;
 use crate::types::quantified::Quantified;
+use crate::types::quantified::QuantifiedKind;
 use crate::types::tuple::Tuple;
 use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
@@ -952,12 +953,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(attr) => LookupResult::found_type(attr),
                 None => LookupResult::NotFound(NotFound::ModuleExport(module)),
             },
-            AttributeBase::TypeVar(q, _) => match (q.is_param_spec(), attr_name.as_str()) {
+            AttributeBase::TypeVar(q, bound) => match (q.kind(), attr_name.as_str()) {
                 // Note that is is for cases like `P.args` where `P` is a param spec, or `T.x` where
                 // `T` is a type variable (the latter is illegal, but a user could write it). It is
                 // not for cases where `base` is a term with a quantified type.
-                (true, "args") => LookupResult::found_type(Type::type_form(Type::Args(q))),
-                (true, "kwargs") => LookupResult::found_type(Type::type_form(Type::Kwargs(q))),
+                (QuantifiedKind::ParamSpec, "args") => {
+                    LookupResult::found_type(Type::type_form(Type::Args(q)))
+                }
+                (QuantifiedKind::ParamSpec, "kwargs") => {
+                    LookupResult::found_type(Type::type_form(Type::Kwargs(q)))
+                }
+                (QuantifiedKind::TypeVar, _) if let Some(upper_bound) = bound => {
+                    match self.get_bounded_type_var_attribute(q.clone(), &upper_bound, attr_name) {
+                        Some(attr) => LookupResult::Found(attr),
+                        None => LookupResult::NotFound(NotFound::Attribute(
+                            upper_bound.class_object().dupe(),
+                        )),
+                    }
+                }
                 _ => {
                     let class = q.as_value(self.stdlib);
                     match self.get_instance_attribute(class, attr_name) {
