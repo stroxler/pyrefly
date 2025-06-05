@@ -1105,6 +1105,9 @@ impl Binding {
             Binding::ClassDef(_, _) => Some(SymbolKind::Class),
             Binding::Module(_, _, _) => Some(SymbolKind::Module),
             Binding::ScopedTypeAlias(_, _, _) => Some(SymbolKind::TypeAlias),
+            Binding::NameAssign(name, _, _) if name.as_str() == name.to_uppercase() => {
+                Some(SymbolKind::Constant)
+            }
             Binding::NameAssign(_, _, _) => Some(SymbolKind::Variable),
             Binding::LambdaParameter(_) | Binding::FunctionParameter(_) => {
                 Some(SymbolKind::Parameter)
