@@ -41,4 +41,18 @@ impl SymbolKind {
             SymbolKind::Str => CompletionItemKind::VALUE,
         }
     }
+
+    pub fn display_for_hover(self) -> String {
+        match self {
+            SymbolKind::Module => "(module)".to_owned(),
+            SymbolKind::Attribute => "(attribute)".to_owned(),
+            SymbolKind::Variable => "(variable)".to_owned(),
+            SymbolKind::Parameter => "(parameter)".to_owned(),
+            SymbolKind::TypeParameter => "(type parameter)".to_owned(),
+            SymbolKind::TypeAlias => "(type alias)".to_owned(),
+            SymbolKind::Function => "(function)".to_owned(),
+            SymbolKind::Class => "(class)".to_owned(),
+            SymbolKind::Bool | SymbolKind::Str => "".to_owned(),
+        }
+    }
 }

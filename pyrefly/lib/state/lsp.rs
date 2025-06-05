@@ -54,7 +54,6 @@ use crate::types::types::Type;
 const INITIAL_GAS: Gas = Gas::new(20);
 
 #[derive(Clone)]
-#[allow(dead_code)]
 pub enum DefinitionMetadata {
     Attribute(Name),
     Module,
@@ -62,7 +61,6 @@ pub enum DefinitionMetadata {
     VariableOrAttribute(Name, Option<SymbolKind>),
 }
 
-#[allow(dead_code)]
 impl DefinitionMetadata {
     pub fn symbol_kind(&self) -> Option<SymbolKind> {
         match self {
