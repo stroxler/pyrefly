@@ -212,6 +212,42 @@ impl<'a> BindingsBuilder<'a> {
         self.insert_binding_user(user, binding);
     }
 
+    /// Bind the annotation in an `AnnAssign`
+    pub fn bind_annotation(
+        &mut self,
+        name: &Identifier,
+        annotation: &mut Expr,
+        has_value: bool,
+        in_class_body: bool,
+    ) -> Idx<KeyAnnotation> {
+        let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(name));
+        self.ensure_type(annotation, &mut None);
+        let ann_val = if let Some(special) = SpecialForm::new(&name.id, annotation) {
+            BindingAnnotation::Type(
+                AnnotationTarget::Assign(name.id.clone(), Initialized::Yes),
+                special.to_type(),
+            )
+        } else {
+            BindingAnnotation::AnnotateExpr(
+                if in_class_body {
+                    AnnotationTarget::ClassMember(name.id.clone())
+                } else {
+                    AnnotationTarget::Assign(
+                        name.id.clone(),
+                        if has_value {
+                            Initialized::Yes
+                        } else {
+                            Initialized::No
+                        },
+                    )
+                },
+                annotation.clone(),
+                None,
+            )
+        };
+        self.insert_binding(ann_key, ann_val)
+    }
+
     /// Record a return statement for later analysis if we are in a function body, and mark
     /// that the flow has terminated.
     ///
@@ -417,32 +453,12 @@ impl<'a> BindingsBuilder<'a> {
                 Expr::Name(name) => {
                     let name = Ast::expr_name_identifier(name);
                     let in_class_body = self.scopes.in_class_body();
-                    let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(&name));
-                    self.ensure_type(&mut x.annotation, &mut None);
-                    let ann_val = if let Some(special) = SpecialForm::new(&name.id, &x.annotation) {
-                        BindingAnnotation::Type(
-                            AnnotationTarget::Assign(name.id.clone(), Initialized::Yes),
-                            special.to_type(),
-                        )
-                    } else {
-                        BindingAnnotation::AnnotateExpr(
-                            if in_class_body {
-                                AnnotationTarget::ClassMember(name.id.clone())
-                            } else {
-                                AnnotationTarget::Assign(
-                                    name.id.clone(),
-                                    if x.value.is_some() {
-                                        Initialized::Yes
-                                    } else {
-                                        Initialized::No
-                                    },
-                                )
-                            },
-                            *x.annotation.clone(),
-                            None,
-                        )
-                    };
-                    let ann_idx = self.insert_binding(ann_key, ann_val);
+                    let ann_idx = self.bind_annotation(
+                        &name,
+                        &mut x.annotation,
+                        x.value.is_some(),
+                        in_class_body,
+                    );
                     let flow_style = if in_class_body {
                         let initial_value = x.value.as_deref().cloned();
                         FlowStyle::ClassField { initial_value }
