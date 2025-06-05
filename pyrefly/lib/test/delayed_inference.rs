@@ -92,3 +92,27 @@ def bar(random: bool):
     assert_type(x, int)
     "#,
 );
+
+testcase!(
+    test_deferred_type_for_user_defined_generic,
+    r#"
+from typing import assert_type
+class Box[T]:
+    x: T | None = None
+b = Box()
+b.x = 1
+assert_type(b, Box[int])
+    "#,
+);
+
+testcase!(
+    test_deferred_type_for_indeterminate_generic_function_output,
+    r#"
+from typing import assert_type
+def new_empty_list[T]() -> list[T]:
+    ...
+x = new_empty_list()
+x.append(1)
+assert_type(x, list[int])
+"#,
+);
