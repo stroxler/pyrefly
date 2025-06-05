@@ -482,7 +482,6 @@
     "Line 165: Expected 1 errors"
   ],
   "protocols_generic.py": [
-    "Line 87: Unexpected errors ['Returned type `HasParent` is not assignable to declared return type `TypeVar[GenericHasParent]`']",
     "Line 144: Unexpected errors ['`ConcreteHasProperty1` is not assignable to `HasPropertyProto`']"
   ],
   "protocols_merging.py": [

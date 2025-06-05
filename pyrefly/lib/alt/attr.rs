@@ -368,9 +368,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             bases.push(Some(AttributeBase::TypeVar(quantified.clone(), None)));
                         }
                     }
-                    Restriction::Unrestricted => {
-                        bases.push(Some(AttributeBase::TypeVar(quantified.clone(), None)))
-                    }
+                    Restriction::Unrestricted => bases.push(Some(AttributeBase::ClassInstance(
+                        self.stdlib.object().clone(),
+                    ))),
                 },
                 _ => bases.push(self.as_attribute_base_no_union(base.clone())),
             };
@@ -389,8 +389,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         todo_ctx: &str,
     ) -> Type {
-        self.distribute_over_union(base, |base| {
-            let lookup_result = self.lookup_attr_no_union(base, attr_name);
+        let bases = self.get_possible_attribute_bases(base);
+        let mut results = Vec::new();
+        for attr_base in bases {
+            let lookup_result = attr_base.map_or_else(
+                || LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone())),
+                |attr_base| self.lookup_attr_from_base_no_union(attr_base, attr_name),
+            );
             match self.get_type_or_conflated_error_msg(
                 lookup_result,
                 attr_name,
@@ -399,10 +404,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 context,
                 todo_ctx,
             ) {
-                Ok(ty) => ty,
-                Err(msg) => self.error(errors, range, ErrorKind::MissingAttribute, context, msg),
+                Ok(ty) => results.push(ty),
+                Err(msg) => results.push(self.error(
+                    errors,
+                    range,
+                    ErrorKind::MissingAttribute,
+                    context,
+                    msg,
+                )),
             }
-        })
+        }
+        self.unions(results)
     }
 
     /// Compute the get (i.e., read) type of a magic dunder attribute, if it can be found. If reading is not

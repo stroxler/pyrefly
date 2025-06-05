@@ -752,20 +752,6 @@ class A[*Ps, *Qs = *Ps]: # E: cannot be more than one TypeVarTuple
 );
 
 testcase!(
-    bug = "TODO(pybind11): There should be no errors",
-    test_pass_along_typevar,
-    r#"
-from typing import TypeVar
-T = TypeVar('T', bound='A')
-class A:
-    def f(self: T) -> T:
-        return self
-    def g(self: T) -> T:
-        return self.f() # E: `A` is not assignable to declared return type `TypeVar[T]`
-    "#,
-);
-
-testcase!(
     test_specialize_error,
     r#"
 from nowhere import BrokenGeneric, BrokenTypeVar # E: Could not find import of `nowhere`

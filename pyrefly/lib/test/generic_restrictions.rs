@@ -189,7 +189,6 @@ assert_type(C.attr, int)  # E: assert_type(Any, int) failed  # E: Instance-only 
 );
 
 testcase!(
-    bug = "Should succeed with no errors",
     test_union_bound_attr_get,
     r#"
 from typing import assert_type
@@ -198,13 +197,12 @@ class A:
 class B:
     x: str
 def f[T: A | B](x: T) -> T:
-    assert_type(x.x, int | str) # E: assert_type # E: attribute base undefined
+    assert_type(x.x, int | str)
     return x
     "#,
 );
 
 testcase!(
-    bug = "Should succeed with no errors",
     test_constraints_attr_get,
     r#"
 from typing import assert_type
@@ -213,7 +211,7 @@ class A:
 class B:
     x: str
 def f[T: (A, B)](x: T) -> T:
-    assert_type(x.x, int | str) # E: assert_type # E: attribute base undefined
+    assert_type(x.x, int | str)
     return x
     "#,
 );
@@ -226,5 +224,62 @@ def f[T](x: T) -> T:
     assert_type(x.__doc__, str | None)
     x.nonsense # E: `object` has no attribute `nonsense`
     return x
+    "#,
+);
+
+testcase!(
+    test_pass_along_bounded_typevar,
+    r#"
+from typing import TypeVar
+T = TypeVar('T', bound='A')
+class A:
+    def f(self: T) -> T:
+        return self
+    def g(self: T) -> T:
+        return self.f()
+    "#,
+);
+
+testcase!(
+    test_preserve_generic_self,
+    r#"
+class A:
+    def m[S: A](self: S) -> S:
+        return self
+def g[T: A](a: T) -> T:
+    return a.m()
+    "#,
+);
+
+testcase!(
+    test_pass_along_constrained_typevar,
+    r#"
+from typing import Self, TypeVar
+
+class B():
+    def f(self) -> Self:
+        return self 
+class C(B):
+    pass
+class D(B):
+    pass
+
+T = TypeVar( "T", C, D)
+def g(b: T) -> T:
+    return b.f()
+    "#,
+);
+
+testcase!(
+    test_constrained_typevar_attr_access,
+    r#"
+class A:
+    x: int
+class B:
+    x: int
+class Foo[T: (A, B)]:
+    y: T
+    def foo(self) -> None:
+        self.y.__class__
     "#,
 );
