@@ -116,3 +116,27 @@ x.append(1)
 assert_type(x, list[int])
 "#,
 );
+
+testcase!(
+    test_inference_when_first_use_does_not_determine_type,
+    r#"
+from typing import assert_type
+x = []
+print(x)
+x.append(1)
+assert_type(x, list[int])
+"#,
+);
+
+testcase!(
+    test_inference_when_first_use_comes_after_nested_control_flow,
+    r#"
+from typing import assert_type
+x = []
+if True:
+    if False:
+        pass
+x.append(1)
+assert_type(x, list[int])
+"#,
+);
