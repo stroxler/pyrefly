@@ -323,6 +323,61 @@ enum AttributeBase {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    /// Gets the possible attribute bases for a type:
+    /// If the type is a union, we will attempt to generate bases for each member of the union
+    /// If the type is a bounded type var w/ a union upper bound, we will attempt to generate 1 base for
+    /// each member of the union
+    /// If the type is a constrained type var, we will attempt to generate 1 base for each constraint
+    fn get_possible_attribute_bases(&self, base: &Type) -> Vec<Option<AttributeBase>> {
+        let mut bases = Vec::new();
+        self.map_over_union(base, |base| {
+            match base {
+                Type::Quantified(quantified) => match quantified.restriction() {
+                    Restriction::Bound(upper_bound) => {
+                        let mut use_fallback = false;
+                        self.map_over_union(upper_bound, |bound| {
+                            let bound_attr_base = self.as_attribute_base_no_union(bound.clone());
+                            if let Some(AttributeBase::ClassInstance(cls)) = bound_attr_base {
+                                bases.push(Some(AttributeBase::TypeVar(
+                                    quantified.clone(),
+                                    Some(cls),
+                                )));
+                            } else {
+                                use_fallback = true;
+                            }
+                        });
+                        if use_fallback {
+                            bases.push(Some(AttributeBase::TypeVar(quantified.clone(), None)));
+                        }
+                    }
+                    Restriction::Constraints(constraints) => {
+                        let mut use_fallback = false;
+                        for constraint in constraints {
+                            let constraint_attr_base =
+                                self.as_attribute_base_no_union(constraint.clone());
+                            if let Some(AttributeBase::ClassInstance(cls)) = constraint_attr_base {
+                                bases.push(Some(AttributeBase::TypeVar(
+                                    quantified.clone(),
+                                    Some(cls),
+                                )));
+                            } else {
+                                use_fallback = true;
+                            }
+                        }
+                        if use_fallback {
+                            bases.push(Some(AttributeBase::TypeVar(quantified.clone(), None)));
+                        }
+                    }
+                    Restriction::Unrestricted => {
+                        bases.push(Some(AttributeBase::TypeVar(quantified.clone(), None)))
+                    }
+                },
+                _ => bases.push(self.as_attribute_base_no_union(base.clone())),
+            };
+        });
+        bases
+    }
+
     /// Compute the get (i.e. read) type of an attribute. If the attribute cannot be found or read,
     /// error and return `Any`. Use this to infer the type of a direct attribute fetch.
     pub fn type_of_attr_get(
