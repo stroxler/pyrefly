@@ -1184,11 +1184,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn try_lookup_attr(&self, base: &Type, attr_name: &Name) -> Vec<Attribute> {
         let mut result = Vec::new();
-        self.map_over_union(base, |base| {
-            if let Some(attr) = self.try_lookup_attr_no_union(base, attr_name) {
-                result.push(attr);
+        let bases = self.get_possible_attribute_bases(base);
+        for attr_base in bases {
+            let lookup_result = attr_base.map_or_else(
+                || LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone())),
+                |attr_base| self.lookup_attr_from_base_no_union(attr_base, attr_name),
+            );
+            match lookup_result {
+                LookupResult::Found(attr) => result.push(attr),
+                _ => {}
             }
-        });
+        }
         result
     }
 

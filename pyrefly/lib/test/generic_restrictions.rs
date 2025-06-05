@@ -285,7 +285,6 @@ class Foo[T: (A, B)]:
 );
 
 testcase!(
-    bug = "this should work",
     test_constrained_typevar_protocol_subtype,
     r#"
 from typing import Protocol
@@ -298,7 +297,7 @@ class B:
 class Foo[T: (A, B)]:
     y: T
     def foo(self) -> None:
-        p: P = self.y  # E: `TypeVar[T]` is not assignable to `P`
+        p: P = self.y
     "#,
 );
 
