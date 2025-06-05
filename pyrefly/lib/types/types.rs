@@ -214,6 +214,31 @@ impl TypeAlias {
     pub fn as_type(&self) -> Type {
         *self.ty.clone()
     }
+
+    pub fn fmt_with_type<'a, D: Display + 'a>(
+        &'a self,
+        f: &mut fmt::Formatter<'_>,
+        wrap: &'a impl Fn(&'a Type) -> D,
+        tparams: Option<&TParams>,
+    ) -> fmt::Result {
+        match (&self.style, tparams) {
+            (TypeAliasStyle::LegacyImplicit, _) => {
+                write!(f, "{}", wrap(&self.ty))
+            }
+            (_, None) => {
+                write!(f, "TypeAlias[{}, {}]", self.name, wrap(&self.ty))
+            }
+            (_, Some(tparams)) => {
+                write!(
+                    f,
+                    "TypeAlias[{}[{}], {}]",
+                    self.name,
+                    commas_iter(|| tparams.iter()),
+                    wrap(&self.ty)
+                )
+            }
+        }
+    }
 }
 
 assert_words!(Type, 4);

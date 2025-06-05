@@ -3638,8 +3638,8 @@
     {
       "code": -2,
       "column": 39,
-      "concise_description": "Argument `tuple[Forall[S, T, (*, converter: (TypeVar[S]) -> TypeVar[T], default: TypeVar[S] | None, default_factory: (() -> TypeVar[S]) | None) -> TypeVar[T]]]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`",
-      "description": "Argument `tuple[Forall[S, T, (*, converter: (TypeVar[S]) -> TypeVar[T], default: TypeVar[S] | None, default_factory: (() -> TypeVar[S]) | None) -> TypeVar[T]]]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`",
+      "concise_description": "Argument `tuple[[S, T](*, converter: (TypeVar[S]) -> TypeVar[T], default: TypeVar[S] | None, default_factory: (() -> TypeVar[S]) | None) -> TypeVar[T]]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`",
+      "description": "Argument `tuple[[S, T](*, converter: (TypeVar[S]) -> TypeVar[T], default: TypeVar[S] | None, default_factory: (() -> TypeVar[S]) | None) -> TypeVar[T]]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`",
       "line": 29,
       "name": "bad-argument-type",
       "stop_column": 53,
@@ -5132,8 +5132,8 @@
     {
       "code": -2,
       "column": 12,
-      "concise_description": "assert_type(Forall[DefaultIntT, (Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]]], (Foo7[int]) -> Foo7[int]) failed",
-      "description": "assert_type(Forall[DefaultIntT, (Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]]], (Foo7[int]) -> Foo7[int]) failed",
+      "concise_description": "assert_type([DefaultIntT](Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]], (Foo7[int]) -> Foo7[int]) failed",
+      "description": "assert_type([DefaultIntT](Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]], (Foo7[int]) -> Foo7[int]) failed",
       "line": 166,
       "name": "assert-type",
       "stop_column": 57,

@@ -181,7 +181,7 @@
   ],
   "dataclasses_transform_converter.py": [
     "Line 118: Expected 1 errors",
-    "Line 29: Unexpected errors ['Argument `tuple[Forall[S, T, (*, converter: (TypeVar[S]) -> TypeVar[T], default: TypeVar[S] | None, default_factory: (() -> TypeVar[S]) | None) -> TypeVar[T]]]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`']",
+    "Line 29: Unexpected errors ['Argument `tuple[[S, T](*, converter: (TypeVar[S]) -> TypeVar[T], default: TypeVar[S] | None, default_factory: (() -> TypeVar[S]) | None) -> TypeVar[T]]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`']",
     "Line 112: Unexpected errors ['Expected 0 positional arguments, got 5 in function `object.__init__`']",
     "Line 114: Unexpected errors [\"`Literal['f1']` is not assignable to attribute `field0` with type `int`\"]",
     "Line 115: Unexpected errors [\"`Literal['f6']` is not assignable to attribute `field3` with type `ConverterClass`\"]",
@@ -271,7 +271,7 @@
   ],
   "generics_defaults.py": [
     "Line 127: Unexpected errors ['assert_type(Any, int) failed']",
-    "Line 166: Unexpected errors ['assert_type(Forall[DefaultIntT, (Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]]], (Foo7[int]) -> Foo7[int]) failed']",
+    "Line 166: Unexpected errors ['assert_type([DefaultIntT](Foo7[TypeVar[DefaultIntT]]) -> Foo7[TypeVar[DefaultIntT]], (Foo7[int]) -> Foo7[int]) failed']",
     "Line 167: Unexpected errors ['assert_type(Any, int) failed', 'Instance-only attribute `attr` of class `Foo7` is not visible on the class']"
   ],
   "generics_defaults_referential.py": [
