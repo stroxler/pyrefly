@@ -416,8 +416,8 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::AnnAssign(mut x) => match *x.target {
                 Expr::Name(name) => {
                     let name = Ast::expr_name_identifier(name);
-                    let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(&name));
                     let in_class_body = self.scopes.in_class_body();
+                    let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(&name));
                     self.ensure_type(&mut x.annotation, &mut None);
                     let ann_val = if let Some(special) = SpecialForm::new(&name.id, &x.annotation) {
                         BindingAnnotation::Type(
@@ -442,7 +442,7 @@ impl<'a> BindingsBuilder<'a> {
                             None,
                         )
                     };
-                    let ann_key = self.insert_binding(ann_key, ann_val);
+                    let ann_idx = self.insert_binding(ann_key, ann_val);
                     let flow_style = if in_class_body {
                         let initial_value = x.value.as_deref().cloned();
                         FlowStyle::ClassField { initial_value }
@@ -473,22 +473,22 @@ impl<'a> BindingsBuilder<'a> {
                         }
                         Binding::NameAssign(
                             name.id.clone(),
-                            Some((AnnotationStyle::Direct, ann_key)),
+                            Some((AnnotationStyle::Direct, ann_idx)),
                             value,
                         )
                     } else {
                         Binding::AnnotatedType(
-                            ann_key,
+                            ann_idx,
                             Box::new(Binding::Type(Type::any_implicit())),
                         )
                     };
                     if let Some(ann) = self.bind_definition_user(&name, user, binding, flow_style)
-                        && ann != ann_key
+                        && ann != ann_idx
                     {
                         self.insert_binding(
                             KeyExpect(name.range),
                             BindingExpect::Redefinition {
-                                new: ann_key,
+                                new: ann_idx,
                                 existing: ann,
                                 name: name.id.clone(),
                             },
