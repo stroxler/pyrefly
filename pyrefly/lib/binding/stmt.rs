@@ -483,25 +483,23 @@ impl<'a> BindingsBuilder<'a> {
                         },
                     );
                     let cannonical_ann_idx = match value {
-                        None => {
-                            let user =
-                                self.declare_user(Key::Definition(ShortIdentifier::new(&name)));
-                            let flow_style = if self.scopes.in_class_body() {
+                        Some(value) => {
+                            self.bind_name_assign(&name, value, Some((&x.annotation, ann_idx)))
+                        }
+                        None => self.bind_definition(
+                            &name,
+                            Binding::AnnotatedType(
+                                ann_idx,
+                                Box::new(Binding::Type(Type::any_implicit())),
+                            ),
+                            if self.scopes.in_class_body() {
                                 FlowStyle::ClassField {
                                     initial_value: maybe_ellipses,
                                 }
                             } else {
                                 FlowStyle::Uninitialized
-                            };
-                            let binding = Binding::AnnotatedType(
-                                ann_idx,
-                                Box::new(Binding::Type(Type::any_implicit())),
-                            );
-                            self.bind_definition_user(&name, user, binding, flow_style)
-                        }
-                        Some(value) => {
-                            self.bind_name_assign(&name, value, Some((&x.annotation, ann_idx)))
-                        }
+                            },
+                        ),
                     };
                     // This assignment gets checked with the provided annotation. But if there exists a prior
                     // annotation, we might be invalidating it unless the annotations are the same. Insert a
