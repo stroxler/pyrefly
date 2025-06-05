@@ -223,6 +223,7 @@ impl<'a> BindingsBuilder<'a> {
         let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(name));
         self.ensure_type(annotation, &mut None);
         let ann_val = if let Some(special) = SpecialForm::new(&name.id, annotation) {
+            // Special case `_: SpecialForm` declarations (this mainly affects some names declared in `typing.pyi`)
             BindingAnnotation::Type(
                 AnnotationTarget::Assign(name.id.clone(), Initialized::Yes),
                 special.to_type(),
@@ -498,6 +499,9 @@ impl<'a> BindingsBuilder<'a> {
                             Box::new(Binding::Type(Type::any_implicit())),
                         )
                     };
+                    // This assignment gets checked with the provided annotation. But if there exists a prior
+                    // annotation, we might be invalidating it unless the annotations are the same. Insert a
+                    // check that in that case the annotations match.
                     if let Some(ann) = self.bind_definition_user(&name, user, binding, flow_style)
                         && ann != ann_idx
                     {
