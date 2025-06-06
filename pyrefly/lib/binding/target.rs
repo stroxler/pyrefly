@@ -364,6 +364,22 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    /// Version of `bind_assign_impl` used when we don't want expression usage tracking.
+    ///
+    /// Used for:
+    /// - Scenarios where we inject a binding directly, without ever using an expression
+    ///   (for example, when the binding points at the `Idx<Key>` of another binding).
+    /// - Special cases - mainly in legacy type variables - where `ensure_expr` is not the
+    ///   right way to ensure because we might need to ensure as a type; we
+    ///   just skip these cases for usage tracking.
+    pub fn bind_assign_no_expr(
+        &mut self,
+        name: &ExprName,
+        make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
+    ) {
+        self.bind_assign_impl(name, None, |_, ann| make_binding(ann), false)
+    }
+
     /// Given a function that produces a binding from an ensured expression:
     /// - Ensure the expression, if there is one we are supposed to ensure
     /// - Update the bindings table and flow info to note that:
@@ -388,22 +404,6 @@ impl<'a> BindingsBuilder<'a> {
             binding = Binding::Default(default, Box::new(binding));
         }
         self.insert_binding_user(user, binding);
-    }
-
-    /// Version of `bind_assign_impl` used when we don't want expression usage tracking.
-    ///
-    /// Used for:
-    /// - Scenarios where we inject a binding directly, without ever using an expression
-    ///   (for example, when the binding points at the `Idx<Key>` of another binding).
-    /// - Special cases - mainly in legacy type variables - where `ensure_expr` is not the
-    ///   right way to ensure because we might need to ensure as a type; we
-    ///   just skip these cases for usage tracking.
-    pub fn bind_assign_no_expr(
-        &mut self,
-        name: &ExprName,
-        make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
-    ) {
-        self.bind_assign_impl(name, None, |_, ann| make_binding(ann), false)
     }
 
     /// Handle single assignment: this is closely related to `bind_assign_impl`, but
