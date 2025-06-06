@@ -27,7 +27,6 @@ use crate::binding::bindings::LookupKind;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::binding::scope::FlowStyle;
-use crate::error::kind::ErrorKind;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::module::short_identifier::ShortIdentifier;
@@ -300,12 +299,6 @@ impl<'a> BindingsBuilder<'a> {
                 );
             }
             Expr::Starred(x) => {
-                self.error(
-                    x.range,
-                    ErrorKind::InvalidSyntax,
-                    None,
-                    "Starred assignment target must be in a list or tuple".to_owned(),
-                );
                 self.bind_target_impl(&mut x.value, assigned, make_assigned_value, ensure_assigned);
             }
             illegal_target => {
