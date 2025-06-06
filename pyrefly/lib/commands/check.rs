@@ -76,11 +76,11 @@ enum OutputFormat {
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
-    #[clap(flatten)]
+    #[command(flatten)]
     output: OutputArgs,
-    #[clap(flatten)]
+    #[command(flatten)]
     behavior: BehaviorArgs,
-    #[clap(flatten)]
+    #[command(flatten)]
     config_override: ConfigOverrideArgs,
 }
 
@@ -90,23 +90,23 @@ struct OutputArgs {
     /// Write the errors to a file, instead of printing them.
     #[arg(long, short = 'o', env = clap_env("OUTPUT"))]
     output: Option<PathBuf>,
-    #[clap(long, value_enum, default_value_t, env = clap_env("OUTPUT_FORMAT"))]
+    #[arg(long, value_enum, default_value_t, env = clap_env("OUTPUT_FORMAT"))]
     output_format: OutputFormat,
     /// Produce debugging information about the type checking process.
-    #[clap(long, env = clap_env("DEBUG_INFO"))]
+    #[arg(long, env = clap_env("DEBUG_INFO"))]
     debug_info: Option<PathBuf>,
-    #[clap(long, env = clap_env("REPORT_BINDING_MEMORY"))]
+    #[arg(long, env = clap_env("REPORT_BINDING_MEMORY"))]
     report_binding_memory: Option<PathBuf>,
-    #[clap(long, env = clap_env("REPORT_TRACE"))]
+    #[arg(long, env = clap_env("REPORT_TRACE"))]
     report_trace: Option<PathBuf>,
     /// Process each module individually to figure out how long each step takes.
-    #[clap(long, env = clap_env("REPORT_TIMINGS"))]
+    #[arg(long, env = clap_env("REPORT_TIMINGS"))]
     report_timings: Option<PathBuf>,
     /// Generate a Glean-compatible JSON file for each module
-    #[clap(long, env = clap_env("REPORT_GLEAN"))]
+    #[arg(long, env = clap_env("REPORT_GLEAN"))]
     report_glean: Option<PathBuf>,
     /// Count the number of each error kind. Prints the top N errors, sorted by count, or all errors if N is not specified.
-    #[clap(
+    #[arg(
         long,
         default_missing_value = "5",
         require_equals = true,
@@ -117,7 +117,7 @@ struct OutputArgs {
     /// Summarize errors by directory. The optional index argument specifies which file path segment will be used to group errors.
     /// The default index is 0. For errors in `/foo/bar/...`, this will group errors by `/foo`. If index is 1, errors will be grouped by `/foo/bar`.
     /// An index larger than the number of path segments will group by the final path element, i.e. the file name.
-    #[clap(
+    #[arg(
         long,
         default_missing_value = "0",
         require_equals = true,
@@ -126,7 +126,7 @@ struct OutputArgs {
     )]
     summarize_errors: Option<usize>,
     /// Set this flag to omit the summary in the last line of the output.
-    #[clap(long, env = clap_env("NO_SUMMARY"))]
+    #[arg(long, env = clap_env("NO_SUMMARY"))]
     no_summary: bool,
 }
 
@@ -134,16 +134,16 @@ struct OutputArgs {
 #[derive(Debug, Parser, Clone)]
 struct BehaviorArgs {
     /// Check all reachable modules, not just the ones that are passed in explicitly on CLI positional arguments.
-    #[clap(long, short = 'a', env = clap_env("CHECK_ALL"))]
+    #[arg(long, short = 'a', env = clap_env("CHECK_ALL"))]
     check_all: bool,
     /// Suppress errors found in the input files.
-    #[clap(long, env = clap_env("SUPPRESS_ERRORS"))]
+    #[arg(long, env = clap_env("SUPPRESS_ERRORS"))]
     suppress_errors: bool,
     /// Check against any `E:` lines in the file.
-    #[clap(long, env = clap_env("EXPECTATIONS"))]
+    #[arg(long, env = clap_env("EXPECTATIONS"))]
     expectations: bool,
     /// Remove unused ignores from the input files.
-    #[clap(long, env = clap_env("REMOVE_UNUSED_IGNORES"))]
+    #[arg(long, env = clap_env("REMOVE_UNUSED_IGNORES"))]
     remove_unused_ignores: bool,
 }
 
@@ -152,21 +152,21 @@ struct BehaviorArgs {
 struct ConfigOverrideArgs {
     /// The list of directories where imports are imported from, including
     /// type checked files.
-    #[clap(long, env = clap_env("SEARCH_PATH"))]
+    #[arg(long, env = clap_env("SEARCH_PATH"))]
     search_path: Option<Vec<PathBuf>>,
     /// The Python version any `sys.version` checks should evaluate against.
-    #[clap(long, env = clap_env("PYTHON_VERSION"))]
+    #[arg(long, env = clap_env("PYTHON_VERSION"))]
     python_version: Option<PythonVersion>,
     /// The platform any `sys.platform` checks should evaluate against.
-    #[clap(long, env = clap_env("PLATFORM"))]
+    #[arg(long, env = clap_env("PLATFORM"))]
     python_platform: Option<PythonPlatform>,
     /// Directories containing third-party package imports, searched
     /// after first checking `search_path` and `typeshed`.
-    #[clap(long, env = clap_env("SITE_PACKAGE_PATH"))]
+    #[arg(long, env = clap_env("SITE_PACKAGE_PATH"))]
     site_package_path: Option<Vec<PathBuf>>,
     /// The Python executable that will be queried for `python_version`
     /// `python_platform`, or `site_package_path` if any of the values are missing.
-    #[clap(long, env = clap_env("PYTHON_INTERPRETER"))]
+    #[arg(long, env = clap_env("PYTHON_INTERPRETER"))]
     python_interpreter: Option<PathBuf>,
 }
 

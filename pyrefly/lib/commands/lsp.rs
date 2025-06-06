@@ -169,7 +169,7 @@ pub(crate) enum IndexingMode {
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
-    #[clap(long, value_enum, default_value_t, env = clap_env("INDEXING_MODE"))]
+    #[arg(long, value_enum, default_value_t, env = clap_env("INDEXING_MODE"))]
     pub(crate) indexing_mode: IndexingMode,
 }
 
