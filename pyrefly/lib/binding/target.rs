@@ -9,9 +9,11 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprSubscript;
+use ruff_python_ast::Identifier;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
 
+use crate::binding::binding::AnnotationStyle;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::ExprOrBinding;
@@ -26,6 +28,7 @@ use crate::binding::expr::Usage;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::binding::scope::FlowStyle;
 use crate::error::kind::ErrorKind;
+use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::module::short_identifier::ShortIdentifier;
 
@@ -401,5 +404,63 @@ impl<'a> BindingsBuilder<'a> {
         make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
     ) {
         self.bind_assign_impl(name, None, |_, ann| make_binding(ann), false)
+    }
+
+    /// Handle single assignment: this is closely related to `bind_assign_impl`, but
+    /// handles additional concerns (such as type alias logic) that don't apply to
+    /// other target name assignments.
+    ///
+    /// It is used for
+    /// - single-name `Assign` statements
+    /// - for `AnnAssign` when there is a value assigned
+    pub fn bind_single_name_assign(
+        &mut self,
+        name: &Identifier,
+        mut value: Box<Expr>,
+        direct_ann: Option<(&Expr, Idx<KeyAnnotation>)>,
+    ) -> Option<Idx<KeyAnnotation>> {
+        let user = self.declare_user(Key::Definition(ShortIdentifier::new(name)));
+        let is_definitely_type_alias = if let Some((e, _)) = direct_ann
+            && self.as_special_export(e) == Some(SpecialExport::TypeAlias)
+        {
+            true
+        } else {
+            self.is_definitely_type_alias_rhs(value.as_ref())
+        };
+        if is_definitely_type_alias {
+            self.ensure_type(&mut value, &mut None);
+        } else {
+            self.ensure_expr(&mut value, user.usage());
+        }
+        let style = if self.scopes.in_class_body() {
+            FlowStyle::ClassField {
+                initial_value: Some((*value).clone()),
+            }
+        } else {
+            FlowStyle::Other
+        };
+        let (canonical_ann, default) = self.bind_user(&name.id, &user, style);
+        let ann = match direct_ann {
+            Some((_, idx)) => Some((AnnotationStyle::Direct, idx)),
+            None => canonical_ann.map(|idx| (AnnotationStyle::Forwarded, idx)),
+        };
+        let mut binding = Binding::NameAssign(name.id.clone(), ann, value);
+        if let Some(default) = default {
+            binding = Binding::Default(default, Box::new(binding));
+        }
+        self.insert_binding_user(user, binding);
+        canonical_ann
+    }
+
+    /// If someone does `x = C["test"]`, that might be a type alias, it might not.
+    /// Use this heuristic to detect things that are definitely type aliases.
+    fn is_definitely_type_alias_rhs(&mut self, x: &Expr) -> bool {
+        match x {
+            Expr::Subscript(x) => matches!(
+                self.as_special_export(&x.value),
+                Some(SpecialExport::Union | SpecialExport::Optional)
+            ),
+            _ => false,
+        }
     }
 }
