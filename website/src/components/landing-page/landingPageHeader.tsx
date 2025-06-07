@@ -93,17 +93,6 @@ export default function LandingPageHeader(): React.ReactElement {
                 )}
             </DelayedComponent>
 
-            <DelayedComponent delayInSeconds={0.6}>
-                {(isLoaded) => (
-                    <section
-                        {...stylex.props(
-                            styles.buttonGroup,
-                            isLoaded && styles.buttonGroupVisible
-                        )}
-                    ></section>
-                )}
-            </DelayedComponent>
-
             <section>
                 <Firefly />
                 <Firefly />
@@ -171,7 +160,7 @@ const styles = stylex.create({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: '20px',
+        marginVertical: '20px',
         width: '100%',
         maxWidth: '430px',
         marginLeft: 'auto',
@@ -202,22 +191,6 @@ const styles = stylex.create({
         justifyContent: 'space-between',
         width: '100%',
         marginTop: '10px',
-    },
-    buttonGroup: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: '20px',
-        opacity: 0,
-        filter: 'blur(6px)',
-        transform: 'rotateX(15deg) translateY(15px)',
-        transformOrigin: 'center center',
-        transition: 'all 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-    },
-    buttonGroupVisible: {
-        opacity: 1,
-        filter: 'blur(0px)',
-        transform: 'rotateX(0deg) translateY(0)',
     },
     buttonFullWidth: {
         padding: '0.75rem 1.5rem',

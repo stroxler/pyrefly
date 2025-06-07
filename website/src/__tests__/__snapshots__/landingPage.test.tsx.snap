@@ -76,11 +76,6 @@ exports[`Home page renders external site correctly 1`] = `
                 </a>
               </section>
             </div>
-            <div
-              style="opacity: 0;"
-            >
-              <section />
-            </div>
             <section>
               <li
                 id="firefly"
@@ -480,11 +475,6 @@ exports[`Home page renders internal site correctly 1`] = `
                    
                 </a>
               </section>
-            </div>
-            <div
-              style="opacity: 0;"
-            >
-              <section />
             </div>
             <section>
               <li
