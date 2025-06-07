@@ -18,6 +18,7 @@ interface LandingPageSectionProps {
     isFirstSection?: boolean;
     isLastSection?: boolean;
     hasBrownBackground?: boolean;
+    isTitleCentered?: boolean;
 }
 
 export default function LandingPageSection({
@@ -26,16 +27,24 @@ export default function LandingPageSection({
     id = '',
     isFirstSection = false,
     isLastSection = false,
+    isTitleCentered = false,
 }: LandingPageSectionProps): React.ReactElement {
     const [isTitleVisible, setIsTitleVisible] = useState(false);
 
     useEffect(() => {
-        // Only apply animation for performance comparison section
+        // Apply animation for specific sections
         if (id === 'performance-comparison-section') {
             // Delay the title animation to start after the Why Pyrefly section animations
             const timer = setTimeout(() => {
                 setIsTitleVisible(true);
             }, 1100); // Slightly later than why pyrefly animations (950ms)
+
+            return () => clearTimeout(timer);
+        } else if (id === 'pyrefly-video') {
+            // Delay the title animation for the Pyrefly video section
+            const timer = setTimeout(() => {
+                setIsTitleVisible(true);
+            }, 1300); // Load at 1300ms as specified
 
             return () => clearTimeout(timer);
         } else {
@@ -59,11 +68,14 @@ export default function LandingPageSection({
                         {...stylex.props(
                             styles.sectionTitle,
                             typography.h2,
-                            id === 'performance-comparison-section' &&
+                            (id === 'performance-comparison-section' ||
+                                id === 'pyrefly-video') &&
                                 styles.animatedTitle,
-                            id === 'performance-comparison-section' &&
+                            (id === 'performance-comparison-section' ||
+                                id === 'pyrefly-video') &&
                                 isTitleVisible &&
-                                styles.titleVisible
+                                styles.titleVisible,
+                            isTitleCentered && styles.centeredTitle
                         )}
                     >
                         {title}
@@ -107,5 +119,8 @@ const styles = stylex.create({
         opacity: 1,
         filter: 'blur(0px)',
         transform: 'translateY(0)',
+    },
+    centeredTitle: {
+        textAlign: 'center',
     },
 });
