@@ -108,7 +108,7 @@ struct OutputArgs {
     /// Generate a Glean-compatible JSON file for each module
     #[arg(long, env = clap_env("REPORT_GLEAN"), value_name = "FILE")]
     report_glean: Option<PathBuf>,
-    /// Count the number of each error kind. Prints the top N errors, sorted by count, or all errors if N is not specified.
+    /// Count the number of each error kind. Prints the top N [default=5] errors, sorted by count, or all errors if N is 0.
     #[arg(
         long,
         default_missing_value = "5",
