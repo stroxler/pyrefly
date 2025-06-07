@@ -90,13 +90,16 @@ struct OutputArgs {
     /// Write the errors to a file, instead of printing them.
     #[arg(long, short = 'o', env = clap_env("OUTPUT"), value_name = "FILE")]
     output: Option<PathBuf>,
+    /// Set the error output format.
     #[arg(long, value_enum, default_value_t, env = clap_env("OUTPUT_FORMAT"))]
     output_format: OutputFormat,
     /// Produce debugging information about the type checking process.
     #[arg(long, env = clap_env("DEBUG_INFO"), value_name = "FILE")]
     debug_info: Option<PathBuf>,
+    /// Report the memory usage of bindings.
     #[arg(long, env = clap_env("REPORT_BINDING_MEMORY"), value_name = "FILE")]
     report_binding_memory: Option<PathBuf>,
+    /// Report type traces.
     #[arg(long, env = clap_env("REPORT_TRACE"), value_name = "FILE")]
     report_trace: Option<PathBuf>,
     /// Process each module individually to figure out how long each step takes.
@@ -127,7 +130,7 @@ struct OutputArgs {
         value_name = "INDEX",
     )]
     summarize_errors: Option<usize>,
-    /// Set this flag to omit the summary in the last line of the output.
+    /// Omit the summary in the last line of the output.
     #[arg(long, env = clap_env("NO_SUMMARY"))]
     no_summary: bool,
 }
