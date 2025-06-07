@@ -88,22 +88,22 @@ pub struct Args {
 #[derive(Debug, Parser, Clone)]
 struct OutputArgs {
     /// Write the errors to a file, instead of printing them.
-    #[arg(long, short = 'o', env = clap_env("OUTPUT"))]
+    #[arg(long, short = 'o', env = clap_env("OUTPUT"), value_name = "FILE")]
     output: Option<PathBuf>,
     #[arg(long, value_enum, default_value_t, env = clap_env("OUTPUT_FORMAT"))]
     output_format: OutputFormat,
     /// Produce debugging information about the type checking process.
-    #[arg(long, env = clap_env("DEBUG_INFO"))]
+    #[arg(long, env = clap_env("DEBUG_INFO"), value_name = "FILE")]
     debug_info: Option<PathBuf>,
-    #[arg(long, env = clap_env("REPORT_BINDING_MEMORY"))]
+    #[arg(long, env = clap_env("REPORT_BINDING_MEMORY"), value_name = "FILE")]
     report_binding_memory: Option<PathBuf>,
-    #[arg(long, env = clap_env("REPORT_TRACE"))]
+    #[arg(long, env = clap_env("REPORT_TRACE"), value_name = "FILE")]
     report_trace: Option<PathBuf>,
     /// Process each module individually to figure out how long each step takes.
-    #[arg(long, env = clap_env("REPORT_TIMINGS"))]
+    #[arg(long, env = clap_env("REPORT_TIMINGS"), value_name = "FILE")]
     report_timings: Option<PathBuf>,
     /// Generate a Glean-compatible JSON file for each module
-    #[arg(long, env = clap_env("REPORT_GLEAN"))]
+    #[arg(long, env = clap_env("REPORT_GLEAN"), value_name = "FILE")]
     report_glean: Option<PathBuf>,
     /// Count the number of each error kind. Prints the top N errors, sorted by count, or all errors if N is not specified.
     #[arg(
@@ -111,7 +111,8 @@ struct OutputArgs {
         default_missing_value = "5",
         require_equals = true,
         num_args = 0..=1,
-        env = clap_env("COUNT_ERRORS")
+        env = clap_env("COUNT_ERRORS"),
+        value_name = "N",
     )]
     count_errors: Option<usize>,
     /// Summarize errors by directory. The optional index argument specifies which file path segment will be used to group errors.
@@ -122,7 +123,8 @@ struct OutputArgs {
         default_missing_value = "0",
         require_equals = true,
         num_args = 0..=1,
-        env = clap_env("SUMMARIZE_ERRORS")
+        env = clap_env("SUMMARIZE_ERRORS"),
+        value_name = "INDEX",
     )]
     summarize_errors: Option<usize>,
     /// Set this flag to omit the summary in the last line of the output.
@@ -166,7 +168,7 @@ struct ConfigOverrideArgs {
     site_package_path: Option<Vec<PathBuf>>,
     /// The Python executable that will be queried for `python_version`
     /// `python_platform`, or `site_package_path` if any of the values are missing.
-    #[arg(long, env = clap_env("PYTHON_INTERPRETER"))]
+    #[arg(long, env = clap_env("PYTHON_INTERPRETER"), value_name = "EXE_PATH")]
     python_interpreter: Option<PathBuf>,
 }
 
