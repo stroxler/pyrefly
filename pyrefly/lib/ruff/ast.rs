@@ -276,7 +276,6 @@ impl Ast {
     /// Given a module and a position, find all AST nodes that "cover" the position.
     /// Return a vector of AST nodes sorted by the node's range, where the "innermost" node that covers the
     /// position comes first, and parent nodes of that covering node come later.
-    #[allow(dead_code)]
     pub fn locate_node<'a>(module: &'a ModModule, position: TextSize) -> Vec<AnyNodeRef<'a>> {
         let mut visitor = CoveringNodeVisitor::new(position);
         AnyNodeRef::from(module).visit_source_order(&mut visitor);
