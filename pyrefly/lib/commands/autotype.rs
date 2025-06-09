@@ -63,6 +63,7 @@ fn hint_to_string(hint: Type) -> String {
             Lit::Bytes(_) => "bytes".to_owned(),
             Lit::Enum(_) => format!("{}", hint),
         },
+        Type::Any(_) => "Any".to_owned(),
         _ => {
             format!("{}", hint)
         }
@@ -105,6 +106,13 @@ impl Args {
                 let mut result = file_content;
                 for inlay_hint in sorted {
                     let (position, hint) = inlay_hint;
+                    if hint.contains("@") {
+                        continue;
+                    }
+                    // TODO: Put this behind a flag
+                    if hint.contains("Any") {
+                        continue;
+                    }
                     // Convert the TextSize to a byte offset
                     let offset = (position).into();
                     if offset <= result.len() {
