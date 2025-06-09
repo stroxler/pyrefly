@@ -37,9 +37,6 @@ pub struct Args {
     /// If not provided, or if it's a directory, pyrefly will search upwards for a
     /// mypy.ini, pyrightconfig.json, or pyproject.toml.
     pub input_path: Option<PathBuf>,
-    /// Optional path to write the pyrefly config file to. If not provided, the config will be written to the same directory as the input file.
-    /// Must end in pyrefly.toml or pyproject.toml.
-    pub output_path: Option<PathBuf>,
 }
 
 impl Args {
@@ -90,14 +87,6 @@ impl Args {
             }
         }
 
-        if self.output_path.as_ref().is_some_and(|p| {
-            !(p.ends_with(ConfigFile::PYREFLY_FILE_NAME)
-                || p.ends_with(ConfigFile::PYPROJECT_FILE_NAME))
-        }) {
-            error!("Output path must end in pyrefly.toml or pyproject.toml");
-            return Ok(CommandExitStatus::UserError);
-        }
-
         let input_path = match &self.input_path {
             Some(path) if path.is_file() => path,
             Some(path) => &Self::find_config(path)?,
@@ -128,14 +117,11 @@ impl Args {
 
         Self::check_and_warn(&config);
 
-        let output_path = match &self.output_path {
-            Some(path) => path,
-            None => {
-                if input_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
-                    input_path
-                } else {
-                    &input_path.with_file_name(ConfigFile::PYREFLY_FILE_NAME)
-                }
+        let output_path = {
+            if input_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
+                input_path
+            } else {
+                &input_path.with_file_name(ConfigFile::PYREFLY_FILE_NAME)
             }
         };
         if !output_path
@@ -208,7 +194,6 @@ mod tests {
 
         let args = Args {
             input_path: Some(input_path),
-            output_path: None,
         };
         let status = args.run()?;
 
@@ -252,7 +237,6 @@ check_untyped_defs = True
 
         let args = Args {
             input_path: Some(input_path),
-            output_path: None,
         };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
@@ -288,7 +272,6 @@ files = ["a.py"]
         fs_anyhow::write(&input_path, pyproject)?;
         let args = Args {
             input_path: Some(input_path),
-            output_path: None,
         };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
@@ -309,7 +292,6 @@ include = ["a.py"]
         fs_anyhow::write(&input_path, pyproject)?;
         let args = Args {
             input_path: Some(input_path),
-            output_path: None,
         };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
@@ -334,7 +316,6 @@ files = 1
         fs_anyhow::write(&input_path, pyproject)?;
         let args = Args {
             input_path: Some(input_path),
-            output_path: None,
         };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
@@ -376,36 +357,10 @@ files = ["mypy.py"]
         fs_anyhow::write(&tmp.path().join("a/mypy.ini"), b"[mypy]\n")?;
         let status = Args {
             input_path: Some(bottom),
-            output_path: None,
         }
         .run()?;
         assert!(matches!(status, CommandExitStatus::Success));
         assert!(tmp.path().join("a/pyrefly.toml").try_exists()?);
-        Ok(())
-    }
-
-    #[test]
-    fn test_existing_file_to_new_pyproject() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let input_path = tmp.path().join("pyrightconfig.json");
-        let pyr = br#"{
-    "include": ["src/**/*.py"]
-}
-"#;
-        fs_anyhow::write(&input_path, pyr)?;
-        let output_path = input_path.with_file_name(ConfigFile::PYPROJECT_FILE_NAME);
-
-        let args = Args {
-            input_path: Some(input_path),
-            output_path: Some(output_path.clone()),
-        };
-        let status = args.run()?;
-
-        assert!(matches!(status, CommandExitStatus::Success));
-        let output = fs_anyhow::read_to_string(&output_path)?;
-        assert!(output.contains("[tool.pyrefly]"));
-        assert!(output.contains(r#"src/**/*.py"#));
-        assert!(!tmp.path().join("pyrefly.toml").exists());
         Ok(())
     }
 
@@ -473,36 +428,6 @@ test = true
     */
 
     #[test]
-    fn test_output_path_must_be_file() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let input_path = tmp.path().join("pyrightconfig.json");
-        fs_anyhow::write(&input_path, b"{}")?;
-        let args = Args {
-            input_path: Some(input_path),
-            output_path: Some(tmp.path().to_path_buf()),
-        };
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::UserError));
-        Ok(())
-    }
-
-    #[test]
-    fn test_output_path_create_dir_if_needed() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let input_path = tmp.path().join("pyrightconfig.json");
-        let output_path = tmp.path().join("a").join("pyrefly.toml");
-        fs_anyhow::write(&input_path, b"{}")?;
-        let args = Args {
-            input_path: Some(input_path),
-            output_path: Some(output_path.clone()),
-        };
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success));
-        assert!(output_path.exists());
-        from_file(&output_path)
-    }
-
-    #[test]
     fn test_empty_mypy() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let input_path = tmp.path().join("mypy.ini");
@@ -510,7 +435,6 @@ test = true
         fs_anyhow::write(&input_path, b"[mypy]\nfake_option = True\n")?;
         let args = Args {
             input_path: Some(input_path),
-            output_path: Some(output_path.clone()),
         };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
@@ -527,46 +451,11 @@ test = true
         fs_anyhow::write(&input_path, b"{}")?;
         let args = Args {
             input_path: Some(input_path),
-            output_path: Some(output_path.clone()),
         };
         let status = args.run()?;
         assert!(matches!(status, CommandExitStatus::Success));
         let output = fs_anyhow::read_to_string(&output_path)?;
         assert_eq!(output, "");
-        Ok(())
-    }
-
-    #[test]
-    fn test_empty_mypy_pyproject() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let input_path = tmp.path().join("mypy.ini");
-        let output_path = tmp.path().join("pyproject.toml");
-        fs_anyhow::write(&input_path, b"[mypy]\nfake_option = True\n")?;
-        let args = Args {
-            input_path: Some(input_path),
-            output_path: Some(output_path.clone()),
-        };
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success));
-        let output = fs_anyhow::read_to_string(&output_path)?;
-        assert_eq!(output, "[tool.pyrefly]\n");
-        Ok(())
-    }
-
-    #[test]
-    fn test_empty_pyright_pyproject() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let input_path = tmp.path().join("pyrightconfig.json");
-        let output_path = tmp.path().join("pyproject.toml");
-        fs_anyhow::write(&input_path, b"{}")?;
-        let args = Args {
-            input_path: Some(input_path),
-            output_path: Some(output_path.clone()),
-        };
-        let status = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success));
-        let output = fs_anyhow::read_to_string(&output_path)?;
-        assert_eq!(output, "[tool.pyrefly]\n");
         Ok(())
     }
 

@@ -130,7 +130,6 @@ impl Args {
             println!("Found an existing type checking configuration - setting up pyrefly ...");
             let args = config_migration::Args {
                 input_path: Some(path),
-                output_path: None,
             };
             return args.run();
         }
