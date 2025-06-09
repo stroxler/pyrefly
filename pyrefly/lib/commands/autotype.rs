@@ -5,13 +5,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::fs;
 use std::path::PathBuf;
 
 use anyhow::Context as _;
 use clap::Parser;
 use dupe::Dupe;
 use pyrefly_util::forgetter::Forgetter;
+use pyrefly_util::fs_anyhow;
 use pyrefly_util::globs::FilteredGlobs;
 
 use crate::commands::check::Handles;
@@ -38,7 +38,7 @@ fn format_hints(
                 qualified_hints.push((position, format!(": {}", formatted_hint)));
             }
             AnnotationKind::Return => {
-                qualified_hints.push((position, format!("-> {}", formatted_hint)));
+                qualified_hints.push((position, format!(" -> {}", formatted_hint)));
             }
         }
     }
@@ -101,7 +101,7 @@ impl Args {
                 let sorted = sort_inlay_hints(formatted);
 
                 let file_path = handle.path().as_path();
-                let file_content = fs::read_to_string(file_path)
+                let file_content = fs_anyhow::read_to_string(file_path)
                     .with_context(|| format!("Failed to read file: {}", file_path.display()))?;
                 let mut result = file_content;
                 for inlay_hint in sorted {
@@ -119,10 +119,94 @@ impl Args {
                         result.insert_str(offset, &hint);
                     }
                 }
-                fs::write(file_path, result)
+                fs_anyhow::write(file_path, result.as_bytes())
                     .with_context(|| format!("Failed to write to file: {}", file_path.display()))?;
             }
         }
         Ok(CommandExitStatus::Success)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use pretty_assertions::assert_str_eq;
+    use pyrefly_util::globs::Globs;
+    use tempfile;
+
+    use super::*;
+    use crate::test::util::TestEnv;
+
+    fn assert_annotations(input: &str, output: &str) {
+        let tdir = tempfile::tempdir().unwrap();
+        let path = tdir.path().join("test.py");
+        fs_anyhow::write(&path, input.as_bytes()).unwrap();
+        let mut t = TestEnv::new();
+        t.add(&path.display().to_string(), input);
+        let includes = Globs::new(vec![format!("{}/**/*", tdir.path().display()).to_owned()]);
+        let f_globs = FilteredGlobs::new(includes, Globs::new(vec![]));
+        let config_finder = t.config_finder();
+        let arg = Args::new();
+        let result = arg.run(f_globs, config_finder, None);
+        assert!(
+            result.is_ok(),
+            "autotype command failed: {:?}",
+            result.err()
+        );
+
+        let got_file = fs_anyhow::read_to_string(&path).unwrap();
+        assert_str_eq!(
+            output,
+            got_file,
+            "File content after autotype doesn't match expected output"
+        );
+    }
+
+    #[test]
+    fn test_literal() -> anyhow::Result<()> {
+        // Test return type annotation for integer literal
+        assert_annotations(
+            r#"
+def foo():
+    return 1
+"#,
+            r#"
+def foo() -> int:
+    return 1
+"#,
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_annotation() -> anyhow::Result<()> {
+        // Test parameter type annotation
+        // TODO: Figure out how to get the parameter type inferred here, too
+        assert_annotations(
+            r#"
+def greet(name):
+    return "Hello, " + name
+"#,
+            r#"
+def greet(name) -> str:
+    return "Hello, " + name
+"#,
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_boolean_literal() -> anyhow::Result<()> {
+        // Test boolean return type
+        assert_annotations(
+            r#"
+    def is_valid():
+        return True
+    "#,
+            r#"
+    def is_valid() -> bool:
+        return True
+    "#,
+        );
+        Ok(())
     }
 }
