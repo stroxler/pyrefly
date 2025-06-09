@@ -98,6 +98,10 @@ struct IdentifierWithContext {
     context: IdentifierContext,
 }
 
+pub enum AnnotationKind {
+    Parameter,
+    Return,
+}
 enum ImportIdentifier {
     // The name of a module. ex: `x` in `import x` or `from x import name`
     Module(ModuleName),
@@ -746,6 +750,39 @@ impl<'a> Transaction<'a> {
                     ..Default::default()
                 })
         })
+    }
+
+    pub fn inferred_types(&self, handle: &Handle) -> Option<Vec<(TextSize, Type, AnnotationKind)>> {
+        let is_interesting_type = |x: &Type| !x.is_error();
+        let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
+
+        let bindings = self.get_bindings(handle)?;
+        let mut res = Vec::new();
+        for idx in bindings.keys::<Key>() {
+            match bindings.idx_to_key(idx) {
+                // Return Annotation
+                key @ Key::ReturnType(id) => {
+                    match bindings.get(bindings.key_to_idx(&Key::Definition(id.clone()))) {
+                        Binding::Function(x, _pred, _class_meta) => {
+                            if matches!(&bindings.get(idx), Binding::ReturnType(ret) if ret.annot.is_none())
+                                && let Some(ty) = self.get_type(handle, key)
+                                && is_interesting_type(&ty)
+                            {
+                                let fun = bindings.get(*x);
+                                res.push((
+                                    fun.def.parameters.range.end(),
+                                    ty,
+                                    AnnotationKind::Return,
+                                ));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+        Some(res)
     }
 
     pub fn inlay_hints(&self, handle: &Handle) -> Option<Vec<(TextSize, String)>> {

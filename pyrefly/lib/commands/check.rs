@@ -234,14 +234,14 @@ impl OutputFormat {
 }
 
 /// A data structure to facilitate the creation of handles for all the files we want to check.
-struct Handles {
+pub struct Handles {
     /// A mapping from a file to all other information needed to create a `Handle`.
     /// The value type is basically everything else in `Handle` except for the file path.
     path_data: HashMap<PathBuf, (ModuleName, SysInfo)>,
 }
 
 impl Handles {
-    fn new(
+    pub fn new(
         files: Vec<PathBuf>,
         args_search_path: &[PathBuf],
         config_finder: &ConfigFinder,
@@ -273,7 +273,7 @@ impl Handles {
             .or_insert((module_name, config.get_sys_info()))
     }
 
-    fn all(&self, specified_require: Require) -> Vec<(Handle, Require)> {
+    pub fn all(&self, specified_require: Require) -> Vec<(Handle, Require)> {
         self.path_data
             .iter()
             .map(|(path, (module_name, runtime_metadata))| {
@@ -704,7 +704,7 @@ impl Args {
 
 /// If we have an error, print all the errors that the config finder has accumulated. This is used
 /// to ensure that config errors are still surfaced if we exit early.
-fn checkpoint<T>(result: anyhow::Result<T>, config_finder: &ConfigFinder) -> anyhow::Result<T> {
+pub fn checkpoint<T>(result: anyhow::Result<T>, config_finder: &ConfigFinder) -> anyhow::Result<T> {
     if result.is_err() {
         for error in config_finder.errors() {
             error.print();
