@@ -30,10 +30,12 @@ use crate::alt::attr::AttrInfo;
 use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
 use crate::common::symbol_kind::SymbolKind;
+use crate::error::kind::ErrorKind;
 use crate::export::definitions::DocString;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::module::module_info::ModuleInfo;
+use crate::module::module_info::SourceRange;
 use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
@@ -43,6 +45,7 @@ use crate::ruff::ast::Ast;
 use crate::state::handle::Handle;
 use crate::state::ide::IntermediateDefinition;
 use crate::state::ide::binding_to_intermediate_definition;
+use crate::state::ide::insert_import_edit;
 use crate::state::ide::key_to_intermediate_definition;
 use crate::state::require::Require;
 use crate::state::state::CancellableTransaction;
@@ -366,6 +369,39 @@ impl<'a> Transaction<'a> {
         position: TextSize,
     ) -> Option<TextRangeWithModuleInfo> {
         self.find_definition(handle, position).map(|x| x.1)
+    }
+
+    /// Produce code actions that makes edits local to the file.
+    pub fn local_quickfix_code_actions(
+        &self,
+        handle: &Handle,
+        range: TextRange,
+    ) -> Option<Vec<(String, SourceRange, String)>> {
+        let module_info = self.get_module_info(handle)?;
+        let ast = self.get_ast(handle)?;
+        let errors = self.get_errors(vec![handle]).collect_errors().shown;
+        let mut code_actions = Vec::new();
+        for error in errors {
+            match error.error_kind() {
+                ErrorKind::UnknownName => {
+                    let error_range = module_info.to_text_range(error.source_range());
+                    if error_range.contains_range(range) {
+                        let unknown_name = module_info.code_at(error_range);
+                        for handle_to_import_from in self.search_exports(unknown_name) {
+                            let (position, insert_text) =
+                                insert_import_edit(&ast, handle_to_import_from, unknown_name);
+                            let range = TextRange::at(position, TextSize::new(0));
+                            let source_range = module_info.source_range(range);
+                            let title = format!("Insert import: `{}`", insert_text.trim());
+                            code_actions.push((title, source_range, insert_text));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        code_actions.sort_by(|(title1, _, _), (title2, _, _)| title1.cmp(title2));
+        Some(code_actions)
     }
 
     pub fn find_local_references(&self, handle: &Handle, position: TextSize) -> Vec<TextRange> {

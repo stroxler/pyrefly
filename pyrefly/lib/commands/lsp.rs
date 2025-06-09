@@ -32,6 +32,13 @@ use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_server::ResponseError;
+use lsp_types::CodeAction;
+use lsp_types::CodeActionKind;
+use lsp_types::CodeActionOptions;
+use lsp_types::CodeActionOrCommand;
+use lsp_types::CodeActionParams;
+use lsp_types::CodeActionProviderCapability;
+use lsp_types::CodeActionResponse;
 use lsp_types::CompletionList;
 use lsp_types::CompletionOptions;
 use lsp_types::CompletionParams;
@@ -88,6 +95,7 @@ use lsp_types::UnregistrationParams;
 use lsp_types::Url;
 use lsp_types::WatchKind;
 use lsp_types::WorkspaceClientCapabilities;
+use lsp_types::WorkspaceEdit;
 use lsp_types::WorkspaceFoldersServerCapabilities;
 use lsp_types::WorkspaceServerCapabilities;
 use lsp_types::notification::Cancel;
@@ -101,6 +109,7 @@ use lsp_types::notification::DidSaveTextDocument;
 use lsp_types::notification::Exit;
 use lsp_types::notification::Notification as _;
 use lsp_types::notification::PublishDiagnostics;
+use lsp_types::request::CodeActionRequest;
 use lsp_types::request::Completion;
 use lsp_types::request::DocumentDiagnosticRequest;
 use lsp_types::request::DocumentHighlightRequest;
@@ -124,6 +133,7 @@ use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
+use ruff_text_size::TextRange;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -546,6 +556,10 @@ pub fn run_lsp(
     let server_capabilities = serde_json::to_value(&ServerCapabilities {
         text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
         definition_provider: Some(OneOf::Left(true)),
+        code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
+            code_action_kinds: Some(vec![CodeActionKind::QUICKFIX]),
+            ..Default::default()
+        })),
         completion_provider: Some(CompletionOptions {
             trigger_characters: Some(vec![".".to_owned()]),
             ..Default::default()
@@ -774,6 +788,14 @@ impl Server {
                         Ok(self
                             .goto_definition(&transaction, params)
                             .unwrap_or(default_response)),
+                    ));
+                    ide_transaction_manager.save(transaction);
+                } else if let Some(params) = as_request::<CodeActionRequest>(&x) {
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(self.code_action(&transaction, params).unwrap_or_default()),
                     ));
                     ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<Completion>(&x) {
@@ -1345,6 +1367,40 @@ impl Server {
             is_incomplete: false,
             items,
         }))
+    }
+
+    fn code_action(
+        &self,
+        transaction: &Transaction<'_>,
+        params: CodeActionParams,
+    ) -> Option<CodeActionResponse> {
+        let uri = &params.text_document.uri;
+        let handle = self.make_handle_if_enabled(uri)?;
+        let module_info = transaction.get_module_info(&handle)?;
+        let range = TextRange::new(
+            position_to_text_size(&module_info, params.range.start),
+            position_to_text_size(&module_info, params.range.end),
+        );
+        let code_actions = transaction
+            .local_quickfix_code_actions(&handle, range)?
+            .into_map(|(title, range, insert_text)| {
+                CodeActionOrCommand::CodeAction(CodeAction {
+                    title,
+                    kind: Some(CodeActionKind::QUICKFIX),
+                    edit: Some(WorkspaceEdit {
+                        changes: Some(HashMap::from([(
+                            uri.clone(),
+                            vec![TextEdit {
+                                range: source_range_to_range(&range),
+                                new_text: insert_text,
+                            }],
+                        )])),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                })
+            });
+        Some(code_actions)
     }
 
     fn document_highlight(

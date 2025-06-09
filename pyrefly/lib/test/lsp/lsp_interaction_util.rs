@@ -19,6 +19,9 @@ use lsp_server::Notification;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
+use lsp_types::CodeActionKind;
+use lsp_types::CodeActionOptions;
+use lsp_types::CodeActionProviderCapability;
 use lsp_types::CompletionOptions;
 use lsp_types::HoverProviderCapability;
 use lsp_types::OneOf;
@@ -280,6 +283,12 @@ fn get_initialize_responses(find_refs: bool) -> Vec<Message> {
         result: Some(serde_json::json!({"capabilities": &ServerCapabilities {
             text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
             definition_provider: Some(OneOf::Left(true)),
+            code_action_provider: Some(CodeActionProviderCapability::Options(
+                CodeActionOptions {
+                    code_action_kinds: Some(vec![CodeActionKind::QUICKFIX]),
+                    ..Default::default()
+                },
+            )),
             completion_provider: Some(CompletionOptions {
                 trigger_characters: Some(vec![".".to_owned()]),
                 ..Default::default()

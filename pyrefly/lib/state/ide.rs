@@ -6,14 +6,17 @@
  */
 
 use pyrefly_util::gas::Gas;
+use ruff_python_ast::ModModule;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
+use ruff_text_size::TextSize;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
 use crate::binding::bindings::Bindings;
 use crate::export::exports::Export;
 use crate::module::module_name::ModuleName;
+use crate::state::handle::Handle;
 
 pub enum IntermediateDefinition {
     Local(Export),
@@ -76,4 +79,22 @@ pub fn binding_to_intermediate_definition(
         }
         _ => None,
     }
+}
+
+pub fn insert_import_edit(
+    ast: &ModModule,
+    handle_to_import_from: Handle,
+    export_name: &str,
+) -> (TextSize, String) {
+    let position = if let Some(first_stmt) = ast.body.first() {
+        first_stmt.range().start()
+    } else {
+        ast.range.end()
+    };
+    let insert_text = format!(
+        "from {} import {}\n",
+        handle_to_import_from.module().as_str(),
+        export_name
+    );
+    (position, insert_text)
 }

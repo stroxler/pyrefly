@@ -184,6 +184,19 @@ impl ModuleInfo {
         )
     }
 
+    pub fn to_text_range(&self, source_range: &SourceRange) -> TextRange {
+        TextRange::new(
+            self.to_text_size(
+                source_range.start.line.to_zero_indexed() as u32,
+                source_range.start.column.to_zero_indexed() as u32,
+            ),
+            self.to_text_size(
+                source_range.end.line.to_zero_indexed() as u32,
+                source_range.end.column.to_zero_indexed() as u32,
+            ),
+        )
+    }
+
     fn content_at_line(&self, line: OneIndexed) -> &str {
         let start = self.0.index.line_start(line, &self.0.contents);
         let end = self.0.index.line_end(line, &self.0.contents);

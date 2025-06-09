@@ -353,6 +353,44 @@ impl<'a> Transaction<'a> {
         Errors::new(res)
     }
 
+    pub fn search_exports(&self, name: &str) -> Vec<Handle> {
+        let mut handles = Vec::new();
+        for (handle, module_data) in self.data.updated_modules.iter_unordered() {
+            if let Some(export) = self
+                .lookup_export(module_data)
+                .exports(&self.lookup(module_data.dupe()))
+                .get(&Name::new(name))
+            {
+                match export {
+                    ExportLocation::ThisModule(_) => handles.push(handle.dupe()),
+                    // Re-exported modules like `foo` in `from from_module import foo`
+                    // should likely be ignored in autoimport suggestions
+                    // because the original export in from_module will show it.
+                    // The current strategy will prevent intended re-exports from showing up in
+                    // result list, but it's better than showing thousands of likely bad results.
+                    ExportLocation::OtherModule(_) => {}
+                }
+            }
+        }
+        for (handle, module_data) in self.readable.modules.iter() {
+            if self.data.updated_modules.get(handle).is_some() {
+                continue;
+            }
+            let module_data = ArcId::new(module_data.clone_for_mutation());
+            if let Some(export) = self
+                .lookup_export(&module_data)
+                .exports(&self.lookup(module_data))
+                .get(&Name::new(name))
+            {
+                match export {
+                    ExportLocation::ThisModule(_) => handles.push(handle.dupe()),
+                    ExportLocation::OtherModule(_) => {}
+                }
+            }
+        }
+        handles
+    }
+
     pub fn get_config_errors(&self) -> Vec<ConfigError> {
         self.data.state.config_finder.errors()
     }
