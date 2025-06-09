@@ -146,16 +146,28 @@ fn continue_find_module(start_result: FindResult, components_rest: &[Name]) -> O
     })
 }
 
-pub fn find_module_in_search_path<'a>(
-    module: ModuleName,
-    include: impl Iterator<Item = &'a PathBuf>,
-) -> Option<ModulePath> {
+pub fn find_module_in_search_path<'a, I>(module: ModuleName, include: I) -> Option<ModulePath>
+where
+    I: Iterator<Item = &'a PathBuf> + Clone,
+{
     let parts = module.components();
     if parts.is_empty() {
         return None;
     }
-    let start_result = find_one_part(&parts[0], include);
-    start_result.and_then(|start_result| continue_find_module(start_result, &parts[1..]))
+
+    let start_result = find_one_part(&parts[0], include.clone());
+    let result =
+        start_result.and_then(|start_result| continue_find_module(start_result, &parts[1..]));
+    if result.is_some() {
+        return result;
+    }
+    // If we can't find the module, try to find a stub by adding the -stubs suffix
+    let mut stub_first = parts[0].as_str().to_owned();
+    stub_first.push_str("-stubs");
+    let stub_first = Name::new(stub_first);
+    let start_stub_result = find_one_part(&stub_first, include);
+    start_stub_result
+        .and_then(|start_stub_result| continue_find_module(start_stub_result, &parts[1..]))
 }
 
 pub fn find_module_in_site_package_path(

@@ -406,7 +406,7 @@ impl ConfigFile {
         self.python_environment.python_platform.as_ref().unwrap()
     }
 
-    pub fn search_path<'a>(&'a self) -> impl Iterator<Item = &'a PathBuf> {
+    pub fn search_path<'a>(&'a self) -> impl Iterator<Item = &'a PathBuf> + Clone {
         self.search_path_from_args
             .iter()
             .chain(self.search_path_from_file.iter())
