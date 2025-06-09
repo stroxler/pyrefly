@@ -670,6 +670,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None,
             );
             if arg_errors.is_empty() && call_errors.is_empty() {
+                // An overload is chosen, we should record it to power IDE services.
+                self.record_overload_trace(range, overloads.as_slice(), callable, true);
                 // It's only safe to return immediately if both arg_errors and call_errors are
                 // empty, as parameter types from the overload signature may be used as hints when
                 // evaluating arguments, producing arg_errors for some overloads but not others.
@@ -692,6 +694,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         // We're guaranteed to have at least one overload.
         let closest_overload = closest_overload.unwrap();
+        self.record_overload_trace(
+            range,
+            overloads.as_slice(),
+            &closest_overload.signature,
+            false,
+        );
         errors.extend(closest_overload.arg_errors);
         if closest_overload.call_errors.is_empty() {
             // No overload evaluated completely successfully, but we still say we found a match if

@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::sync::Arc;
+
 use dupe::Dupe;
 use itertools::Itertools;
 use lsp_types::CompletionItem;
@@ -17,7 +19,9 @@ use pyrefly_util::visit::Visit;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
+use ruff_python_ast::ExprCall;
 use ruff_python_ast::Identifier;
+use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -242,13 +246,45 @@ impl<'a> Transaction<'a> {
         if let Some(key) = self.definition_at(handle, position) {
             return self.get_type(handle, &key);
         }
+        fn callee_at(mod_module: Arc<ModModule>, position: TextSize) -> Option<ExprCall> {
+            fn f(x: &Expr, find: TextSize, res: &mut Option<ExprCall>) {
+                if let Expr::Call(call) = x
+                    && call.func.range().contains_inclusive(find)
+                {
+                    f(call.func.as_ref(), find, res);
+                    if res.is_some() {
+                        return;
+                    }
+                    *res = Some(call.clone());
+                } else {
+                    x.recurse(&mut |x| f(x, find, res));
+                }
+            }
+            let mut res = None;
+            mod_module.visit(&mut |x| f(x, position, &mut res));
+            res
+        }
+        let callee = callee_at(self.get_ast(handle)?, position);
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
                 identifier: id,
                 context: IdentifierContext::Expr,
             }) => {
                 if self.get_bindings(handle)?.is_valid_usage(&id) {
-                    return self.get_type(handle, &Key::BoundName(ShortIdentifier::new(&id)));
+                    if let Some(ExprCall {
+                        range: _,
+                        func,
+                        arguments,
+                    }) = &callee
+                        && func.range() == id.range
+                        && let Some(chosen_overload) = self
+                            .get_answers(handle)
+                            .and_then(|answers| answers.get_chosen_overload_trace(arguments.range))
+                    {
+                        return Some(Type::Callable(Box::new(chosen_overload)));
+                    } else {
+                        return self.get_type(handle, &Key::BoundName(ShortIdentifier::new(&id)));
+                    }
                 } else {
                     return None;
                 }
@@ -269,7 +305,20 @@ impl<'a> Transaction<'a> {
             None => {}
         }
         let attribute = self.attribute_at(handle, position)?;
-        self.get_type_trace(handle, attribute.range)
+        if let Some(ExprCall {
+            range: _,
+            func,
+            arguments,
+        }) = &callee
+            && func.range() == attribute.range
+            && let Some(chosen_overload) = self
+                .get_answers(handle)
+                .and_then(|answers| answers.get_chosen_overload_trace(arguments.range))
+        {
+            Some(Type::Callable(Box::new(chosen_overload)))
+        } else {
+            self.get_type_trace(handle, attribute.range)
+        }
     }
 
     fn resolve_named_import(

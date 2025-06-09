@@ -11,6 +11,7 @@ use ruff_text_size::TextSize;
 use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report;
+use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
 fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String {
     if let Some(t) = state.transaction().get_type_at(handle, position) {
@@ -277,6 +278,89 @@ y = x
 5 | y = x
         ^
 Hover Result: `Literal[5] | int`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn overloaded_functions_test() {
+    let code = r#"
+from typing import overload
+
+@overload
+def overloaded_func(a: str) -> bool: ...
+@overload
+def overloaded_func(a: int, b: bool) -> str: ...
+def overloaded_func():
+    pass
+
+overloaded_func("")
+# ^
+overloaded_func(1, True)
+# ^
+overloaded_func(False)
+# ^
+
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+11 | overloaded_func("")
+       ^
+Hover Result: `(a: str) -> bool`
+
+13 | overloaded_func(1, True)
+       ^
+Hover Result: `(a: int, b: bool) -> str`
+
+15 | overloaded_func(False)
+       ^
+Hover Result: `Overload[(a: str) -> bool, (a: int, b: bool) -> str]`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn overloaded_methods_test() {
+    let code = r#"
+from typing import overload
+
+class Foo:
+    @overload
+    def overloaded_meth(self, a: str) -> bool: ...
+    @overload
+    def overloaded_meth(self, a: int, b: bool) -> str: ...
+    def overloaded_meth(self):
+        pass
+
+foo = Foo()
+foo.overloaded_meth("")
+#       ^
+foo.overloaded_meth(1, True)
+#       ^
+foo.overloaded_meth(False)
+#       ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+13 | foo.overloaded_meth("")
+             ^
+Hover Result: `(self: Foo, a: str) -> bool`
+
+15 | foo.overloaded_meth(1, True)
+             ^
+Hover Result: `(self: Foo, a: int, b: bool) -> str`
+
+17 | foo.overloaded_meth(False)
+             ^
+Hover Result: `BoundMethod[Foo, Overload[(self: Self@Foo, a: str) -> bool, (self: Self@Foo, a: int, b: bool) -> str]]`
 "#
         .trim(),
         report.trim(),

@@ -61,6 +61,7 @@ use crate::table;
 use crate::table_for_each;
 use crate::table_mut_for_each;
 use crate::table_try_for_each;
+use crate::types::callable::Callable;
 use crate::types::class::Class;
 use crate::types::equality::TypeEq;
 use crate::types::equality::TypeEqCtx;
@@ -81,9 +82,18 @@ pub struct Index {
     pub externally_defined_attribute_references: SmallMap<ModulePath, Vec<(TextRange, TextRange)>>,
 }
 
+#[derive(Debug)]
+struct OverloadedCallee {
+    all_overloads: Vec<Callable>,
+    closest_overload: Callable,
+    is_closest_overload_chosen: bool,
+}
+
 #[derive(Debug, Default)]
 pub struct Traces {
     types: SmallMap<TextRange, Arc<Type>>,
+    /// A map from (range of callee, overload information)
+    overloaded_callees: SmallMap<TextRange, OverloadedCallee>,
 }
 
 /// Invariants:
@@ -535,6 +545,42 @@ impl Answers {
         let lock = self.trace.as_ref()?.lock();
         lock.types.get(&range).duped()
     }
+
+    pub fn get_chosen_overload_trace(&self, range: TextRange) -> Option<Callable> {
+        let lock = self.trace.as_ref()?.lock();
+        let overloaded_callee = lock.overloaded_callees.get(&range)?;
+        if overloaded_callee.is_closest_overload_chosen {
+            Some(overloaded_callee.closest_overload.clone())
+        } else {
+            None
+        }
+    }
+
+    /// Returns all the overload, and the index of a chosen one
+    #[allow(dead_code)]
+    pub fn get_all_overload_trace(
+        &self,
+        range: TextRange,
+    ) -> Option<(Vec<Callable>, Option<usize>)> {
+        let lock = self.trace.as_ref()?.lock();
+        let overloaded_callee = lock.overloaded_callees.get(&range)?;
+        let chosen_overload_index =
+            overloaded_callee
+                .all_overloads
+                .iter()
+                .enumerate()
+                .find_map(|(index, signature)| {
+                    if signature == &overloaded_callee.closest_overload {
+                        Some(index)
+                    } else {
+                        None
+                    }
+                });
+        Some((
+            overloaded_callee.all_overloads.clone(),
+            chosen_overload_index,
+        ))
+    }
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -696,6 +742,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn record_type_trace(&self, loc: TextRange, ty: &Type) {
         if let Some(trace) = &self.current.trace {
             trace.lock().types.insert(loc, Arc::new(ty.clone()));
+        }
+    }
+
+    /// Record all the overloads and the chosen overload.
+    /// The trace will be used to power signature help and hover for overloaded functions.
+    pub fn record_overload_trace(
+        &self,
+        loc: TextRange,
+        all_overloads: &[Callable],
+        closest_overload: &Callable,
+        is_closest_overload_chosen: bool,
+    ) {
+        if let Some(trace) = &self.current.trace {
+            trace.lock().overloaded_callees.insert(
+                loc,
+                OverloadedCallee {
+                    all_overloads: all_overloads.to_vec(),
+                    closest_overload: closest_overload.clone(),
+                    is_closest_overload_chosen,
+                },
+            );
         }
     }
 
