@@ -78,6 +78,16 @@ impl DefinitionMetadata {
     }
 }
 
+enum IdentifierContext {
+    /// An identifier appeared in an expression. ex: `x` in `x + 1`
+    Expr,
+}
+
+struct IdentifierWithContext {
+    identifier: Identifier,
+    context: IdentifierContext,
+}
+
 enum ImportIdentifier {
     // The name of a module. ex: `x` in `import x` or `from x import name`
     Module(ModuleName),
@@ -107,10 +117,16 @@ impl<'a> Transaction<'a> {
         Some(ans.for_display(ans.get_type_trace(range)?.arc_clone()))
     }
 
-    fn identifier_at(&self, handle: &Handle, position: TextSize) -> Option<Identifier> {
+    fn identifier_at(&self, handle: &Handle, position: TextSize) -> Option<IdentifierWithContext> {
         let mod_module = self.get_ast(handle)?;
         match Ast::locate_node(&mod_module, position).first() {
-            Some(AnyNodeRef::ExprName(name)) => Some(Ast::expr_name_identifier((*name).clone())),
+            Some(AnyNodeRef::ExprName(name)) => {
+                let identifier = Ast::expr_name_identifier((*name).clone());
+                Some(IdentifierWithContext {
+                    identifier,
+                    context: IdentifierContext::Expr,
+                })
+            }
             _ => None,
         }
     }
@@ -180,7 +196,11 @@ impl<'a> Transaction<'a> {
         if let Some(key) = self.definition_at(handle, position) {
             return self.get_type(handle, &key);
         }
-        if let Some(id) = self.identifier_at(handle, position) {
+        if let Some(IdentifierWithContext {
+            identifier: id,
+            context: IdentifierContext::Expr,
+        }) = self.identifier_at(handle, position)
+        {
             if self.get_bindings(handle)?.is_valid_usage(&id) {
                 return self.get_type(handle, &Key::BoundName(ShortIdentifier::new(&id)));
             } else {
@@ -313,7 +333,11 @@ impl<'a> Transaction<'a> {
                 docstring,
             ));
         }
-        if let Some(id) = self.identifier_at(handle, position) {
+        if let Some(IdentifierWithContext {
+            identifier: id,
+            context: IdentifierContext::Expr,
+        }) = self.identifier_at(handle, position)
+        {
             if !self.get_bindings(handle)?.is_valid_usage(&id) {
                 return None;
             }
