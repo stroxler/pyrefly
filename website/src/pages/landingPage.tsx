@@ -41,7 +41,7 @@ export default function LandingPage(): React.ReactElement {
             />
             <LandingPageSection
                 id="pyrefly-video"
-                title="Check it out in the intro video"
+                title="See Pyrefly in Action"
                 child={<PyreflyVideo />}
                 isLastSection={true}
                 isTitleCentered={true}

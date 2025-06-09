@@ -368,7 +368,7 @@ exports[`Home page renders external site correctly 1`] = `
             style="opacity: 0;"
           >
             <h2>
-              Check it out in the intro video
+              See Pyrefly in Action
             </h2>
           </div>
           <div
@@ -768,7 +768,7 @@ exports[`Home page renders internal site correctly 1`] = `
             style="opacity: 0;"
           >
             <h2>
-              Check it out in the intro video
+              See Pyrefly in Action
             </h2>
           </div>
           <div
