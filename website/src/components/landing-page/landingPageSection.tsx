@@ -11,6 +11,7 @@ import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import typography from './typography';
 import DelayedComponent from '../../utils/DelayedComponent';
+import { animationDelaySeconds } from '../../utils/componentAnimationDelay';
 interface LandingPageSectionProps {
     title?: string;
     child: React.ReactNode;
@@ -32,9 +33,11 @@ export default function LandingPageSection({
     // Determine the delay based on section ID
     const getTitleDelayInSeconds = () => {
         if (id === 'performance-comparison-section') {
-            return 1.1;
+            return animationDelaySeconds[
+                'PerformanceComparisonChartSectionTitle'
+            ];
         } else if (id === 'pyrefly-video') {
-            return 1.3;
+            return animationDelaySeconds['PyreflyVideoTitle'];
         }
         return 0; // No delay for other sections
     };

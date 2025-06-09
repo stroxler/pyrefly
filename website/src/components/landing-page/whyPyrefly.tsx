@@ -13,12 +13,13 @@ import WhyPyreflyGridItem from './whyPyreflyGridItem';
 import Firefly from './firefly';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import DelayedComponent from '../../utils/DelayedComponent';
+import { animationDelaySeconds } from '../../utils/componentAnimationDelay';
 
 export default function WhyPyrefly(): React.ReactElement {
     const onboardingBaseURL = useBaseUrl('/en/docs/installation/');
 
     return (
-        <DelayedComponent delayInSeconds={0.5}>
+        <DelayedComponent delayInSeconds={animationDelaySeconds['WhyPyrefly']}>
             {(isLoaded) => (
                 <div
                     {...stylex.props(

@@ -13,6 +13,7 @@ import typography from './typography';
 import { landingPageCardStyles } from './landingPageCardStyles';
 import Tooltip from './Tooltip';
 import DelayedComponent from '../../utils/DelayedComponent';
+import { getWhyPyreflyGridItemDelay } from '../../utils/componentAnimationDelay';
 
 interface LinkProps {
     text: string;
@@ -41,8 +42,7 @@ export default function WhyPyreflyGridItem({
     index,
     footnote,
 }: WhyPyreflyGridItemProps): React.ReactElement {
-    // Calculate delay in seconds (100ms per index, 0.5 is the time it takes for the Why Pyrefly section to load)
-    const delayInSeconds = index * 0.1 + 0.5;
+    const delayInSeconds = getWhyPyreflyGridItemDelay(index);
 
     return (
         <DelayedComponent delayInSeconds={delayInSeconds}>

@@ -12,10 +12,13 @@ import 'react-lite-youtube-embed/dist/LiteYouTubeEmbed.css';
 import * as stylex from '@stylexjs/stylex';
 import { landingPageCardStyles } from './landingPageCardStyles';
 import DelayedComponent from '../../utils/DelayedComponent';
+import { animationDelaySeconds } from '../../utils/componentAnimationDelay';
 
 export default function PyreflyVideo(): React.ReactElement {
     return (
-        <DelayedComponent delayInSeconds={1.4}>
+        <DelayedComponent
+            delayInSeconds={animationDelaySeconds['PyreflyVideo']}
+        >
             {(isLoaded) => (
                 <div
                     {...stylex.props(

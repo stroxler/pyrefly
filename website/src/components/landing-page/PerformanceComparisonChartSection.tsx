@@ -16,12 +16,17 @@ import { Project } from './PerformanceComparisonTypes';
 import { useState } from 'react';
 import { landingPageCardStyles } from './landingPageCardStyles';
 import DelayedComponent from '../../utils/DelayedComponent';
+import { animationDelaySeconds } from '../../utils/componentAnimationDelay';
 
 export default function PerformanceComparisonChartSection(): React.ReactElement {
     const [selectedProject, setSelectedProject] = useState(Project.PYTORCH);
 
     return (
-        <DelayedComponent delayInSeconds={1.2}>
+        <DelayedComponent
+            delayInSeconds={
+                animationDelaySeconds['PerformanceComparisonChartSection']
+            }
+        >
             {(isLoaded) => (
                 <div
                     {...stylex.props(

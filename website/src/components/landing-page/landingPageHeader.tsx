@@ -16,6 +16,7 @@ import PipInstallPyrefly from './pipInstallPyrefly';
 import ThemedImage from '@theme/ThemedImage';
 import { log, LoggingEvent } from '../../utils/LoggingUtils';
 import DelayedComponent from '../../utils/DelayedComponent';
+import { animationDelaySeconds } from '../../utils/componentAnimationDelay';
 
 export default function LandingPageHeader(): React.ReactElement {
     // Call hooks at the top level of the component
@@ -25,7 +26,9 @@ export default function LandingPageHeader(): React.ReactElement {
     return (
         <header {...stylex.props(styles.featureHero)}>
             <></>
-            <DelayedComponent delayInSeconds={0}>
+            <DelayedComponent
+                delayInSeconds={animationDelaySeconds['LandingPageHeader.Logo']}
+            >
                 {(isLoaded) => (
                     <section {...stylex.props(styles.logoContainer)}>
                         <ThemedImage
@@ -43,7 +46,11 @@ export default function LandingPageHeader(): React.ReactElement {
                 )}
             </DelayedComponent>
 
-            <DelayedComponent delayInSeconds={0.2}>
+            <DelayedComponent
+                delayInSeconds={
+                    animationDelaySeconds['LandingPageHeader.Subtitle']
+                }
+            >
                 {(isLoaded) => (
                     <p
                         {...stylex.props(
@@ -59,7 +66,11 @@ export default function LandingPageHeader(): React.ReactElement {
                 )}
             </DelayedComponent>
 
-            <DelayedComponent delayInSeconds={0.4}>
+            <DelayedComponent
+                delayInSeconds={
+                    animationDelaySeconds['LandingPageHeader.ButtonGroup']
+                }
+            >
                 {(isLoaded) => (
                     <section
                         {...stylex.props(

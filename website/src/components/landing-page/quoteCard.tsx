@@ -11,6 +11,7 @@ import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import typography from './typography';
 import DelayedComponent from '../../utils/DelayedComponent';
+import { animationDelaySeconds } from '../../utils/componentAnimationDelay';
 interface QuoteCardProps {
     quote: string;
     author: string;
@@ -23,7 +24,7 @@ export default function QuoteCard({
     project,
 }: QuoteCardProps): React.ReactElement {
     return (
-        <DelayedComponent delayInSeconds={0}>
+        <DelayedComponent delayInSeconds={animationDelaySeconds['QuoteCard']}>
             {(isLoaded) => (
                 <div
                     {...stylex.props(
