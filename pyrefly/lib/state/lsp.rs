@@ -81,6 +81,16 @@ impl DefinitionMetadata {
 enum IdentifierContext {
     /// An identifier appeared in an expression. ex: `x` in `x + 1`
     Expr,
+    /// An identifier appeared as the name of an imported module.
+    /// ex: `x` in `import x`, or `from x import name`.
+    ImportedModule {
+        /// Name of the imported module.
+        name: ModuleName,
+        /// Keeps track of how many leading dots there are for the imported module.
+        /// ex: `x.y` in `import x.y` has 0 dots, and `x` in `from ..x.y import z` has 2 dot.
+        #[allow(dead_code)]
+        dots: u32,
+    },
 }
 
 struct IdentifierWithContext {
@@ -94,15 +104,6 @@ enum ImportIdentifier {
     // A name from a module's exports. ex: `name` in `from x import name`
     // Note: these are also definitions
     Name(ModuleName),
-}
-
-impl ImportIdentifier {
-    fn module_name(&self) -> ModuleName {
-        match self {
-            ImportIdentifier::Module(module_name) => *module_name,
-            ImportIdentifier::Name(module_name) => *module_name,
-        }
-    }
 }
 
 impl<'a> Transaction<'a> {
@@ -119,8 +120,49 @@ impl<'a> Transaction<'a> {
 
     fn identifier_at(&self, handle: &Handle, position: TextSize) -> Option<IdentifierWithContext> {
         let mod_module = self.get_ast(handle)?;
-        match Ast::locate_node(&mod_module, position).first() {
-            Some(AnyNodeRef::ExprName(name)) => {
+        let covering_nodes = Ast::locate_node(&mod_module, position);
+        match (
+            covering_nodes.first(),
+            covering_nodes.get(1),
+            covering_nodes.get(2),
+        ) {
+            (
+                Some(AnyNodeRef::Identifier(id)),
+                Some(AnyNodeRef::Alias(alias)),
+                Some(AnyNodeRef::StmtImport(_)),
+            ) => {
+                // `import id` or `import ... as id`
+                let identifier = (*id).clone();
+                let module_name = ModuleName::from_str(alias.name.as_str());
+                Some(IdentifierWithContext {
+                    identifier,
+                    context: IdentifierContext::ImportedModule {
+                        name: module_name,
+                        dots: 0,
+                    },
+                })
+            }
+            (
+                Some(AnyNodeRef::Identifier(id)),
+                Some(AnyNodeRef::StmtImportFrom(import_from)),
+                _,
+            ) => {
+                // `from id import ...`
+                let identifier = (*id).clone();
+                let module_name = if let Some(module) = &import_from.module {
+                    ModuleName::from_str(module.as_str())
+                } else {
+                    ModuleName::from_str("")
+                };
+                Some(IdentifierWithContext {
+                    identifier,
+                    context: IdentifierContext::ImportedModule {
+                        name: module_name,
+                        dots: import_from.level,
+                    },
+                })
+            }
+            (Some(AnyNodeRef::ExprName(name)), _, _) => {
                 let identifier = Ast::expr_name_identifier((*name).clone());
                 Some(IdentifierWithContext {
                     identifier,
@@ -196,23 +238,31 @@ impl<'a> Transaction<'a> {
         if let Some(key) = self.definition_at(handle, position) {
             return self.get_type(handle, &key);
         }
-        if let Some(IdentifierWithContext {
-            identifier: id,
-            context: IdentifierContext::Expr,
-        }) = self.identifier_at(handle, position)
-        {
-            if self.get_bindings(handle)?.is_valid_usage(&id) {
-                return self.get_type(handle, &Key::BoundName(ShortIdentifier::new(&id)));
-            } else {
-                return None;
+        match self.identifier_at(handle, position) {
+            Some(IdentifierWithContext {
+                identifier: id,
+                context: IdentifierContext::Expr,
+            }) => {
+                if self.get_bindings(handle)?.is_valid_usage(&id) {
+                    return self.get_type(handle, &Key::BoundName(ShortIdentifier::new(&id)));
+                } else {
+                    return None;
+                }
             }
-        }
-        if let Some(m) = self.import_at(handle, position) {
-            let module_name = m.module_name();
-            return Some(Type::Module(Module::new(
-                module_name.components().first().unwrap().clone(),
-                OrderedSet::from_iter([module_name]),
-            )));
+            Some(IdentifierWithContext {
+                identifier: _,
+                context:
+                    IdentifierContext::ImportedModule {
+                        name: module_name, ..
+                    },
+            }) => {
+                // TODO: Handle relative import (via ModuleName::new_maybe_relative)
+                return Some(Type::Module(Module::new(
+                    module_name.components().first().unwrap().clone(),
+                    OrderedSet::from_iter([module_name]),
+                )));
+            }
+            None => {}
         }
         let attribute = self.attribute_at(handle, position)?;
         self.get_type_trace(handle, attribute.range)
@@ -333,40 +383,51 @@ impl<'a> Transaction<'a> {
                 docstring,
             ));
         }
-        if let Some(IdentifierWithContext {
-            identifier: id,
-            context: IdentifierContext::Expr,
-        }) = self.identifier_at(handle, position)
-        {
-            if !self.get_bindings(handle)?.is_valid_usage(&id) {
-                return None;
-            }
-            let (
-                handle,
-                Export {
-                    location,
-                    symbol_kind,
+        match self.identifier_at(handle, position) {
+            Some(IdentifierWithContext {
+                identifier: id,
+                context: IdentifierContext::Expr,
+            }) => {
+                if !self.get_bindings(handle)?.is_valid_usage(&id) {
+                    return None;
+                }
+                let (
+                    handle,
+                    Export {
+                        location,
+                        symbol_kind,
+                        docstring,
+                    },
+                ) = self.key_to_export(
+                    handle,
+                    &Key::BoundName(ShortIdentifier::new(&id)),
+                    INITIAL_GAS,
+                )?;
+                return Some((
+                    DefinitionMetadata::Variable(symbol_kind),
+                    TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
                     docstring,
-                },
-            ) = self.key_to_export(
-                handle,
-                &Key::BoundName(ShortIdentifier::new(&id)),
-                INITIAL_GAS,
-            )?;
-            return Some((
-                DefinitionMetadata::Variable(symbol_kind),
-                TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
-                docstring,
-            ));
-        }
-        if let Some(m) = self.import_at(handle, position) {
-            let module_name = m.module_name();
-            let handle = self.import_handle(handle, module_name, None).ok()?;
-            return Some((
-                DefinitionMetadata::Module,
-                TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, TextRange::default()),
-                self.get_module_docstring(&handle),
-            ));
+                ));
+            }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context:
+                    IdentifierContext::ImportedModule {
+                        name: module_name, ..
+                    },
+            }) => {
+                // TODO: Handle relative import (via ModuleName::new_maybe_relative)
+                let handle = self.import_handle(handle, module_name, None).ok()?;
+                return Some((
+                    DefinitionMetadata::Module,
+                    TextRangeWithModuleInfo::new(
+                        self.get_module_info(&handle)?,
+                        TextRange::default(),
+                    ),
+                    self.get_module_docstring(&handle),
+                ));
+            }
+            None => {}
         }
         let attribute = self.attribute_at(handle, position)?;
         let base_type = self
