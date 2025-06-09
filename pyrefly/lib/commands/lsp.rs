@@ -87,6 +87,9 @@ use lsp_types::RegistrationParams;
 use lsp_types::RelatedFullDocumentDiagnosticReport;
 use lsp_types::RelativePattern;
 use lsp_types::ServerCapabilities;
+use lsp_types::SignatureHelp;
+use lsp_types::SignatureHelpOptions;
+use lsp_types::SignatureHelpParams;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
 use lsp_types::TextEdit;
@@ -119,6 +122,7 @@ use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
 use lsp_types::request::References;
 use lsp_types::request::RegisterCapability;
+use lsp_types::request::SignatureHelpRequest;
 use lsp_types::request::UnregisterCapability;
 use lsp_types::request::WorkspaceConfiguration;
 use path_absolutize::Absolutize;
@@ -572,6 +576,10 @@ pub fn run_lsp(
                 Some(OneOf::Left(true))
             }
         },
+        signature_help_provider: Some(SignatureHelpOptions {
+            trigger_characters: Some(vec!["(".to_owned(), ",".to_owned()]),
+            ..Default::default()
+        }),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
         document_symbol_provider: Some(OneOf::Left(true)),
@@ -813,6 +821,14 @@ impl Server {
                     ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<References>(&x) {
                     self.references(x.id, ide_transaction_manager, params);
+                } else if let Some(params) = as_request::<SignatureHelpRequest>(&x) {
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(self.signature_help(&transaction, params)),
+                    ));
+                    ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<HoverRequest>(&x) {
                     let default_response = Hover {
                         contents: HoverContents::Array(Vec::new()),
@@ -1489,6 +1505,18 @@ impl Server {
                 }
             }
         });
+    }
+
+    fn signature_help(
+        &self,
+        transaction: &Transaction<'_>,
+        params: SignatureHelpParams,
+    ) -> Option<SignatureHelp> {
+        let uri = &params.text_document_position_params.text_document.uri;
+        let handle = self.make_handle_if_enabled(uri)?;
+        let info = transaction.get_module_info(&handle)?;
+        let position = position_to_text_size(&info, params.text_document_position_params.position);
+        transaction.get_signature_help_at(&handle, position)
     }
 
     fn hover(&self, transaction: &Transaction<'_>, params: HoverParams) -> Option<Hover> {

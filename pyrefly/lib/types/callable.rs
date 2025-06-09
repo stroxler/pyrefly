@@ -104,6 +104,10 @@ impl ParamList {
         &self.0
     }
 
+    pub fn into_items(self) -> Vec<Param> {
+        self.0
+    }
+
     pub fn items_mut(&mut self) -> &mut [Param] {
         &mut self.0
     }
@@ -489,6 +493,13 @@ impl Param {
             | Param::KwOnly(_, ty, _)
             | Param::Kwargs(_, ty) => ty.subst_self_type_mut(replacement, is_subset),
         }
+    }
+}
+
+impl Display for Param {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_with_type(f, |t| t)?;
+        Ok(())
     }
 }
 

@@ -557,7 +557,6 @@ impl Answers {
     }
 
     /// Returns all the overload, and the index of a chosen one
-    #[allow(dead_code)]
     pub fn get_all_overload_trace(
         &self,
         range: TextRange,

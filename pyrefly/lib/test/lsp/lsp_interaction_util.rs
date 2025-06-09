@@ -26,6 +26,7 @@ use lsp_types::CompletionOptions;
 use lsp_types::HoverProviderCapability;
 use lsp_types::OneOf;
 use lsp_types::ServerCapabilities;
+use lsp_types::SignatureHelpOptions;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
 use lsp_types::Url;
@@ -300,6 +301,10 @@ fn get_initialize_responses(find_refs: bool) -> Vec<Message> {
             } else {
                 None
             },
+            signature_help_provider: Some(SignatureHelpOptions {
+                trigger_characters: Some(vec!["(".to_owned(), ",".to_owned()]),
+                ..Default::default()
+            }),
             hover_provider: Some(HoverProviderCapability::Simple(true)),
             inlay_hint_provider: Some(OneOf::Left(true)),
             document_symbol_provider: Some(OneOf::Left(true)),

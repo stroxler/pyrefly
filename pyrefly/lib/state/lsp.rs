@@ -12,7 +12,12 @@ use itertools::Itertools;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use lsp_types::DocumentSymbol;
+use lsp_types::ParameterInformation;
+use lsp_types::ParameterLabel;
+use lsp_types::SignatureHelp;
+use lsp_types::SignatureInformation;
 use pyrefly_util::gas::Gas;
+use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::visit::Visit;
@@ -55,8 +60,11 @@ use crate::state::require::Require;
 use crate::state::state::CancellableTransaction;
 use crate::state::state::Transaction;
 use crate::sys_info::SysInfo;
+use crate::types::callable::Param;
+use crate::types::callable::Params;
 use crate::types::lsp::source_range_to_range;
 use crate::types::module::Module;
+use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
 
 const INITIAL_GAS: Gas = Gas::new(20);
@@ -319,6 +327,120 @@ impl<'a> Transaction<'a> {
         } else {
             self.get_type_trace(handle, attribute.range)
         }
+    }
+
+    pub fn get_signature_help_at(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+    ) -> Option<SignatureHelp> {
+        let mod_module = self.get_ast(handle)?;
+        fn visit(x: &Expr, find: TextSize, res: &mut Option<(TextRange, TextRange, usize)>) {
+            if let Expr::Call(call) = x
+                && call.arguments.range.contains_inclusive(find)
+            {
+                for (i, arg) in call.arguments.args.as_ref().iter().enumerate() {
+                    if arg.range().contains_inclusive(find) {
+                        visit(arg, find, res);
+                        if res.is_some() {
+                            return;
+                        }
+                        *res = Some((call.func.range(), call.arguments.range, i));
+                    }
+                }
+                if res.is_none() {
+                    *res = Some((
+                        call.func.range(),
+                        call.arguments.range,
+                        call.arguments.len(),
+                    ));
+                }
+            } else {
+                x.recurse(&mut |x| visit(x, find, res));
+            }
+        }
+        let mut res = None;
+        mod_module.visit(&mut |x| visit(x, position, &mut res));
+        let (callee_range, call_args_range, arg_index) = res?;
+        let answers = self.get_answers(handle)?;
+        if let Some((overloads, chosen_overload_index)) =
+            answers.get_all_overload_trace(call_args_range)
+        {
+            let signatures = overloads.into_map(|callable| {
+                Self::create_signature_information(Type::Callable(Box::new(callable)), arg_index)
+            });
+            Some(SignatureHelp {
+                signatures,
+                active_signature: chosen_overload_index.map(|i| i as u32),
+                active_parameter: Some(arg_index as u32),
+            })
+        } else {
+            answers
+                .get_type_trace(callee_range)
+                .map(|callee_type| SignatureHelp {
+                    signatures: vec![Self::create_signature_information(
+                        callee_type.arc_clone(),
+                        arg_index,
+                    )],
+                    active_signature: Some(0),
+                    active_parameter: Some(arg_index as u32),
+                })
+        }
+    }
+
+    fn create_signature_information(type_: Type, arg_index: usize) -> SignatureInformation {
+        let type_ = type_.deterministic_printing();
+        let label = format!("{}", type_);
+        let (parameters, active_parameter) = if let Some(params) =
+            Self::normalize_singleton_function_type_for_signature_help(type_)
+        {
+            let active_parameter = if arg_index < params.len() {
+                Some(arg_index as u32)
+            } else {
+                None
+            };
+            (
+                Some(params.map(|param| ParameterInformation {
+                    label: ParameterLabel::Simple(format!("{}", param)),
+                    documentation: None,
+                })),
+                active_parameter,
+            )
+        } else {
+            (None, None)
+        };
+        SignatureInformation {
+            label,
+            documentation: None,
+            parameters,
+            active_parameter,
+        }
+    }
+
+    fn normalize_singleton_function_type_for_signature_help(type_: Type) -> Option<Vec<Param>> {
+        let callable = match type_ {
+            Type::Callable(callable) => Some(*callable),
+            Type::Function(function) => Some(function.signature),
+            Type::BoundMethod(bound_method) => match bound_method.func {
+                BoundMethodType::Function(function) => Some(function.signature),
+                BoundMethodType::Forall(forall) => Some(forall.body.signature),
+                BoundMethodType::Overload(_) => None,
+            },
+            _ => None,
+        }?;
+        // We will drop the self parameter for signature help
+        if let Params::List(params_list) = callable.params {
+            if let Some(Param::PosOnly(Some(name), _, _) | Param::Pos(name, _, _)) =
+                params_list.items().first()
+                && name.as_str() == "self"
+            {
+                let mut params = params_list.into_items();
+                params.remove(0);
+                return Some(params);
+            }
+            return Some(params_list.into_items());
+        }
+        None
     }
 
     fn resolve_named_import(
