@@ -10,6 +10,7 @@ pub mod attr;
 pub mod call;
 pub mod callable;
 pub mod class;
+pub mod debugging;
 pub mod expr;
 pub mod function;
 pub mod narrow;
