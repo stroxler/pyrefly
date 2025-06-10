@@ -527,8 +527,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         todo_ctx: &str,
     ) -> Option<Type> {
         let mut narrowed_types = Some(Vec::new());
-        self.map_over_union(base, |base| {
-            match self.lookup_attr_no_union(base, attr_name) {
+        let bases = self.get_possible_attribute_bases(base);
+        for attr_base in bases {
+            let lookup_result = attr_base.map_or_else(
+                || LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone())),
+                |attr_base| self.lookup_attr_from_base_no_union(attr_base, attr_name),
+            );
+            match lookup_result {
                 LookupResult::Found(attr) => match attr.inner {
                     AttributeInner::Simple(want, Visibility::ReadWrite) => {
                         let ty = match &got {
@@ -551,8 +556,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         if let Some(narrowed_types) = &mut narrowed_types {
                             narrowed_types.push(ty)
                         }
-                        // Exit early to avoid the hook where we wipe `narrowed_types` in all other cases.
-                        return;
+                        // Avoid the hook where we wipe `narrowed_types` in all other cases.
+                        continue;
                     }
                     AttributeInner::NoAccess(e) => {
                         self.error(
@@ -658,7 +663,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // If we hit anything other than a simple, read-write attribute then we will not infer
             // a type for narrowing.
             narrowed_types = None;
-        });
+        }
         narrowed_types.map(|ts| self.unions(ts))
     }
 
@@ -671,8 +676,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         todo_ctx: &str,
     ) {
-        self.map_over_union(base, |base| {
-            match self.lookup_attr_no_union(base, attr_name) {
+        let bases = self.get_possible_attribute_bases(base);
+        for attr_base in bases {
+            let lookup_result = attr_base.map_or_else(
+                || LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone())),
+                |attr_base| self.lookup_attr_from_base_no_union(attr_base, attr_name),
+            );
+            match lookup_result {
                 LookupResult::Found(attr) => match attr.inner {
                     // TODO: deleting attributes is allowed at runtime, but is not type-safe
                     // except for descriptors that implement `__delete__`
@@ -728,7 +738,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
             }
-        });
+        }
     }
 
     pub fn is_attr_subset(

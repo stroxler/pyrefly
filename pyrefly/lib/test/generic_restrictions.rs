@@ -302,7 +302,6 @@ class Foo[T: (A, B)]:
 );
 
 testcase!(
-    bug = "this should work",
     test_constrained_typevar_mutate_attr,
     r#"
 class A:
@@ -312,8 +311,8 @@ class B:
 class Foo[T: (A, B)]:
     y: T
     def foo(self) -> None:
-        self.y.x = 1  # E: TODO: attr::check_assign_to_attribute_and_infer_narrow
-        self.y.x = ""  # Not OK # E: TODO: attr::check_assign_to_attribute_and_infer_narrow
-        del self.y.x  # E: TODO: Answers::solve_expectation::Delete
+        self.y.x = 1
+        self.y.x = ""  # E: `Literal['']` is not assignable to attribute `x` with type `int`
+        del self.y.x
     "#,
 );
