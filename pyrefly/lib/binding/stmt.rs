@@ -81,11 +81,11 @@ impl<'a> BindingsBuilder<'a> {
 
     fn assign_type_var(&mut self, name: &ExprName, call: &mut ExprCall) {
         // Type var declarations are static types only; skip them for first-usage type inference.
-        let no_usage = Usage::NoUsageTracking;
-        self.ensure_expr(&mut call.func, no_usage);
+        let static_type_usage = Usage::StaticTypeInformation;
+        self.ensure_expr(&mut call.func, static_type_usage);
         let mut iargs = call.arguments.args.iter_mut();
         if let Some(expr) = iargs.next() {
-            self.ensure_expr(expr, no_usage);
+            self.ensure_expr(expr, static_type_usage);
         }
         // The constraints (i.e., any positional arguments after the first)
         // and some keyword arguments are types.
@@ -98,7 +98,7 @@ impl<'a> BindingsBuilder<'a> {
             {
                 self.ensure_type(&mut kw.value, &mut None);
             } else {
-                self.ensure_expr(&mut kw.value, no_usage);
+                self.ensure_expr(&mut kw.value, static_type_usage);
             }
         }
         self.bind_legacy_type_var_or_typing_alias(name, |ann| {
@@ -112,10 +112,10 @@ impl<'a> BindingsBuilder<'a> {
 
     fn ensure_type_var_tuple_and_param_spec_args(&mut self, call: &mut ExprCall) {
         // Type var declarations are static types only; skip them for first-usage type inference.
-        let no_usage = Usage::NoUsageTracking;
-        self.ensure_expr(&mut call.func, no_usage);
+        let static_type_usage = Usage::StaticTypeInformation;
+        self.ensure_expr(&mut call.func, static_type_usage);
         for arg in call.arguments.args.iter_mut() {
-            self.ensure_expr(arg, no_usage);
+            self.ensure_expr(arg, static_type_usage);
         }
         for kw in call.arguments.keywords.iter_mut() {
             if let Some(id) = &kw.arg
@@ -123,7 +123,7 @@ impl<'a> BindingsBuilder<'a> {
             {
                 self.ensure_type(&mut kw.value, &mut None);
             } else {
-                self.ensure_expr(&mut kw.value, no_usage);
+                self.ensure_expr(&mut kw.value, static_type_usage);
             }
         }
     }
@@ -429,7 +429,7 @@ impl<'a> BindingsBuilder<'a> {
                         //
                         // We don't track first-usage in this context, since we won't analyze the usage anyway.
                         let mut e = illegal_target.clone();
-                        self.ensure_expr(&mut e, Usage::NoUsageTracking);
+                        self.ensure_expr(&mut e, Usage::StaticTypeInformation);
                     }
                 }
             }

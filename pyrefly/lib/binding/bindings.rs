@@ -752,7 +752,7 @@ impl<'a> BindingsBuilder<'a> {
         name: Hashed<&Name>,
         kind: LookupKind,
     ) -> Result<Idx<Key>, LookupError> {
-        self.lookup_name_impl(name, kind, Usage::NoUsageTracking)
+        self.lookup_name_impl(name, kind, Usage::StaticTypeInformation)
     }
 
     pub fn lookup_name_usage(

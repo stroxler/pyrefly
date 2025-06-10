@@ -308,7 +308,7 @@ impl<'a> BindingsBuilder<'a> {
                 //
                 // We ignore such names for first-usage-tracking purposes, since
                 // we are not going to analyze the code at all.
-                self.ensure_expr(illegal_target, Usage::NoUsageTracking);
+                self.ensure_expr(illegal_target, Usage::StaticTypeInformation);
             }
         }
     }

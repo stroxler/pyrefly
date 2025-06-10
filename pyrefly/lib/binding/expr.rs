@@ -62,20 +62,17 @@ use crate::types::types::Type;
 pub enum Usage {
     /// Usage to create a `Binding`.
     Idx(Idx<Key>),
-    /// I am a usage that will appear in a narrowing operation. We don't allow
-    /// pinning in this case:
+    /// I am a usage that will appear in a narrowing operation (including a
+    /// match pattern). We don't allow pinning in this case:
     /// - It is generally not useful (narrowing operations don't usually pin types)
     /// - Because narrowing introduces duplicate expressions, it is difficult
     ///   to ensure unpinned Vars cannot leak into the binding graph and cause
     ///   nondeterminism.
     Narrowing,
-    /// I am a scenario where we need to ensure expressions with no usage tracking.
-    ///
-    /// This should only be used when handling expressions that create values whose
-    /// runtime meaning is primarily static and type-level, for example:
-    /// - type annotations, type variable declarations, and other type contexts
-    /// - match patterns
-    NoUsageTracking,
+    /// I'm a usage in some context (a type variable declaration, an annotation,
+    /// a cast, etc) where we are dealing with static types. I will not pin
+    /// any placeholder types.
+    StaticTypeInformation,
 }
 
 enum TestAssertion {
@@ -653,7 +650,7 @@ impl<'a> BindingsBuilder<'a> {
     /// Execute through the expr, ensuring every name has a binding.
     pub fn ensure_type(&mut self, x: &mut Expr, tparams_builder: &mut Option<LegacyTParamBuilder>) {
         // We do not treat static types as usage for the purpose of first-usage-based type inference.
-        let no_usage = Usage::NoUsageTracking;
+        let static_type_usage = Usage::StaticTypeInformation;
         match x {
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
@@ -671,7 +668,7 @@ impl<'a> BindingsBuilder<'a> {
                 if self.as_special_export(value) == Some(SpecialExport::Literal) =>
             {
                 // Don't go inside a literal, since you might find strings which are really strings, not string-types
-                self.ensure_expr(x, no_usage);
+                self.ensure_expr(x, static_type_usage);
             }
             Expr::Subscript(ExprSubscript {
                 value,
@@ -684,7 +681,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_type(&mut *value, tparams_builder);
                 self.ensure_type(&mut tup.elts[0], tparams_builder);
                 for e in tup.elts[1..].iter_mut() {
-                    self.ensure_expr(e, no_usage);
+                    self.ensure_expr(e, static_type_usage);
                 }
             }
             Expr::StringLiteral(literal) => match Ast::parse_type_literal(literal) {
@@ -707,11 +704,11 @@ impl<'a> BindingsBuilder<'a> {
                 }
             },
             // Bind the lambda so we don't crash on undefined parameter names.
-            Expr::Lambda(_) => self.ensure_expr(x, no_usage),
+            Expr::Lambda(_) => self.ensure_expr(x, static_type_usage),
             // Bind the call so we generate all expected bindings. See
             // test::class_super::test_super_in_base_classes for an example of a SuperInstance
             // binding that we crash looking for if we don't do this.
-            Expr::Call(_) => self.ensure_expr(x, no_usage),
+            Expr::Call(_) => self.ensure_expr(x, static_type_usage),
             _ => x.recurse_mut(&mut |x| self.ensure_type(x, tparams_builder)),
         }
     }
