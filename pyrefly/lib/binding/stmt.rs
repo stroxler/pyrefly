@@ -625,22 +625,24 @@ impl<'a> BindingsBuilder<'a> {
                 // is carried over to the else branch.
                 let mut negated_prev_ops = NarrowOps::new();
                 let mut implicit_else = true;
-                for (range, test, body) in Ast::if_branches_owned(x) {
+                for (range, mut test, body) in Ast::if_branches_owned(x) {
                     let this_branch_chosen = self.sys_info.evaluate_bool_opt(test.as_ref());
                     if this_branch_chosen == Some(false) {
                         continue; // We definitely won't pick this branch
                     }
                     self.bind_narrow_ops(&negated_prev_ops, range);
                     let mut base = self.scopes.clone_current_flow();
+                    self.ensure_expr_opt(test.as_mut(), Usage::NoUsageTracking);
                     let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
-                    if let Some(mut e) = test {
-                        let user = self.declare_user(Key::Anon(e.range()));
-                        self.ensure_expr(&mut e, user.usage());
-                        self.insert_binding_user(user, Binding::Expr(None, e.clone()));
+                    if let Some(test_expr) = test {
+                        self.insert_binding(
+                            Key::Anon(test_expr.range()),
+                            Binding::Expr(None, test_expr.clone()),
+                        );
                         // Typecheck the test condition during solving.
                         self.insert_binding(
-                            KeyExpect(e.range()),
-                            BindingExpect::Bool(Box::new(e.clone()), range),
+                            KeyExpect(test_expr.range()),
+                            BindingExpect::Bool(Box::new(test_expr.clone()), range),
                         );
                     } else {
                         implicit_else = false;
