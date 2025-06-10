@@ -344,6 +344,26 @@ include = ["a.py"]
     }
 
     #[test]
+    fn test_run_pyproject_without_tools() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let input_path = tmp.path().join("pyproject.toml");
+        let pyproject = br#"[project]
+name = "test-project"
+version = "0.1.0"
+description = "A test project"
+"#;
+        fs_anyhow::write(&input_path, pyproject)?;
+        let args = Args {
+            input_path: Some(input_path.clone()),
+        };
+        let result = args.run();
+        assert!(result.is_err() || matches!(result.unwrap(), CommandExitStatus::UserError));
+        let content = fs_anyhow::read_to_string(&input_path)?;
+        assert_eq!(content, std::str::from_utf8(pyproject)?);
+        Ok(())
+    }
+
+    #[test]
     fn test_run_pyproject_bad_mypy_into_pyright() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let input_path = tmp.path().join("pyproject.toml");
