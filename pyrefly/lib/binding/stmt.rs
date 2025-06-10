@@ -58,6 +58,27 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    /// Bind a special assignment where we do not want the usage tracking or placeholder var pinning
+    /// used for normal assignments.
+    ///
+    /// Used for legacy type variables and for `_Alias()` assignments in `typing` that
+    /// we redirect to hard-coded alternative bindings.
+    fn bind_legacy_type_var_or_typing_alias(
+        &mut self,
+        name: &ExprName,
+        make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
+    ) {
+        let user = self.declare_user(Key::Definition(ShortIdentifier::expr_name(name)));
+        // TODO(stroxler): It probably should be an error if the annotation is ever non-None
+        let (ann, default) = self.bind_user(&name.id, &user, FlowStyle::Other);
+        let mut binding = make_binding(ann);
+        // TODO(stroxler): It probably should be an error if the default is ever non-None
+        if let Some(default) = default {
+            binding = Binding::Default(default, Box::new(binding));
+        }
+        self.insert_binding_user(user, binding);
+    }
+
     fn assign_type_var(&mut self, name: &ExprName, call: &mut ExprCall) {
         // Type var declarations are static types only; skip them for first-usage type inference.
         let no_usage = Usage::NoUsageTracking;
@@ -80,7 +101,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut kw.value, no_usage);
             }
         }
-        self.bind_assign_no_expr(name, |ann| {
+        self.bind_legacy_type_var_or_typing_alias(name, |ann| {
             Binding::TypeVar(
                 ann,
                 Ast::expr_name_identifier(name.clone()),
@@ -109,7 +130,7 @@ impl<'a> BindingsBuilder<'a> {
 
     fn assign_param_spec(&mut self, name: &ExprName, call: &mut ExprCall) {
         self.ensure_type_var_tuple_and_param_spec_args(call);
-        self.bind_assign_no_expr(name, |ann| {
+        self.bind_legacy_type_var_or_typing_alias(name, |ann| {
             Binding::ParamSpec(
                 ann,
                 Ast::expr_name_identifier(name.clone()),
@@ -120,7 +141,7 @@ impl<'a> BindingsBuilder<'a> {
 
     fn assign_type_var_tuple(&mut self, name: &ExprName, call: &mut ExprCall) {
         self.ensure_type_var_tuple_and_param_spec_args(call);
-        self.bind_assign_no_expr(name, |ann| {
+        self.bind_legacy_type_var_or_typing_alias(name, |ann| {
             Binding::TypeVarTuple(
                 ann,
                 Ast::expr_name_identifier(name.clone()),
@@ -264,7 +285,9 @@ impl<'a> BindingsBuilder<'a> {
                         resolve_typeshed_alias(self.module_info.name(), &name.id, &x.value) =>
             {
                 // TODO(stroxler): should we complain here if there's an existing annotation?
-                self.bind_assign_no_expr(name, |_| Binding::Import(module, forward))
+                self.bind_legacy_type_var_or_typing_alias(name, |_| {
+                    Binding::Import(module, forward)
+                })
             }
             Stmt::Assign(mut x) => {
                 if let [Expr::Name(name)] = x.targets.as_slice() {
