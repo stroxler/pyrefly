@@ -14,7 +14,6 @@ print(y)
 );
 
 testcase!(
-    bug = "We are not narrowing for guard expressions",
     test_guard_narrowing_in_match,
     r#"
 from typing import assert_type
@@ -23,6 +22,6 @@ def test(x: int | bytes | str):
         case int():
             assert_type(x, int)
         case _ if isinstance(x, str):
-            assert_type(x, str)  # E: assert_type(bytes | str, str)
+            assert_type(x, str)
     "#,
 );

@@ -258,6 +258,8 @@ impl<'a> BindingsBuilder<'a> {
             if let Some(mut guard) = case.guard {
                 let guard_user = self.declare_user(Key::Anon(guard.range()));
                 self.ensure_expr(&mut guard, guard_user.usage());
+                let narrow_ops = NarrowOps::from_expr(self, Some(guard.as_ref()));
+                self.bind_narrow_ops(&narrow_ops, case.range);
                 self.insert_binding_user(guard_user, Binding::Expr(None, *guard));
             }
             self.stmts(case.body);
