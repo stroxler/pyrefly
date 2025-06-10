@@ -111,6 +111,7 @@ struct IdentifierWithContext {
 }
 
 pub enum AnnotationKind {
+    #[allow(dead_code)]
     Parameter,
     Return,
 }
@@ -925,7 +926,6 @@ impl<'a> Transaction<'a> {
 
     pub fn inferred_types(&self, handle: &Handle) -> Option<Vec<(TextSize, Type, AnnotationKind)>> {
         let is_interesting_type = |x: &Type| !x.is_error();
-        let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
 
         let bindings = self.get_bindings(handle)?;
         let mut res = Vec::new();
