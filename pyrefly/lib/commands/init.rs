@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -44,7 +45,7 @@ impl ConfigFileKind {
         match self {
             // This makes me question if pyproject should be a part of the enum at all
             Self::Pyproject => "".to_owned(),
-            _ => format!("[tool.{}]", self).to_lowercase(),
+            _ => format!("[tool.{self}]").to_lowercase(),
         }
     }
 }
@@ -103,6 +104,19 @@ impl Args {
         Ok(false)
     }
 
+    fn prompt_user_confirmation(prompt: &str) -> bool {
+        if cfg!(test) {
+            // decline confirmation, mocking user input
+            return false;
+        }
+        print!("{prompt}");
+        std::io::stdout().flush().ok();
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).ok();
+        let input = input.trim();
+        input == "y" || input == "Y"
+    }
+
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
         let path = self.path.absolutize()?.to_path_buf();
 
@@ -114,11 +128,13 @@ impl Args {
         if let Some(dir) = dir
             && Args::check_for_existing_config(dir, ConfigFileKind::Pyrefly)?
         {
-            error!(
-                "The project at `{}` has already been initialized for pyrefly. Run `pyrefly check` to see type errors.",
+            let prompt = format!(
+                "The project at `{}` has already been initialized for pyrefly. Run `pyrefly check` to see type errors. Re-initialize and write a new section? (y/N): ",
                 dir.display()
             );
-            return Ok(CommandExitStatus::UserError);
+            if !Self::prompt_user_confirmation(&prompt) {
+                return Ok(CommandExitStatus::UserError);
+            }
         }
 
         // 1. Check for mypy configuration
