@@ -21,13 +21,16 @@ use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::visit::Visit;
+use ruff_python_ast::Alias;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -115,6 +118,44 @@ pub enum AnnotationKind {
     Parameter,
     Return,
 }
+impl IdentifierWithContext {
+    fn from_stmt_import(id: &Identifier, alias: &Alias) -> Self {
+        let identifier = id.clone();
+        let module_name = ModuleName::from_str(alias.name.as_str());
+        Self {
+            identifier,
+            context: IdentifierContext::ImportedModule {
+                name: module_name,
+                dots: 0,
+            },
+        }
+    }
+
+    fn from_stmt_import_from_module(id: &Identifier, import_from: &StmtImportFrom) -> Self {
+        let identifier = id.clone();
+        let module_name = if let Some(module) = &import_from.module {
+            ModuleName::from_str(module.as_str())
+        } else {
+            ModuleName::from_str("")
+        };
+        Self {
+            identifier,
+            context: IdentifierContext::ImportedModule {
+                name: module_name,
+                dots: import_from.level,
+            },
+        }
+    }
+
+    fn from_expr_name(expr_name: &ExprName) -> Self {
+        let identifier = Ast::expr_name_identifier(expr_name.clone());
+        Self {
+            identifier,
+            context: IdentifierContext::Expr,
+        }
+    }
+}
+
 enum ImportIdentifier {
     // The name of a module. ex: `x` in `import x` or `from x import name`
     Module(ModuleName),
@@ -149,15 +190,7 @@ impl<'a> Transaction<'a> {
                 Some(AnyNodeRef::StmtImport(_)),
             ) => {
                 // `import id` or `import ... as id`
-                let identifier = (*id).clone();
-                let module_name = ModuleName::from_str(alias.name.as_str());
-                Some(IdentifierWithContext {
-                    identifier,
-                    context: IdentifierContext::ImportedModule {
-                        name: module_name,
-                        dots: 0,
-                    },
-                })
+                Some(IdentifierWithContext::from_stmt_import(id, alias))
             }
             (
                 Some(AnyNodeRef::Identifier(id)),
@@ -165,26 +198,13 @@ impl<'a> Transaction<'a> {
                 _,
             ) => {
                 // `from id import ...`
-                let identifier = (*id).clone();
-                let module_name = if let Some(module) = &import_from.module {
-                    ModuleName::from_str(module.as_str())
-                } else {
-                    ModuleName::from_str("")
-                };
-                Some(IdentifierWithContext {
-                    identifier,
-                    context: IdentifierContext::ImportedModule {
-                        name: module_name,
-                        dots: import_from.level,
-                    },
-                })
+                Some(IdentifierWithContext::from_stmt_import_from_module(
+                    id,
+                    import_from,
+                ))
             }
             (Some(AnyNodeRef::ExprName(name)), _, _) => {
-                let identifier = Ast::expr_name_identifier((*name).clone());
-                Some(IdentifierWithContext {
-                    identifier,
-                    context: IdentifierContext::Expr,
-                })
+                Some(IdentifierWithContext::from_expr_name(name))
             }
             _ => None,
         }
