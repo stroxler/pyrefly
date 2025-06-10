@@ -1887,6 +1887,38 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.expr(e, None, errors)
                 }
             },
+            Binding::MultiTargetAssign(ann, idx, range) => {
+                let type_info = self.get_idx(*idx);
+                let ty = type_info.ty();
+                if let Some(ann_idx) = ann {
+                    let annot = self.get_idx(*ann_idx);
+                    if annot.annotation.is_final() {
+                        self.error(
+                            errors,
+                            *range,
+                            ErrorKind::BadAssignment,
+                            None,
+                            "Assignment target is marked final".to_owned(),
+                        );
+                    }
+                    if let Some(annot_ty) = annot.ty(self.stdlib)
+                        && !self.is_subset_eq(ty, &annot_ty)
+                    {
+                        self.error(
+                            errors,
+                            *range,
+                            ErrorKind::BadAssignment,
+                            None,
+                            format!(
+                                "Wrong type for assignment, expected `{}` and got `{}`",
+                                &annot_ty, ty
+                            ),
+                        );
+                        return annot_ty;
+                    }
+                }
+                ty.clone()
+            }
             Binding::PatternMatchMapping(mapping_key, binding_key) => {
                 // TODO: check that value is a mapping
                 // TODO: check against duplicate keys (optional)

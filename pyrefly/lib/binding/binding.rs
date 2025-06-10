@@ -748,6 +748,10 @@ pub enum Binding {
     /// An expression, optionally with a Key saying what the type must be.
     /// The Key must be a type of types, e.g. `Type::Type`.
     Expr(Option<Idx<KeyAnnotation>>, Expr),
+    /// Propagate a type to a new binding. Takes an optional annotation to
+    /// check against (which will override the computed type if they disagree).
+    #[expect(dead_code)]
+    MultiTargetAssign(Option<Idx<KeyAnnotation>>, Idx<Key>, TextRange),
     /// TypeVar, ParamSpec, or TypeVarTuple
     TypeVar(Option<Idx<KeyAnnotation>>, Identifier, Box<ExprCall>),
     ParamSpec(Option<Idx<KeyAnnotation>>, Identifier, Box<ExprCall>),
@@ -869,6 +873,23 @@ impl DisplayWith<Bindings> for Binding {
             Self::Expr(None, x) => write!(f, "expr {}", m.display(x)),
             Self::Expr(Some(k), x) => {
                 write!(f, "expr {}: {}", ctx.display(*k), m.display(x))
+            }
+            Self::MultiTargetAssign(None, idx, range) => {
+                write!(
+                    f,
+                    "multi_target_assign {} at {:?}",
+                    ctx.display(*idx),
+                    range
+                )
+            }
+            Self::MultiTargetAssign(Some(ann), idx, range) => {
+                write!(
+                    f,
+                    "multi_target_assign {}: {} at {:?}",
+                    ctx.display(*idx),
+                    ctx.display(*ann),
+                    range
+                )
             }
             Self::TypeVar(_, name, x) => {
                 write!(f, "typevar {} = {}", name, m.display(x))
@@ -1113,6 +1134,7 @@ impl Binding {
                 Some(SymbolKind::Parameter)
             }
             Binding::Expr(_, _)
+            | Binding::MultiTargetAssign(_, _, _)
             | Binding::ReturnExplicit(_)
             | Binding::ReturnImplicit(_)
             | Binding::ReturnType(_)
