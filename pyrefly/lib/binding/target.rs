@@ -254,7 +254,7 @@ impl<'a> BindingsBuilder<'a> {
         };
         match target {
             Expr::Name(name) => {
-                self.bind_assign_impl(
+                self.bind_target_name(
                     name,
                     assigned,
                     |expr, ann| binding_of(make_assigned_value(expr, ann), ann),
@@ -362,7 +362,7 @@ impl<'a> BindingsBuilder<'a> {
     /// - Update the bindings table and flow info to note that:
     ///   - the name is now bound to a `Key::Definition` + the computed binding
     ///   - the flow style is `FlowStyle::Other`
-    fn bind_assign_impl(
+    fn bind_target_name(
         &mut self,
         name: &ExprName,
         mut assigned: Option<&mut Expr>,
@@ -383,7 +383,7 @@ impl<'a> BindingsBuilder<'a> {
         self.insert_binding_user(user, binding);
     }
 
-    /// Handle single assignment: this is closely related to `bind_assign_impl`, but
+    /// Handle single assignment: this is closely related to `bind_target_name`, but
     /// handles additional concerns (such as type alias logic) that don't apply to
     /// other target name assignments.
     ///
