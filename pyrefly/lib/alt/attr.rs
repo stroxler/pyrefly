@@ -1175,8 +1175,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn try_lookup_attr_no_union(&self, base: &Type, attr_name: &Name) -> Option<Attribute> {
-        match self.lookup_attr_no_union(base, attr_name) {
+    pub fn try_lookup_attr_from_class_type(
+        &self,
+        cls: ClassType,
+        attr_name: &Name,
+    ) -> Option<Attribute> {
+        match self.lookup_attr_from_base_no_union(AttributeBase::ClassInstance(cls), attr_name) {
             LookupResult::Found(attr) => Some(attr),
             _ => None,
         }

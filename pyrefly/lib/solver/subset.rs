@@ -308,9 +308,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         true
     }
 
-    fn try_lookup_attr_from_class(&mut self, cls: &Type, name: &Name) -> Option<Type> {
+    fn try_lookup_attr_from_class(&mut self, cls: &ClassType, name: &Name) -> Option<Type> {
         self.type_order
-            .try_lookup_attr_no_union(cls, name)
+            .try_lookup_attr_from_class_type(cls.clone(), name)
             .and_then(|attr| self.type_order.resolve_as_instance_method(attr))
     }
 
@@ -395,8 +395,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 got,
                 Type::Callable(_) | Type::Function(_) | Type::BoundMethod(_)
             ) && name == dunder::CALL
-                && let Some(want) =
-                    self.try_lookup_attr_from_class(&protocol.clone().to_type(), &dunder::CALL)
+                && let Some(want) = self.try_lookup_attr_from_class(&protocol, &dunder::CALL)
             {
                 if let Type::BoundMethod(method) = &want
                     && let Some(want_no_self) = method.to_callable()
@@ -409,7 +408,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 }
             } else if let got_attrs = to.try_lookup_attr(&got, &name)
                 && !got_attrs.is_empty()
-                && let Some(want) = to.try_lookup_attr_no_union(&protocol.clone().to_type(), &name)
+                && let Some(want) = to.try_lookup_attr_from_class_type(protocol.clone(), &name)
             {
                 for got in got_attrs {
                     if !to
@@ -796,9 +795,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (
                 Type::ClassType(got),
                 Type::BoundMethod(_) | Type::Callable(_) | Type::Function(_),
-            ) if let Some(call_ty) =
-                self.try_lookup_attr_from_class(&got.clone().to_type(), &dunder::CALL) =>
-            {
+            ) if let Some(call_ty) = self.try_lookup_attr_from_class(got, &dunder::CALL) => {
                 self.is_subset_eq(&call_ty, want)
             }
             // Constructors as callables
