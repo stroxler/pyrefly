@@ -41,7 +41,7 @@ pub struct Args {
 
 impl Args {
     fn load_from_pyproject(raw_file: &str) -> anyhow::Result<ConfigFile> {
-        match mypy::parse_pyrproject_config(raw_file) {
+        match mypy::parse_pyproject_config(raw_file) {
             ok @ Ok(_) => {
                 info!("Migrating [tool.mypy] config from pyproject.toml");
                 return ok;
