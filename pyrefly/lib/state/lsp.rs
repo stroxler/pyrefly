@@ -1022,7 +1022,6 @@ impl<'a> Transaction<'a> {
         Some(res)
     }
 
-    #[allow(dead_code)]
     pub fn semantic_tokens(
         &self,
         handle: &Handle,

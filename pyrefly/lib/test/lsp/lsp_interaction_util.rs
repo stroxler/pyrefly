@@ -25,6 +25,9 @@ use lsp_types::CodeActionProviderCapability;
 use lsp_types::CompletionOptions;
 use lsp_types::HoverProviderCapability;
 use lsp_types::OneOf;
+use lsp_types::SemanticTokensFullOptions;
+use lsp_types::SemanticTokensOptions;
+use lsp_types::SemanticTokensServerCapabilities;
 use lsp_types::ServerCapabilities;
 use lsp_types::SignatureHelpOptions;
 use lsp_types::TextDocumentSyncCapability;
@@ -39,6 +42,7 @@ use tempfile::TempDir;
 use crate::commands::lsp::Args;
 use crate::commands::lsp::IndexingMode;
 use crate::commands::lsp::run_lsp;
+use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::test::util::init_test;
 
 #[derive(Default)]
@@ -315,6 +319,16 @@ fn get_initialize_responses(find_refs: bool) -> Vec<Message> {
                 }),
                 file_operations: None,
             }),
+            semantic_tokens_provider: {
+                Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
+                    SemanticTokensOptions {
+                        legend: SemanticTokensLegends::lsp_semantic_token_legends(),
+                        full: Some(SemanticTokensFullOptions::Bool(true)),
+                        range: Some(true),
+                        ..Default::default()
+                    },
+                ))
+            },
             ..Default::default()
         }})),
         error: None,

@@ -86,6 +86,14 @@ use lsp_types::Registration;
 use lsp_types::RegistrationParams;
 use lsp_types::RelatedFullDocumentDiagnosticReport;
 use lsp_types::RelativePattern;
+use lsp_types::SemanticTokens;
+use lsp_types::SemanticTokensFullOptions;
+use lsp_types::SemanticTokensOptions;
+use lsp_types::SemanticTokensParams;
+use lsp_types::SemanticTokensRangeParams;
+use lsp_types::SemanticTokensRangeResult;
+use lsp_types::SemanticTokensResult;
+use lsp_types::SemanticTokensServerCapabilities;
 use lsp_types::ServerCapabilities;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureHelpOptions;
@@ -122,6 +130,8 @@ use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
 use lsp_types::request::References;
 use lsp_types::request::RegisterCapability;
+use lsp_types::request::SemanticTokensFullRequest;
+use lsp_types::request::SemanticTokensRangeRequest;
 use lsp_types::request::SignatureHelpRequest;
 use lsp_types::request::UnregisterCapability;
 use lsp_types::request::WorkspaceConfiguration;
@@ -159,6 +169,7 @@ use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::state::handle::Handle;
 use crate::state::require::Require;
+use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::state::Transaction;
@@ -583,6 +594,16 @@ pub fn run_lsp(
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
         document_symbol_provider: Some(OneOf::Left(true)),
+        semantic_tokens_provider: {
+            Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
+                SemanticTokensOptions {
+                    legend: SemanticTokensLegends::lsp_semantic_token_legends(),
+                    full: Some(SemanticTokensFullOptions::Bool(true)),
+                    range: Some(true),
+                    ..Default::default()
+                },
+            ))
+        },
         workspace: Some(WorkspaceServerCapabilities {
             workspace_folders: Some(WorkspaceFoldersServerCapabilities {
                 supported: Some(true),
@@ -847,6 +868,34 @@ impl Server {
                     self.send_response(new_response(
                         x.id,
                         Ok(self.inlay_hints(&transaction, params).unwrap_or_default()),
+                    ));
+                    ide_transaction_manager.save(transaction);
+                } else if let Some(params) = as_request::<SemanticTokensFullRequest>(&x) {
+                    let default_response = SemanticTokensResult::Tokens(SemanticTokens {
+                        result_id: None,
+                        data: Vec::new(),
+                    });
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(self
+                            .semantic_tokens_full(&transaction, params)
+                            .unwrap_or(default_response)),
+                    ));
+                    ide_transaction_manager.save(transaction);
+                } else if let Some(params) = as_request::<SemanticTokensRangeRequest>(&x) {
+                    let default_response = SemanticTokensRangeResult::Tokens(SemanticTokens {
+                        result_id: None,
+                        data: Vec::new(),
+                    });
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(self
+                            .semantic_tokens_ranged(&transaction, params)
+                            .unwrap_or(default_response)),
                     ));
                     ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<DocumentSymbolRequest>(&x) {
@@ -1579,6 +1628,41 @@ impl Server {
                 padding_right: None,
                 data: None,
             }
+        }))
+    }
+
+    fn semantic_tokens_full(
+        &self,
+        transaction: &Transaction<'_>,
+        params: SemanticTokensParams,
+    ) -> Option<SemanticTokensResult> {
+        let uri = &params.text_document.uri;
+        let handle = self.make_handle_if_enabled(uri)?;
+        Some(SemanticTokensResult::Tokens(SemanticTokens {
+            result_id: None,
+            data: transaction
+                .semantic_tokens(&handle, None)
+                .unwrap_or_default(),
+        }))
+    }
+
+    fn semantic_tokens_ranged(
+        &self,
+        transaction: &Transaction<'_>,
+        params: SemanticTokensRangeParams,
+    ) -> Option<SemanticTokensRangeResult> {
+        let uri = &params.text_document.uri;
+        let handle = self.make_handle_if_enabled(uri)?;
+        let module_info = transaction.get_module_info(&handle)?;
+        let range = TextRange::new(
+            position_to_text_size(&module_info, params.range.start),
+            position_to_text_size(&module_info, params.range.end),
+        );
+        Some(SemanticTokensRangeResult::Tokens(SemanticTokens {
+            result_id: None,
+            data: transaction
+                .semantic_tokens(&handle, Some(range))
+                .unwrap_or_default(),
         }))
     }
 
