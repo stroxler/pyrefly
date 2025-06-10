@@ -134,6 +134,10 @@ impl Error {
         self.module_info.path()
     }
 
+    pub fn msg_header(&self) -> &str {
+        &self.msg_header
+    }
+
     fn msg_details(&self) -> &str {
         self.msg_details.as_ref().map_or("", |s| s)
     }
