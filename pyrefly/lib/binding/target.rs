@@ -10,6 +10,7 @@ use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::Identifier;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
 
@@ -340,23 +341,40 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
-    /// Similar to `bind_target`, but specifically for assignments:
-    /// - Handles multi-target assignment
-    /// - Takes the value as an `Expr` rather than a `make_binding` callaback, which enables
-    ///   better contextual typing in cases where the assignment might actually invoke
-    ///   a method (like descriptor attribute assigns and `__setitem__` calls).
-    ///
-    /// TODO(stroxler): We should think about how we do this in more detail, the contextual
-    /// typing is too aggressive. See `test_context_in_multi_target_assign`, for example.
+    /// Similar to `bind_target`, but specifically for assignments that are *not* to a single name
+    /// - Handles attribute and subscript assignment. If there is only one target
+    ///   we will use contextual typing.
+    /// - Handles multi-target assignment; in this case we will create an anonymous
+    ///   binding to type check the RHS non-contextually, and then type check each
+    ///   assignment - this is needed both for usage tracking and to avoid overly
+    ///   aggressive contextual typing.
     pub fn bind_targets_with_value(&mut self, targets: &mut [Expr], value: &mut Expr) {
-        for (i, target) in targets.iter_mut().enumerate() {
-            let ensure_assigned = i == 0;
-            self.bind_target_impl(
-                target,
-                Some(value),
-                &|expr, _| ExprOrBinding::Expr(expr.unwrap().clone()),
-                ensure_assigned,
-            );
+        match targets {
+            [] => {}
+            [target] => {
+                self.bind_target_impl(
+                    target,
+                    Some(value),
+                    &|expr, _| ExprOrBinding::Expr(expr.unwrap().clone()),
+                    true,
+                );
+            }
+            _ => {
+                let user = self.declare_user(Key::Anon(value.range()));
+                self.ensure_expr(value, user.usage());
+                let rhs_idx = self.insert_binding_user(user, Binding::Expr(None, value.clone()));
+                for target in targets.iter_mut() {
+                    let range = target.range();
+                    self.bind_target_impl(
+                        target,
+                        None,
+                        &|_, ann| {
+                            ExprOrBinding::Binding(Binding::MultiTargetAssign(ann, rhs_idx, range))
+                        },
+                        false,
+                    );
+                }
+            }
         }
     }
 

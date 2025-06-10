@@ -750,7 +750,6 @@ pub enum Binding {
     Expr(Option<Idx<KeyAnnotation>>, Expr),
     /// Propagate a type to a new binding. Takes an optional annotation to
     /// check against (which will override the computed type if they disagree).
-    #[expect(dead_code)]
     MultiTargetAssign(Option<Idx<KeyAnnotation>>, Idx<Key>, TextRange),
     /// TypeVar, ParamSpec, or TypeVarTuple
     TypeVar(Option<Idx<KeyAnnotation>>, Identifier, Box<ExprCall>),
