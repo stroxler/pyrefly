@@ -326,6 +326,21 @@ x: C[list[A]] = C([B()])
 );
 
 testcase!(
+    bug = "It is unsound to contextually type multi-target assignments naively",
+    test_context_in_multi_target_assign,
+    r#"
+class A: ...
+class B(A): ...
+x: list[A]
+y: list[B]
+# This type checks because `[B()]` contextually types as both `list[A]` and `list[B]`,
+# but it is unsound: there's only one value produced here, so it cannot be assigned
+# to two incompatible types. Mutating `x` could invalidate the type of `y`.
+x = y = [B()]
+    "#,
+);
+
+testcase!(
     bug = "We do not currently propagate context through unpacked assignment",
     test_context_assign_unpacked_tuple,
     r#"

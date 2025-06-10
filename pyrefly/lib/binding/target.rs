@@ -345,6 +345,9 @@ impl<'a> BindingsBuilder<'a> {
     /// - Takes the value as an `Expr` rather than a `make_binding` callaback, which enables
     ///   better contextual typing in cases where the assignment might actually invoke
     ///   a method (like descriptor attribute assigns and `__setitem__` calls).
+    ///
+    /// TODO(stroxler): We should think about how we do this in more detail, the contextual
+    /// typing is too aggressive. See `test_context_in_multi_target_assign`, for example.
     pub fn bind_targets_with_value(&mut self, targets: &mut [Expr], value: &mut Expr) {
         for (i, target) in targets.iter_mut().enumerate() {
             let ensure_assigned = i == 0;
