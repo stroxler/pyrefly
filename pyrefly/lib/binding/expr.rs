@@ -62,6 +62,13 @@ use crate::types::types::Type;
 pub enum Usage {
     /// Usage to create a `Binding`.
     Idx(Idx<Key>),
+    /// I am a usage that will appear in a narrowing operation. We don't allow
+    /// pinning in this case:
+    /// - It is generally not useful (narrowing operations don't usually pin types)
+    /// - Because narrowing introduces duplicate expressions, it is difficult
+    ///   to ensure unpinned Vars cannot leak into the binding graph and cause
+    ///   nondeterminism.
+    Narrowing,
     /// I am a scenario where we need to ensure expressions with no usage tracking.
     ///
     /// This should only be used when handling expressions that create values whose
@@ -284,7 +291,7 @@ impl<'a> BindingsBuilder<'a> {
                 Binding::Forward(iterable_value_idx)
             });
             for x in comp.ifs.iter_mut() {
-                self.ensure_expr(x, usage);
+                self.ensure_expr(x, Usage::Narrowing);
                 let narrow_ops = NarrowOps::from_expr(self, Some(x));
                 self.bind_narrow_ops(&narrow_ops, comp.range);
             }
@@ -404,7 +411,7 @@ impl<'a> BindingsBuilder<'a> {
             Expr::If(x) => {
                 // Ternary operation. We treat it like an if/else statement.
                 let base = self.scopes.clone_current_flow();
-                self.ensure_expr(&mut x.test, usage);
+                self.ensure_expr(&mut x.test, Usage::Narrowing);
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.bind_narrow_ops(&narrow_ops, x.body.range());
                 self.ensure_expr(&mut x.body, usage);
@@ -416,7 +423,7 @@ impl<'a> BindingsBuilder<'a> {
                 let mut narrow_ops = NarrowOps::new();
                 for value in values {
                     self.bind_narrow_ops(&narrow_ops, value.range());
-                    self.ensure_expr(value, usage);
+                    self.ensure_expr(value, Usage::Narrowing);
                     let new_narrow_ops = NarrowOps::from_expr(self, Some(value));
                     match op {
                         BoolOp::And => {
@@ -567,7 +574,7 @@ impl<'a> BindingsBuilder<'a> {
             {
                 self.ensure_expr(func, usage);
                 for arg in arguments.args.iter_mut() {
-                    self.ensure_expr(arg, usage);
+                    self.ensure_expr(arg, Usage::Narrowing);
                 }
                 for kw in arguments.keywords.iter_mut() {
                     self.ensure_expr(&mut kw.value, usage);

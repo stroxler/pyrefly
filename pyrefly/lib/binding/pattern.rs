@@ -40,10 +40,10 @@ impl<'a> BindingsBuilder<'a> {
     ) -> NarrowOps {
         // In typical code, match patterns are more like static types than normal values, so
         // we ignore match patterns for first-usage tracking.
-        let no_usage = Usage::NoUsageTracking;
+        let narrowing_usage = Usage::Narrowing;
         match pattern {
             Pattern::MatchValue(mut p) => {
-                self.ensure_expr(&mut p.value, no_usage);
+                self.ensure_expr(&mut p.value, narrowing_usage);
                 if let Some(subject) = match_subject {
                     NarrowOps::from_single_narrow_op_for_subject(
                         subject,
@@ -155,7 +155,7 @@ impl<'a> BindingsBuilder<'a> {
                 narrow_ops
             }
             Pattern::MatchClass(mut x) => {
-                self.ensure_expr(&mut x.cls, no_usage);
+                self.ensure_expr(&mut x.cls, narrowing_usage);
                 let mut narrow_ops = if let Some(subject) = match_subject {
                     NarrowOps::from_single_narrow_op_for_subject(
                         subject,
@@ -256,11 +256,10 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_narrow_ops(&new_narrow_ops, case.range);
             negated_prev_ops.and_all(new_narrow_ops.negate());
             if let Some(mut guard) = case.guard {
-                let guard_user = self.declare_user(Key::Anon(guard.range()));
-                self.ensure_expr(&mut guard, guard_user.usage());
+                self.ensure_expr(&mut guard, Usage::Narrowing);
                 let narrow_ops = NarrowOps::from_expr(self, Some(guard.as_ref()));
                 self.bind_narrow_ops(&narrow_ops, case.range);
-                self.insert_binding_user(guard_user, Binding::Expr(None, *guard));
+                self.insert_binding(Key::Anon(guard.range()), Binding::Expr(None, *guard));
             }
             self.stmts(case.body);
             self.scopes.swap_current_flow_with(&mut base);

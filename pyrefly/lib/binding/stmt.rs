@@ -595,6 +595,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse);
             }
             Stmt::While(mut x) => {
+                self.ensure_expr(&mut x.test, Usage::Narrowing);
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.setup_loop(x.range, &narrow_ops);
                 // Note that is is important we ensure *after* we set up the loop, so that both the
@@ -602,7 +603,6 @@ impl<'a> BindingsBuilder<'a> {
                 // made in the loop (e.g. if we reassign the test variable).
                 let range = x.test.range();
                 let user = self.declare_user(Key::Anon(range));
-                self.ensure_expr(&mut x.test, user.usage());
                 self.insert_binding_user(user, Binding::Expr(None, *x.test.clone()));
                 // Typecheck the test condition during solving.
                 self.insert_binding(
@@ -632,7 +632,7 @@ impl<'a> BindingsBuilder<'a> {
                     }
                     self.bind_narrow_ops(&negated_prev_ops, range);
                     let mut base = self.scopes.clone_current_flow();
-                    self.ensure_expr_opt(test.as_mut(), Usage::NoUsageTracking);
+                    self.ensure_expr_opt(test.as_mut(), Usage::Narrowing);
                     let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
                     if let Some(test_expr) = test {
                         self.insert_binding(
@@ -764,10 +764,9 @@ impl<'a> BindingsBuilder<'a> {
                 self.stmts(x.finalbody);
             }
             Stmt::Assert(mut x) => {
-                let test_user = self.declare_user(Key::Anon(x.test.range()));
-                self.ensure_expr(&mut x.test, test_user.usage());
+                self.ensure_expr(&mut x.test, Usage::Narrowing);
                 self.bind_narrow_ops(&NarrowOps::from_expr(self, Some(&x.test)), x.range);
-                self.insert_binding_user(test_user, Binding::Expr(None, *x.test));
+                self.insert_binding(Key::Anon(x.test.range()), Binding::Expr(None, *x.test));
                 if let Some(mut msg_expr) = x.msg {
                     let msg_user = self.declare_user(Key::UsageLink(msg_expr.range()));
                     self.ensure_expr(&mut msg_expr, msg_user.usage());
