@@ -14,6 +14,8 @@ use lsp_types::CompletionItemKind;
 use lsp_types::DocumentSymbol;
 use lsp_types::ParameterInformation;
 use lsp_types::ParameterLabel;
+use lsp_types::SemanticToken;
+use lsp_types::SemanticTokenType;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureInformation;
 use pyrefly_util::gas::Gas;
@@ -60,6 +62,8 @@ use crate::state::ide::binding_to_intermediate_definition;
 use crate::state::ide::insert_import_edit;
 use crate::state::ide::key_to_intermediate_definition;
 use crate::state::require::Require;
+use crate::state::semantic_tokens::SemanticTokenWithFullRange;
+use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::CancellableTransaction;
 use crate::state::state::Transaction;
 use crate::sys_info::SysInfo;
@@ -1016,6 +1020,46 @@ impl<'a> Transaction<'a> {
             }
         }
         Some(res)
+    }
+
+    #[allow(dead_code)]
+    pub fn semantic_tokens(
+        &self,
+        handle: &Handle,
+        limit_range: Option<TextRange>,
+    ) -> Option<Vec<SemanticToken>> {
+        let module_info = self.get_module_info(handle)?;
+        let ast = self.get_ast(handle)?;
+        let legends = SemanticTokensLegends::new();
+        let mut tokens = Vec::new();
+        fn visit_expr(
+            x: &Expr,
+            tokens: &mut Vec<SemanticTokenWithFullRange>,
+            limit_range: Option<TextRange>,
+        ) {
+            if let Expr::Call(call) = x
+                && let Expr::Attribute(attr) = call.func.as_ref()
+            {
+                if limit_range.is_none_or(|x| x.contains_range(attr.attr.range())) {
+                    tokens.push(SemanticTokenWithFullRange {
+                        range: attr.attr.range(),
+                        token_type: SemanticTokenType::METHOD,
+                    });
+                }
+            } else if let Expr::Attribute(attr) = x {
+                // todo(samzhou19815): if the class's base is Enum, it should be ENUM_MEMBER
+                if limit_range.is_none_or(|x| x.contains_range(attr.attr.range())) {
+                    tokens.push(SemanticTokenWithFullRange {
+                        range: attr.attr.range(),
+                        token_type: SemanticTokenType::PROPERTY,
+                    });
+                }
+            } else {
+                x.recurse(&mut |x| visit_expr(x, tokens, limit_range));
+            }
+        }
+        ast.visit(&mut |e| visit_expr(e, &mut tokens, limit_range));
+        Some(legends.convert_tokens_into_lsp_semantic_tokens(tokens, module_info))
     }
 
     #[allow(deprecated)] // The `deprecated` field

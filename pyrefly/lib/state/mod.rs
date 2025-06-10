@@ -15,6 +15,7 @@ pub mod loader;
 pub mod lsp;
 pub mod memory;
 pub mod require;
+pub mod semantic_tokens;
 pub mod state;
 pub mod steps;
 pub mod subscriber;

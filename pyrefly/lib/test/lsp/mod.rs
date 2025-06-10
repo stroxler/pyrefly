@@ -17,4 +17,5 @@ mod inlay_hint;
 mod local_find_refs;
 mod lsp_interaction;
 mod lsp_interaction_util;
+mod semantic_tokens;
 mod signature_help;
