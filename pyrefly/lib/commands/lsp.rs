@@ -28,6 +28,7 @@ use lsp_server::Connection;
 use lsp_server::ErrorCode;
 use lsp_server::Message;
 use lsp_server::Notification;
+use lsp_server::ProtocolError;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
@@ -562,11 +563,20 @@ fn dispatch_lsp_events(
     }
 }
 
-pub fn run_lsp(
-    connection: Arc<Connection>,
-    wait_on_connection: impl FnOnce() -> anyhow::Result<()> + Send + 'static,
-    args: Args,
-) -> anyhow::Result<CommandExitStatus> {
+fn initialize_connection(
+    connection: &Connection,
+    args: &Args,
+) -> Result<InitializeParams, ProtocolError> {
+    let (request_id, initialization_params) = connection.initialize_start()?;
+    let initialization_params: InitializeParams =
+        serde_json::from_value(initialization_params).unwrap();
+    let augments_syntax_tokens = initialization_params
+        .capabilities
+        .text_document
+        .as_ref()
+        .and_then(|c| c.semantic_tokens.as_ref())
+        .and_then(|c| c.augments_syntax_tokens)
+        .unwrap_or(false);
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
     let server_capabilities = serde_json::to_value(&ServerCapabilities {
         text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
@@ -594,7 +604,12 @@ pub fn run_lsp(
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
         document_symbol_provider: Some(OneOf::Left(true)),
-        semantic_tokens_provider: {
+        semantic_tokens_provider: if augments_syntax_tokens {
+            // We currently only return partial tokens (e.g. no tokens for keywords right now).
+            // If the client doesn't support `augments_syntax_tokens` to fallback baseline
+            // syntax highlighting for tokens we don't provide, it will be a regression
+            // (e.g. users might lose keyword highlighting).
+            // Therefore, we should not produce semantic tokens if the client doesn't support `augments_syntax_tokens`.
             Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
                 SemanticTokensOptions {
                     legend: SemanticTokensLegends::lsp_semantic_token_legends(),
@@ -603,6 +618,8 @@ pub fn run_lsp(
                     ..Default::default()
                 },
             ))
+        } else {
+            None
         },
         workspace: Some(WorkspaceServerCapabilities {
             workspace_folders: Some(WorkspaceFoldersServerCapabilities {
@@ -614,8 +631,21 @@ pub fn run_lsp(
         ..Default::default()
     })
     .unwrap();
-    let initialization_params = match connection.initialize(server_capabilities) {
-        Ok(it) => serde_json::from_value(it).unwrap(),
+    let initialize_data = serde_json::json!({
+        "capabilities": server_capabilities,
+    });
+
+    connection.initialize_finish(request_id, initialize_data)?;
+    Ok(initialization_params)
+}
+
+pub fn run_lsp(
+    connection: Arc<Connection>,
+    wait_on_connection: impl FnOnce() -> anyhow::Result<()> + Send + 'static,
+    args: Args,
+) -> anyhow::Result<CommandExitStatus> {
+    let initialization_params = match initialize_connection(&connection, &args) {
+        Ok(it) => it,
         Err(e) => {
             // Use this in later versions of LSP server
             // if e.channel_is_disconnected() {
