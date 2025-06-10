@@ -284,7 +284,10 @@ impl<'a> BindingsBuilder<'a> {
                     && let Some((module, forward)) =
                         resolve_typeshed_alias(self.module_info.name(), &name.id, &x.value) =>
             {
-                // TODO(stroxler): should we complain here if there's an existing annotation?
+                // This hook is used to treat certain names defined in `typing.pyi` as `_Alias()`
+                // assignments "as if" they were imports of the aliased name.
+                //
+                // For example, we treat `typing.List` as if it were an import of `builtins.list`.
                 self.bind_legacy_type_var_or_typing_alias(name, |_| {
                     Binding::Import(module, forward)
                 })
