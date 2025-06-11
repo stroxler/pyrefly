@@ -385,7 +385,7 @@ impl<'a> Transaction<'a> {
                 _,
                 _,
             ) => {
-                // def ...[**id](...): ...
+                // try ... except ... as id: ...
                 Some(IdentifierWithContext::from_exception_handler(id))
             }
             (
@@ -393,7 +393,10 @@ impl<'a> Transaction<'a> {
                 Some(AnyNodeRef::Keyword(_)),
                 Some(AnyNodeRef::Arguments(_)),
                 Some(AnyNodeRef::ExprCall(call)),
-            ) => Some(IdentifierWithContext::from_keyword_argument(id, call)),
+            ) => {
+                // XXX(..., id=..., ...)
+                Some(IdentifierWithContext::from_keyword_argument(id, call))
+            }
             (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::ExprAttribute(attr)), _, _) => {
                 // `XXX.id`
                 Some(IdentifierWithContext::from_expr_attr(id, attr))
