@@ -88,7 +88,7 @@ C.x = 2
 testcase!(
     test_assign_twice_empty,
     r#"
-from typing import assert_type
+from typing import assert_type, Any
 def b() -> bool:
     return True
 
@@ -97,7 +97,7 @@ if b():
 else:
     x = [3]
 y = x
-assert_type(y, list[int])
+assert_type(y, list[int] | list[Any])
 "#,
 );
 

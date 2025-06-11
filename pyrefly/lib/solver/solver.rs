@@ -123,6 +123,31 @@ impl Solver {
         }
     }
 
+    /// Force all non-recursive Vars in `vars`.
+    ///
+    /// TODO: deduplicate Variable-to-gradual-type logic with `force_var`.
+    pub fn pin_placeholder_type(&self, var: Var) {
+        let mut variables = self.variables.write();
+        if let Some(variable) = variables.get_mut(&var) {
+            match variable {
+                Variable::Recursive(..) | Variable::Answer(..) => {
+                    // Nothing to do if we have an answer already, and we want to skip recursive Vars
+                    // which do not represent placeholder types.
+                }
+                Variable::Quantified(q) => {
+                    *variable = Variable::Answer(q.as_gradual_type());
+                }
+                Variable::Contained | Variable::Unwrap => {
+                    *variable = Variable::Answer(Type::any_implicit());
+                }
+            }
+        } else {
+            // TODO(stroxler): I'm pretty sure this is unreachable?
+            // If it *were* reachable, this would be the right thing to do but maybe we should panic instead.
+            variables.insert(var, Variable::Answer(Type::any_implicit()));
+        }
+    }
+
     /// Expand a type. All variables that have been bound will be replaced with non-Var types,
     /// even if they are recursive (using `Any` for self-referential occurrences).
     /// Variables that have not yet been bound will remain as Var.

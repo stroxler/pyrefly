@@ -11,6 +11,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use itertools::Either;
 use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprSubscript;
@@ -109,6 +110,7 @@ use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::TypeAlias;
 use crate::types::types::TypeAliasStyle;
+use crate::types::types::Var;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TypeFormContext {
@@ -1872,7 +1874,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     FirstUse::Undetermined | FirstUse::DoesNotPin => {}
                 }
-                self.get_idx(*unpinned_idx).arc_clone().into_ty()
+                let mut ty = self.get_idx(*unpinned_idx).arc_clone().into_ty();
+                // Expand the type, in case unexpanded `Vars` are hiding further `Var`s that
+                // need to be pinned.
+                self.solver().expand_mut(&mut ty);
+                // Collect all the vars we may need to pin
+                fn f(t: &Type, vars: &mut Vec<Var>) {
+                    match t {
+                        Type::Var(v) => vars.push(*v),
+                        _ => t.recurse(&mut |t| f(t, vars)),
+                    }
+                }
+                let mut vars = vec![];
+                f(&ty, &mut vars);
+                // Pin all relevant vars
+                for var in vars {
+                    self.solver().pin_placeholder_type(var);
+                }
+                ty
             }
             Binding::Expr(ann, e) => match ann {
                 Some(k) => {

@@ -103,7 +103,7 @@ def bar(random: bool):
         x = foo([])
     else:
         x = foo([1])
-    assert_type(x, int)
+    assert_type(x, int | Any)
     "#,
 );
 
@@ -134,24 +134,25 @@ assert_type(x, list[int])
 testcase!(
     test_inference_when_first_use_does_not_determine_type,
     r#"
-from typing import assert_type
+from typing import assert_type, Any
 x = []
 print(x)
 x.append(1)
-assert_type(x, list[int])
+assert_type(x, list[Any])
 "#,
 );
 
 testcase!(
+    bug = "We produce too many bindings here, and lose track of the fact that `x` is unchanged between def and first use",
     test_inference_when_first_use_comes_after_nested_control_flow,
     r#"
-from typing import assert_type
+from typing import assert_type, Any
 x = []
 if True:
     if False:
         pass
 x.append(1)
-assert_type(x, list[int])
+assert_type(x, list[Any])
 "#,
 );
 
@@ -203,33 +204,25 @@ z = x.append("1")
 }
 
 testcase!(
-    emulate_nondeterminism_a,
+    first_use_nonpin_and_two_exported_pins_a,
     env_first_use_nonpin_and_two_exported_pins(),
     r#"
-from typing import assert_type
+from typing import assert_type, Any
 from first_use_nonpin_and_two_exported_pins import y
 assert_type(y, None)
 from first_use_nonpin_and_two_exported_pins import x
-assert_type(x, list[int])
+assert_type(x, list[Any])
 "#,
 );
 
-/*
-// This test is commented because it is actually nondeterministc,
-// a thread checking the imported file can potentially race
-// the thread checking main.
-//
-// But it usually would pass in its current form, illustrating
-// nondeterminism in the type inference for `x`.
 testcase!(
-    emulate_nondeterminism_b,
+    first_use_nonpin_and_two_exported_pins_b,
     env_first_use_nonpin_and_two_exported_pins(),
     r#"
-from typing import assert_type
+from typing import assert_type, Any
 from first_use_nonpin_and_two_exported_pins import z
 assert_type(z, None)
 from first_use_nonpin_and_two_exported_pins import x
-assert_type(x, list[str])
+assert_type(x, list[Any])
 "#,
 );
-*/
