@@ -100,6 +100,13 @@ impl DefinitionMetadata {
 enum IdentifierContext {
     /// An identifier appeared in an expression. ex: `x` in `x + 1`
     Expr,
+    /// An identifier appeared as the name of an attribute. ex: `y` in `x.y`
+    Attribute {
+        /// The range of just the base expression.
+        base_range: TextRange,
+        /// The range of the entire expression.
+        range: TextRange,
+    },
     /// An identifier appeared as the name of an imported module.
     /// ex: `x` in `import x`, or `from x import name`.
     ImportedModule {
@@ -175,6 +182,17 @@ impl IdentifierWithContext {
         }
     }
 
+    fn from_expr_attr(id: &Identifier, attr: &ExprAttribute) -> Self {
+        let identifier = id.clone();
+        Self {
+            identifier,
+            context: IdentifierContext::Attribute {
+                base_range: attr.value.range(),
+                range: attr.range(),
+            },
+        }
+    }
+
     fn from_expr_name(expr_name: &ExprName) -> Self {
         let identifier = Ast::expr_name_identifier(expr_name.clone());
         Self {
@@ -234,6 +252,10 @@ impl<'a> Transaction<'a> {
                     import_from,
                 ))
             }
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::ExprAttribute(attr)), _) => {
+                // `XXX.id`
+                Some(IdentifierWithContext::from_expr_attr(id, attr))
+            }
             (Some(AnyNodeRef::ExprName(name)), _, _) => {
                 Some(IdentifierWithContext::from_expr_name(name))
             }
@@ -245,22 +267,6 @@ impl<'a> Transaction<'a> {
         self.get_bindings(handle)?
             .definition_at_position(position)
             .cloned()
-    }
-
-    fn attribute_at(&self, handle: &Handle, position: TextSize) -> Option<ExprAttribute> {
-        let mod_module = self.get_ast(handle)?;
-        fn f(x: &Expr, find: TextSize, res: &mut Option<ExprAttribute>) {
-            if let Expr::Attribute(x) = x
-                && x.attr.range.contains_inclusive(find)
-            {
-                *res = Some(x.clone());
-            } else {
-                x.recurse(&mut |x| f(x, find, res));
-            }
-        }
-        let mut res = None;
-        mod_module.visit(&mut |x| f(x, position, &mut res));
-        res
     }
 
     pub fn get_type_at(&self, handle: &Handle, position: TextSize) -> Option<Type> {
@@ -302,12 +308,12 @@ impl<'a> Transaction<'a> {
                             .get_answers(handle)
                             .and_then(|answers| answers.get_chosen_overload_trace(arguments.range))
                     {
-                        return Some(Type::Callable(Box::new(chosen_overload)));
+                        Some(Type::Callable(Box::new(chosen_overload)))
                     } else {
-                        return self.get_type(handle, &Key::BoundName(ShortIdentifier::new(&id)));
+                        self.get_type(handle, &Key::BoundName(ShortIdentifier::new(&id)))
                     }
                 } else {
-                    return None;
+                    None
                 }
             }
             Some(IdentifierWithContext {
@@ -318,33 +324,38 @@ impl<'a> Transaction<'a> {
                     },
             }) => {
                 // TODO: Handle relative import (via ModuleName::new_maybe_relative)
-                return Some(Type::Module(Module::new(
+                Some(Type::Module(Module::new(
                     module_name.components().first().unwrap().clone(),
                     OrderedSet::from_iter([module_name]),
-                )));
+                )))
             }
             Some(IdentifierWithContext {
                 identifier: _,
                 context: IdentifierContext::ImportedName { .. },
             }) => {
                 // TODO(grievejia): handle definitions of imported names
+                None
             }
-            None => {}
-        }
-        let attribute = self.attribute_at(handle, position)?;
-        if let Some(ExprCall {
-            range: _,
-            func,
-            arguments,
-        }) = &callee
-            && func.range() == attribute.range
-            && let Some(chosen_overload) = self
-                .get_answers(handle)
-                .and_then(|answers| answers.get_chosen_overload_trace(arguments.range))
-        {
-            Some(Type::Callable(Box::new(chosen_overload)))
-        } else {
-            self.get_type_trace(handle, attribute.range)
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::Attribute { range, .. },
+            }) => {
+                if let Some(ExprCall {
+                    range: _,
+                    func,
+                    arguments,
+                }) = &callee
+                    && func.range() == range
+                    && let Some(chosen_overload) = self
+                        .get_answers(handle)
+                        .and_then(|answers| answers.get_chosen_overload_trace(arguments.range))
+                {
+                    Some(Type::Callable(Box::new(chosen_overload)))
+                } else {
+                    self.get_type_trace(handle, range)
+                }
+            }
+            None => None,
         }
     }
 
@@ -597,11 +608,11 @@ impl<'a> Transaction<'a> {
                     &Key::BoundName(ShortIdentifier::new(&id)),
                     INITIAL_GAS,
                 )?;
-                return Some((
+                Some((
                     DefinitionMetadata::Variable(symbol_kind),
                     TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
                     docstring,
-                ));
+                ))
             }
             Some(IdentifierWithContext {
                 identifier: _,
@@ -612,40 +623,44 @@ impl<'a> Transaction<'a> {
             }) => {
                 // TODO: Handle relative import (via ModuleName::new_maybe_relative)
                 let handle = self.import_handle(handle, module_name, None).ok()?;
-                return Some((
+                Some((
                     DefinitionMetadata::Module,
                     TextRangeWithModuleInfo::new(
                         self.get_module_info(&handle)?,
                         TextRange::default(),
                     ),
                     self.get_module_docstring(&handle),
-                ));
+                ))
             }
             Some(IdentifierWithContext {
                 identifier: _,
                 context: IdentifierContext::ImportedName { .. },
             }) => {
                 // TODO(grievejia): Handle definitions of imported names
+                None
             }
-            None => {}
+            Some(IdentifierWithContext {
+                identifier,
+                context: IdentifierContext::Attribute { base_range, .. },
+            }) => {
+                let base_type = self.get_answers(handle)?.get_type_trace(base_range)?;
+                self.ad_hoc_solve(handle, |solver| {
+                    let items =
+                        solver.completions(base_type.arc_clone(), Some(identifier.id()), false);
+                    items.into_iter().find_map(|x| {
+                        if &x.name == identifier.id() {
+                            let (definition, docstring) =
+                                self.resolve_attribute_definition(handle, &x.name, x.definition?)?;
+                            Some((DefinitionMetadata::Attribute(x.name), definition, docstring))
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .flatten()
+            }
+            None => None,
         }
-        let attribute = self.attribute_at(handle, position)?;
-        let base_type = self
-            .get_answers(handle)?
-            .get_type_trace(attribute.value.range())?;
-        self.ad_hoc_solve(handle, |solver| {
-            let items = solver.completions(base_type.arc_clone(), Some(&attribute.attr.id), false);
-            items.into_iter().find_map(|x| {
-                if x.name == attribute.attr.id {
-                    let (definition, docstring) =
-                        self.resolve_attribute_definition(handle, &x.name, x.definition?)?;
-                    Some((DefinitionMetadata::Attribute(x.name), definition, docstring))
-                } else {
-                    None
-                }
-            })
-        })
-        .flatten()
     }
 
     pub fn goto_definition(
@@ -909,6 +924,22 @@ impl<'a> Transaction<'a> {
                 // TODO(kylei): completion for module names
                 None
             }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::Attribute { base_range, .. },
+            }) => {
+                let base_type = self.get_answers(handle)?.get_type_trace(base_range)?;
+                self.ad_hoc_solve(handle, |solver| {
+                    solver
+                        .completions(base_type.arc_clone(), None, true)
+                        .into_map(|x| CompletionItem {
+                            label: x.name.as_str().to_owned(),
+                            detail: x.ty.map(|t| t.to_string()),
+                            kind: Some(CompletionItemKind::FIELD),
+                            ..Default::default()
+                        })
+                })
+            }
             Some(IdentifierWithContext { .. }) => {
                 let bindings = self.get_bindings(handle)?;
                 let module_info = self.get_module_info(handle)?;
@@ -937,22 +968,7 @@ impl<'a> Transaction<'a> {
                     .collect::<Vec<_>>();
                 Some(names)
             }
-            None => {
-                let attribute = self.attribute_at(handle, position)?;
-                let base_type = self
-                    .get_answers(handle)?
-                    .get_type_trace(attribute.value.range())?;
-                self.ad_hoc_solve(handle, |solver| {
-                    solver
-                        .completions(base_type.arc_clone(), None, true)
-                        .into_map(|x| CompletionItem {
-                            label: x.name.as_str().to_owned(),
-                            detail: x.ty.map(|t| t.to_string()),
-                            kind: Some(CompletionItemKind::FIELD),
-                            ..Default::default()
-                        })
-                })
-            }
+            None => None,
         }
     }
 
