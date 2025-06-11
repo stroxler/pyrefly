@@ -236,19 +236,37 @@ Definition Result:
 fn keyword_argument_test_function() {
     let code = r#"
 def foo(x: int, y: str) -> None: pass
+def bar(x: int, *, y: str) -> None: pass
+def baz(x: int, /) -> None: pass
 
 def test() -> None:
   foo(0, y="foo")
 #        ^
+  bar(1, y="bar")
+#        ^
+  baz(x=0)
+#     ^
 "#;
-    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
     assert_eq!(
         r#"
 # main.py
-5 |   foo(0, y="foo")
+7 |   foo(0, y="foo")
              ^
 Definition Result:
 2 | def foo(x: int, y: str) -> None: pass
+                    ^
+
+9 |   bar(1, y="bar")
+             ^
+Definition Result:
+3 | def bar(x: int, *, y: str) -> None: pass
+                       ^
+
+11 |   baz(x=0)
+           ^
+Definition Result:
+4 | def baz(x: int, /) -> None: pass
         ^^^
 "#
         .trim(),
@@ -262,19 +280,29 @@ fn keyword_argument_test_method() {
 class Foo:
     def foo(self, x: int, y: str) -> None:
         pass
+    def bar(self) -> None:
+        pass
 
 def test(a: Foo) -> None:
     a.foo(0, y="foo")
 #            ^
+    a.bar(x=1)
+#         ^
 "#;
-    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
     assert_eq!(
         r#"
 # main.py
-7 |     a.foo(0, y="foo")
+9 |     a.foo(0, y="foo")
                  ^
 Definition Result:
 3 |     def foo(self, x: int, y: str) -> None:
+                              ^
+
+11 |     a.bar(x=1)
+               ^
+Definition Result:
+5 |     def bar(self) -> None:
             ^^^
 "#
         .trim(),

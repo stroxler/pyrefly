@@ -408,6 +408,35 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    fn refine_param_location_for_callee(
+        &self,
+        handle: &Handle,
+        callee_range: TextRange,
+        param_name: &Identifier,
+    ) -> Option<TextRange> {
+        // TODO(grievejia): We may not have the AST if the handle if not opened.
+        let mod_module = self.get_ast(handle)?;
+        let covering_nodes = Ast::locate_node(&mod_module, callee_range.start());
+        match (covering_nodes.first(), covering_nodes.get(1)) {
+            (Some(AnyNodeRef::Identifier(_)), Some(AnyNodeRef::StmtFunctionDef(function_def))) => {
+                // Only check regular and kwonly params since posonly params cannot be passed by name
+                // on the caller side.
+                for regular_param in function_def.parameters.args.iter() {
+                    if regular_param.name().id() == param_name.id() {
+                        return Some(regular_param.name().range());
+                    }
+                }
+                for kwonly_param in function_def.parameters.kwonlyargs.iter() {
+                    if kwonly_param.name().id() == param_name.id() {
+                        return Some(kwonly_param.name().range());
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
     fn definition_at(&self, handle: &Handle, position: TextSize) -> Option<Key> {
         self.get_bindings(handle)?
             .definition_at_position(position)
@@ -838,22 +867,19 @@ impl<'a> Transaction<'a> {
         .flatten()
     }
 
-    fn get_callee_definition(
+    fn get_callee_location(
         &self,
         handle: &Handle,
         callee_kind: &CalleeKind,
-    ) -> Option<(
-        DefinitionMetadata,
-        TextRangeWithModuleInfo,
-        Option<DocString>,
-    )> {
-        match callee_kind {
+    ) -> Option<TextRangeWithModuleInfo> {
+        let (_, location, _) = match callee_kind {
             CalleeKind::Function(name) => self.find_definition_for_name_use(handle, name),
             CalleeKind::Method(base_range, name) => {
                 self.find_definition_for_attribute(handle, *base_range, name)
             }
             CalleeKind::Unknown => None,
-        }
+        }?;
+        Some(location)
     }
 
     /// Find the definition, metadata and optionally the docstring for the given position.
@@ -948,9 +974,31 @@ impl<'a> Transaction<'a> {
                 None,
             )),
             Some(IdentifierWithContext {
-                identifier: _,
+                identifier,
                 context: IdentifierContext::KeywordArgument(callee_kind),
-            }) => self.get_callee_definition(handle, &callee_kind),
+            }) => {
+                // NOTE(grievejia): There might be a better way to compute this that doesn't require 2 containing node
+                // traversal, once we gain access to the callee function def from callee_kind directly.
+                let callee_location = self.get_callee_location(handle, &callee_kind)?;
+                let handle = Handle::new(
+                    callee_location.module_info.name(),
+                    callee_location.module_info.path().dupe(),
+                    handle.sys_info().dupe(),
+                );
+                let refined_param_range = self.refine_param_location_for_callee(
+                    &handle,
+                    callee_location.range,
+                    &identifier,
+                );
+                Some((
+                    DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
+                    TextRangeWithModuleInfo::new(
+                        callee_location.module_info,
+                        refined_param_range.unwrap_or(callee_location.range),
+                    ),
+                    None,
+                ))
+            }
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
