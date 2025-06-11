@@ -474,15 +474,26 @@ pub enum MutableCaptureLookupKind {
 /// are currently constructing, which can be used as a factory to create
 /// usage values for `ensure_expr`.
 #[derive(Debug)]
-pub struct User(Idx<Key>);
+pub struct User(Usage);
 
 impl User {
+    pub fn new(idx: Idx<Key>) -> Self {
+        Self(Usage::User(idx))
+    }
+
     pub fn usage(&self) -> Usage {
-        Usage::User(self.0)
+        self.0
+    }
+
+    fn idx(&self) -> Idx<Key> {
+        match self.0 {
+            Usage::User(idx) => idx,
+            _ => unreachable!(),
+        }
     }
 
     pub fn into_idx(self) -> Idx<Key> {
-        self.0
+        self.idx()
     }
 }
 
@@ -501,7 +512,7 @@ impl<'a> BindingsBuilder<'a> {
     /// Declare a `Key` as a usage, which can be used for name lookups. Like `idx_for_promise`,
     /// this is a promise to later provide a `Binding` corresponding this key.
     pub fn declare_user(&mut self, key: Key) -> User {
-        User(self.idx_for_promise(key))
+        User::new(self.idx_for_promise(key))
     }
 
     /// Insert a binding into the bindings table immediately, given a `key`
@@ -529,7 +540,7 @@ impl<'a> BindingsBuilder<'a> {
     /// Insert a binding into the bindings table, given a `Usage`. This will panic if the usage
     /// is `Usage::NoUsageTracking`.
     pub fn insert_binding_user(&mut self, user: User, value: Binding) -> Idx<Key> {
-        self.insert_binding_idx(user.0, value)
+        self.insert_binding_idx(user.into_idx(), value)
     }
 
     /// Allow access to an `Idx<Key>` given a `LastStmt` coming from a scan of a function body.
@@ -971,7 +982,7 @@ impl<'a> BindingsBuilder<'a> {
         user: &User,
         style: FlowStyle,
     ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
-        self.bind_key(name, user.0, style)
+        self.bind_key(name, user.idx(), style)
     }
 
     /// Return a pair of:
