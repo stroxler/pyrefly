@@ -208,6 +208,31 @@ Definition Result:
 }
 
 #[test]
+fn exception_handler_name_test() {
+    let code = r#"
+def test(flag: bool) -> None:
+  try:
+    1 / 0
+  except Exception as e:
+#                     ^
+    pass
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+5 |   except Exception as e:
+                          ^
+Definition Result:
+5 |   except Exception as e:
+                          ^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn named_import_tests() {
     let code_import_provider: &str = r#"
 from typing import Literal

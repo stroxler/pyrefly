@@ -141,6 +141,10 @@ enum IdentifierContext {
     /// An identifier appeared as the name of a type parameter.
     /// ex: `T` in `def f[T](...): ...` or `U` in `class C[*U]: ...`
     TypeParameter,
+    /// An identifier appeared as the name of an exception declared in
+    /// an `except` branch.
+    /// ex: `e` in `try ... except Exception as e: ...`
+    ExceptionHandler,
 }
 
 struct IdentifierWithContext {
@@ -226,6 +230,13 @@ impl IdentifierWithContext {
         Self {
             identifier: id.clone(),
             context: IdentifierContext::TypeParameter,
+        }
+    }
+
+    fn from_exception_handler(id: &Identifier) -> Self {
+        Self {
+            identifier: id.clone(),
+            context: IdentifierContext::ExceptionHandler,
         }
     }
 
@@ -319,6 +330,14 @@ impl<'a> Transaction<'a> {
             (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::TypeParamParamSpec(_)), _) => {
                 // def ...[**id](...): ...
                 Some(IdentifierWithContext::from_type_param(id))
+            }
+            (
+                Some(AnyNodeRef::Identifier(id)),
+                Some(AnyNodeRef::ExceptHandlerExceptHandler(_)),
+                _,
+            ) => {
+                // def ...[**id](...): ...
+                Some(IdentifierWithContext::from_exception_handler(id))
             }
             (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::ExprAttribute(attr)), _) => {
                 // `XXX.id`
@@ -425,6 +444,13 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::TypeParameter,
             }) => {
                 // TODO(grievejia): Handle defintions of type params
+                None
+            }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::ExceptionHandler,
+            }) => {
+                // TODO(grievejia): Handle defintions of exception names
                 None
             }
             Some(IdentifierWithContext {
@@ -788,6 +814,14 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::TypeParameter,
             }) => Some((
                 DefinitionMetadata::Variable(Some(SymbolKind::TypeParameter)),
+                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
+                None,
+            )),
+            Some(IdentifierWithContext {
+                identifier,
+                context: IdentifierContext::ExceptionHandler,
+            }) => Some((
+                DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
                 TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
                 None,
             )),
