@@ -1187,8 +1187,12 @@ impl AnnotationWithTarget {
         match self.target {
             AnnotationTarget::ArgsParam(_) => {
                 if let Type::Unpack(unpacked) = annotation_ty {
-                    Some((**unpacked).clone())
-                } else if matches!(annotation_ty, Type::Args(_) | Type::Unpack(_)) {
+                    Some(Type::Tuple(Tuple::unpacked(
+                        Vec::new(),
+                        (**unpacked).clone(),
+                        Vec::new(),
+                    )))
+                } else if matches!(annotation_ty, Type::Args(_)) {
                     Some(annotation_ty.clone())
                 } else {
                     Some(Type::Tuple(Tuple::Unbounded(Box::new(

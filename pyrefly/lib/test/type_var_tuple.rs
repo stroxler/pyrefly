@@ -8,12 +8,14 @@
 use crate::testcase;
 
 testcase!(
-    test_type_var_tuple,
+    test_type_var_tuple_basic,
     r#"
-from typing import TypeVarTuple, Generic
+from typing import TypeVarTuple, Generic, Any, assert_type
 Ts = TypeVarTuple('Ts')
 class Array(Generic[*Ts]): ...
-def foo(*args: *Ts): ...
+def foo(*args: *Ts):
+    assert_type(args, tuple[*Ts])
+    x: tuple[Any, ...] = args
 "#,
 );
 
