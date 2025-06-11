@@ -176,6 +176,12 @@ pub enum Key {
     Import(Name, TextRange),
     /// I am defined in this module at this location.
     Definition(ShortIdentifier),
+    /// I am the pinned version of a definition corresponding to a name assignment.
+    ///
+    /// Used in cases where the raw definition might introduce placeholder `Var` types
+    /// that need to hidden from all lookups except the first usage to avoid nondeterminism.
+    #[expect(dead_code)]
+    PinnedDefinition(ShortIdentifier),
     /// I am a name with possible attribute/subscript narrowing coming from an assignment at this location.
     PropertyAssign(ShortIdentifier),
     /// The type at a specific return point.
@@ -218,6 +224,7 @@ impl Ranged for Key {
         match self {
             Self::Import(_, r) => *r,
             Self::Definition(x) => x.range(),
+            Self::PinnedDefinition(x) => x.range(),
             Self::PropertyAssign(x) => x.range(),
             Self::ReturnExplicit(r) => *r,
             Self::ReturnImplicit(x) => x.range(),
@@ -241,6 +248,9 @@ impl DisplayWith<ModuleInfo> for Key {
         match self {
             Self::Import(n, r) => write!(f, "import {n} {r:?}"),
             Self::Definition(x) => write!(f, "{} {:?}", ctx.display(x), x.range()),
+            Self::PinnedDefinition(x) => {
+                write!(f, "{} {:?} (pinned)", ctx.display(x), x.range())
+            }
             Self::PropertyAssign(x) => {
                 write!(f, "prop assign {}._ = _ {:?}", ctx.display(x), x.range())
             }
