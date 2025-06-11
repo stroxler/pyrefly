@@ -25,6 +25,7 @@ use crate::alt::class::class_field::ClassField;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::types::callable::BoolKeywords;
+use crate::types::callable::DataclassKeywords;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::qname::QName;
@@ -82,6 +83,12 @@ impl ClassMetadata {
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         let mro = Mro::new(cls, &bases_with_metadata, errors);
+        Self::validate_frozen_dataclass_inheritance(
+            cls,
+            &dataclass_metadata,
+            &bases_with_metadata,
+            errors,
+        );
         ClassMetadata {
             mro,
             metaclass: Metaclass(metaclass),
@@ -96,6 +103,51 @@ impl ClassMetadata {
             is_new_type,
             is_final,
             has_unknown_tparams,
+        }
+    }
+
+    fn validate_frozen_dataclass_inheritance(
+        cls: &Class,
+        dataclass_metadata: &Option<DataclassMetadata>,
+        bases_with_metadata: &[(ClassType, Arc<ClassMetadata>)],
+        errors: &ErrorCollector,
+    ) {
+        if let Some(dataclass_metadata) = dataclass_metadata {
+            for (base_type, base_metadata) in bases_with_metadata {
+                if let Some(base_dataclass_metadata) = base_metadata.dataclass_metadata() {
+                    let is_base_frozen = base_dataclass_metadata
+                        .kws
+                        .is_set(&DataclassKeywords::FROZEN);
+                    let is_current_frozen =
+                        dataclass_metadata.kws.is_set(&DataclassKeywords::FROZEN);
+
+                    if is_current_frozen != is_base_frozen {
+                        let current_status = if is_current_frozen {
+                            "frozen"
+                        } else {
+                            "non-frozen"
+                        };
+                        let base_status = if is_base_frozen {
+                            "frozen"
+                        } else {
+                            "non-frozen"
+                        };
+
+                        errors.add(
+                            cls.range(),
+                            ErrorKind::InvalidInheritance,
+                            None,
+                            vec1![format!(
+                                "Cannot inherit {} dataclass `{}` from {} dataclass `{}`",
+                                current_status,
+                                ClassName(cls.qname()),
+                                base_status,
+                                ClassName(base_type.qname()),
+                            )],
+                        );
+                    }
+                }
+            }
         }
     }
 

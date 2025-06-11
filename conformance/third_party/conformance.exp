@@ -3139,6 +3139,26 @@
       "name": "read-only",
       "stop_column": 6,
       "stop_line": 17
+    },
+    {
+      "code": -2,
+      "column": 7,
+      "concise_description": "Cannot inherit non-frozen dataclass `dataclasses_frozen.DC2` from frozen dataclass `dataclasses_frozen.DC1`",
+      "description": "Cannot inherit non-frozen dataclass `dataclasses_frozen.DC2` from frozen dataclass `dataclasses_frozen.DC1`",
+      "line": 23,
+      "name": "invalid-inheritance",
+      "stop_column": 10,
+      "stop_line": 23
+    },
+    {
+      "code": -2,
+      "column": 7,
+      "concise_description": "Cannot inherit frozen dataclass `dataclasses_frozen.DC4` from non-frozen dataclass `dataclasses_frozen.DC3`",
+      "description": "Cannot inherit frozen dataclass `dataclasses_frozen.DC4` from non-frozen dataclass `dataclasses_frozen.DC3`",
+      "line": 33,
+      "name": "invalid-inheritance",
+      "stop_column": 10,
+      "stop_line": 33
     }
   ],
   "dataclasses_hash.py": [

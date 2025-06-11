@@ -139,10 +139,7 @@
     "Line 35: Expected 1 errors",
     "Line 38: Expected 1 errors"
   ],
-  "dataclasses_frozen.py": [
-    "Lines 22, 23: Expected error (tag 'DC2')",
-    "Lines 32, 33: Expected error (tag 'DC4')"
-  ],
+  "dataclasses_frozen.py": [],
   "dataclasses_hash.py": [],
   "dataclasses_inheritance.py": [],
   "dataclasses_kwonly.py": [
