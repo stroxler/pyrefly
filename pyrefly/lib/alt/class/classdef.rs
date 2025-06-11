@@ -17,8 +17,10 @@ use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
+use crate::alt::class::class_field::ClassField;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::EnumMetadata;
+use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyLegacyTypeParam;
 use crate::error::collector::ErrorCollector;
@@ -93,6 +95,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn get_metadata_for_class(&self, cls: &Class) -> Arc<ClassMetadata> {
         self.get_from_class(cls, &KeyClassMetadata(cls.index()))
+    }
+
+    pub fn get_class_field_map(&self, cls: &Class) -> SmallMap<String, Arc<ClassField>> {
+        let mut map = SmallMap::new();
+
+        for name in cls.fields() {
+            let key = KeyClassField(cls.index(), name.clone());
+            let field = self.get_from_class(cls, &key);
+            map.insert(name.as_str().to_owned(), field);
+        }
+
+        map
     }
 
     pub fn get_enum_from_class(&self, cls: &Class) -> Option<EnumMetadata> {

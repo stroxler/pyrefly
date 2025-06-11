@@ -906,7 +906,7 @@ testcase!(
 from typing import assert_type, Any
 class A[T]:
     def f(self) -> T: ...
-assert_type(A.f(A[int]()), int) # E: assert_type(Any, int)
+assert_type(A.f(A[int]()), int)
     "#,
 );
 

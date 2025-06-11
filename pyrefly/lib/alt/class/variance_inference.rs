@@ -9,6 +9,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
+use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::variance_visitor::Injectivity;
 use crate::alt::class::variance_inference::variance_visitor::TParamArray;
 use crate::alt::class::variance_inference::variance_visitor::VarianceEnv;
@@ -54,9 +55,13 @@ pub mod variance_visitor {
 
     use starlark_map::small_map::SmallMap;
 
+    use crate::alt::class::class_field::ClassField;
     use crate::alt::types::class_metadata::ClassMetadata;
+    use crate::types::callable::Param;
+    use crate::types::callable::Params;
     use crate::types::class::Class;
     use crate::types::stdlib::Stdlib;
+    use crate::types::tuple::Tuple;
     use crate::types::type_var::Variance;
     use crate::types::types::Type;
     pub type Injectivity = bool;
@@ -71,8 +76,38 @@ pub mod variance_visitor {
         on_edge: &mut impl FnMut(&Class) -> TParamArray,
         on_var: &mut impl FnMut(&str, Variance, Injectivity),
         get_metadata: &impl Fn(&Class) -> Arc<ClassMetadata>,
+        get_fields: &impl Fn(&Class) -> SmallMap<String, Arc<ClassField>>,
         _stdlib: &Stdlib, // todo zeina: check if we still need this arg to get class properties
     ) {
+        fn handle_tuple_type(
+            tuple: &Tuple,
+            variance: Variance,
+            inj: Injectivity,
+            on_edge: &mut impl FnMut(&Class) -> TParamArray,
+            on_var: &mut impl FnMut(&str, Variance, Injectivity),
+        ) {
+            match tuple {
+                Tuple::Concrete(concrete_types) => {
+                    for ty in concrete_types {
+                        on_type(variance, inj, ty, on_edge, on_var);
+                    }
+                }
+                Tuple::Unbounded(unbounded_ty) => {
+                    on_type(variance, inj, unbounded_ty, on_edge, on_var);
+                }
+                Tuple::Unpacked(boxed_parts) => {
+                    let (before, middle, after) = &**boxed_parts;
+                    for ty in before {
+                        on_type(variance, inj, ty, on_edge, on_var);
+                    }
+                    on_type(variance, inj, middle, on_edge, on_var);
+                    for ty in after {
+                        on_type(variance, inj, ty, on_edge, on_var);
+                    }
+                }
+            }
+        }
+
         fn on_type(
             variance: Variance,
             inj: Injectivity,
@@ -83,6 +118,16 @@ pub mod variance_visitor {
             match typ {
                 Type::Type(t) => {
                     on_type(variance, inj, t, on_edge, on_var);
+                }
+
+                Type::Function(t) => {
+                    on_type(
+                        variance,
+                        inj,
+                        &Type::Callable(Box::new(t.signature.clone())),
+                        on_edge,
+                        on_var,
+                    );
                 }
 
                 Type::ClassType(class) => {
@@ -109,6 +154,42 @@ pub mod variance_visitor {
                     on_var(q.name().as_str(), variance, inj);
                 }
 
+                Type::Union(t) => {
+                    for ty in t {
+                        on_type(variance, inj, ty, on_edge, on_var);
+                    }
+                }
+                Type::Callable(t) => {
+                    // Walk return type covariantly
+                    on_type(variance, inj, &t.ret, on_edge, on_var);
+
+                    // Walk parameters contravariantly
+                    match &t.params {
+                        Params::List(param_list) => {
+                            let mut params_iter = param_list.items().iter();
+                            // Skip the first param (self)
+                            params_iter.next();
+
+                            for param in params_iter {
+                                let ty = param.param_to_type();
+                                on_type(variance.inv(), inj, ty, on_edge, on_var);
+                            }
+                        }
+                        Params::Ellipsis => {
+                            // Unknown params
+                        }
+                        Params::ParamSpec(prefix, param_spec) => {
+                            for ty in prefix.iter() {
+                                on_type(variance.inv(), inj, ty, on_edge, on_var);
+                            }
+                            on_type(variance.inv(), inj, param_spec, on_edge, on_var);
+                        }
+                    }
+                }
+                Type::Tuple(t) => {
+                    handle_tuple_type(t, variance, inj, on_edge, on_var);
+                }
+
                 _ => {}
             }
         }
@@ -124,6 +205,38 @@ pub mod variance_visitor {
                 on_edge,
                 on_var,
             );
+        }
+
+        let fields = get_fields(class);
+
+        // todo zeina: check if we need to check for things like __init_subclass__
+        // in pyre 1, we didn't need to.
+        for (name, field) in fields.iter() {
+            if name == "__init__" {
+                continue;
+            }
+
+            if let Some((ty, _, _, descriptor_getter, descriptor_setter)) =
+                field.for_variance_inference()
+            {
+                // Case 1: Regular attribute
+                if descriptor_getter.is_none() && descriptor_setter.is_none() {
+                    on_type(Variance::Covariant, true, ty, on_edge, on_var);
+                } else {
+                    // Case 2: Descriptor or property (has getter and/or setter)
+                    // Not too sure about this yet, will need to investigate further.
+
+                    // Getter: covariant on return type
+                    if let Some(typ) = descriptor_getter {
+                        on_type(Variance::Covariant, true, typ, on_edge, on_var);
+                    }
+
+                    // Setter: contravariant on value being written
+                    if let Some(typ) = descriptor_setter {
+                        on_type(Variance::Contravariant, true, typ, on_edge, on_var);
+                    }
+                }
+            }
         }
     }
 }
@@ -191,6 +304,7 @@ fn loop_fn<'a>(
     environment: &mut VarianceEnv,
     contains_bivariant: &mut bool,
     get_metadata: &impl Fn(&Class) -> Arc<ClassMetadata>,
+    get_fields: &impl Fn(&Class) -> SmallMap<String, Arc<ClassField>>,
     stdlib: &Stdlib,
 ) -> TParamArray {
     let class_name = class.name().as_str().to_owned();
@@ -206,9 +320,25 @@ fn loop_fn<'a>(
     let mut on_var = |_name: &str, _variance: Variance, _inj: Injectivity| {};
 
     // get the variance results of a given class c
-    let mut on_edge = |c: &Class| loop_fn(c, environment, contains_bivariant, get_metadata, stdlib);
+    let mut on_edge = |c: &Class| {
+        loop_fn(
+            c,
+            environment,
+            contains_bivariant,
+            get_metadata,
+            get_fields,
+            stdlib,
+        )
+    };
 
-    variance_visitor::on_class(class, &mut on_edge, &mut on_var, get_metadata, stdlib);
+    variance_visitor::on_class(
+        class,
+        &mut on_edge,
+        &mut on_var,
+        get_metadata,
+        get_fields,
+        stdlib,
+    );
 
     params
 }
@@ -257,7 +387,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let mut params_prime = params.clone();
 
                 let metadata = solver.get_metadata_for_class(class);
-
                 let ancestor_class = metadata.ancestors(solver.stdlib).find(|ancestor| {
                     let class_obj = ancestor.class_object();
                     class_obj.name() == class_name
@@ -291,6 +420,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &mut on_edge,
                     &mut on_var,
                     &|c| solver.get_metadata_for_class(c),
+                    &|c| solver.get_class_field_map(c),
                     solver.stdlib,
                 );
 
@@ -318,6 +448,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &mut environment,
                 &mut contains_bivariant,
                 &|c| self.get_metadata_for_class(c),
+                &|c| self.get_class_field_map(c),
                 self.stdlib,
             );
 

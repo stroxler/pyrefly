@@ -15,12 +15,11 @@ from typing import Sequence, reveal_type
 def id[T](x: Sequence[T]) -> Sequence[T]:
     return x
 def test(x: Sequence[int] | Sequence[str]):
-    reveal_type(id(x))  # E: revealed type: Sequence[int] | int  # E: Argument `Sequence[int] | Sequence[str]` is not assignable to parameter `x` with type `Sequence[int]` in function `id`
+    reveal_type(id(x))  # E: revealed type: Sequence[int] | int # E: Argument `Sequence[int] | Sequence[str]` is not assignable to parameter `x` 
 "#,
 );
 
 testcase!(
-    bug = "T is covariant, so the first assignment is ok and the second assignment should be an error",
     test_covariance_inference_class,
     r#"
 from typing import Sequence
@@ -37,10 +36,6 @@ testcase!(
     test_general_variance,
     r#"
 
-# T1 should be invariant
-# T2 should be contravariant
-# T3 should be covariant
-
 class ClassA[T1, T2, T3](list[T1]):
     def method1(self, a: T2) -> None:
         ...
@@ -48,19 +43,17 @@ class ClassA[T1, T2, T3](list[T1]):
     def method2(self) -> T3:
         ...
 
-
 def func_a(p1: ClassA[float, int, int], p2: ClassA[int, float, float]):
     v1: ClassA[int, int, int] = p1  # E:
-    v2: ClassA[float, float, int] = p1  
-    v3: ClassA[float, int, float] = p1  
+    v2: ClassA[float, float, int] = p1 # E: 
+    v3: ClassA[float, int, float] = p1
 
-    v4: ClassA[int, int, int] = p2  
-    v5: ClassA[int, int, float] = p2 
+    v4: ClassA[int, int, int] = p2 # E: 
+    v5: ClassA[int, int, float] = p2
 "#,
 );
 
 testcase!(
-    bug = "T and U are bivariant so there should be no errors",
     test_bivariant,
     r#"
 class A[T]:
@@ -90,7 +83,7 @@ class ShouldBeInvariant[T]:
 
 square: Callable[[int], int] = lambda x: x ** 2
 
-a: Callable[[int], int] = ShouldBeInvariant[int]().f(square)  
+a: Callable[[int], int] = ShouldBeInvariant[int]().f(square)
 b: Callable[[float], int]= ShouldBeInvariant[float]().f(square)  # E: # E:
 "#,
 );

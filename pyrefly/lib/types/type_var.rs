@@ -109,6 +109,12 @@ impl Variance {
     }
 }
 
+impl Variance {
+    pub fn inv(self) -> Variance {
+        self.compose(Variance::Contravariant)
+    }
+}
+
 impl Display for Variance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

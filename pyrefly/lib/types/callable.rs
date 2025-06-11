@@ -472,6 +472,16 @@ impl Param {
         }
     }
 
+    pub fn param_to_type(&self) -> &Type {
+        match self {
+            Param::PosOnly(_, ty, _)
+            | Param::Pos(_, ty, _)
+            | Param::VarArg(_, ty)
+            | Param::KwOnly(_, ty, _)
+            | Param::Kwargs(_, ty) => ty,
+        }
+    }
+
     #[allow(dead_code)]
     pub fn is_required(&self) -> bool {
         match self {

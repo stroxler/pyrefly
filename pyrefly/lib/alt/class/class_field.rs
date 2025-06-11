@@ -146,6 +146,33 @@ impl ClassField {
         })
     }
 
+    pub fn for_variance_inference(
+        &self,
+    ) -> Option<(
+        &Type,
+        Option<&Annotation>,
+        bool,
+        &Option<Type>,
+        &Option<Type>,
+    )> {
+        match &self.0 {
+            ClassFieldInner::Simple {
+                ty,
+                annotation,
+                readonly,
+                descriptor_getter,
+                descriptor_setter,
+                ..
+            } => Some((
+                ty,
+                annotation.as_ref(),
+                *readonly,
+                descriptor_getter,
+                descriptor_setter,
+            )),
+        }
+    }
+
     /// Get the raw type. Only suitable for use in this module, this type may
     /// not correspond to the type of any actual operations on the attribute.
     fn raw_type(&self) -> &Type {
