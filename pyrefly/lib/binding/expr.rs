@@ -61,7 +61,7 @@ use crate::types::types::Type;
 #[derive(Debug, Clone, Copy)]
 pub enum Usage {
     /// Usage to create a `Binding`.
-    Idx(Idx<Key>),
+    User(Idx<Key>),
     /// I am a usage that will appear in a narrowing operation (including a
     /// match pattern). We don't allow pinning in this case:
     /// - It is generally not useful (narrowing operations don't usually pin types)

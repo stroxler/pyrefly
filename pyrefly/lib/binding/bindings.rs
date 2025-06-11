@@ -478,7 +478,7 @@ pub struct User(Idx<Key>);
 
 impl User {
     pub fn usage(&self) -> Usage {
-        Usage::Idx(self.0)
+        Usage::User(self.0)
     }
 
     pub fn into_idx(self) -> Idx<Key> {
@@ -842,7 +842,7 @@ impl<'a> BindingsBuilder<'a> {
         match self.table.types.1.get(flow_idx) {
             Some(Binding::Pin(unpinned_idx, FirstUse::Undetermined)) => match usage {
                 Usage::StaticTypeInformation | Usage::Narrowing => (flow_idx, Some(flow_idx)),
-                Usage::Idx(_) => (*unpinned_idx, Some(flow_idx)),
+                Usage::User(_) => (*unpinned_idx, Some(flow_idx)),
             },
             _ => (flow_idx, None),
         }
@@ -853,7 +853,7 @@ impl<'a> BindingsBuilder<'a> {
         match self.table.types.1.get_mut(used) {
             Some(Binding::Pin(.., first_use @ FirstUse::Undetermined)) => {
                 *first_use = match usage {
-                    Usage::Idx(use_idx) => FirstUse::UsedBy(use_idx),
+                    Usage::User(use_idx) => FirstUse::UsedBy(use_idx),
                     Usage::StaticTypeInformation | Usage::Narrowing => FirstUse::DoesNotPin,
                 };
             }
