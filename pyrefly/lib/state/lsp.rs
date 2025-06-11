@@ -270,6 +270,8 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn get_type_at(&self, handle: &Handle, position: TextSize) -> Option<Type> {
+        // TODO(grievejia): Remove the usage of `definition_at()`: it doesn't reliably detect all
+        // definitions.
         if let Some(key) = self.definition_at(handle, position) {
             return self.get_type(handle, &key);
         }
@@ -562,6 +564,47 @@ impl<'a> Transaction<'a> {
         self.resolve_intermediate_definition(handle, intermediate_definition, gas)
     }
 
+    fn key_to_definition(
+        &self,
+        handle: &Handle,
+        key: &Key,
+    ) -> Option<(
+        DefinitionMetadata,
+        TextRangeWithModuleInfo,
+        Option<DocString>,
+    )> {
+        let (
+            handle,
+            Export {
+                location,
+                symbol_kind,
+                docstring,
+            },
+        ) = self.key_to_export(handle, key, INITIAL_GAS)?;
+        let module_info = self.get_module_info(&handle)?;
+        let name = Name::new(module_info.code_at(location));
+        Some((
+            DefinitionMetadata::VariableOrAttribute(name, symbol_kind),
+            TextRangeWithModuleInfo::new(module_info, location),
+            docstring,
+        ))
+    }
+
+    // TODO(grievejia): remove the usage of this function: `definition_at()` doesn't reliably detect
+    // all definitions.
+    fn handle_goto_definition_itself_do_not_use(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+    ) -> Option<(
+        DefinitionMetadata,
+        TextRangeWithModuleInfo,
+        Option<DocString>,
+    )> {
+        self.definition_at(handle, position)
+            .and_then(|key| self.key_to_definition(handle, &key))
+    }
+
     /// Find the definition, metadata and optionally the docstring for the given position.
     pub fn find_definition(
         &self,
@@ -572,27 +615,16 @@ impl<'a> Transaction<'a> {
         TextRangeWithModuleInfo,
         Option<DocString>,
     )> {
-        if let Some(key) = self.definition_at(handle, position) {
-            let (
-                handle,
-                Export {
-                    location,
-                    symbol_kind,
-                    docstring,
-                },
-            ) = self.key_to_export(handle, &key, INITIAL_GAS)?;
-            let name = Name::new(self.get_module_info(&handle)?.code_at(location));
-            return Some((
-                DefinitionMetadata::VariableOrAttribute(name, symbol_kind),
-                TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
-                docstring,
-            ));
-        }
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
                 identifier: id,
                 context: IdentifierContext::Expr,
             }) => {
+                if let Some(result) =
+                    self.handle_goto_definition_itself_do_not_use(handle, position)
+                {
+                    return Some(result);
+                }
                 if !self.get_bindings(handle)?.is_valid_usage(&id) {
                     return None;
                 }
@@ -635,10 +667,7 @@ impl<'a> Transaction<'a> {
             Some(IdentifierWithContext {
                 identifier: _,
                 context: IdentifierContext::ImportedName { .. },
-            }) => {
-                // TODO(grievejia): Handle definitions of imported names
-                None
-            }
+            }) => self.handle_goto_definition_itself_do_not_use(handle, position),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
@@ -659,7 +688,7 @@ impl<'a> Transaction<'a> {
                 })
                 .flatten()
             }
-            None => None,
+            None => self.handle_goto_definition_itself_do_not_use(handle, position),
         }
     }
 
