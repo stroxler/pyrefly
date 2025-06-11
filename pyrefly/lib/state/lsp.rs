@@ -410,13 +410,11 @@ impl<'a> Transaction<'a> {
 
     fn refine_param_location_for_callee(
         &self,
-        handle: &Handle,
+        ast: &ModModule,
         callee_range: TextRange,
         param_name: &Identifier,
     ) -> Option<TextRange> {
-        // TODO(grievejia): We may not have the AST if the handle if not opened.
-        let mod_module = self.get_ast(handle)?;
-        let covering_nodes = Ast::locate_node(&mod_module, callee_range.start());
+        let covering_nodes = Ast::locate_node(ast, callee_range.start());
         match (covering_nodes.first(), covering_nodes.get(1)) {
             (Some(AnyNodeRef::Identifier(_)), Some(AnyNodeRef::StmtFunctionDef(function_def))) => {
                 // Only check regular and kwonly params since posonly params cannot be passed by name
@@ -979,23 +977,25 @@ impl<'a> Transaction<'a> {
             }) => {
                 // NOTE(grievejia): There might be a better way to compute this that doesn't require 2 containing node
                 // traversal, once we gain access to the callee function def from callee_kind directly.
-                let callee_location = self.get_callee_location(handle, &callee_kind)?;
-                let handle = Handle::new(
-                    callee_location.module_info.name(),
-                    callee_location.module_info.path().dupe(),
-                    handle.sys_info().dupe(),
-                );
-                let refined_param_range = self.refine_param_location_for_callee(
-                    &handle,
-                    callee_location.range,
-                    &identifier,
-                );
+                let TextRangeWithModuleInfo { module_info, range } =
+                    self.get_callee_location(handle, &callee_kind)?;
+                let ast = {
+                    let handle = Handle::new(
+                        module_info.name(),
+                        module_info.path().dupe(),
+                        handle.sys_info().dupe(),
+                    );
+                    self.get_ast(&handle).unwrap_or_else(|| {
+                        // We may not have the AST available for the handle if it's not opened -- in that case,
+                        // Re-parse the module to get the AST.
+                        Ast::parse(module_info.contents()).0.into()
+                    })
+                };
+                let refined_param_range =
+                    self.refine_param_location_for_callee(ast.as_ref(), range, &identifier);
                 Some((
                     DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
-                    TextRangeWithModuleInfo::new(
-                        callee_location.module_info,
-                        refined_param_range.unwrap_or(callee_location.range),
-                    ),
+                    TextRangeWithModuleInfo::new(module_info, refined_param_range.unwrap_or(range)),
                     None,
                 ))
             }

@@ -311,6 +311,38 @@ Definition Result:
 }
 
 #[test]
+fn keyword_argument_multi_file() {
+    let code_fuction_provider = r#"
+def foo(x: int, y: str) -> None:
+    pass
+"#;
+    let code = r#"
+from .my_func import foo
+foo(0, y="foo")
+#      ^
+"#;
+    let report = get_batched_lsp_operations_report(
+        &[("main", code), ("my_func", code_fuction_provider)],
+        get_test_report,
+    );
+    assert_eq!(
+        r#"
+# main.py
+3 | foo(0, y="foo")
+           ^
+Definition Result:
+2 | def foo(x: int, y: str) -> None:
+                    ^
+
+
+# my_func.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn named_import_tests() {
     let code_import_provider: &str = r#"
 from typing import Literal
