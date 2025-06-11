@@ -903,20 +903,20 @@ def test(x: type[int], y: type[int]) -> None:
 testcase!(
     test_access_method_using_class_param_on_class,
     r#"
-from typing import assert_type
+from typing import assert_type, Any
 class A[T]:
     def f(self) -> T: ...
-assert_type(A.f(A[int]()), int)
+assert_type(A.f(A[int]()), int) # E: assert_type(Any, int)
     "#,
 );
 
 testcase!(
     test_access_generic_method_using_class_param_on_class,
     r#"
-from typing import assert_type
+from typing import assert_type, Any
 class A[T]:
     def f[S](self, x: S) -> tuple[S, T]: ...
-assert_type(A.f(A[int](), ""), tuple[str, int])
+assert_type(A.f(A[int](), ""), tuple[str, int]) # E: assert_type(tuple[str, Any], tuple[str, int])
     "#,
 );
 
@@ -930,7 +930,7 @@ class A[T]:
     @overload
     def f(self, x: T | None) -> T: ...
     def f(self, x=None): ...
-assert_type(A.f(A[int]()), int)
+assert_type(A.f(A[int]()), int) # E: assert_type(Any, int)
     "#,
 );
 

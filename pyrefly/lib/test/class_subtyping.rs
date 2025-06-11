@@ -31,6 +31,7 @@ s: object = ""
 "#,
 );
 
+// T is bivariant in A since it's not used nor in a covariant nor contravariant position.
 testcase!(
     test_simple_generic_subtyping,
     r#"
@@ -41,8 +42,8 @@ class D[T]: pass
 
 b: A[int] = B[int]()
 c: A[int] = C()
-oops0: A[int] = D[int]()  # E: `D[int]` is not assignable to `A[int]`
-oops1: A[int] = A[str]()  # E: `A[str]` is not assignable to `A[int]`
+oops: A[int] = D[int]()  # E: `D[int]` is not assignable to `A[int]`
+ok: A[int] = A[str]()
 "#,
 );
 

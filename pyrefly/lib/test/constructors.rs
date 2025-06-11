@@ -120,6 +120,7 @@ def test(c: C):
     "#,
 );
 
+// This is the same pyre1 behavior. We infer bivariance here in T1 as well as T2"
 testcase!(
     test_init_self_annotation_in_generic_class,
     r#"
@@ -127,8 +128,8 @@ class C[T1]:
     def __init__[T2](self: T2, x: T2):
         pass
 def test(c: C[int]):
-    C[int](c)  # OK
-    C[str](c)  # E: Argument `C[int]` is not assignable to parameter `x` with type `C[str]`
+    C[int](c)  
+    C[str](c)  
     "#,
 );
 

@@ -135,6 +135,10 @@ impl TParams {
         self.0.iter().map(|x| &x.quantified)
     }
 
+    pub fn as_vec(&self) -> &[TParam] {
+        &self.0
+    }
+
     pub fn extend(&mut self, other: &TParams) {
         self.0.extend(other.iter().cloned());
     }

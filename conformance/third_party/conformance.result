@@ -327,12 +327,17 @@
   "generics_syntax_compatibility.py": [],
   "generics_syntax_declarations.py": [],
   "generics_syntax_infer_variance.py": [
-    "Line 28: Unexpected errors ['`ShouldBeCovariant1[int]` is not assignable to `ShouldBeCovariant1[float]`']",
-    "Line 36: Unexpected errors ['`ShouldBeCovariant2[int]` is not assignable to `ShouldBeCovariant2[float]`']",
-    "Line 45: Unexpected errors ['`ShouldBeCovariant3[int]` is not assignable to `ShouldBeCovariant3[float]`']",
-    "Line 74: Unexpected errors ['`ShouldBeCovariant5[int]` is not assignable to `ShouldBeCovariant5[float]`']",
-    "Line 85: Unexpected errors ['`ShouldBeCovariant6[int]` is not assignable to `ShouldBeCovariant6[float]`']",
-    "Line 156: Unexpected errors ['`ShouldBeContravariant1[float]` is not assignable to `ShouldBeContravariant1[int]`']"
+    "Line 29: Expected 1 errors",
+    "Line 46: Expected 1 errors",
+    "Line 75: Expected 1 errors",
+    "Line 86: Expected 1 errors",
+    "Line 102: Expected 1 errors",
+    "Line 103: Expected 1 errors",
+    "Line 117: Expected 1 errors",
+    "Line 118: Expected 1 errors",
+    "Line 136: Expected 1 errors",
+    "Line 144: Expected 1 errors",
+    "Line 155: Expected 1 errors"
   ],
   "generics_syntax_scoping.py": [
     "Line 35: Expected 1 errors",
@@ -378,16 +383,20 @@
     "Lines 195, 196: Expected error (tag 'ContraToContraToContra_WithTA')"
   ],
   "generics_variance_inference.py": [
-    "Line 26: Unexpected errors ['`ClassA[float, int, int]` is not assignable to `ClassA[float, int, float]`']",
-    "Line 29: Unexpected errors ['`ClassA[int, float, float]` is not assignable to `ClassA[int, int, float]`']",
-    "Line 40: Unexpected errors ['`ShouldBeCovariant1[int]` is not assignable to `ShouldBeCovariant1[float]`']",
-    "Line 48: Unexpected errors ['`ShouldBeCovariant2[int]` is not assignable to `ShouldBeCovariant2[float]`']",
-    "Line 57: Unexpected errors ['`ShouldBeCovariant3[int]` is not assignable to `ShouldBeCovariant3[float]`']",
-    "Line 66: Unexpected errors ['`ShouldBeCovariant4[int]` is not assignable to `ShouldBeCovariant4[float]`']",
-    "Line 79: Unexpected errors ['`ShouldBeCovariant5[int]` is not assignable to `ShouldBeCovariant5[float]`']",
-    "Line 150: Unexpected errors ['`ShouldBeContravariant1[float]` is not assignable to `ShouldBeContravariant1[int]`']",
-    "Line 182: Unexpected errors ['`ShouldBeCovariant6[int]` is not assignable to `ShouldBeCovariant6[float]`']",
-    "Line 193: Unexpected errors ['`ShouldBeContravariant2[float]` is not assignable to `ShouldBeContravariant2[int]`']"
+    "Line 25: Expected 1 errors",
+    "Line 28: Expected 1 errors",
+    "Line 41: Expected 1 errors",
+    "Line 49: Expected 1 errors",
+    "Line 58: Expected 1 errors",
+    "Line 67: Expected 1 errors",
+    "Line 80: Expected 1 errors",
+    "Line 96: Expected 1 errors",
+    "Line 97: Expected 1 errors",
+    "Line 111: Expected 1 errors",
+    "Line 112: Expected 1 errors",
+    "Line 130: Expected 1 errors",
+    "Line 138: Expected 1 errors",
+    "Line 149: Expected 1 errors"
   ],
   "historical_positional.py": [
     "Line 18: Expected 1 errors",

@@ -83,6 +83,32 @@ pub enum Variance {
     Bivariant,
 }
 
+impl Variance {
+    pub fn union(self, other: Variance) -> Variance {
+        use Variance::*;
+
+        match (self, other) {
+            (Bivariant, x) | (x, Bivariant) => x,
+            (Covariant, Covariant) => Covariant,
+            (Contravariant, Contravariant) => Contravariant,
+            _ => Invariant,
+        }
+    }
+}
+
+impl Variance {
+    pub fn compose(self, other: Variance) -> Variance {
+        use Variance::*;
+
+        match (self, other) {
+            (Bivariant, x) | (x, Bivariant) => x,
+            (Invariant, _) | (_, Invariant) => Invariant,
+            (Covariant, Covariant) | (Contravariant, Contravariant) => Covariant,
+            _ => Contravariant,
+        }
+    }
+}
+
 impl Display for Variance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

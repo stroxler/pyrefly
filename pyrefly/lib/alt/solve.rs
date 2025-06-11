@@ -1350,7 +1350,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 base_types.push(base_type);
             }
-            self.variance_map(class, base_types, fields)
+            self.variance_map(class)
         } else {
             Arc::new(VarianceMap(SmallMap::new()))
         }

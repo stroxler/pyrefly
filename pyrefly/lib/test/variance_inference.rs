@@ -27,8 +27,35 @@ from typing import Sequence
 class ShouldBeCovariant[T](Sequence[T]):
     pass
 
-vco2_1: ShouldBeCovariant[float] = ShouldBeCovariant[int]()  # E:
+vco2_1: ShouldBeCovariant[float] = ShouldBeCovariant[int]()
 vco2_2: ShouldBeCovariant[int] = ShouldBeCovariant[float]()  # E:
+"#,
+);
+
+testcase!(
+    bug = "T2 and T3 should be resolved when we traverse methods. They will be bivariant until then. For T1, we raise an error because we already know it's invariant in list.",
+    test_general_variance,
+    r#"
+
+# T1 should be invariant
+# T2 should be contravariant
+# T3 should be covariant
+
+class ClassA[T1, T2, T3](list[T1]):
+    def method1(self, a: T2) -> None:
+        ...
+
+    def method2(self) -> T3:
+        ...
+
+
+def func_a(p1: ClassA[float, int, int], p2: ClassA[int, float, float]):
+    v1: ClassA[int, int, int] = p1  # E:
+    v2: ClassA[float, float, int] = p1  
+    v3: ClassA[float, int, float] = p1  
+
+    v4: ClassA[int, int, int] = p2  
+    v5: ClassA[int, int, float] = p2 
 "#,
 );
 
@@ -47,7 +74,7 @@ class B[U]:
 a = A[int]()
 b = B[int]()
 
-x : A[float] = b.g(a) # E:
+x : A[float] = b.g(a)
 "#,
 );
 

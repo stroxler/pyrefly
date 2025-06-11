@@ -514,6 +514,7 @@ assert_type(C2[int], type[C2[int, *tuple[Any, ...]]])
 );
 
 testcase!(
+    bug = "same result in pyright, but revisit this once variance is implemented for properties",
     test_generics,
     r#"
 from typing import Literal
@@ -521,7 +522,7 @@ class C[T]: ...
 def append[T](x: C[T], y: T):
     pass
 v: C[int] = C()
-append(v, "test")  # E: Argument `Literal['test']` is not assignable to parameter `y` with type `int`
+append(v, "test") 
 "#,
 );
 
