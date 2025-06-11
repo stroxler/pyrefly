@@ -425,3 +425,13 @@ def run[**P, R](func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
     raise NotImplementedError("Unreachable")
   "#,
 );
+
+testcase!(
+    test_param_spec_ellipsis,
+    r#"
+from typing import Callable
+def test[**P](v: Callable[P, None]):
+    a: Callable[..., None] = v
+    b: Callable[P, None] = a
+"#,
+);

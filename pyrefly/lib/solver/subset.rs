@@ -935,6 +935,11 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::TypeGuard(_) | Type::TypeIs(_), _) => {
                 self.is_subset_eq(&self.type_order.stdlib().bool().clone().to_type(), want)
             }
+            (Type::Quantified(q), Type::Ellipsis) | (Type::Ellipsis, Type::Quantified(q))
+                if q.kind() == QuantifiedKind::ParamSpec =>
+            {
+                true
+            }
             (Type::Ellipsis, Type::ParamSpecValue(_) | Type::Concatenate(_, _))
             | (Type::ParamSpecValue(_) | Type::Concatenate(_, _), Type::Ellipsis) => true,
             (Type::ParamSpecValue(ls), Type::ParamSpecValue(us)) => {

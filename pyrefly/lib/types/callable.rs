@@ -141,6 +141,7 @@ pub enum Params {
     /// Any arguments to Concatenate, followed by a ParamSpec.
     /// E.g. `Concatenate[int, str, P]` would be `ParamSpec([int, str], P)`,
     /// while `P` alone would be `ParamSpec([], P)`.
+    /// `P` may resolve to `Type::ParamSpecValue`, `Type::Concatenate`, or `Type::Ellipsis`
     ParamSpec(Box<[Type]>, Type),
 }
 
