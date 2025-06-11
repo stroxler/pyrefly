@@ -1854,6 +1854,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         check_type_form(ty, false)
     }
 
+    // Given a type, force all `Vars` that indicate placeholder types
+    // (everything that isn't either an answer or a Recursive var).
+    fn pin_all_placeholder_types(&self, ty: &mut Type) {
+        // Expand the type, in case unexpanded `Vars` are hiding further `Var`s that
+        // need to be pinned.
+        self.solver().expand_mut(ty);
+        // Collect all the vars we may need to pin
+        fn f(t: &Type, vars: &mut Vec<Var>) {
+            match t {
+                Type::Var(v) => vars.push(*v),
+                _ => t.recurse(&mut |t| f(t, vars)),
+            }
+        }
+        let mut vars = vec![];
+        f(ty, &mut vars);
+        // Pin all relevant vars
+        for var in vars {
+            self.solver().pin_placeholder_type(var);
+        }
+    }
+
     fn binding_to_type(&self, binding: &Binding, errors: &ErrorCollector) -> Type {
         match binding {
             Binding::Forward(..)
@@ -1875,22 +1896,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     FirstUse::Undetermined | FirstUse::DoesNotPin => {}
                 }
                 let mut ty = self.get_idx(*unpinned_idx).arc_clone().into_ty();
-                // Expand the type, in case unexpanded `Vars` are hiding further `Var`s that
-                // need to be pinned.
-                self.solver().expand_mut(&mut ty);
-                // Collect all the vars we may need to pin
-                fn f(t: &Type, vars: &mut Vec<Var>) {
-                    match t {
-                        Type::Var(v) => vars.push(*v),
-                        _ => t.recurse(&mut |t| f(t, vars)),
-                    }
-                }
-                let mut vars = vec![];
-                f(&ty, &mut vars);
-                // Pin all relevant vars
-                for var in vars {
-                    self.solver().pin_placeholder_type(var);
-                }
+                self.pin_all_placeholder_types(&mut ty);
                 ty
             }
             Binding::Expr(ann, e) => match ann {
