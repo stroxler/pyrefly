@@ -57,7 +57,6 @@ pub mod variance_visitor {
 
     use crate::alt::class::class_field::ClassField;
     use crate::alt::types::class_metadata::ClassMetadata;
-    use crate::types::callable::Param;
     use crate::types::callable::Params;
     use crate::types::class::Class;
     use crate::types::stdlib::Stdlib;
