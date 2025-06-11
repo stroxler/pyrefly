@@ -119,7 +119,6 @@ enum IdentifierContext {
     },
     /// An identifier appeared as the name of a from...import statement.
     /// ex: `x` in `from y import x`.
-    // TODO(grievejia): differentiate between `x` and `y` in `from ... import x as y`
     ImportedName {
         /// Name of the imported module.
         module_name: ModuleName,
@@ -127,6 +126,10 @@ enum IdentifierContext {
         /// ex: `x.y` in `import x.y` has 0 dots, and `x` in `from ..x.y import z` has 2 dot.
         #[allow(dead_code)]
         dots: u32,
+        /// Name of the imported entity in the current module. If there's no as-rename, this will be
+        /// the same as the identifier. If there is as-rename, this will be the name after the `as`.
+        /// ex: For `from ... import x`, the name is `x`. For `from ... import x as y`, the name is `y`.
+        name_after_import: Identifier,
     },
 }
 
@@ -173,12 +176,25 @@ impl IdentifierWithContext {
         }
     }
 
-    fn from_stmt_import_from_name(id: &Identifier, import_from: &StmtImportFrom) -> Self {
+    fn from_stmt_import_from_name(
+        id: &Identifier,
+        alias: &Alias,
+        import_from: &StmtImportFrom,
+    ) -> Self {
         let identifier = id.clone();
         let (module_name, dots) = Self::module_name_and_dots(import_from);
+        let name_after_import = if let Some(asname) = &alias.asname {
+            asname.clone()
+        } else {
+            identifier.clone()
+        };
         Self {
             identifier,
-            context: IdentifierContext::ImportedName { module_name, dots },
+            context: IdentifierContext::ImportedName {
+                module_name,
+                dots,
+                name_after_import,
+            },
         }
     }
 
@@ -243,12 +259,13 @@ impl<'a> Transaction<'a> {
             }
             (
                 Some(AnyNodeRef::Identifier(id)),
-                Some(AnyNodeRef::Alias(_)),
+                Some(AnyNodeRef::Alias(alias)),
                 Some(AnyNodeRef::StmtImportFrom(import_from)),
             ) => {
                 // `from ... import id`
                 Some(IdentifierWithContext::from_stmt_import_from_name(
                     id,
+                    alias,
                     import_from,
                 ))
             }
@@ -666,8 +683,14 @@ impl<'a> Transaction<'a> {
             }
             Some(IdentifierWithContext {
                 identifier: _,
-                context: IdentifierContext::ImportedName { .. },
-            }) => self.handle_goto_definition_itself_do_not_use(handle, position),
+                context:
+                    IdentifierContext::ImportedName {
+                        name_after_import, ..
+                    },
+            }) => self.key_to_definition(
+                handle,
+                &Key::Definition(ShortIdentifier::new(&name_after_import)),
+            ),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
