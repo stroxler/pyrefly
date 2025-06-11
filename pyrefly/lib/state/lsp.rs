@@ -709,6 +709,63 @@ impl<'a> Transaction<'a> {
         ))
     }
 
+    fn find_definition_for_name_use(
+        &self,
+        handle: &Handle,
+        name: &Identifier,
+    ) -> Option<(
+        DefinitionMetadata,
+        TextRangeWithModuleInfo,
+        Option<DocString>,
+    )> {
+        if !self.get_bindings(handle)?.is_valid_usage(name) {
+            return None;
+        }
+        let (
+            handle,
+            Export {
+                location,
+                symbol_kind,
+                docstring,
+            },
+        ) = self.key_to_export(
+            handle,
+            &Key::BoundName(ShortIdentifier::new(name)),
+            INITIAL_GAS,
+        )?;
+        Some((
+            DefinitionMetadata::Variable(symbol_kind),
+            TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
+            docstring,
+        ))
+    }
+
+    fn find_definition_for_attribute(
+        &self,
+        handle: &Handle,
+        base_range: TextRange,
+        name: &Identifier,
+    ) -> Option<(
+        DefinitionMetadata,
+        TextRangeWithModuleInfo,
+        Option<DocString>,
+    )> {
+        let base_type = self.get_answers(handle)?.get_type_trace(base_range)?;
+        self.ad_hoc_solve(handle, |solver| {
+            let items = solver.completions(base_type.arc_clone(), Some(name.id()), false);
+            items.into_iter().find_map(|x| {
+                if &x.name == name.id() {
+                    let (definition, docstring) =
+                        self.resolve_attribute_definition(handle, &x.name, x.definition?)?;
+                    Some((DefinitionMetadata::Attribute(x.name), definition, docstring))
+                } else {
+                    None
+                }
+            })
+        })
+        .flatten()
+    }
+
     /// Find the definition, metadata and optionally the docstring for the given position.
     pub fn find_definition(
         &self,
@@ -731,26 +788,7 @@ impl<'a> Transaction<'a> {
                     }
                     ExprContext::Load | ExprContext::Del | ExprContext::Invalid => {
                         // This is a usage of the variable
-                        if !self.get_bindings(handle)?.is_valid_usage(&id) {
-                            return None;
-                        }
-                        let (
-                            handle,
-                            Export {
-                                location,
-                                symbol_kind,
-                                docstring,
-                            },
-                        ) = self.key_to_export(
-                            handle,
-                            &Key::BoundName(ShortIdentifier::new(&id)),
-                            INITIAL_GAS,
-                        )?;
-                        Some((
-                            DefinitionMetadata::Variable(symbol_kind),
-                            TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
-                            docstring,
-                        ))
+                        self.find_definition_for_name_use(handle, &id)
                     }
                 }
             }
@@ -814,23 +852,7 @@ impl<'a> Transaction<'a> {
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
-            }) => {
-                let base_type = self.get_answers(handle)?.get_type_trace(base_range)?;
-                self.ad_hoc_solve(handle, |solver| {
-                    let items =
-                        solver.completions(base_type.arc_clone(), Some(identifier.id()), false);
-                    items.into_iter().find_map(|x| {
-                        if &x.name == identifier.id() {
-                            let (definition, docstring) =
-                                self.resolve_attribute_definition(handle, &x.name, x.definition?)?;
-                            Some((DefinitionMetadata::Attribute(x.name), definition, docstring))
-                        } else {
-                            None
-                        }
-                    })
-                })
-                .flatten()
-            }
+            }) => self.find_definition_for_attribute(handle, base_range, &identifier),
             None => None,
         }
     }
