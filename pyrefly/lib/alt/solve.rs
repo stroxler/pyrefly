@@ -1073,7 +1073,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         let mut type_info = self.binding_to_type_info(binding, errors);
         type_info.visit_mut(&mut |ty| {
-            if !matches!(binding, Binding::NameAssign(..)) {
+            if !matches!(binding, Binding::NameAssign(..) | Binding::PinUpstream(..)) {
                 self.pin_all_placeholder_types(ty);
             }
             self.expand_type_mut(ty);
@@ -1899,6 +1899,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     FirstUse::Undetermined | FirstUse::DoesNotPin => {}
                 }
                 self.get_idx(*unpinned_idx).arc_clone().into_ty()
+            }
+            Binding::PinUpstream(raw_idx, first_used_by) => {
+                // Force all of the upstream `Pin`s for which was the first use. This ensures
+                // that any `Var` in the result originated directly from `raw_idx`.
+                for idx in first_used_by {
+                    self.get_idx(*idx);
+                }
+                self.get_idx(*raw_idx).arc_clone().into_ty()
             }
             Binding::Expr(ann, e) => match ann {
                 Some(k) => {

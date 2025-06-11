@@ -176,6 +176,13 @@ pub enum Key {
     Import(Name, TextRange),
     /// I am defined in this module at this location.
     Definition(ShortIdentifier),
+    /// I am a name assignment that is also a first use of some other name assign.
+    ///
+    /// My raw definition contains unpinned placeholder types from both myself
+    /// and upstream definitions, this binding will have all upstream
+    /// placeholders (but not those originating from me) pinned.
+    #[expect(dead_code)]
+    UpstreamPinnedDefinition(ShortIdentifier),
     /// I am the pinned version of a definition corresponding to a name assignment.
     ///
     /// Used in cases where the raw definition might introduce placeholder `Var` types
@@ -223,6 +230,7 @@ impl Ranged for Key {
         match self {
             Self::Import(_, r) => *r,
             Self::Definition(x) => x.range(),
+            Self::UpstreamPinnedDefinition(x) => x.range(),
             Self::PinnedDefinition(x) => x.range(),
             Self::PropertyAssign(x) => x.range(),
             Self::ReturnExplicit(r) => *r,
@@ -247,6 +255,9 @@ impl DisplayWith<ModuleInfo> for Key {
         match self {
             Self::Import(n, r) => write!(f, "import {n} {r:?}"),
             Self::Definition(x) => write!(f, "{} {:?}", ctx.display(x), x.range()),
+            Self::UpstreamPinnedDefinition(x) => {
+                write!(f, "{} {:?} (half pinned)", ctx.display(x), x.range())
+            }
             Self::PinnedDefinition(x) => {
                 write!(f, "{} {:?} (pinned)", ctx.display(x), x.range())
             }
@@ -888,6 +899,14 @@ pub enum Binding {
     /// entry should always correspond to a `Key::Definition` from a name assignment
     /// and the second entry tells us if and where this definition is first used.
     Pin(Idx<Key>, FirstUse),
+    /// Binding used to pin any *upstream* placeholder types for a NameAssign that is also
+    /// a first use. First uses depend on this binding, so that upstream `Var`s cannot
+    /// leak into them but `Var`s originating from this assignment can.
+    ///
+    /// The Idx is the upstream raw `NameAssign`, and the slice has `Idx`s that point at
+    /// all the `Pin`s for which that raw `NameAssign` was the first use.
+    #[expect(dead_code)]
+    PinUpstream(Idx<Key>, Box<[Idx<Key>]>),
 }
 
 impl DisplayWith<Bindings> for Binding {
@@ -1136,6 +1155,13 @@ impl DisplayWith<Bindings> for Binding {
                     FirstUse::UsedBy(idx) => write!(f, " (first use: {})", ctx.display(*idx)),
                 }
             }
+            Self::PinUpstream(k, first_used_by) => {
+                write!(f, "pin upstream {} (upstream: ", ctx.display(*k),)?;
+                for idx in first_used_by {
+                    write!(f, "{},", ctx.display(*idx))?;
+                }
+                write!(f, ")")
+            }
         }
     }
 }
@@ -1189,7 +1215,8 @@ impl Binding {
             | Binding::AssignToAttribute(_)
             | Binding::UsageLink(_)
             | Binding::AssignToSubscript(_)
-            | Binding::Pin(..) => None,
+            | Binding::Pin(..)
+            | Binding::PinUpstream(..) => None,
         }
     }
 }
