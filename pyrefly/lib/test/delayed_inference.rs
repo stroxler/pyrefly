@@ -226,3 +226,40 @@ from first_use_nonpin_and_two_exported_pins import x
 assert_type(x, list[Any])
 "#,
 );
+
+fn env_inconsistent_pins_for_non_name_assign_placeholder() -> TestEnv {
+    TestEnv::one(
+        "inconsistent_pins_for_non_name_assign_placeholder",
+        r#"
+x, _ = [], 5
+y = x.append(1)
+z = x.append("1")
+"#,
+    )
+}
+
+testcase!(
+    bug = "We don't yet pin placeholders for non-single-name assignments",
+    inconsistent_pins_for_non_name_assign_placeholder_a,
+    env_inconsistent_pins_for_non_name_assign_placeholder(),
+    r#"
+from typing import assert_type, Any
+from inconsistent_pins_for_non_name_assign_placeholder import y
+assert_type(y, None)
+from inconsistent_pins_for_non_name_assign_placeholder import x
+assert_type(x, list[int])
+"#,
+);
+
+testcase!(
+    bug = "We don't yet pin placeholders for non-single-name assignments",
+    inconsistent_pins_for_non_name_assign_placeholder_b,
+    env_inconsistent_pins_for_non_name_assign_placeholder(),
+    r#"
+from typing import assert_type, Any
+from inconsistent_pins_for_non_name_assign_placeholder import z
+assert_type(z, None)
+from inconsistent_pins_for_non_name_assign_placeholder import x
+assert_type(x, list[str])
+"#,
+);
