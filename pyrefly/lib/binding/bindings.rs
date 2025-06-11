@@ -478,7 +478,7 @@ pub struct User(Usage);
 
 impl User {
     pub fn new(idx: Idx<Key>) -> Self {
-        Self(Usage::User(idx))
+        Self(Usage::User(idx, SmallSet::new()))
     }
 
     pub fn usage(&mut self) -> &mut Usage {
@@ -487,7 +487,7 @@ impl User {
 
     fn idx(&self) -> Idx<Key> {
         match self.0 {
-            Usage::User(idx) => idx,
+            Usage::User(idx, ..) => idx,
             _ => unreachable!(),
         }
     }
@@ -853,7 +853,7 @@ impl<'a> BindingsBuilder<'a> {
         match self.table.types.1.get(flow_idx) {
             Some(Binding::Pin(unpinned_idx, FirstUse::Undetermined)) => match usage {
                 Usage::StaticTypeInformation | Usage::Narrowing => (flow_idx, Some(flow_idx)),
-                Usage::User(_) => (*unpinned_idx, Some(flow_idx)),
+                Usage::User(..) => (*unpinned_idx, Some(flow_idx)),
             },
             _ => (flow_idx, None),
         }
@@ -864,7 +864,10 @@ impl<'a> BindingsBuilder<'a> {
         match self.table.types.1.get_mut(used) {
             Some(Binding::Pin(.., first_use @ FirstUse::Undetermined)) => {
                 *first_use = match usage {
-                    Usage::User(use_idx) => FirstUse::UsedBy(*use_idx),
+                    Usage::User(use_idx, first_uses_of) => {
+                        first_uses_of.insert(used);
+                        FirstUse::UsedBy(*use_idx)
+                    }
                     Usage::StaticTypeInformation | Usage::Narrowing => FirstUse::DoesNotPin,
                 };
             }

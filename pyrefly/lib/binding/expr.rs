@@ -23,6 +23,7 @@ use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
+use starlark_map::small_set::SmallSet;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingYield;
@@ -58,10 +59,10 @@ use crate::types::types::Type;
 /// There are some cases - particularly in type declaration contexts like annotations,
 /// type variable declarations, and match patterns - that we want to skip for usage
 /// tracking.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub enum Usage {
     /// Usage to create a `Binding`.
-    User(Idx<Key>),
+    User(Idx<Key>, SmallSet<Idx<Key>>),
     /// I am a usage that will appear in a narrowing operation (including a
     /// match pattern). We don't allow pinning in this case:
     /// - It is generally not useful (narrowing operations don't usually pin types)
