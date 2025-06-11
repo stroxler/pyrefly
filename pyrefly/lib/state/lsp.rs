@@ -98,6 +98,15 @@ impl DefinitionMetadata {
     }
 }
 
+#[allow(dead_code)]
+enum CalleeKind {
+    // Function name
+    Function(Identifier),
+    // Range of the base expr + method name
+    Method(TextRange, Identifier),
+    Unknown,
+}
+
 enum IdentifierContext {
     /// An identifier appeared in an expression. ex: `x` in `x + 1`
     Expr(ExprContext),
@@ -108,6 +117,11 @@ enum IdentifierContext {
         /// The range of the entire expression.
         range: TextRange,
     },
+    /// An identifier appeared as the name of a keyword argument.
+    /// ex: `x` in `f(x=1)`. We also store some info about the callee `f` so
+    /// downstream logic can utilize the info.
+    #[allow(dead_code)]
+    KeywordArgument(CalleeKind),
     /// An identifier appeared as the name of an imported module.
     /// ex: `x` in `import x`, or `from x import name`.
     ImportedModule {
@@ -240,6 +254,19 @@ impl IdentifierWithContext {
         }
     }
 
+    fn from_keyword_argument(id: &Identifier, call: &ExprCall) -> Self {
+        let identifier = id.clone();
+        let callee_kind = match call.func.as_ref() {
+            Expr::Name(name) => CalleeKind::Function(Ast::expr_name_identifier(name.clone())),
+            Expr::Attribute(attr) => CalleeKind::Method(attr.value.range(), attr.attr.clone()),
+            _ => CalleeKind::Unknown,
+        };
+        Self {
+            identifier,
+            context: IdentifierContext::KeywordArgument(callee_kind),
+        }
+    }
+
     fn from_expr_attr(id: &Identifier, attr: &ExprAttribute) -> Self {
         let identifier = id.clone();
         Self {
@@ -279,11 +306,13 @@ impl<'a> Transaction<'a> {
             covering_nodes.first(),
             covering_nodes.get(1),
             covering_nodes.get(2),
+            covering_nodes.get(3),
         ) {
             (
                 Some(AnyNodeRef::Identifier(id)),
                 Some(AnyNodeRef::Alias(alias)),
                 Some(AnyNodeRef::StmtImport(_)),
+                _,
             ) => {
                 // `import id` or `import ... as id`
                 Some(IdentifierWithContext::from_stmt_import(id, alias))
@@ -291,6 +320,7 @@ impl<'a> Transaction<'a> {
             (
                 Some(AnyNodeRef::Identifier(id)),
                 Some(AnyNodeRef::StmtImportFrom(import_from)),
+                _,
                 _,
             ) => {
                 // `from id import ...`
@@ -303,6 +333,7 @@ impl<'a> Transaction<'a> {
                 Some(AnyNodeRef::Identifier(id)),
                 Some(AnyNodeRef::Alias(alias)),
                 Some(AnyNodeRef::StmtImportFrom(import_from)),
+                _,
             ) => {
                 // `from ... import id`
                 Some(IdentifierWithContext::from_stmt_import_from_name(
@@ -311,23 +342,28 @@ impl<'a> Transaction<'a> {
                     import_from,
                 ))
             }
-            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtFunctionDef(_)), _) => {
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtFunctionDef(_)), _, _) => {
                 // def id(...): ...
                 Some(IdentifierWithContext::from_stmt_function_def(id))
             }
-            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtClassDef(_)), _) => {
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtClassDef(_)), _, _) => {
                 // class id(...): ...
                 Some(IdentifierWithContext::from_stmt_class_def(id))
             }
-            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::TypeParamTypeVar(_)), _) => {
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::TypeParamTypeVar(_)), _, _) => {
                 // def ...[id](...): ...
                 Some(IdentifierWithContext::from_type_param(id))
             }
-            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::TypeParamTypeVarTuple(_)), _) => {
+            (
+                Some(AnyNodeRef::Identifier(id)),
+                Some(AnyNodeRef::TypeParamTypeVarTuple(_)),
+                _,
+                _,
+            ) => {
                 // def ...[*id](...): ...
                 Some(IdentifierWithContext::from_type_param(id))
             }
-            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::TypeParamParamSpec(_)), _) => {
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::TypeParamParamSpec(_)), _, _) => {
                 // def ...[**id](...): ...
                 Some(IdentifierWithContext::from_type_param(id))
             }
@@ -335,15 +371,22 @@ impl<'a> Transaction<'a> {
                 Some(AnyNodeRef::Identifier(id)),
                 Some(AnyNodeRef::ExceptHandlerExceptHandler(_)),
                 _,
+                _,
             ) => {
                 // def ...[**id](...): ...
                 Some(IdentifierWithContext::from_exception_handler(id))
             }
-            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::ExprAttribute(attr)), _) => {
+            (
+                Some(AnyNodeRef::Identifier(id)),
+                Some(AnyNodeRef::Keyword(_)),
+                Some(AnyNodeRef::Arguments(_)),
+                Some(AnyNodeRef::ExprCall(call)),
+            ) => Some(IdentifierWithContext::from_keyword_argument(id, call)),
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::ExprAttribute(attr)), _, _) => {
                 // `XXX.id`
                 Some(IdentifierWithContext::from_expr_attr(id, attr))
             }
-            (Some(AnyNodeRef::ExprName(name)), _, _) => {
+            (Some(AnyNodeRef::ExprName(name)), _, _, _) => {
                 Some(IdentifierWithContext::from_expr_name(name))
             }
             _ => None,
@@ -451,6 +494,13 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::ExceptionHandler,
             }) => {
                 // TODO(grievejia): Handle defintions of exception names
+                None
+            }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::KeywordArgument(_),
+            }) => {
+                // Keyword argument doesn't have a type by itself
                 None
             }
             Some(IdentifierWithContext {
@@ -849,6 +899,13 @@ impl<'a> Transaction<'a> {
                 TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
                 None,
             )),
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::KeywordArgument(_),
+            }) => {
+                // TODO(grievejia): Implement this
+                None
+            }
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
