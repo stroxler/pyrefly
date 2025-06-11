@@ -312,3 +312,22 @@ class B(A):
     x = 1 # E: `Literal[1]` is not assignable to attribute `x` with type `Literal[0]`
     "#,
 );
+
+testcase!(
+    test_override_context_manager,
+    r#"
+import contextlib
+import abc
+
+class Parent:
+    @contextlib.asynccontextmanager
+    @abc.abstractmethod
+    async def run(self):
+        yield
+
+class Child(Parent):
+    @contextlib.asynccontextmanager
+    async def run(self):
+        yield
+    "#,
+);
