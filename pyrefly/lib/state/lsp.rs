@@ -679,10 +679,10 @@ impl<'a> Transaction<'a> {
         self.resolve_intermediate_definition(handle, intermediate_definition, gas)
     }
 
-    fn key_to_definition(
+    fn find_definition_for_name_def(
         &self,
         handle: &Handle,
-        key: &Key,
+        name: &Identifier,
     ) -> Option<(
         DefinitionMetadata,
         TextRangeWithModuleInfo,
@@ -695,7 +695,11 @@ impl<'a> Transaction<'a> {
                 symbol_kind,
                 docstring,
             },
-        ) = self.key_to_export(handle, key, INITIAL_GAS)?;
+        ) = self.key_to_export(
+            handle,
+            &Key::Definition(ShortIdentifier::new(name)),
+            INITIAL_GAS,
+        )?;
         let module_info = self.get_module_info(&handle)?;
         let name = Name::new(module_info.code_at(location));
         Some((
@@ -723,7 +727,7 @@ impl<'a> Transaction<'a> {
                 match expr_context {
                     ExprContext::Store => {
                         // This is a variable definition
-                        self.key_to_definition(handle, &Key::Definition(ShortIdentifier::new(&id)))
+                        self.find_definition_for_name_def(handle, &id)
                     }
                     ExprContext::Load | ExprContext::Del | ExprContext::Invalid => {
                         // This is a usage of the variable
@@ -774,10 +778,7 @@ impl<'a> Transaction<'a> {
                     IdentifierContext::ImportedName {
                         name_after_import, ..
                     },
-            }) => self.key_to_definition(
-                handle,
-                &Key::Definition(ShortIdentifier::new(&name_after_import)),
-            ),
+            }) => self.find_definition_for_name_def(handle, &name_after_import),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::FunctionDef,
