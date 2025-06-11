@@ -705,21 +705,6 @@ impl<'a> Transaction<'a> {
         ))
     }
 
-    // TODO(grievejia): remove the usage of this function: `definition_at()` doesn't reliably detect
-    // all definitions.
-    fn handle_goto_definition_itself_do_not_use(
-        &self,
-        handle: &Handle,
-        position: TextSize,
-    ) -> Option<(
-        DefinitionMetadata,
-        TextRangeWithModuleInfo,
-        Option<DocString>,
-    )> {
-        self.definition_at(handle, position)
-            .and_then(|key| self.key_to_definition(handle, &key))
-    }
-
     /// Find the definition, metadata and optionally the docstring for the given position.
     pub fn find_definition(
         &self,
@@ -845,7 +830,7 @@ impl<'a> Transaction<'a> {
                 })
                 .flatten()
             }
-            None => self.handle_goto_definition_itself_do_not_use(handle, position),
+            None => None,
         }
     }
 
