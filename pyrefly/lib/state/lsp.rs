@@ -28,6 +28,7 @@ use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::ExprContext;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
@@ -99,7 +100,7 @@ impl DefinitionMetadata {
 
 enum IdentifierContext {
     /// An identifier appeared in an expression. ex: `x` in `x + 1`
-    Expr,
+    Expr(ExprContext),
     /// An identifier appeared as the name of an attribute. ex: `y` in `x.y`
     Attribute {
         /// The range of just the base expression.
@@ -213,7 +214,7 @@ impl IdentifierWithContext {
         let identifier = Ast::expr_name_identifier(expr_name.clone());
         Self {
             identifier,
-            context: IdentifierContext::Expr,
+            context: IdentifierContext::Expr(expr_name.ctx),
         }
     }
 }
@@ -314,7 +315,7 @@ impl<'a> Transaction<'a> {
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
                 identifier: id,
-                context: IdentifierContext::Expr,
+                context: IdentifierContext::Expr(_),
             }) => {
                 if self.get_bindings(handle)?.is_valid_usage(&id) {
                     if let Some(ExprCall {
@@ -635,33 +636,37 @@ impl<'a> Transaction<'a> {
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
                 identifier: id,
-                context: IdentifierContext::Expr,
+                context: IdentifierContext::Expr(expr_context),
             }) => {
-                if let Some(result) =
-                    self.handle_goto_definition_itself_do_not_use(handle, position)
-                {
-                    return Some(result);
+                match expr_context {
+                    ExprContext::Store => {
+                        // This is a variable definition
+                        self.key_to_definition(handle, &Key::Definition(ShortIdentifier::new(&id)))
+                    }
+                    ExprContext::Load | ExprContext::Del | ExprContext::Invalid => {
+                        // This is a usage of the variable
+                        if !self.get_bindings(handle)?.is_valid_usage(&id) {
+                            return None;
+                        }
+                        let (
+                            handle,
+                            Export {
+                                location,
+                                symbol_kind,
+                                docstring,
+                            },
+                        ) = self.key_to_export(
+                            handle,
+                            &Key::BoundName(ShortIdentifier::new(&id)),
+                            INITIAL_GAS,
+                        )?;
+                        Some((
+                            DefinitionMetadata::Variable(symbol_kind),
+                            TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
+                            docstring,
+                        ))
+                    }
                 }
-                if !self.get_bindings(handle)?.is_valid_usage(&id) {
-                    return None;
-                }
-                let (
-                    handle,
-                    Export {
-                        location,
-                        symbol_kind,
-                        docstring,
-                    },
-                ) = self.key_to_export(
-                    handle,
-                    &Key::BoundName(ShortIdentifier::new(&id)),
-                    INITIAL_GAS,
-                )?;
-                Some((
-                    DefinitionMetadata::Variable(symbol_kind),
-                    TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
-                    docstring,
-                ))
             }
             Some(IdentifierWithContext {
                 identifier: _,

@@ -121,6 +121,53 @@ Definition Result:
 }
 
 #[test]
+fn shadowed_def_test0() {
+    let code = r#"
+def test() -> None:
+  x = 0
+# ^
+  x = 1
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+3 |   x = 0
+      ^
+Definition Result:
+3 |   x = 0
+      ^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn shadowed_def_test1() {
+    let code = r#"
+def test(flag: bool) -> None:
+  x = 0
+  if flag:
+    x = 1
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+5 |     x = 1
+        ^
+Definition Result:
+5 |     x = 1
+        ^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn named_import_tests() {
     let code_import_provider: &str = r#"
 from typing import Literal
