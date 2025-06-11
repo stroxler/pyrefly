@@ -481,8 +481,8 @@ impl User {
         Self(Usage::User(idx))
     }
 
-    pub fn usage(&self) -> Usage {
-        self.0
+    pub fn usage(&mut self) -> &mut Usage {
+        &mut self.0
     }
 
     fn idx(&self) -> Idx<Key> {
@@ -764,13 +764,13 @@ impl<'a> BindingsBuilder<'a> {
         name: Hashed<&Name>,
         kind: LookupKind,
     ) -> Result<Idx<Key>, LookupError> {
-        self.lookup_name_impl(name, kind, Usage::StaticTypeInformation)
+        self.lookup_name_impl(name, kind, &mut Usage::StaticTypeInformation)
     }
 
     pub fn lookup_name_usage(
         &mut self,
         name: Hashed<&Name>,
-        usage: Usage,
+        usage: &mut Usage,
     ) -> Result<Idx<Key>, LookupError> {
         self.lookup_name_impl(name, LookupKind::Regular, usage)
     }
@@ -779,7 +779,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: Hashed<&Name>,
         kind: LookupKind,
-        usage: Usage,
+        usage: &mut Usage,
     ) -> Result<Idx<Key>, LookupError> {
         self.lookup_name_inner(name, kind, usage)
             .map(|(result, first_use)| {
@@ -799,7 +799,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: Hashed<&Name>,
         kind: LookupKind,
-        usage: Usage,
+        usage: &mut Usage,
     ) -> Result<(Idx<Key>, Option<Idx<Key>>), LookupError> {
         let mut barrier = false;
         let ok_no_usage = |idx| Ok((idx, None));
@@ -848,7 +848,7 @@ impl<'a> BindingsBuilder<'a> {
     fn detect_possible_first_use(
         &self,
         flow_idx: Idx<Key>,
-        usage: Usage,
+        usage: &mut Usage,
     ) -> (Idx<Key>, Option<Idx<Key>>) {
         match self.table.types.1.get(flow_idx) {
             Some(Binding::Pin(unpinned_idx, FirstUse::Undetermined)) => match usage {
@@ -860,11 +860,11 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     /// Record a first use detected in `detect_possible_first_use`.
-    fn record_possible_first_use(&mut self, used: Idx<Key>, usage: Usage) {
+    fn record_possible_first_use(&mut self, used: Idx<Key>, usage: &mut Usage) {
         match self.table.types.1.get_mut(used) {
             Some(Binding::Pin(.., first_use @ FirstUse::Undetermined)) => {
                 *first_use = match usage {
-                    Usage::User(use_idx) => FirstUse::UsedBy(use_idx),
+                    Usage::User(use_idx) => FirstUse::UsedBy(*use_idx),
                     Usage::StaticTypeInformation | Usage::Narrowing => FirstUse::DoesNotPin,
                 };
             }

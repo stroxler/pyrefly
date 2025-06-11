@@ -229,7 +229,7 @@ impl<'a> BindingsBuilder<'a> {
         x: &mut StmtFunctionDef,
         func_name: &Identifier,
         class_key: Option<Idx<KeyClass>>,
-        usage: Usage,
+        usage: &mut Usage,
     ) -> (
         Option<(TextRange, Idx<KeyAnnotation>)>,
         Vec<Idx<KeyLegacyTypeParam>>,
@@ -397,7 +397,7 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
-    fn decorators(&mut self, decorator_list: Vec<Decorator>, usage: Usage) -> Decorators {
+    fn decorators(&mut self, decorator_list: Vec<Decorator>, usage: &mut Usage) -> Decorators {
         let has_no_type_check = decorator_list
             .iter()
             .any(|d| self.as_special_export(&d.expression) == Some(SpecialExport::NoTypeCheck));
@@ -494,7 +494,7 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn function_def(&mut self, mut x: StmtFunctionDef) {
         let func_name = x.name.clone();
-        let def_user = self.declare_user(Key::Definition(ShortIdentifier::new(&func_name)));
+        let mut def_user = self.declare_user(Key::Definition(ShortIdentifier::new(&func_name)));
 
         // Get preceding function definition, if any. Used for building an overload type.
         let (function_idx, pred_idx) = self.create_function_index(&x.name);

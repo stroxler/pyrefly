@@ -40,7 +40,7 @@ impl<'a> BindingsBuilder<'a> {
     ) -> NarrowOps {
         // In typical code, match patterns are more like static types than normal values, so
         // we ignore match patterns for first-usage tracking.
-        let narrowing_usage = Usage::Narrowing;
+        let narrowing_usage = &mut Usage::Narrowing;
         match pattern {
             Pattern::MatchValue(mut p) => {
                 self.ensure_expr(&mut p.value, narrowing_usage);
@@ -229,7 +229,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn stmt_match(&mut self, mut x: StmtMatch) {
-        let subject_user = self.declare_user(Key::Anon(x.subject.range()));
+        let mut subject_user = self.declare_user(Key::Anon(x.subject.range()));
         self.ensure_expr(&mut x.subject, subject_user.usage());
         let match_subject = *x.subject.clone();
         let key = self.insert_binding_user(subject_user, Binding::Expr(None, *x.subject.clone()));
@@ -256,7 +256,7 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_narrow_ops(&new_narrow_ops, case.range);
             negated_prev_ops.and_all(new_narrow_ops.negate());
             if let Some(mut guard) = case.guard {
-                self.ensure_expr(&mut guard, Usage::Narrowing);
+                self.ensure_expr(&mut guard, &mut Usage::Narrowing);
                 let narrow_ops = NarrowOps::from_expr(self, Some(guard.as_ref()));
                 self.bind_narrow_ops(&narrow_ops, case.range);
                 self.insert_binding(Key::Anon(guard.range()), Binding::Expr(None, *guard));

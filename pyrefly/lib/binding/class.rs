@@ -110,7 +110,7 @@ impl<'a> BindingsBuilder<'a> {
             return;
         }
 
-        let (class_object, class_indices) = self.class_object_and_indices(&x.name);
+        let (mut class_object, class_indices) = self.class_object_and_indices(&x.name);
         let mut key_class_fields: SmallSet<Idx<KeyClassField>> = SmallSet::new();
 
         let body = mem::take(&mut x.body);
@@ -548,7 +548,7 @@ impl<'a> BindingsBuilder<'a> {
         members: &mut [Expr],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
-        let (class_object, class_indices) = self.class_object_and_indices(&class_name);
+        let (mut class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.check_functional_definition_name(&name.id, arg_name);
         self.ensure_expr(func, class_object.usage());
         self.ensure_expr(arg_name, class_object.usage());
@@ -663,7 +663,7 @@ impl<'a> BindingsBuilder<'a> {
         keywords: &mut [Keyword],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
-        let (class_object, class_indices) = self.class_object_and_indices(&class_name);
+        let (mut class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.ensure_expr(func, class_object.usage());
         self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>)> = match members {
@@ -775,7 +775,7 @@ impl<'a> BindingsBuilder<'a> {
         members: &[Expr],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
-        let (class_object, class_indices) = self.class_object_and_indices(&class_name);
+        let (mut class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.ensure_expr(func, class_object.usage());
         self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>, Option<Expr>)> =
@@ -834,7 +834,7 @@ impl<'a> BindingsBuilder<'a> {
         base: &mut Expr,
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
-        let (class_object, class_indices) = self.class_object_and_indices(&class_name);
+        let (mut class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.ensure_expr(new_type_name, class_object.usage());
         self.check_functional_definition_name(&name.id, new_type_name);
         self.ensure_type(base, &mut None);
@@ -861,7 +861,7 @@ impl<'a> BindingsBuilder<'a> {
         keywords: &mut [Keyword],
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
-        let (class_object, class_indices) = self.class_object_and_indices(&class_name);
+        let (mut class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.ensure_expr(func, class_object.usage());
         self.check_functional_definition_name(&name.id, arg_name);
         let mut base_class_keywords: Box<[(Name, Expr)]> = Box::new([]);

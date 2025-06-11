@@ -269,7 +269,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         range: TextRange,
         comprehensions: &mut [Comprehension],
-        usage: Usage,
+        usage: &mut Usage,
     ) {
         self.scopes.push(Scope::comprehension(range));
         for comp in comprehensions {
@@ -288,14 +288,14 @@ impl<'a> BindingsBuilder<'a> {
                 Binding::Forward(iterable_value_idx)
             });
             for x in comp.ifs.iter_mut() {
-                self.ensure_expr(x, Usage::Narrowing);
+                self.ensure_expr(x, &mut Usage::Narrowing);
                 let narrow_ops = NarrowOps::from_expr(self, Some(x));
                 self.bind_narrow_ops(&narrow_ops, comp.range);
             }
         }
     }
 
-    pub fn bind_lambda(&mut self, lambda: &mut ExprLambda, usage: Usage) {
+    pub fn bind_lambda(&mut self, lambda: &mut ExprLambda, usage: &mut Usage) {
         self.scopes.push(Scope::function(lambda.range));
         if let Some(parameters) = &lambda.parameters {
             for x in parameters {
@@ -327,7 +327,7 @@ impl<'a> BindingsBuilder<'a> {
         ops: &NarrowOps,
         orelse: Option<&mut Expr>,
         range: TextRange,
-        usage: Usage,
+        usage: &mut Usage,
     ) {
         let if_branch = self.scopes.replace_current_flow(base);
         self.bind_narrow_ops(&ops.negate(), range);
@@ -383,7 +383,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn record_yield(&mut self, mut x: ExprYield) {
-        let user = self.declare_user(Key::UsageLink(x.range));
+        let mut user = self.declare_user(Key::UsageLink(x.range));
         let idx = self.idx_for_promise(KeyYield(x.range));
         self.ensure_expr_opt(x.value.as_deref_mut(), user.usage());
         if let Err(oops_top_level) = self.scopes.record_or_reject_yield(idx, x) {
@@ -393,7 +393,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn record_yield_from(&mut self, mut x: ExprYieldFrom) {
-        let user = self.declare_user(Key::UsageLink(x.range));
+        let mut user = self.declare_user(Key::UsageLink(x.range));
         let idx = self.idx_for_promise(KeyYieldFrom(x.range));
         self.ensure_expr(&mut x.value, user.usage());
         if let Err(oops_top_level) = self.scopes.record_or_reject_yield_from(idx, x) {
@@ -403,12 +403,12 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     /// Execute through the expr, ensuring every name has a binding.
-    pub fn ensure_expr(&mut self, x: &mut Expr, usage: Usage) {
+    pub fn ensure_expr(&mut self, x: &mut Expr, usage: &mut Usage) {
         match x {
             Expr::If(x) => {
                 // Ternary operation. We treat it like an if/else statement.
                 let base = self.scopes.clone_current_flow();
-                self.ensure_expr(&mut x.test, Usage::Narrowing);
+                self.ensure_expr(&mut x.test, &mut Usage::Narrowing);
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.bind_narrow_ops(&narrow_ops, x.body.range());
                 self.ensure_expr(&mut x.body, usage);
@@ -420,7 +420,7 @@ impl<'a> BindingsBuilder<'a> {
                 let mut narrow_ops = NarrowOps::new();
                 for value in values {
                     self.bind_narrow_ops(&narrow_ops, value.range());
-                    self.ensure_expr(value, Usage::Narrowing);
+                    self.ensure_expr(value, &mut Usage::Narrowing);
                     let new_narrow_ops = NarrowOps::from_expr(self, Some(value));
                     match op {
                         BoolOp::And => {
@@ -571,7 +571,7 @@ impl<'a> BindingsBuilder<'a> {
             {
                 self.ensure_expr(func, usage);
                 for arg in arguments.args.iter_mut() {
-                    self.ensure_expr(arg, Usage::Narrowing);
+                    self.ensure_expr(arg, &mut Usage::Narrowing);
                 }
                 for kw in arguments.keywords.iter_mut() {
                     self.ensure_expr(&mut kw.value, usage);
@@ -641,7 +641,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     /// Execute through the expr, ensuring every name has a binding.
-    pub fn ensure_expr_opt(&mut self, x: Option<&mut Expr>, usage: Usage) {
+    pub fn ensure_expr_opt(&mut self, x: Option<&mut Expr>, usage: &mut Usage) {
         if let Some(x) = x {
             self.ensure_expr(x, usage);
         }
@@ -650,7 +650,7 @@ impl<'a> BindingsBuilder<'a> {
     /// Execute through the expr, ensuring every name has a binding.
     pub fn ensure_type(&mut self, x: &mut Expr, tparams_builder: &mut Option<LegacyTParamBuilder>) {
         // We do not treat static types as usage for the purpose of first-usage-based type inference.
-        let static_type_usage = Usage::StaticTypeInformation;
+        let static_type_usage = &mut Usage::StaticTypeInformation;
         match x {
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
@@ -727,7 +727,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn ensure_and_bind_decorators(
         &mut self,
         decorators: Vec<Decorator>,
-        usage: Usage,
+        usage: &mut Usage,
     ) -> Vec<Idx<Key>> {
         let mut decorator_keys = Vec::with_capacity(decorators.len());
         for mut x in decorators {
