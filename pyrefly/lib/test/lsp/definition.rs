@@ -705,6 +705,55 @@ Definition Result:
 }
 
 #[test]
+fn param_def_test() {
+    let code = r#"
+def f(x, /, y, *, z):
+#     ^     ^     ^
+  pass
+def g(*args, **kwargs):
+#      ^       ^
+  pass
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+2 | def f(x, /, y, *, z):
+          ^
+Definition Result:
+2 | def f(x, /, y, *, z):
+          ^
+
+2 | def f(x, /, y, *, z):
+                ^
+Definition Result:
+2 | def f(x, /, y, *, z):
+                ^
+
+2 | def f(x, /, y, *, z):
+                      ^
+Definition Result:
+2 | def f(x, /, y, *, z):
+                      ^
+
+5 | def g(*args, **kwargs):
+           ^
+Definition Result:
+5 | def g(*args, **kwargs):
+           ^^^^
+
+5 | def g(*args, **kwargs):
+                   ^
+Definition Result:
+5 | def g(*args, **kwargs):
+                   ^^^^^^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn generics_test() {
     let code = r#"
 def f[T](input: T):

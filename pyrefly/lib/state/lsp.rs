@@ -150,6 +150,9 @@ enum IdentifierContext {
     /// An identifier appeared as the name of a class.
     /// ex: `x` in `class x(...): ...`
     ClassDef,
+    /// An identifier appeared as the name of a parameter.
+    /// ex: `x` in `def f(x): ...`
+    Parameter,
     /// An identifier appeared as the name of a type parameter.
     /// ex: `T` in `def f[T](...): ...` or `U` in `class C[*U]: ...`
     TypeParameter,
@@ -235,6 +238,13 @@ impl IdentifierWithContext {
         Self {
             identifier: id.clone(),
             context: IdentifierContext::ClassDef,
+        }
+    }
+
+    fn from_parameter(id: &Identifier) -> Self {
+        Self {
+            identifier: id.clone(),
+            context: IdentifierContext::Parameter,
         }
     }
 
@@ -347,6 +357,10 @@ impl<'a> Transaction<'a> {
             (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtClassDef(_)), _, _) => {
                 // class id(...): ...
                 Some(IdentifierWithContext::from_stmt_class_def(id))
+            }
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::Parameter(_)), _, _) => {
+                // def ...(id): ...
+                Some(IdentifierWithContext::from_parameter(id))
             }
             (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::TypeParamTypeVar(_)), _, _) => {
                 // def ...[id](...): ...
@@ -478,6 +492,13 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::ClassDef,
             }) => {
                 // TODO(grievejia): Handle defintions of classes
+                None
+            }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::Parameter,
+            }) => {
+                // TODO(grievejia): Handle defintions of params
                 None
             }
             Some(IdentifierWithContext {
@@ -896,6 +917,14 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::ClassDef,
             }) => Some((
                 DefinitionMetadata::Variable(Some(SymbolKind::Class)),
+                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
+                None,
+            )),
+            Some(IdentifierWithContext {
+                identifier,
+                context: IdentifierContext::Parameter,
+            }) => Some((
+                DefinitionMetadata::Variable(Some(SymbolKind::Parameter)),
                 TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
                 None,
             )),
