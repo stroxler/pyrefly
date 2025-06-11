@@ -180,7 +180,6 @@ pub enum Key {
     ///
     /// Used in cases where the raw definition might introduce placeholder `Var` types
     /// that need to hidden from all lookups except the first usage to avoid nondeterminism.
-    #[expect(dead_code)]
     PinnedDefinition(ShortIdentifier),
     /// I am a name with possible attribute/subscript narrowing coming from an assignment at this location.
     PropertyAssign(ShortIdentifier),
@@ -753,16 +752,17 @@ pub enum LinkedKey {
     Expect(Idx<KeyExpect>),
 }
 
-#[expect(dead_code)]
 #[derive(Clone, Debug)]
 pub enum FirstUse {
     /// We are still awaiting a first use
     Undetermined,
     /// We encountered the first use, and it does not pin the type (so we should force
     /// all placeholder variables to default values).
+    #[expect(dead_code)]
     DoesNotPin,
     /// This binding is the first use, we should calculate it to get first-use based
     /// inference.
+    #[expect(dead_code)]
     UsedBy(Idx<Key>),
 }
 
@@ -889,7 +889,6 @@ pub enum Binding {
     /// Binding used to pin placeholder types from `NameAssign` bindings. The first
     /// entry should always correspond to a `Key::Definition` from a name assignment
     /// and the second entry tells us if and where this definition is first used.
-    #[expect(dead_code)]
     Pin(Idx<Key>, FirstUse),
 }
 

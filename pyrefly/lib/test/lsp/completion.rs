@@ -117,8 +117,8 @@ def foo():
 4 |   x
       ^
 Completion Results:
-- (Variable) xxxx: Literal[3]
 - (Function) bar: () -> None
+- (Variable) xxxx: Literal[3]
 - (Function) foo: () -> None
 
 8 |     y

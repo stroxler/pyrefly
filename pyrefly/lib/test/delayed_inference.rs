@@ -18,6 +18,19 @@ assert_type(x, list[Any])
 );
 
 testcase!(
+    bug = "This test broke when we introduced `Pin`, but *before* we did any actual pinning",
+    test_simple_int_operation_in_loop,
+    r#"
+from typing import assert_type, Literal
+x = 5
+while True:
+  x = x + 1
+y = x
+assert_type(y, int)  # E: assert_type(Literal[5] | Any, int)
+"#,
+);
+
+testcase!(
     test_empty_list_is_generic,
     r#"
 from typing import assert_type

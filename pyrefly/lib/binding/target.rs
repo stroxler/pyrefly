@@ -18,6 +18,7 @@ use crate::binding::binding::AnnotationStyle;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::ExprOrBinding;
+use crate::binding::binding::FirstUse;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyExpect;
@@ -411,13 +412,24 @@ impl<'a> BindingsBuilder<'a> {
     /// It is used for
     /// - single-name `Assign` statements
     /// - for `AnnAssign` when there is a value assigned
+    ///
+    /// This is the only scenario where Pyrefly allows placeholder types to leak
+    /// into a binding result as `Var`s. To do that, we create two separate bindings:
+    /// the `Key::Definition` binding, which potentially contains placeholder type `Var`s
+    /// in its result, and a `Key::PinnedDefinition` binding which will attempt to
+    /// infer types based on the first use, and force them to default types otherwise.
+    ///
+    /// The pinned definition is the one that goes into scopes, and normal name lookups
+    /// will see that - only a first use binding may see the raw, unpinned result.
     pub fn bind_single_name_assign(
         &mut self,
         name: &Identifier,
         mut value: Box<Expr>,
         direct_ann: Option<(&Expr, Idx<KeyAnnotation>)>,
     ) -> Option<Idx<KeyAnnotation>> {
-        let user = self.declare_user(Key::Definition(ShortIdentifier::new(name)));
+        let identifier = ShortIdentifier::new(name);
+        let user = self.declare_user(Key::Definition(identifier.clone()));
+        let pinned_idx = self.idx_for_promise(Key::PinnedDefinition(identifier));
         let is_definitely_type_alias = if let Some((e, _)) = direct_ann
             && self.as_special_export(e) == Some(SpecialExport::TypeAlias)
         {
@@ -437,7 +449,7 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             FlowStyle::Other
         };
-        let (canonical_ann, default) = self.bind_user(&name.id, &user, style);
+        let (canonical_ann, default) = self.bind_key(&name.id, pinned_idx, style);
         let ann = match direct_ann {
             Some((_, idx)) => Some((AnnotationStyle::Direct, idx)),
             None => canonical_ann.map(|idx| (AnnotationStyle::Forwarded, idx)),
@@ -446,7 +458,8 @@ impl<'a> BindingsBuilder<'a> {
         if let Some(default) = default {
             binding = Binding::Default(default, Box::new(binding));
         }
-        self.insert_binding_user(user, binding);
+        let def_idx = self.insert_binding_user(user, binding);
+        self.insert_binding_idx(pinned_idx, Binding::Pin(def_idx, FirstUse::Undetermined));
         canonical_ann
     }
 
