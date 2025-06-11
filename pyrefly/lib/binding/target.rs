@@ -429,7 +429,7 @@ impl<'a> BindingsBuilder<'a> {
     ) -> Option<Idx<KeyAnnotation>> {
         let identifier = ShortIdentifier::new(name);
         let mut user = self.declare_user(Key::Definition(identifier.clone()));
-        let pinned_idx = self.idx_for_promise(Key::PinnedDefinition(identifier));
+        let pinned_idx = self.idx_for_promise(Key::PinnedDefinition(identifier.clone()));
         let is_definitely_type_alias = if let Some((e, _)) = direct_ann
             && self.as_special_export(e) == Some(SpecialExport::TypeAlias)
         {
@@ -458,8 +458,23 @@ impl<'a> BindingsBuilder<'a> {
         if let Some(default) = default {
             binding = Binding::Default(default, Box::new(binding));
         }
-        let def_idx = self.insert_binding_user(user, binding);
-        self.insert_binding_idx(pinned_idx, Binding::Pin(def_idx, FirstUse::Undetermined));
+        // Record the raw assignment
+        let (first_used_by, def_idx) = user.decompose();
+        let def_idx = self.insert_binding_idx(def_idx, binding);
+        // If this is a first use, add a binding that will eliminate any placeholder types coming from upstream.
+        let unpinned_idx = if first_used_by.is_empty() {
+            def_idx
+        } else {
+            self.insert_binding(
+                Key::UpstreamPinnedDefinition(identifier),
+                Binding::PinUpstream(def_idx, first_used_by.into_iter().collect()),
+            )
+        };
+        // Insert the Pin binding that will pin any types, potentially after evaluating the first downstream use.
+        self.insert_binding_idx(
+            pinned_idx,
+            Binding::Pin(unpinned_idx, FirstUse::Undetermined),
+        );
         canonical_ann
     }
 

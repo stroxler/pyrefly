@@ -181,7 +181,6 @@ pub enum Key {
     /// My raw definition contains unpinned placeholder types from both myself
     /// and upstream definitions, this binding will have all upstream
     /// placeholders (but not those originating from me) pinned.
-    #[expect(dead_code)]
     UpstreamPinnedDefinition(ShortIdentifier),
     /// I am the pinned version of a definition corresponding to a name assignment.
     ///
@@ -905,7 +904,6 @@ pub enum Binding {
     ///
     /// The Idx is the upstream raw `NameAssign`, and the slice has `Idx`s that point at
     /// all the `Pin`s for which that raw `NameAssign` was the first use.
-    #[expect(dead_code)]
     PinUpstream(Idx<Key>, Box<[Idx<Key>]>),
 }
 

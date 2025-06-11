@@ -495,6 +495,13 @@ impl User {
     pub fn into_idx(self) -> Idx<Key> {
         self.idx()
     }
+
+    pub fn decompose(self) -> (SmallSet<Idx<Key>>, Idx<Key>) {
+        match self.0 {
+            Usage::User(idx, first_used_by) => (first_used_by, idx),
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl<'a> BindingsBuilder<'a> {
