@@ -261,3 +261,41 @@ from inconsistent_pins_for_non_name_assign_placeholder import x
 assert_type(x, list[Any])
 "#,
 );
+
+fn env_chained_first_use_with_inconsistent_pins() -> TestEnv {
+    TestEnv::one(
+        "chained_first_use_with_inconsistent_pins",
+        r#"
+x = []
+w = x
+y = x.append(1)
+z = w.append("1")
+"#,
+    )
+}
+
+testcase!(
+    bug = "If we import y first, then Pin(x, ...) will pin `x` to `list[Any]`",
+    chained_first_use_with_inconsistent_pins_a,
+    env_chained_first_use_with_inconsistent_pins(),
+    r#"
+from typing import assert_type, Any
+from chained_first_use_with_inconsistent_pins import y
+assert_type(y, None)
+from chained_first_use_with_inconsistent_pins import x
+assert_type(x, list[Any])
+"#,
+);
+
+testcase!(
+    bug = "If we import z first, then it will pin `x` to `list[str]`",
+    chained_first_use_with_inconsistent_pins_b,
+    env_chained_first_use_with_inconsistent_pins(),
+    r#"
+from typing import assert_type, Any
+from chained_first_use_with_inconsistent_pins import z
+assert_type(z, None)
+from chained_first_use_with_inconsistent_pins import x
+assert_type(x, list[str])
+"#,
+);
