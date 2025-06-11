@@ -233,6 +233,56 @@ Definition Result:
 }
 
 #[test]
+fn keyword_argument_test_function() {
+    let code = r#"
+def foo(x: int, y: str) -> None: pass
+
+def test() -> None:
+  foo(0, y="foo")
+#        ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+5 |   foo(0, y="foo")
+             ^
+Definition Result:
+2 | def foo(x: int, y: str) -> None: pass
+        ^^^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn keyword_argument_test_method() {
+    let code = r#"
+class Foo:
+    def foo(self, x: int, y: str) -> None:
+        pass
+
+def test(a: Foo) -> None:
+    a.foo(0, y="foo")
+#            ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+7 |     a.foo(0, y="foo")
+                 ^
+Definition Result:
+3 |     def foo(self, x: int, y: str) -> None:
+            ^^^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn named_import_tests() {
     let code_import_provider: &str = r#"
 from typing import Literal

@@ -98,7 +98,6 @@ impl DefinitionMetadata {
     }
 }
 
-#[allow(dead_code)]
 enum CalleeKind {
     // Function name
     Function(Identifier),
@@ -120,7 +119,6 @@ enum IdentifierContext {
     /// An identifier appeared as the name of a keyword argument.
     /// ex: `x` in `f(x=1)`. We also store some info about the callee `f` so
     /// downstream logic can utilize the info.
-    #[allow(dead_code)]
     KeywordArgument(CalleeKind),
     /// An identifier appeared as the name of an imported module.
     /// ex: `x` in `import x`, or `from x import name`.
@@ -816,6 +814,24 @@ impl<'a> Transaction<'a> {
         .flatten()
     }
 
+    fn get_callee_definition(
+        &self,
+        handle: &Handle,
+        callee_kind: &CalleeKind,
+    ) -> Option<(
+        DefinitionMetadata,
+        TextRangeWithModuleInfo,
+        Option<DocString>,
+    )> {
+        match callee_kind {
+            CalleeKind::Function(name) => self.find_definition_for_name_use(handle, name),
+            CalleeKind::Method(base_range, name) => {
+                self.find_definition_for_attribute(handle, *base_range, name)
+            }
+            CalleeKind::Unknown => None,
+        }
+    }
+
     /// Find the definition, metadata and optionally the docstring for the given position.
     pub fn find_definition(
         &self,
@@ -901,11 +917,8 @@ impl<'a> Transaction<'a> {
             )),
             Some(IdentifierWithContext {
                 identifier: _,
-                context: IdentifierContext::KeywordArgument(_),
-            }) => {
-                // TODO(grievejia): Implement this
-                None
-            }
+                context: IdentifierContext::KeywordArgument(callee_kind),
+            }) => self.get_callee_definition(handle, &callee_kind),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
