@@ -132,6 +132,12 @@ enum IdentifierContext {
         /// ex: For `from ... import x`, the name is `x`. For `from ... import x as y`, the name is `y`.
         name_after_import: Identifier,
     },
+    /// An identifier appeared as the name of a function.
+    /// ex: `x` in `def x(...): ...`
+    FunctionDef,
+    /// An identifier appeared as the name of a class.
+    /// ex: `x` in `class x(...): ...`
+    ClassDef,
 }
 
 struct IdentifierWithContext {
@@ -196,6 +202,20 @@ impl IdentifierWithContext {
                 dots,
                 name_after_import,
             },
+        }
+    }
+
+    fn from_stmt_function_def(id: &Identifier) -> Self {
+        Self {
+            identifier: id.clone(),
+            context: IdentifierContext::FunctionDef,
+        }
+    }
+
+    fn from_stmt_class_def(id: &Identifier) -> Self {
+        Self {
+            identifier: id.clone(),
+            context: IdentifierContext::ClassDef,
         }
     }
 
@@ -269,6 +289,14 @@ impl<'a> Transaction<'a> {
                     alias,
                     import_from,
                 ))
+            }
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtFunctionDef(_)), _) => {
+                // def id(...): ...
+                Some(IdentifierWithContext::from_stmt_function_def(id))
+            }
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtClassDef(_)), _) => {
+                // class id(...): ...
+                Some(IdentifierWithContext::from_stmt_class_def(id))
             }
             (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::ExprAttribute(attr)), _) => {
                 // `XXX.id`
@@ -354,6 +382,20 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::ImportedName { .. },
             }) => {
                 // TODO(grievejia): handle definitions of imported names
+                None
+            }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::FunctionDef,
+            }) => {
+                // TODO(grievejia): Handle defintions of functions
+                None
+            }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::ClassDef,
+            }) => {
+                // TODO(grievejia): Handle defintions of classes
                 None
             }
             Some(IdentifierWithContext {
@@ -696,6 +738,22 @@ impl<'a> Transaction<'a> {
                 handle,
                 &Key::Definition(ShortIdentifier::new(&name_after_import)),
             ),
+            Some(IdentifierWithContext {
+                identifier,
+                context: IdentifierContext::FunctionDef,
+            }) => Some((
+                DefinitionMetadata::Variable(Some(SymbolKind::Function)),
+                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
+                None,
+            )),
+            Some(IdentifierWithContext {
+                identifier,
+                context: IdentifierContext::ClassDef,
+            }) => Some((
+                DefinitionMetadata::Variable(Some(SymbolKind::Class)),
+                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
+                None,
+            )),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },

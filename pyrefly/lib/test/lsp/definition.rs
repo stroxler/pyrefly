@@ -168,6 +168,46 @@ Definition Result:
 }
 
 #[test]
+fn function_and_class_name_test() {
+    let code = r#"
+def foo() -> None:
+#   ^
+  pass
+
+class Foo:
+#     ^
+  def bar(self) -> int:
+#     ^
+    return 42
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+2 | def foo() -> None:
+        ^
+Definition Result:
+2 | def foo() -> None:
+        ^^^
+
+6 | class Foo:
+          ^
+Definition Result:
+6 | class Foo:
+          ^^^
+
+8 |   def bar(self) -> int:
+          ^
+Definition Result:
+8 |   def bar(self) -> int:
+          ^^^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn named_import_tests() {
     let code_import_provider: &str = r#"
 from typing import Literal
