@@ -91,7 +91,7 @@ impl FindError {
                 vec1![
                     "Imported package does not contain a py.typed file, \
                 and therefore cannot be typed. Try installing a `<package name>-stubs` version
-                of your package to get the released stubs, or enable `use_untyped_imports` to
+                of your package to get the released stubs, or enable `use-untyped-imports` to
                 disable this error."
                         .to_owned()
                 ],
@@ -100,7 +100,7 @@ impl FindError {
                 None,
                 vec1![format!(
                     "Found stubs for `{module}`, but no source. This means it's likely not \
-                    installed/unimportable. See `ignore_missing_source` to disable this error."
+                    installed/unimportable. See `ignore-missing-source` to disable this error."
                 )],
             ),
         }
