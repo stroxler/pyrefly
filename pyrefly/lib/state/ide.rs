@@ -62,7 +62,7 @@ pub fn binding_to_intermediate_definition(
         return None;
     }
     match binding {
-        Binding::Forward(k) | Binding::Narrow(k, _, _) => {
+        Binding::Forward(k) | Binding::Narrow(k, _, _) | Binding::Pin(k, ..) => {
             key_to_intermediate_definition(bindings, bindings.idx_to_key(*k), gas)
         }
         Binding::Default(_, m) => binding_to_intermediate_definition(bindings, m, gas),

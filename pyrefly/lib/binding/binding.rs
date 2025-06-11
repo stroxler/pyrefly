@@ -753,6 +753,19 @@ pub enum LinkedKey {
     Expect(Idx<KeyExpect>),
 }
 
+#[expect(dead_code)]
+#[derive(Clone, Debug)]
+pub enum FirstUse {
+    /// We are still awaiting a first use
+    Undetermined,
+    /// We encountered the first use, and it does not pin the type (so we should force
+    /// all placeholder variables to default values).
+    DoesNotPin,
+    /// This binding is the first use, we should calculate it to get first-use based
+    /// inference.
+    UsedBy(Idx<Key>),
+}
+
 #[derive(Clone, Debug)]
 pub enum Binding {
     /// An expression, optionally with a Key saying what the type must be.
@@ -873,6 +886,11 @@ pub enum Binding {
     /// example, forcing a `BindingExpect` to be solved) in the context of first-usage-based
     /// type inference.
     UsageLink(LinkedKey),
+    /// Binding used to pin placeholder types from `NameAssign` bindings. The first
+    /// entry should always correspond to a `Key::Definition` from a name assignment
+    /// and the second entry tells us if and where this definition is first used.
+    #[expect(dead_code)]
+    Pin(Idx<Key>, FirstUse),
 }
 
 impl DisplayWith<Bindings> for Binding {
@@ -1113,6 +1131,14 @@ impl DisplayWith<Bindings> for Binding {
                     }
                 }
             }
+            Self::Pin(k, first_use) => {
+                write!(f, "pin {}", ctx.display(*k),)?;
+                match first_use {
+                    FirstUse::Undetermined => write!(f, " (undetermined first use)"),
+                    FirstUse::DoesNotPin => write!(f, " (non-pinning first use)"),
+                    FirstUse::UsedBy(idx) => write!(f, " (first use: {})", ctx.display(*idx)),
+                }
+            }
         }
     }
 }
@@ -1165,7 +1191,8 @@ impl Binding {
             | Binding::SuperInstance(_, _)
             | Binding::AssignToAttribute(_)
             | Binding::UsageLink(_)
-            | Binding::AssignToSubscript(_) => None,
+            | Binding::AssignToSubscript(_)
+            | Binding::Pin(..) => None,
         }
     }
 }

@@ -52,6 +52,7 @@ use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::EmptyAnswer;
 use crate::binding::binding::ExprOrBinding;
+use crate::binding::binding::FirstUse;
 use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::Initialized;
 use crate::binding::binding::IsAsync;
@@ -1862,6 +1863,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // These forms require propagating attribute narrowing information, so they
                 // are handled in `binding_to_type_info`
                 self.binding_to_type_info(binding, errors).into_ty()
+            }
+            Binding::Pin(unpinned_idx, first_use) => {
+                // Calclulate the first use for its side-effects (it might pin `Var`s)
+                match first_use {
+                    FirstUse::UsedBy(idx) => {
+                        self.get_idx(*idx);
+                    }
+                    FirstUse::Undetermined | FirstUse::DoesNotPin => {}
+                }
+                self.get_idx(*unpinned_idx).arc_clone().into_ty()
             }
             Binding::Expr(ann, e) => match ann {
                 Some(k) => {
