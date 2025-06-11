@@ -138,6 +138,9 @@ enum IdentifierContext {
     /// An identifier appeared as the name of a class.
     /// ex: `x` in `class x(...): ...`
     ClassDef,
+    /// An identifier appeared as the name of a type parameter.
+    /// ex: `T` in `def f[T](...): ...` or `U` in `class C[*U]: ...`
+    TypeParameter,
 }
 
 struct IdentifierWithContext {
@@ -219,6 +222,13 @@ impl IdentifierWithContext {
         }
     }
 
+    fn from_type_param(id: &Identifier) -> Self {
+        Self {
+            identifier: id.clone(),
+            context: IdentifierContext::TypeParameter,
+        }
+    }
+
     fn from_expr_attr(id: &Identifier, attr: &ExprAttribute) -> Self {
         let identifier = id.clone();
         Self {
@@ -297,6 +307,18 @@ impl<'a> Transaction<'a> {
             (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtClassDef(_)), _) => {
                 // class id(...): ...
                 Some(IdentifierWithContext::from_stmt_class_def(id))
+            }
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::TypeParamTypeVar(_)), _) => {
+                // def ...[id](...): ...
+                Some(IdentifierWithContext::from_type_param(id))
+            }
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::TypeParamTypeVarTuple(_)), _) => {
+                // def ...[*id](...): ...
+                Some(IdentifierWithContext::from_type_param(id))
+            }
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::TypeParamParamSpec(_)), _) => {
+                // def ...[**id](...): ...
+                Some(IdentifierWithContext::from_type_param(id))
             }
             (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::ExprAttribute(attr)), _) => {
                 // `XXX.id`
@@ -396,6 +418,13 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::ClassDef,
             }) => {
                 // TODO(grievejia): Handle defintions of classes
+                None
+            }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::TypeParameter,
+            }) => {
+                // TODO(grievejia): Handle defintions of type params
                 None
             }
             Some(IdentifierWithContext {
@@ -751,6 +780,14 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::ClassDef,
             }) => Some((
                 DefinitionMetadata::Variable(Some(SymbolKind::Class)),
+                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
+                None,
+            )),
+            Some(IdentifierWithContext {
+                identifier,
+                context: IdentifierContext::TypeParameter,
+            }) => Some((
+                DefinitionMetadata::Variable(Some(SymbolKind::TypeParameter)),
                 TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
                 None,
             )),
