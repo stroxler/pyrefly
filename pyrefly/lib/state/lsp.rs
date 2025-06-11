@@ -110,6 +110,17 @@ enum IdentifierContext {
         #[allow(dead_code)]
         dots: u32,
     },
+    /// An identifier appeared as the name of a from...import statement.
+    /// ex: `x` in `from y import x`.
+    // TODO(grievejia): differentiate between `x` and `y` in `from ... import x as y`
+    ImportedName {
+        /// Name of the imported module.
+        module_name: ModuleName,
+        /// Keeps track of how many leading dots there are for the imported module.
+        /// ex: `x.y` in `import x.y` has 0 dots, and `x` in `from ..x.y import z` has 2 dot.
+        #[allow(dead_code)]
+        dots: u32,
+    },
 }
 
 struct IdentifierWithContext {
@@ -135,19 +146,32 @@ impl IdentifierWithContext {
         }
     }
 
+    fn module_name_and_dots(import_from: &StmtImportFrom) -> (ModuleName, u32) {
+        (
+            if let Some(module) = &import_from.module {
+                ModuleName::from_str(module.as_str())
+            } else {
+                ModuleName::from_str("")
+            },
+            import_from.level,
+        )
+    }
+
     fn from_stmt_import_from_module(id: &Identifier, import_from: &StmtImportFrom) -> Self {
         let identifier = id.clone();
-        let module_name = if let Some(module) = &import_from.module {
-            ModuleName::from_str(module.as_str())
-        } else {
-            ModuleName::from_str("")
-        };
+        let (name, dots) = Self::module_name_and_dots(import_from);
         Self {
             identifier,
-            context: IdentifierContext::ImportedModule {
-                name: module_name,
-                dots: import_from.level,
-            },
+            context: IdentifierContext::ImportedModule { name, dots },
+        }
+    }
+
+    fn from_stmt_import_from_name(id: &Identifier, import_from: &StmtImportFrom) -> Self {
+        let identifier = id.clone();
+        let (module_name, dots) = Self::module_name_and_dots(import_from);
+        Self {
+            identifier,
+            context: IdentifierContext::ImportedName { module_name, dots },
         }
     }
 
@@ -158,14 +182,6 @@ impl IdentifierWithContext {
             context: IdentifierContext::Expr,
         }
     }
-}
-
-enum ImportIdentifier {
-    // The name of a module. ex: `x` in `import x` or `from x import name`
-    Module(ModuleName),
-    // A name from a module's exports. ex: `name` in `from x import name`
-    // Note: these are also definitions
-    Name(ModuleName),
 }
 
 impl<'a> Transaction<'a> {
@@ -207,50 +223,22 @@ impl<'a> Transaction<'a> {
                     import_from,
                 ))
             }
+            (
+                Some(AnyNodeRef::Identifier(id)),
+                Some(AnyNodeRef::Alias(_)),
+                Some(AnyNodeRef::StmtImportFrom(import_from)),
+            ) => {
+                // `from ... import id`
+                Some(IdentifierWithContext::from_stmt_import_from_name(
+                    id,
+                    import_from,
+                ))
+            }
             (Some(AnyNodeRef::ExprName(name)), _, _) => {
                 Some(IdentifierWithContext::from_expr_name(name))
             }
             _ => None,
         }
-    }
-
-    fn import_at(&self, handle: &Handle, position: TextSize) -> Option<ImportIdentifier> {
-        fn visit_stmt(x: &Stmt, find: TextSize, res: &mut Option<ImportIdentifier>) {
-            match x {
-                Stmt::Import(stmt_import) => {
-                    let mut parts = Vec::new();
-                    for name in stmt_import.names.iter() {
-                        parts.push(name.name.clone());
-                        if name.range.contains_inclusive(find) {
-                            *res = Some(ImportIdentifier::Module(ModuleName::from_parts(
-                                parts.clone(),
-                            )));
-                        }
-                    }
-                }
-                Stmt::ImportFrom(stmt_import_from) => {
-                    if let Some(id) = &stmt_import_from.module {
-                        if id.range.contains_inclusive(find) {
-                            *res = Some(ImportIdentifier::Module(ModuleName::from_name(&id.id)));
-                        } else {
-                            for name in stmt_import_from.names.iter() {
-                                if name.range.contains_inclusive(find) {
-                                    *res =
-                                        Some(ImportIdentifier::Name(ModuleName::from_name(&id.id)));
-                                }
-                            }
-                        }
-                    }
-                }
-                _ => x.recurse(&mut |x| visit_stmt(x, find, res)),
-            }
-        }
-
-        let mut res = None;
-        self.get_ast(handle)?
-            .body
-            .visit(&mut |x| visit_stmt(x, position, &mut res));
-        res
     }
 
     fn definition_at(&self, handle: &Handle, position: TextSize) -> Option<Key> {
@@ -334,6 +322,12 @@ impl<'a> Transaction<'a> {
                     module_name.components().first().unwrap().clone(),
                     OrderedSet::from_iter([module_name]),
                 )));
+            }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::ImportedName { .. },
+            }) => {
+                // TODO(grievejia): handle definitions of imported names
             }
             None => {}
         }
@@ -627,6 +621,12 @@ impl<'a> Transaction<'a> {
                     self.get_module_docstring(&handle),
                 ));
             }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::ImportedName { .. },
+            }) => {
+                // TODO(grievejia): Handle definitions of imported names
+            }
             None => {}
         }
         let attribute = self.attribute_at(handle, position)?;
@@ -883,69 +883,77 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
     ) -> Option<Vec<CompletionItem>> {
-        if let Some(import) = self.import_at(handle, position) {
-            return match import {
-                ImportIdentifier::Name(module_name) => {
-                    let handle = self.import_handle(handle, module_name, None).ok()?;
-                    let exports = self.get_exports(&handle);
-                    let completions = exports
-                        .keys()
-                        .map(|name| CompletionItem {
-                            label: name.to_string(),
-                            // todo(kylei): completion kind for exports
-                            kind: Some(CompletionItemKind::VARIABLE),
+        match self.identifier_at(handle, position) {
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::ImportedName { module_name, .. },
+            }) => {
+                // TODO: Handle relative import (via ModuleName::new_maybe_relative)
+                let handle = self.import_handle(handle, module_name, None).ok()?;
+                let exports = self.get_exports(&handle);
+                let completions = exports
+                    .keys()
+                    .map(|name| CompletionItem {
+                        label: name.to_string(),
+                        // todo(kylei): completion kind for exports
+                        kind: Some(CompletionItemKind::VARIABLE),
+                        ..Default::default()
+                    })
+                    .collect();
+                Some(completions)
+            }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::ImportedModule { .. },
+            }) => {
+                // TODO(kylei): completion for module names
+                None
+            }
+            Some(IdentifierWithContext { .. }) => {
+                let bindings = self.get_bindings(handle)?;
+                let module_info = self.get_module_info(handle)?;
+                let names = bindings
+                    .available_definitions(position)
+                    .into_iter()
+                    .filter_map(|idx| {
+                        let key = bindings.idx_to_key(idx);
+                        if let Key::Definition(id) = key {
+                            let binding = bindings.get(idx);
+                            let detail = self.get_type(handle, key).map(|t| t.to_string());
+                            Some(CompletionItem {
+                                label: module_info.code_at(id.range()).to_owned(),
+                                detail,
+                                kind: binding
+                                    .symbol_kind()
+                                    .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                                        Some(k.to_lsp_completion_item_kind())
+                                    }),
+                                ..Default::default()
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                Some(names)
+            }
+            None => {
+                let attribute = self.attribute_at(handle, position)?;
+                let base_type = self
+                    .get_answers(handle)?
+                    .get_type_trace(attribute.value.range())?;
+                self.ad_hoc_solve(handle, |solver| {
+                    solver
+                        .completions(base_type.arc_clone(), None, true)
+                        .into_map(|x| CompletionItem {
+                            label: x.name.as_str().to_owned(),
+                            detail: x.ty.map(|t| t.to_string()),
+                            kind: Some(CompletionItemKind::FIELD),
                             ..Default::default()
                         })
-                        .collect();
-                    Some(completions)
-                }
-                ImportIdentifier::Module(_module_name) => {
-                    // TODO(kylei): completion for module names
-                    None
-                }
-            };
-        } else if self.identifier_at(handle, position).is_some() {
-            let bindings = self.get_bindings(handle)?;
-            let module_info = self.get_module_info(handle)?;
-            let names = bindings
-                .available_definitions(position)
-                .into_iter()
-                .filter_map(|idx| {
-                    let key = bindings.idx_to_key(idx);
-                    if let Key::Definition(id) = key {
-                        let binding = bindings.get(idx);
-                        let detail = self.get_type(handle, key).map(|t| t.to_string());
-                        Some(CompletionItem {
-                            label: module_info.code_at(id.range()).to_owned(),
-                            detail,
-                            kind: binding
-                                .symbol_kind()
-                                .map_or(Some(CompletionItemKind::VARIABLE), |k| {
-                                    Some(k.to_lsp_completion_item_kind())
-                                }),
-                            ..Default::default()
-                        })
-                    } else {
-                        None
-                    }
                 })
-                .collect::<Vec<_>>();
-            return Some(names);
+            }
         }
-        let attribute = self.attribute_at(handle, position)?;
-        let base_type = self
-            .get_answers(handle)?
-            .get_type_trace(attribute.value.range())?;
-        self.ad_hoc_solve(handle, |solver| {
-            solver
-                .completions(base_type.arc_clone(), None, true)
-                .into_map(|x| CompletionItem {
-                    label: x.name.as_str().to_owned(),
-                    detail: x.ty.map(|t| t.to_string()),
-                    kind: Some(CompletionItemKind::FIELD),
-                    ..Default::default()
-                })
-        })
     }
 
     pub fn inferred_types(&self, handle: &Handle) -> Option<Vec<(TextSize, Type, AnnotationKind)>> {
