@@ -58,7 +58,7 @@ use crate::types::types::Type;
 /// There are some cases - particularly in type declaration contexts like annotations,
 /// type variable declarations, and match patterns - that we want to skip for usage
 /// tracking.
-#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Usage {
     /// Usage to create a `Binding`.
     Idx(Idx<Key>),
