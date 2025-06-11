@@ -233,6 +233,51 @@ Definition Result:
 }
 
 #[test]
+fn pattern_match_test() {
+    let code = r#"
+from typing import Any
+class Foo:
+  x: int
+
+def test(o: Any) -> None:
+  match o:
+    case Foo(x=0): pass
+# NOTE(grievejia): The keyword case doesn't work currently because of a visitor bug in Ruff
+    case [*args]: pass
+#          ^
+    case {**kwargs}: pass
+#           ^
+    case _ as y: pass
+#             ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+10 |     case [*args]: pass
+                ^
+Definition Result:
+10 |     case [*args]: pass
+                ^^^^
+
+12 |     case {**kwargs}: pass
+                 ^
+Definition Result:
+12 |     case {**kwargs}: pass
+                 ^^^^^^
+
+14 |     case _ as y: pass
+                   ^
+Definition Result:
+14 |     case _ as y: pass
+                   ^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn keyword_argument_test_function() {
     let code = r#"
 def foo(x: int, y: str) -> None: pass

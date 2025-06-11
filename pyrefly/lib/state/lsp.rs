@@ -106,6 +106,21 @@ enum CalleeKind {
     Unknown,
 }
 
+enum PatternMatchParameterKind {
+    // Name defined using `as`
+    // ex: `x` in `case ... as x: ...`, or `x` in `case x: ...`
+    AsName,
+    // Name defined using keyword argument partten
+    // ex: `x` in `case Foo(x=1): ...`
+    KeywordArgName,
+    // Name defined using `*` pattern
+    // ex: `x` in `case [*x]: ...`
+    StarName,
+    // Name defined using `**` pattern
+    // ex: `x` in case { ..., **x }: ...
+    RestName,
+}
+
 enum IdentifierContext {
     /// An identifier appeared in an expression. ex: `x` in `x + 1`
     Expr(ExprContext),
@@ -160,6 +175,10 @@ enum IdentifierContext {
     /// an `except` branch.
     /// ex: `e` in `try ... except Exception as e: ...`
     ExceptionHandler,
+    /// An identifier appeared as the name introduced via a `case` branch in a `match` statement.
+    /// See [`PatternMatchParaameterKind`] for examples.
+    #[expect(dead_code)]
+    PatternMatch(PatternMatchParameterKind),
 }
 
 struct IdentifierWithContext {
@@ -259,6 +278,34 @@ impl IdentifierWithContext {
         Self {
             identifier: id.clone(),
             context: IdentifierContext::ExceptionHandler,
+        }
+    }
+
+    fn from_pattern_match_as(id: &Identifier) -> Self {
+        Self {
+            identifier: id.clone(),
+            context: IdentifierContext::PatternMatch(PatternMatchParameterKind::AsName),
+        }
+    }
+
+    fn from_pattern_match_keyword(id: &Identifier) -> Self {
+        Self {
+            identifier: id.clone(),
+            context: IdentifierContext::PatternMatch(PatternMatchParameterKind::KeywordArgName),
+        }
+    }
+
+    fn from_pattern_match_star(id: &Identifier) -> Self {
+        Self {
+            identifier: id.clone(),
+            context: IdentifierContext::PatternMatch(PatternMatchParameterKind::StarName),
+        }
+    }
+
+    fn from_pattern_match_rest(id: &Identifier) -> Self {
+        Self {
+            identifier: id.clone(),
+            context: IdentifierContext::PatternMatch(PatternMatchParameterKind::RestName),
         }
     }
 
@@ -387,6 +434,22 @@ impl<'a> Transaction<'a> {
             ) => {
                 // try ... except ... as id: ...
                 Some(IdentifierWithContext::from_exception_handler(id))
+            }
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::PatternMatchAs(_)), _, _) => {
+                // match ... case ... as id: ...
+                Some(IdentifierWithContext::from_pattern_match_as(id))
+            }
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::PatternKeyword(_)), _, _) => {
+                // match ... case ...(id=...): ...
+                Some(IdentifierWithContext::from_pattern_match_keyword(id))
+            }
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::PatternMatchStar(_)), _, _) => {
+                // match ... case [..., *id]: ...
+                Some(IdentifierWithContext::from_pattern_match_star(id))
+            }
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::PatternMatchMapping(_)), _, _) => {
+                // match ... case {..., **id}: ...
+                Some(IdentifierWithContext::from_pattern_match_rest(id))
             }
             (
                 Some(AnyNodeRef::Identifier(id)),
@@ -543,6 +606,13 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::ExceptionHandler,
             }) => {
                 // TODO(grievejia): Handle defintions of exception names
+                None
+            }
+            Some(IdentifierWithContext {
+                identifier: _,
+                context: IdentifierContext::PatternMatch(_),
+            }) => {
+                // TODO(grievejia): Handle defintions of pattern-introduced names
                 None
             }
             Some(IdentifierWithContext {
@@ -965,7 +1035,7 @@ impl<'a> Transaction<'a> {
             )),
             Some(IdentifierWithContext {
                 identifier,
-                context: IdentifierContext::ExceptionHandler,
+                context: IdentifierContext::ExceptionHandler | IdentifierContext::PatternMatch(_),
             }) => Some((
                 DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
                 TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
