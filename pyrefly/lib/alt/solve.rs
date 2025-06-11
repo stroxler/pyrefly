@@ -1073,6 +1073,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         let mut type_info = self.binding_to_type_info(binding, errors);
         type_info.visit_mut(&mut |ty| {
+            if !matches!(binding, Binding::NameAssign(..)) {
+                self.pin_all_placeholder_types(ty);
+            }
             self.expand_type_mut(ty);
         });
         Arc::new(type_info)
@@ -1895,9 +1898,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     FirstUse::Undetermined | FirstUse::DoesNotPin => {}
                 }
-                let mut ty = self.get_idx(*unpinned_idx).arc_clone().into_ty();
-                self.pin_all_placeholder_types(&mut ty);
-                ty
+                self.get_idx(*unpinned_idx).arc_clone().into_ty()
             }
             Binding::Expr(ann, e) => match ann {
                 Some(k) => {

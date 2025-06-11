@@ -229,7 +229,7 @@ class C:
     @decorate
     def f(self): ...
 
-assert_type(C().f(0), int)
+assert_type(C().f(0), Any)
     "#,
 );
 
