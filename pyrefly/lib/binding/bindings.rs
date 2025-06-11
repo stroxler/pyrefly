@@ -40,6 +40,7 @@ use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingExport;
 use crate::binding::binding::BindingLegacyTypeParam;
+use crate::binding::binding::FirstUse;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
@@ -767,14 +768,39 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: Hashed<&Name>,
         kind: LookupKind,
-        _usage: Usage,
+        usage: Usage,
     ) -> Result<Idx<Key>, LookupError> {
+        self.lookup_name_inner(name, kind, usage)
+            .map(|(result, first_use)| {
+                if let Some(used_idx) = first_use {
+                    self.record_possible_first_use(used_idx, usage);
+                }
+                result
+            })
+    }
+
+    /// Helper function, needed to work around the borrow checker given heavy use of mutable refs.
+    ///
+    /// When lookup succeeds, returns a pair `idx, maybe_first_use`, where `maybe_first_use`
+    /// is an option of a possible first-use `(used_idx)` to track for deterministic
+    /// type inference.
+    fn lookup_name_inner(
+        &mut self,
+        name: Hashed<&Name>,
+        kind: LookupKind,
+        usage: Usage,
+    ) -> Result<(Idx<Key>, Option<Idx<Key>>), LookupError> {
         let mut barrier = false;
+        let ok_no_usage = |idx| Ok((idx, None));
         for scope in self.scopes.iter_rev() {
             if let Some(flow) = scope.flow.info.get_hashed(name) {
                 if !barrier {
-                    // TODO: track usage
-                    return Ok(flow.key);
+                    let (idx, maybe_pinned_idx) = self.detect_possible_first_use(flow.key, usage);
+                    if let Some(pinned_idx) = maybe_pinned_idx {
+                        return Ok((idx, Some(pinned_idx)));
+                    } else {
+                        return ok_no_usage(flow.key);
+                    }
                 }
             }
             if !matches!(scope.kind, ScopeKind::Class(_))
@@ -782,9 +808,8 @@ impl<'a> BindingsBuilder<'a> {
             {
                 match kind {
                     LookupKind::Regular => {
-                        // TODO: track usage
                         let key = info.as_key(name.into_key());
-                        return Ok(self.table.types.0.insert(key));
+                        return ok_no_usage(self.table.types.0.insert(key));
                     }
                     LookupKind::Mutable => {
                         if barrier {
@@ -796,6 +821,46 @@ impl<'a> BindingsBuilder<'a> {
             barrier = barrier || scope.barrier;
         }
         Err(LookupError::NotFound)
+    }
+
+    /// Look up the idx for a name. The first output is the idx to use for the
+    /// lookup itself, and the second is possibly used to record the first-usage
+    /// for pinning:
+    /// - If this is not the first use of a `Binding::Pin`, then the result is just
+    ///   `(flow_idx, None)`.
+    /// - If this is the first use of a `Binding::Pin` then we look at the usage:
+    ///   - If it is `Usage(idx)`, then we return `(unpinned_idx, Some(pinned_idx))`
+    ///     which will allow us to expose unpinned types to the first use, then pin.
+    ///   - Otherwise, we return `(pinned_idx, Some(pinned_idx))` which will tell
+    ///     us to record that the first usage does not pin (and therefore the
+    ///     `Binding::Pin` should force placeholder types to default values).
+    fn detect_possible_first_use(
+        &self,
+        flow_idx: Idx<Key>,
+        usage: Usage,
+    ) -> (Idx<Key>, Option<Idx<Key>>) {
+        match self.table.types.1.get(flow_idx) {
+            Some(Binding::Pin(unpinned_idx, FirstUse::Undetermined)) => match usage {
+                Usage::StaticTypeInformation | Usage::Narrowing => (flow_idx, Some(flow_idx)),
+                Usage::Idx(_) => (*unpinned_idx, Some(flow_idx)),
+            },
+            _ => (flow_idx, None),
+        }
+    }
+
+    /// Record a first use detected in `detect_possible_first_use`.
+    fn record_possible_first_use(&mut self, used: Idx<Key>, usage: Usage) {
+        match self.table.types.1.get_mut(used) {
+            Some(Binding::Pin(.., first_use @ FirstUse::Undetermined)) => {
+                *first_use = match usage {
+                    Usage::Idx(use_idx) => FirstUse::UsedBy(use_idx),
+                    Usage::StaticTypeInformation | Usage::Narrowing => FirstUse::DoesNotPin,
+                };
+            }
+            b => {
+                unreachable!("Expected a Binding::Pin needing first use, got {:?}", b)
+            }
+        }
     }
 
     /// Look up a name that might refer to a legacy tparam. This is used by `intercept_lookup`

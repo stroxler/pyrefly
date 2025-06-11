@@ -69,16 +69,17 @@ def f(condition) -> None:
 );
 
 testcase!(
+    bug = "A recursive redefinition in a loop does not work as before after first-use variable pinning.",
     test_while_infinite,
     r#"
 from typing import assert_type, Any, Literal
 def f(condition) -> None:
     x = 1
-    while condition():
-        assert_type(x, Literal[1] | list[Literal[1] | list[Any]])
+    while condition():  # E: EXPECTED Literal[1] | list[int] <: int
+        assert_type(x, Literal[1] | list[int])
         x = [x]
-        assert_type(x, list[Literal[1] | list[Any]])
-    assert_type(x, Literal[1] | list[Literal[1] | list[Any]])
+        assert_type(x, list[int])
+    assert_type(x, Literal[1] | list[int])
     "#,
 );
 

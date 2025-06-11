@@ -758,11 +758,9 @@ pub enum FirstUse {
     Undetermined,
     /// We encountered the first use, and it does not pin the type (so we should force
     /// all placeholder variables to default values).
-    #[expect(dead_code)]
     DoesNotPin,
     /// This binding is the first use, we should calculate it to get first-use based
     /// inference.
-    #[expect(dead_code)]
     UsedBy(Idx<Key>),
 }
 

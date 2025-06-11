@@ -155,9 +155,9 @@ assert_type(x, list[int])
 "#,
 );
 
-fn env_nondeterminism() -> TestEnv {
+fn env_two_exported_pins() -> TestEnv {
     TestEnv::one(
-        "nondeterministic",
+        "two_exported_pins",
         r#"
 x = []
 y = x.append(1)
@@ -167,31 +167,68 @@ z = x.append("1")
 }
 
 testcase!(
-    bug = "Forcing y first causes x to be list[int]. See version b for why this is a bug.",
-    emulate_nondeterminism_a,
-    env_nondeterminism(),
+    first_use_pins_type_when_exporting_simple_a,
+    env_two_exported_pins(),
     r#"
 from typing import assert_type
-from nondeterministic import y
+from two_exported_pins import y
 assert_type(y, None)
-from nondeterministic import x
+from two_exported_pins import x
+assert_type(x, list[int])
+"#,
+);
+
+testcase!(
+    first_use_pins_type_when_exporting_simple_b,
+    env_two_exported_pins(),
+    r#"
+from typing import assert_type
+from two_exported_pins import z
+assert_type(z, None)
+from two_exported_pins import x
+assert_type(x, list[int])
+"#,
+);
+
+fn env_first_use_nonpin_and_two_exported_pins() -> TestEnv {
+    TestEnv::one(
+        "first_use_nonpin_and_two_exported_pins",
+        r#"
+x = []
+print(x)  # (first use does not pin type of x)
+y = x.append(1)
+z = x.append("1")
+"#,
+    )
+}
+
+testcase!(
+    emulate_nondeterminism_a,
+    env_first_use_nonpin_and_two_exported_pins(),
+    r#"
+from typing import assert_type
+from first_use_nonpin_and_two_exported_pins import y
+assert_type(y, None)
+from first_use_nonpin_and_two_exported_pins import x
 assert_type(x, list[int])
 "#,
 );
 
 /*
-// This test occasionally fails, particularly under cargo - it usually behaves as the assert_type
-// indicates, but it appears that in some cases the analysis of `nondeterminism` and `main` can race
-// one another, and we actually get nondeterministic test results.
+// This test is commented because it is actually nondeterministc,
+// a thread checking the imported file can potentially race
+// the thread checking main.
+//
+// But it usually would pass in its current form, illustrating
+// nondeterminism in the type inference for `x`.
 testcase!(
-    bug = "Forcing z first causes x to be list[str]. See version a for why this is a bug.",
     emulate_nondeterminism_b,
-    env_nondeterminism(),
+    env_first_use_nonpin_and_two_exported_pins(),
     r#"
 from typing import assert_type
-from nondeterministic import z
+from first_use_nonpin_and_two_exported_pins import z
 assert_type(z, None)
-from nondeterministic import x
+from first_use_nonpin_and_two_exported_pins import x
 assert_type(x, list[str])
 "#,
 );

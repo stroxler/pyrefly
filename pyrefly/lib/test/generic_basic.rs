@@ -793,7 +793,7 @@ from typing import assert_type, Any
 def f():
     x = {}
     x.update(a = 1)
-    assert_type(x, dict[Any, Any]) # should be dict[str, int]
+    assert_type(x, dict[str, int])
 
 def g():
     x: dict[int, int] = {}
