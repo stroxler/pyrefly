@@ -22,6 +22,8 @@ fn assert_full_semantic_tokens(files: &[(&'static str, &str)], expected: &str) {
 
         let mut start_line: usize = 0;
         let mut start_col: usize = 0;
+        let lsp_semantic_token_legends = SemanticTokensLegends::lsp_semantic_token_legends();
+        let semantic_token_legends = SemanticTokensLegends::new();
         for token in tokens {
             start_col = match token.delta_line {
                 0 => start_col + token.delta_start as usize,
@@ -44,11 +46,18 @@ fn assert_full_semantic_tokens(files: &[(&'static str, &str)], expected: &str) {
                 start_line, start_col, token.length, text
             ));
             report.push_str(&format!(
-                "token-type: {}\n\n",
-                SemanticTokensLegends::lsp_semantic_token_legends().token_types
-                    [token.token_type as usize]
-                    .as_str()
+                "token-type: {}",
+                lsp_semantic_token_legends.token_types[token.token_type as usize].as_str()
             ));
+            let modifiers = semantic_token_legends.get_modifiers(token.token_modifiers_bitset);
+            if !modifiers.is_empty() {
+                report.push_str(", token-modifiers: [");
+                for modifier in modifiers {
+                    report.push_str(modifier.as_str());
+                }
+                report.push(']');
+            }
+            report.push_str("\n\n");
         }
         report.push('\n');
     }
@@ -57,7 +66,6 @@ fn assert_full_semantic_tokens(files: &[(&'static str, &str)], expected: &str) {
 
 #[test]
 fn variable_and_constant_test() {
-    // TODO: treat all caps as constants
     let code = r#"
 foo = 3
 ALL_CAPS = "foo"
@@ -71,13 +79,13 @@ line: 1, column: 0, length: 3, text: foo
 token-type: variable
 
 line: 2, column: 0, length: 8, text: ALL_CAPS
-token-type: variable
+token-type: variable, token-modifiers: [readonly]
 
 line: 3, column: 4, length: 3, text: foo
 token-type: variable
 
 line: 3, column: 11, length: 8, text: ALL_CAPS
-token-type: variable
+token-type: variable, token-modifiers: [readonly]
 "#,
     );
 }

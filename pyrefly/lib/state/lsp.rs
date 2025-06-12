@@ -1511,9 +1511,12 @@ impl<'a> Transaction<'a> {
             }) else {
                 continue;
             };
+            let (token_type, token_modifiers) =
+                symbol_kind.to_lsp_semantic_token_type_with_modifiers();
             tokens.push(SemanticTokenWithFullRange {
                 range: reference_range,
-                token_type: symbol_kind.to_lsp_semantic_token_type(),
+                token_type,
+                token_modifiers,
             });
         }
         fn visit_expr(
@@ -1528,6 +1531,7 @@ impl<'a> Transaction<'a> {
                     tokens.push(SemanticTokenWithFullRange {
                         range: attr.attr.range(),
                         token_type: SemanticTokenType::METHOD,
+                        token_modifiers: vec![],
                     });
                 }
             } else if let Expr::Attribute(attr) = x {
@@ -1536,6 +1540,7 @@ impl<'a> Transaction<'a> {
                     tokens.push(SemanticTokenWithFullRange {
                         range: attr.attr.range(),
                         token_type: SemanticTokenType::PROPERTY,
+                        token_modifiers: vec![],
                     });
                 }
             } else {
