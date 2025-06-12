@@ -211,3 +211,12 @@ i: int = 42
 assert_type(x[i], int)
 "#,
 );
+
+testcase!(
+    test_bad_literal,
+    r#"
+# This used to crash, see https://github.com/facebook/pyrefly/issues/453
+0x_fffffffffffffffff
+1_23
+"#,
+);

@@ -130,6 +130,10 @@ impl LitInt {
 /// Ruff produced a `Number`, that came from a radix and number portion.
 /// We need to accurately reconstruct that split, so we can use the BigInt parser.
 fn parse_ruff_int_str(x: &str) -> BigInt {
+    // Ruff can deal with underscores, but the BigInt parser can't.
+    let x = x.replace('_', "");
+    let x = x.as_str();
+
     let (mut radix, mut number) = (10, x);
     if x.len() >= 3 && x.starts_with('0') {
         let prefix = match x.as_bytes()[1] {
