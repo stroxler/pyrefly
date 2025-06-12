@@ -35,3 +35,20 @@ Pattern * is matched by `project-excludes`. (glob)
 `project-excludes`: * (glob)
 [1]
 ```
+
+## --output-format controls error verbosity
+
+```scrut
+$ echo "1 + '2'" > $TMPDIR/bad.py && \
+> $PYREFLY check $TMPDIR/bad.py --output-format=full-text
+ERROR * `+` is not supported * (glob)
+  Argument * is not assignable * (glob)
+[1]
+```
+
+```scrut
+$ echo "1 + '2'" > $TMPDIR/bad.py && \
+> $PYREFLY check $TMPDIR/bad.py --output-format=min-text
+ERROR * `+` is not supported * (glob)
+[1]
+```

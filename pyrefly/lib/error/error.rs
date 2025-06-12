@@ -36,7 +36,7 @@ pub struct Error {
 }
 
 impl Error {
-    pub fn write_line(&self, mut f: impl Write) -> io::Result<()> {
+    pub fn write_line(&self, mut f: impl Write, verbose: bool) -> io::Result<()> {
         writeln!(
             f,
             "{} {}:{}: {} [{}]{}",
@@ -49,11 +49,15 @@ impl Error {
             self.range,
             self.msg_header,
             self.error_kind.to_name(),
-            self.msg_details(),
+            if verbose && let Some(details) = &self.msg_details {
+                details
+            } else {
+                ""
+            },
         )
     }
 
-    pub fn print_colors(&self) {
+    pub fn print_colors(&self, verbose: bool) {
         anstream::println!(
             "{} {}:{}: {} {}{}",
             match self.error_kind().severity() {
@@ -65,7 +69,11 @@ impl Error {
             Paint::dim(self.source_range()),
             Paint::new(&*self.msg_header),
             Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
-            Paint::new(self.msg_details()),
+            Paint::new(if verbose && let Some(details) = &self.msg_details {
+                details
+            } else {
+                ""
+            }),
         );
     }
 }
@@ -73,7 +81,7 @@ impl Error {
 #[cfg(test)]
 pub fn print_errors(errors: &[Error]) {
     for err in errors {
-        err.print_colors();
+        err.print_colors(true);
     }
 }
 

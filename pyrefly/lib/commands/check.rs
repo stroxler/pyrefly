@@ -69,8 +69,12 @@ use crate::sys_info::SysInfo;
 
 #[derive(Debug, Clone, ValueEnum, Default)]
 enum OutputFormat {
+    /// Minimal text output, one line per error
+    MinText,
     #[default]
-    Text,
+    /// Full, verbose text output
+    FullText,
+    /// JSON output
     Json,
 }
 
@@ -179,18 +183,22 @@ struct ConfigOverrideArgs {
 }
 
 impl OutputFormat {
-    fn write_error_text_to_file(path: &Path, errors: &[Error]) -> anyhow::Result<()> {
+    fn write_error_text_to_file(
+        path: &Path,
+        errors: &[Error],
+        verbose: bool,
+    ) -> anyhow::Result<()> {
         let mut file = BufWriter::new(File::create(path)?);
         for e in errors {
-            e.write_line(&mut file)?;
+            e.write_line(&mut file, verbose)?;
         }
         file.flush()?;
         Ok(())
     }
 
-    fn write_error_text_to_console(errors: &[Error]) -> anyhow::Result<()> {
+    fn write_error_text_to_console(errors: &[Error], verbose: bool) -> anyhow::Result<()> {
         for error in errors {
-            error.print_colors();
+            error.print_colors(verbose);
         }
         Ok(())
     }
@@ -223,14 +231,16 @@ impl OutputFormat {
 
     fn write_errors_to_file(&self, path: &Path, errors: &[Error]) -> anyhow::Result<()> {
         match self {
-            Self::Text => Self::write_error_text_to_file(path, errors),
+            Self::MinText => Self::write_error_text_to_file(path, errors, false),
+            Self::FullText => Self::write_error_text_to_file(path, errors, true),
             Self::Json => Self::write_error_json_to_file(path, errors),
         }
     }
 
     fn write_errors_to_console(&self, errors: &[Error]) -> anyhow::Result<()> {
         match self {
-            Self::Text => Self::write_error_text_to_console(errors),
+            Self::MinText => Self::write_error_text_to_console(errors, false),
+            Self::FullText => Self::write_error_text_to_console(errors, true),
             Self::Json => Self::write_error_json_to_console(errors),
         }
     }
