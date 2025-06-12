@@ -10,6 +10,8 @@ commented out.
 They demonstrate that we get nondeterminism from loop recursion, even with
 no placeholder types involved. The loop creates a cycle in the definition of
 `x`, and depending where we start the cycle we can get different answers.
+
+The one I've left uncommented is the one where there's no race condition.
 */
 
 fn env_leaky_loop() -> TestEnv {
@@ -64,6 +66,111 @@ from leaky_loop import z
 assert_type(z, int)
 from leaky_loop import x
 assert_type(x, Any | None)
+"#,
+);
+*/
+
+/*
+Import cycle tests: We can create a cycle of imports pretty easily. If we never
+do anything with imported names except forward them, we won't be able to exhibit
+nondeterminism because the answer to everything is just `Any` regardless of orders.
+
+But if anything in the cycle is able to actually compute a result (for example,
+because it makes a function call that takes a cyclic argument, but the function
+itself has a well-defined return type), we will see nondeterminism, because
+- If we break the cycle on exactly that element, it will spit out a recursive
+  `Var` from the point of view of its dependents, which when forced is typically
+  `Any`.
+- If we break the cycle anywhere else, the function call will be evaluated and
+  we'll spit out a concrete answer (the same concrete answer we'll eventually
+  get in the other case when we unwind the cycle back to ourselves), and our
+  dependents will see that.
+- Note that the nondeterminism *originates* from the place where we break
+  recursion, but the *visible effects* occur in the dependents of that element,
+  not the element itself.
+
+Unlike the leaky loop tests, these have no variations that aren't potentially
+subject to race conditions, so they are all commented out for CI stability.
+
+fn env_import_cycle() -> TestEnv {
+    let mut env = TestEnv::new();
+    env.add(
+        "xx",
+        r#"
+from yy import y
+
+def f[T](arg: T) -> T: ...
+def g(_: object) -> int: ...
+x0 = f(y)
+x1 = g(x0)
+"#,
+    );
+    env.add(
+        "yy",
+        r#"
+from xx import x1
+
+def f[T](arg: T) -> T: ...
+def g(_: object) -> int: ...
+y = f(x1)
+"#,
+    );
+    env
+}
+
+testcase!(
+    import_cycle_a,
+    env_import_cycle(),
+    r#"
+from typing import assert_type, Any
+from xx import x0
+assert_type(x0, int)
+from yy import y
+assert_type(y, int)
+from xx import x1
+assert_type(y, int)
+"#,
+);
+
+testcase!(
+    import_cycle_b,
+    env_import_cycle(),
+    r#"
+from typing import assert_type, Any
+from xx import x1
+assert_type(y, Any)
+from yy import y
+assert_type(y, Any)
+from xx import x0
+assert_type(x0, Any)
+"#,
+);
+
+testcase!(
+    import_cycle_c,
+    env_import_cycle(),
+    r#"
+from typing import assert_type, Any
+from yy import y
+assert_type(y, int)
+from xx import x1
+assert_type(y, int)
+from xx import x0
+assert_type(x0, Any)
+"#,
+);
+
+testcase!(
+    import_cycle_d,
+    env_import_cycle(),
+    r#"
+from typing import assert_type, Any
+from yy import y
+assert_type(y, int)
+from xx import x0
+assert_type(x0, object)
+from xx import x1
+assert_type(y, Any)
 "#,
 );
 */
