@@ -123,7 +123,7 @@ def helper(x: A[int, str]): ...
 def test[*Ts](x: A[int, str], y: A[str, str, str], z: A[*Ts]):
     helper(x)
     helper(y)  # E: Argument `A[tuple[str, str, str]]` is not assignable to parameter `x` with type `A[tuple[int, str]]`
-    helper(z)  # E: Argument `A[Ts]` is not assignable to parameter `x` with type `A[tuple[int, str]]`
+    helper(z)  # E: Argument `A[tuple[*Ts]]` is not assignable to parameter `x` with type `A[tuple[int, str]]`
 "#,
 );
 

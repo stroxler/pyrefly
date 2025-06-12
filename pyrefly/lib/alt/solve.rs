@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 use std::iter;
-use std::mem;
 use std::sync::Arc;
 
 use dupe::Dupe;
@@ -1083,12 +1082,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn expand_type_mut(&self, ty: &mut Type) {
         // Replace any solved recursive variables with their answers.
-        // We call self.unions() to simplify cases like
-        // v = @1 | int, @1 = int.
         self.solver().expand_mut(ty);
-        if let Type::Union(tys) = ty {
-            *ty = self.unions(mem::take(tys));
-        }
     }
 
     pub fn solve_expectation(

@@ -161,6 +161,8 @@ impl Solver {
     /// Like `expand`, but when you have a `&mut`.
     pub fn expand_mut(&self, t: &mut Type) {
         self.expand_with_limit(t, TYPE_LIMIT, &Recurser::new());
+        // After we substitute bound variables, we may be able to simplify some types
+        self.simplify_mut(t);
     }
 
     /// Expand, but if the resulting type will be greater than limit levels deep, return an `Any`.
@@ -234,7 +236,7 @@ impl Solver {
     }
 
     /// Simplify a type as much as we can.
-    pub fn simplify_mut(&self, t: &mut Type) {
+    fn simplify_mut(&self, t: &mut Type) {
         t.transform_mut(&mut |x| {
             if let Type::Union(xs) = x {
                 *x = unions(mem::take(xs));

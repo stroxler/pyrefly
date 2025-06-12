@@ -160,7 +160,9 @@ pub fn simplify_tuples(tuple: Tuple) -> Type {
         Tuple::Concrete(elts) => {
             Type::Tuple(Tuple::Concrete(flatten_unpacked_concrete_tuples(elts)))
         }
-        Tuple::Unpacked(box (prefix, middle, suffix)) if prefix.is_empty() && suffix.is_empty() => {
+        Tuple::Unpacked(box (prefix, middle @ Type::Tuple(_), suffix))
+            if prefix.is_empty() && suffix.is_empty() =>
+        {
             middle
         }
         Tuple::Unpacked(box (prefix, middle, suffix)) => match middle {

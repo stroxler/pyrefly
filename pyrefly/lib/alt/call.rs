@@ -499,7 +499,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         hint: Option<Type>,
     ) -> Type {
         let is_dataclass = matches!(&call_target.target, Target::FunctionOverload(_, meta) if matches!(meta.kind, FunctionKind::Dataclass(_)));
-        let mut res = match call_target.target {
+        let res = match call_target.target {
             Target::Class(cls) => {
                 if let Some(hint) = hint {
                     // If a hint is provided, use it to bind any variables in the return type
@@ -636,7 +636,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 },
             }))
         } else {
-            self.solver().simplify_mut(&mut res);
             res
         }
     }
