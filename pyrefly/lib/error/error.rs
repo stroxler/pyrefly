@@ -146,12 +146,12 @@ impl Error {
         &self.msg_header
     }
 
-    fn msg_details(&self) -> &str {
-        self.msg_details.as_ref().map_or("", |s| s)
-    }
-
     pub fn msg(&self) -> String {
-        format!("{}{}", self.msg_header, self.msg_details())
+        if let Some(details) = &self.msg_details {
+            format!("{}{}", self.msg_header, details)
+        } else {
+            (*self.msg_header).to_owned()
+        }
     }
 
     pub fn is_ignored(&self) -> bool {
