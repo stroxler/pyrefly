@@ -198,7 +198,7 @@ impl ModuleInfo {
     }
 
     /// Gets the content from the beginning of start_line to the end of end_line.
-    fn content_in_line_range(&self, start_line: OneIndexed, end_line: OneIndexed) -> &str {
+    pub fn content_in_line_range(&self, start_line: OneIndexed, end_line: OneIndexed) -> &str {
         debug_assert!(start_line <= end_line);
         let start = self.0.index.line_start(start_line, &self.0.contents);
         let end = self.0.index.line_end(end_line, &self.0.contents);

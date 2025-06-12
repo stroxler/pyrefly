@@ -5,12 +5,19 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::borrow::Cow;
 use std::fmt::Debug;
 use std::io;
 use std::io::Write;
 
 use itertools::Itertools;
 use pyrefly_util::display::number_thousands;
+use ruff_annotate_snippets::Level;
+use ruff_annotate_snippets::Message;
+use ruff_annotate_snippets::Renderer;
+use ruff_annotate_snippets::Snippet;
+use ruff_annotate_snippets::renderer::AnsiColor;
+use ruff_annotate_snippets::renderer::Effects;
 use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
 use yansi::Paint;
@@ -39,17 +46,19 @@ impl Error {
         if verbose {
             writeln!(
                 f,
-                "{} {}:{}: {} [{}]",
+                "{} {} [{}]",
                 match self.error_kind().severity() {
                     Severity::Error => "ERROR",
                     Severity::Warn => " WARN",
                     Severity::Info => " INFO",
                 },
-                self.path(),
-                self.range,
                 self.msg_header,
                 self.error_kind.to_name(),
             )?;
+            let origin = self.lossy_origin();
+            let snippet = self.get_source_snippet(&origin);
+            let renderer = Renderer::plain();
+            writeln!(f, "{}", renderer.render(snippet))?;
             if let Some(details) = &self.msg_details {
                 writeln!(f, "{details}")?;
             }
@@ -74,17 +83,21 @@ impl Error {
     pub fn print_colors(&self, verbose: bool) {
         if verbose {
             anstream::println!(
-                "{} {}:{}: {} {}",
+                "{} {} {}",
                 match self.error_kind().severity() {
                     Severity::Error => Paint::red("ERROR"),
                     Severity::Warn => Paint::yellow(" WARN"),
                     Severity::Info => Paint::green(" INFO"),
                 },
-                Paint::blue(&self.path().as_path().display()),
-                Paint::dim(self.source_range()),
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
             );
+            let origin = self.lossy_origin();
+            let snippet = self.get_source_snippet(&origin);
+            // We mostly use the default styling but use green instead of blue for INFO.
+            let renderer =
+                Renderer::styled().info(AnsiColor::BrightGreen.on_default().effects(Effects::BOLD));
+            anstream::println!("{}", renderer.render(snippet));
             if let Some(details) = &self.msg_details {
                 anstream::println!("{details}");
             }
@@ -102,6 +115,30 @@ impl Error {
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
             );
         }
+    }
+
+    fn lossy_origin(&self) -> Cow<'_, str> {
+        self.path().as_path().to_string_lossy()
+    }
+
+    fn get_source_snippet<'a>(&'a self, origin: &'a str) -> Message<'a> {
+        let range = self.source_range();
+        let source = self
+            .module_info
+            .content_in_line_range(range.start.line, range.end.line);
+        let level = match self.error_kind().severity() {
+            Severity::Error => Level::Error,
+            Severity::Warn => Level::Warning,
+            Severity::Info => Level::Info,
+        };
+        let span_start = range.start.column.to_zero_indexed();
+        let span_end = span_start + self.module_info.to_text_range(range).len().to_usize();
+        Level::None.title("").snippet(
+            Snippet::source(source)
+                .line_start(range.start.line.get())
+                .origin(origin)
+                .annotation(level.span(span_start..span_end)),
+        )
     }
 }
 

@@ -41,7 +41,12 @@ Pattern * is matched by `project-excludes`. (glob)
 ```scrut
 $ echo "1 + '2'" > $TMPDIR/bad.py && \
 > $PYREFLY check $TMPDIR/bad.py --output-format=full-text
-ERROR * `+` is not supported * (glob)
+ERROR `+` is not supported * (glob)
+ --> */bad.py:1:1 (glob)
+  |
+1 | 1 + '2'
+  | ^^^^^^^
+  |
   Argument * is not assignable * (glob)
 [1]
 ```
@@ -49,6 +54,34 @@ ERROR * `+` is not supported * (glob)
 ```scrut
 $ echo "1 + '2'" > $TMPDIR/bad.py && \
 > $PYREFLY check $TMPDIR/bad.py --output-format=min-text
-ERROR * `+` is not supported * (glob)
+ERROR */bad.py:1:1-8: `+` is not supported * (glob)
+[1]
+```
+
+## Source code snippet
+
+```scrut
+$ echo -e "def f(x: str): ...\nf(0.0)" > $TMPDIR/bad_call.py && \
+> $PYREFLY check $TMPDIR/bad_call.py
+ERROR Argument `float` is not assignable * (glob)
+ --> */bad_call.py:2:3 (glob)
+  |
+2 | f(0.0)
+  |   ^^^
+  |
+[1]
+```
+
+## Source code snippet with multi-byte character
+
+```scrut
+$ echo -e "def f(x: str): ...\nλ = 0\nf(λ)" > $TMPDIR/bad_call.py && \
+> $PYREFLY check $TMPDIR/bad_call.py
+ERROR Argument `Literal[0]` is not assignable * (glob)
+ --> */bad_call.py:3:3 (glob)
+  |
+3 | f(λ)
+  |   ^
+  |
 [1]
 ```
