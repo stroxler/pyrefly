@@ -21,7 +21,7 @@ Invalid --search-path: `*/does_not_exist` does not exist (glob)
 ```scrut
 $ echo "x: str = 12" > $TMPDIR/shown1.py && \
 > echo "import shown1; y: int = shown1.x" > $TMPDIR/shown2.py && \
-> $PYREFLY check --python-version 3.13.0 $TMPDIR/shown2.py --check-all
+> $PYREFLY check --python-version 3.13.0 $TMPDIR/shown2.py --check-all --output-format=min-text
 */shown*.py:1:* (glob)
 */shown*.py:1:* (glob)
 [1]
