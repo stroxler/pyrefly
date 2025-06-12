@@ -160,14 +160,14 @@ impl<'a> TypeDisplayContext<'a> {
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         if !targs.is_empty() {
-            write!(f, "[")?;
-            for (idx, (param, arg)) in tparams.iter().zip(targs.as_slice().iter()).enumerate() {
-                if idx != 0 {
-                    write!(f, ", ")?;
-                }
-                self.fmt_targ(param, arg, f)?;
-            }
-            write!(f, "]")
+            write!(
+                f,
+                "[{}]",
+                commas_iter(|| tparams
+                    .iter()
+                    .zip(targs.as_slice().iter())
+                    .map(|(param, arg)| Fmt(|f| self.fmt_targ(param, arg, f))))
+            )
         } else {
             Ok(())
         }
