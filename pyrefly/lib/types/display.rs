@@ -23,6 +23,7 @@ use crate::module::module_name::ModuleName;
 use crate::types::callable::Function;
 use crate::types::class::TArgs;
 use crate::types::qname::QName;
+use crate::types::tuple::Tuple;
 use crate::types::type_var::Restriction;
 use crate::types::types::AnyStyle;
 use crate::types::types::BoundMethod;
@@ -30,6 +31,8 @@ use crate::types::types::Forall;
 use crate::types::types::Forallable;
 use crate::types::types::NeverStyle;
 use crate::types::types::SuperObj;
+use crate::types::types::TParam;
+use crate::types::types::TParams;
 use crate::types::types::Type;
 
 /// Information about the classes we have seen.
@@ -117,13 +120,54 @@ impl<'a> TypeDisplayContext<'a> {
         Fmt(|f| self.fmt(t, f))
     }
 
-    fn fmt_targs(&self, targs: &TArgs, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt_targ(&self, param: &TParam, arg: &Type, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if param.quantified.is_type_var_tuple()
+            && let Type::Tuple(tuple) = arg
+        {
+            match tuple {
+                Tuple::Concrete(elts) if !elts.is_empty() => write!(
+                    f,
+                    "{}",
+                    commas_iter(|| elts.iter().map(|elt| self.display(elt)))
+                ),
+                Tuple::Unpacked(box (prefix, middle, suffix)) => {
+                    let unpacked_middle = Type::Unpack(Box::new(middle.clone()));
+                    write!(
+                        f,
+                        "{}",
+                        commas_iter(|| {
+                            prefix
+                                .iter()
+                                .chain(std::iter::once(&unpacked_middle))
+                                .chain(suffix.iter())
+                                .map(|elt| self.display(elt))
+                        })
+                    )
+                }
+                _ => {
+                    write!(f, "*{}", self.display(arg))
+                }
+            }
+        } else {
+            write!(f, "{}", self.display(arg))
+        }
+    }
+
+    fn fmt_targs(
+        &self,
+        tparams: &TParams,
+        targs: &TArgs,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         if !targs.is_empty() {
-            write!(
-                f,
-                "[{}]",
-                commas_iter(|| targs.as_slice().iter().map(|t| self.display(t)))
-            )
+            write!(f, "[")?;
+            for (idx, (param, arg)) in tparams.iter().zip(targs.as_slice().iter()).enumerate() {
+                if idx != 0 {
+                    write!(f, ", ")?;
+                }
+                self.fmt_targ(param, arg, f)?;
+            }
+            write!(f, "]")
         } else {
             Ok(())
         }
@@ -158,12 +202,12 @@ impl<'a> TypeDisplayContext<'a> {
             }
             Type::ClassType(class_type) => {
                 self.fmt_qname(class_type.qname(), f)?;
-                self.fmt_targs(class_type.targs(), f)
+                self.fmt_targs(class_type.tparams(), class_type.targs(), f)
             }
             Type::TypedDict(typed_dict) => {
                 write!(f, "TypedDict[")?;
                 self.fmt_qname(typed_dict.qname(), f)?;
-                self.fmt_targs(typed_dict.targs(), f)?;
+                self.fmt_targs(typed_dict.class_object().tparams(), typed_dict.targs(), f)?;
                 write!(f, "]")
             }
             Type::TypeVar(t) => {
@@ -320,7 +364,7 @@ impl<'a> TypeDisplayContext<'a> {
                 match obj {
                     SuperObj::Instance(obj) => {
                         self.fmt_qname(obj.qname(), f)?;
-                        self.fmt_targs(obj.targs(), f)?;
+                        self.fmt_targs(obj.tparams(), obj.targs(), f)?;
                     }
                     SuperObj::Class(obj) => {
                         self.fmt_qname(obj.qname(), f)?;
@@ -429,10 +473,58 @@ pub mod tests {
             0,
             vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVar)],
         );
+        let tuple_param = fake_class(
+            "TupleParam",
+            "mod.ule",
+            0,
+            vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVarTuple)],
+        );
 
         fn class_type(class: &Class, targs: TArgs) -> Type {
             Type::ClassType(ClassType::new(class.dupe(), targs))
         }
+
+        assert_eq!(
+            class_type(
+                &tuple_param,
+                TArgs::new(vec![Type::tuple(vec![
+                    class_type(&foo1, TArgs::default()),
+                    class_type(&foo1, TArgs::default())
+                ])])
+            )
+            .to_string(),
+            "TupleParam[foo, foo]"
+        );
+        assert_eq!(
+            class_type(&tuple_param, TArgs::new(vec![Type::tuple(Vec::new())])).to_string(),
+            "TupleParam[*tuple[()]]"
+        );
+        assert_eq!(
+            class_type(
+                &tuple_param,
+                TArgs::new(vec![Type::Tuple(Tuple::Unbounded(Box::new(class_type(
+                    &foo1,
+                    TArgs::default()
+                ))))])
+            )
+            .to_string(),
+            "TupleParam[*tuple[foo, ...]]"
+        );
+        assert_eq!(
+            class_type(
+                &tuple_param,
+                TArgs::new(vec![Type::Tuple(Tuple::Unpacked(Box::new((
+                    vec![class_type(&foo1, TArgs::default())],
+                    Type::Tuple(Tuple::Unbounded(Box::new(class_type(
+                        &foo1,
+                        TArgs::default(),
+                    )))),
+                    vec![class_type(&foo1, TArgs::default())],
+                ))))])
+            )
+            .to_string(),
+            "TupleParam[foo, *tuple[foo, ...], foo]"
+        );
 
         assert_eq!(
             Type::Tuple(Tuple::unbounded(class_type(&foo1, TArgs::default()))).to_string(),
@@ -586,7 +678,13 @@ pub mod tests {
 
     #[test]
     fn test_display_generic_typeddict() {
-        let cls = fake_class("C", "test", 0, Vec::new());
+        let uniques = UniqueFactory::new();
+        let cls = fake_class(
+            "C",
+            "test",
+            0,
+            vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVar)],
+        );
         let t = Type::None;
         let targs = TArgs::new(vec![t]);
         let td = TypedDict::new(cls, targs);

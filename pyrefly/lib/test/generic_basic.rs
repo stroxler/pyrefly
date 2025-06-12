@@ -678,9 +678,9 @@ class A[*Ts, T = int]:  # E: TypeVar `T` with a default cannot follow TypeVarTup
     pass
 class B[*Ts, T1, T2 = T1]:  # E: TypeVar `T2` with a default cannot follow TypeVarTuple `Ts`
     pass
-reveal_type(B[int]()) # E: B[tuple[()], int, int]
-reveal_type(B[int, str]()) # E: B[tuple[()], int, str]
-reveal_type(B[int, str, float, bool, bytes]()) # E: B[tuple[int, str, float], bool, bytes]
+reveal_type(B[int]()) # E: B[*tuple[()], int, int]
+reveal_type(B[int, str]()) # E: B[*tuple[()], int, str]
+reveal_type(B[int, str, float, bool, bytes]()) # E: B[int, str, float, bool, bytes]
 # It doesn't matter too much how we fill in the type arguments when they aren't
 # pinned by construction, as long as it's plausible.
 reveal_type(B()) # E: revealed type: B[@_, @_, @_]
@@ -696,10 +696,10 @@ class A[*Ts, **P1, **P2 = P1]:
     pass
 class B[*Ts, T, **P = [int, str]]:
     pass
-reveal_type(A[[int, str]]()) # E: A[tuple[()], [int, str], [int, str]]
-reveal_type(A[bool, [int, str]]()) # E: A[tuple[bool], [int, str], [int, str]]
-reveal_type(A[bool, bytes, [int, str]]()) # E: A[tuple[bool, bytes], [int, str], [int, str]]
-reveal_type(B[int, str, float]()) # E: B[tuple[int, str], float, [int, str]]
+reveal_type(A[[int, str]]()) # E: A[*tuple[()], [int, str], [int, str]]
+reveal_type(A[bool, [int, str]]()) # E: A[bool, [int, str], [int, str]]
+reveal_type(A[bool, bytes, [int, str]]()) # E: A[bool, bytes, [int, str], [int, str]]
+reveal_type(B[int, str, float]()) # E: B[int, str, float, [int, str]]
     "#,
 );
 
