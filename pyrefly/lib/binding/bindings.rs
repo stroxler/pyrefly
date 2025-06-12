@@ -172,15 +172,10 @@ impl Bindings {
         }
     }
 
-    /// Within the LSP, check if a BoundName key exists.
+    /// Within the LSP, check if a key exists.
     /// It may not exist within `if False:` or `if sys.version == 0:` style code.
-    pub fn is_valid_usage(&self, k: &Identifier) -> bool {
-        self.0
-            .table
-            .get::<Key>()
-            .0
-            .key_to_idx(&Key::BoundName(ShortIdentifier::new(k)))
-            .is_some()
+    pub fn is_valid_key(&self, k: &Key) -> bool {
+        self.0.table.get::<Key>().0.key_to_idx(k).is_some()
     }
 
     pub fn key_to_idx<K: Keyed>(&self, k: &K) -> Idx<K>

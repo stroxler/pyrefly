@@ -534,7 +534,8 @@ impl<'a> Transaction<'a> {
                 identifier: id,
                 context: IdentifierContext::Expr(_),
             }) => {
-                if self.get_bindings(handle)?.is_valid_usage(&id) {
+                let key = Key::BoundName(ShortIdentifier::new(&id));
+                if self.get_bindings(handle)?.is_valid_key(&key) {
                     if let Some(ExprCall {
                         range: _,
                         func,
@@ -547,7 +548,7 @@ impl<'a> Transaction<'a> {
                     {
                         Some(Type::Callable(Box::new(chosen_overload)))
                     } else {
-                        self.get_type(handle, &Key::BoundName(ShortIdentifier::new(&id)))
+                        self.get_type(handle, &key)
                     }
                 } else {
                     None
@@ -857,6 +858,10 @@ impl<'a> Transaction<'a> {
         TextRangeWithModuleInfo,
         Option<DocString>,
     )> {
+        let def_key = Key::Definition(ShortIdentifier::new(name));
+        if !self.get_bindings(handle)?.is_valid_key(&def_key) {
+            return None;
+        }
         let (
             handle,
             Export {
@@ -864,11 +869,7 @@ impl<'a> Transaction<'a> {
                 symbol_kind,
                 docstring,
             },
-        ) = self.key_to_export(
-            handle,
-            &Key::Definition(ShortIdentifier::new(name)),
-            INITIAL_GAS,
-        )?;
+        ) = self.key_to_export(handle, &def_key, INITIAL_GAS)?;
         let module_info = self.get_module_info(&handle)?;
         let name = Name::new(module_info.code_at(location));
         Some((
@@ -887,7 +888,8 @@ impl<'a> Transaction<'a> {
         TextRangeWithModuleInfo,
         Option<DocString>,
     )> {
-        if !self.get_bindings(handle)?.is_valid_usage(name) {
+        let use_key = Key::BoundName(ShortIdentifier::new(name));
+        if !self.get_bindings(handle)?.is_valid_key(&use_key) {
             return None;
         }
         let (
@@ -897,11 +899,7 @@ impl<'a> Transaction<'a> {
                 symbol_kind,
                 docstring,
             },
-        ) = self.key_to_export(
-            handle,
-            &Key::BoundName(ShortIdentifier::new(name)),
-            INITIAL_GAS,
-        )?;
+        ) = self.key_to_export(handle, &use_key, INITIAL_GAS)?;
         Some((
             DefinitionMetadata::Variable(symbol_kind),
             TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
