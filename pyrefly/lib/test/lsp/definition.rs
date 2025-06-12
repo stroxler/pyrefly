@@ -121,6 +121,43 @@ Definition Result:
 }
 
 #[test]
+fn narrow_test_consecutive() {
+    let code = r#"
+def f(x: list[int]) -> None:
+    x[0] = 0
+    x[1] = 1
+#   ^
+
+class C:
+    y: int
+    z: int
+def g(x: C) -> None:
+    x.y = 0
+    x.z = 1
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+4 |     x[1] = 1
+        ^
+Definition Result:
+2 | def f(x: list[int]) -> None:
+          ^
+
+12 |     x.z = 1
+         ^
+Definition Result:
+10 | def g(x: C) -> None:
+           ^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn shadowed_def_test0() {
     let code = r#"
 def test() -> None:

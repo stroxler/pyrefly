@@ -6,6 +6,7 @@
  */
 
 use pyrefly_util::gas::Gas;
+use ruff_python_ast::Expr;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -14,8 +15,11 @@ use ruff_text_size::TextSize;
 use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
 use crate::binding::bindings::Bindings;
+use crate::binding::narrow::identifier_and_chain_for_expr;
+use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::export::exports::Export;
 use crate::module::module_name::ModuleName;
+use crate::module::short_identifier::ShortIdentifier;
 use crate::state::handle::Handle;
 
 pub enum IntermediateDefinition {
@@ -61,6 +65,24 @@ pub fn binding_to_intermediate_definition(
     if gas.stop() {
         return None;
     }
+
+    let mut resolve_assign_to_expr = |expr: &Expr| {
+        if let Some((id, _)) = identifier_and_chain_for_expr(expr) {
+            key_to_intermediate_definition(
+                bindings,
+                &Key::BoundName(ShortIdentifier::new(&id)),
+                gas,
+            )
+        } else if let Some((id, _)) = identifier_and_chain_prefix_for_expr(expr) {
+            key_to_intermediate_definition(
+                bindings,
+                &Key::BoundName(ShortIdentifier::new(&id)),
+                gas,
+            )
+        } else {
+            None
+        }
+    };
     match binding {
         Binding::Forward(k) | Binding::Narrow(k, _, _) | Binding::Pin(k, ..) => {
             key_to_intermediate_definition(bindings, bindings.idx_to_key(*k), gas)
@@ -76,6 +98,14 @@ pub fn binding_to_intermediate_definition(
         Binding::CheckLegacyTypeParam(k, _) => {
             let binding = bindings.get(*k);
             key_to_intermediate_definition(bindings, bindings.idx_to_key(binding.0), gas)
+        }
+        Binding::AssignToSubscript(box (subscript, _)) => {
+            let expr = Expr::Subscript(subscript.clone());
+            resolve_assign_to_expr(&expr)
+        }
+        Binding::AssignToAttribute(box (attribute, _)) => {
+            let expr = Expr::Attribute(attribute.clone());
+            resolve_assign_to_expr(&expr)
         }
         _ => None,
     }
