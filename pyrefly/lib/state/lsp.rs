@@ -75,7 +75,7 @@ use crate::types::module::Module;
 use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
 
-const INITIAL_GAS: Gas = Gas::new(20);
+const INITIAL_GAS: Gas = Gas::new(100);
 
 #[derive(Clone)]
 pub enum DefinitionMetadata {
