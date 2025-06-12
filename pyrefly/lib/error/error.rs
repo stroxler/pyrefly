@@ -36,40 +36,71 @@ pub struct Error {
 
 impl Error {
     pub fn write_line(&self, mut f: impl Write, verbose: bool) -> io::Result<()> {
-        writeln!(
-            f,
-            "{} {}:{}: {} [{}]",
-            match self.error_kind().severity() {
-                Severity::Error => "ERROR",
-                Severity::Warn => " WARN",
-                Severity::Info => " INFO",
-            },
-            self.path(),
-            self.range,
-            self.msg_header,
-            self.error_kind.to_name(),
-        )?;
-        if verbose && let Some(details) = &self.msg_details {
-            writeln!(f, "{details}")?;
+        if verbose {
+            writeln!(
+                f,
+                "{} {}:{}: {} [{}]",
+                match self.error_kind().severity() {
+                    Severity::Error => "ERROR",
+                    Severity::Warn => " WARN",
+                    Severity::Info => " INFO",
+                },
+                self.path(),
+                self.range,
+                self.msg_header,
+                self.error_kind.to_name(),
+            )?;
+            if let Some(details) = &self.msg_details {
+                writeln!(f, "{details}")?;
+            }
+        } else {
+            writeln!(
+                f,
+                "{} {}:{}: {} [{}]",
+                match self.error_kind().severity() {
+                    Severity::Error => "ERROR",
+                    Severity::Warn => " WARN",
+                    Severity::Info => " INFO",
+                },
+                self.path(),
+                self.range,
+                self.msg_header,
+                self.error_kind.to_name(),
+            )?;
         }
         Ok(())
     }
 
     pub fn print_colors(&self, verbose: bool) {
-        anstream::println!(
-            "{} {}:{}: {} {}",
-            match self.error_kind().severity() {
-                Severity::Error => Paint::red("ERROR"),
-                Severity::Warn => Paint::yellow(" WARN"),
-                Severity::Info => Paint::green(" INFO"),
-            },
-            Paint::blue(&self.path().as_path().display()),
-            Paint::dim(self.source_range()),
-            Paint::new(&*self.msg_header),
-            Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
-        );
-        if verbose && let Some(details) = &self.msg_details {
-            anstream::println!("{details}");
+        if verbose {
+            anstream::println!(
+                "{} {}:{}: {} {}",
+                match self.error_kind().severity() {
+                    Severity::Error => Paint::red("ERROR"),
+                    Severity::Warn => Paint::yellow(" WARN"),
+                    Severity::Info => Paint::green(" INFO"),
+                },
+                Paint::blue(&self.path().as_path().display()),
+                Paint::dim(self.source_range()),
+                Paint::new(&*self.msg_header),
+                Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
+            );
+            if let Some(details) = &self.msg_details {
+                anstream::println!("{details}");
+            }
+        } else {
+            anstream::println!(
+                "{} {}:{}: {} {}",
+                match self.error_kind().severity() {
+                    Severity::Error => Paint::red("ERROR"),
+                    Severity::Warn => Paint::yellow(" WARN"),
+                    Severity::Info => Paint::green(" INFO"),
+                },
+                Paint::blue(&self.path().as_path().display()),
+                Paint::dim(self.source_range()),
+                Paint::new(&*self.msg_header),
+                Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
+            );
         }
     }
 }
