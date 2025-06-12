@@ -16,8 +16,6 @@ use ruff_annotate_snippets::Level;
 use ruff_annotate_snippets::Message;
 use ruff_annotate_snippets::Renderer;
 use ruff_annotate_snippets::Snippet;
-use ruff_annotate_snippets::renderer::AnsiColor;
-use ruff_annotate_snippets::renderer::Effects;
 use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
 use yansi::Paint;
@@ -87,16 +85,14 @@ impl Error {
                 match self.error_kind().severity() {
                     Severity::Error => Paint::red("ERROR"),
                     Severity::Warn => Paint::yellow(" WARN"),
-                    Severity::Info => Paint::green(" INFO"),
+                    Severity::Info => Paint::blue(" INFO"),
                 },
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
             );
             let origin = self.lossy_origin();
             let snippet = self.get_source_snippet(&origin);
-            // We mostly use the default styling but use green instead of blue for INFO.
-            let renderer =
-                Renderer::styled().info(AnsiColor::BrightGreen.on_default().effects(Effects::BOLD));
+            let renderer = Renderer::styled();
             anstream::println!("{}", renderer.render(snippet));
             if let Some(details) = &self.msg_details {
                 anstream::println!("{details}");
@@ -107,7 +103,7 @@ impl Error {
                 match self.error_kind().severity() {
                     Severity::Error => Paint::red("ERROR"),
                     Severity::Warn => Paint::yellow(" WARN"),
-                    Severity::Info => Paint::green(" INFO"),
+                    Severity::Info => Paint::blue(" INFO"),
                 },
                 Paint::blue(&self.path().as_path().display()),
                 Paint::dim(self.source_range()),
