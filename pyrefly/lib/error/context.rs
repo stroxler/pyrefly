@@ -69,12 +69,6 @@ impl TypeCheckContext {
             context: None,
         }
     }
-
-    /// Temporary helper to label errors as Unknown before we properly classify them.
-    #[expect(dead_code)]
-    pub fn unknown() -> Self {
-        Self::of_kind(TypeCheckKind::Unknown)
-    }
 }
 
 #[derive(Debug)]
@@ -126,9 +120,6 @@ pub enum TypeCheckKind {
     YieldFrom,
     /// Bare yield when the return annotation expects an actual value.
     UnexpectedBareYield,
-    // TODO: categorize all type checks and remove Unknown and Test designations
-    #[allow(dead_code)]
-    Unknown,
 }
 
 impl TypeCheckKind {
@@ -166,7 +157,6 @@ impl TypeCheckKind {
             Self::YieldValue => ErrorKind::InvalidYield,
             Self::YieldFrom => ErrorKind::InvalidYield,
             Self::UnexpectedBareYield => ErrorKind::InvalidYield,
-            Self::Unknown => ErrorKind::Unknown,
         }
     }
 }

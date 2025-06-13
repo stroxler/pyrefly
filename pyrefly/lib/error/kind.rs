@@ -181,8 +181,6 @@ pub enum ErrorKind {
     UnsupportedOperand,
     /// Attempting to use a feature that is not yet supported.
     Unsupported,
-    /// Unknown or not-yet-defined error.
-    Unknown,
 }
 
 /// Computing the error kinds is disturbingly expensive, so cache the results.
@@ -213,7 +211,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_error_kind_name() {
-        assert_eq!(ErrorKind::Unknown.to_name(), "unknown");
+        assert_eq!(ErrorKind::Unsupported.to_name(), "unsupported");
         assert_eq!(ErrorKind::ParseError.to_name(), "parse-error");
     }
 }
