@@ -40,19 +40,17 @@ pub fn key_to_intermediate_definition(
         Some(IntermediateDefinition::Local(_))
         | Some(IntermediateDefinition::Module(_))
         | Some(IntermediateDefinition::NamedImport(_, _)) => res,
-        None => match key {
-            Key::Definition(x) => Some(IntermediateDefinition::Local(Export {
-                location: x.range(),
-                symbol_kind: binding.symbol_kind(),
-                docstring: None,
-            })),
-            Key::Anywhere(_, range) => Some(IntermediateDefinition::Local(Export {
-                location: *range,
-                symbol_kind: binding.symbol_kind(),
-                docstring: None,
-            })),
-            _ => None,
-        },
+        None => {
+            if let Key::Definition(x) = key {
+                Some(IntermediateDefinition::Local(Export {
+                    location: x.range(),
+                    symbol_kind: binding.symbol_kind(),
+                    docstring: None,
+                }))
+            } else {
+                None
+            }
+        }
     }
 }
 
