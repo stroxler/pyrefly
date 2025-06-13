@@ -188,10 +188,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         is_classmethod = true;
                         false
                     }
-                    Some(CalleeKind::Function(FunctionKind::Deprecated)) => {
-                        is_deprecated = true;
-                        true
-                    }
                     Some(CalleeKind::Class(ClassKind::Property)) => {
                         is_property_getter = true;
                         false
