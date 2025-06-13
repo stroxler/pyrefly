@@ -327,7 +327,6 @@
   "generics_syntax_compatibility.py": [],
   "generics_syntax_declarations.py": [],
   "generics_syntax_infer_variance.py": [
-    "Line 46: Expected 1 errors",
     "Line 136: Expected 1 errors",
     "Line 144: Expected 1 errors"
   ],
@@ -375,7 +374,6 @@
     "Lines 195, 196: Expected error (tag 'ContraToContraToContra_WithTA')"
   ],
   "generics_variance_inference.py": [
-    "Line 58: Expected 1 errors",
     "Line 130: Expected 1 errors",
     "Line 138: Expected 1 errors"
   ],

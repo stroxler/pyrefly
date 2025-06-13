@@ -97,3 +97,22 @@ class ShouldBeInvariant[K, V](dict[K, V]):
 vinv3_1: ShouldBeInvariant[float, str] = ShouldBeInvariant[int, str]()  # E:
 "#,
 );
+
+testcase!(
+    test_infer_variance,
+    r#"
+from typing import Sequence
+
+
+class ShouldBeCovariant2[T](Sequence[T]):
+    pass
+
+class ShouldBeCovariant3[U]:
+    def method(self) -> ShouldBeCovariant2[U]:
+        ...
+
+vco3_1: ShouldBeCovariant3[float] = ShouldBeCovariant3[int]()  # OK
+vco3_2: ShouldBeCovariant3[int] = ShouldBeCovariant3[float]()  # E: 
+
+"#,
+);

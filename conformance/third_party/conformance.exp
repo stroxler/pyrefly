@@ -6131,6 +6131,16 @@
     },
     {
       "code": -2,
+      "column": 35,
+      "concise_description": "`ShouldBeCovariant3[float]` is not assignable to `ShouldBeCovariant3[int]`",
+      "description": "`ShouldBeCovariant3[float]` is not assignable to `ShouldBeCovariant3[int]`",
+      "line": 46,
+      "name": "bad-assignment",
+      "stop_column": 62,
+      "stop_line": 46
+    },
+    {
+      "code": -2,
       "column": 34,
       "concise_description": "`ShouldBeCovariant5[float]` is not assignable to `ShouldBeCovariant5[int]`",
       "description": "`ShouldBeCovariant5[float]` is not assignable to `ShouldBeCovariant5[int]`",
@@ -6871,6 +6881,16 @@
       "name": "bad-assignment",
       "stop_column": 62,
       "stop_line": 49
+    },
+    {
+      "code": -2,
+      "column": 35,
+      "concise_description": "`ShouldBeCovariant3[float]` is not assignable to `ShouldBeCovariant3[int]`",
+      "description": "`ShouldBeCovariant3[float]` is not assignable to `ShouldBeCovariant3[int]`",
+      "line": 58,
+      "name": "bad-assignment",
+      "stop_column": 62,
+      "stop_line": 58
     },
     {
       "code": -2,
