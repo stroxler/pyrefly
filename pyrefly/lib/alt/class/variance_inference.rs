@@ -15,7 +15,6 @@ use crate::alt::class::variance_inference::variance_visitor::TParamArray;
 use crate::alt::class::variance_inference::variance_visitor::VarianceEnv;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::types::class::Class;
-use crate::types::stdlib::Stdlib;
 use crate::types::type_var::PreInferenceVariance;
 use crate::types::type_var::Variance;
 use crate::types::types::TParam;
@@ -59,7 +58,6 @@ pub mod variance_visitor {
     use crate::alt::types::class_metadata::ClassMetadata;
     use crate::types::callable::Params;
     use crate::types::class::Class;
-    use crate::types::stdlib::Stdlib;
     use crate::types::tuple::Tuple;
     use crate::types::type_var::Variance;
     use crate::types::types::Type;
@@ -76,7 +74,6 @@ pub mod variance_visitor {
         on_var: &mut impl FnMut(&str, Variance, Injectivity),
         get_metadata: &impl Fn(&Class) -> Arc<ClassMetadata>,
         get_fields: &impl Fn(&Class) -> SmallMap<String, Arc<ClassField>>,
-        _stdlib: &Stdlib, // todo zeina: check if we still need this arg to get class properties
         class_lookup_map: &mut SmallMap<String, Arc<Class>>,
     ) {
         fn is_private_field(name: &str) -> bool {
@@ -374,7 +371,6 @@ fn loop_fn<'a>(
     contains_bivariant: &mut bool,
     get_metadata: &impl Fn(&Class) -> Arc<ClassMetadata>,
     get_fields: &impl Fn(&Class) -> SmallMap<String, Arc<ClassField>>,
-    stdlib: &Stdlib,
     class_lookup_map: &mut SmallMap<String, Arc<Class>>,
 ) -> TParamArray {
     let class_name = class.name().as_str().to_owned();
@@ -397,7 +393,6 @@ fn loop_fn<'a>(
             contains_bivariant,
             get_metadata,
             get_fields,
-            stdlib,
             map,
         )
     };
@@ -408,7 +403,6 @@ fn loop_fn<'a>(
         &mut on_var,
         get_metadata,
         get_fields,
-        stdlib,
         class_lookup_map,
     );
 
@@ -497,7 +491,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &mut on_var,
                     &|c| solver.get_metadata_for_class(c),
                     &|c| solver.get_class_field_map(c),
-                    solver.stdlib,
                     class_lookup_map,
                 );
 
@@ -526,7 +519,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &mut contains_bivariant,
                 &|c| self.get_metadata_for_class(c),
                 &|c| self.get_class_field_map(c),
-                self.stdlib,
                 &mut class_lookup_map,
             );
 
