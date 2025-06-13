@@ -79,6 +79,13 @@ pub mod variance_visitor {
         _stdlib: &Stdlib, // todo zeina: check if we still need this arg to get class properties
         class_lookup_map: &mut SmallMap<String, Arc<Class>>,
     ) {
+        fn is_private_field(name: &str) -> bool {
+            let starts_with_underscore = name.starts_with('_');
+            let ends_with_double_underscore = name.ends_with("__");
+
+            starts_with_underscore && !ends_with_double_underscore
+        }
+
         fn handle_tuple_type(
             tuple: &Tuple,
             variance: Variance,
@@ -246,19 +253,30 @@ pub mod variance_visitor {
                 continue;
             }
 
-            if let Some((ty, _, _, descriptor_getter, descriptor_setter)) =
+            if let Some((ty, _, readonly, descriptor_getter, descriptor_setter)) =
                 field.for_variance_inference()
             {
                 // Case 1: Regular attribute
+
+                // TODO: We need a much better way to distinguish between fields and methods than this
+                // currently, class field representation isn't good enough but we need to fix that soon
                 if descriptor_getter.is_none() && descriptor_setter.is_none() {
-                    on_type(
-                        Variance::Covariant,
-                        true,
+                    // TODO BE: Move this to a helper function and make sure any code using the same logic uses it
+                    let is_function = matches!(
                         ty,
-                        on_edge,
-                        on_var,
-                        class_lookup_map,
+                        Type::Function { .. }
+                            | Type::Overload { .. }
+                            | Type::BoundMethod { .. }
+                            | Type::Callable { .. }
                     );
+                    let variance =
+                        if is_function || is_private_field(name) || readonly || field.is_final() {
+                            Variance::Covariant
+                        } else {
+                            Variance::Invariant
+                        };
+
+                    on_type(variance, true, ty, on_edge, on_var, class_lookup_map);
                 } else {
                     // Case 2: Descriptor or property (has getter and/or setter)
                     // Not too sure about this yet, will need to investigate further.

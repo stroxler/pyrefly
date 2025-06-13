@@ -6241,6 +6241,26 @@
     },
     {
       "code": -2,
+      "column": 38,
+      "concise_description": "`ShouldBeInvariant4[int]` is not assignable to `ShouldBeInvariant4[float]`",
+      "description": "`ShouldBeInvariant4[int]` is not assignable to `ShouldBeInvariant4[float]`",
+      "line": 136,
+      "name": "bad-assignment",
+      "stop_column": 64,
+      "stop_line": 136
+    },
+    {
+      "code": -2,
+      "column": 38,
+      "concise_description": "`ShouldBeInvariant5[int]` is not assignable to `ShouldBeInvariant5[float]`",
+      "description": "`ShouldBeInvariant5[int]` is not assignable to `ShouldBeInvariant5[float]`",
+      "line": 144,
+      "name": "bad-assignment",
+      "stop_column": 64,
+      "stop_line": 144
+    },
+    {
+      "code": -2,
       "column": 45,
       "concise_description": "`ShouldBeContravariant1[int]` is not assignable to `ShouldBeContravariant1[float]`",
       "description": "`ShouldBeContravariant1[int]` is not assignable to `ShouldBeContravariant1[float]`",
@@ -6991,6 +7011,26 @@
       "name": "bad-assignment",
       "stop_column": 73,
       "stop_line": 122
+    },
+    {
+      "code": -2,
+      "column": 38,
+      "concise_description": "`ShouldBeInvariant4[int]` is not assignable to `ShouldBeInvariant4[float]`",
+      "description": "`ShouldBeInvariant4[int]` is not assignable to `ShouldBeInvariant4[float]`",
+      "line": 130,
+      "name": "bad-assignment",
+      "stop_column": 64,
+      "stop_line": 130
+    },
+    {
+      "code": -2,
+      "column": 38,
+      "concise_description": "`ShouldBeInvariant5[int]` is not assignable to `ShouldBeInvariant5[float]`",
+      "description": "`ShouldBeInvariant5[int]` is not assignable to `ShouldBeInvariant5[float]`",
+      "line": 138,
+      "name": "bad-assignment",
+      "stop_column": 64,
+      "stop_line": 138
     },
     {
       "code": -2,

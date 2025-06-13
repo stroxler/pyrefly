@@ -326,10 +326,7 @@
   ],
   "generics_syntax_compatibility.py": [],
   "generics_syntax_declarations.py": [],
-  "generics_syntax_infer_variance.py": [
-    "Line 136: Expected 1 errors",
-    "Line 144: Expected 1 errors"
-  ],
+  "generics_syntax_infer_variance.py": [],
   "generics_syntax_scoping.py": [
     "Line 35: Expected 1 errors",
     "Line 92: Expected 1 errors",
@@ -373,10 +370,7 @@
     "Lines 141, 142: Expected error (tag 'CoContra_Child5')",
     "Lines 195, 196: Expected error (tag 'ContraToContraToContra_WithTA')"
   ],
-  "generics_variance_inference.py": [
-    "Line 130: Expected 1 errors",
-    "Line 138: Expected 1 errors"
-  ],
+  "generics_variance_inference.py": [],
   "historical_positional.py": [
     "Line 18: Expected 1 errors",
     "Line 26: Expected 1 errors",
