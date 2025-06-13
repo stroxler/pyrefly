@@ -1481,38 +1481,25 @@ impl<'a> Transaction<'a> {
             {
                 continue;
             }
-            let Some(symbol_kind) = (match intermediate_definition {
-                IntermediateDefinition::Local(definition) => {
-                    // Sanity check: the reference should have the same text as the definition.
-                    // This check helps to filter out synthetic bindings.
-                    if module_info.code_at(definition.location)
-                        == module_info.code_at(reference_range)
-                    {
-                        definition.symbol_kind
-                    } else {
-                        None
-                    }
-                }
-                IntermediateDefinition::Module(_name) => {
-                    // TODO: We still run into the risk of synthetic imports, but we cannot do
-                    // the same sanity check as above, since we don't have the location of the
-                    // module. It's safer not to return a token, as opposed to coloring a block
-                    // of code corresponding to a synthetic binding.
-                    None
-                }
-                IntermediateDefinition::NamedImport(_, _name) => {
-                    // TODO: we can try to resolve the import to figure out a better symbol kind
-                    // In addition, we should include more information so that we can decide whether
-                    // the import is a renamed import (e.g. from ... import a as b).
-                    // For now, it's safer to not generate a semantic token for a potentially
-                    // synthetic binding.
-                    None
-                }
-            }) else {
+            let (token_type, token_modifiers) = if let Some((
+                definition_handle,
+                Export {
+                    symbol_kind: Some(symbol_kind),
+                    location: definition_location,
+                    ..
+                },
+            )) =
+                self.resolve_intermediate_definition(handle, intermediate_definition, INITIAL_GAS)
+                && let Some(definition_module_info) = self.get_module_info(&definition_handle)
+                && // Sanity check: the reference should have the same text as the definition.
+                   // This check helps to filter out synthetic bindings.
+                definition_module_info.code_at(definition_location)
+                    == module_info.code_at(reference_range)
+            {
+                symbol_kind.to_lsp_semantic_token_type_with_modifiers()
+            } else {
                 continue;
             };
-            let (token_type, token_modifiers) =
-                symbol_kind.to_lsp_semantic_token_type_with_modifiers();
             tokens.push(SemanticTokenWithFullRange {
                 range: reference_range,
                 token_type,

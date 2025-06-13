@@ -95,6 +95,9 @@ impl SemanticTokensLegends {
             let current_col = source_range.start.column.to_zero_indexed();
             let (delta_line, delta_start) = if previous_line == current_line {
                 let delta_start = current_col - previous_col;
+                if delta_start == 0 {
+                    continue;
+                }
                 previous_col = current_col;
                 (0, delta_start as u32)
             } else {

@@ -16,7 +16,7 @@ use lsp_types::SemanticTokenType;
 /// It will be displayed in IDEs with different icons.
 /// https://adamcoster.com/blog/vscode-workspace-symbol-provider-purpose might give you an idea of
 /// how it will look in VSCode.
-#[derive(Debug, Clone, Copy, Dupe)]
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SymbolKind {
     Module,
     Attribute,
