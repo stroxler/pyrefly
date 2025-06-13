@@ -192,11 +192,7 @@ pub mod variance_visitor {
                     // Walk parameters contravariantly
                     match &t.params {
                         Params::List(param_list) => {
-                            let mut params_iter = param_list.items().iter();
-                            // Skip the first param (self)
-                            params_iter.next();
-
-                            for param in params_iter {
+                            for param in param_list.items().iter() {
                                 let ty = param.param_to_type();
                                 on_type(variance.inv(), inj, ty, on_edge, on_var, class_lookup_map);
                             }
