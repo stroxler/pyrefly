@@ -36,25 +36,24 @@ pub fn key_to_intermediate_definition(
     let idx = bindings.key_to_idx(key);
     let binding = bindings.get(idx);
     let res = binding_to_intermediate_definition(bindings, binding, gas);
-    if res.is_none()
-        && let Key::Definition(x) = key
-    {
-        return Some(IntermediateDefinition::Local(Export {
-            location: x.range(),
-            symbol_kind: binding.symbol_kind(),
-            docstring: None,
-        }));
+    match &res {
+        Some(IntermediateDefinition::Local(_))
+        | Some(IntermediateDefinition::Module(_))
+        | Some(IntermediateDefinition::NamedImport(_, _)) => res,
+        None => match key {
+            Key::Definition(x) => Some(IntermediateDefinition::Local(Export {
+                location: x.range(),
+                symbol_kind: binding.symbol_kind(),
+                docstring: None,
+            })),
+            Key::Anywhere(_, range) => Some(IntermediateDefinition::Local(Export {
+                location: *range,
+                symbol_kind: binding.symbol_kind(),
+                docstring: None,
+            })),
+            _ => None,
+        },
     }
-    if res.is_none()
-        && let Key::Anywhere(_, range) = key
-    {
-        return Some(IntermediateDefinition::Local(Export {
-            location: *range,
-            symbol_kind: binding.symbol_kind(),
-            docstring: None,
-        }));
-    }
-    res
 }
 
 pub fn binding_to_intermediate_definition(
