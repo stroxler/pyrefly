@@ -172,6 +172,19 @@ pub mod variance_visitor {
                         on_type(variance, inj, ty, on_edge, on_var, class_lookup_map);
                     }
                 }
+                Type::Overload(t) => {
+                    let sigs = &t.signatures;
+                    for sig in sigs {
+                        on_type(
+                            variance,
+                            inj,
+                            &sig.as_type(),
+                            on_edge,
+                            on_var,
+                            class_lookup_map,
+                        );
+                    }
+                }
                 Type::Callable(t) => {
                     // Walk return type covariantly
                     on_type(variance, inj, &t.ret, on_edge, on_var, class_lookup_map);
