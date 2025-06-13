@@ -97,6 +97,9 @@ class A: ...
 class B(A): ...
 
 x: list[A] | bool = [B()]
+y: bool | list[A] = [B()]
+z: list[int] | list[A] = [B()]
+w: list[A] | list[int] = [B()]
 "#,
 );
 
