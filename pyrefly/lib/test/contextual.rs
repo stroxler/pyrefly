@@ -91,6 +91,16 @@ kwarg(xs=[B()], ys=[B()])
 );
 
 testcase!(
+    test_contextual_typing_against_unions,
+    r#"
+class A: ...
+class B(A): ...
+
+x: list[A] | bool = [B()]
+"#,
+);
+
+testcase!(
     bug = "Unpacked assignments do not currently use contextual typing",
     test_context_assign_unpacked_list,
     r#"
