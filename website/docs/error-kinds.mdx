@@ -160,7 +160,13 @@ For example, argument order is enforced by the parser, so `def f(x: int = 1, y: 
 
 ## bad-instantiation
 
-<!-- TODO(rechen): fill this in -->
+This error occurs when attempting to instantiate a class that cannot be instantiated, such as a protocol:
+
+```python
+from typing import Protocol
+class C(Protocol): ...
+C()  # bad-instantiation
+```
 
 ## bad-keyword-argument
 
@@ -281,11 +287,28 @@ For example, read-only and required `TypedDict` fields cannot be deleted.
 
 ## deprecated
 
-<!-- TODO(rechen): fill this in -->
+This error occurs on usage of a deprecated class or function:
+
+```python
+from warnings import deprecated
+@deprecated("deprecated")
+def f(): ...
+f()  # deprecated!
+```
 
 ## implicitly-defined-attribute
 
-<!-- TODO(rechen): fill this in -->
+An attribute was implicitly defined by assignment to `self` in a method that we
+do not recognize as always executing. (We recognize constructors and some test
+setup methods.)
+
+```python
+class C:
+    def __init__(self):
+        self.x = 0  # no error, `__init__` always executes
+    def f(self):
+        self.y = 0  # error, `y` may be undefined if `f` does not execute
+```
 
 ## import-error
 
