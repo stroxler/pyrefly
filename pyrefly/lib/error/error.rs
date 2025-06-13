@@ -45,11 +45,7 @@ impl Error {
             writeln!(
                 f,
                 "{} {} [{}]",
-                match self.error_kind().severity() {
-                    Severity::Error => "ERROR",
-                    Severity::Warn => " WARN",
-                    Severity::Info => " INFO",
-                },
+                self.error_kind().severity().label(),
                 self.msg_header,
                 self.error_kind.to_name(),
             )?;
@@ -64,11 +60,7 @@ impl Error {
             writeln!(
                 f,
                 "{} {}:{}: {} [{}]",
-                match self.error_kind().severity() {
-                    Severity::Error => "ERROR",
-                    Severity::Warn => " WARN",
-                    Severity::Info => " INFO",
-                },
+                self.error_kind().severity().label(),
                 self.path(),
                 self.range,
                 self.msg_header,
@@ -82,10 +74,13 @@ impl Error {
         if verbose {
             anstream::println!(
                 "{} {} {}",
-                match self.error_kind().severity() {
-                    Severity::Error => Paint::red("ERROR"),
-                    Severity::Warn => Paint::yellow(" WARN"),
-                    Severity::Info => Paint::blue(" INFO"),
+                {
+                    let severity = self.error_kind().severity();
+                    (match severity {
+                        Severity::Error => Paint::red,
+                        Severity::Warn => Paint::yellow,
+                        Severity::Info => Paint::blue,
+                    })(severity.label())
                 },
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
@@ -100,10 +95,13 @@ impl Error {
         } else {
             anstream::println!(
                 "{} {}:{}: {} {}",
-                match self.error_kind().severity() {
-                    Severity::Error => Paint::red("ERROR"),
-                    Severity::Warn => Paint::yellow(" WARN"),
-                    Severity::Info => Paint::blue(" INFO"),
+                {
+                    let severity = self.error_kind().severity();
+                    (match severity {
+                        Severity::Error => Paint::red,
+                        Severity::Warn => Paint::yellow,
+                        Severity::Info => Paint::blue,
+                    })(severity.label())
                 },
                 Paint::blue(&self.path().as_path().display()),
                 Paint::dim(self.source_range()),

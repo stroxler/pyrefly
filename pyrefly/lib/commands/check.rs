@@ -50,6 +50,7 @@ use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;
 use crate::error::error::print_error_counts;
+use crate::error::kind::Severity;
 use crate::error::legacy::LegacyErrors;
 use crate::error::summarise::print_error_summary;
 use crate::module::bundled::stdlib_search_path;
@@ -630,7 +631,7 @@ impl Args {
         if !self.output.no_summary {
             anstream::eprintln!(
                 "{} errors shown: {}, errors ignored: {}, modules: {}, transitive dependencies: {}, lines: {}, time: {timings}, peak memory: {}",
-                Paint::blue(" INFO"), // padded out to five characters to visually align with ERROR
+                Paint::blue(Severity::Info.label()),
                 number_thousands(shown_errors_count),
                 number_thousands(errors.disabled.len() + errors.suppressed.len()),
                 number_thousands(handles.len()),

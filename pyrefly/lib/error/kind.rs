@@ -22,6 +22,17 @@ pub enum Severity {
     Error,
 }
 
+impl Severity {
+    pub fn label(self) -> &'static str {
+        match self {
+            // INFO and WARN are padded out to five characters to visually align with ERROR in messages
+            Severity::Info => " INFO",
+            Severity::Warn => " WARN",
+            Severity::Error => "ERROR",
+        }
+    }
+}
+
 /// ErrorKind categorizes an error by the part of the spec the error is related to.
 /// They are used in suppressions to identify which error should be suppressed.
 //
