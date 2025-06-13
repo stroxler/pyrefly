@@ -158,6 +158,10 @@ However, it is best practice to use the class syntax if possible, which doesn't 
 Like `bad-class-definition`, this error kind is uncommon because other error kinds are used for more specific issues.
 For example, argument order is enforced by the parser, so `def f(x: int = 1, y: str)` is a `parse-error`.
 
+## bad-instantiation
+
+<!-- TODO(rechen): fill this in -->
+
 ## bad-keyword-argument
 
 bad-keyword-argument pops up when a keyword argument is given multiple values:
@@ -274,6 +278,14 @@ This error occurs when attempting to `del` something that cannot be deleted.
 
 Besides obvious things like built-in values (you can't `del True`!), some object attributes are protected from deletion.
 For example, read-only and required `TypedDict` fields cannot be deleted.
+
+## deprecated
+
+<!-- TODO(rechen): fill this in -->
+
+## implicitly-defined-attribute
+
+<!-- TODO(rechen): fill this in -->
 
 ## import-error
 
@@ -715,6 +727,10 @@ def where() -> None:
   global spoon
 ```
 
+## unsupported
+
+This error indicates that pyrefly does not currently support a typing feature.
+
 ## unsupported-operand
 
 This error arises when attempting to perform an operation between values of two incompatible types.
@@ -726,7 +742,3 @@ An exception is the `in` operator, which fails when looking for a value in somet
 if "hello" in 1:  # int doesn't support `in`!
   ...
 ```
-
-## unsupported
-
-This error indicates that pyrefly does not currently support a typing feature.
