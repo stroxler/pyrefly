@@ -93,25 +93,25 @@ pub struct Args {
 #[derive(Debug, Parser, Clone)]
 struct OutputArgs {
     /// Write the errors to a file, instead of printing them.
-    #[arg(long, short = 'o', env = clap_env("OUTPUT"), value_name = "FILE")]
+    #[arg(long, short = 'o', env = clap_env("OUTPUT"), value_name = "OUTPUT_FILE")]
     output: Option<PathBuf>,
     /// Set the error output format.
     #[arg(long, value_enum, default_value_t, env = clap_env("OUTPUT_FORMAT"))]
     output_format: OutputFormat,
     /// Produce debugging information about the type checking process.
-    #[arg(long, env = clap_env("DEBUG_INFO"), value_name = "FILE")]
+    #[arg(long, env = clap_env("DEBUG_INFO"), value_name = "OUTPUT_FILE")]
     debug_info: Option<PathBuf>,
     /// Report the memory usage of bindings.
-    #[arg(long, env = clap_env("REPORT_BINDING_MEMORY"), value_name = "FILE")]
+    #[arg(long, env = clap_env("REPORT_BINDING_MEMORY"), value_name = "OUTPUT_FILE")]
     report_binding_memory: Option<PathBuf>,
     /// Report type traces.
-    #[arg(long, env = clap_env("REPORT_TRACE"), value_name = "FILE")]
+    #[arg(long, env = clap_env("REPORT_TRACE"), value_name = "OUTPUT_FILE")]
     report_trace: Option<PathBuf>,
     /// Process each module individually to figure out how long each step takes.
-    #[arg(long, env = clap_env("REPORT_TIMINGS"), value_name = "FILE")]
+    #[arg(long, env = clap_env("REPORT_TIMINGS"), value_name = "OUTPUT_FILE")]
     report_timings: Option<PathBuf>,
     /// Generate a Glean-compatible JSON file for each module
-    #[arg(long, env = clap_env("REPORT_GLEAN"), value_name = "FILE")]
+    #[arg(long, env = clap_env("REPORT_GLEAN"), value_name = "OUTPUT_FILE")]
     report_glean: Option<PathBuf>,
     /// Count the number of each error kind. Prints the top N [default=5] errors, sorted by count, or all errors if N is 0.
     #[arg(
@@ -657,10 +657,10 @@ impl Args {
                 memory_trace.peak()
             );
         }
-        if let Some(timings) = &self.output.report_timings {
+        if let Some(output_path) = &self.output.report_timings {
             eprintln!("Computing timing information");
             transaction.set_subscriber(Some(Box::new(ProgressBarSubscriber::new())));
-            transaction.report_timings(timings)?;
+            transaction.report_timings(output_path)?;
             transaction.set_subscriber(None);
         }
         if let Some(debug_info) = &self.output.debug_info {
