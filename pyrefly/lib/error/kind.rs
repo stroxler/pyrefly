@@ -14,6 +14,8 @@ use enum_iterator::Sequence;
 use parse_display::Display;
 use serde::Deserialize;
 use serde::Serialize;
+use yansi::Paint;
+use yansi::Painted;
 
 #[derive(Debug, Clone, Dupe, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum Severity {
@@ -30,6 +32,14 @@ impl Severity {
             Severity::Warn => " WARN",
             Severity::Error => "ERROR",
         }
+    }
+
+    pub fn painted(self) -> Painted<&'static str> {
+        (match self {
+            Severity::Info => Paint::blue,
+            Severity::Warn => Paint::yellow,
+            Severity::Error => Paint::red,
+        })(self.label())
     }
 }
 

@@ -74,14 +74,7 @@ impl Error {
         if verbose {
             anstream::println!(
                 "{} {} {}",
-                {
-                    let severity = self.error_kind().severity();
-                    (match severity {
-                        Severity::Error => Paint::red,
-                        Severity::Warn => Paint::yellow,
-                        Severity::Info => Paint::blue,
-                    })(severity.label())
-                },
+                self.error_kind().severity().painted(),
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
             );
@@ -95,14 +88,7 @@ impl Error {
         } else {
             anstream::println!(
                 "{} {}:{}: {} {}",
-                {
-                    let severity = self.error_kind().severity();
-                    (match severity {
-                        Severity::Error => Paint::red,
-                        Severity::Warn => Paint::yellow,
-                        Severity::Info => Paint::blue,
-                    })(severity.label())
-                },
+                self.error_kind().severity().painted(),
                 Paint::blue(&self.path().as_path().display()),
                 Paint::dim(self.source_range()),
                 Paint::new(&*self.msg_header),
