@@ -1841,7 +1841,7 @@ dependencies = [
 
 [[package]]
 name = "pyrefly"
-version = "0.19.1"
+version = "0.19.2"
 dependencies = [
  "anstream",
  "anyhow",
@@ -1908,7 +1908,7 @@ dependencies = [
 
 [[package]]
 name = "pyrefly_util"
-version = "0.19.1"
+version = "0.19.2"
 dependencies = [
  "anstream",
  "anyhow",
