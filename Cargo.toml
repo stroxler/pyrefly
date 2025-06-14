@@ -1,16 +1,11 @@
+[profile.release]
+lto = true
+codegen-units = 1
+
 [workspace]
-members = [
-    "pyrefly",
-    "pyrefly_derive",
-    "pyrefly_wasm",
-    "pyrefly_util",
-]
+members = ["pyrefly", "pyrefly_derive", "pyrefly_util", "pyrefly_wasm"]
 resolver = "2"
 
 [workspace.package]
 license = "MIT"
 repository = "https://github.com/facebook/pyrefly"
-
-[profile.release]
-lto = true
-codegen-units = 1
