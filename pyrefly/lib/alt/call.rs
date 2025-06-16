@@ -385,7 +385,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let (overrides_new, dunder_new_has_errors) =
             if let Some(new_method) = self.get_dunder_new(&cls) {
                 let cls_ty = Type::type_form(instance_ty.clone());
-                let mut full_args = vec![CallArg::Type(&cls_ty, range)];
+                let mut full_args = vec![CallArg::ty(&cls_ty, range)];
                 full_args.extend_from_slice(args);
                 let dunder_new_errors = self.error_collector();
                 let ret = self.call_infer(
@@ -533,7 +533,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.construct_typed_dict(td, args, keywords, range, errors, context)
             }
             Target::BoundMethod(obj, func) => {
-                let first_arg = CallArg::Type(&obj, range);
+                let first_arg = CallArg::ty(&obj, range);
                 self.callable_infer(
                     func.signature,
                     Some(func.metadata.kind.as_func_id()),
@@ -599,7 +599,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Target::BoundMethodOverload(obj, overloads, meta) => self.call_overloads(
                 overloads,
                 meta,
-                Some(CallArg::Type(&obj, range)),
+                Some(CallArg::ty(&obj, range)),
                 args,
                 keywords,
                 range,
@@ -802,7 +802,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ),
             DescriptorBase::ClassDef(class) => (Type::ClassDef(class), Type::None),
         };
-        let args = [CallArg::Type(&obj, range), CallArg::Type(&objtype, range)];
+        let args = [CallArg::ty(&obj, range), CallArg::ty(&objtype, range)];
         let call_target = self.as_call_target_or_error(
             getter_method,
             CallStyle::FreeForm,
@@ -827,7 +827,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Descriptor setters cannot be called on a class (an attempt to assign will overwrite the
         // descriptor itself rather than call the setter).
         let instance = Type::ClassType(class_type);
-        let args = [CallArg::Type(&instance, range), got];
+        let args = [CallArg::ty(&instance, range), got];
         let call_target = self.as_call_target_or_error(
             setter_method,
             CallStyle::FreeForm,
@@ -851,7 +851,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let attr_name_ty = Type::Literal(Lit::Str(attr_name.as_str().into()));
         self.call_infer(
             call_target,
-            &[CallArg::Type(&attr_name_ty, range)],
+            &[CallArg::ty(&attr_name_ty, range)],
             &[],
             range,
             errors,

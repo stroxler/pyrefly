@@ -695,7 +695,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let range = self.bindings().idx_to_key(decorator).range();
         let call_target =
             self.as_call_target_or_error(ty_decorator, CallStyle::FreeForm, range, errors, None);
-        let arg = CallArg::Type(&decoratee, range);
+        let arg = CallArg::ty(&decoratee, range);
         self.call_infer(call_target, &[arg], &[], range, errors, None, None)
     }
 
@@ -866,7 +866,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &base,
                     &dunder::GETITEM,
                     range,
-                    &[CallArg::Expr(slice)],
+                    &[CallArg::expr(slice)],
                     &[],
                     errors,
                     Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
@@ -898,7 +898,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &base,
                     &dunder::GETITEM,
                     range,
-                    &[CallArg::Expr(slice)],
+                    &[CallArg::expr(slice)],
                     &[],
                     errors,
                     Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
@@ -1484,7 +1484,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &Type::Tuple(Tuple::Concrete(elts)),
                         &dunder::GETITEM,
                         range,
-                        &[CallArg::Expr(index)],
+                        &[CallArg::expr(index)],
                         &[],
                         errors,
                         context,
@@ -1519,7 +1519,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &Type::Tuple(Tuple::Concrete(elts)),
                         &dunder::GETITEM,
                         range,
-                        &[CallArg::Expr(index)],
+                        &[CallArg::expr(index)],
                         &[],
                         errors,
                         context,
@@ -1567,7 +1567,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &self.stdlib.bytes().clone().to_type(),
                         &dunder::GETITEM,
                         range,
-                        &[CallArg::Expr(index_expr)],
+                        &[CallArg::expr(index_expr)],
                         &[],
                         errors,
                         context,
@@ -1578,7 +1578,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &self.stdlib.bytes().clone().to_type(),
                 &dunder::GETITEM,
                 range,
-                &[CallArg::Expr(index_expr)],
+                &[CallArg::expr(index_expr)],
                 &[],
                 errors,
                 context,

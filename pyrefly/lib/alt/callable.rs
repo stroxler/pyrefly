@@ -65,6 +65,14 @@ impl<'a> CallArg<'a> {
         }
     }
 
+    pub fn expr(x: &'a Expr) -> Self {
+        Self::Expr(x)
+    }
+
+    pub fn ty(ty: &'a Type, range: TextRange) -> Self {
+        Self::Type(ty, range)
+    }
+
     pub fn expr_maybe_starred(x: &'a Expr) -> Self {
         match x {
             Expr::Starred(inner) => Self::Star(&inner.value, x.range()),
