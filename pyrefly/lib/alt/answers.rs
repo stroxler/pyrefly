@@ -324,7 +324,6 @@ impl Solutions {
     }
 }
 
-#[derive(Clone)]
 pub struct AnswersSolver<'a, Ans: LookupAnswer> {
     answers: &'a Ans,
     current: &'a Answers,
