@@ -26,6 +26,7 @@ use crate::state::handle::Handle;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::sys_info::SysInfo;
+use crate::types::display::TypeDisplayContext;
 
 pub struct Query {
     state: State,
@@ -87,7 +88,12 @@ impl Query {
         ) {
             let range = x.range();
             if let Some(ty) = answers.get_type_trace(range) {
-                res.push((module_info.source_range(range), ty.to_string()));
+                let mut ctx = TypeDisplayContext::new(&[&ty]);
+                ctx.always_display_module_name();
+                res.push((
+                    module_info.source_range(range),
+                    ctx.display(&ty).to_string(),
+                ));
             }
             x.recurse(&mut |x| f(x, module_info, answers, res));
         }

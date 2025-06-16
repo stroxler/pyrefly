@@ -116,7 +116,6 @@ impl<'a> TypeDisplayContext<'a> {
     }
 
     /// Force that we always display at least the module name for qualified names.
-    #[allow(dead_code)]
     pub fn always_display_module_name(&mut self) {
         // We pretend that every qname is also in a fake module, and thus requires disambiguating.
         let fake_module = ModuleName::from_str("__pyrefly__type__display__context__");
