@@ -20,6 +20,7 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use vec1::vec1;
 
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
@@ -1184,22 +1185,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ));
             }
             let attr_check =
-                self.is_attr_subset(got_attr.as_ref().unwrap(), &want_attr, &mut |got, want| {
+                self.check_attr_subset(got_attr.as_ref().unwrap(), &want_attr, &mut |got, want| {
                     self.is_subset_eq(got, want)
                 });
-            if !attr_check {
-                self.error(
-                    errors,
-                    range,
-                    ErrorKind::BadOverride,
-                    None,
+            if let Err(error) = attr_check {
+                let msg = vec1![
                     format!(
                         "Class member `{}.{}` overrides parent class `{}` in an inconsistent manner",
                         class.name(),
                         name,
                         parent.name()
                     ),
-                );
+                    error.to_error_msg(class.name(), parent.name(), name)
+                ];
+                errors.add(range, ErrorKind::BadOverride, None, msg);
             }
         }
         if is_override && !parent_attr_found && !parent_has_any {

@@ -58,6 +58,110 @@ enum LookupResult {
     InternalError(InternalError),
 }
 
+#[derive(Debug)]
+pub enum AttrSubsetError {
+    // `got` is not accessible, but `want` is
+    NoAccess,
+    // `got` is a property, but `want` is not
+    Property,
+    // `got` is read-only, but `want` is read-write
+    ReadOnly,
+    // one of `got` or `want` is a descriptor, the other is not
+    Descriptor,
+    // either `got` or `want` is a call to `__getattr__`
+    Getattr,
+    // `got` is not a subtype of `want`
+    // applies to methods, read-only attributes, and property getters
+    Covariant {
+        got: Type,
+        want: Type,
+        got_is_property: bool,
+        want_is_property: bool,
+    },
+    // `got` and `want` are not subtypes of each other
+    // applies to read-write attributes
+    Invariant {
+        got: Type,
+        want: Type,
+    },
+    // `want` is not a subtype of `got`
+    // applies to property setters
+    Contravariant {
+        got: Type,
+        want: Type,
+        got_is_property: bool,
+    },
+}
+
+impl AttrSubsetError {
+    pub fn to_error_msg(self, child_class: &Name, parent_class: &Name, attr_name: &Name) -> String {
+        match self {
+            AttrSubsetError::NoAccess => {
+                format!("`{child_class}.{attr_name}` is not accessible from the instance")
+            }
+            AttrSubsetError::Property => {
+                format!(
+                    "`{child_class}.{attr_name}` is a property, but `{parent_class}.{attr_name}` is not"
+                )
+            }
+            AttrSubsetError::ReadOnly => {
+                format!(
+                    "`{child_class}.{attr_name}` is read-only, but `{parent_class}.{attr_name}` is read-write"
+                )
+            }
+            AttrSubsetError::Descriptor => {
+                format!(
+                    "`{child_class}.{attr_name}` and `{parent_class}.{attr_name}` must both be descriptors"
+                )
+            }
+            AttrSubsetError::Getattr => {
+                format!(
+                    "`{child_class}.{attr_name}` or `{parent_class}.{attr_name}` uses `__getattr__`, which cannot be checked for override compatibility"
+                )
+            }
+            AttrSubsetError::Covariant {
+                got,
+                want,
+                got_is_property,
+                want_is_property,
+            } => {
+                let got_desc = if got_is_property {
+                    "Property getter for "
+                } else {
+                    ""
+                };
+                let want_desc = if want_is_property {
+                    ", the property getter for "
+                } else {
+                    ", the type of "
+                };
+                format!(
+                    "{got_desc}`{child_class}.{attr_name}` has type `{got}`, which is not assignable to `{want}`{want_desc}`{parent_class}.{attr_name}`"
+                )
+            }
+            AttrSubsetError::Invariant { got, want } => {
+                format!(
+                    "`{child_class}.{attr_name}` has type `{got}`, which is not consistent with `{want}` in `{parent_class}.{attr_name}` (the type of read-write attributes cannot be changed)"
+                )
+            }
+            AttrSubsetError::Contravariant {
+                got,
+                want,
+                got_is_property,
+            } => {
+                let desc = if got_is_property {
+                    "The property setter for "
+                } else {
+                    ""
+                };
+                format!(
+                    "{desc}`{child_class}.{attr_name}` has type `{got}`, which is not assignable from `{want}`, the property getter for `{parent_class}.{attr_name}`"
+                )
+            }
+        }
+    }
+}
+
 /// The result of a read for narrowing purposes. We track whether we are narrowing
 /// a property or descriptor that might not be idempotent, and if so we also
 /// indicate when this came through a union (so that error messages can be clearer).
@@ -736,44 +840,86 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn is_attr_subset(
+    pub fn check_attr_subset(
         &self,
         got: &Attribute,
         want: &Attribute,
         is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
-    ) -> bool {
+    ) -> Result<(), AttrSubsetError> {
         match (&got.inner, &want.inner) {
-            (_, AttributeInner::NoAccess(_)) => true,
-            (AttributeInner::NoAccess(_), _) => false,
-            (AttributeInner::Property(_, _, _), AttributeInner::Simple(..)) => false,
+            (_, AttributeInner::NoAccess(_)) => Ok(()),
+            (AttributeInner::NoAccess(_), _) => Err(AttrSubsetError::NoAccess),
+            (AttributeInner::Property(_, _, _), AttributeInner::Simple(..)) => {
+                Err(AttrSubsetError::Property)
+            }
             (
                 AttributeInner::Simple(_, Visibility::ReadOnly),
                 AttributeInner::Property(_, Some(_), _)
                 | AttributeInner::Simple(_, Visibility::ReadWrite),
-            ) => false,
+            ) => Err(AttrSubsetError::ReadOnly),
             (
                 // TODO(stroxler): Investigate this case more: methods should be ReadOnly, but
                 // in some cases for unknown reasons they wind up being ReadWrite.
                 AttributeInner::Simple(got @ Type::BoundMethod(_), Visibility::ReadWrite),
                 AttributeInner::Simple(want @ Type::BoundMethod(_), Visibility::ReadWrite),
-            ) => is_subset(got, want),
+            ) => {
+                if is_subset(got, want) {
+                    Ok(())
+                } else {
+                    Err(AttrSubsetError::Covariant {
+                        got: got.clone(),
+                        want: want.clone(),
+                        got_is_property: false,
+                        want_is_property: false,
+                    })
+                }
+            }
             (
                 AttributeInner::Simple(got, Visibility::ReadWrite),
                 AttributeInner::Simple(want, Visibility::ReadWrite),
-            ) => is_subset(got, want) && is_subset(want, got),
+            ) => {
+                if is_subset(got, want) && is_subset(want, got) {
+                    Ok(())
+                } else {
+                    Err(AttrSubsetError::Invariant {
+                        got: got.clone(),
+                        want: want.clone(),
+                    })
+                }
+            }
             (
                 AttributeInner::Simple(got, ..),
                 AttributeInner::Simple(want, Visibility::ReadOnly),
-            ) => is_subset(got, want),
+            ) => {
+                if is_subset(got, want) {
+                    Ok(())
+                } else {
+                    Err(AttrSubsetError::Covariant {
+                        got: got.clone(),
+                        want: want.clone(),
+                        got_is_property: false,
+                        want_is_property: false,
+                    })
+                }
+            }
             (
                 AttributeInner::Simple(got, Visibility::ReadOnly),
                 AttributeInner::Property(want, _, _),
             ) => {
-                is_subset(
+                if is_subset(
                     // Synthesize a getter method
                     &Type::callable_ellipsis(got.clone()),
                     want,
-                )
+                ) {
+                    Ok(())
+                } else {
+                    Err(AttrSubsetError::Covariant {
+                        got: got.clone(),
+                        want: want.clone(),
+                        got_is_property: false,
+                        want_is_property: true,
+                    })
+                }
             }
             (
                 AttributeInner::Simple(got, Visibility::ReadWrite),
@@ -784,19 +930,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &Type::callable_ellipsis(got.clone()),
                     want,
                 ) {
-                    return false;
+                    return Err(AttrSubsetError::Covariant {
+                        got: got.clone(),
+                        want: want.clone(),
+                        got_is_property: false,
+                        want_is_property: true,
+                    });
                 }
                 if let Some(want_setter) = want_setter {
                     // Synthesize a setter method
-                    is_subset(
+                    if is_subset(
                         want_setter,
                         &Type::callable(
                             vec![Param::PosOnly(None, got.clone(), Required::Required)],
                             Type::None,
                         ),
-                    )
+                    ) {
+                        Ok(())
+                    } else {
+                        Err(AttrSubsetError::Contravariant {
+                            want: want_setter.clone(),
+                            got: got.clone(),
+                            got_is_property: true,
+                        })
+                    }
                 } else {
-                    true
+                    Ok(())
                 }
             }
             (
@@ -804,12 +963,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeInner::Property(want_getter, want_setter, _),
             ) => {
                 if !is_subset(got_getter, want_getter) {
-                    false
+                    Err(AttrSubsetError::Covariant {
+                        got: got_getter.clone(),
+                        want: want_getter.clone(),
+                        got_is_property: true,
+                        want_is_property: true,
+                    })
                 } else {
                     match (got_setter, want_setter) {
-                        (Some(got_setter), Some(want_setter)) => is_subset(got_setter, want_setter),
-                        (None, Some(_)) => false,
-                        (_, None) => true,
+                        (Some(got_setter), Some(want_setter)) => {
+                            if is_subset(got_setter, want_setter) {
+                                Ok(())
+                            } else {
+                                Err(AttrSubsetError::Contravariant {
+                                    want: want_setter.clone(),
+                                    got: got_setter.clone(),
+                                    got_is_property: true,
+                                })
+                            }
+                        }
+                        (None, Some(_)) => Err(AttrSubsetError::ReadOnly),
+                        (_, None) => Ok(()),
                     }
                 }
             }
@@ -828,12 +1002,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     },
                     ..,
                 ),
-            ) => is_subset(got_ty, want_ty),
-            (AttributeInner::Descriptor(..), _) | (_, AttributeInner::Descriptor(..)) => false,
+            ) => {
+                if is_subset(got_ty, want_ty) {
+                    Ok(())
+                } else {
+                    Err(AttrSubsetError::Covariant {
+                        got: got_ty.clone(),
+                        want: want_ty.clone(),
+                        got_is_property: false,
+                        want_is_property: false,
+                    })
+                }
+            }
+            (AttributeInner::Descriptor(..), _) | (_, AttributeInner::Descriptor(..)) => {
+                Err(AttrSubsetError::Descriptor)
+            }
             (AttributeInner::GetAttr(..), _) | (_, AttributeInner::GetAttr(..)) => {
                 // NOTE(grievejia): `__getattr__` does not participate in structural subtyping
                 // check for now. We may revisit this in the future if the need comes.
-                false
+                Err(AttrSubsetError::Getattr)
             }
         }
     }
