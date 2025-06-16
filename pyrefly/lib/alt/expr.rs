@@ -1325,10 +1325,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.call_issubclass(&x.arguments.args[0], &x.arguments.args[1], errors)
                         }
                         _ => {
-                            let args = x.arguments.args.map(|arg| match arg {
-                                Expr::Starred(x) => CallArg::Star(&x.value, x.range),
-                                _ => CallArg::Expr(arg),
-                            });
+                            let args = x.arguments.args.map(CallArg::expr_maybe_starred);
                             let callable = self.as_call_target_or_error(
                                 ty.clone(),
                                 CallStyle::FreeForm,

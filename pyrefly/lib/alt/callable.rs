@@ -56,7 +56,14 @@ impl Ranged for CallArg<'_> {
     }
 }
 
-impl CallArg<'_> {
+impl<'a> CallArg<'a> {
+    pub fn expr_maybe_starred(x: &'a Expr) -> Self {
+        match x {
+            Expr::Starred(inner) => Self::Star(&inner.value, x.range()),
+            _ => Self::Expr(x),
+        }
+    }
+
     // Splat arguments might be fixed-length tuples, which are handled precisely, or have unknown
     // length. This function evaluates splat args to determine how many params should be consumed,
     // but does not evaluate other expressions, which might be contextually typed.

@@ -383,10 +383,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AtomicNarrowOp::TypeGuard(t, arguments) => {
                 if let Some(call_target) = self.as_call_target(t.clone()) {
-                    let args = arguments.args.map(|arg| match arg {
-                        Expr::Starred(x) => CallArg::Star(&x.value, x.range),
-                        _ => CallArg::Expr(arg),
-                    });
+                    let args = arguments.args.map(CallArg::expr_maybe_starred);
                     let ret = self.call_infer(
                         call_target,
                         &args,
@@ -405,10 +402,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AtomicNarrowOp::NotTypeGuard(_, _) => ty.clone(),
             AtomicNarrowOp::TypeIs(t, arguments) => {
                 if let Some(call_target) = self.as_call_target(t.clone()) {
-                    let args = arguments.args.map(|arg| match arg {
-                        Expr::Starred(x) => CallArg::Star(&x.value, x.range),
-                        _ => CallArg::Expr(arg),
-                    });
+                    let args = arguments.args.map(CallArg::expr_maybe_starred);
                     let ret = self.call_infer(
                         call_target,
                         &args,
@@ -426,10 +420,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AtomicNarrowOp::NotTypeIs(t, arguments) => {
                 if let Some(call_target) = self.as_call_target(t.clone()) {
-                    let args = arguments.args.map(|arg| match arg {
-                        Expr::Starred(x) => CallArg::Star(&x.value, x.range),
-                        _ => CallArg::Expr(arg),
-                    });
+                    let args = arguments.args.map(CallArg::expr_maybe_starred);
                     let ret = self.call_infer(
                         call_target,
                         &args,
