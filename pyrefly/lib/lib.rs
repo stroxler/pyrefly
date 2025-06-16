@@ -42,6 +42,7 @@ mod export;
 mod graph;
 mod module;
 pub mod playground;
+pub mod query;
 mod report;
 mod ruff;
 mod solver;
