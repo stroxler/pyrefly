@@ -30,6 +30,7 @@ use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
+use crate::alt::callable::CallKeyword;
 use crate::alt::solve::TypeFormContext;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyYield;
@@ -1355,6 +1356,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                         _ => {
                             let args = x.arguments.args.map(CallArg::expr_maybe_starred);
+                            let kws = x.arguments.keywords.map(CallKeyword::new);
                             let callable = self.as_call_target_or_error(
                                 ty.clone(),
                                 CallStyle::FreeForm,
@@ -1365,7 +1367,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.call_infer(
                                 callable,
                                 &args,
-                                &x.arguments.keywords,
+                                &kws,
                                 x.arguments.range,
                                 errors,
                                 None,

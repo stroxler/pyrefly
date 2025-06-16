@@ -10,6 +10,7 @@ use itertools::Itertools;
 use pyrefly_util::display::count;
 use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::Expr;
+use ruff_python_ast::Identifier;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -37,6 +38,29 @@ use crate::types::quantified::Quantified;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 use crate::types::types::Var;
+
+#[derive(Clone, Debug)]
+pub struct CallKeyword<'a> {
+    pub range: TextRange,
+    pub arg: Option<&'a Identifier>,
+    pub value: &'a Expr,
+}
+
+impl Ranged for CallKeyword<'_> {
+    fn range(&self) -> TextRange {
+        self.range
+    }
+}
+
+impl<'a> CallKeyword<'a> {
+    pub fn new(x: &'a Keyword) -> Self {
+        Self {
+            range: x.range,
+            arg: x.arg.as_ref(),
+            value: &x.value,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum CallArg<'a> {
@@ -275,8 +299,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn is_param_spec_kwargs(&self, x: &Keyword, q: Quantified, errors: &ErrorCollector) -> bool {
-        let mut ty = self.expr_infer(&x.value, errors);
+    fn is_param_spec_kwargs(
+        &self,
+        x: &CallKeyword,
+        q: Quantified,
+        errors: &ErrorCollector,
+    ) -> bool {
+        let mut ty = self.expr_infer(x.value, errors);
         self.expand_type_mut(&mut ty);
         ty == Type::Kwargs(q)
     }
@@ -291,7 +320,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         mut paramspec: Option<Var>,
         self_arg: Option<CallArg>,
         args: &[CallArg],
-        keywords: &[Keyword],
+        keywords: &[CallKeyword],
         range: TextRange,
         arg_errors: &ErrorCollector,
         call_errors: &ErrorCollector,
@@ -577,9 +606,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         let mut splat_kwargs = Vec::new();
         for kw in keywords {
-            match &kw.arg {
+            match kw.arg {
                 None => {
-                    let ty = self.expr_infer(&kw.value, arg_errors);
+                    let ty = self.expr_infer(kw.value, arg_errors);
                     if let Type::TypedDict(typed_dict) = ty {
                         for (name, field) in self.typed_dict_fields(&typed_dict).iter() {
                             let mut hint = kwargs.as_ref().map(|(_, ty)| ty.clone());
@@ -696,7 +725,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         context: context.map(|ctx| ctx()),
                     };
                     self.expr_with_separate_check_errors(
-                        &kw.value,
+                        kw.value,
                         hint.as_ref().map(|ty| (ty, tcc, call_errors)),
                         arg_errors,
                     );
@@ -762,7 +791,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         callable_name: Option<FuncId>,
         self_arg: Option<CallArg>,
         args: &[CallArg],
-        keywords: &[Keyword],
+        keywords: &[CallKeyword],
         range: TextRange,
         arg_errors: &ErrorCollector,
         call_errors: &ErrorCollector,

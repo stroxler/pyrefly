@@ -6,7 +6,6 @@
  */
 
 use dupe::Dupe;
-use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
@@ -17,6 +16,7 @@ use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::attr::DescriptorBase;
 use crate::alt::callable::CallArg;
+use crate::alt::callable::CallKeyword;
 use crate::dunder;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -249,7 +249,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         method_name: &Name,
         range: TextRange,
         args: &[CallArg],
-        keywords: &[Keyword],
+        keywords: &[CallKeyword],
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Type {
@@ -275,7 +275,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         method_name: &Name,
         range: TextRange,
         args: &[CallArg],
-        keywords: &[Keyword],
+        keywords: &[CallKeyword],
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Option<Type> {
@@ -306,7 +306,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         method_name: &Name,
         range: TextRange,
         args: &[CallArg],
-        keywords: &[Keyword],
+        keywords: &[CallKeyword],
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Type {
@@ -330,7 +330,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &ClassType,
         range: TextRange,
         args: &[CallArg],
-        keywords: &[Keyword],
+        keywords: &[CallKeyword],
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Option<Type> {
@@ -366,7 +366,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: ClassType,
         args: &[CallArg],
-        keywords: &[Keyword],
+        keywords: &[CallKeyword],
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
@@ -451,7 +451,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         typed_dict: TypedDict,
         args: &[CallArg],
-        keywords: &[Keyword],
+        keywords: &[CallKeyword],
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
@@ -491,7 +491,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         call_target: CallTarget,
         args: &[CallArg],
-        keywords: &[Keyword],
+        keywords: &[CallKeyword],
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
@@ -615,7 +615,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 for kw in keywords {
-                    self.expr_infer(&kw.value, errors);
+                    self.expr_infer(kw.value, errors);
                 }
                 style.propagate()
             }
@@ -624,7 +624,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if is_dataclass && let Type::Callable(c) = res {
             let mut kws = BoolKeywords::new();
             for kw in keywords {
-                kws.set_keyword(kw.arg.as_ref(), self.expr_infer(&kw.value, errors));
+                kws.set_keyword(kw.arg, self.expr_infer(kw.value, errors));
             }
             Type::Function(Box::new(Function {
                 signature: *c,
@@ -644,7 +644,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         metadata: FuncMetadata,
         self_arg: Option<CallArg>,
         args: &[CallArg],
-        keywords: &[Keyword],
+        keywords: &[CallKeyword],
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
