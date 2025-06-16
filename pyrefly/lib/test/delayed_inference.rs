@@ -9,6 +9,18 @@ use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
+    bug = "We are using the Pin for the second name read, which causes a cycle and is wrong",
+    test_first_use_reads_name_twice,
+    r#"
+def f():
+    x = ["test"]  # E: `list[str]` is not assignable to `list[int]`
+    y = g(x, x)
+def g(a: list[str], b: list[int]) -> None:
+    pass
+"#,
+);
+
+testcase!(
     test_empty_list_class,
     r#"
 from typing import assert_type, Any
