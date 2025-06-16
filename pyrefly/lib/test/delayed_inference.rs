@@ -13,7 +13,7 @@ testcase!(
     test_first_use_reads_name_twice,
     r#"
 def f():
-    x = ["test"]  # E: `list[str]` is not assignable to `list[int]`
+    x = ["test"]  # E: `list[str]` is not assignable to `list[int]` (caused by inconsistent types when breaking cycles)
     y = g(x, x)
 def g(a: list[str], b: list[int]) -> None:
     pass
