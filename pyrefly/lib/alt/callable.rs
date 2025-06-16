@@ -43,7 +43,7 @@ use crate::types::types::Var;
 pub struct CallKeyword<'a> {
     pub range: TextRange,
     pub arg: Option<&'a Identifier>,
-    pub value: &'a Expr,
+    pub value: TypeOrExpr<'a>,
 }
 
 impl Ranged for CallKeyword<'_> {
@@ -57,7 +57,7 @@ impl<'a> CallKeyword<'a> {
         Self {
             range: x.range,
             arg: x.arg.as_ref(),
-            value: &x.value,
+            value: TypeOrExpr::Expr(&x.value),
         }
     }
 }
@@ -305,7 +305,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         q: Quantified,
         errors: &ErrorCollector,
     ) -> bool {
-        let mut ty = self.expr_infer(x.value, errors);
+        let mut ty = x.value.infer(self, errors);
         self.expand_type_mut(&mut ty);
         ty == Type::Kwargs(q)
     }
@@ -608,7 +608,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         for kw in keywords {
             match kw.arg {
                 None => {
-                    let ty = self.expr_infer(kw.value, arg_errors);
+                    let ty = kw.value.infer(self, arg_errors);
                     if let Type::TypedDict(typed_dict) = ty {
                         for (name, field) in self.typed_dict_fields(&typed_dict).iter() {
                             let mut hint = kwargs.as_ref().map(|(_, ty)| ty.clone());
@@ -724,11 +724,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         },
                         context: context.map(|ctx| ctx()),
                     };
-                    self.expr_with_separate_check_errors(
-                        kw.value,
-                        hint.as_ref().map(|ty| (ty, tcc, call_errors)),
-                        arg_errors,
-                    );
+                    match kw.value {
+                        TypeOrExpr::Expr(x) => {
+                            self.expr_with_separate_check_errors(
+                                x,
+                                hint.as_ref().map(|ty| (ty, tcc, call_errors)),
+                                arg_errors,
+                            );
+                        }
+                        TypeOrExpr::Type(x, range) => {
+                            if let Some(hint) = &hint
+                                && !hint.is_any()
+                            {
+                                self.check_type(hint, x, range, call_errors, tcc);
+                            }
+                        }
+                    }
                 }
             }
         }

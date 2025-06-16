@@ -615,7 +615,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 for kw in keywords {
-                    self.expr_infer(kw.value, errors);
+                    kw.value.infer(self, errors);
                 }
                 style.propagate()
             }
@@ -624,7 +624,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if is_dataclass && let Type::Callable(c) = res {
             let mut kws = BoolKeywords::new();
             for kw in keywords {
-                kws.set_keyword(kw.arg, self.expr_infer(kw.value, errors));
+                kws.set_keyword(kw.arg, kw.value.infer(self, errors));
             }
             Type::Function(Box::new(Function {
                 signature: *c,
