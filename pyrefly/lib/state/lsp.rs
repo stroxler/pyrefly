@@ -102,12 +102,10 @@ impl DefinitionMetadata {
 /// A binding that is verified to be a binding for a name in the source code.
 /// This data structure carries the proof for the verification,
 /// which includes the definition information, and the binding itself.
-struct NamedBinding<'a> {
+struct NamedBinding {
     definition_handle: Handle,
     definition_export: Export,
     key: Key,
-    #[allow(dead_code)]
-    binding: &'a Binding,
 }
 
 enum CalleeKind {
@@ -1275,7 +1273,6 @@ impl<'a> Transaction<'a> {
             definition_handle,
             definition_export,
             key,
-            binding: _,
         } in self.named_bindings(handle, &bindings)
         {
             if definition_handle.path() == definition.module_info.path()
@@ -1290,7 +1287,7 @@ impl<'a> Transaction<'a> {
     /// Bindings can contain synthetic bindings, which are not meaningful to end users.
     /// This function helps to filter out such bindings and only leave bindings that eventually
     /// jumps to a name in the source.
-    fn named_bindings<'b>(&self, handle: &Handle, bindings: &'b Bindings) -> Vec<NamedBinding<'b>> {
+    fn named_bindings(&self, handle: &Handle, bindings: &Bindings) -> Vec<NamedBinding> {
         let self_module_info = self.get_module_info(handle);
         let mut named_bindings = Vec::new();
         for idx in bindings.keys::<Key>() {
@@ -1311,7 +1308,6 @@ impl<'a> Transaction<'a> {
                         definition_handle,
                         definition_export,
                         key: key.clone(),
-                        binding,
                     });
                 }
             }
@@ -1505,7 +1501,6 @@ impl<'a> Transaction<'a> {
             definition_handle: _,
             definition_export,
             key,
-            binding: _,
         } in self.named_bindings(handle, &bindings)
         {
             let reference_range = key.range();
