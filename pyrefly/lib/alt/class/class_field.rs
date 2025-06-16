@@ -965,7 +965,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn as_instance_attribute(&self, field: ClassField, instance: &Instance) -> Attribute {
+    fn as_instance_attribute(&self, field: &ClassField, instance: &Instance) -> Attribute {
         match field.instantiate_for(instance).0 {
             // TODO(stroxler): Clean up this match by making `ClassFieldInner` an
             // enum; the match is messy
@@ -1175,11 +1175,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             let want_attr =
-                self.as_instance_attribute(want_class_field.clone(), &Instance::of_class(parent));
+                self.as_instance_attribute(&want_class_field, &Instance::of_class(parent));
             if got_attr.is_none() {
                 // Optimisation: Only compute the `got_attr` once, and only if we actually need it.
                 got_attr = Some(self.as_instance_attribute(
-                    class_field.clone(),
+                    class_field,
                     &Instance::of_class(&class.as_class_type()),
                 ));
             }
@@ -1271,12 +1271,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn get_instance_attribute(&self, cls: &ClassType, name: &Name) -> Option<Attribute> {
         self.get_class_member(cls.class_object(), name)
-            .map(|member| {
-                self.as_instance_attribute(
-                    Arc::unwrap_or_clone(member.value),
-                    &Instance::of_class(cls),
-                )
-            })
+            .map(|member| self.as_instance_attribute(&member.value, &Instance::of_class(cls)))
     }
 
     pub fn get_bounded_type_var_attribute(
@@ -1288,7 +1283,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.get_class_member(upper_bound.class_object(), name)
             .map(|member| {
                 self.as_instance_attribute(
-                    Arc::unwrap_or_clone(member.value),
+                    &member.value,
                     &Instance::of_type_var(type_var, upper_bound),
                 )
             })
@@ -1304,12 +1299,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return None;
         }
         self.get_class_member(td.class_object(), name)
-            .map(|member| {
-                self.as_instance_attribute(
-                    Arc::unwrap_or_clone(member.value),
-                    &Instance::of_typed_dict(td),
-                )
-            })
+            .map(|member| self.as_instance_attribute(&member.value, &Instance::of_typed_dict(td)))
     }
 
     fn get_super_class_member(
@@ -1347,12 +1337,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match super_obj {
             SuperObj::Instance(obj) => self
                 .get_super_class_member(obj.class_object(), start_lookup_cls, name)
-                .map(|member| {
-                    self.as_instance_attribute(
-                        Arc::unwrap_or_clone(member.value),
-                        &Instance::of_class(obj),
-                    )
-                }),
+                .map(|member| self.as_instance_attribute(&member.value, &Instance::of_class(obj))),
             SuperObj::Class(obj) => self
                 .get_super_class_member(obj, start_lookup_cls, name)
                 .map(|member| self.as_class_attribute(Arc::unwrap_or_clone(member.value), obj)),
