@@ -397,10 +397,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
 
                 // If it's not a callable type, it's a data member
-                if !matches!(
-                    ty,
-                    Type::Callable(_) | Type::Function(_) | Type::BoundMethod(_)
-                ) {
+                if !ty.is_function_type() {
                     return true;
                 }
             }

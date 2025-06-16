@@ -229,21 +229,15 @@ pub mod variance_visitor {
                 // TODO: We need a much better way to distinguish between fields and methods than this
                 // currently, class field representation isn't good enough but we need to fix that soon
                 if descriptor_getter.is_none() && descriptor_setter.is_none() {
-                    // TODO BE: Move this to a helper function and make sure any code using the same logic uses it
-                    let is_function = matches!(
-                        ty,
-                        Type::Function { .. }
-                            | Type::Overload { .. }
-                            | Type::BoundMethod { .. }
-                            | Type::Callable { .. }
-                    );
-                    let variance =
-                        if is_function || is_private_field(name) || readonly || field.is_final() {
-                            Variance::Covariant
-                        } else {
-                            Variance::Invariant
-                        };
-
+                    let variance = if ty.is_function_type()
+                        || is_private_field(name)
+                        || readonly
+                        || field.is_final()
+                    {
+                        Variance::Covariant
+                    } else {
+                        Variance::Invariant
+                    };
                     on_type(variance, true, ty, on_edge, on_var);
                 } else {
                     // Case 2: Descriptor or property (has getter and/or setter)
