@@ -499,10 +499,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Option<Type> {
+        let ty;
         let got = match got {
             ExprOrBinding::Expr(value) => Either::Left(value),
             ExprOrBinding::Binding(got) => {
-                Either::Right(self.solve_binding(got, errors).arc_clone_ty())
+                ty = self.solve_binding(got, errors);
+                Either::Right(ty.ty())
             }
         };
         self.check_attr_set_and_infer_narrow(
@@ -520,7 +522,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         base: &Type,
         attr_name: &Name,
-        got: Either<&Expr, Type>,
+        got: Either<&Expr, &Type>,
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
@@ -550,7 +552,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     kind: TypeCheckKind::Attribute(attr_name.clone()),
                                     context: context.map(|ctx| ctx()),
                                 });
-                                got.clone()
+                                (*got).clone()
                             }
                         };
                         if let Some(narrowed_types) = &mut narrowed_types {
