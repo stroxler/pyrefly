@@ -19,6 +19,7 @@ use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
+use crate::alt::expr::TypeOrExpr;
 use crate::alt::solve::Iterable;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -57,6 +58,13 @@ impl Ranged for CallArg<'_> {
 }
 
 impl<'a> CallArg<'a> {
+    pub fn arg(x: TypeOrExpr<'a>) -> Self {
+        match x {
+            TypeOrExpr::Type(ty, range) => Self::Type(ty, range),
+            TypeOrExpr::Expr(e) => Self::Expr(e),
+        }
+    }
+
     pub fn expr_maybe_starred(x: &'a Expr) -> Self {
         match x {
             Expr::Starred(inner) => Self::Star(&inner.value, x.range()),

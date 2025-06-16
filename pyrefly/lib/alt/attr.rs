@@ -8,8 +8,6 @@
 use std::iter;
 
 use dupe::Dupe;
-use itertools::Either;
-use ruff_python_ast::Expr;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
@@ -17,6 +15,7 @@ use starlark_map::small_set::SmallSet;
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::callable::CallArg;
+use crate::alt::expr::TypeOrExpr;
 use crate::alt::types::class_metadata::EnumMetadata;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyExport;
@@ -501,10 +500,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<Type> {
         let ty;
         let got = match got {
-            ExprOrBinding::Expr(value) => Either::Left(value),
+            ExprOrBinding::Expr(value) => TypeOrExpr::Expr(value),
             ExprOrBinding::Binding(got) => {
                 ty = self.solve_binding(got, errors);
-                Either::Right(ty.ty())
+                TypeOrExpr::Type(ty.ty(), range)
             }
         };
         self.check_attr_set_and_infer_narrow(
@@ -522,7 +521,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         base: &Type,
         attr_name: &Name,
-        got: Either<&Expr, &Type>,
+        got: TypeOrExpr,
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
@@ -539,7 +538,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 LookupResult::Found(attr) => match attr.inner {
                     AttributeInner::Simple(want, Visibility::ReadWrite) => {
                         let ty = match &got {
-                            Either::Left(got) => self.expr(
+                            TypeOrExpr::Expr(got) => self.expr(
                                 got,
                                 Some((&want, &|| TypeCheckContext {
                                     kind: TypeCheckKind::Attribute(attr_name.clone()),
@@ -547,7 +546,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 })),
                                 errors,
                             ),
-                            Either::Right(got) => {
+                            TypeOrExpr::Type(got, _) => {
                                 self.check_type(&want, got, range, errors, &|| TypeCheckContext {
                                     kind: TypeCheckKind::Attribute(attr_name.clone()),
                                     context: context.map(|ctx| ctx()),
@@ -590,19 +589,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         );
                     }
                     AttributeInner::Property(_, Some(setter), _) => {
-                        let got = match &got {
-                            Either::Left(got) => CallArg::Expr(got),
-                            Either::Right(got) => CallArg::Type(got, range),
-                        };
+                        let got = CallArg::arg(got);
                         self.call_property_setter(setter, got, range, errors, context);
                     }
                     AttributeInner::Descriptor(d) => {
                         match (d.base, d.setter) {
                             (DescriptorBase::Instance(class_type), Some(setter)) => {
-                                let got = match &got {
-                                    Either::Left(got) => CallArg::Expr(got),
-                                    Either::Right(got) => CallArg::Type(got, range),
-                                };
+                                let got = CallArg::arg(got);
                                 self.call_descriptor_setter(
                                     setter, class_type, got, range, errors, context,
                                 );

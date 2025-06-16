@@ -64,6 +64,21 @@ use crate::types::types::AnyStyle;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
+#[derive(Debug, Clone, Copy)]
+pub enum TypeOrExpr<'a> {
+    Type(&'a Type, TextRange),
+    Expr(&'a Expr),
+}
+
+impl Ranged for TypeOrExpr<'_> {
+    fn range(&self) -> TextRange {
+        match self {
+            TypeOrExpr::Type(_, range) => *range,
+            TypeOrExpr::Expr(expr) => expr.range(),
+        }
+    }
+}
+
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // Helper method for inferring the type of a boolean operation over a sequence of values.
     fn boolop(&self, values: &[Expr], op: BoolOp, errors: &ErrorCollector) -> Type {
