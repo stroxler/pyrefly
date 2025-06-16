@@ -345,6 +345,14 @@ impl ClassField {
         }
     }
 
+    pub fn is_init_var(&self) -> bool {
+        match &self.0 {
+            ClassFieldInner::Simple { annotation, .. } => {
+                annotation.as_ref().is_some_and(|ann| ann.is_init_var())
+            }
+        }
+    }
+
     pub fn is_final(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { annotation, ty, .. } => {
@@ -531,11 +539,12 @@ impl<T> WithDefiningClass<T> {
     }
 }
 
-#[expect(clippy::large_enum_variant)] // the vast majority of `DataclassMember`s are `Field`
 /// The result of processing a raw dataclass member (any annotated assignment in its body).
 pub enum DataclassMember {
     /// A dataclass field
     Field(ClassField, BoolKeywords),
+    /// A pseudo-field that only appears as a constructor argument
+    InitVar(ClassField),
     /// A pseudo-field annotated with KW_ONLY
     KwOnlyMarker,
     /// Anything else
@@ -835,7 +844,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .ancestors(self.stdlib)
             .find_map(|parent| {
                 let parent_field =
-                    self.get_field_from_current_class_only(parent.class_object(), name)?;
+                    self.get_field_from_current_class_only(parent.class_object(), name, true)?;
                 found_field = true;
                 let ClassField(ClassFieldInner::Simple { annotation, .. }) = &*parent_field;
                 annotation.clone()
@@ -894,10 +903,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// This is used for dataclass field synthesis; when accessing attributes on dataclass instances,
+    /// use `get_instance_attribute` or `get_class_attribute`
     pub fn get_dataclass_member(&self, cls: &Class, name: &Name, kw_only: bool) -> DataclassMember {
         // Even though we check that the class member exists before calling this function,
         // it can be None if the class has an invalid MRO.
-        let Some(member) = self.get_class_member(cls, name) else {
+        let Some(member) = self.get_class_member_impl(cls, name, true) else {
             return DataclassMember::NotAField;
         };
         let field = &*member.value;
@@ -913,6 +924,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .is_some_and(|annot| annot.has_qualifier(&Qualifier::ClassVar)))
         {
             DataclassMember::NotAField // Class variables are not dataclass fields
+        } else if field.is_init_var() {
+            DataclassMember::InitVar(field.clone())
         } else {
             DataclassMember::Field(field.clone(), field.dataclass_flags_of(kw_only))
         }
@@ -928,7 +941,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         if let Some(method_field) =
-            self.get_non_synthesized_field_from_current_class_only(class, method_name)
+            self.get_non_synthesized_field_from_current_class_only(class, method_name, false)
         {
             match &method_field.raw_type() {
                 Type::Forall(box Forall { tparams, .. }) => {
@@ -1220,10 +1233,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         name: &Name,
+        include_initvar: bool,
     ) -> Option<Arc<ClassField>> {
         if cls.contains(name) {
             let field = self.get_from_class(cls, &KeyClassField(cls.index(), name.clone()));
-            Some(field)
+            if !include_initvar && field.is_init_var() {
+                None
+            } else {
+                Some(field)
+            }
         } else {
             None
         }
@@ -1234,8 +1252,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         name: &Name,
+        include_initvar: bool,
     ) -> Option<Arc<ClassField>> {
-        if let Some(field) = self.get_non_synthesized_field_from_current_class_only(cls, name) {
+        if let Some(field) =
+            self.get_non_synthesized_field_from_current_class_only(cls, name, include_initvar)
+        {
             Some(field)
         } else {
             let synthesized_fields =
@@ -1245,12 +1266,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub(in crate::alt::class) fn get_class_member(
+    fn get_class_member_impl(
         &self,
         cls: &Class,
         name: &Name,
+        include_initvar: bool,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
-        if let Some(field) = self.get_field_from_current_class_only(cls, name) {
+        if let Some(field) = self.get_field_from_current_class_only(cls, name, include_initvar) {
             Some(WithDefiningClass {
                 value: field,
                 defining_class: cls.dupe(),
@@ -1259,13 +1281,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.get_metadata_for_class(cls)
                 .ancestors(self.stdlib)
                 .find_map(|ancestor| {
-                    self.get_field_from_current_class_only(ancestor.class_object(), name)
-                        .map(|field| WithDefiningClass {
-                            value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
-                            defining_class: ancestor.class_object().dupe(),
-                        })
+                    self.get_field_from_current_class_only(
+                        ancestor.class_object(),
+                        name,
+                        include_initvar,
+                    )
+                    .map(|field| WithDefiningClass {
+                        value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
+                        defining_class: ancestor.class_object().dupe(),
+                    })
                 })
         }
+    }
+
+    pub(in crate::alt::class) fn get_class_member(
+        &self,
+        cls: &Class,
+        name: &Name,
+    ) -> Option<WithDefiningClass<Arc<ClassField>>> {
+        self.get_class_member_impl(cls, name, false)
     }
 
     pub fn get_instance_attribute(&self, cls: &ClassType, name: &Name) -> Option<Attribute> {
@@ -1314,7 +1348,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .skip_while(|ancestor| *ancestor != start_lookup_cls);
         for ancestor in ancestors {
             if let Some(found) = self
-                .get_field_from_current_class_only(ancestor.class_object(), name)
+                .get_field_from_current_class_only(ancestor.class_object(), name, false)
                 .map(|field| WithDefiningClass {
                     value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
                     defining_class: ancestor.class_object().dupe(),

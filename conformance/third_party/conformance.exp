@@ -3379,7 +3379,28 @@
       "stop_line": 50
     }
   ],
-  "dataclasses_postinit.py": [],
+  "dataclasses_postinit.py": [
+    {
+      "code": -2,
+      "column": 7,
+      "concise_description": "Object of class `DC1` has no attribute `x`",
+      "description": "Object of class `DC1` has no attribute `x`",
+      "line": 28,
+      "name": "missing-attribute",
+      "stop_column": 12,
+      "stop_line": 28
+    },
+    {
+      "code": -2,
+      "column": 7,
+      "concise_description": "Object of class `DC1` has no attribute `y`",
+      "description": "Object of class `DC1` has no attribute `y`",
+      "line": 29,
+      "name": "missing-attribute",
+      "stop_column": 12,
+      "stop_line": 29
+    }
+  ],
   "dataclasses_slots.py": [
     {
       "code": -2,

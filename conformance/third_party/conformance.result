@@ -152,8 +152,6 @@
   "dataclasses_order.py": [],
   "dataclasses_postinit.py": [
     "Line 19: Expected 1 errors",
-    "Line 28: Expected 1 errors",
-    "Line 29: Expected 1 errors",
     "Line 36: Expected 1 errors"
   ],
   "dataclasses_slots.py": [
