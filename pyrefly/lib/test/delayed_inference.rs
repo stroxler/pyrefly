@@ -9,12 +9,11 @@ use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
-    bug = "We are using the Pin for the second name read, which causes a cycle and is wrong",
     test_first_use_reads_name_twice,
     r#"
 def f():
-    x = ["test"]  # E: `list[str]` is not assignable to `list[int]` (caused by inconsistent types when breaking cycles)
-    y = g(x, x)
+    x = ["test"]
+    y = g(x, x)  # E: Argument `list[str]` is not assignable to parameter `b` with type `list[int]` in function `g`
 def g(a: list[str], b: list[int]) -> None:
     pass
 "#,
