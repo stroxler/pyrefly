@@ -479,8 +479,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn first_arg_type(&self, args: &[CallArg], errors: &ErrorCollector) -> Option<Type> {
         if let Some(first_arg) = args.first() {
             match first_arg {
-                CallArg::Expr(e) => Some(self.expr_infer(e, errors)),
-                CallArg::Type(t, _) => Some((**t).clone()),
+                CallArg::Arg(x) => Some(x.infer(self, errors)),
                 CallArg::Star(..) => None,
             }
         } else {
@@ -610,10 +609,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Make sure we still catch errors in the arguments.
                 for arg in args {
                     match arg {
-                        CallArg::Expr(e) | CallArg::Star(e, _) => {
+                        CallArg::Arg(e) => {
+                            e.infer(self, errors);
+                        }
+                        CallArg::Star(e, _) => {
                             self.expr_infer(e, errors);
                         }
-                        CallArg::Type(..) => {}
                     }
                 }
                 for kw in keywords {

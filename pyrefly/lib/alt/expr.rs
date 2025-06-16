@@ -66,6 +66,7 @@ use crate::types::types::Type;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TypeOrExpr<'a> {
+    /// Bundles a `Type` with a `TextRange`, allowing us to give good errors.
     Type(&'a Type, TextRange),
     Expr(&'a Expr),
 }
@@ -75,6 +76,19 @@ impl Ranged for TypeOrExpr<'_> {
         match self {
             TypeOrExpr::Type(_, range) => *range,
             TypeOrExpr::Expr(expr) => expr.range(),
+        }
+    }
+}
+
+impl<'a> TypeOrExpr<'a> {
+    pub fn infer<Ans: LookupAnswer>(
+        self,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> Type {
+        match self {
+            TypeOrExpr::Type(ty, _) => ty.clone(),
+            TypeOrExpr::Expr(x) => solver.expr_infer(x, errors),
         }
     }
 }

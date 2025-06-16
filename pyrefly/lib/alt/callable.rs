@@ -40,18 +40,14 @@ use crate::types::types::Var;
 
 #[derive(Clone, Debug)]
 pub enum CallArg<'a> {
-    /// Bundles a `Type` with a `TextRange`, allowing us to typecheck function calls
-    /// when we only know the types of the arguments but not the original expressions.
-    Type(&'a Type, TextRange),
-    Expr(&'a Expr),
+    Arg(TypeOrExpr<'a>),
     Star(&'a Expr, TextRange),
 }
 
 impl Ranged for CallArg<'_> {
     fn range(&self) -> TextRange {
         match self {
-            Self::Type(_, r) => *r,
-            Self::Expr(e) => e.range(),
+            Self::Arg(x) => x.range(),
             Self::Star(_, r) => *r,
         }
     }
@@ -59,24 +55,21 @@ impl Ranged for CallArg<'_> {
 
 impl<'a> CallArg<'a> {
     pub fn arg(x: TypeOrExpr<'a>) -> Self {
-        match x {
-            TypeOrExpr::Type(ty, range) => Self::Type(ty, range),
-            TypeOrExpr::Expr(e) => Self::Expr(e),
-        }
+        Self::Arg(x)
     }
 
     pub fn expr(x: &'a Expr) -> Self {
-        Self::Expr(x)
+        Self::Arg(TypeOrExpr::Expr(x))
     }
 
     pub fn ty(ty: &'a Type, range: TextRange) -> Self {
-        Self::Type(ty, range)
+        Self::Arg(TypeOrExpr::Type(ty, range))
     }
 
     pub fn expr_maybe_starred(x: &'a Expr) -> Self {
         match x {
             Expr::Starred(inner) => Self::Star(&inner.value, x.range()),
-            _ => Self::Expr(x),
+            _ => Self::expr(x),
         }
     }
 
@@ -89,8 +82,8 @@ impl<'a> CallArg<'a> {
         arg_errors: &ErrorCollector,
     ) -> CallArgPreEval {
         match self {
-            Self::Type(ty, _) => CallArgPreEval::Type(ty, false),
-            Self::Expr(e) => CallArgPreEval::Expr(e, false),
+            Self::Arg(TypeOrExpr::Type(ty, _)) => CallArgPreEval::Type(ty, false),
+            Self::Arg(TypeOrExpr::Expr(e)) => CallArgPreEval::Expr(e, false),
             Self::Star(e, range) => {
                 let ty = solver.expr_infer(e, arg_errors);
                 let iterables = solver.iterate(&ty, *range, arg_errors);
