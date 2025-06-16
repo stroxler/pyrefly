@@ -41,7 +41,7 @@ use crate::types::types::Var;
 #[derive(Clone, Debug)]
 pub enum CallArg<'a> {
     Arg(TypeOrExpr<'a>),
-    Star(&'a Expr, TextRange),
+    Star(TypeOrExpr<'a>, TextRange),
 }
 
 impl Ranged for CallArg<'_> {
@@ -68,7 +68,7 @@ impl<'a> CallArg<'a> {
 
     pub fn expr_maybe_starred(x: &'a Expr) -> Self {
         match x {
-            Expr::Starred(inner) => Self::Star(&inner.value, x.range()),
+            Expr::Starred(inner) => Self::Star(TypeOrExpr::Expr(&inner.value), x.range()),
             _ => Self::expr(x),
         }
     }
@@ -85,7 +85,7 @@ impl<'a> CallArg<'a> {
             Self::Arg(TypeOrExpr::Type(ty, _)) => CallArgPreEval::Type(ty, false),
             Self::Arg(TypeOrExpr::Expr(e)) => CallArgPreEval::Expr(e, false),
             Self::Star(e, range) => {
-                let ty = solver.expr_infer(e, arg_errors);
+                let ty = e.infer(solver, arg_errors);
                 let iterables = solver.iterate(&ty, *range, arg_errors);
                 // If we have a union of iterables, use a fixed length only if every iterable is
                 // fixed and has the same length. Otherwise, use star.
@@ -267,7 +267,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn is_param_spec_args(&self, x: &CallArg, q: Quantified, errors: &ErrorCollector) -> bool {
         match x {
             CallArg::Star(x, _) => {
-                let mut ty = self.expr_infer(x, errors);
+                let mut ty = x.infer(self, errors);
                 self.expand_type_mut(&mut ty);
                 ty == Type::Args(q)
             }

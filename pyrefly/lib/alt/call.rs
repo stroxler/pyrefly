@@ -609,11 +609,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Make sure we still catch errors in the arguments.
                 for arg in args {
                     match arg {
-                        CallArg::Arg(e) => {
+                        CallArg::Arg(e) | CallArg::Star(e, _) => {
                             e.infer(self, errors);
-                        }
-                        CallArg::Star(e, _) => {
-                            self.expr_infer(e, errors);
                         }
                     }
                 }
