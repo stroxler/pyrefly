@@ -11,8 +11,14 @@ use lsp_types::SemanticToken;
 use lsp_types::SemanticTokenModifier;
 use lsp_types::SemanticTokenType;
 use lsp_types::SemanticTokensLegend;
+use pyrefly_util::visit::Visit as _;
+use ruff_python_ast::Expr;
+use ruff_python_ast::ModModule;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
+use crate::binding::binding::Key;
+use crate::common::symbol_kind::SymbolKind;
 use crate::module::module_info::ModuleInfo;
 
 pub struct SemanticTokensLegends {
@@ -81,10 +87,9 @@ impl SemanticTokensLegends {
 
     pub fn convert_tokens_into_lsp_semantic_tokens(
         &self,
-        mut tokens: Vec<SemanticTokenWithFullRange>,
+        tokens: &[SemanticTokenWithFullRange],
         module_info: ModuleInfo,
     ) -> Vec<SemanticToken> {
-        tokens.sort_by(|a, b| a.range.start().cmp(&b.range.start()));
         let mut previous_line = 0;
         let mut previous_col = 0;
         let mut lsp_semantic_tokens = Vec::new();
@@ -140,4 +145,74 @@ pub struct SemanticTokenWithFullRange {
     pub range: TextRange,
     pub token_type: SemanticTokenType,
     pub token_modifiers: Vec<SemanticTokenModifier>,
+}
+
+pub struct SemanticTokenBuilder {
+    tokens: Vec<SemanticTokenWithFullRange>,
+    limit_range: Option<TextRange>,
+}
+
+impl SemanticTokenBuilder {
+    pub fn new(limit_range: Option<TextRange>) -> Self {
+        Self {
+            tokens: Vec::new(),
+            limit_range,
+        }
+    }
+
+    pub fn process_key(&mut self, key: &Key, symbol_kind: SymbolKind) {
+        let reference_range = key.range();
+        if let Some(limit_range) = self.limit_range
+            && !limit_range.contains_range(reference_range)
+        {
+            return;
+        }
+        let (token_type, token_modifiers) = symbol_kind.to_lsp_semantic_token_type_with_modifiers();
+        self.tokens.push(SemanticTokenWithFullRange {
+            range: reference_range,
+            token_type,
+            token_modifiers,
+        });
+    }
+
+    fn process_expr(&mut self, x: &Expr) {
+        if let Expr::Call(call) = x
+            && let Expr::Attribute(attr) = call.func.as_ref()
+        {
+            if self
+                .limit_range
+                .is_none_or(|x| x.contains_range(attr.attr.range()))
+            {
+                self.tokens.push(SemanticTokenWithFullRange {
+                    range: attr.attr.range(),
+                    token_type: SemanticTokenType::METHOD,
+                    token_modifiers: vec![],
+                });
+            }
+        } else if let Expr::Attribute(attr) = x {
+            // todo(samzhou19815): if the class's base is Enum, it should be ENUM_MEMBER
+            if self
+                .limit_range
+                .is_none_or(|x| x.contains_range(attr.attr.range()))
+            {
+                self.tokens.push(SemanticTokenWithFullRange {
+                    range: attr.attr.range(),
+                    token_type: SemanticTokenType::PROPERTY,
+                    token_modifiers: vec![],
+                });
+            }
+        } else {
+            x.recurse(&mut |x| self.process_expr(x));
+        }
+    }
+
+    pub fn process_ast(&mut self, ast: &ModModule) {
+        ast.visit(&mut |e| self.process_expr(e));
+    }
+
+    pub fn all_tokens_sorted(self) -> Vec<SemanticTokenWithFullRange> {
+        let mut tokens = self.tokens;
+        tokens.sort_by(|a, b| a.range.start().cmp(&b.range.start()));
+        tokens
+    }
 }

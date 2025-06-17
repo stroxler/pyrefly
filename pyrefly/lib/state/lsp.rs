@@ -15,7 +15,6 @@ use lsp_types::DocumentSymbol;
 use lsp_types::ParameterInformation;
 use lsp_types::ParameterLabel;
 use lsp_types::SemanticToken;
-use lsp_types::SemanticTokenType;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureInformation;
 use pyrefly_util::gas::Gas;
@@ -63,7 +62,7 @@ use crate::state::ide::IntermediateDefinition;
 use crate::state::ide::insert_import_edit;
 use crate::state::ide::key_to_intermediate_definition;
 use crate::state::require::Require;
-use crate::state::semantic_tokens::SemanticTokenWithFullRange;
+use crate::state::semantic_tokens::SemanticTokenBuilder;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::CancellableTransaction;
 use crate::state::state::Transaction;
@@ -1482,64 +1481,26 @@ impl<'a> Transaction<'a> {
         let bindings = self.get_bindings(handle)?;
         let ast = self.get_ast(handle)?;
         let legends = SemanticTokensLegends::new();
-        let mut tokens = Vec::new();
+        let mut builder = SemanticTokenBuilder::new(limit_range);
         for NamedBinding {
             definition_handle: _,
             definition_export,
             key,
         } in self.named_bindings(handle, &bindings)
         {
-            let reference_range = key.range();
-            if let Some(limit_range) = limit_range
-                && !limit_range.contains_range(reference_range)
-            {
-                continue;
-            }
-            let (token_type, token_modifiers) = if let Export {
+            if let Export {
                 symbol_kind: Some(symbol_kind),
                 ..
             } = definition_export
             {
-                symbol_kind.to_lsp_semantic_token_type_with_modifiers()
-            } else {
-                continue;
-            };
-            tokens.push(SemanticTokenWithFullRange {
-                range: reference_range,
-                token_type,
-                token_modifiers,
-            });
-        }
-        fn visit_expr(
-            x: &Expr,
-            tokens: &mut Vec<SemanticTokenWithFullRange>,
-            limit_range: Option<TextRange>,
-        ) {
-            if let Expr::Call(call) = x
-                && let Expr::Attribute(attr) = call.func.as_ref()
-            {
-                if limit_range.is_none_or(|x| x.contains_range(attr.attr.range())) {
-                    tokens.push(SemanticTokenWithFullRange {
-                        range: attr.attr.range(),
-                        token_type: SemanticTokenType::METHOD,
-                        token_modifiers: vec![],
-                    });
-                }
-            } else if let Expr::Attribute(attr) = x {
-                // todo(samzhou19815): if the class's base is Enum, it should be ENUM_MEMBER
-                if limit_range.is_none_or(|x| x.contains_range(attr.attr.range())) {
-                    tokens.push(SemanticTokenWithFullRange {
-                        range: attr.attr.range(),
-                        token_type: SemanticTokenType::PROPERTY,
-                        token_modifiers: vec![],
-                    });
-                }
-            } else {
-                x.recurse(&mut |x| visit_expr(x, tokens, limit_range));
+                builder.process_key(&key, symbol_kind)
             }
         }
-        ast.visit(&mut |e| visit_expr(e, &mut tokens, limit_range));
-        Some(legends.convert_tokens_into_lsp_semantic_tokens(tokens, module_info))
+        builder.process_ast(&ast);
+        Some(
+            legends
+                .convert_tokens_into_lsp_semantic_tokens(&builder.all_tokens_sorted(), module_info),
+        )
     }
 
     #[allow(deprecated)] // The `deprecated` field
