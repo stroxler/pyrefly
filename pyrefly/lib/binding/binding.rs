@@ -116,6 +116,26 @@ impl<K: Keyed> From<Idx<K>> for AnyIdx {
     }
 }
 
+impl AnyIdx {
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Key(..) => "Key",
+            Self::KeyExpect(..) => "KeyExpect",
+            Self::KeyClass(..) => "KeyClass",
+            Self::KeyClassField(..) => "KeyClassField",
+            Self::KeyVariance(..) => "KeyVariance",
+            Self::KeyClassSynthesizedFields(..) => "KeyClassSynthesizedFields",
+            Self::KeyExport(..) => "KeyExport",
+            Self::KeyFunction(..) => "KeyFunction",
+            Self::KeyAnnotation(..) => "KeyAnnotation",
+            Self::KeyClassMetadata(..) => "KeyClassMetadata",
+            Self::KeyLegacyTypeParam(..) => "KeyLegacyTypeParam",
+            Self::KeyYield(..) => "KeyYield",
+            Self::KeyYieldFrom(..) => "KeyYieldFrom",
+        }
+    }
+}
+
 pub trait Keyed: Hash + Eq + Clone + DisplayWith<ModuleInfo> + Debug + Ranged + 'static {
     const EXPORTED: bool = false;
     type Value: Debug + DisplayWith<Bindings>;

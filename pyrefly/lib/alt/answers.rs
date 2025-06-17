@@ -348,7 +348,6 @@ impl CalculationStack {
         self.0.borrow_mut().pop()
     }
 
-    #[expect(dead_code)]
     pub fn peek(&self) -> Option<(ModuleInfo, AnyIdx)> {
         self.0.borrow().last().cloned()
     }
@@ -650,6 +649,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn solver(&self) -> &Solver {
         &self.current.solver
+    }
+
+    pub fn stack(&self) -> &CalculationStack {
+        self.stack
     }
 
     pub fn for_display(&self, t: Type) -> Type {
