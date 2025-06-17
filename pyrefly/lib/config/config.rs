@@ -625,13 +625,13 @@ impl ConfigFile {
                 Ok(Some(ConfigFile::parse_config(&config_str)?))
             }
         }
-        fn f(config_path: &Path) -> (ConfigFile, Vec<anyhow::Error>) {
+        fn f(config_path: &Path) -> (ConfigFile, Vec<ConfigError>) {
             let mut errors = Vec::new();
             let (maybe_config, config_source) = match read_path(config_path) {
                 Ok(Some(config)) => (Some(config), ConfigSource::File(config_path.to_path_buf())),
                 Ok(None) => (None, ConfigSource::Marker(config_path.to_path_buf())),
                 Err(e) => {
-                    errors.push(e);
+                    errors.push(ConfigError::error(e));
                     (None, ConfigSource::File(config_path.to_path_buf()))
                 }
             };
@@ -647,10 +647,10 @@ impl ConfigFile {
                     }
                 }
                 None => {
-                    errors.push(anyhow!(
+                    errors.push(ConfigError::error(anyhow!(
                         "Could not find parent of path `{}`",
                         config_path.display()
-                    ));
+                    )));
                     maybe_config.unwrap_or_else(ConfigFile::default)
                 }
             };
@@ -658,15 +658,17 @@ impl ConfigFile {
 
             if !config.root.extras.0.is_empty() {
                 let extra_keys = config.root.extras.0.keys().join(", ");
-                errors.push(anyhow!("Extra keys found in config: {extra_keys}"));
+                errors.push(ConfigError::error(anyhow!(
+                    "Extra keys found in config: {extra_keys}"
+                )));
             }
             for sub_config in &config.sub_configs {
                 if !sub_config.settings.extras.0.is_empty() {
                     let extra_keys = sub_config.settings.extras.0.keys().join(", ");
-                    errors.push(anyhow!(
+                    errors.push(ConfigError::error(anyhow!(
                         "Extra keys found in sub config matching {}: {extra_keys}",
                         sub_config.matches
-                    ));
+                    )));
                 }
             }
             (config, errors)
@@ -676,10 +678,12 @@ impl ConfigFile {
             .with_context(|| format!("Path `{}` cannot be absolutized", config_path.display()))
         {
             Ok(config_path) => (f(&config_path), config_path.into_owned()),
-            Err(e) => ((ConfigFile::default(), vec![e]), config_path.to_path_buf()),
+            Err(e) => (
+                (ConfigFile::default(), vec![ConfigError::error(e)]),
+                config_path.to_path_buf(),
+            ),
         };
-        let errors = errors
-            .into_map(|err| ConfigError::error(err).context(format!("{}", config_path.display())));
+        let errors = errors.into_map(|err| err.context(format!("{}", config_path.display())));
         (config, errors)
     }
 
