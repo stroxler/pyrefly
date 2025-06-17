@@ -62,6 +62,13 @@ impl ConfigError {
             }
         }
     }
+
+    pub fn context(self, context: String) -> Self {
+        ConfigError {
+            severity: self.severity,
+            msg: self.msg.context(context),
+        }
+    }
 }
 
 /// When debugging is enabled, log errors.

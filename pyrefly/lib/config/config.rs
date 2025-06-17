@@ -679,7 +679,7 @@ impl ConfigFile {
             Err(e) => ((ConfigFile::default(), vec![e]), config_path.to_path_buf()),
         };
         let errors = errors
-            .into_map(|err| ConfigError::error(err.context(format!("{}", config_path.display()))));
+            .into_map(|err| ConfigError::error(err).context(format!("{}", config_path.display())));
         (config, errors)
     }
 
