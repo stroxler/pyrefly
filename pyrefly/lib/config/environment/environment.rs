@@ -24,7 +24,6 @@ use tracing::warn;
 #[cfg(not(target_arch = "wasm32"))]
 use which::which;
 
-use crate::config::environment::finder::Finder as _;
 use crate::config::environment::venv::Venv;
 use crate::sys_info::PythonPlatform;
 use crate::sys_info::PythonVersion;

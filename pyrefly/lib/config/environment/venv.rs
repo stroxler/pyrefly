@@ -8,7 +8,6 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::config::environment::finder::Finder;
 use crate::config::environment::finder::walk_interpreter;
 
 pub struct Venv {}
@@ -31,10 +30,8 @@ impl Venv {
             .parent()
             .is_some_and(|p| p.join(Venv::CONFIG_FILE).exists())
     }
-}
 
-impl Finder for Venv {
-    fn find(project_path: &Path) -> Option<PathBuf> {
+    pub fn find(project_path: &Path) -> Option<PathBuf> {
         let interpreters =
             walk_interpreter(project_path, Venv::SEARCH_DEPTH).collect::<Vec<PathBuf>>();
 
