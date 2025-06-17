@@ -142,3 +142,20 @@ impl<T> VecExt for Vec<T> {
         collect_result(self.into_iter().map(f))
     }
 }
+
+pub trait ResultExt {
+    type Item;
+
+    fn into_inner(self) -> Self::Item;
+}
+
+impl<T> ResultExt for Result<T, T> {
+    type Item = T;
+
+    fn into_inner(self) -> Self::Item {
+        match self {
+            Ok(x) => x,
+            Err(x) => x,
+        }
+    }
+}
