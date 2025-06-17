@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+pub mod active_environment;
 pub mod environment;
 pub mod finder;
 pub mod venv;

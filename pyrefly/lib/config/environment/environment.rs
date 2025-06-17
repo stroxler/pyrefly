@@ -24,6 +24,7 @@ use tracing::warn;
 #[cfg(not(target_arch = "wasm32"))]
 use which::which;
 
+use crate::config::environment::active_environment::ActiveEnvironment;
 use crate::config::environment::venv::Venv;
 use crate::sys_info::PythonPlatform;
 use crate::sys_info::PythonVersion;
@@ -258,6 +259,10 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
     /// [find interpreters]: https://github.com/microsoft/vscode-python/blob/main/src/client/interpreter/autoselection/index.ts#l240-l242
     /// [non-workspace]: https://github.com/microsoft/vscode-python/blob/main/src/client/pythonEnvironments/index.ts#L173
     pub fn find_interpreter(path: Option<&Path>) -> Option<PathBuf> {
+        if let Some(active_env) = ActiveEnvironment::find() {
+            return Some(active_env);
+        }
+
         if let Some(start_path) = path {
             let venv = Venv::find(start_path);
             if venv.is_some() {
