@@ -23,10 +23,24 @@ use crate::types::types::TParam;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 
-// TODO zeina: This algorithm still needs to handle class properties.
-// To do so, we have to thread class property information to the algorithm
-// After this, we simply call on_type on all class property signatures
-// we have to special case some properties like __init__ and private properties
+// This is our variance inference algorithm, which determines variance based on visiting the structure of the type.
+// There are a couple of TODO that I [zeina] would like to revisit as I figure them out. There are several types that I'm not visiting (and did not visit similar ones in pyre1),
+// And I'm not yet clear what variance inference should do on those:
+
+// Those types are:
+// - Concatenate
+// - Intersect (Our variance inference algorithm is not defined on this. Unclear to me yet what to do on this type.)
+// - Forall (I suspect that we should not visit this, since the forall type is related to a function, and variance makes no sense in the absence of a class definition)
+// - Unpack (potentially just visit the inner type recursively?)
+// - SpecialForm
+// - ParamSpecValue
+// - Args and Kwargs
+// - SuperInstance
+// - TypeGuard
+// - TypeIs
+
+// We need to visit the types that we know are required to be visited for variance inference, and appear in the context of a class with type variables.
+// For example, SelfType is intentionally skipped and should not be visited because it should not be included in the variance calculation.
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq)]
 pub struct VarianceMap(pub SmallMap<String, Variance>);
