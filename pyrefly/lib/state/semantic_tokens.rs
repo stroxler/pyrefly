@@ -137,6 +137,8 @@ impl SemanticTokensLegends {
                 modifiers.push(modifier.clone());
             }
         }
+        // needed for a deterministic print ordering in tests
+        modifiers.sort_by(|a, b| a.as_str().cmp(b.as_str()));
         modifiers
     }
 }
