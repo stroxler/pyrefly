@@ -613,16 +613,13 @@ function mapPyreflyErrorsToMarkerData(
     errors: ReadonlyArray<PyreflyErrorMessage>
 ): editor.IMarkerData[] {
     return errors.map((error) => {
-        const severity = error.message.includes("revealed type") ?
-            2 :
-            error.severity;
         return {
             startLineNumber: error.startLineNumber,
             startColumn: error.startColumn,
             endLineNumber: error.endLineNumber,
             endColumn: error.endColumn,
             message: error.message,
-            severity: severity,
+            severity: error.severity,
         };
     });
 }

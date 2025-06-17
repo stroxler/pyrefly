@@ -18,6 +18,7 @@ use serde::Serialize;
 
 use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
+use crate::error::kind::Severity;
 use crate::module::module_info::SourceRange;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
@@ -160,7 +161,12 @@ impl Playground {
                     end_col: range.end.column.to_zero_indexed() as i32 + 1,
                     message: e.msg().to_owned(),
                     kind: e.error_kind().to_name().to_owned(),
-                    severity: 8,
+                    // Severity values defined here: https://microsoft.github.io/monaco-editor/typedoc/enums/MarkerSeverity.html
+                    severity: match e.error_kind().severity() {
+                        Severity::Error => 8,
+                        Severity::Warn => 4,
+                        Severity::Info => 2,
+                    },
                 }
             })
             .collect()
