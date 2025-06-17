@@ -60,7 +60,6 @@ use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::state::handle::Handle;
 use crate::state::ide::IntermediateDefinition;
-use crate::state::ide::binding_to_intermediate_definition;
 use crate::state::ide::insert_import_edit;
 use crate::state::ide::key_to_intermediate_definition;
 use crate::state::require::Require;
@@ -847,18 +846,6 @@ impl<'a> Transaction<'a> {
         self.resolve_intermediate_definition(handle, intermediate_definition, gas)
     }
 
-    fn binding_to_export(
-        &self,
-        handle: &Handle,
-        binding: &Binding,
-        mut gas: Gas,
-    ) -> Option<(Handle, Export)> {
-        let bindings = self.get_bindings(handle)?;
-        let intermediate_definition =
-            binding_to_intermediate_definition(&bindings, binding, &mut gas)?;
-        self.resolve_intermediate_definition(handle, intermediate_definition, gas)
-    }
-
     fn find_definition_for_name_def(
         &self,
         handle: &Handle,
@@ -1291,10 +1278,9 @@ impl<'a> Transaction<'a> {
         let self_module_info = self.get_module_info(handle);
         let mut named_bindings = Vec::new();
         for idx in bindings.keys::<Key>() {
-            let binding = bindings.get(idx);
             let key = bindings.idx_to_key(idx);
             if let Some((definition_handle, definition_export)) =
-                self.binding_to_export(handle, binding, INITIAL_GAS)
+                self.key_to_export(handle, key, INITIAL_GAS)
                 && let Some(self_module_info) = &self_module_info
                 && let Some(definition_module_info) = self.get_module_info(&definition_handle)
                 && definition_handle.path() == definition_module_info.path()

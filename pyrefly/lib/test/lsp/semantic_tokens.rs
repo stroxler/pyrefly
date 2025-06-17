@@ -107,6 +107,12 @@ foo(bar)
         &[("main", code)],
         r#"
 # main.py
+line: 1, column: 4, length: 3, text: foo
+token-type: function
+
+line: 1, column: 8, length: 1, text: v
+token-type: parameter
+
 line: 1, column: 11, length: 3, text: int
 token-type: class
 
@@ -147,6 +153,15 @@ Test().x
         &[("main", code)],
         r#"
 # main.py
+line: 1, column: 6, length: 4, text: Test
+token-type: class
+
+line: 2, column: 8, length: 3, text: foo
+token-type: function
+
+line: 2, column: 12, length: 4, text: self
+token-type: parameter
+
 line: 2, column: 21, length: 3, text: int
 token-type: class
 
@@ -186,14 +201,26 @@ type T2 = T
         &[("main", code)],
         r#"
 # main.py
+line: 1, column: 5, length: 1, text: T
+token-type: interface
+
 line: 1, column: 9, length: 3, text: int
 token-type: class
+
+line: 2, column: 4, length: 3, text: foo
+token-type: function
+
+line: 2, column: 8, length: 1, text: v
+token-type: parameter
 
 line: 2, column: 11, length: 1, text: T
 token-type: interface
 
 line: 2, column: 17, length: 3, text: int
 token-type: class
+
+line: 5, column: 5, length: 2, text: T2
+token-type: interface
 
 line: 5, column: 10, length: 1, text: T
 token-type: interface
