@@ -468,19 +468,19 @@ fn make_bound_method_helper(
         Type::Forall(box Forall {
             tparams,
             body: Forallable::Function(func),
-        }) if should_bind(&func.metadata) => Some(BoundMethodType::Forall(Forall {
+        }) if should_bind(&func.metadata) => BoundMethodType::Forall(Forall {
             tparams: tparams.clone(),
             body: func.clone(),
-        })),
+        }),
         Type::Function(func) if should_bind(&func.metadata) => {
-            Some(BoundMethodType::Function((**func).clone()))
+            BoundMethodType::Function((**func).clone())
         }
         Type::Overload(overload) if should_bind(&overload.metadata) => {
-            Some(BoundMethodType::Overload(overload.clone()))
+            BoundMethodType::Overload(overload.clone())
         }
-        _ => None,
+        _ => return None,
     };
-    func.map(|func| Type::BoundMethod(Box::new(BoundMethod { obj, func })))
+    Some(Type::BoundMethod(Box::new(BoundMethod { obj, func })))
 }
 
 fn make_bound_classmethod(cls: &Class, attr: &Type) -> Option<Type> {
