@@ -8,6 +8,7 @@
 use append_only_vec::AppendOnlyVec;
 use itertools::Itertools;
 use pyrefly_util::display::count;
+use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
@@ -38,6 +39,82 @@ use crate::types::quantified::Quantified;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 use crate::types::types::Var;
+
+pub struct CallWithTypes<'a>(&'a AppendOnlyVec<Type>);
+
+impl<'a> CallWithTypes<'a> {
+    pub fn new(x: &'a AppendOnlyVec<Type>) -> Self {
+        Self(x)
+    }
+
+    pub fn type_or_expr<'b: 'a, Ans: LookupAnswer>(
+        &self,
+        x: TypeOrExpr<'b>,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> TypeOrExpr<'a> {
+        match x {
+            TypeOrExpr::Expr(e) => {
+                let t = solver.expr_infer(e, errors);
+                let i = self.0.push(t);
+                TypeOrExpr::Type(&self.0[i], e.range())
+            }
+            TypeOrExpr::Type(t, r) => TypeOrExpr::Type(t, r),
+        }
+    }
+
+    pub fn call_arg<'b: 'a, Ans: LookupAnswer>(
+        &self,
+        x: &CallArg<'b>,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> CallArg<'a> {
+        match x {
+            CallArg::Arg(x) => CallArg::Arg(self.type_or_expr(*x, solver, errors)),
+            CallArg::Star(x, r) => CallArg::Star(self.type_or_expr(*x, solver, errors), *r),
+        }
+    }
+
+    pub fn call_keyword<'b: 'a, Ans: LookupAnswer>(
+        &self,
+        x: &CallKeyword<'b>,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> CallKeyword<'a> {
+        CallKeyword {
+            range: x.range,
+            arg: x.arg,
+            value: self.type_or_expr(x.value, solver, errors),
+        }
+    }
+
+    pub fn opt_call_arg<'b: 'a, Ans: LookupAnswer>(
+        &self,
+        x: Option<&CallArg<'b>>,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> Option<CallArg<'a>> {
+        x.map(|x| self.call_arg(x, solver, errors))
+    }
+
+    pub fn vec_call_arg<'b: 'a, Ans: LookupAnswer>(
+        &self,
+        xs: &[CallArg<'b>],
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> Vec<CallArg<'a>> {
+        xs.map(|x| self.call_arg(x, solver, errors))
+    }
+
+    pub fn vec_call_keyword<'b: 'a, Ans: LookupAnswer>(
+        &self,
+        xs: &[CallKeyword<'b>],
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> Vec<CallKeyword<'a>> {
+        xs.map(|x| self.call_keyword(x, solver, errors))
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct CallKeyword<'a> {

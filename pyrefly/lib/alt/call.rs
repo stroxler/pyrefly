@@ -8,7 +8,6 @@
 use append_only_vec::AppendOnlyVec;
 use dupe::Dupe;
 use ruff_python_ast::name::Name;
-use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
@@ -19,7 +18,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::attr::DescriptorBase;
 use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
-use crate::alt::expr::TypeOrExpr;
+use crate::alt::callable::CallWithTypes;
 use crate::dunder;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -652,66 +651,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Type {
-        self.call_overloads_with_store(
-            &AppendOnlyVec::new(),
-            overloads,
-            metadata,
-            self_arg,
-            args,
-            keywords,
-            range,
-            errors,
-            context,
-        )
-    }
-
-    fn call_overloads_with_store<'t>(
-        &self,
-        type_store: &'t AppendOnlyVec<Type>,
-        overloads: Vec1<Callable>,
-        metadata: FuncMetadata,
-        self_arg: Option<CallArg<'t>>,
-        args: &[CallArg<'t>],
-        keywords: &[CallKeyword<'t>],
-        range: TextRange,
-        errors: &ErrorCollector,
-        context: Option<&dyn Fn() -> ErrorContext>,
-    ) -> Type {
-        let type_or_expr = |x: TypeOrExpr<'t>| -> TypeOrExpr<'t> {
-            match x {
-                TypeOrExpr::Expr(e) => {
-                    let t = self.expr_infer(e, errors);
-                    let i = type_store.push(t);
-                    TypeOrExpr::Type(&type_store[i], e.range())
-                }
-                TypeOrExpr::Type(t, r) => TypeOrExpr::Type(t, r),
-            }
-        };
-        let call_arg = |x: CallArg<'t>| -> CallArg<'t> {
-            match x {
-                CallArg::Arg(x) => CallArg::Arg(type_or_expr(x)),
-                CallArg::Star(x, r) => CallArg::Star(type_or_expr(x), r),
-            }
-        };
-        let call_keyword = |x: CallKeyword<'t>| -> CallKeyword<'t> {
-            CallKeyword {
-                range: x.range,
-                arg: x.arg,
-                value: type_or_expr(x.value),
-            }
-        };
-
         // There may be Expr values in self_arg, args and keywords.
         // If we infer them for each overload, we may end up infering them multiple times.
         // If those overloads contain nested overloads, then we can easily end up with O(2^n) perf.
         // Therefore, flatten all TypeOrExpr's into Type before we start
-        let self_arg = self_arg.map(call_arg);
-        let args = args.iter().cloned().map(&call_arg).collect::<Vec<_>>();
-        let keywords = keywords
-            .iter()
-            .cloned()
-            .map(&call_keyword)
-            .collect::<Vec<_>>();
+        let type_store = AppendOnlyVec::new();
+        let call = CallWithTypes::new(&type_store);
+        let self_arg = call.opt_call_arg(self_arg.as_ref(), self, errors);
+        let args = call.vec_call_arg(args, self, errors);
+        let keywords = call.vec_call_keyword(keywords, self, errors);
 
         let mut closest_overload: Option<CalledOverload> = None;
         for callable in overloads.iter() {
