@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use append_only_vec::AppendOnlyVec;
 use dupe::Dupe;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -655,8 +654,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // If we infer them for each overload, we may end up infering them multiple times.
         // If those overloads contain nested overloads, then we can easily end up with O(2^n) perf.
         // Therefore, flatten all TypeOrExpr's into Type before we start
-        let type_store = AppendOnlyVec::new();
-        let call = CallWithTypes::new(&type_store);
+        let call = CallWithTypes::new();
         let self_arg = call.opt_call_arg(self_arg.as_ref(), self, errors);
         let args = call.vec_call_arg(args, self, errors);
         let keywords = call.vec_call_keyword(keywords, self, errors);

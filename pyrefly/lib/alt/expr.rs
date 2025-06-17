@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use append_only_vec::AppendOnlyVec;
 use dupe::Dupe;
 use num_traits::ToPrimitive;
 use pyrefly_util::prelude::SliceExt;
@@ -1309,8 +1308,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
                     let args;
                     let kws;
-                    let type_store = AppendOnlyVec::new();
-                    let call = CallWithTypes::new(&type_store);
+                    let call = CallWithTypes::new();
                     if ty_fun.is_union() {
                         // If we have a union we will distribute over it, and end up duplicating each function call.
                         args = x

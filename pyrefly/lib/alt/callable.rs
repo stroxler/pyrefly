@@ -40,15 +40,19 @@ use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 use crate::types::types::Var;
 
-pub struct CallWithTypes<'a>(&'a AppendOnlyVec<Type>);
+/// Structure to turn TypeOrExprs into Types.
+/// This is used to avoid re-infering types for arguments multiple types.
+///
+/// Implemented by keeping an `AppendOnlyVec` to hand out references to `Type`.
+pub struct CallWithTypes(AppendOnlyVec<Type>);
 
-impl<'a> CallWithTypes<'a> {
-    pub fn new(x: &'a AppendOnlyVec<Type>) -> Self {
-        Self(x)
+impl CallWithTypes {
+    pub fn new() -> Self {
+        Self(AppendOnlyVec::new())
     }
 
-    pub fn type_or_expr<'b: 'a, Ans: LookupAnswer>(
-        &self,
+    pub fn type_or_expr<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
         x: TypeOrExpr<'b>,
         solver: &AnswersSolver<Ans>,
         errors: &ErrorCollector,
@@ -63,8 +67,8 @@ impl<'a> CallWithTypes<'a> {
         }
     }
 
-    pub fn call_arg<'b: 'a, Ans: LookupAnswer>(
-        &self,
+    pub fn call_arg<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
         x: &CallArg<'b>,
         solver: &AnswersSolver<Ans>,
         errors: &ErrorCollector,
@@ -75,8 +79,8 @@ impl<'a> CallWithTypes<'a> {
         }
     }
 
-    pub fn call_keyword<'b: 'a, Ans: LookupAnswer>(
-        &self,
+    pub fn call_keyword<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
         x: &CallKeyword<'b>,
         solver: &AnswersSolver<Ans>,
         errors: &ErrorCollector,
@@ -88,8 +92,8 @@ impl<'a> CallWithTypes<'a> {
         }
     }
 
-    pub fn opt_call_arg<'b: 'a, Ans: LookupAnswer>(
-        &self,
+    pub fn opt_call_arg<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
         x: Option<&CallArg<'b>>,
         solver: &AnswersSolver<Ans>,
         errors: &ErrorCollector,
@@ -97,8 +101,8 @@ impl<'a> CallWithTypes<'a> {
         x.map(|x| self.call_arg(x, solver, errors))
     }
 
-    pub fn vec_call_arg<'b: 'a, Ans: LookupAnswer>(
-        &self,
+    pub fn vec_call_arg<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
         xs: &[CallArg<'b>],
         solver: &AnswersSolver<Ans>,
         errors: &ErrorCollector,
@@ -106,8 +110,8 @@ impl<'a> CallWithTypes<'a> {
         xs.map(|x| self.call_arg(x, solver, errors))
     }
 
-    pub fn vec_call_keyword<'b: 'a, Ans: LookupAnswer>(
-        &self,
+    pub fn vec_call_keyword<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
         xs: &[CallKeyword<'b>],
         solver: &AnswersSolver<Ans>,
         errors: &ErrorCollector,
