@@ -296,6 +296,10 @@ impl Globs {
         self.0.is_empty()
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn append(&mut self, patterns: &[Glob]) {
         self.0.extend_from_slice(patterns);
     }

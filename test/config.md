@@ -59,7 +59,12 @@ Fatal configuration error
 ```scrut {output_stream: stderr}
 $ $PYREFLY check $TMPDIR/bad_config/empty.py
 ERROR */pyrefly.toml: TOML parse error* (glob)
-* (glob*)
+  |
+1 | oops oops
+  |      ^
+expected * (glob)
+
+Fatal configuration error
 [1]
 ```
 
@@ -70,6 +75,22 @@ ERROR */pyrefly.toml: TOML parse error* (glob)
 ```scrut {output_stream: stderr}
 $ $PYREFLY check -c $TMPDIR/bad_config/pyrefly.toml
  INFO Checking project configured at `*/pyrefly.toml` (glob)
+ERROR */pyrefly.toml: TOML parse error* (glob)
+  |
+1 | oops oops
+  |      ^
+expected * (glob)
+
+Fatal configuration error
+[1]
+```
+
+## Error in explicit config (file mode)
+
+<!-- Reusing bad_config dir set up in "Error in implicit config (project mode)" -->
+
+```scrut {output_stream: stderr}
+$ $PYREFLY check -c $TMPDIR/bad_config/pyrefly.toml $TMPDIR/bad_config/empty.py
 ERROR */pyrefly.toml: TOML parse error* (glob)
   |
 1 | oops oops
