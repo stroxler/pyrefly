@@ -25,3 +25,31 @@ def test(x: int | bytes | str):
             assert_type(x, str)
     "#,
 );
+
+testcase!(
+    test_pattern_crash,
+    r#"
+# Used to crash, see https://github.com/facebook/pyrefly/issues/490
+match None:
+    case {a: 1}: # E: # E: # E:
+        pass
+"#,
+);
+
+testcase!(
+    test_pattern_dict_key_enum,
+    r#"
+from enum import StrEnum
+
+class MyEnumType(StrEnum):
+    A = "a"
+    B = "b"
+
+def my_func(x: dict[MyEnumType, int]) -> int:
+    match x:
+        case {MyEnumType.A: a, MyEnumType.B: b}:
+            return a + b
+        case _:
+            return 0
+"#,
+);

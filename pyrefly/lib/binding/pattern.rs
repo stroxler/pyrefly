@@ -127,20 +127,24 @@ impl<'a> BindingsBuilder<'a> {
                 x.keys
                     .into_iter()
                     .zip(x.patterns)
-                    .for_each(|(key_expr, pattern)| {
+                    .for_each(|(mut key_expr, pattern)| {
+                        let mut key_user = self.declare_user(Key::Anon(key_expr.range()));
                         let key_name = match &key_expr {
                             Expr::StringLiteral(ExprStringLiteral { value: key, .. }) => {
                                 Some(key.to_string())
                             }
-                            _ => None,
+                            _ => {
+                                self.ensure_expr(&mut key_expr, key_user.usage());
+                                None
+                            }
                         };
                         let subject_for_key = key_name.and_then(|key| {
                             match_subject
                                 .clone()
                                 .map(|s| s.with_facet(FacetKind::Key(key)))
                         });
-                        let binding_for_key = self.insert_binding(
-                            Key::Anon(key_expr.range()),
+                        let binding_for_key = self.insert_binding_user(
+                            key_user,
                             Binding::PatternMatchMapping(key_expr, key),
                         );
                         narrow_ops.and_all(self.bind_pattern(
