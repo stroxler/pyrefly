@@ -118,6 +118,15 @@ impl Args {
     }
 
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
+        let create_config_result = self.create_config();
+        match create_config_result {
+            Err(_) => create_config_result,
+            Ok(status) if status != CommandExitStatus::Success => create_config_result,
+            _ => Ok(CommandExitStatus::Success),
+        }
+    }
+
+    fn create_config(&self) -> anyhow::Result<CommandExitStatus> {
         let path = self.path.absolutize()?.to_path_buf();
 
         let dir: Option<&Path> = if path.is_dir() {
