@@ -432,7 +432,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let var_to_rparams = |var| {
             let ps = match self.solver().force_var(var) {
                 Type::ParamSpecValue(ps) => ps,
-                Type::Any(_) => ParamList::everything(),
+                Type::Any(_) | Type::Ellipsis => ParamList::everything(),
+                Type::Concatenate(prefix, _) => {
+                    // TODO: handle second component of Type::Concatenate
+                    let ps = ParamList::everything();
+                    ps.prepend_types(&prefix).into_owned()
+                }
                 t => {
                     error(
                         call_errors,

@@ -373,6 +373,19 @@ twice(a_int_b_str, "A", 1)     # Rejected # E: `Literal['A']` is not assignable 
 );
 
 testcase!(
+    test_paramspec_callable_infer_ellipsis,
+    r#"
+from typing import Callable, ParamSpec
+
+P = ParamSpec("P")
+def f(f: Callable[P, int], *args: P.args, **kwargs: P.kwargs) -> int:
+  return f(*args, **kwargs) + f(*args, **kwargs)
+x: Callable[..., int] = lambda: 1
+
+f(x, 1)"#,
+);
+
+testcase!(
     test_functools_wraps_paramspec,
     r#"
 from functools import wraps
