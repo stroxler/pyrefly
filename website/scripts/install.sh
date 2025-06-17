@@ -20,7 +20,7 @@ cd -- "$(dirname -- "$0")/.."
 exec >&2
 
 # shellcheck source=/dev/null
-source ../facebook/setup_cargo.sh
+source scripts/setup_cargo.sh
 
 cargo install wasm-pack wasm-opt
 

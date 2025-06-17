@@ -13,7 +13,8 @@ set -o pipefail
 # Change to `pyrefly` directory
 cd -- "$(dirname -- "$0")/.."
 
-source ../facebook/setup_cargo.sh
+# shellcheck source=/dev/null
+source scripts/setup_cargo.sh
 
 cargo install wasm-pack wasm-opt
 scripts/build_wasm_for_test.sh
