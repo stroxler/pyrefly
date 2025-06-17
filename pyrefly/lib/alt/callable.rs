@@ -615,9 +615,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("Expected {expected}, got {actual}"),
             );
         }
-        // Heap storage for typed dict fields, which are freshly calculated (and need to be owned
-        // somewhere) but are used as references.
-        let kwargs_typed_dict_fields_vec = Owner::new();
         // Missing positional-only arguments, split by whether the corresponding parameters
         // in the callable have names. E.g., functions declared with `def` have named posonly
         // parameters and `typing.Callable`s have unnamed ones.
@@ -654,11 +651,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     kwparams.insert(name.clone(), (ty, required == Required::Required));
                 }
                 Param::Kwargs(_, Type::Unpack(box Type::TypedDict(typed_dict))) => {
-                    kwargs_typed_dict_fields_vec
-                        .push(self.typed_dict_fields(&typed_dict))
-                        .iter()
+                    self.typed_dict_fields(&typed_dict)
+                        .into_iter_hashed()
                         .for_each(|(name, field)| {
-                            kwparams.insert(name.clone(), (field.ty.clone(), field.required));
+                            kwparams.insert_hashed(name, (field.ty, field.required));
                         });
                     kwargs_is_unpack = true;
                 }
