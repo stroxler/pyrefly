@@ -85,6 +85,9 @@ impl FindResult {
     }
 }
 
+/// Finds the first package (regular, single file, or namespace) in search roots. Returns None if no module is found.
+/// name: module name
+/// roots: search roots
 fn find_one_part<'a>(name: &Name, roots: impl Iterator<Item = &'a PathBuf>) -> Option<FindResult> {
     let mut namespace_roots = Vec::new();
     for root in roots {
@@ -114,6 +117,7 @@ fn find_one_part<'a>(name: &Name, roots: impl Iterator<Item = &'a PathBuf>) -> O
     }
 }
 
+/// Find a module from a single package. Returns None if no module is found.
 fn continue_find_module(start_result: FindResult, components_rest: &[Name]) -> Option<ModulePath> {
     let mut current_result = Some(start_result);
     for part in components_rest.iter() {
