@@ -59,6 +59,7 @@ use crate::alt::answers::AnswerEntry;
 use crate::alt::answers::AnswerTable;
 use crate::alt::answers::Answers;
 use crate::alt::answers::AnswersSolver;
+use crate::alt::answers::CalculationStack;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers::Solutions;
 use crate::alt::answers::SolutionsEntry;
@@ -1115,6 +1116,7 @@ impl<'a> Transaction<'a> {
         let (bindings, answers) = steps.answers.as_deref().as_ref()?;
         let stdlib = self.get_stdlib(handle);
         let recurser = Recurser::new();
+        let stack = CalculationStack::new();
         let solver = AnswersSolver::new(
             &lookup,
             answers,
@@ -1124,6 +1126,7 @@ impl<'a> Transaction<'a> {
             &self.data.state.uniques,
             &recurser,
             &stdlib,
+            &stack,
         );
         let result = solve(solver);
         Some(result)

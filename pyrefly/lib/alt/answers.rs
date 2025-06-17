@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -32,6 +33,7 @@ use crate::alt::attr::AttrDefinition;
 use crate::alt::attr::AttrInfo;
 use crate::alt::traits::Solve;
 use crate::alt::traits::SolveRecursive;
+use crate::binding::binding::AnyIdx;
 use crate::binding::binding::Binding;
 use crate::binding::binding::Exported;
 use crate::binding::binding::Key;
@@ -324,9 +326,38 @@ impl Solutions {
     }
 }
 
+/// Represent a stack of in-progress calculations in an `AnswersSolver`.
+///
+/// This is useful for debugging, particularly for debugging cycle handling.
+///
+/// The stack is per-thread; we create a new `AnswersSolver` every time
+/// we change modules when resolving exports, but the stack is passed
+/// down because cycles can cross module boundaries.
+pub struct CalculationStack(RefCell<Vec<(ModuleInfo, AnyIdx)>>);
+
+impl CalculationStack {
+    pub fn new() -> Self {
+        Self(RefCell::new(Vec::new()))
+    }
+
+    fn push(&self, module_info: ModuleInfo, idx: AnyIdx) {
+        self.0.borrow_mut().push((module_info, idx));
+    }
+
+    fn pop(&self) -> Option<(ModuleInfo, AnyIdx)> {
+        self.0.borrow_mut().pop()
+    }
+
+    #[expect(dead_code)]
+    pub fn peek(&self) -> Option<(ModuleInfo, AnyIdx)> {
+        self.0.borrow().last().cloned()
+    }
+}
+
 pub struct AnswersSolver<'a, Ans: LookupAnswer> {
     answers: &'a Ans,
     current: &'a Answers,
+    stack: &'a CalculationStack,
     // The base solver is only used to reset the error collector at binding
     // boundaries. Answers code should generally use the error collector passed
     // along the call stack instead.
@@ -441,6 +472,7 @@ impl Answers {
         let answers_solver = AnswersSolver {
             stdlib,
             answers,
+            stack: &CalculationStack::new(),
             bindings,
             base_errors: errors,
             exports,
@@ -522,6 +554,8 @@ impl Answers {
             exports,
             recurser: &Recurser::new(),
             current: self,
+            // TODO: pass this down. For now, the stack resets when we cross a module boundary.
+            stack: &CalculationStack::new(),
         };
         let v = solver.get_hashed(key);
         let mut vv = (*v).clone();
@@ -591,6 +625,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         uniques: &'a UniqueFactory,
         recurser: &'a Recurser<Var>,
         stdlib: &'a Stdlib,
+        stack: &'a CalculationStack,
     ) -> AnswersSolver<'a, Ans> {
         AnswersSolver {
             stdlib,
@@ -601,6 +636,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             exports,
             recurser,
             current,
+            stack,
         }
     }
 
@@ -679,6 +715,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
         let calculation = self.get_calculation(idx);
+        self.stack
+            .push(self.module_info().dupe(), AnyIdx::from(idx));
         let result = calculation.calculate_with_recursive(
             || {
                 let binding = self.bindings().get(idx);
@@ -693,6 +731,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let k = self.bindings().idx_to_key(idx).range();
             K::record_recursive(self, k, v, r, self.base_errors);
         }
+        self.stack.pop();
         match result {
             Ok((v, _)) => v,
             Err(r) => Arc::new(K::promote_recursive(r)),
