@@ -221,6 +221,10 @@ impl ModuleInfo {
         &self.0.contents[start.to_usize()..end.to_usize()]
     }
 
+    pub fn line_start(&self, line: OneIndexed) -> TextSize {
+        self.0.index.line_start(line, &self.0.contents)
+    }
+
     pub fn is_ignored(&self, source_range: &SourceRange) -> bool {
         // Extend the range of the error to include comment lines before it.
         // This makes it so that the preceding ignore could "see through" comments.

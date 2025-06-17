@@ -6,6 +6,7 @@
  */
 
 use crate::test::util::TestEnv;
+use crate::test::util::testcase_for_macro;
 use crate::testcase;
 
 testcase!(
@@ -1412,3 +1413,10 @@ def check(f: Callable[[int], bool] | Callable[[str], bool]) -> Any:
     f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(True)))))))))))))))))))))))) # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E:
 "#,
 );
+
+#[test]
+fn test_panic_on_unicode() {
+    // This used to panic, see https://github.com/facebook/pyrefly/issues/501
+    let _ = testcase_for_macro(TestEnv::new(), "e\u{81}\n", file!(), line!());
+    // We manually ignore the missing expectations, because adding `# E:` would change the test.
+}
