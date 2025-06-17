@@ -110,12 +110,6 @@ pub enum AnyIdx {
     KeyYieldFrom(Idx<KeyYieldFrom>),
 }
 
-impl<K: Keyed> From<Idx<K>> for AnyIdx {
-    fn from(idx: Idx<K>) -> Self {
-        K::to_anyidx(idx)
-    }
-}
-
 impl AnyIdx {
     pub fn kind(&self) -> &'static str {
         match self {

@@ -724,7 +724,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     {
         let calculation = self.get_calculation(idx);
         self.stack
-            .push(self.module_info().dupe(), AnyIdx::from(idx));
+            .push(self.module_info().dupe(), K::to_anyidx(idx));
         let result = calculation.calculate_with_recursive(
             || {
                 let binding = self.bindings().get(idx);
