@@ -144,10 +144,12 @@ fn method_and_property_test() {
     let code = r#"
 class Test:
     def foo(self) -> int: ...
+    def bar(self, x: int) -> int: ...
     x: int
 Test.foo
 Test().foo()
 Test().x
+Test().bar(Test().x)
 "#;
     assert_full_semantic_tokens(
         &[("main", code)],
@@ -165,26 +167,54 @@ token-type: parameter
 line: 2, column: 21, length: 3, text: int
 token-type: class
 
-line: 3, column: 7, length: 3, text: int
+line: 3, column: 8, length: 3, text: bar
+token-type: function
+
+line: 3, column: 12, length: 4, text: self
+token-type: parameter
+
+line: 3, column: 18, length: 1, text: x
+token-type: parameter
+
+line: 3, column: 21, length: 3, text: int
 token-type: class
 
-line: 4, column: 0, length: 4, text: Test
+line: 3, column: 29, length: 3, text: int
 token-type: class
 
-line: 4, column: 5, length: 3, text: foo
-token-type: property
+line: 4, column: 7, length: 3, text: int
+token-type: class
 
 line: 5, column: 0, length: 4, text: Test
 token-type: class
 
-line: 5, column: 7, length: 3, text: foo
-token-type: method
+line: 5, column: 5, length: 3, text: foo
+token-type: property
 
 line: 6, column: 0, length: 4, text: Test
 token-type: class
 
-line: 6, column: 7, length: 1, text: x
-token-type: property"#,
+line: 6, column: 7, length: 3, text: foo
+token-type: method
+
+line: 7, column: 0, length: 4, text: Test
+token-type: class
+
+line: 7, column: 7, length: 1, text: x
+token-type: property
+
+line: 8, column: 0, length: 4, text: Test
+token-type: class
+
+line: 8, column: 7, length: 3, text: bar
+token-type: method
+
+line: 8, column: 11, length: 4, text: Test
+token-type: class
+
+line: 8, column: 18, length: 1, text: x
+token-type: property
+"#,
     );
 }
 

@@ -187,10 +187,15 @@ impl SemanticTokenBuilder {
         match x {
             Expr::Call(call) if let Expr::Attribute(attr) = call.func.as_ref() => {
                 self.push_if_in_range(attr.attr.range(), SemanticTokenType::METHOD, vec![]);
+                attr.value.visit(&mut |x| self.process_expr(x));
+                for arg in call.arguments.arguments_source_order() {
+                    arg.value().visit(&mut |x| self.process_expr(x));
+                }
             }
             Expr::Attribute(attr) => {
                 // todo(samzhou19815): if the class's base is Enum, it should be ENUM_MEMBER
                 self.push_if_in_range(attr.attr.range(), SemanticTokenType::PROPERTY, vec![]);
+                attr.value.visit(&mut |x| self.process_expr(x));
             }
             _ => {
                 x.recurse(&mut |x| self.process_expr(x));
