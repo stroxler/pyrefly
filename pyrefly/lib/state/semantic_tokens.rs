@@ -160,49 +160,39 @@ impl SemanticTokenBuilder {
         }
     }
 
+    fn push_if_in_range(
+        &mut self,
+        range: TextRange,
+        token_type: SemanticTokenType,
+        token_modifiers: Vec<SemanticTokenModifier>,
+    ) {
+        if self.limit_range.is_none_or(|x| x.contains_range(range)) {
+            self.tokens.push(SemanticTokenWithFullRange {
+                range,
+                token_type,
+                token_modifiers,
+            })
+        }
+    }
+
     pub fn process_key(&mut self, key: &Key, symbol_kind: SymbolKind) {
         let reference_range = key.range();
-        if let Some(limit_range) = self.limit_range
-            && !limit_range.contains_range(reference_range)
-        {
-            return;
-        }
         let (token_type, token_modifiers) = symbol_kind.to_lsp_semantic_token_type_with_modifiers();
-        self.tokens.push(SemanticTokenWithFullRange {
-            range: reference_range,
-            token_type,
-            token_modifiers,
-        });
+        self.push_if_in_range(reference_range, token_type, token_modifiers);
     }
 
     fn process_expr(&mut self, x: &Expr) {
-        if let Expr::Call(call) = x
-            && let Expr::Attribute(attr) = call.func.as_ref()
-        {
-            if self
-                .limit_range
-                .is_none_or(|x| x.contains_range(attr.attr.range()))
-            {
-                self.tokens.push(SemanticTokenWithFullRange {
-                    range: attr.attr.range(),
-                    token_type: SemanticTokenType::METHOD,
-                    token_modifiers: vec![],
-                });
+        match x {
+            Expr::Call(call) if let Expr::Attribute(attr) = call.func.as_ref() => {
+                self.push_if_in_range(attr.attr.range(), SemanticTokenType::METHOD, vec![]);
             }
-        } else if let Expr::Attribute(attr) = x {
-            // todo(samzhou19815): if the class's base is Enum, it should be ENUM_MEMBER
-            if self
-                .limit_range
-                .is_none_or(|x| x.contains_range(attr.attr.range()))
-            {
-                self.tokens.push(SemanticTokenWithFullRange {
-                    range: attr.attr.range(),
-                    token_type: SemanticTokenType::PROPERTY,
-                    token_modifiers: vec![],
-                });
+            Expr::Attribute(attr) => {
+                // todo(samzhou19815): if the class's base is Enum, it should be ENUM_MEMBER
+                self.push_if_in_range(attr.attr.range(), SemanticTokenType::PROPERTY, vec![]);
             }
-        } else {
-            x.recurse(&mut |x| self.process_expr(x));
+            _ => {
+                x.recurse(&mut |x| self.process_expr(x));
+            }
         }
     }
 
