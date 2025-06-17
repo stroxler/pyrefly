@@ -60,6 +60,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         format!("{}", self.module_info().name())
     }
 
+    pub fn show_any_idx(&self, idx: AnyIdx) -> String {
+        let kind = idx.kind();
+        let key = match idx {
+            AnyIdx::Key(idx) => self.show_idx(idx),
+            AnyIdx::KeyExpect(idx) => self.show_idx(idx),
+            AnyIdx::KeyClass(idx) => self.show_idx(idx),
+            AnyIdx::KeyClassField(idx) => self.show_idx(idx),
+            AnyIdx::KeyVariance(idx) => self.show_idx(idx),
+            AnyIdx::KeyClassSynthesizedFields(idx) => self.show_idx(idx),
+            AnyIdx::KeyExport(idx) => self.show_idx(idx),
+            AnyIdx::KeyFunction(idx) => self.show_idx(idx),
+            AnyIdx::KeyAnnotation(idx) => self.show_idx(idx),
+            AnyIdx::KeyClassMetadata(idx) => self.show_idx(idx),
+            AnyIdx::KeyLegacyTypeParam(idx) => self.show_idx(idx),
+            AnyIdx::KeyYield(idx) => self.show_idx(idx),
+            AnyIdx::KeyYieldFrom(idx) => self.show_idx(idx),
+        };
+        format!("{} :: {}", kind, key)
+    }
+
     pub fn show_current_idx(&self) -> String {
         match self.stack().peek() {
             None => {
@@ -68,23 +88,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Some((module_info, idx)) => {
                 let module = module_info.name();
-                let kind = idx.kind();
-                let key = match idx {
-                    AnyIdx::Key(idx) => self.show_idx(idx),
-                    AnyIdx::KeyExpect(idx) => self.show_idx(idx),
-                    AnyIdx::KeyClass(idx) => self.show_idx(idx),
-                    AnyIdx::KeyClassField(idx) => self.show_idx(idx),
-                    AnyIdx::KeyVariance(idx) => self.show_idx(idx),
-                    AnyIdx::KeyClassSynthesizedFields(idx) => self.show_idx(idx),
-                    AnyIdx::KeyExport(idx) => self.show_idx(idx),
-                    AnyIdx::KeyFunction(idx) => self.show_idx(idx),
-                    AnyIdx::KeyAnnotation(idx) => self.show_idx(idx),
-                    AnyIdx::KeyClassMetadata(idx) => self.show_idx(idx),
-                    AnyIdx::KeyLegacyTypeParam(idx) => self.show_idx(idx),
-                    AnyIdx::KeyYield(idx) => self.show_idx(idx),
-                    AnyIdx::KeyYieldFrom(idx) => self.show_idx(idx),
-                };
-                format!("{} . {} :: {}", module, kind, key)
+                format!("{} . {}", module, self.show_any_idx(idx))
             }
         }
     }
@@ -111,5 +115,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AnyIdx::KeyYieldFrom(idx) => self.show_binding_for(idx),
             },
         }
+    }
+
+    pub fn show_current_stack(&self) -> impl Iterator<Item = String> {
+        self.stack()
+            .into_vec()
+            .into_iter()
+            .map(|(module_info, idx)| {
+                format!("{} . {}", module_info.name(), self.show_any_idx(idx))
+            })
     }
 }

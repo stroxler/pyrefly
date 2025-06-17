@@ -351,6 +351,10 @@ impl CalculationStack {
     pub fn peek(&self) -> Option<(ModuleInfo, AnyIdx)> {
         self.0.borrow().last().cloned()
     }
+
+    pub fn into_vec(&self) -> Vec<(ModuleInfo, AnyIdx)> {
+        self.0.borrow().clone()
+    }
 }
 
 pub struct AnswersSolver<'a, Ans: LookupAnswer> {
