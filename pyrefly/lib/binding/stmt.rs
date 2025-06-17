@@ -232,9 +232,10 @@ impl<'a> BindingsBuilder<'a> {
         let mut user = self.declare_user(Key::ReturnExplicit(x.range()));
         self.ensure_expr_opt(x.value.as_deref_mut(), user.usage());
         if let Err((user, oops_top_level)) = self.scopes.record_or_reject_return(user, x) {
-            if let Some(v) = oops_top_level.value {
-                self.insert_binding_user(user, Binding::Expr(None, *v));
-            }
+            match oops_top_level.value {
+                Some(v) => self.insert_binding_user(user, Binding::Expr(None, *v)),
+                None => self.insert_binding_user(user, Binding::Type(Type::None)),
+            };
             self.error(
                 oops_top_level.range,
                 ErrorKind::BadReturn,

@@ -270,3 +270,19 @@ assert_type(async_f_annotated, Callable[[], Coroutine[Any, Any, int]])
 assert_type(async_f_inferred, Callable[[], Coroutine[Any, Any, int]])
      "#,
 );
+
+testcase!(
+    test_toplevel_return_empty,
+    r#"
+return # E: Invalid `return` outside of a function
+"#,
+);
+
+testcase!(
+    test_toplevel_return_expr,
+    r#"
+def f(x: str): pass
+
+return f(1) # E: Invalid `return` outside of a function # E: `Literal[1]` is not assignable to parameter `x` with type `str`
+"#,
+);
