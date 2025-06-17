@@ -32,6 +32,7 @@ use library::run::LspArgs;
 use library::standard_config_finder;
 use path_absolutize::Absolutize;
 use pyrefly::library::library::library::library;
+use pyrefly::library::library::library::library::Severity;
 use pyrefly::library::library::library::library::finder::ConfigError;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::args::clap_env;
@@ -170,6 +171,18 @@ fn get_explicit_config(
     )
 }
 
+fn add_config_errors(config_finder: &ConfigFinder, errors: Vec<ConfigError>) -> anyhow::Result<()> {
+    if errors.iter().any(|e| e.severity() == Severity::Error) {
+        for e in errors {
+            e.print();
+        }
+        Err(anyhow::anyhow!("Fatal configuration error"))
+    } else {
+        config_finder.add_errors(errors);
+        Ok(())
+    }
+}
+
 /// Get inputs for a full-project check. We will look for a config file and type-check the project it defines.
 fn get_globs_and_config_for_project(
     config: Option<PathBuf>,
@@ -210,7 +223,7 @@ fn get_globs_and_config_for_project(
 
     // We want our config_finder to never actually
     let config_finder = ConfigFinder::new_constant(config.dupe());
-    config_finder.add_errors(errors);
+    add_config_errors(&config_finder, errors)?;
 
     debug!("Config is: {}", config);
 

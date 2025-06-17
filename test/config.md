@@ -40,20 +40,42 @@ $ echo "x: str = 0" > $TMPDIR/oops.py && echo "errors = { bad-assignment = false
 ## Error in implicit config (project mode)
 
 ```scrut {output_stream: stderr}
-$ mkdir $TMPDIR/implicit && touch $TMPDIR/implicit/empty.py && echo "oops oops" > $TMPDIR/implicit/pyrefly.toml && cd $TMPDIR/implicit && $PYREFLY check
+$ mkdir $TMPDIR/bad_config && touch $TMPDIR/bad_config/empty.py && echo "oops oops" > $TMPDIR/bad_config/pyrefly.toml && cd $TMPDIR/bad_config && $PYREFLY check
  INFO Checking project configured at `*/pyrefly.toml` (glob)
 ERROR */pyrefly.toml: TOML parse error* (glob)
-* (glob*)
+  |
+1 | oops oops
+  |      ^
+expected * (glob)
+
+Fatal configuration error
 [1]
 ```
 
 ## Error in implicit config (file mode)
 
-<!-- Reusing implicit dir with bad pyrefly.toml set up in "Error in implicit config (project mode)" -->
+<!-- Reusing bad_config dir set up in "Error in implicit config (project mode)" -->
 
 ```scrut {output_stream: stderr}
-$ $PYREFLY check $TMPDIR/implicit/empty.py
+$ $PYREFLY check $TMPDIR/bad_config/empty.py
 ERROR */pyrefly.toml: TOML parse error* (glob)
 * (glob*)
+[1]
+```
+
+## Error in explicit config (project mode)
+
+<!-- Reusing bad_config dir set up in "Error in implicit config (project mode)" -->
+
+```scrut {output_stream: stderr}
+$ $PYREFLY check -c $TMPDIR/bad_config/pyrefly.toml
+ INFO Checking project configured at `*/pyrefly.toml` (glob)
+ERROR */pyrefly.toml: TOML parse error* (glob)
+  |
+1 | oops oops
+  |      ^
+expected * (glob)
+
+Fatal configuration error
 [1]
 ```

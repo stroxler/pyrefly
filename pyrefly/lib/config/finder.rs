@@ -69,6 +69,10 @@ impl ConfigError {
             msg: self.msg.context(context),
         }
     }
+
+    pub fn severity(&self) -> Severity {
+        self.severity
+    }
 }
 
 /// When debugging is enabled, log errors.
