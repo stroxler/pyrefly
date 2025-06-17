@@ -1177,6 +1177,14 @@ x: list[str] | int = ["a", *["b"]]
 );
 
 testcase!(
+    test_negative_subscript_bytes_no_panic,
+    r#"
+# panic reported in https://github.com/facebook/pyrefly/issues/502
+b''[-1]  # E: Index `-1` out of range for bytes with 0 elements
+"#,
+);
+
+testcase!(
     test_parse_error,
     r#"
 if  # E: Parse error: Expected an expression

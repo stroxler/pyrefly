@@ -1575,14 +1575,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let index_ty = self.expr_infer(index_expr, errors);
         match &index_ty {
             Type::Literal(lit) => {
-                if let Some(int_value) = lit.as_index_i64() {
-                    if int_value >= 0
-                        && let Some(byte) = bytes.get(int_value.to_usize().unwrap_or_default())
+                if let Some(idx) = lit.as_index_i64() {
+                    if idx >= 0
+                        && let Some(byte) = idx.to_usize().and_then(|idx| bytes.get(idx))
                     {
                         Type::Literal(Lit::Int(LitInt::new((*byte).into())))
-                    } else if int_value < 0
-                        && let Some(byte) =
-                            bytes.get(bytes.len() - (-int_value).to_usize().unwrap_or_default())
+                    } else if idx < 0
+                        && let Some(byte) = idx
+                            .checked_neg()
+                            .and_then(|idx| idx.to_usize())
+                            .and_then(|idx| bytes.len().checked_sub(idx))
+                            .and_then(|idx| bytes.get(idx))
                     {
                         Type::Literal(Lit::Int(LitInt::new((*byte).into())))
                     } else {
@@ -1592,7 +1595,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ErrorKind::IndexError,
                             None,
                             format!(
-                                "Index `{int_value}` out of range for bytes with {} elements",
+                                "Index `{idx}` out of range for bytes with {} elements",
                                 bytes.len()
                             ),
                         )
