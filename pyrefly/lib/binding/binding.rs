@@ -93,10 +93,34 @@ assert_words!(BindingYield, 3);
 assert_words!(BindingYieldFrom, 3);
 assert_words!(BindingFunction, 21);
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum AnyIdx {
+    Key(Idx<Key>),
+    KeyExpect(Idx<KeyExpect>),
+    KeyClass(Idx<KeyClass>),
+    KeyClassField(Idx<KeyClassField>),
+    KeyVariance(Idx<KeyVariance>),
+    KeyClassSynthesizedFields(Idx<KeyClassSynthesizedFields>),
+    KeyExport(Idx<KeyExport>),
+    KeyFunction(Idx<KeyFunction>),
+    KeyAnnotation(Idx<KeyAnnotation>),
+    KeyClassMetadata(Idx<KeyClassMetadata>),
+    KeyLegacyTypeParam(Idx<KeyLegacyTypeParam>),
+    KeyYield(Idx<KeyYield>),
+    KeyYieldFrom(Idx<KeyYieldFrom>),
+}
+
+impl<K: Keyed> From<Idx<K>> for AnyIdx {
+    fn from(idx: Idx<K>) -> Self {
+        K::to_anyidx(idx)
+    }
+}
+
 pub trait Keyed: Hash + Eq + Clone + DisplayWith<ModuleInfo> + Debug + Ranged + 'static {
     const EXPORTED: bool = false;
     type Value: Debug + DisplayWith<Bindings>;
     type Answer: Clone + Debug + Display + TypeEq + VisitMut<Type>;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx;
 }
 
 /// Should be equivalent to Keyed<EXPORTED=true>.
@@ -106,31 +130,49 @@ pub trait Exported: Keyed {}
 impl Keyed for Key {
     type Value = Binding;
     type Answer = TypeInfo;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::Key(idx)
+    }
 }
 impl Keyed for KeyExpect {
     type Value = BindingExpect;
     type Answer = EmptyAnswer;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyExpect(idx)
+    }
 }
 impl Keyed for KeyClass {
     type Value = BindingClass;
     type Answer = NoneIfRecursive<Class>;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyClass(idx)
+    }
 }
 impl Keyed for KeyClassField {
     const EXPORTED: bool = true;
     type Value = BindingClassField;
     type Answer = ClassField;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyClassField(idx)
+    }
 }
 impl Exported for KeyClassField {}
 impl Keyed for KeyClassSynthesizedFields {
     const EXPORTED: bool = true;
     type Value = BindingClassSynthesizedFields;
     type Answer = ClassSynthesizedFields;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyClassSynthesizedFields(idx)
+    }
 }
 impl Exported for KeyVariance {}
 impl Keyed for KeyVariance {
     const EXPORTED: bool = true;
     type Value = BindingVariance;
     type Answer = VarianceMap;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyVariance(idx)
+    }
 }
 
 impl Exported for KeyClassSynthesizedFields {}
@@ -138,33 +180,54 @@ impl Keyed for KeyExport {
     const EXPORTED: bool = true;
     type Value = BindingExport;
     type Answer = Type;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyExport(idx)
+    }
 }
 impl Exported for KeyExport {}
 impl Keyed for KeyFunction {
     type Value = BindingFunction;
     type Answer = DecoratedFunction;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyFunction(idx)
+    }
 }
 impl Keyed for KeyAnnotation {
     type Value = BindingAnnotation;
     type Answer = AnnotationWithTarget;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyAnnotation(idx)
+    }
 }
 impl Keyed for KeyClassMetadata {
     const EXPORTED: bool = true;
     type Value = BindingClassMetadata;
     type Answer = ClassMetadata;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyClassMetadata(idx)
+    }
 }
 impl Exported for KeyClassMetadata {}
 impl Keyed for KeyLegacyTypeParam {
     type Value = BindingLegacyTypeParam;
     type Answer = LegacyTypeParameterLookup;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyLegacyTypeParam(idx)
+    }
 }
 impl Keyed for KeyYield {
     type Value = BindingYield;
     type Answer = YieldResult;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyYield(idx)
+    }
 }
 impl Keyed for KeyYieldFrom {
     type Value = BindingYieldFrom;
     type Answer = YieldFromResult;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyYieldFrom(idx)
+    }
 }
 
 /// Keys that refer to a `Type`.
