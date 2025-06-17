@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use append_only_vec::AppendOnlyVec;
 use dupe::Dupe;
 use num_traits::ToPrimitive;
 use pyrefly_util::prelude::SliceExt;
@@ -31,6 +32,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
+use crate::alt::callable::CallWithTypes;
 use crate::alt::solve::TypeFormContext;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyYield;
@@ -1293,7 +1295,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::YieldFrom(x) => self.get(&KeyYieldFrom(x.range)).return_ty.clone(),
             Expr::Compare(x) => self.compare_infer(x, errors),
             Expr::Call(x) => {
-                let ty_fun = self.expr_infer(&x.func, errors);
+                let mut ty_fun = self.expr_infer(&x.func, errors);
                 if matches!(&ty_fun, Type::ClassDef(cls) if cls.is_builtin("super")) {
                     if is_special_name(&x.func, "super") {
                         self.get(&Key::SuperInstance(x.range)).arc_clone_ty()
@@ -1303,6 +1305,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Type::any_implicit()
                     }
                 } else {
+                    self.expand_type_mut(&mut ty_fun);
+
+                    let args;
+                    let kws;
+                    let type_store = AppendOnlyVec::new();
+                    let call = CallWithTypes::new(&type_store);
+                    if ty_fun.is_union() {
+                        // If we have a union we will distribute over it, and end up duplicating each function call.
+                        args = x
+                            .arguments
+                            .args
+                            .map(|x| call.call_arg(&CallArg::expr_maybe_starred(x), self, errors));
+                        kws = x
+                            .arguments
+                            .keywords
+                            .map(|x| call.call_keyword(&CallKeyword::new(x), self, errors));
+                    } else {
+                        args = x.arguments.args.map(CallArg::expr_maybe_starred);
+                        kws = x.arguments.keywords.map(CallKeyword::new);
+                    }
+
                     self.distribute_over_union(&ty_fun, |ty| match ty.callee_kind() {
                         Some(CalleeKind::Function(FunctionKind::AssertType)) => self
                             .call_assert_type(
@@ -1355,8 +1378,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.call_issubclass(&x.arguments.args[0], &x.arguments.args[1], errors)
                         }
                         _ => {
-                            let args = x.arguments.args.map(CallArg::expr_maybe_starred);
-                            let kws = x.arguments.keywords.map(CallKeyword::new);
                             let callable = self.as_call_target_or_error(
                                 ty.clone(),
                                 CallStyle::FreeForm,

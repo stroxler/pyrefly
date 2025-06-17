@@ -676,6 +676,10 @@ impl Type {
         Type::Callable(Box::new(Callable::param_spec(p, ret)))
     }
 
+    pub fn is_union(&self) -> bool {
+        matches!(self, Type::Union(_))
+    }
+
     pub fn is_never(&self) -> bool {
         matches!(self, Type::Never(_))
     }

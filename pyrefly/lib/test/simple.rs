@@ -1401,3 +1401,14 @@ reveal_type(T)  # E: type[TypeVar[T]]
 reveal_type(TypeForm)  # E: revealed type: type[type[TypeVar[T]]]
     "#,
 );
+
+testcase!(
+    test_union_function_exponential,
+    r#"
+# This used to take an exponential amount of time to type check
+from typing import Any, Callable, reveal_type
+
+def check(f: Callable[[int], bool] | Callable[[str], bool]) -> Any:
+    f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(True)))))))))))))))))))))))) # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E:
+"#,
+);
