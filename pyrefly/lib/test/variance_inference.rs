@@ -128,3 +128,150 @@ vinv5_1: ShouldBeInvariant5[float] = ShouldBeInvariant5[int](1)  # E:
 
 "#,
 );
+
+testcase!(
+    test_attrs_set_and_get,
+    r#"
+class ShouldBeCovariant1[T]:
+    def __getitem__(self, index: int) -> T:
+        ...
+
+vco1_1: ShouldBeCovariant1[float] = ShouldBeCovariant1[int]()  # OK
+vco1_2: ShouldBeCovariant1[int] = ShouldBeCovariant1[float]()  # E:
+
+
+class ShouldBeContravariant2[T]:
+    def __init__(self, value: T) -> None:
+        pass
+
+    def set_value(self, value: T):
+        pass
+
+
+vcontra1_1: ShouldBeContravariant2[float] = ShouldBeContravariant2[int](1)  # E:
+vcontra1_2: ShouldBeContravariant2[int] = ShouldBeContravariant2[float](1.2)  # OK
+
+
+"#,
+);
+
+testcase!(
+    test_infer_variance_and_private_field,
+    r#"
+from typing import Generic, TypeVar, Iterator
+
+T = TypeVar("T", infer_variance=True)
+
+
+class ShouldBeCovariant1(Generic[T]):
+    def __getitem__(self, index: int) -> T:
+        ...
+
+    def __iter__(self) -> Iterator[T]:
+        ...
+
+
+vco1_1: ShouldBeCovariant1[float] = ShouldBeCovariant1[int]()  # OK
+vco1_2: ShouldBeCovariant1[int] = ShouldBeCovariant1[float]()  # E:
+
+
+
+K = TypeVar("K", infer_variance=True)
+
+
+class ShouldBeCovariant5(Generic[K]):
+    def __init__(self, x: K) -> None:
+        self._x = x
+
+    def x(self) -> K:
+        return self._x
+
+vo5_1: ShouldBeCovariant5[float] = ShouldBeCovariant5[int](1)  # OK
+vo5_2: ShouldBeCovariant5[int] = ShouldBeCovariant5[float](1.0)  # E:
+
+# we are making sure we don't treat __dunder__ attributes as private.
+class ShouldBeInvariant6(Generic[K]):
+    def __init__(self, x: K) -> None:
+        self.__x__ = x
+
+    def x(self) -> K:
+        return self.__x__
+
+
+vo6_1: ShouldBeInvariant6[float] = ShouldBeInvariant6[int](1)  # E:
+vo6_2: ShouldBeInvariant6[int] = ShouldBeInvariant6[float](1.0)  # E:
+
+"#,
+);
+
+testcase!(
+    test_private_field,
+    r#"
+class ShouldBeCovariant5[K]:
+    def __init__(self, x: K) -> None:
+        self._x = x
+
+    def x(self) -> K:
+        return self._x
+
+
+vo5_1: ShouldBeCovariant5[float] = ShouldBeCovariant5[int](1)  # OK
+vo5_2: ShouldBeCovariant5[int] = ShouldBeCovariant5[float](1.0)  # E:
+
+"#,
+);
+
+testcase!(
+    test_dataclass_frozen_variance,
+    r#"
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class ShouldBeCovariant4[T]:
+    x: T
+
+
+vo4_1: ShouldBeCovariant4[float] = ShouldBeCovariant4[int](1)  # OK
+vo4_4: ShouldBeCovariant4[int] = ShouldBeCovariant4[float](1.0)  # E:
+"#,
+);
+
+testcase!(
+    test_property,
+    r#"
+from typing import *
+class ShouldBeInvariant1[K]:
+    def __init__(self, value: K) -> None:
+        self._value = value
+
+    @property
+    def value(self) -> K:
+        return self._value
+
+    @value.setter
+    def value(self, value: K) -> None:
+        self._value = value
+
+vinv1_1: ShouldBeInvariant1[float] = ShouldBeInvariant1[int](1)  # E:
+vinv1_2: ShouldBeInvariant1[int] = ShouldBeInvariant1[float](1.1)  # E:
+"#,
+);
+
+testcase!(
+    test_sequence_inheritance,
+    r#"
+from typing import Sequence
+
+class A[T](B[Sequence[T]]):
+    ...
+
+class B[T]:
+    def f(self, x:T) -> T:
+        return x
+
+b = B[int]()
+
+y = b.f(3)
+z = b.f(3.0) # E:
+"#,
+);
