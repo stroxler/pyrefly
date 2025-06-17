@@ -1483,7 +1483,7 @@ impl<'a> Transaction<'a> {
         let legends = SemanticTokensLegends::new();
         let mut builder = SemanticTokenBuilder::new(limit_range);
         for NamedBinding {
-            definition_handle: _,
+            definition_handle,
             definition_export,
             key,
         } in self.named_bindings(handle, &bindings)
@@ -1493,7 +1493,7 @@ impl<'a> Transaction<'a> {
                 ..
             } = definition_export
             {
-                builder.process_key(&key, symbol_kind)
+                builder.process_key(&key, definition_handle.module(), symbol_kind)
             }
         }
         builder.process_ast(&ast);

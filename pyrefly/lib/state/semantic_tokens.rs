@@ -20,6 +20,7 @@ use ruff_text_size::TextRange;
 use crate::binding::binding::Key;
 use crate::common::symbol_kind::SymbolKind;
 use crate::module::module_info::ModuleInfo;
+use crate::module::module_name::ModuleName;
 
 pub struct SemanticTokensLegends {
     token_types_index: HashMap<SemanticTokenType, u32>,
@@ -177,9 +178,24 @@ impl SemanticTokenBuilder {
         }
     }
 
-    pub fn process_key(&mut self, key: &Key, symbol_kind: SymbolKind) {
+    pub fn process_key(
+        &mut self,
+        key: &Key,
+        definition_module: ModuleName,
+        symbol_kind: SymbolKind,
+    ) {
         let reference_range = key.range();
-        let (token_type, token_modifiers) = symbol_kind.to_lsp_semantic_token_type_with_modifiers();
+        let (token_type, mut token_modifiers) =
+            symbol_kind.to_lsp_semantic_token_type_with_modifiers();
+        let is_default_library = {
+            let module_name_str = definition_module.as_str();
+            module_name_str == "builtins"
+                || module_name_str == "typing"
+                || module_name_str == "typing_extensions"
+        };
+        if is_default_library {
+            token_modifiers.push(SemanticTokenModifier::DEFAULT_LIBRARY);
+        }
         self.push_if_in_range(reference_range, token_type, token_modifiers);
     }
 

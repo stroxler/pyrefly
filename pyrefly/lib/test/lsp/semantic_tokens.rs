@@ -82,7 +82,7 @@ line: 2, column: 0, length: 8, text: ALL_CAPS
 token-type: variable, token-modifiers: [readonly]
 
 line: 3, column: 0, length: 3, text: str
-token-type: class
+token-type: class, token-modifiers: [defaultLibrary]
 
 line: 3, column: 4, length: 3, text: foo
 token-type: variable
@@ -114,10 +114,10 @@ line: 1, column: 8, length: 1, text: v
 token-type: parameter
 
 line: 1, column: 11, length: 3, text: int
-token-type: class
+token-type: class, token-modifiers: [defaultLibrary]
 
 line: 1, column: 19, length: 3, text: int
-token-type: class
+token-type: class, token-modifiers: [defaultLibrary]
 
 line: 2, column: 0, length: 3, text: bar
 token-type: variable
@@ -165,7 +165,7 @@ line: 2, column: 12, length: 4, text: self
 token-type: parameter
 
 line: 2, column: 21, length: 3, text: int
-token-type: class
+token-type: class, token-modifiers: [defaultLibrary]
 
 line: 3, column: 8, length: 3, text: bar
 token-type: function
@@ -177,13 +177,13 @@ line: 3, column: 18, length: 1, text: x
 token-type: parameter
 
 line: 3, column: 21, length: 3, text: int
-token-type: class
+token-type: class, token-modifiers: [defaultLibrary]
 
 line: 3, column: 29, length: 3, text: int
-token-type: class
+token-type: class, token-modifiers: [defaultLibrary]
 
 line: 4, column: 7, length: 3, text: int
-token-type: class
+token-type: class, token-modifiers: [defaultLibrary]
 
 line: 5, column: 0, length: 4, text: Test
 token-type: class
@@ -235,7 +235,7 @@ line: 1, column: 5, length: 1, text: A
 token-type: interface
 
 line: 1, column: 9, length: 3, text: int
-token-type: class
+token-type: class, token-modifiers: [defaultLibrary]
 
 line: 2, column: 4, length: 3, text: foo
 token-type: function
@@ -247,7 +247,7 @@ line: 2, column: 11, length: 1, text: A
 token-type: interface
 
 line: 2, column: 17, length: 3, text: int
-token-type: class
+token-type: class, token-modifiers: [defaultLibrary]
 
 line: 5, column: 5, length: 2, text: A2
 token-type: interface
@@ -303,10 +303,10 @@ except:
         r#"
 # main.py
 line: 3, column: 4, length: 5, text: print
-token-type: function
+token-type: function, token-modifiers: [defaultLibrary]
 
 line: 5, column: 4, length: 5, text: print
-token-type: function
+token-type: function, token-modifiers: [defaultLibrary]
 "#,
     );
 }
