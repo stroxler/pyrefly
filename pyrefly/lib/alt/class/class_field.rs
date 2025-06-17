@@ -13,6 +13,7 @@ use dupe::Dupe;
 use itertools::Itertools;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
+use pyrefly_util::prelude::ResultExt;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
@@ -271,7 +272,7 @@ impl ClassField {
 
     fn as_special_method_type(self, instance: &Instance) -> Option<Type> {
         self.as_raw_special_method_type(instance)
-            .and_then(|ty| make_bound_method(instance, &ty))
+            .and_then(|ty| make_bound_method(instance, ty).ok())
     }
 
     pub fn as_named_tuple_type(&self) -> Type {
@@ -456,39 +457,38 @@ impl<'a> Instance<'a> {
 }
 
 fn bind_class_attribute(cls: &Class, attr: Type) -> Attribute {
-    Attribute::read_write(make_bound_classmethod(cls, &attr).unwrap_or(attr))
+    Attribute::read_write(make_bound_classmethod(cls, attr).into_inner())
 }
 
+/// Return the type of making it bound, or if not,
 fn make_bound_method_helper(
     obj: Type,
-    attr: &Type,
+    attr: Type,
     should_bind: &dyn Fn(&FuncMetadata) -> bool,
-) -> Option<Type> {
+) -> Result<Type, Type> {
     let func = match attr {
         Type::Forall(box Forall {
             tparams,
             body: Forallable::Function(func),
         }) if should_bind(&func.metadata) => BoundMethodType::Forall(Forall {
-            tparams: tparams.clone(),
-            body: func.clone(),
+            tparams,
+            body: func,
         }),
-        Type::Function(func) if should_bind(&func.metadata) => {
-            BoundMethodType::Function((**func).clone())
-        }
+        Type::Function(func) if should_bind(&func.metadata) => BoundMethodType::Function(*func),
         Type::Overload(overload) if should_bind(&overload.metadata) => {
-            BoundMethodType::Overload(overload.clone())
+            BoundMethodType::Overload(overload)
         }
-        _ => return None,
+        _ => return Err(attr),
     };
-    Some(Type::BoundMethod(Box::new(BoundMethod { obj, func })))
+    Ok(Type::BoundMethod(Box::new(BoundMethod { obj, func })))
 }
 
-fn make_bound_classmethod(cls: &Class, attr: &Type) -> Option<Type> {
+fn make_bound_classmethod(cls: &Class, attr: Type) -> Result<Type, Type> {
     let should_bind = |meta: &FuncMetadata| meta.flags.is_classmethod;
     make_bound_method_helper(Type::ClassDef(cls.dupe()), attr, &should_bind)
 }
 
-fn make_bound_method(instance: &Instance, attr: &Type) -> Option<Type> {
+fn make_bound_method(instance: &Instance, attr: Type) -> Result<Type, Type> {
     let should_bind =
         |meta: &FuncMetadata| !meta.flags.is_staticmethod && !meta.flags.is_classmethod;
     make_bound_method_helper(instance.to_type(), attr, &should_bind)
@@ -503,21 +503,21 @@ fn bind_instance_attribute(
     // Decorated objects are methods, so they can't be ClassVars
     match attr {
         _ if attr.is_property_getter() => Attribute::property(
-            make_bound_method(instance, &attr).unwrap_or(attr),
+            make_bound_method(instance, attr).into_inner(),
             None,
             instance.class.dupe(),
         ),
         _ if let Some(getter) = attr.is_property_setter_with_getter() => Attribute::property(
-            make_bound_method(instance, &getter).unwrap_or(getter),
-            Some(make_bound_method(instance, &attr).unwrap_or(attr)),
+            make_bound_method(instance, getter).into_inner(),
+            Some(make_bound_method(instance, attr).into_inner()),
             instance.class.dupe(),
         ),
         attr if is_class_var || readonly => {
-            Attribute::read_only(make_bound_method(instance, &attr).unwrap_or(attr))
+            Attribute::read_only(make_bound_method(instance, attr).into_inner())
         }
         attr => Attribute::read_write(
-            make_bound_method(instance, &attr)
-                .unwrap_or_else(|| make_bound_classmethod(instance.class, &attr).unwrap_or(attr)),
+            make_bound_method(instance, attr)
+                .unwrap_or_else(|attr| make_bound_classmethod(instance.class, attr).into_inner()),
         ),
     }
 }
