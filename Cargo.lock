@@ -1845,7 +1845,6 @@ version = "0.20.1"
 dependencies = [
  "anstream",
  "anyhow",
- "append-only-vec",
  "base64",
  "blake3",
  "clap",

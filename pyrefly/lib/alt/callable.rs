@@ -5,9 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use append_only_vec::AppendOnlyVec;
 use itertools::Itertools;
 use pyrefly_util::display::count;
+use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::Expr;
@@ -43,12 +43,12 @@ use crate::types::types::Var;
 /// Structure to turn TypeOrExprs into Types.
 /// This is used to avoid re-infering types for arguments multiple types.
 ///
-/// Implemented by keeping an `AppendOnlyVec` to hand out references to `Type`.
-pub struct CallWithTypes(AppendOnlyVec<Type>);
+/// Implemented by keeping an `Owner` to hand out references to `Type`.
+pub struct CallWithTypes(Owner<Type>);
 
 impl CallWithTypes {
     pub fn new() -> Self {
-        Self(AppendOnlyVec::new())
+        Self(Owner::new())
     }
 
     pub fn type_or_expr<'a, 'b: 'a, Ans: LookupAnswer>(
@@ -60,8 +60,7 @@ impl CallWithTypes {
         match x {
             TypeOrExpr::Expr(e) => {
                 let t = solver.expr_infer(e, errors);
-                let i = self.0.push(t);
-                TypeOrExpr::Type(&self.0[i], e.range())
+                TypeOrExpr::Type(self.0.push(t), e.range())
             }
             TypeOrExpr::Type(t, r) => TypeOrExpr::Type(t, r),
         }
@@ -618,7 +617,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         // Heap storage for typed dict fields, which are freshly calculated (and need to be owned
         // somewhere) but are used as references.
-        let kwargs_typed_dict_fields_vec = AppendOnlyVec::new();
+        let kwargs_typed_dict_fields_vec = Owner::new();
         // Missing positional-only arguments, split by whether the corresponding parameters
         // in the callable have names. E.g., functions declared with `def` have named posonly
         // parameters and `typing.Callable`s have unnamed ones.
@@ -655,8 +654,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     kwparams.insert(name.clone(), (ty, required == Required::Required));
                 }
                 Param::Kwargs(_, Type::Unpack(box Type::TypedDict(typed_dict))) => {
-                    let i = kwargs_typed_dict_fields_vec.push(self.typed_dict_fields(&typed_dict));
-                    kwargs_typed_dict_fields_vec[i]
+                    kwargs_typed_dict_fields_vec
+                        .push(self.typed_dict_fields(&typed_dict))
                         .iter()
                         .for_each(|(name, field)| {
                             kwparams.insert(name.clone(), (field.ty.clone(), field.required));
