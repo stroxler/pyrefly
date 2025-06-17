@@ -658,14 +658,14 @@ impl ConfigFile {
 
             if !config.root.extras.0.is_empty() {
                 let extra_keys = config.root.extras.0.keys().join(", ");
-                errors.push(ConfigError::error(anyhow!(
+                errors.push(ConfigError::warn(anyhow!(
                     "Extra keys found in config: {extra_keys}"
                 )));
             }
             for sub_config in &config.sub_configs {
                 if !sub_config.settings.extras.0.is_empty() {
                     let extra_keys = sub_config.settings.extras.0.keys().join(", ");
-                    errors.push(ConfigError::error(anyhow!(
+                    errors.push(ConfigError::warn(anyhow!(
                         "Extra keys found in sub config matching {}: {extra_keys}",
                         sub_config.matches
                     )));
