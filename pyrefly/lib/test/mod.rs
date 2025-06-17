@@ -19,6 +19,7 @@ mod class_super;
 mod constructors;
 mod contextual;
 mod cycles;
+mod dataclass_transform;
 mod dataclasses;
 mod decorators;
 mod delayed_inference;
