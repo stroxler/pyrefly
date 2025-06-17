@@ -374,6 +374,7 @@ pub trait LookupAnswer: Sized {
         module: ModuleName,
         path: Option<&ModulePath>,
         k: &K,
+        stack: &CalculationStack,
     ) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -539,6 +540,7 @@ impl Answers {
         stdlib: &Stdlib,
         uniques: &UniqueFactory,
         key: Hashed<&K>,
+        stack: &CalculationStack,
     ) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -553,8 +555,7 @@ impl Answers {
             exports,
             recurser: &Recurser::new(),
             current: self,
-            // TODO: pass this down. For now, the stack resets when we cross a module boundary.
-            stack: &CalculationStack::new(),
+            stack,
         };
         let v = solver.get_hashed(key);
         let mut vv = (*v).clone();
@@ -675,7 +676,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             self.get(k)
         } else {
-            self.answers.get(module, path, k)
+            self.answers.get(module, path, k, self.stack)
         }
     }
 
