@@ -136,6 +136,7 @@ def to_int(data: str | bytes | None) -> Optional[int]:
 
 Generics allow you to define reusable functions and classes that work with multiple types. This feature enables you to write more flexible and adaptable code.
 
+**Declaring Generic Classes:**
 <CodeSnippet
   sampleFilename="generics.py"
   codeSample={`# Example: Generic Classes
@@ -152,6 +153,24 @@ c = C(0)
 reveal_type(c.box())  # revealed type: list[int]
 `}
 />
+
+**Declaring Type Statements:**
+<CodeSnippet
+  sampleFilename="type_statements.py"
+  codeSample={`# Example: Type Statements
+type ListOrSet[T:int] = list[T] | set[T]
+`}
+/>
+
+
+**ParamSpec and TypeVarTuple:**
+<CodeSnippet
+  sampleFilename="param_spec_typevar_typle.py"
+  codeSample={`# Example: ParamSpec and TypeVarTuple
+class ChildClass[T, *Ts, **P]: ...
+`}
+/>
+
 
 ### Variance Inference in Generics
 
