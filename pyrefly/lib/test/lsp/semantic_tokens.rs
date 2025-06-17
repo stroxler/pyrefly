@@ -189,19 +189,19 @@ token-type: property"#,
 }
 
 #[test]
-fn type_param_test() {
+fn type_alias_test() {
     let code = r#"
-type T = int
-def foo(v: T) -> int: 
+type A = int
+def foo(v: A) -> int: 
   return 3
 
-type T2 = T
+type A2 = A
 "#;
     assert_full_semantic_tokens(
         &[("main", code)],
         r#"
 # main.py
-line: 1, column: 5, length: 1, text: T
+line: 1, column: 5, length: 1, text: A
 token-type: interface
 
 line: 1, column: 9, length: 3, text: int
@@ -213,17 +213,48 @@ token-type: function
 line: 2, column: 8, length: 1, text: v
 token-type: parameter
 
-line: 2, column: 11, length: 1, text: T
+line: 2, column: 11, length: 1, text: A
 token-type: interface
 
 line: 2, column: 17, length: 3, text: int
 token-type: class
 
-line: 5, column: 5, length: 2, text: T2
+line: 5, column: 5, length: 2, text: A2
 token-type: interface
 
-line: 5, column: 10, length: 1, text: T
+line: 5, column: 10, length: 1, text: A
 token-type: interface
+"#,
+    );
+}
+
+#[test]
+fn type_param_test() {
+    let code = r#"
+def foo[T](v: T) -> T: 
+  return v
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 4, length: 3, text: foo
+token-type: function
+
+line: 1, column: 8, length: 1, text: T
+token-type: typeParameter
+
+line: 1, column: 11, length: 1, text: v
+token-type: parameter
+
+line: 1, column: 14, length: 1, text: T
+token-type: typeParameter
+
+line: 1, column: 20, length: 1, text: T
+token-type: typeParameter
+
+line: 2, column: 9, length: 1, text: v
+token-type: parameter
 "#,
     );
 }
