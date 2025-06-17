@@ -43,6 +43,7 @@ pub mod lock;
 pub mod locked_map;
 pub mod memory;
 pub mod no_hash;
+pub mod owner;
 pub mod prelude;
 pub mod recurser;
 pub mod ruff_visitors;
