@@ -316,25 +316,19 @@ impl TArgs {
     }
 }
 
-pub struct Substitution(SmallMap<Quantified, Type>);
+pub struct Substitution<'a>(SmallMap<&'a Quantified, &'a Type>);
 
-impl Substitution {
+impl<'a> Substitution<'a> {
     pub fn substitute(&self, ty: Type) -> Type {
         ty.subst(&self.0)
     }
 
     /// Creates a Substitution from a class specialized with type arguments.
     /// Assumes that the number of args equals the number of type parameters on the class.
-    pub fn new(cls: &Class, args: &TArgs) -> Self {
+    pub fn new(cls: &'a Class, args: &'a TArgs) -> Self {
         let tparams = cls.tparams();
         let targs = args.as_slice();
-        Substitution(
-            tparams
-                .quantified()
-                .cloned()
-                .zip(targs.iter().cloned())
-                .collect(),
-        )
+        Substitution(tparams.quantified().zip(targs.iter()).collect())
     }
 }
 

@@ -13,6 +13,7 @@ use dupe::Dupe;
 use itertools::Itertools;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
+use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::ResultExt;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
@@ -947,6 +948,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Type::Forall(box Forall { tparams, .. }) => {
                     let mut qs = SmallSet::new();
                     ty.collect_quantifieds(&mut qs);
+                    let ts = Owner::new();
                     let gradual_fallbacks: SmallMap<_, _> = tparams
                         .iter()
                         .filter_map(|param| {
@@ -963,7 +965,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         param.name(),
                                     ),
                                 );
-                                Some((q.clone(), q.as_gradual_type()))
+                                Some((q , ts.push(q.as_gradual_type())))
                             } else {
                                 None
                             }

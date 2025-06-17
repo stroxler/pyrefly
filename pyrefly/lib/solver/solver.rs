@@ -11,6 +11,7 @@ use std::mem;
 
 use pyrefly_util::gas::Gas;
 use pyrefly_util::lock::RwLock;
+use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::recurser::Recurser;
 use pyrefly_util::uniques::UniqueFactory;
 use pyrefly_util::visit::VisitMut;
@@ -338,13 +339,8 @@ impl Solver {
         }
 
         let vs: Vec<Var> = params.iter().map(|_| Var::new(uniques)).collect();
-        let t = t.subst(
-            &params
-                .iter()
-                .map(|p| p.quantified.clone())
-                .zip(vs.iter().map(|x| x.to_type()))
-                .collect(),
-        );
+        let ts = vs.map(|v| v.to_type());
+        let t = t.subst(&params.iter().map(|p| &p.quantified).zip(&ts).collect());
         let mut lock = self.variables.write();
         for (v, param) in vs.iter().zip(params.iter()) {
             lock.insert(
