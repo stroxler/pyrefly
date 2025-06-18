@@ -1453,3 +1453,11 @@ def f(x): pass
 1 = f() # E: Invalid assignment target # E: Missing argument `x`
 "#,
 );
+
+testcase!(
+    test_invalid_type_as_string,
+    r#"
+# Used to crash https://github.com/facebook/pyrefly/issues/517
+t: "õ" # E: Could not find name `õ`
+"#,
+);
