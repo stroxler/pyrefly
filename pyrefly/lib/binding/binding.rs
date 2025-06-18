@@ -329,32 +329,51 @@ impl Ranged for Key {
 impl DisplayWith<ModuleInfo> for Key {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
         match self {
-            Self::Import(n, r) => write!(f, "import {n} {r:?}"),
-            Self::Definition(x) => write!(f, "{} {:?}", ctx.display(x), x.range()),
+            Self::Import(n, r) => write!(f, "import {n} {}", ctx.display(r)),
+            Self::Definition(x) => write!(f, "{} {}", ctx.display(x), ctx.display(&x.range())),
             Self::UpstreamPinnedDefinition(x) => {
-                write!(f, "{} {:?} (half pinned)", ctx.display(x), x.range())
+                write!(
+                    f,
+                    "{} {} (half pinned)",
+                    ctx.display(x),
+                    ctx.display(&x.range())
+                )
             }
             Self::PinnedDefinition(x) => {
-                write!(f, "{} {:?} (pinned)", ctx.display(x), x.range())
+                write!(f, "{} {} (pinned)", ctx.display(x), ctx.display(&x.range()))
             }
             Self::PropertyAssign(x) => {
-                write!(f, "prop assign {}._ = _ {:?}", ctx.display(x), x.range())
+                write!(
+                    f,
+                    "prop assign {}._ = _ {}",
+                    ctx.display(x),
+                    ctx.display(&x.range())
+                )
             }
-            Self::BoundName(x) => write!(f, "use {} {:?}", ctx.display(x), x.range()),
-            Self::Anon(r) => write!(f, "anon {r:?}"),
-            Self::StmtExpr(r) => write!(f, "stmt expr {r:?}"),
-            Self::ContextExpr(r) => write!(f, "context expr {r:?}"),
-            Self::Phi(n, r) => write!(f, "phi {n} {r:?}"),
-            Self::Narrow(n, r1, r2) => write!(f, "narrow {n} {r1:?} {r2:?}"),
-            Self::Anywhere(n, r) => write!(f, "anywhere {n} {r:?}"),
-            Self::ReturnType(x) => write!(f, "return {} {:?}", ctx.display(x), x.range()),
-            Self::ReturnExplicit(r) => write!(f, "return {r:?}"),
+            Self::BoundName(x) => write!(f, "use {} {}", ctx.display(x), ctx.display(&x.range())),
+            Self::Anon(r) => write!(f, "anon {}", ctx.display(r)),
+            Self::StmtExpr(r) => write!(f, "stmt expr {}", ctx.display(r)),
+            Self::ContextExpr(r) => write!(f, "context expr {}", ctx.display(r)),
+            Self::Phi(n, r) => write!(f, "phi {n} {}", ctx.display(r)),
+            Self::Narrow(n, r1, r2) => {
+                write!(f, "narrow {n} {} {}", ctx.display(r1), ctx.display(r2))
+            }
+            Self::Anywhere(n, r) => write!(f, "anywhere {n} {}", ctx.display(r)),
+            Self::ReturnType(x) => {
+                write!(f, "return {} {}", ctx.display(x), ctx.display(&x.range()))
+            }
+            Self::ReturnExplicit(r) => write!(f, "return {}", ctx.display(r)),
             Self::ReturnImplicit(x) => {
-                write!(f, "return implicit {} {:?}", ctx.display(x), x.range())
+                write!(
+                    f,
+                    "return implicit {} {}",
+                    ctx.display(x),
+                    ctx.display(&x.range())
+                )
             }
-            Self::SuperInstance(r) => write!(f, "super {r:?}"),
-            Self::Unpack(r) => write!(f, "unpack {r:?}"),
-            Self::UsageLink(r) => write!(f, "usage link {r:?}"),
+            Self::SuperInstance(r) => write!(f, "super {}", ctx.display(r)),
+            Self::Unpack(r) => write!(f, "unpack {}", ctx.display(r)),
+            Self::UsageLink(r) => write!(f, "usage link {}", ctx.display(r)),
         }
     }
 }
