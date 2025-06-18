@@ -281,7 +281,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         x.range(),
                         ErrorKind::InvalidAnnotation,
                         None,
-                        format!("`{}` is only allowed inside a class body.", special),
+                        format!("`{}` is only allowed inside a class body", special),
                     );
                     None
                 }
@@ -297,7 +297,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorKind::InvalidAnnotation,
                         None,
                         format!(
-                            "`{}` is only allowed on a class or local variable annotation.",
+                            "`{}` is only allowed on a class or local variable annotation",
                             special
                         ),
                     );
@@ -314,7 +314,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         x.range(),
                         ErrorKind::InvalidAnnotation,
                         None,
-                        "`TypeAlias` is only allowed on variable annotations.".to_owned(),
+                        "`TypeAlias` is only allowed on variable annotations".to_owned(),
                     );
                     None
                 }
@@ -508,7 +508,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             x.range(),
                             ErrorKind::InvalidAnnotation,
                             None,
-                            format!("`{}` is not allowed in this context.", special_form),
+                            format!("`{}` is not allowed in this context", special_form),
                         );
                     }
                 }
@@ -2894,7 +2894,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                "`Unpack` with a `TypedDict` is only allowed in a **kwargs annotation.".to_owned(),
+                "`Unpack` with a `TypedDict` is only allowed in a **kwargs annotation".to_owned(),
             );
         }
         if type_form_context != TypeFormContext::ParameterKwargsAnnotation
@@ -2905,7 +2905,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                "`ParamSpec` **kwargs is only allowed in a **kwargs annotation.".to_owned(),
+                "`ParamSpec` **kwargs is only allowed in a **kwargs annotation".to_owned(),
             );
         }
         if type_form_context != TypeFormContext::ParameterArgsAnnotation
@@ -2916,7 +2916,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                "`ParamSpec` *args is only allowed in an *args annotation.".to_owned(),
+                "`ParamSpec` *args is only allowed in an *args annotation".to_owned(),
             );
         }
         if !matches!(
@@ -2934,7 +2934,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                "`Unpack` is not allowed in this context.".to_owned(),
+                "`Unpack` is not allowed in this context".to_owned(),
             );
         }
         if !matches!(
@@ -2951,7 +2951,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                format!("`{}` is not allowed in this context.", ty),
+                format!("`{}` is not allowed in this context", ty),
             );
         }
         if !matches!(
@@ -2973,7 +2973,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorKind::InvalidAnnotation,
                     None,
-                    "`TypeVarTuple` must be unpacked.".to_owned(),
+                    "`TypeVarTuple` must be unpacked".to_owned(),
                 );
             } else {
                 return self.error(
@@ -2981,7 +2981,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorKind::InvalidAnnotation,
                     None,
-                    "`TypeVarTuple` is not allowed in this context.".to_owned(),
+                    "`TypeVarTuple` is not allowed in this context".to_owned(),
                 );
             }
         }
@@ -3002,7 +3002,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorKind::InvalidAnnotation,
                     None,
-                    format!("`{}` is not allowed in this context.", special_form),
+                    format!("`{}` is not allowed in this context", special_form),
                 );
             }
         }
@@ -3020,7 +3020,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorKind::InvalidAnnotation,
                     None,
-                    "`ParamSpec` is not allowed in this context.".to_owned(),
+                    "`ParamSpec` is not allowed in this context".to_owned(),
                 );
             }
             // We check tuple/callable/generic type arguments separately, so exclude those
@@ -3036,7 +3036,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorKind::InvalidAnnotation,
                     None,
-                    "`TypeVarTuple` must be unpacked.".to_owned(),
+                    "`TypeVarTuple` must be unpacked".to_owned(),
                 );
             }
         }

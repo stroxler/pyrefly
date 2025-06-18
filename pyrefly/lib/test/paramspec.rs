@@ -125,12 +125,12 @@ from typing import Callable, Concatenate, ParamSpec
 
 P = ParamSpec("P")
 
-def foo(x: P) -> P: ...                           # E: `ParamSpec` is not allowed in this context. # E: `ParamSpec` is not allowed in this context.
-def foo(x: Concatenate[int, P]) -> int: ...       # E: `Concatenate[int, P]` is not allowed in this context.
-def foo(x: Callable[Concatenate[P, P], int]) -> int: ...  # E: `ParamSpec` is not allowed in this context.
+def foo(x: P) -> P: ...                           # E: `ParamSpec` is not allowed in this context # E: `ParamSpec` is not allowed in this context
+def foo(x: Concatenate[int, P]) -> int: ...       # E: `Concatenate[int, P]` is not allowed in this context
+def foo(x: Callable[Concatenate[P, P], int]) -> int: ...  # E: `ParamSpec` is not allowed in this context
 def foo(x: list[P]) -> None: ...                  # E: `ParamSpec` cannot be used for type parameter
-def foo(x: Callable[[int, str], P]) -> None: ...  # E: `ParamSpec` is not allowed in this context.
-def foo(x: Callable[[P, str], int]) -> None: ...  # E: `ParamSpec` is not allowed in this context.
+def foo(x: Callable[[int, str], P]) -> None: ...  # E: `ParamSpec` is not allowed in this context
+def foo(x: Callable[[P, str], int]) -> None: ...  # E: `ParamSpec` is not allowed in this context
 "#,
 );
 
@@ -260,8 +260,8 @@ P = ParamSpec("P")
 
 def puts_p_into_scope(f: Callable[P, int]) -> None:
   def inner(*args: P.args, **kwargs: P.kwargs) -> None: pass     # Accepted
-  def mixed_up(*args: P.kwargs, **kwargs: P.args) -> None: pass  # E: `ParamSpec` **kwargs is only allowed in a **kwargs annotation. # E: `ParamSpec` *args is only allowed in an *args annotation.
-  def misplaced(x: P.args) -> None: pass                         # E: `ParamSpec` *args is only allowed in an *args annotation.
+  def mixed_up(*args: P.kwargs, **kwargs: P.args) -> None: pass  # E: `ParamSpec` **kwargs is only allowed in a **kwargs annotation # E: `ParamSpec` *args is only allowed in an *args annotation
+  def misplaced(x: P.args) -> None: pass                         # E: `ParamSpec` *args is only allowed in an *args annotation
 
 def out_of_scope(*args: P.args, **kwargs: P.kwargs) -> None: # Rejected
   pass
@@ -276,8 +276,8 @@ from typing import Callable, ParamSpec
 P = ParamSpec("P")
 
 def puts_p_into_scope(f: Callable[P, int]) -> None:
-  stored_args: P.args                           # E: `ParamSpec` *args is only allowed in an *args annotation.
-  stored_kwargs: P.kwargs                       # E: `ParamSpec` **kwargs is only allowed in a **kwargs annotation.
+  stored_args: P.args                           # E: `ParamSpec` *args is only allowed in an *args annotation
+  stored_kwargs: P.kwargs                       # E: `ParamSpec` **kwargs is only allowed in a **kwargs annotation
   def just_args(*args: P.args) -> None:         # E: `ParamSpec` *args and **kwargs must be used together
     pass
   def just_kwargs(**kwargs: P.kwargs) -> None:  # E: `ParamSpec` *args and **kwargs must be used together
