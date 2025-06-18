@@ -164,8 +164,13 @@ fn find_one_part_prefix<'a>(
                         }
 
                         for candidate_file_suffix in ["pyi", "py"] {
-                            let suffix = format!(".{}", candidate_file_suffix);
-                            if name.ends_with(&suffix) && path.is_file() {
+                            let suffix: String = format!(".{}", candidate_file_suffix);
+                            let not_allowed_names =
+                                ["__init__", "__main__"].map(|s| format!("{}{}", s, suffix));
+                            if name.ends_with(&suffix)
+                                && !not_allowed_names.contains(&name.to_owned())
+                                && path.is_file()
+                            {
                                 let module_name = &name[..name.len() - suffix.len()];
                                 if module_name.starts_with(prefix.as_str()) {
                                     results.push((
@@ -888,6 +893,19 @@ mod tests {
         TestPath::setup_test_directory(root, vec![TestPath::file("foo.py")]);
         assert_eq!(
             find_module_prefixes(ModuleName::from_str("fo"), [root.to_path_buf()].iter(),),
+            vec![ModuleName::from_str("foo")]
+        );
+    }
+    #[test]
+    fn test_find_module_prefixes_ignores_init() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::file("foo.py"), TestPath::file("__init__.py")],
+        );
+        assert_eq!(
+            find_module_prefixes(ModuleName::from_str(""), [root.to_path_buf()].iter(),),
             vec![ModuleName::from_str("foo")]
         );
     }
