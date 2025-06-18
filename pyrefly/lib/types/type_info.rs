@@ -18,6 +18,7 @@ use pyrefly_util::assert_bytes;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use starlark_map::small_map::SmallMap;
+use starlark_map::smallmap;
 use vec1::Vec1;
 
 use crate::binding::narrow::FacetKind;
@@ -270,9 +271,7 @@ impl NarrowedFacets {
     }
 
     fn of_narrow(facet: FacetKind, more_facets: &[FacetKind], ty: Type) -> Self {
-        let mut narrowed_facets = SmallMap::with_capacity(1);
-        narrowed_facets.insert(facet.clone(), NarrowedFacet::new(more_facets, ty));
-        Self(narrowed_facets)
+        Self(smallmap! {facet => NarrowedFacet::new(more_facets, ty)})
     }
 
     fn join(mut branches: Vec<&Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Option<Self> {
