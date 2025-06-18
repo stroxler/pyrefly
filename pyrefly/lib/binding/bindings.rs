@@ -945,7 +945,9 @@ impl<'a> BindingsBuilder<'a> {
         name: &Identifier,
         mut idx: Idx<Key>,
     ) -> Option<Idx<KeyLegacyTypeParam>> {
-        loop {
+        // We are happy to follow some forward bindings, but it's possible to have a cycle of such bindings.
+        // Therefore we arbitrarily cut off at 100 forward hops.
+        for _ in 1..100 {
             if let Some(b) = self.table.types.1.get(idx) {
                 match b {
                     Binding::Forward(fwd_idx) => {
@@ -983,6 +985,7 @@ impl<'a> BindingsBuilder<'a> {
                 return None;
             }
         }
+        None
     }
 
     pub fn bind_definition(
