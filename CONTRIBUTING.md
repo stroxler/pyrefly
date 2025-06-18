@@ -98,11 +98,36 @@ please read that if you are a new contributor.
 
 ## Developing Pyrefly
 
-We do not yet have development docs ready in this repository, they should be
-coming soon.
+Development docs are WIP. Please reach out if you are working on an issue and
+have questions or want a code pointer.
 
-If you are interested in working on Pyrefly, please file an issue and we'll work
-on the docs for this.
+As described in the README, our architecture follows 3 phases:
+
+1. figuring out exports
+2. making bindings
+3. solving the bindings
+
+Here's an overview of some important directories:
+
+- `pyrefly/lib/alt` - Solving step
+- `pyrefly/lib/binding` - Binding step
+- `pyrefly/lib/commands` - CLI
+- `pyrefly/lib/config` - Config file format & config options
+- `pyrefly/lib/error` - How we collect and emit errors
+- `pyrefly/lib/export` - Exports step
+- `pyrefly/lib/module` - Import resolution/module finding logic
+- `pyrefly/lib/solver` - Solving type variables and checking if a type is
+  assignable to another type
+- `pyrefly/lib/state` - Internal state for the language server
+- `pyrefly/lib/test` - Integration tests for the typechecker
+- `pyrefly/lib/test/lsp` - Integration tests for the language server
+- `pyrefly/lib/types` - Our internal representation for Python types
+- `conformance` - Typing conformance tests pulled from
+  [python/typing](https://github.com/python/typing/tree/main/conformance). Don't
+  edit these manually. Instead, run `test.py` and include any generated changes
+  with your PR.
+- `test` - Markdown end-to-end tests for our IDE features
+- `website` - Source code for [pyrefly.org](pyrefly.org)
 
 ## License
 
