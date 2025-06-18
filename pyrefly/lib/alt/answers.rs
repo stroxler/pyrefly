@@ -731,12 +731,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 K::solve(self, binding, self.base_errors)
             },
             || {
-                if self.show_current_module() == "leaky_loop" {
-                    println!("Breaking cycle:");
-                    for entry in self.show_current_cycle() {
-                        println!("  {}", entry);
-                    }
-                }
                 let binding = self.bindings().get(idx);
                 K::create_recursive(self, binding)
             },
