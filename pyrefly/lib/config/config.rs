@@ -329,6 +329,8 @@ impl ConfigFile {
             &self
                 .site_package_path()
                 .iter()
+                // filter out project directory when editable installs add project path to PYTHONPATH
+                .filter(|p| self.source.root().is_none_or(|r| r != *p))
                 .map(|pattern| Glob::new(pattern.to_string_lossy().to_string()))
                 .collect::<Vec<_>>(),
         );
