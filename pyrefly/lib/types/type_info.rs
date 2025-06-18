@@ -214,24 +214,22 @@ struct NarrowedFacets(SmallMap<FacetKind, NarrowedFacet>);
 
 impl NarrowedFacets {
     fn add_narrow(&mut self, facet: FacetKind, more_facets: &[FacetKind], ty: Type) {
-        let narrowed_facets = &mut self.0;
-        match narrowed_facets.get_mut(&facet) {
+        match self.0.get_mut(&facet) {
             Some(narrowed_facet) => {
                 narrowed_facet.add_narrow(more_facets, ty);
             }
             None => {
-                narrowed_facets.insert(facet, NarrowedFacet::new(more_facets, ty));
+                self.0.insert(facet, NarrowedFacet::new(more_facets, ty));
             }
         };
     }
 
     fn clear_index_narrows(&mut self, facets: &[FacetKind]) {
-        let narrowed_facets = &mut self.0;
         match facets {
             [] => {
-                narrowed_facets.retain(|k, _| !k.invalidate_on_unknown_assignment());
+                self.0.retain(|k, _| !k.invalidate_on_unknown_assignment());
             }
-            [facet, more_facets @ ..] => match narrowed_facets.get_mut(facet) {
+            [facet, more_facets @ ..] => match self.0.get_mut(facet) {
                 Some(narrowed_facet) => {
                     narrowed_facet.clear_index_narrows(more_facets);
                 }
@@ -246,20 +244,21 @@ impl NarrowedFacets {
         more_facets: &[FacetKind],
         ty: Option<Type>,
     ) {
-        let narrowed_facets = &mut self.0;
         match more_facets {
             [] => {
                 if let Some(ty) = ty {
-                    narrowed_facets.insert(facet.clone(), NarrowedFacet::new(more_facets, ty));
+                    self.0
+                        .insert(facet.clone(), NarrowedFacet::new(more_facets, ty));
                 } else {
-                    narrowed_facets.shift_remove(facet);
+                    self.0.shift_remove(facet);
                 }
             }
             [next_facet, remaining_facets @ ..] => {
-                if let Some(narrowed_facet) = narrowed_facets.get_mut(next_facet) {
+                if let Some(narrowed_facet) = self.0.get_mut(next_facet) {
                     narrowed_facet.update_for_assignment(next_facet, remaining_facets, ty);
                 } else if let Some(ty) = ty {
-                    narrowed_facets.insert(facet.clone(), NarrowedFacet::new(more_facets, ty));
+                    self.0
+                        .insert(facet.clone(), NarrowedFacet::new(more_facets, ty));
                 }
                 // ... else there is no existing narrow and no narrow type, so do nothing.
             }
@@ -314,9 +313,8 @@ impl NarrowedFacets {
         prefix: &mut Vec<FacetKind>,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        let facets = &self.0;
         let mut first = true;
-        for (facet, value) in facets.iter() {
+        for (facet, value) in self.0.iter() {
             if first {
                 first = false
             } else {
