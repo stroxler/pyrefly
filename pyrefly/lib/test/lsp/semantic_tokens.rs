@@ -65,6 +65,21 @@ fn assert_full_semantic_tokens(files: &[(&'static str, &str)], expected: &str) {
 }
 
 #[test]
+fn module_name_test() {
+    let code = r#"
+from json import decoder
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 17, length: 7, text: decoder
+token-type: namespace
+"#,
+    );
+}
+
+#[test]
 fn variable_and_constant_test() {
     let code = r#"
 foo = 3
@@ -290,7 +305,7 @@ token-type: parameter
 }
 
 #[test]
-fn try_test() {
+fn control_flow_merge_test_try() {
     let code = r#"
 import typing
 try:
@@ -302,11 +317,59 @@ except:
         &[("main", code)],
         r#"
 # main.py
+line: 1, column: 7, length: 6, text: typing
+token-type: namespace, token-modifiers: [defaultLibrary]
+
 line: 3, column: 4, length: 5, text: print
 token-type: function, token-modifiers: [defaultLibrary]
 
 line: 5, column: 4, length: 5, text: print
 token-type: function, token-modifiers: [defaultLibrary]
+"#,
+    );
+}
+
+#[test]
+fn control_flow_merge_test_def() {
+    let code = r#"
+b: bool = True
+
+if b:
+    def f() -> int:
+        return 1
+else:
+    def f() -> bool:
+        return False
+
+f()
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 0, length: 1, text: b
+token-type: variable
+
+line: 1, column: 3, length: 4, text: bool
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 3, column: 3, length: 1, text: b
+token-type: variable
+
+line: 4, column: 8, length: 1, text: f
+token-type: function
+
+line: 4, column: 15, length: 3, text: int
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 7, column: 8, length: 1, text: f
+token-type: function
+
+line: 7, column: 15, length: 4, text: bool
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 10, column: 0, length: 1, text: f
+token-type: function
 "#,
     );
 }

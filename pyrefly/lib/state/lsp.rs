@@ -1274,27 +1274,21 @@ impl<'a> Transaction<'a> {
     /// This function helps to filter out such bindings and only leave bindings that eventually
     /// jumps to a name in the source.
     fn named_bindings(&self, handle: &Handle, bindings: &Bindings) -> Vec<NamedBinding> {
-        let self_module_info = self.get_module_info(handle);
         let mut named_bindings = Vec::new();
         for idx in bindings.keys::<Key>() {
             let key = bindings.idx_to_key(idx);
+            if let Key::Phi(..) = key {
+                // Phi keys are always synthetic and never serves as a name definition.
+                continue;
+            }
             if let Some((definition_handle, definition_export)) =
                 self.key_to_export(handle, key, INITIAL_GAS)
-                && let Some(self_module_info) = &self_module_info
-                && let Some(definition_module_info) = self.get_module_info(&definition_handle)
-                && definition_handle.path() == definition_module_info.path()
             {
-                // Sanity check: the reference should have the same text as the definition.
-                // This check helps to filter out from synthetic bindings.
-                if self_module_info.code_at(key.range())
-                    == definition_module_info.code_at(definition_export.location)
-                {
-                    named_bindings.push(NamedBinding {
-                        definition_handle,
-                        definition_export,
-                        key: key.clone(),
-                    });
-                }
+                named_bindings.push(NamedBinding {
+                    definition_handle,
+                    definition_export,
+                    key: key.clone(),
+                });
             }
         }
         named_bindings
