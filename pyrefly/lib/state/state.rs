@@ -497,6 +497,14 @@ impl<'a> Transaction<'a> {
         Ok(Handle::new(module, path, handle.sys_info().dupe()))
     }
 
+    /// Create a handle for import `module` within the handle `handle`
+    pub fn import_prefixes(&self, handle: &Handle, module: ModuleName) -> Vec<ModuleName> {
+        self.get_module(handle)
+            .config
+            .read()
+            .find_import_prefixes(module)
+    }
+
     fn clean(
         &self,
         module_data: &ArcId<ModuleDataMut>,

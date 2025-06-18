@@ -326,7 +326,6 @@ pub fn find_module_in_site_package_path(
     Ok(None)
 }
 
-#[allow(dead_code)]
 pub fn find_module_prefixes<'a>(
     prefix: ModuleName,
     include: impl Iterator<Item = &'a PathBuf>,

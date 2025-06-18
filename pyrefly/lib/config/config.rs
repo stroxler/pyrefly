@@ -36,6 +36,7 @@ use crate::config::finder::ConfigError;
 use crate::module::bundled::typeshed;
 use crate::module::finder::find_module_in_search_path;
 use crate::module::finder::find_module_in_site_package_path;
+use crate::module::finder::find_module_prefixes;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::wildcard::ModuleWildcard;
@@ -379,6 +380,11 @@ impl ConfigFile {
                 &self.source,
             ))
         }
+    }
+
+    /// Find all legitimate imports that start with `module`
+    pub fn find_import_prefixes(&self, module: ModuleName) -> Vec<ModuleName> {
+        find_module_prefixes(module, self.search_path().chain(self.site_package_path()))
     }
 }
 

@@ -1338,12 +1338,21 @@ impl<'a> Transaction<'a> {
                 Some(completions)
             }
             Some(IdentifierWithContext {
-                identifier: _,
+                identifier,
                 context: IdentifierContext::ImportedModule { .. },
-            }) => {
-                // TODO(kylei): completion for module names
-                None
-            }
+            }) => Some(
+                self.import_prefixes(handle, ModuleName::from_name(identifier.id()))
+                    .map(|module_name| CompletionItem {
+                        label: module_name
+                            .components()
+                            .last()
+                            .unwrap_or(&Name::empty())
+                            .to_string(),
+                        detail: Some(module_name.to_string()),
+                        kind: Some(CompletionItemKind::MODULE),
+                        ..Default::default()
+                    }),
+            ),
             Some(IdentifierWithContext {
                 identifier: _,
                 context: IdentifierContext::Attribute { base_range, .. },
