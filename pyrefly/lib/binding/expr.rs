@@ -685,25 +685,24 @@ impl<'a> BindingsBuilder<'a> {
                     self.ensure_expr(e, static_type_usage);
                 }
             }
-            Expr::StringLiteral(literal) => match Ast::parse_type_literal(literal) {
-                Ok(expr) => {
-                    *x = expr;
-                    // TODO: Remember if we have already done a parse_type_literal, so we could properly
-                    // reject annotations of the form `"'T'"`.
-                    self.ensure_type(x, tparams_builder);
+            Expr::StringLiteral(literal) if let Some(literal) = literal.as_single_part_string() => {
+                match Ast::parse_type_literal(literal) {
+                    Ok(expr) => {
+                        *x = expr;
+                        // TODO: Remember if we have already done a parse_type_literal, so we could properly
+                        // reject annotations of the form `"'T'"`.
+                        self.ensure_type(x, tparams_builder);
+                    }
+                    Err(e) => {
+                        self.error(
+                            literal.range,
+                            ErrorKind::ParseError,
+                            None,
+                            format!("Could not parse type string: {}, got {e}", literal.value),
+                        );
+                    }
                 }
-                Err(e) => {
-                    self.error(
-                        literal.range,
-                        ErrorKind::ParseError,
-                        None,
-                        format!(
-                            "Could not parse type string: {}, got {e}",
-                            literal.value.to_str()
-                        ),
-                    );
-                }
-            },
+            }
             // Bind the lambda so we don't crash on undefined parameter names.
             Expr::Lambda(_) => self.ensure_expr(x, static_type_usage),
             // Bind the call so we generate all expected bindings. See

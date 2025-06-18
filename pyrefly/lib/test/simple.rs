@@ -191,6 +191,13 @@ def f(y: "None") -> list["Foo"]:
 );
 
 testcase!(
+    test_type_as_concat_string,
+    r#"
+x: "list" "[int]" = [] # E: Expected a type form
+"#,
+);
+
+testcase!(
     test_line_file,
     r#"
 from typing import assert_type
