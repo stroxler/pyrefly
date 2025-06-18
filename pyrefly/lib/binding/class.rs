@@ -754,7 +754,7 @@ impl<'a> BindingsBuilder<'a> {
             illegal_identifier_handling,
             false,
             SynthesizedClassKind::NamedTuple,
-            Some(Box::new(BaseClass::CollectionsNamedTuple(range))),
+            Some(Box::new(BaseClass::NamedTuple(range))),
         );
     }
 

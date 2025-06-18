@@ -177,8 +177,8 @@ impl Stdlib {
             mapping: lookup_generic(typing, "Mapping", 2),
             enum_meta: lookup_concrete(enum_, "EnumMeta"),
             enum_flag: lookup_concrete(enum_, "Flag"),
+            named_tuple_fallback: lookup_concrete(type_checker_internals, "NamedTupleFallback"),
             typed_dict_fallback: lookup_concrete(type_checker_internals, "TypedDictFallback"),
-            named_tuple_fallback: lookup_concrete(typing, "NamedTuple"),
             property: lookup_concrete(builtins, "property"),
             object: lookup_concrete(builtins, "object"),
         }

@@ -34,6 +34,7 @@ use crate::binding::binding::KeyLegacyTypeParam;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
+use crate::module::module_name::ModuleName;
 use crate::ruff::ast::Ast;
 use crate::types::callable::FunctionKind;
 use crate::types::class::Class;
@@ -55,7 +56,7 @@ pub enum BaseClass {
     Generic(Vec<Type>),
     Protocol(Vec<Type>),
     Expr(Expr),
-    CollectionsNamedTuple(TextRange),
+    NamedTuple(TextRange),
 }
 
 impl BaseClass {
@@ -184,7 +185,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         is_typed_dict = true;
                         None
                     }
-                    BaseClass::CollectionsNamedTuple(range) => {
+                    BaseClass::NamedTuple(range) => {
                         Some((self.stdlib.named_tuple_fallback().clone().to_type(), *range))
                     }
                     BaseClass::Generic(ts) | BaseClass::Protocol(ts) if !ts.is_empty() => {
@@ -223,7 +224,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     "Subclassing a NewType not allowed".to_owned(),
                                 );
                             }
-                            if base_cls.has_qname("typing", "NamedTuple")
+                            if base_cls.has_qname(ModuleName::type_checker_internals().as_str(), "NamedTupleFallback")
                             {
                                 if named_tuple_metadata.is_none() {
                                     named_tuple_metadata = Some(NamedTupleMetadata {
@@ -499,6 +500,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     SpecialForm::TypedDict => Some(BaseClass::TypedDict),
                     _ => None,
                 },
+                Type::ClassDef(cls) if cls.has_qname("typing", "NamedTuple") => {
+                    Some(BaseClass::NamedTuple(base_expr.range()))
+                }
                 _ => None,
             }
         } else {
