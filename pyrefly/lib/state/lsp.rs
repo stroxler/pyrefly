@@ -31,6 +31,7 @@ use ruff_python_ast::ExprContext;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
+use ruff_python_ast::ParameterWithDefault;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::name::Name;
@@ -49,6 +50,7 @@ use crate::error::kind::ErrorKind;
 use crate::export::definitions::DocString;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
+use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::SourceRange;
 use crate::module::module_info::TextRangeWithModuleInfo;
@@ -71,6 +73,7 @@ use crate::types::callable::Param;
 use crate::types::callable::Params;
 use crate::types::lsp::source_range_to_range;
 use crate::types::module::Module;
+use crate::types::simplify::unions_with_literals;
 use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
 
@@ -199,6 +202,14 @@ pub enum AnnotationKind {
     Parameter,
     Return,
 }
+
+#[derive(Debug)]
+pub struct ParameterAnnotation {
+    pub text_size: TextSize,
+    pub has_annotation: bool,
+    pub ty: Option<Type>,
+}
+
 impl IdentifierWithContext {
     fn from_stmt_import(id: &Identifier, alias: &Alias) -> Self {
         let identifier = id.clone();
@@ -1398,6 +1409,151 @@ impl<'a> Transaction<'a> {
                 Some(names)
             }
             None => None,
+        }
+    }
+
+    fn collect_types_from_callees(&self, range: TextRange, handle: &Handle) -> Vec<Type> {
+        fn callee_at(mod_module: Arc<ModModule>, position: TextSize) -> Option<ExprCall> {
+            fn f(x: &Expr, find: TextSize, res: &mut Option<ExprCall>) {
+                if let Expr::Call(call) = x
+                    && call.func.range().contains_inclusive(find)
+                {
+                    f(call.func.as_ref(), find, res);
+                    if res.is_some() {
+                        return;
+                    }
+                    *res = Some(call.clone());
+                } else {
+                    x.recurse(&mut |x| f(x, find, res));
+                }
+            }
+            let mut res = None;
+            mod_module.visit(&mut |x| f(x, position, &mut res));
+            res
+        }
+        match self.get_ast(handle) {
+            Some(mod_module) => {
+                let callee = callee_at(mod_module, range.start());
+                match callee {
+                    Some(ExprCall {
+                        range: _,
+                        func: _,
+                        arguments: args,
+                    }) => args
+                        .args
+                        .iter()
+                        .filter_map(|arg| self.get_type_trace(handle, arg.range()))
+                        .collect(),
+                    None => Vec::new(),
+                }
+            }
+            None => Vec::new(),
+        }
+    }
+
+    fn collect_references(
+        &self,
+        handle: &Handle,
+        idx: Idx<Key>,
+        bindings: Bindings,
+        transaction: &mut CancellableTransaction,
+    ) -> Vec<(ModuleInfo, Vec<TextRange>)> {
+        if let Key::Definition(id) = bindings.idx_to_key(idx) {
+            if let Some(module_info) = self.get_module_info(handle) {
+                let definition_kind = DefinitionMetadata::VariableOrAttribute(
+                    Name::from(module_info.code_at(id.range())),
+                    None,
+                );
+                if let Ok(references) = transaction.find_global_references_from_definition(
+                    handle.sys_info(),
+                    definition_kind,
+                    TextRangeWithModuleInfo::new(module_info, id.range()),
+                ) {
+                    return references;
+                }
+            }
+        }
+        Vec::new()
+    }
+
+    pub fn infer_parameter_annotations(
+        &self,
+        handle: &Handle,
+        cancellable_transaction: &mut CancellableTransaction,
+    ) -> Vec<ParameterAnnotation> {
+        if let Some(bindings) = self.get_bindings(handle) {
+            let transaction = cancellable_transaction;
+            fn transpose<T: Clone>(v: Vec<Vec<T>>) -> Vec<Vec<T>> {
+                if v.is_empty() {
+                    return Vec::new();
+                }
+                let max_len = v.iter().map(|row| row.len()).max().unwrap();
+                let mut result = vec![Vec::new(); max_len];
+
+                for row in v {
+                    for (i, elem) in row.into_iter().enumerate() {
+                        result[i].push(elem);
+                    }
+                }
+                result
+            }
+            fn filter_parameters(
+                param_with_default: ParameterWithDefault,
+            ) -> Option<ParameterAnnotation> {
+                if param_with_default.name() == "self" || param_with_default.name() == "cls" {
+                    return None;
+                }
+                Some(ParameterAnnotation {
+                    text_size: param_with_default.range().end(),
+                    ty: None,
+                    has_annotation: param_with_default.annotation().is_some(),
+                })
+            }
+            fn zip_types(
+                inferred_types: Vec<Vec<Type>>,
+                function_arguments: Vec<ParameterAnnotation>,
+            ) -> Vec<ParameterAnnotation> {
+                let zipped_inferred_types: Vec<Vec<Type>> = transpose(inferred_types);
+                function_arguments
+                    .into_iter()
+                    .zip(zipped_inferred_types)
+                    .map(|(arg, ty)| {
+                        let mut arg = arg;
+                        if ty.len() == 1 {
+                            arg.ty = Some(ty[0].clone());
+                        } else {
+                            let ty = ty.into_iter().filter(|x| !x.is_any()).collect();
+                            arg.ty = Some(Type::Union(ty));
+                        }
+                        arg
+                    })
+                    .collect()
+            }
+
+            bindings
+                .keys::<Key>()
+                .flat_map(|idx| {
+                    let binding = bindings.get(idx);
+                    // Check if this binding is a function
+                    if let Binding::Function(key_function, _, _) = binding {
+                        let binding_func = bindings.get(*key_function);
+                        let args = binding_func.def.parameters.args.clone();
+                        let func_args: Vec<ParameterAnnotation> =
+                            args.into_iter().filter_map(filter_parameters).collect();
+                        let references =
+                            self.collect_references(handle, idx, bindings.clone(), transaction);
+                        let ranges: Vec<&TextRange> =
+                            references.iter().flat_map(|(_, range)| range).collect();
+                        let inferred_types =
+                            ranges.map(|range| self.collect_types_from_callees(**range, handle));
+                        zip_types(inferred_types, func_args)
+                    } else {
+                        vec![]
+                    }
+                })
+                .collect()
+        } else {
+            vec![]
         }
     }
 

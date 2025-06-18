@@ -13,19 +13,35 @@ use dupe::Dupe;
 use pyrefly_util::forgetter::Forgetter;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::globs::FilteredGlobs;
+use ruff_text_size::TextSize;
 
 use crate::commands::check::Handles;
 use crate::commands::check::checkpoint;
 use crate::commands::run::CommandExitStatus;
 use crate::config::finder::ConfigFinder;
 use crate::state::lsp::AnnotationKind;
+use crate::state::lsp::ParameterAnnotation;
 use crate::state::require::Require;
 use crate::state::state::State;
+use crate::types::simplify::unions_with_literals;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::Type;
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {}
+
+impl ParameterAnnotation {
+    fn to_inlay_hint(self) -> Option<(TextSize, Type, AnnotationKind)> {
+        if let Some(ty) = self.ty {
+            if ty.is_any() || self.has_annotation {
+                return None;
+            }
+            Some((self.text_size, ty, AnnotationKind::Parameter))
+        } else {
+            None
+        }
+    }
+}
 
 fn format_hints(
     inlay_hints: Vec<(ruff_text_size::TextSize, Type, AnnotationKind)>,
@@ -34,8 +50,18 @@ fn format_hints(
     let mut qualified_hints = Vec::new();
     for (position, hint, kind) in inlay_hints {
         let formatted_hint = hint_to_string(hint, stdlib);
-        // TODO: Put this behind a flag
-        if formatted_hint == "Any" {
+        // TODO: Put these behind a flag
+        if formatted_hint.contains("Any") {
+            continue;
+        }
+        if formatted_hint.contains("@") {
+            continue;
+        }
+        if formatted_hint.contains("Unknown") {
+            continue;
+        }
+
+        if formatted_hint.contains("Never") {
             continue;
         }
         match kind {
@@ -60,7 +86,12 @@ fn sort_inlay_hints(
 }
 
 fn hint_to_string(hint: Type, stdlib: &Stdlib) -> String {
-    let hint = hint.promote_literals(stdlib).explicit_any();
+    let hint = hint.promote_literals(stdlib);
+    let hint = hint.explicit_any().clean_var();
+    let hint = match hint {
+        Type::Union(types) => unions_with_literals(types, stdlib),
+        _ => hint,
+    };
     hint.to_string()
 }
 
@@ -75,7 +106,8 @@ impl Args {
         search_path: Option<Vec<PathBuf>>,
     ) -> anyhow::Result<CommandExitStatus> {
         let expanded_file_list = checkpoint(files_to_check.files(), &config_finder)?;
-        let holder = Forgetter::new(State::new(config_finder), false);
+        let state = State::new(config_finder);
+        let holder = Forgetter::new(state, false);
         let handles = Handles::new(
             expanded_file_list,
             search_path.as_deref().unwrap_or_default(),
@@ -85,31 +117,46 @@ impl Args {
             holder.as_ref().new_transaction(Require::Everything, None),
             true,
         );
+
+        let mut cancellable_transaction = holder.as_ref().cancellable_transaction();
         let transaction = forgetter.as_mut();
+
         for (handle, _) in handles.all(Require::Everything) {
             transaction.run(&[(handle.dupe(), Require::Everything)]);
             let stdlib = transaction.get_stdlib(&handle);
             let inferred_types: Option<Vec<(ruff_text_size::TextSize, Type, AnnotationKind)>> =
                 transaction.inferred_types(&handle);
-            if let Some(i_types) = inferred_types {
-                let formatted = format_hints(i_types, &stdlib.clone());
-                let sorted = sort_inlay_hints(formatted);
-
-                let file_path = handle.path().as_path();
-                let file_content = fs_anyhow::read_to_string(file_path)
-                    .with_context(|| format!("Failed to read file: {}", file_path.display()))?;
-                let mut result = file_content;
-                for inlay_hint in sorted {
-                    let (position, hint) = inlay_hint;
-                    // Convert the TextSize to a byte offset
-                    let offset = (position).into();
-                    if offset <= result.len() {
-                        result.insert_str(offset, &hint);
-                    }
+            let parameter_annotations =
+                transaction.infer_parameter_annotations(&handle, &mut cancellable_transaction);
+            // Map them to the inferred_types pattern
+            let mut parameter_types: Vec<(TextSize, Type, AnnotationKind)> = parameter_annotations
+                .into_iter()
+                .filter_map(|p| p.to_inlay_hint())
+                .collect();
+            let i_types = match inferred_types {
+                Some(inferred_types) => {
+                    parameter_types.extend(inferred_types);
+                    parameter_types
                 }
-                fs_anyhow::write(file_path, result.as_bytes())
-                    .with_context(|| format!("Failed to write to file: {}", file_path.display()))?;
+                None => parameter_types,
+            };
+            let formatted = format_hints(i_types, &stdlib.clone());
+            let sorted = sort_inlay_hints(formatted);
+
+            let file_path = handle.path().as_path();
+            let file_content = fs_anyhow::read_to_string(file_path)
+                .with_context(|| format!("Failed to read file: {}", file_path.display()))?;
+            let mut result = file_content;
+            for inlay_hint in sorted {
+                let (position, hint) = inlay_hint;
+                // Convert the TextSize to a byte offset
+                let offset = (position).into();
+                if offset <= result.len() {
+                    result.insert_str(offset, &hint);
+                }
             }
+            fs_anyhow::write(file_path, result.as_bytes())
+                .with_context(|| format!("Failed to write to file: {}", file_path.display()))?;
         }
         Ok(CommandExitStatus::Success)
     }
@@ -199,22 +246,40 @@ def greet(name) -> str:
     }
 
     #[test]
-    fn test_complex_function() -> anyhow::Result<()> {
-        // Test a more complex function with multiple types
+
+    fn test_parameter() -> anyhow::Result<()> {
         assert_annotations(
             r#"
-    def process_data(items, factor):
-        result = []
-        for item in items:
-            result.append(item * factor)
-        return result
+    def example(a, b, c):
+        return c
+    example(1, 2, 3)
     "#,
             r#"
-    def process_data(items, factor) -> list[Any]:
-        result = []
-        for item in items:
-            result.append(item * factor)
-        return result
+    def example(a: int, b: int, c: int):
+        return c
+    example(1, 2, 3)
+    "#,
+        );
+        Ok(())
+    }
+
+    #[test]
+
+    fn test_parameter_unions() -> anyhow::Result<()> {
+        assert_annotations(
+            r#"
+    def example(a, b, c):
+        return c
+    example(1, 2, 3)
+    x = 2
+    example("a", "b", x)
+    "#,
+            r#"
+    def example(a: int | str, b: int | str, c: int):
+        return c
+    example(1, 2, 3)
+    x = 2
+    example("a", "b", x)
     "#,
         );
         Ok(())

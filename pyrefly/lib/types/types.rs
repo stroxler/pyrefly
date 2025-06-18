@@ -1012,6 +1012,14 @@ impl Type {
         })
     }
 
+    // Attempt at a function that will convert @ to Any for now.
+    pub fn clean_var(self) -> Type {
+        self.transform(&mut |ty| match &ty {
+            Type::Var(_) => *ty = Type::Any(AnyStyle::Implicit),
+            _ => {}
+        })
+    }
+
     pub fn any_implicit() -> Self {
         Type::Any(AnyStyle::Implicit)
     }
