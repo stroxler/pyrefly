@@ -229,7 +229,7 @@ class TD(TypedDict):
     x: NotRequired[int]
     
 def f(td: TD):
-    td.pop("x") # E:  Argument `Literal['x']` is not assignable to parameter `k` with type `Never` in function `typing._TypedDict.pop`
+    td.pop("x") # E:  Argument `Literal['x']` is not assignable to parameter `k` with type `Never` in function `_typeshed._type_checker_internals.TypedDictFallback.pop`
     "#,
 );
 
