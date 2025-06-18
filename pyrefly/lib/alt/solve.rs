@@ -2924,7 +2924,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             TypeFormContext::ParameterArgsAnnotation
                 | TypeFormContext::ParameterKwargsAnnotation
                 | TypeFormContext::TypeArgument
-                | TypeFormContext::TypeArgumentForType
                 | TypeFormContext::TupleOrCallableParam
                 | TypeFormContext::GenericBase
                 | TypeFormContext::TypeVarTupleDefault
@@ -2941,7 +2940,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if !matches!(
             type_form_context,
             TypeFormContext::TypeArgument
-                | TypeFormContext::TypeArgumentForType
                 | TypeFormContext::GenericBase
                 | TypeFormContext::ParamSpecDefault
         ) && matches!(
@@ -2958,9 +2956,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         if !matches!(
             type_form_context,
-            TypeFormContext::TupleOrCallableParam
-                | TypeFormContext::TypeArgument
-                | TypeFormContext::TypeArgumentForType
+            TypeFormContext::TupleOrCallableParam | TypeFormContext::TypeArgument
         ) && matches!(ty, Type::TypeVarTuple(_))
         {
             return self.error(
@@ -2999,7 +2995,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     TypeFormContext::TypeArgument
                         | TypeFormContext::GenericBase
                         | TypeFormContext::ParamSpecDefault
-                        | TypeFormContext::TypeArgumentForType
                 )
             {
                 return self.error(
@@ -3015,9 +3010,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if quantified.is_type_var_tuple()
                 && !matches!(
                     type_form_context,
-                    TypeFormContext::TupleOrCallableParam
-                        | TypeFormContext::TypeArgument
-                        | TypeFormContext::TypeArgumentForType
+                    TypeFormContext::TupleOrCallableParam | TypeFormContext::TypeArgument
                 )
             {
                 return self.error(
@@ -3052,9 +3045,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::List(x)
                 if matches!(
                     type_form_context,
-                    TypeFormContext::TypeArgument
-                        | TypeFormContext::TypeArgumentForType
-                        | TypeFormContext::ParamSpecDefault
+                    TypeFormContext::TypeArgument | TypeFormContext::ParamSpecDefault
                 ) =>
             {
                 let elts: Vec<Param> = x

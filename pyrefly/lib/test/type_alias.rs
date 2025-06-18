@@ -597,14 +597,14 @@ def h(x: X[str]):  # should be an error about str not matching int  # E: Can't a
 );
 
 testcase!(
-    bug = "We should be more restrictive about `type` can be specialized with",
+    bug = "'`TypeVarTuple` must be unpacked' is a bad error message",
     test_bad_type_variable_aliases,
     r#"
 from typing import ParamSpec, TypeVarTuple, Unpack
 P = ParamSpec('P')
 Ts = TypeVarTuple('Ts')
-Error1 = type[P]  # should be an error
-Error2 = type[Ts]  # should be an error
-Error3 = type[Unpack[Ts]]  # should be an error
+Error1 = type[P]  # E: `ParamSpec[P]` is not allowed
+Error2 = type[Ts]  # E: `TypeVarTuple` must be unpacked
+Error3 = type[Unpack[Ts]]  # E: `Unpack` is not allowed
     "#,
 );
