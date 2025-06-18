@@ -954,9 +954,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn error_swallower(&self) -> ErrorCollector {
         ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Never)
     }
-}
 
-impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn record_external_attribute_definition_index(
         &self,
         base: &Type,
