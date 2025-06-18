@@ -1621,6 +1621,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if let Some((identifier, chain)) =
                     identifier_and_chain_for_expr(&Expr::Attribute(attr.clone()))
                 {
+                    // Note that the value we are doing `self.get` on is the same one we did in infer_expr, which is a bit sad.
+                    // But avoiding the duplicate get/clone would require us to duplicate some of infer_expr here, which might
+                    // fall out of sync.
                     let mut type_info = self
                         .get(&Key::BoundName(ShortIdentifier::new(&identifier)))
                         .arc_clone();
