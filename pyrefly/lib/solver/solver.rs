@@ -424,14 +424,7 @@ impl Solver {
         }
         for b in &branches[1..] {
             // Do the is_subset_eq only to force free variables
-            Subset {
-                solver: self,
-                type_order,
-                union: true,
-                gas: INITIAL_GAS,
-                recursive_assumptions: SmallSet::new(),
-            }
-            .is_subset_eq(&branches[0], b);
+            self.is_subset_eq_impl(&branches[0], b, type_order, true);
         }
 
         // We want to union modules differently, by merging their module sets
@@ -527,14 +520,24 @@ impl Solver {
         want: &Type,
         type_order: TypeOrder<Ans>,
     ) -> bool {
-        Subset {
+        self.is_subset_eq_impl(got, want, type_order, false)
+    }
+
+    pub fn is_subset_eq_impl<Ans: LookupAnswer>(
+        &self,
+        got: &Type,
+        want: &Type,
+        type_order: TypeOrder<Ans>,
+        union: bool,
+    ) -> bool {
+        let mut subset = Subset {
             solver: self,
             type_order,
-            union: false,
+            union,
             gas: INITIAL_GAS,
             recursive_assumptions: SmallSet::new(),
-        }
-        .is_subset_eq(got, want)
+        };
+        subset.is_subset_eq(got, want)
     }
 }
 
