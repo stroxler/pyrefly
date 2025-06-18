@@ -2816,10 +2816,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// For example, in `def f(x: int): ...`, we evaluate `int` as a value, getting its type as
     /// `type[int]`, then call `untype(type[int])` to get the `int` annotation.
     fn untype(&self, ty: Type, range: TextRange, errors: &ErrorCollector) -> Type {
-        let mut ty = ty;
-        if let Type::Forall(forall) = ty {
-            ty = self.promote_forall(*forall, range);
-        };
         if let Some(t) = self.untype_opt(ty.clone(), range) {
             t
         } else {
@@ -2837,6 +2833,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn untype_opt(&self, ty: Type, range: TextRange) -> Option<Type> {
+        let mut ty = ty;
+        if let Type::Forall(forall) = ty {
+            ty = self.promote_forall(*forall, range);
+        };
         match self.canonicalize_all_class_types(ty, range) {
             Type::Union(xs) if !xs.is_empty() => {
                 let mut ts = Vec::new();

@@ -557,27 +557,25 @@ bar: type[object] = get_class()
 );
 
 testcase!(
-    bug = "There should not be any errors",
     test_union_with_implicit_generic_alias,
     r#"
 from typing import Any, TypeVar, assert_type
 T = TypeVar('T')
 X = list[T]
-def f(x1: X | None, x2: X[int] | None):  # E: Expected a type form, got instance of `UnionType`
-    assert_type(x1, list[Any] | None)  # E: assert_type
+def f(x1: X | None, x2: X[int] | None):
+    assert_type(x1, list[Any] | None)
     assert_type(x2, list[int] | None)
     "#,
 );
 
 testcase!(
-    bug = "There should not be any errors",
     test_union_with_implicit_generic_alias_union,
     r#"
 from typing import Any, TypeVar, assert_type
 T = TypeVar('T')
 Y = list[T] | set[T]
-def f(y1: Y | None, y2: Y[int] | None):# E: `|` is not supported between `type[list[T] | set[T]]` and `None`
-    assert_type(y1, list[Any] | set[Any] | None)  # E: assert_type
+def f(y1: Y | None, y2: Y[int] | None):
+    assert_type(y1, list[Any] | set[Any] | None)
     assert_type(y2, list[int] | set[int] | None)
     "#,
 );
