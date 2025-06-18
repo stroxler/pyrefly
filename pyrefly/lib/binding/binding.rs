@@ -395,8 +395,8 @@ impl Ranged for KeyExpect {
 }
 
 impl DisplayWith<ModuleInfo> for KeyExpect {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>, _: &ModuleInfo) -> fmt::Result {
-        write!(f, "expect {:?}", self.0)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
+        write!(f, "expect {}", ctx.display(&self.0))
     }
 }
 
@@ -526,7 +526,12 @@ impl Ranged for KeyFunction {
 
 impl DisplayWith<ModuleInfo> for KeyFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
-        write!(f, "{} {:?}", ctx.display(&self.0), self.0.range())
+        write!(
+            f,
+            "{} {}",
+            ctx.display(&self.0),
+            ctx.display(&self.0.range())
+        )
     }
 }
 
@@ -542,7 +547,12 @@ impl Ranged for KeyClass {
 
 impl DisplayWith<ModuleInfo> for KeyClass {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
-        write!(f, "class {} {:?}", ctx.display(&self.0), self.0.range())
+        write!(
+            f,
+            "class {} {}",
+            ctx.display(&self.0),
+            ctx.display(&self.0.range())
+        )
     }
 }
 
@@ -620,9 +630,13 @@ impl Ranged for KeyAnnotation {
 impl DisplayWith<ModuleInfo> for KeyAnnotation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
         match self {
-            Self::Annotation(x) => write!(f, "annot {} {:?}", ctx.display(x), x.range()),
-            Self::ReturnAnnotation(x) => write!(f, "return {} {:?}", ctx.display(x), x.range()),
-            Self::AttrAnnotation(r) => write!(f, "attr {:?}", r),
+            Self::Annotation(x) => {
+                write!(f, "annot {} {}", ctx.display(x), ctx.display(&x.range()))
+            }
+            Self::ReturnAnnotation(x) => {
+                write!(f, "return {} {}", ctx.display(x), ctx.display(&x.range()))
+            }
+            Self::AttrAnnotation(r) => write!(f, "attr {}", ctx.display(r)),
         }
     }
 }
@@ -657,9 +671,9 @@ impl DisplayWith<ModuleInfo> for KeyLegacyTypeParam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
         write!(
             f,
-            "legacy_type_param {} {:?}",
+            "legacy_type_param {} {}",
             ctx.display(&self.0),
-            self.0.range()
+            ctx.display(&self.0.range()),
         )
     }
 }
@@ -675,7 +689,12 @@ impl Ranged for KeyYield {
 
 impl DisplayWith<ModuleInfo> for KeyYield {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
-        write!(f, "{} {:?}", ctx.display(&self.0), self.0.range())
+        write!(
+            f,
+            "{} {}",
+            ctx.display(&self.0),
+            ctx.display(&self.0.range())
+        )
     }
 }
 
@@ -690,7 +709,12 @@ impl Ranged for KeyYieldFrom {
 
 impl DisplayWith<ModuleInfo> for KeyYieldFrom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
-        write!(f, "{} {:?}", ctx.display(&self.0), self.0.range())
+        write!(
+            f,
+            "{} {}",
+            ctx.display(&self.0),
+            ctx.display(&self.0.range()),
+        )
     }
 }
 
