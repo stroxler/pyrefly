@@ -1146,3 +1146,37 @@ x0 = True or (z := b) and False
 assert_type(z, bool)  # here, we did not catch that `z` may not be initialized
 "#,
 );
+
+testcase!(
+    test_loop_nested_binding,
+    r#"
+# This used to fail, thinking the type was Never
+def f():
+    class X:
+        pass
+
+    while 3:
+        z = "" if 3 else ""
+        break
+    else:
+        exit(1)
+
+    x: X
+"#,
+);
+
+testcase!(
+    test_loop_fails_to_reveal,
+    r#"
+# This used to get confused by what reveal_type is
+from typing import *
+
+x = 1
+
+while 3:
+    reveal_type(x) # E: revealed type: Literal[1]
+    break
+else:
+    exit(1)
+"#,
+);

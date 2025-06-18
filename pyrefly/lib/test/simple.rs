@@ -1463,7 +1463,6 @@ t: "õ" # E: Could not find name `õ`
 );
 
 testcase!(
-    bug = "It no longer loops forever, but it isn't right",
     test_loop_forever,
     r#"
 # Used to loop forever, https://github.com/facebook/pyrefly/issues/519
@@ -1476,7 +1475,7 @@ else:
     exit(1)
 
 
-def func() -> int: # E: Expected a type form, got instance of `Never`
+def func() -> int:
     return 1
 "#,
 );

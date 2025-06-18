@@ -1222,10 +1222,10 @@ impl<'a> BindingsBuilder<'a> {
             self.stmts(orelse);
         } else {
             // Otherwise, we negate the loop condition and run the `orelse` only when we don't `break`.
-            self.merge_loop_into_current(other_exits, other_range);
+            self.merge_loop_into_current(other_exits, range);
             self.bind_narrow_ops(&narrow_ops.negate(), other_range);
             self.stmts(orelse);
-            self.merge_loop_into_current(breaks, range);
+            self.merge_loop_into_current(breaks, other_range);
         }
     }
 

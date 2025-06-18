@@ -318,13 +318,12 @@ assert_type(x, str | None)
 );
 
 testcase!(
-    bug = "Unwanted EXPECTED error",
     test_while_overwrite,
     r#"
 from typing import assert_type, Literal
 def f() -> str | None: ...
 x = f()
-while x is None:  # E: `Literal[42] | str` is not assignable to `str | None`
+while x is None:
     if f():
         x = 42
         break
