@@ -447,10 +447,10 @@ impl DisplayWith<Bindings> for BindingExpect {
                 };
                 write!(
                     f,
-                    "expect length {} for {} {:?}",
+                    "expect length {} for {} {}",
                     expectation,
                     ctx.display(*x),
-                    range
+                    ctx.module_info().display(range),
                 )
             }
             Self::CheckRaisedException(RaisedException::WithoutCause(exc)) => {
@@ -1038,18 +1038,18 @@ impl DisplayWith<Bindings> for Binding {
             Self::MultiTargetAssign(None, idx, range) => {
                 write!(
                     f,
-                    "multi_target_assign {} at {:?}",
+                    "multi_target_assign {} at {}",
                     ctx.display(*idx),
-                    range
+                    range.display_with(ctx.module_info()),
                 )
             }
             Self::MultiTargetAssign(Some(ann), idx, range) => {
                 write!(
                     f,
-                    "multi_target_assign {}: {} at {:?}",
+                    "multi_target_assign {}: {} at {}",
                     ctx.display(*idx),
                     ctx.display(*ann),
-                    range
+                    range.display_with(ctx.module_info()),
                 )
             }
             Self::TypeVar(_, name, x) => {
@@ -1104,7 +1104,13 @@ impl DisplayWith<Bindings> for Binding {
                         format!("{}:{}", i, end)
                     }
                 };
-                write!(f, "unpack {} {:?} @ {}", ctx.display(*x), range, pos)
+                write!(
+                    f,
+                    "unpack {} {} @ {}",
+                    ctx.display(*x),
+                    range.display_with(ctx.module_info()),
+                    pos
+                )
             }
             Self::Function(x, _pred, _class) => write!(f, "{}", ctx.display(*x)),
             Self::Import(m, n) => write!(f, "import {m}.{n}"),
@@ -1191,11 +1197,11 @@ impl DisplayWith<Bindings> for Binding {
             Self::PatternMatchClassPositional(class, idx, key, range) => {
                 write!(
                     f,
-                    "PatternMatchClassPositional {}[{}] = {} {:?}",
+                    "PatternMatchClassPositional {}[{}] = {} {}",
                     m.display(class),
                     idx,
                     ctx.display(*key),
-                    range
+                    range.display_with(ctx.module_info()),
                 )
             }
             Self::PatternMatchClassKeyword(class, attr, key) => {
