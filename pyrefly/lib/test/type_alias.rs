@@ -491,7 +491,7 @@ t1: TypeAlias = Unpack[TypedDict]  # E: `Unpack` is not allowed in this context 
 t2: TypeAlias = P  # E: `ParamSpec[P]` is not allowed in this context
 t3: TypeAlias = Unpack[Ts]  # E: `Unpack` is not allowed in this context
 t4: TypeAlias = Literal  # E: Expected a type argument for `Literal`
-t5: TypeAlias = Ts  # E: `TypeVarTuple` must be unpacked
+t5: TypeAlias = Ts  # E: `TypeVarTuple` is not allowed in this context
 t6: TypeAlias = Generic  # E: Expected a type argument for `Generic`
 t7: TypeAlias = Protocol  # E: Expected a type argument for `Protocol`
 t8: TypeAlias = Generic[int]  # E: `Generic` is not allowed in this context
@@ -597,14 +597,13 @@ def h(x: X[str]):  # should be an error about str not matching int  # E: Can't a
 );
 
 testcase!(
-    bug = "'`TypeVarTuple` must be unpacked' is a bad error message",
     test_bad_type_variable_aliases,
     r#"
 from typing import ParamSpec, TypeVarTuple, Unpack
 P = ParamSpec('P')
 Ts = TypeVarTuple('Ts')
 Error1 = type[P]  # E: `ParamSpec[P]` is not allowed
-Error2 = type[Ts]  # E: `TypeVarTuple` must be unpacked
+Error2 = type[Ts]  # E: `TypeVarTuple` is not allowed
 Error3 = type[Unpack[Ts]]  # E: `Unpack` is not allowed
     "#,
 );

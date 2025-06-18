@@ -2959,13 +2959,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             TypeFormContext::TupleOrCallableParam | TypeFormContext::TypeArgument
         ) && matches!(ty, Type::TypeVarTuple(_))
         {
-            return self.error(
-                errors,
+            // Determine whether we're simply missing an `Unpack[...]` or the TypeVarTuple isn't allowed at all in this context.
+            let tmp_collector = self.error_collector();
+            self.validate_type_form(
+                Type::Unpack(Box::new(ty)),
                 range,
-                ErrorKind::InvalidAnnotation,
-                None,
-                "`TypeVarTuple` must be unpacked.".to_owned(),
+                type_form_context,
+                &tmp_collector,
             );
+            if tmp_collector.is_empty() {
+                return self.error(
+                    errors,
+                    range,
+                    ErrorKind::InvalidAnnotation,
+                    None,
+                    "`TypeVarTuple` must be unpacked.".to_owned(),
+                );
+            } else {
+                return self.error(
+                    errors,
+                    range,
+                    ErrorKind::InvalidAnnotation,
+                    None,
+                    "`TypeVarTuple` is not allowed in this context.".to_owned(),
+                );
+            }
         }
         if let Type::SpecialForm(special_form) = ty
             && !special_form.is_valid_unparameterized_annotation(type_form_context)
