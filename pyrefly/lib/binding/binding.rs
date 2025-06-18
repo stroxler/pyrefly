@@ -265,7 +265,7 @@ pub enum Key {
     /// that need to hidden from all lookups except the first usage to avoid nondeterminism.
     PinnedDefinition(ShortIdentifier),
     /// I am a name with possible attribute/subscript narrowing coming from an assignment at this location.
-    PropertyAssign(ShortIdentifier),
+    FacetAssign(ShortIdentifier),
     /// The type at a specific return point.
     ReturnExplicit(TextRange),
     /// The implicit return type of a function, either Type::None or Type::Never.
@@ -308,7 +308,7 @@ impl Ranged for Key {
             Self::Definition(x) => x.range(),
             Self::UpstreamPinnedDefinition(x) => x.range(),
             Self::PinnedDefinition(x) => x.range(),
-            Self::PropertyAssign(x) => x.range(),
+            Self::FacetAssign(x) => x.range(),
             Self::ReturnExplicit(r) => *r,
             Self::ReturnImplicit(x) => x.range(),
             Self::ReturnType(x) => x.range(),
@@ -342,10 +342,10 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::PinnedDefinition(x) => {
                 write!(f, "{} {} (pinned)", ctx.display(x), ctx.display(&x.range()))
             }
-            Self::PropertyAssign(x) => {
+            Self::FacetAssign(x) => {
                 write!(
                     f,
-                    "prop assign {}._ = _ {}",
+                    "facet assign {}._ = _ {}",
                     ctx.display(x),
                     ctx.display(&x.range())
                 )

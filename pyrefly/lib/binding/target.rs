@@ -136,7 +136,7 @@ impl<'a> BindingsBuilder<'a> {
             identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
                 .map(|(identifier, _)| identifier);
         let mut user = if let Some(identifier) = &narrowing_identifier {
-            self.declare_user(Key::PropertyAssign(ShortIdentifier::new(identifier)))
+            self.declare_user(Key::FacetAssign(ShortIdentifier::new(identifier)))
         } else {
             self.declare_user(Key::Anon(attr.range))
         };
@@ -185,7 +185,7 @@ impl<'a> BindingsBuilder<'a> {
             identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
                 .map(|(identifier, _)| identifier);
         let mut user = if let Some(identifier) = &narrowing_identifier {
-            self.declare_user(Key::PropertyAssign(ShortIdentifier::new(identifier)))
+            self.declare_user(Key::FacetAssign(ShortIdentifier::new(identifier)))
         } else {
             self.declare_user(Key::Anon(subscript.range))
         };
