@@ -809,7 +809,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let targ = match xs.len() {
                         // This causes us to treat `type[list]` as equivalent to `type[list[Any]]`,
                         // which may or may not be what we want.
-                        1 => self.expr_untype(&xs[0], TypeFormContext::TypeArgument, errors),
+                        1 => self.expr_untype(&xs[0], TypeFormContext::TypeArgumentForType, errors),
                         _ => self.error(
                             errors,
                             range,

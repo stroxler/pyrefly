@@ -484,7 +484,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
             ),
             SpecialForm::Type if arguments.len() == 1 => Type::type_form(Type::type_form(
-                self.expr_untype(&arguments[0], TypeFormContext::TypeArgument, errors),
+                self.expr_untype(&arguments[0], TypeFormContext::TypeArgumentForType, errors),
             )),
             SpecialForm::Type => self.error(
                 errors,
