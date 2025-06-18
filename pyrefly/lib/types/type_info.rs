@@ -129,7 +129,7 @@ impl TypeInfo {
     fn add_narrow(&mut self, facets: &Vec1<FacetKind>, ty: Type) {
         if let Some((facet, more_facets)) = facets.split_first() {
             if let Some(narrowed_facets) = &mut self.facets {
-                narrowed_facets.add_narrow(facet.clone(), more_facets, ty);
+                narrowed_facets.add_narrow(facet, more_facets, ty);
             } else {
                 self.facets = Some(Box::new(NarrowedFacets::of_narrow(
                     facet.clone(),
@@ -214,13 +214,14 @@ impl Display for TypeInfo {
 struct NarrowedFacets(SmallMap<FacetKind, NarrowedFacet>);
 
 impl NarrowedFacets {
-    fn add_narrow(&mut self, facet: FacetKind, more_facets: &[FacetKind], ty: Type) {
-        match self.0.get_mut(&facet) {
+    fn add_narrow(&mut self, facet: &FacetKind, more_facets: &[FacetKind], ty: Type) {
+        match self.0.get_mut(facet) {
             Some(narrowed_facet) => {
                 narrowed_facet.add_narrow(more_facets, ty);
             }
             None => {
-                self.0.insert(facet, NarrowedFacet::new(more_facets, ty));
+                self.0
+                    .insert(facet.clone(), NarrowedFacet::new(more_facets, ty));
             }
         };
     }
@@ -441,11 +442,11 @@ impl NarrowedFacet {
                         Self::WithRoot(root_ty, narrowed_facets)
                     }
                     Self::WithoutRoot(mut narrowed_facets) => {
-                        narrowed_facets.add_narrow((*facet).clone(), more_facets, narrowed_ty);
+                        narrowed_facets.add_narrow(facet, more_facets, narrowed_ty);
                         Self::WithoutRoot(narrowed_facets)
                     }
                     Self::WithRoot(root_ty, mut narrowed_facets) => {
-                        narrowed_facets.add_narrow((*facet).clone(), more_facets, narrowed_ty);
+                        narrowed_facets.add_narrow(facet, more_facets, narrowed_ty);
                         Self::WithRoot(root_ty, narrowed_facets)
                     }
                 }
