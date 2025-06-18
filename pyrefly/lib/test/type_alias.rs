@@ -579,3 +579,32 @@ def f(y1: Y | None, y2: Y[int] | None):
     assert_type(y2, list[int] | set[int] | None)
     "#,
 );
+
+testcase!(
+    bug = "Spurious 'Can't apply arguments to non-class' error",
+    test_implicit_alias_of_typevar_type,
+    r#"
+from typing import TypeVar
+T = TypeVar('T', bound=int)
+X = type[T]
+def f(x: X[bool]) -> bool:  # should be ok  # E: Can't apply arguments to non-class
+    return x()
+def g(x: type[T][int]):  # E: invalid subscript expression
+    pass
+def h(x: X[str]):  # should be an error about str not matching int  # E: Can't apply arguments to non-class
+    pass
+    "#,
+);
+
+testcase!(
+    bug = "We should be more restrictive about `type` can be specialized with",
+    test_bad_type_variable_aliases,
+    r#"
+from typing import ParamSpec, TypeVarTuple, Unpack
+P = ParamSpec('P')
+Ts = TypeVarTuple('Ts')
+Error1 = type[P]  # should be an error
+Error2 = type[Ts]  # should be an error
+Error3 = type[Unpack[Ts]]  # should be an error
+    "#,
+);
