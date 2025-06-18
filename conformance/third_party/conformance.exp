@@ -10445,8 +10445,8 @@
     {
       "code": -2,
       "column": 14,
-      "concise_description": "Argument `TypedDict[B]` is not assignable to parameter `m` with type `TypedDict[A]` in function `typing._TypedDict.update`",
-      "description": "Argument `TypedDict[B]` is not assignable to parameter `m` with type `TypedDict[A]` in function `typing._TypedDict.update`",
+      "concise_description": "Argument `TypedDict[B]` is not assignable to parameter `m` with type `TypedDict[A]` in function `_typeshed._type_checker_internals.TypedDictFallback.update`",
+      "description": "Argument `TypedDict[B]` is not assignable to parameter `m` with type `TypedDict[A]` in function `_typeshed._type_checker_internals.TypedDictFallback.update`",
       "line": 34,
       "name": "bad-argument-type",
       "stop_column": 15,

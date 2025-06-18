@@ -104,6 +104,7 @@ impl Stdlib {
         let typing = ModuleName::typing();
         let typing_extensions = ModuleName::typing_extensions();
         let enum_ = ModuleName::enum_();
+        let type_checker_internals = ModuleName::type_checker_internals();
 
         let lookup_generic =
             |module: ModuleName, name: &'static str, args: usize| match lookup_class(
@@ -176,8 +177,8 @@ impl Stdlib {
             mapping: lookup_generic(typing, "Mapping", 2),
             enum_meta: lookup_concrete(enum_, "EnumMeta"),
             enum_flag: lookup_concrete(enum_, "Flag"),
+            typed_dict_fallback: lookup_concrete(type_checker_internals, "TypedDictFallback"),
             named_tuple_fallback: lookup_concrete(typing, "NamedTuple"),
-            typed_dict_fallback: lookup_concrete(typing, "_TypedDict"),
             property: lookup_concrete(builtins, "property"),
             object: lookup_concrete(builtins, "object"),
         }

@@ -580,7 +580,7 @@
   "typeddicts_readonly_kwargs.py": [],
   "typeddicts_readonly_update.py": [
     "Line 23: Expected 1 errors",
-    "Line 34: Unexpected errors ['Argument `TypedDict[B]` is not assignable to parameter `m` with type `TypedDict[A]` in function `typing._TypedDict.update`']"
+    "Line 34: Unexpected errors ['Argument `TypedDict[B]` is not assignable to parameter `m` with type `TypedDict[A]` in function `_typeshed._type_checker_internals.TypedDictFallback.update`']"
   ],
   "typeddicts_required.py": [
     "Line 62: Expected 1 errors",
