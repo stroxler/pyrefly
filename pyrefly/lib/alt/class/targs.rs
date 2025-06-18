@@ -309,7 +309,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             range,
                             ErrorKind::InvalidTypeVarTuple,
                             None,
-                            "TypeVarTuple must be unpacked".to_owned(),
+                            "`TypeVarTuple` must be unpacked".to_owned(),
                         )
                     } else {
                         arg.clone()
@@ -397,7 +397,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         ErrorKind::InvalidTypeVarTuple,
                         None,
-                        "TypeVarTuple must be unpacked".to_owned(),
+                        "`TypeVarTuple` must be unpacked".to_owned(),
                     )
                 } else if arg.is_kind_param_spec() {
                     self.error(
@@ -405,7 +405,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         ErrorKind::InvalidParamSpec,
                         None,
-                        "ParamSpec cannot be used for type parameter".to_owned(),
+                        "`ParamSpec` cannot be used for type parameter".to_owned(),
                     )
                 } else {
                     arg.clone()

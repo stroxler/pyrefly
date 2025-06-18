@@ -64,7 +64,7 @@
     "Line 36: Unexpected errors ['Expected a type form, got instance of `GenericAlias`']",
     "Line 37: Unexpected errors ['Expected a type form, got instance of `GenericAlias`']",
     "Line 38: Unexpected errors ['Expected a type form, got instance of `GenericAlias`']",
-    "Line 39: Unexpected errors ['Expected a type form, got instance of `GenericAlias`', 'Expected an iterable, got type[tuple[int, str, int]]']"
+    "Line 39: Unexpected errors ['Expected a type form, got instance of `GenericAlias`', 'Expected an iterable, got `type[tuple[int, str, int]]`']"
   ],
   "aliases_variance.py": [
     "Line 24: Expected 1 errors",

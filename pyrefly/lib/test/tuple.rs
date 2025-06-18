@@ -43,7 +43,7 @@ def test(
     x4: tuple[int, ..., int],  # E: Invalid position for `...`
     x5: tuple[int, int, ...],  # E: Invalid position for `...`
     x6: tuple[..., int],  # E: Invalid position for `...`
-    x7: tuple[*tuple[int], ...]  # E: `...` cannot be used with an unpacked TypeVarTuple or tuple
+    x7: tuple[*tuple[int], ...]  # E: `...` cannot be used with an unpacked `TypeVarTuple` or tuple
 ):
     assert_type(x2, tuple[Any, ...])
     assert_type(x3, tuple[Any, ...])
@@ -92,8 +92,8 @@ testcase!(
 from typing import Any, Iterable
 def f(x: int) -> int: ...
 def test(y: int):
-    x: tuple[int, ...] = (3, *y, 4)  # E: Expected an iterable, got int
-    x: tuple[int, ...] = (3, *y, f("x"))  # E: Expected an iterable, got int  # E: Argument `Literal['x']` is not assignable to parameter `x` with type `int` in function `f`
+    x: tuple[int, ...] = (3, *y, 4)  # E: Expected an iterable, got `int`
+    x: tuple[int, ...] = (3, *y, f("x"))  # E: Expected an iterable, got `int`  # E: Argument `Literal['x']` is not assignable to parameter `x` with type `int` in function `f`
 "#,
 );
 

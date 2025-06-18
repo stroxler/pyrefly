@@ -75,7 +75,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             value.range(),
                             ErrorKind::InvalidArgument,
                             None,
-                            "`...` cannot be used with an unpacked TypeVarTuple or tuple"
+                            "`...` cannot be used with an unpacked `TypeVarTuple` or tuple"
                                 .to_owned(),
                         );
                         return None;
@@ -138,7 +138,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         value.range(),
                         ErrorKind::BadUnpacking,
                         None,
-                        format!("Expected a tuple or TypeVarTuple, got `{}`", ty),
+                        format!("Expected a tuple or `TypeVarTuple`, got `{}`", ty),
                     );
                     return None;
                 }
@@ -148,7 +148,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         value.range(),
                         ErrorKind::InvalidTypeVarTuple,
                         None,
-                        "TypeVarTuple must be unpacked".to_owned(),
+                        "`TypeVarTuple` must be unpacked".to_owned(),
                     );
                     return None;
                 }
@@ -294,7 +294,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ErrorKind::BadSpecialization,
                 None,
                 format!(
-                    "Optional requires exactly one argument but {} was found",
+                    "`Optional` requires exactly one argument but {} was found",
                     arguments.len()
                 ),
             ),
@@ -314,7 +314,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         ErrorKind::InvalidLiteral,
                         None,
-                        "Literal arguments cannot be parenthesized".to_owned(),
+                        "`Literal` arguments cannot be parenthesized".to_owned(),
                     );
                 }
                 let mut literals = Vec::new();
@@ -425,7 +425,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             x.range(),
                             ErrorKind::InvalidSyntax,
                             None,
-                            "Invalid Callable type".to_owned(),
+                            "Invalid `Callable` type".to_owned(),
                         );
                         Type::type_form(Type::callable_ellipsis(Type::any_error()))
                     }
@@ -438,7 +438,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ErrorKind::BadSpecialization,
                     None,
                     format!(
-                        "Callable requires exactly two arguments but {} was found",
+                        "`Callable` requires exactly two arguments but {} was found",
                         arguments.len()
                     ),
                 );
@@ -453,7 +453,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ErrorKind::BadSpecialization,
                 None,
                 format!(
-                    "TypeGuard requires exactly one argument but got {}",
+                    "`TypeGuard` requires exactly one argument but got {}",
                     arguments.len()
                 ),
             ),
@@ -466,7 +466,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ErrorKind::BadSpecialization,
                 None,
                 format!(
-                    "TypeIs requires exactly one argument but got {}",
+                    "`TypeIs` requires exactly one argument but got {}",
                     arguments.len()
                 ),
             ),
@@ -479,7 +479,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ErrorKind::BadSpecialization,
                 None,
                 format!(
-                    "Unpack requires exactly one argument but got {}",
+                    "``Unpack requires exactly one argument but got {}",
                     arguments.len()
                 ),
             ),
@@ -492,11 +492,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ErrorKind::BadSpecialization,
                 None,
                 format!(
-                    "Type requires exactly one argument but got {}",
+                    "`Type` requires exactly one argument but got {}",
                     arguments.len()
                 ),
             ),
             SpecialForm::Annotated if arguments.len() > 1 => self.expr_infer(&arguments[0], errors),
+            // Keep this in sync with `SpecialForm::can_be_subscripted``
             SpecialForm::SelfType
             | SpecialForm::LiteralString
             | SpecialForm::Never
@@ -507,7 +508,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                format!("{} may not be subscripted", special_form),
+                format!("`{}` may not be subscripted", special_form),
             ),
             SpecialForm::ClassVar
             | SpecialForm::Final
@@ -521,7 +522,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                format!("{} may not be used in this context", special_form),
+                format!("`{}` is not allowed in this context", special_form),
             ),
         }
     }

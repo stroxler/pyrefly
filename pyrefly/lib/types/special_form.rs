@@ -95,6 +95,19 @@ impl SpecialForm {
         }
     }
 
+    /// Keep this in sync with `apply_special_form`
+    pub fn can_be_subscripted(self) -> bool {
+        match self {
+            Self::LiteralString
+            | Self::Never
+            | Self::NoReturn
+            | Self::SelfType
+            | Self::TypeAlias
+            | Self::TypedDict => false,
+            _ => true,
+        }
+    }
+
     pub fn to_qualifier(self) -> Option<Qualifier> {
         match self {
             Self::Annotated => Some(Qualifier::Annotated),

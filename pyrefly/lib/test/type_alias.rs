@@ -487,17 +487,17 @@ testcase!(
 from typing import *
 Ts = TypeVarTuple('Ts')
 P = ParamSpec('P')
-t1: TypeAlias = Unpack[TypedDict]  # E: Unpack is not allowed in this context # E: Expected a type argument for `TypedDict`
-t2: TypeAlias = P  # E: ParamSpec[P] is not allowed in this context
-t3: TypeAlias = Unpack[Ts]  # E: Unpack is not allowed in this context
+t1: TypeAlias = Unpack[TypedDict]  # E: `Unpack` is not allowed in this context # E: `TypedDict` is not allowed in this context
+t2: TypeAlias = P  # E: `ParamSpec[P]` is not allowed in this context
+t3: TypeAlias = Unpack[Ts]  # E: `Unpack` is not allowed in this context
 t4: TypeAlias = Literal  # E: Expected a type argument for `Literal`
-t5: TypeAlias = Ts  # E: TypeVarTuple must be unpacked
+t5: TypeAlias = Ts  # E: `TypeVarTuple` must be unpacked
 t6: TypeAlias = Generic  # E: Expected a type argument for `Generic`
 t7: TypeAlias = Protocol  # E: Expected a type argument for `Protocol`
-t8: TypeAlias = Generic[int]  # E: Generic may not be used in this context
-t9: TypeAlias = Protocol[int]  # E: Protocol may not be used in this context
+t8: TypeAlias = Generic[int]  # E: `Generic` is not allowed in this context
+t9: TypeAlias = Protocol[int]  # E: `Protocol` is not allowed in this context
 t10: TypeAlias = Final  # E: Expected a type argument for `Final`
-t11: TypeAlias = Final[int]  # E: Final may not be used in this context
+t11: TypeAlias = Final[int]  # E: `Final` is not allowed in this context
 t12: TypeAlias = TypeAlias  # OK
 t13: TypeAlias = [int][0]  # E: invalid subscript expression cannot be used in annotations
 "#,

@@ -654,11 +654,11 @@ testcase!(
     r#"
 from typing import TypedDict, TypeVar
 
-T = TypeVar("T", bound=TypedDict)  # E: Expected a type argument for `TypedDict`
+T = TypeVar("T", bound=TypedDict)  # E: `TypedDict` is not allowed in this context
 
-def test(x: TypedDict):  # E: Expected a type argument for `TypedDict`
+def test(x: TypedDict):  # E: `TypedDict` is not allowed in this context
     pass
 
-x: TypedDict  # E: Expected a type argument for `TypedDict`
+x: TypedDict  # E: `TypedDict` is not allowed in this context
     "#,
 );

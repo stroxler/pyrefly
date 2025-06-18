@@ -289,7 +289,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ErrorKind::InvalidLiteral,
                     None,
                     format!(
-                        "Expected literal True or False, got {}",
+                        "Expected literal `True` or `False`, got `{}`",
                         self.for_display(ty)
                     ),
                 );
@@ -737,7 +737,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorKind::NotIterable,
                         None,
                         format!(
-                            "Expected an iterable, got {}",
+                            "Expected an iterable, got `{}`",
                             self.for_display(unpacked_ty)
                         ),
                     )
@@ -1082,7 +1082,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             ErrorKind::NotIterable,
                                             None,
                                             format!(
-                                                "Expected an iterable, got {}",
+                                                "Expected an iterable, got `{}`",
                                                 self.for_display(ty)
                                             ),
                                         );

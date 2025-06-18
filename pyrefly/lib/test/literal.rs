@@ -174,7 +174,7 @@ testcase!(
     test_literal_brackets,
     r#"
 from typing import Literal
-bad6: Literal[(1, "foo", "bar")]  # E: Literal arguments cannot be parenthesized
+bad6: Literal[(1, "foo", "bar")]  # E: `Literal` arguments cannot be parenthesized
 "#,
 );
 

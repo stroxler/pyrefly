@@ -125,12 +125,12 @@ from typing import Callable, Concatenate, ParamSpec
 
 P = ParamSpec("P")
 
-def foo(x: P) -> P: ...                           # E: ParamSpec is not allowed in this context. # E: ParamSpec is not allowed in this context.
-def foo(x: Concatenate[int, P]) -> int: ...       # E: Concatenate[int, P] is not allowed in this context.
-def foo(x: Callable[Concatenate[P, P], int]) -> int: ...  # E: ParamSpec is not allowed in this context.
-def foo(x: list[P]) -> None: ...                  # E: ParamSpec cannot be used for type parameter
-def foo(x: Callable[[int, str], P]) -> None: ...  # E: ParamSpec is not allowed in this context.
-def foo(x: Callable[[P, str], int]) -> None: ...  # E: ParamSpec is not allowed in this context.
+def foo(x: P) -> P: ...                           # E: `ParamSpec` is not allowed in this context. # E: `ParamSpec` is not allowed in this context.
+def foo(x: Concatenate[int, P]) -> int: ...       # E: `Concatenate[int, P]` is not allowed in this context.
+def foo(x: Callable[Concatenate[P, P], int]) -> int: ...  # E: `ParamSpec` is not allowed in this context.
+def foo(x: list[P]) -> None: ...                  # E: `ParamSpec` cannot be used for type parameter
+def foo(x: Callable[[int, str], P]) -> None: ...  # E: `ParamSpec` is not allowed in this context.
+def foo(x: Callable[[P, str], int]) -> None: ...  # E: `ParamSpec` is not allowed in this context.
 "#,
 );
 
@@ -237,19 +237,15 @@ from typing import Callable, Concatenate, ParamSpec, reveal_type
 P = ParamSpec("P")
 
 def bar(x: int, *args: bool) -> int: ...
-
 def add(x: Callable[P, int]) -> Callable[Concatenate[str, P], bool]: ...
-
 reveal_type(add(bar))       # Should return (a: str, /, x: int, *args: bool) -> bool # E: revealed type: (str, x: int, *args: bool) -> bool
 
 def remove(x: Callable[Concatenate[int, P], int]) -> Callable[P, bool]: ...
-
 reveal_type(remove(bar))    # E: revealed type: (*args: bool) -> bool
 
 def transform(
   x: Callable[Concatenate[int, P], int]
 ) -> Callable[Concatenate[str, P], bool]: ...
-
 reveal_type(transform(bar)) # Should return (a: str, /, *args: bool) -> bool # E: revealed type: (str, *args: bool) -> bool
 "#,
 );
@@ -263,15 +259,9 @@ from typing import Callable, ParamSpec
 P = ParamSpec("P")
 
 def puts_p_into_scope(f: Callable[P, int]) -> None:
-
-  def inner(*args: P.args, **kwargs: P.kwargs) -> None:      # Accepted
-    pass
-
-  def mixed_up(*args: P.kwargs, **kwargs: P.args) -> None:   # E: ParamSpec **kwargs is only allowed in a **kwargs annotation. # E: ParamSpec *args is only allowed in an *args annotation.
-    pass
-
-  def misplaced(x: P.args) -> None:                          # E: ParamSpec *args is only allowed in an *args annotation.
-    pass
+  def inner(*args: P.args, **kwargs: P.kwargs) -> None: pass     # Accepted
+  def mixed_up(*args: P.kwargs, **kwargs: P.args) -> None: pass  # E: `ParamSpec` **kwargs is only allowed in a **kwargs annotation. # E: `ParamSpec` *args is only allowed in an *args annotation.
+  def misplaced(x: P.args) -> None: pass                         # E: `ParamSpec` *args is only allowed in an *args annotation.
 
 def out_of_scope(*args: P.args, **kwargs: P.kwargs) -> None: # Rejected
   pass
@@ -286,15 +276,11 @@ from typing import Callable, ParamSpec
 P = ParamSpec("P")
 
 def puts_p_into_scope(f: Callable[P, int]) -> None:
-
-  stored_args: P.args                           # E: ParamSpec *args is only allowed in an *args annotation.
-
-  stored_kwargs: P.kwargs                       # E: ParamSpec **kwargs is only allowed in a **kwargs annotation.
-
-  def just_args(*args: P.args) -> None:         # E: ParamSpec *args and **kwargs must be used together
+  stored_args: P.args                           # E: `ParamSpec` *args is only allowed in an *args annotation.
+  stored_kwargs: P.kwargs                       # E: `ParamSpec` **kwargs is only allowed in a **kwargs annotation.
+  def just_args(*args: P.args) -> None:         # E: `ParamSpec` *args and **kwargs must be used together
     pass
-
-  def just_kwargs(**kwargs: P.kwargs) -> None:  # E: ParamSpec *args and **kwargs must be used together
+  def just_kwargs(**kwargs: P.kwargs) -> None:  # E: `ParamSpec` *args and **kwargs must be used together
     pass
 "#,
 );
@@ -307,15 +293,10 @@ from typing import Callable, ParamSpec, assert_type
 P = ParamSpec("P")
 
 def decorator(f: Callable[P, int]) -> Callable[P, None]:
-
   def foo(*args: P.args, **kwargs: P.kwargs) -> None:
-
     assert_type(f(*args, **kwargs), int)    # Accepted, should resolve to int
-
     f(*kwargs, **args)    # Rejected # E: Expected *-unpacked P.args and **-unpacked P.kwargs
-
     f(1, *args, **kwargs) # Rejected # E: Expected 0 positional arguments, got 1
-
   return foo              # Accepted
 "#,
 );
@@ -347,7 +328,7 @@ from typing import Callable, ParamSpec
 P1 = ParamSpec("P1")
 P2 = ParamSpec("P2")
 
-def foo(x: int, *args: P1.args, **kwargs: P2.kwargs) -> None: ...  # E: *args and **kwargs must come from the same ParamSpec
+def foo(x: int, *args: P1.args, **kwargs: P2.kwargs) -> None: ...  # E: *args and **kwargs must come from the same `ParamSpec`
 "#,
 );
 
