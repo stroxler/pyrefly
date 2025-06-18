@@ -334,7 +334,7 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::UpstreamPinnedDefinition(x) => {
                 write!(
                     f,
-                    "{} {} (half pinned)",
+                    "{} {} (upstream-pinned)",
                     ctx.display(x),
                     ctx.display(&x.range())
                 )
