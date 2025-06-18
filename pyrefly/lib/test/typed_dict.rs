@@ -220,6 +220,20 @@ Invalid = TypedDict()  # E: Expected a callable, got type[TypedDict]
 );
 
 testcase!(
+    bug = "TypedDict should allow pop()",
+    test_typed_dict_pop,
+    r#"
+from typing import TypedDict, NotRequired
+
+class TD(TypedDict):
+    x: NotRequired[int]
+    
+def f(td: TD):
+    td.pop("x") # E:  Argument `Literal['x']` is not assignable to parameter `k` with type `Never` in function `typing._TypedDict.pop`
+    "#,
+);
+
+testcase!(
     test_typed_dict_subtype,
     r#"
 from typing import TypedDict
