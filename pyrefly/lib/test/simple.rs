@@ -1428,3 +1428,21 @@ fn test_panic_on_unicode() {
     let _ = testcase_for_macro(TestEnv::new(), "e\u{81}\n", file!(), line!());
     // We manually ignore the missing expectations, because adding `# E:` would change the test.
 }
+
+testcase!(
+    test_crash_on_invalid_walrus,
+    r#"
+# Used to crash, https://github.com/facebook/pyrefly/issues/518
+if"":=  # E: Assignment expression target must be an identifier # E: Expected an expression
+"#,
+);
+
+testcase!(
+    test_check_invalid_rhs,
+    r#"
+def f(x): pass
+
+1 := f() # E: Expected a statement # E: Missing argument `x`
+1 = f() # E: Invalid assignment target # E: Missing argument `x`
+"#,
+);

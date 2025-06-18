@@ -240,7 +240,7 @@ impl<'a> BindingsBuilder<'a> {
     fn bind_target_impl(
         &mut self,
         target: &mut Expr,
-        assigned: Option<&mut Expr>,
+        mut assigned: Option<&mut Expr>,
         make_assigned_value: &dyn Fn(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
         ensure_assigned: bool,
     ) {
@@ -305,6 +305,14 @@ impl<'a> BindingsBuilder<'a> {
                 // We ignore such names for first-usage-tracking purposes, since
                 // we are not going to analyze the code at all.
                 self.ensure_expr(illegal_target, &mut Usage::StaticTypeInformation);
+
+                // Make sure the RHS is properly bound, so that we can report errors there.
+                let mut user = self.declare_user(Key::Anon(illegal_target.range()));
+                if ensure_assigned && let Some(assigned) = &mut assigned {
+                    self.ensure_expr(assigned, user.usage());
+                }
+                let binding = binding_of(make_assigned_value(assigned.as_deref(), None), None);
+                self.insert_binding_user(user, binding);
             }
         }
     }
