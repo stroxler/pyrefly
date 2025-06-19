@@ -235,24 +235,21 @@ pub fn find_module_in_search_path<'a, I>(module: ModuleName, include: I) -> Opti
 where
     I: Iterator<Item = &'a PathBuf> + Clone,
 {
-    let parts = module.components();
-    if parts.is_empty() {
-        return None;
+    match module.components().as_slice() {
+        [] => None,
+        [first, rest @ ..] => {
+            let start_result = find_one_part(first, include.clone());
+            let result =
+                start_result.and_then(|start_result| continue_find_module(start_result, rest));
+            if result.is_some() {
+                return result;
+            }
+            // If we can't find the module, try to find a stub by adding the -stubs suffix
+            let stub_first = Name::new(format!("{first}-stubs"));
+            let start_stub_result = find_one_part(&stub_first, include)?;
+            continue_find_module(start_stub_result, rest)
+        }
     }
-
-    let start_result = find_one_part(&parts[0], include.clone());
-    let result =
-        start_result.and_then(|start_result| continue_find_module(start_result, &parts[1..]));
-    if result.is_some() {
-        return result;
-    }
-    // If we can't find the module, try to find a stub by adding the -stubs suffix
-    let mut stub_first = parts[0].as_str().to_owned();
-    stub_first.push_str("-stubs");
-    let stub_first = Name::new(stub_first);
-    let start_stub_result = find_one_part(&stub_first, include);
-    start_stub_result
-        .and_then(|start_stub_result| continue_find_module(start_stub_result, &parts[1..]))
 }
 
 pub fn find_module_in_site_package_path(
