@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::iter;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -259,9 +260,7 @@ pub fn find_module_in_site_package_path(
     ignore_missing_source: bool,
 ) -> Result<Option<ModulePath>, FindError> {
     let first = module.first_component();
-    let mut stub_first = first.as_str().to_owned();
-    stub_first.push_str("-stubs");
-    let stub_first = Name::new(stub_first);
+    let stub_first = Name::new(format!("{first}-stubs"));
 
     let stub_module = ModuleName::from_parts(
         [stub_first.clone()]
@@ -272,7 +271,7 @@ pub fn find_module_in_site_package_path(
 
     let stub_module_imports = include
         .iter()
-        .filter_map(|root| find_one_part(&stub_first, [root.to_owned()].iter()));
+        .filter_map(|root| find_one_part(&stub_first, iter::once(root)));
 
     let mut any_has_partial_py_typed = false;
     let mut checked_one_stub = false;
@@ -298,7 +297,7 @@ pub fn find_module_in_site_package_path(
 
     let mut fallback_modules = include
         .iter()
-        .filter_map(|root| find_one_part(&first, [root.to_owned()].iter()))
+        .filter_map(|root| find_one_part(&first, iter::once(root)))
         .peekable();
 
     // check if there's an existing library backing the stubs we have
