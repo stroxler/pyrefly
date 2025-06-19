@@ -59,7 +59,7 @@ use crate::alt::answers::AnswerEntry;
 use crate::alt::answers::AnswerTable;
 use crate::alt::answers::Answers;
 use crate::alt::answers::AnswersSolver;
-use crate::alt::answers::CalculationStack;
+use crate::alt::answers::CalcStack;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers::Solutions;
 use crate::alt::answers::SolutionsEntry;
@@ -847,12 +847,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn lookup_stdlib(
-        &self,
-        handle: &Handle,
-        name: &Name,
-        stack: &CalculationStack,
-    ) -> Option<Class> {
+    fn lookup_stdlib(&self, handle: &Handle, name: &Name, stack: &CalcStack) -> Option<Class> {
         let module_data = self.get_module(handle);
         if !self
             .lookup_export(&module_data)
@@ -899,7 +894,7 @@ impl<'a> Transaction<'a> {
         &'b self,
         module_data: ArcId<ModuleDataMut>,
         key: &K,
-        stack: &CalculationStack,
+        stack: &CalcStack,
     ) -> Arc<<K as Keyed>::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -962,7 +957,7 @@ impl<'a> Transaction<'a> {
 
     fn compute_stdlib(&mut self, sys_infos: SmallSet<SysInfo>) {
         let loader = self.get_cached_loader(&BundledTypeshed::config());
-        let stack = CalculationStack::new();
+        let stack = CalcStack::new();
         for k in sys_infos.into_iter_hashed() {
             self.data
                 .stdlib
@@ -1132,7 +1127,7 @@ impl<'a> Transaction<'a> {
         let (bindings, answers) = steps.answers.as_deref().as_ref()?;
         let stdlib = self.get_stdlib(handle);
         let recurser = Recurser::new();
-        let stack = CalculationStack::new();
+        let stack = CalcStack::new();
         let solver = AnswersSolver::new(
             &lookup,
             answers,
@@ -1438,7 +1433,7 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
         module: ModuleName,
         path: Option<&ModulePath>,
         k: &K,
-        stack: &CalculationStack,
+        stack: &CalcStack,
     ) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,

@@ -2,6 +2,7 @@ use dupe::Dupe;
 use pyrefly_util::display::DisplayWithCtx;
 
 use crate::alt::answers::AnswersSolver;
+use crate::alt::answers::CalcId;
 use crate::alt::answers::LookupAnswer;
 use crate::binding::binding::AnyIdx;
 use crate::binding::binding::Binding;
@@ -11,7 +12,6 @@ use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
 use crate::binding::table::TableKeyed;
 use crate::graph::index::Idx;
-use crate::module::module_info::ModuleInfo;
 
 /// Debugging helpers for the AnswersSolver.
 ///
@@ -82,16 +82,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         format!("{} :: {}", kind, key)
     }
 
+    pub fn show_calc_id(&self, c: CalcId) -> String {
+        match c {
+            CalcId(module_info, idx) => {
+                format!("{} . {}", module_info.name(), self.show_any_idx(idx))
+            }
+        }
+    }
+
     pub fn show_current_idx(&self) -> String {
         match self.stack().peek() {
             None => {
                 // In practice we'll never hit this debugging, but there's no need to panic if we do.
                 "(None)".to_owned()
             }
-            Some((module_info, idx)) => {
-                let module = module_info.name();
-                format!("{} . {}", module, self.show_any_idx(idx))
-            }
+            Some(c) => self.show_calc_id(c),
         }
     }
 
@@ -101,7 +106,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // In practice we'll never hit this debugging, but there's no need to panic if we do.
                 "(None)".to_owned()
             }
-            Some((_, idx)) => match idx {
+            Some(CalcId(_, idx)) => match idx {
                 AnyIdx::Key(idx) => self.show_binding_for(idx),
                 AnyIdx::KeyExpect(idx) => self.show_binding_for(idx),
                 AnyIdx::KeyClass(idx) => self.show_binding_for(idx),
@@ -123,7 +128,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.stack()
             .into_vec()
             .into_iter()
-            .map(|(module_info, idx)| {
+            .map(|CalcId(module_info, idx)| {
                 format!("{} . {}", module_info.name(), self.show_any_idx(idx))
             })
     }
@@ -135,16 +140,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// - if there is a cycle, `Some(vec![(m0, i0), (m2, i2)...])`
     ///   where the order of (module, idx) pairs is recency (so starting with current
     ///   module and idx, and ending with the oldest).
-    fn compute_current_cycle(&self) -> Option<Vec<(ModuleInfo, AnyIdx)>> {
+    fn compute_current_cycle(&self) -> Option<Vec<CalcId>> {
         let mut rev_stack = self.stack().into_vec().into_iter().rev();
-        let (module, idx) = rev_stack.next()?;
+        let current = rev_stack.next()?;
         let mut cycle = Vec::with_capacity(rev_stack.len());
-        cycle.push((module.dupe(), idx.clone()));
-        for (m, i) in rev_stack {
-            if m == module && i == idx {
+        cycle.push(current.dupe());
+        for c in rev_stack {
+            if c == current {
                 return Some(cycle);
             }
-            cycle.push((m, i));
+            cycle.push(c);
         }
         None
     }
@@ -156,7 +161,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.compute_current_cycle()
             .unwrap()
             .into_iter()
-            .map(|(module_info, idx)| {
+            .map(|CalcId(module_info, idx)| {
                 format!("{} . {}", module_info.name(), self.show_any_idx(idx))
             })
     }
