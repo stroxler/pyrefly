@@ -210,19 +210,33 @@ impl Display for TypeInfo {
     }
 }
 
+/// Limit on the size of [NarrowedFacets].
+///
+/// In order to avoid O(n^2) performance of things like x.a = 1; x.b = 2 ....
+/// we cap the number of facets at one level.
+///
+/// Note that we don't cap the overall size of a [TypeInfo], merely the fanout at
+/// each level. We may need to cap the overall size, if that becomes a problem.
+const NARROWED_FACETS_LIMIT: usize = 100;
+
+/// The facets one level down, bounded by [NARROWED_FACETS_LIMIT].
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq)]
 struct NarrowedFacets(SmallMap<FacetKind, NarrowedFacet>);
 
 impl NarrowedFacets {
+    fn insert(&mut self, facet: FacetKind, value: NarrowedFacet) {
+        // Only insert if there is space, or if the key is already present (so we overwrite)
+        if self.0.len() < NARROWED_FACETS_LIMIT || self.0.contains_key(&facet) {
+            self.0.insert(facet, value);
+        }
+    }
+
     fn add_narrow(&mut self, facet: &FacetKind, more_facets: &[FacetKind], ty: Type) {
         match self.0.get_mut(facet) {
             Some(narrowed_facet) => {
                 narrowed_facet.add_narrow(more_facets, ty);
             }
-            None => {
-                self.0
-                    .insert(facet.clone(), NarrowedFacet::new(more_facets, ty));
-            }
+            None => self.insert(facet.clone(), NarrowedFacet::new(more_facets, ty)),
         };
     }
 
@@ -249,8 +263,7 @@ impl NarrowedFacets {
         match more_facets {
             [] => {
                 if let Some(ty) = ty {
-                    self.0
-                        .insert(facet.clone(), NarrowedFacet::new(more_facets, ty));
+                    self.insert(facet.clone(), NarrowedFacet::new(more_facets, ty));
                 } else {
                     self.0.shift_remove(facet);
                 }
@@ -259,8 +272,7 @@ impl NarrowedFacets {
                 if let Some(narrowed_facet) = self.0.get_mut(next_facet) {
                     narrowed_facet.update_for_assignment(next_facet, remaining_facets, ty);
                 } else if let Some(ty) = ty {
-                    self.0
-                        .insert(facet.clone(), NarrowedFacet::new(more_facets, ty));
+                    self.insert(facet.clone(), NarrowedFacet::new(more_facets, ty));
                 }
                 // ... else there is no existing narrow and no narrow type, so do nothing.
             }
