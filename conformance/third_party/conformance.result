@@ -533,11 +533,7 @@
     "Line 102: Unexpected errors ['assert_type(Any, tuple[type, ...]) failed']",
     "Line 106: Unexpected errors ['assert_type(Any, tuple[type, ...]) failed']",
     "Line 110: Unexpected errors ['assert_type(Any, tuple[type, ...]) failed']",
-    "Line 139: Unexpected errors ['assert_type(type, type[Any]) failed']",
-    "Line 152: Unexpected errors [\"Can't apply arguments to non-class, got TypeAlias[TA7, type[type[TypeVar[T]]]]\"]",
-    "Line 156: Unexpected errors [\"Can't apply arguments to non-class, got TypeAlias[TA8, type[type[TypeVar[T]]]]\"]",
-    "Line 160: Unexpected errors ['assert_type(Any, int) failed']",
-    "Line 161: Unexpected errors ['assert_type(Any, int) failed']"
+    "Line 139: Unexpected errors ['assert_type(type, type[Any]) failed']"
   ],
   "tuples_type_compat.py": [
     "Line 93: Unexpected errors ['Cannot unpack tuple[int] | tuple[str, str] | tuple[int, *tuple[str, ...], int] (of size 2) into 1 value']",

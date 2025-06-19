@@ -3,7 +3,7 @@
   "pass": 59,
   "fail": 77,
   "pass_rate": 0.43,
-  "differences": 377,
+  "differences": 373,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -134,7 +134,7 @@
     "qualifiers_final_annotation.py": 11,
     "qualifiers_final_decorator.py": 7,
     "specialtypes_never.py": 1,
-    "specialtypes_type.py": 12,
+    "specialtypes_type.py": 8,
     "tuples_type_compat.py": 8,
     "typeddicts_class_syntax.py": 5,
     "typeddicts_inheritance.py": 1,

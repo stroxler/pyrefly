@@ -581,17 +581,17 @@ def f(y1: Y | None, y2: Y[int] | None):
 );
 
 testcase!(
-    bug = "Spurious 'Can't apply arguments to non-class' error",
+    bug = "Missing check of type argument against TypeVar bound",
     test_implicit_alias_of_typevar_type,
     r#"
 from typing import TypeVar
 T = TypeVar('T', bound=int)
 X = type[T]
-def f(x: X[bool]) -> bool:  # should be ok  # E: Can't apply arguments to non-class
+def f(x: X[bool]) -> bool:
     return x()
 def g(x: type[T][int]):  # E: invalid subscript expression
     pass
-def h(x: X[str]):  # should be an error about str not matching int  # E: Can't apply arguments to non-class
+def h(x: X[str]):  # should be an error about str not matching int
     pass
     "#,
 );

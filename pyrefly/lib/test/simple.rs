@@ -1414,7 +1414,7 @@ T = TypeVar("T")
 TypeForm = type[T]
 
 reveal_type(T)  # E: type[TypeVar[T]]
-reveal_type(TypeForm)  # E: revealed type: type[type[TypeVar[T]]]
+reveal_type(TypeForm)  # E: revealed type: type[type[T]]
     "#,
 );
 

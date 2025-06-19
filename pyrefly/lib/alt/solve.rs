@@ -773,6 +773,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 seen_param_specs,
                 tparams,
             ),
+            Type::Type(t) => self.tvars_to_tparams_for_type_alias(
+                t,
+                seen_type_vars,
+                seen_type_var_tuples,
+                seen_param_specs,
+                tparams,
+            ),
             _ => {}
         }
     }

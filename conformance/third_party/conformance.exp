@@ -9446,46 +9446,6 @@
       "name": "missing-attribute",
       "stop_column": 12,
       "stop_line": 146
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Can't apply arguments to non-class, got TypeAlias[TA7, type[type[TypeVar[T]]]]",
-      "description": "Can't apply arguments to non-class, got TypeAlias[TA7, type[type[TypeVar[T]]]]",
-      "line": 152,
-      "name": "bad-specialization",
-      "stop_column": 22,
-      "stop_line": 152
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Can't apply arguments to non-class, got TypeAlias[TA8, type[type[TypeVar[T]]]]",
-      "description": "Can't apply arguments to non-class, got TypeAlias[TA8, type[type[TypeVar[T]]]]",
-      "line": 156,
-      "name": "bad-specialization",
-      "stop_column": 22,
-      "stop_line": 156
-    },
-    {
-      "code": -2,
-      "column": 12,
-      "concise_description": "assert_type(Any, int) failed",
-      "description": "assert_type(Any, int) failed",
-      "line": 160,
-      "name": "assert-type",
-      "stop_column": 30,
-      "stop_line": 160
-    },
-    {
-      "code": -2,
-      "column": 12,
-      "concise_description": "assert_type(Any, int) failed",
-      "description": "assert_type(Any, int) failed",
-      "line": 161,
-      "name": "assert-type",
-      "stop_column": 30,
-      "stop_line": 161
     }
   ],
   "tuples_type_compat.py": [
