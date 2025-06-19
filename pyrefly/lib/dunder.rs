@@ -15,6 +15,7 @@ pub const CALL: Name = Name::new_static("__call__");
 pub const CONTAINS: Name = Name::new_static("__contains__");
 pub const DATACLASS_FIELDS: Name = Name::new_static("__dataclass_fields__");
 pub const DEBUG: Name = Name::new_static("__debug__");
+pub const DELATTR: Name = Name::new_static("__delattr__");
 pub const DELITEM: Name = Name::new_static("__delitem__");
 pub const DOC: Name = Name::new_static("__doc__");
 pub const ENTER: Name = Name::new_static("__enter__");
@@ -42,6 +43,7 @@ pub const NEW: Name = Name::new_static("__new__");
 pub const NEXT: Name = Name::new_static("__next__");
 pub const POS: Name = Name::new_static("__pos__");
 pub const SET: Name = Name::new_static("__set__");
+pub const SETATTR: Name = Name::new_static("__setattr__");
 pub const SETITEM: Name = Name::new_static("__setitem__");
 pub const BOOL: Name = Name::new_static("__bool__");
 
