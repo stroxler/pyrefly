@@ -325,15 +325,16 @@ pub fn find_module_prefixes<'a>(
     prefix: ModuleName,
     include: impl Iterator<Item = &'a PathBuf>,
 ) -> Vec<ModuleName> {
+    let components = prefix.components();
+    let first = &components[0];
+    let rest = &components[1..];
     let mut results = Vec::new();
-    if let Some(first) = prefix.components().first()
-        && prefix.components().len() == 1
-    {
+    if rest.is_empty() {
         results = find_one_part_prefix(first, include)
     } else {
-        let mut current_result = find_one_part(&prefix.components()[0], include);
-        let components_rest = &prefix.components()[1..];
-        for (i, part) in components_rest.iter().enumerate() {
+        let mut current_result = find_one_part(first, include);
+        for (i, part) in rest.iter().enumerate() {
+            let is_last = i == rest.len() - 1;
             match current_result {
                 None => {
                     break;
@@ -342,15 +343,15 @@ pub fn find_module_prefixes<'a>(
                     break;
                 }
                 Some(FindResult::RegularPackage(_, next_root)) => {
-                    if i == components_rest.len() - 1 {
-                        results = find_one_part_prefix(part, [next_root].iter());
+                    if is_last {
+                        results = find_one_part_prefix(part, iter::once(&next_root));
                         break;
                     } else {
-                        current_result = find_one_part(part, [next_root].iter());
+                        current_result = find_one_part(part, iter::once(&next_root));
                     }
                 }
                 Some(FindResult::NamespacePackage(next_roots)) => {
-                    if i == components_rest.len() - 1 {
+                    if is_last {
                         results = find_one_part_prefix(part, next_roots.iter());
                         break;
                     } else {
