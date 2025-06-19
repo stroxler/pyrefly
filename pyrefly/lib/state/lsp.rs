@@ -73,7 +73,6 @@ use crate::types::callable::Param;
 use crate::types::callable::Params;
 use crate::types::lsp::source_range_to_range;
 use crate::types::module::Module;
-use crate::types::simplify::unions_with_literals;
 use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
 
