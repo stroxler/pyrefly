@@ -593,29 +593,29 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     ) -> bool {
         match got_ts.len().cmp(&want_ts.len()) {
             Ordering::Greater => {
-                let (pre, post) = got_ts.split_at(want_ts.len());
-                for (l, u) in pre.iter().zip(want_ts.iter()) {
+                let (got_ts_pre, got_ts_post) = got_ts.split_at(want_ts.len());
+                for (l, u) in got_ts_pre.iter().zip(want_ts.iter()) {
                     if !self.is_subset_eq(u, l) {
                         return false;
                     }
                 }
-                let post = post.to_vec().into_boxed_slice();
+                let got_ts_post = got_ts_post.to_vec().into_boxed_slice();
                 self.is_subset_eq(
-                    &Type::Concatenate(post, Box::new(want_pspec.clone())),
-                    got_pspec,
+                    want_pspec,
+                    &Type::Concatenate(got_ts_post, Box::new(got_pspec.clone())),
                 )
             }
             Ordering::Less => {
-                let (pre, post) = want_ts.split_at(got_ts.len());
-                for (l, u) in got_ts.iter().zip(pre.iter()) {
+                let (want_ts_pre, want_ts_post) = want_ts.split_at(got_ts.len());
+                for (l, u) in got_ts.iter().zip(want_ts_pre.iter()) {
                     if !self.is_subset_eq(u, l) {
                         return false;
                     }
                 }
-                let post = post.to_vec().into_boxed_slice();
+                let want_ts_post = want_ts_post.to_vec().into_boxed_slice();
                 self.is_subset_eq(
-                    want_pspec,
-                    &Type::Concatenate(post, Box::new(got_pspec.clone())),
+                    &Type::Concatenate(want_ts_post, Box::new(want_pspec.clone())),
+                    got_pspec,
                 )
             }
             Ordering::Equal => {

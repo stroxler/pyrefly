@@ -367,6 +367,23 @@ f(x, 1)"#,
 );
 
 testcase!(
+    bug = "we can pass in anything for the ParamSpec component of the concatenation",
+    test_paramspec_callable_infer_concatenate,
+    r#"
+from typing import Callable, ParamSpec, Concatenate
+
+P = ParamSpec("P")
+def f(f: Callable[P, int], *args: P.args, **kwargs: P.kwargs) -> int:
+    return f(*args, **kwargs)
+P2 = ParamSpec("P2")
+def g(x: Callable[Concatenate[int, P2], int], *args: P2.args, **kwargs: P2.kwargs):
+    f(x, 1)
+    f(x)  # E: Expected 1 more positional argument in function `f`
+    f(x, 1, 2)  # Not OK, we aren't sure the 2nd param is an int 
+"#,
+);
+
+testcase!(
     test_functools_wraps_paramspec,
     r#"
 from functools import wraps
