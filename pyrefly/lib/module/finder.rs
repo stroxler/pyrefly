@@ -259,15 +259,10 @@ pub fn find_module_in_site_package_path(
     use_untyped_imports: bool,
     ignore_missing_source: bool,
 ) -> Result<Option<ModulePath>, FindError> {
-    let first = module.first_component();
+    let components = module.components();
+    let first = &components[0];
+    let rest = &components[1..];
     let stub_first = Name::new(format!("{first}-stubs"));
-
-    let stub_module = ModuleName::from_parts(
-        [stub_first.clone()]
-            .iter()
-            .chain(module.components().iter().skip(1)),
-    );
-    let stub_rest = &stub_module.components()[1..];
 
     let stub_module_imports = include
         .iter()
@@ -280,7 +275,7 @@ pub fn find_module_in_site_package_path(
         let stub_module_py_typed = stub_module_import.py_typed();
         any_has_partial_py_typed |= stub_module_py_typed == PyTyped::Partial;
         checked_one_stub = true;
-        if let Some(stub_result) = continue_find_module(stub_module_import, stub_rest) {
+        if let Some(stub_result) = continue_find_module(stub_module_import, rest) {
             found_stubs = Some(stub_result);
             break;
         }
@@ -297,7 +292,7 @@ pub fn find_module_in_site_package_path(
 
     let mut fallback_modules = include
         .iter()
-        .filter_map(|root| find_one_part(&first, iter::once(root)))
+        .filter_map(|root| find_one_part(first, iter::once(root)))
         .peekable();
 
     // check if there's an existing library backing the stubs we have
@@ -307,7 +302,6 @@ pub fn find_module_in_site_package_path(
         return Err(FindError::no_source(module));
     }
 
-    let module_rest = &module.components()[1..];
     let mut any_has_none_py_typed = false;
     for module in fallback_modules {
         if !use_untyped_imports
@@ -315,7 +309,7 @@ pub fn find_module_in_site_package_path(
             && module.py_typed() == PyTyped::Missing
         {
             any_has_none_py_typed = true;
-        } else if let Some(module_result) = continue_find_module(module, module_rest) {
+        } else if let Some(module_result) = continue_find_module(module, rest) {
             return Ok(Some(module_result));
         }
     }
