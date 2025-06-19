@@ -229,6 +229,8 @@ pub fn parse_pyproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
     use crate::error::kind::ErrorKind;
 
@@ -293,7 +295,7 @@ disable_error_code = ["union-attr"]
 "#;
         let mut cfg = parse_pyproject_config(src)?;
         cfg.configure();
-        let errors = cfg.errors(&PathBuf::from("."));
+        let errors = cfg.errors(Path::new("."));
         assert!(!errors.is_enabled(ErrorKind::MissingAttribute));
         Ok(())
     }
@@ -376,19 +378,19 @@ follow_imports = "silent"
         let mut cfg = parse_pyproject_config(src)?;
         cfg.configure();
         assert!(
-            cfg.errors(&PathBuf::from("src"))
+            cfg.errors(Path::new("src"))
                 .is_enabled(ErrorKind::MissingAttribute)
         );
         assert!(
-            !cfg.errors(&PathBuf::from("src/linux"))
+            !cfg.errors(Path::new("src/linux"))
                 .is_enabled(ErrorKind::MissingAttribute)
         );
         assert!(
-            !cfg.errors(&PathBuf::from("src/down/the/tree/linux"))
+            !cfg.errors(Path::new("src/down/the/tree/linux"))
                 .is_enabled(ErrorKind::MissingAttribute)
         );
         assert!(
-            !cfg.errors(&PathBuf::from("src/foo"))
+            !cfg.errors(Path::new("src/foo"))
                 .is_enabled(ErrorKind::MissingAttribute)
         );
         Ok(())

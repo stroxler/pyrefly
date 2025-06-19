@@ -378,11 +378,11 @@ follow_imports = silent
         cfg.configure();
 
         assert!(
-            cfg.errors(&PathBuf::from("src"))
+            cfg.errors(Path::new("src"))
                 .is_enabled(ErrorKind::MissingAttribute)
         );
         assert!(
-            !cfg.errors(&PathBuf::from("src/linux"))
+            !cfg.errors(Path::new("src/linux"))
                 .is_enabled(ErrorKind::MissingAttribute)
         );
         Ok(())

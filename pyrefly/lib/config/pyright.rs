@@ -205,6 +205,8 @@ pub fn parse_pyproject_toml(raw_file: &str) -> anyhow::Result<ConfigFile> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
     use crate::config::environment::environment::PythonEnvironment;
     use crate::config::environment::environment::SitePackagePathSource;
@@ -344,12 +346,12 @@ mod tests {
         config.configure();
         assert!(
             config
-                .errors(&PathBuf::from("src/init.py"))
+                .errors(Path::new("src/init.py"))
                 .is_enabled(ErrorKind::ImportError)
         );
         assert!(
             !config
-                .errors(&PathBuf::from("src/web/foo.py"))
+                .errors(Path::new("src/web/foo.py"))
                 .is_enabled(ErrorKind::ImportError)
         );
         Ok(())
