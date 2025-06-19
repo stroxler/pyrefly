@@ -10,6 +10,7 @@ use crate::binding::binding::Key;
 use crate::binding::binding::Keyed;
 use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
+use crate::binding::bindings::Bindings;
 use crate::binding::table::TableKeyed;
 use crate::graph::index::Idx;
 
@@ -31,11 +32,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         K: Keyed,
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
+        self.show_idx_with(self.bindings(), idx)
+    }
+
+    pub fn show_idx_with<K>(&self, bindings: &Bindings, idx: Idx<K>) -> String
+    where
+        K: Keyed,
+        BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
+    {
         format!(
             "{}",
-            self.bindings()
+            bindings
                 .idx_to_key(idx)
-                .display_with(self.module_info())
+                .display_with(bindings.module_info())
         )
     }
 
@@ -55,29 +64,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     where
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
-        self.show_binding_generic::<K>(self.bindings().get(idx))
+        self.show_binding_for_with(self.bindings(), idx)
+    }
+
+    pub fn show_binding_for_with<K: Keyed>(&self, bindings: &Bindings, idx: Idx<K>) -> String
+    where
+        BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
+    {
+        format!("{}", bindings.get(idx).display_with(bindings))
     }
 
     pub fn show_current_module(&self) -> String {
         format!("{}", self.module_info().name())
     }
 
-    pub fn show_any_idx(&self, idx: AnyIdx) -> String {
+    fn show_any_idx_with(&self, bindings: &Bindings, idx: AnyIdx) -> String {
         let kind = idx.kind();
         let key = match idx {
-            AnyIdx::Key(idx) => self.show_idx(idx),
-            AnyIdx::KeyExpect(idx) => self.show_idx(idx),
-            AnyIdx::KeyClass(idx) => self.show_idx(idx),
-            AnyIdx::KeyClassField(idx) => self.show_idx(idx),
-            AnyIdx::KeyVariance(idx) => self.show_idx(idx),
-            AnyIdx::KeyClassSynthesizedFields(idx) => self.show_idx(idx),
-            AnyIdx::KeyExport(idx) => self.show_idx(idx),
-            AnyIdx::KeyFunction(idx) => self.show_idx(idx),
-            AnyIdx::KeyAnnotation(idx) => self.show_idx(idx),
-            AnyIdx::KeyClassMetadata(idx) => self.show_idx(idx),
-            AnyIdx::KeyLegacyTypeParam(idx) => self.show_idx(idx),
-            AnyIdx::KeyYield(idx) => self.show_idx(idx),
-            AnyIdx::KeyYieldFrom(idx) => self.show_idx(idx),
+            AnyIdx::Key(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyExpect(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyClass(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyClassField(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyVariance(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyClassSynthesizedFields(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyExport(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyFunction(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyAnnotation(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyClassMetadata(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyLegacyTypeParam(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyYield(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyYieldFrom(idx) => self.show_idx_with(bindings, idx),
         };
         format!("{} :: {}", kind, key)
     }
@@ -88,7 +104,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!(
                     "{} . {}",
                     bindings.module_info().name(),
-                    self.show_any_idx(idx)
+                    self.show_any_idx_with(&bindings, idx)
                 )
             }
         }
@@ -110,20 +126,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // In practice we'll never hit this debugging, but there's no need to panic if we do.
                 "(None)".to_owned()
             }
-            Some(CalcId(_, idx)) => match idx {
-                AnyIdx::Key(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyExpect(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyClass(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyClassField(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyVariance(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyClassSynthesizedFields(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyExport(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyFunction(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyAnnotation(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyClassMetadata(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyLegacyTypeParam(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyYield(idx) => self.show_binding_for(idx),
-                AnyIdx::KeyYieldFrom(idx) => self.show_binding_for(idx),
+            Some(CalcId(bindings, idx)) => match idx {
+                AnyIdx::Key(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyExpect(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyClass(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyClassField(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyVariance(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyClassSynthesizedFields(idx) => {
+                    self.show_binding_for_with(&bindings, idx)
+                }
+                AnyIdx::KeyExport(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyFunction(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyAnnotation(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyClassMetadata(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyLegacyTypeParam(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyYield(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyYieldFrom(idx) => self.show_binding_for_with(&bindings, idx),
             },
         }
     }
@@ -136,7 +154,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!(
                     "{} . {}",
                     bindings.module_info().name(),
-                    self.show_any_idx(idx)
+                    self.show_any_idx_with(&bindings, idx)
                 )
             })
     }
@@ -173,7 +191,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!(
                     "{} . {}",
                     bindings.module_info().name(),
-                    self.show_any_idx(idx)
+                    self.show_any_idx_with(&bindings, idx)
                 )
             })
     }
