@@ -532,7 +532,7 @@ impl Args {
     }
 
     pub fn validate(&self) -> anyhow::Result<()> {
-        fn validate_arg(arg_name: &str, paths: Option<&Vec<PathBuf>>) -> anyhow::Result<()> {
+        fn validate_arg(arg_name: &str, paths: Option<&[PathBuf]>) -> anyhow::Result<()> {
             if let Some(paths) = paths {
                 for path in paths {
                     validate_path(path).with_context(|| format!("Invalid {}", arg_name))?;
@@ -542,9 +542,9 @@ impl Args {
         }
         validate_arg(
             "--site-package-path",
-            self.config_override.site_package_path.as_ref(),
+            self.config_override.site_package_path.as_deref(),
         )?;
-        validate_arg("--search-path", self.config_override.search_path.as_ref())?;
+        validate_arg("--search-path", self.config_override.search_path.as_deref())?;
         Ok(())
     }
 

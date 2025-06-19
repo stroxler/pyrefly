@@ -206,7 +206,7 @@ impl ClassMetadata {
         self.enum_metadata.as_ref()
     }
 
-    pub fn bases_with_metadata(&self) -> &Vec<(ClassType, Arc<ClassMetadata>)> {
+    pub fn bases_with_metadata(&self) -> &[(ClassType, Arc<ClassMetadata>)] {
         &self.bases_with_metadata
     }
 

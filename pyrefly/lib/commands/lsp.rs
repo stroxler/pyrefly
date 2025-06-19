@@ -1014,7 +1014,7 @@ impl Server {
             outgoing_requests: Mutex::new(HashMap::new()),
             filewatcher_registered: Arc::new(AtomicBool::new(false)),
         };
-        s.configure(&folders, &Vec::new());
+        s.configure(&folders, &[]);
 
         s
     }
@@ -1375,11 +1375,7 @@ impl Server {
     }
 
     /// Configure the server with a new set of workspace folders
-    fn configure(
-        &self,
-        workspace_paths_added: &Vec<PathBuf>,
-        workspace_paths_removed: &Vec<PathBuf>,
-    ) {
+    fn configure(&self, workspace_paths_added: &[PathBuf], workspace_paths_removed: &[PathBuf]) {
         let mut all_workspaces = Vec::new();
         {
             let mut workspaces = self.workspaces.workspaces.write();
