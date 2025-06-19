@@ -16,6 +16,7 @@ use std::sync::LazyLock;
 use anyhow::Context as _;
 use anyhow::anyhow;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use pyrefly_util::arc_id::ArcId;
 use starlark_map::small_map::SmallMap;
 use tar::Archive;
@@ -95,8 +96,8 @@ impl BundledTypeshed {
             .map(|path| ModulePath::bundled_typeshed(path.clone()))
     }
 
-    pub fn load(&self, path: &PathBuf) -> Option<Arc<String>> {
-        self.load.get(path).cloned()
+    pub fn load(&self, path: &Path) -> Option<Arc<String>> {
+        self.load.get(path).duped()
     }
 
     pub fn config() -> ArcId<ConfigFile> {
