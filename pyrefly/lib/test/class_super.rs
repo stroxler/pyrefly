@@ -166,7 +166,6 @@ class B(A):
 );
 
 testcase!(
-    bug = "There should be no errors",
     test_dunder_new_explicit_with_unannotated_cls,
     r#"
 from typing import Self
