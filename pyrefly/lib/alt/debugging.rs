@@ -84,8 +84,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn show_calc_id(&self, c: CalcId) -> String {
         match c {
-            CalcId(module_info, idx) => {
-                format!("{} . {}", module_info.name(), self.show_any_idx(idx))
+            CalcId(bindings, idx) => {
+                format!(
+                    "{} . {}",
+                    bindings.module_info().name(),
+                    self.show_any_idx(idx)
+                )
             }
         }
     }
@@ -128,8 +132,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.stack()
             .into_vec()
             .into_iter()
-            .map(|CalcId(module_info, idx)| {
-                format!("{} . {}", module_info.name(), self.show_any_idx(idx))
+            .map(|CalcId(bindings, idx)| {
+                format!(
+                    "{} . {}",
+                    bindings.module_info().name(),
+                    self.show_any_idx(idx)
+                )
             })
     }
 
@@ -161,8 +169,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.compute_current_cycle()
             .unwrap()
             .into_iter()
-            .map(|CalcId(module_info, idx)| {
-                format!("{} . {}", module_info.name(), self.show_any_idx(idx))
+            .map(|CalcId(bindings, idx)| {
+                format!(
+                    "{} . {}",
+                    bindings.module_info().name(),
+                    self.show_any_idx(idx)
+                )
             })
     }
 }

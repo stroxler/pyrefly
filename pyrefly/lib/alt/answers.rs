@@ -328,8 +328,14 @@ impl Solutions {
 
 /// Compactly represents the identity of a binding, for the purposes of
 /// understanding the calculation stack.
-#[derive(Debug, Clone, Dupe, PartialEq, Eq)]
-pub struct CalcId(pub ModuleInfo, pub AnyIdx);
+#[derive(Debug, Clone, Dupe)]
+pub struct CalcId(pub Bindings, pub AnyIdx);
+
+impl PartialEq for CalcId {
+    fn eq(&self, other: &Self) -> bool {
+        (self.0.module_info(), &self.1) == (other.0.module_info(), &other.1)
+    }
+}
 
 /// Represent a stack of in-progress calculations in an `AnswersSolver`.
 ///
@@ -345,8 +351,8 @@ impl CalcStack {
         Self(RefCell::new(Vec::new()))
     }
 
-    fn push(&self, module_info: ModuleInfo, idx: AnyIdx) {
-        self.0.borrow_mut().push(CalcId(module_info, idx));
+    fn push(&self, bindings: Bindings, idx: AnyIdx) {
+        self.0.borrow_mut().push(CalcId(bindings, idx));
     }
 
     fn pop(&self) -> Option<CalcId> {
@@ -728,8 +734,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
         let calculation = self.get_calculation(idx);
-        self.stack
-            .push(self.module_info().dupe(), K::to_anyidx(idx));
+        self.stack.push(self.bindings().dupe(), K::to_anyidx(idx));
         let result = calculation.calculate_with_recursive(
             || {
                 let binding = self.bindings().get(idx);
