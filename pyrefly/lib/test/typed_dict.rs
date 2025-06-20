@@ -332,6 +332,43 @@ del td_m[unknown_key]  # E:
 );
 
 testcase!(
+    test_typed_dict_dunder_or,
+    r#"
+from typing import TypedDict, assert_type
+
+class TD1(TypedDict):
+    a: int 
+    b: str 
+
+class TD2(TypedDict):
+    c: float 
+    d: bool 
+
+class TD3(TypedDict, total=False):
+    a: str 
+    f: int 
+
+class TD4(TypedDict):
+    a: int 
+
+class TD5(TypedDict, total=False):
+    a: int  
+
+td1 = TD1(a=1, b="x")
+td2 = TD2(c=3.14, d=True)
+td3 = TD3(a="str", f=5)
+td4 = TD4(a=42)
+td5 = TD5(a=100)
+
+td12 = td1 | td2 # E: `|` is not supported between `TypedDict[TD1]` and `TypedDict[TD2]`
+td14 = td1 | td4
+assert_type(td14.get("a"), int)
+td13 = td1 | td3 # E:   No matching overload found for function `_typeshed._type_checker_internals.TypedDictFallback.__or__`
+td15 = td1 | td5 # E: No matching overload found for function `_typeshed._type_checker_internals.TypedDictFallback.__or__`
+    "#,
+);
+
+testcase!(
     test_typed_dict_subtype,
     r#"
 from typing import TypedDict
