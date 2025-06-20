@@ -320,7 +320,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }))
     }
 
-    // Synthesize a method for every non-required field. Thus, this method returns None if all fields are required since no methods are synthesized
+    /// Synthesize a method for every non-required field. Thus, this method returns None if all fields are required since no methods are synthesized
     fn get_typed_dict_pop(
         &self,
         cls: &Class,
