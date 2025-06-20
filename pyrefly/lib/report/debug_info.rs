@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::any::type_name_of_val;
 use std::sync::Arc;
 
 use pyrefly_util::arc_id::ArcId;
@@ -73,7 +72,6 @@ struct Module {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Binding {
-    kind: String,
     key: String,
     location: String,
     binding: String,
@@ -108,7 +106,6 @@ impl DebugInfo {
             for (idx, val) in t.iter() {
                 let key = bindings.idx_to_key(idx);
                 res.push(Binding {
-                    kind: type_name_of_val(key).rsplit_once(':').unwrap().1.to_owned(),
                     key: module_info.display(key).to_string(),
                     location: module_info.source_range(key.range()).to_string(),
                     binding: bindings.get(idx).display_with(bindings).to_string(),
