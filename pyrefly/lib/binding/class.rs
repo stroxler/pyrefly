@@ -142,7 +142,15 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 _ => {}
             }
-            self.ensure_type(&mut base, &mut legacy);
+            // If it's really obvious this can't be a legacy type var (since they can't be raw names under bases)
+            // then don't even record it.
+            let mut none = None;
+            let legacy = if matches!(base, Expr::Name(_)) {
+                &mut none
+            } else {
+                &mut legacy
+            };
+            self.ensure_type(&mut base, legacy);
             base
         });
 

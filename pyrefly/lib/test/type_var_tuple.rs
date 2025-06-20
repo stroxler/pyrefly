@@ -78,7 +78,7 @@ class B[*Ts]:
     def test5(self) -> tuple[*Ts]: ...
     def test6(self) -> tuple[Unpack[Ts]]: ...
 Ts = TypeVarTuple('Ts')
-class C(Ts): ...  # E: `TypeVarTuple` must be unpacked
+class C(Ts): ...  # E: `TypeVarTuple` is not allowed in this context
 class D(Generic[Ts]): ...  # E: `TypeVarTuple` must be unpacked
 "#,
 );
