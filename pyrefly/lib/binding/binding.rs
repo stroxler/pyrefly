@@ -426,32 +426,37 @@ impl DisplayWith<Bindings> for BindingExpect {
         let m = ctx.module_info();
         match self {
             Self::TypeCheckExpr(x) => {
-                write!(f, "type check expr {}", m.display(x))
+                write!(f, "TypeCheckExpr({})", m.display(x))
             }
             Self::Bool(x, ..) => {
-                write!(f, "check bool expr {}", m.display(x))
+                write!(f, "Bool({})", m.display(x))
             }
             Self::Delete(x) => {
-                write!(f, "del {}", m.display(x))
+                write!(f, "Delete({})", m.display(x))
             }
             Self::UnpackedLength(x, range, expect) => {
                 let expectation = match expect {
-                    SizeExpectation::Eq(n) => n.to_string(),
+                    SizeExpectation::Eq(n) => format!("=={n}"),
                     SizeExpectation::Ge(n) => format!(">={n}"),
                 };
                 write!(
                     f,
-                    "expect length {} for {} {}",
-                    expectation,
+                    "UnpackLength({} {} {})",
                     ctx.display(*x),
                     ctx.module_info().display(range),
+                    expectation,
                 )
             }
             Self::CheckRaisedException(RaisedException::WithoutCause(exc)) => {
-                write!(f, "raise {}", m.display(exc))
+                write!(f, "RaisedException::WithoutCause({})", m.display(exc))
             }
             Self::CheckRaisedException(RaisedException::WithCause(box (exc, cause))) => {
-                write!(f, "raise {} from {}", m.display(exc), m.display(cause))
+                write!(
+                    f,
+                    "RaisedException::WithCause({}, {})",
+                    m.display(exc),
+                    m.display(cause)
+                )
             }
             Self::Redefinition {
                 new,
@@ -459,7 +464,7 @@ impl DisplayWith<Bindings> for BindingExpect {
                 name,
             } => write!(
                 f,
-                "{} == {} on {}",
+                "Redefinition({} == {} on {})",
                 ctx.display(*new),
                 ctx.display(*existing),
                 name
@@ -770,7 +775,7 @@ pub struct BindingFunction {
 
 impl DisplayWith<Bindings> for BindingFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &Bindings) -> fmt::Result {
-        write!(f, "def {}", self.def.name.id)
+        write!(f, "BindingFunction({})", self.def.name.id)
     }
 }
 
@@ -1013,69 +1018,54 @@ pub enum Binding {
 impl DisplayWith<Bindings> for Binding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         let m = ctx.module_info();
+        let ann = |k: &Option<Idx<KeyAnnotation>>| match k {
+            None => "None".to_owned(),
+            Some(k) => ctx.display(*k).to_string(),
+        };
         match self {
-            Self::Expr(None, x) => write!(f, "expr {}", m.display(x)),
-            Self::Expr(Some(k), x) => {
-                write!(f, "expr {}: {}", ctx.display(*k), m.display(x))
-            }
-            Self::MultiTargetAssign(None, idx, range) => {
+            Self::Expr(a, x) => write!(f, "Expr({}, {})", ann(a), m.display(x)),
+            Self::MultiTargetAssign(a, idx, range) => {
                 write!(
                     f,
-                    "multi_target_assign {} at {}",
+                    "MultiTargetAssign({}, {}, {})",
+                    ann(a),
                     ctx.display(*idx),
                     m.display(range),
                 )
             }
-            Self::MultiTargetAssign(Some(ann), idx, range) => {
-                write!(
-                    f,
-                    "multi_target_assign {}: {} at {}",
-                    ctx.display(*idx),
-                    ctx.display(*ann),
-                    m.display(range),
-                )
+            Self::TypeVar(a, name, x) => {
+                write!(f, "TypeVar({}, {name}, {})", ann(a), m.display(x))
             }
-            Self::TypeVar(_, name, x) => {
-                write!(f, "typevar {} = {}", name, m.display(x))
+            Self::ParamSpec(a, name, x) => {
+                write!(f, "ParamSpec({}, {name}, {})", ann(a), m.display(x))
             }
-            Self::ParamSpec(_, name, x) => {
-                write!(f, "paramspec {} = {}", name, m.display(x))
-            }
-            Self::TypeVarTuple(_, name, x) => {
-                write!(f, "typevartuple {} = {}", name, m.display(x))
+            Self::TypeVarTuple(a, name, x) => {
+                write!(f, "TypeVarTuple({}, {name}, {})", ann(a), m.display(x))
             }
             Self::ReturnExplicit(x) => {
-                if let Some(annot) = x.annot {
-                    write!(f, "{} ", ctx.display(annot))?
+                write!(f, "ReturnExplicit({}, ", ann(&x.annot))?;
+                match &x.expr {
+                    None => write!(f, "None")?,
+                    Some(x) => write!(f, "{}", m.display(x))?,
                 }
-                if let Some(expr) = x.expr.as_ref() {
-                    write!(f, "{}", m.display(expr))
-                } else {
-                    write!(f, "return")
+                if x.is_generator {
+                    write!(f, ", is_generator")?;
                 }
+                if x.is_async {
+                    write!(f, ", is_async")?;
+                }
+                write!(f, ")")
             }
-            Self::ReturnImplicit(_) => write!(f, "implicit return"),
-            Self::ReturnType(_) => write!(f, "return type"),
-            Self::IterableValue(None, x, IsAsync::Async) => {
-                write!(f, "async iter {}", m.display(x))
+            Self::ReturnImplicit(_) => write!(f, "ReturnImplicit(_)"),
+            Self::ReturnType(_) => write!(f, "ReturnType(_)"),
+            Self::IterableValue(a, x, sync) => {
+                write!(f, "IterableValue({}, {}, {sync:?})", ann(a), m.display(x))
             }
-            Self::IterableValue(Some(k), x, IsAsync::Async) => {
-                write!(f, "async iter {}: {}", ctx.display(*k), m.display(x))
+            Self::ExceptionHandler(x, b) => write!(f, "ExceptionHandler({}, {b:?})", m.display(x)),
+            Self::ContextValue(a, x, _, kind) => {
+                write!(f, "ContextValue({}, {}, {kind:?})", ann(a), ctx.display(*x))
             }
-            Self::IterableValue(None, x, IsAsync::Sync) => write!(f, "iter {}", m.display(x)),
-            Self::IterableValue(Some(k), x, IsAsync::Sync) => {
-                write!(f, "iter {}: {}", ctx.display(*k), m.display(x))
-            }
-            Self::ExceptionHandler(x, true) => write!(f, "except* {}", m.display(x)),
-            Self::ExceptionHandler(x, false) => write!(f, "except {}", m.display(x)),
-            Self::ContextValue(_ann, x, _, kind) => {
-                let name = match kind {
-                    IsAsync::Sync => "context",
-                    IsAsync::Async => "async context",
-                };
-                write!(f, "{name} {}", ctx.display(*x))
-            }
-            Self::UnpackedValue(_ann, x, range, pos) => {
+            Self::UnpackedValue(a, x, range, pos) => {
                 let pos = match pos {
                     UnpackedPosition::Index(i) => i.to_string(),
                     UnpackedPosition::ReverseIndex(i) => format!("-{i}"),
@@ -1089,76 +1079,85 @@ impl DisplayWith<Bindings> for Binding {
                 };
                 write!(
                     f,
-                    "unpack {} {} @ {}",
+                    "UnpackedValue({}, {}, {}, {})",
+                    ann(a),
                     ctx.display(*x),
                     m.display(range),
                     pos
                 )
             }
-            Self::Function(x, _pred, _class) => write!(f, "{}", ctx.display(*x)),
-            Self::Import(m, n) => write!(f, "import {m}.{n}"),
-            Self::ClassDef(x, _) => write!(f, "{}", ctx.display(*x)),
-            Self::Forward(k) => write!(f, "{}", ctx.display(*k)),
-            Self::AugAssign(_, s) => write!(f, "augmented_assign {}", m.display(s)),
-            Self::Type(t) => write!(f, "type {t}"),
-            Self::StrType => write!(f, "strtype"),
-            Self::BoolType => write!(f, "booltype"),
+            Self::Function(x, _pred, _class) => write!(f, "Function({})", ctx.display(*x)),
+            Self::Import(m, n) => write!(f, "Import({m}, {n})"),
+            Self::ClassDef(x, _) => write!(f, "ClassDef({})", ctx.display(*x)),
+            Self::Forward(k) => write!(f, "Forward({})", ctx.display(*k)),
+            Self::AugAssign(a, s) => write!(f, "AugAssign({}, {})", ann(a), m.display(s)),
+            Self::Type(t) => write!(f, "Type({t})"),
+            Self::StrType => write!(f, "Type(str)"),
+            Self::BoolType => write!(f, "Type(bool)"),
             Self::TypeParameter(box TypeParameter { unique, kind, .. }) => {
-                write!(f, "type_parameter({unique}, {kind})")
+                write!(f, "TypeParameter({unique}, {kind}, ..)")
             }
             Self::CheckLegacyTypeParam(k, _) => {
-                write!(f, "check_legacy_type_param {}", ctx.display(*k))
+                write!(f, "CheckLegacyTypeParam({})", ctx.display(*k))
             }
             Self::AnnotatedType(k1, k2) => {
-                write!(f, "({}): {}", k2.display_with(ctx), ctx.display(*k1))
+                write!(
+                    f,
+                    "AnnotatedType({}, {})",
+                    ctx.display(*k1),
+                    k2.display_with(ctx)
+                )
             }
             Self::Module(m, path, key) => {
                 write!(
                     f,
-                    "module {}({}){}",
+                    "Module({m}, {}, {})",
                     path.join("."),
-                    m,
                     match key {
-                        None => String::new(),
-                        Some(k) => format!("+ {}", ctx.display(*k)),
+                        None => "None".to_owned(),
+                        Some(k) => ctx.display(*k).to_string(),
                     }
                 )
             }
             Self::Phi(xs) => {
                 write!(
                     f,
-                    "phi({})",
+                    "Phi({})",
                     intersperse_iter("; ", || xs.iter().map(|x| ctx.display(*x)))
                 )
             }
             Self::Default(k, x) => {
-                write!(f, "default({}): {}", ctx.display(*k), x.display_with(ctx))
+                write!(f, "Default({}, {})", ctx.display(*k), x.display_with(ctx))
             }
             Self::Narrow(k, op, _) => {
-                write!(f, "narrow({}, {op:?})", ctx.display(*k))
+                write!(f, "Narrow({}, {op:?})", ctx.display(*k))
             }
             Self::NameAssign(name, None, expr) => {
-                write!(f, "{} = {}", name, m.display(expr))
+                write!(f, "NameAssign({name}, None, {})", m.display(expr))
             }
-            Self::NameAssign(name, Some((_, annot)), expr) => {
-                write!(f, "{}: {} = {}", name, ctx.display(*annot), m.display(expr))
-            }
-            Self::ScopedTypeAlias(name, None, expr) => {
-                write!(f, "type {} = {}", name, m.display(expr))
-            }
-            Self::ScopedTypeAlias(name, Some(params), expr) => {
+            Self::NameAssign(name, Some((style, annot)), expr) => {
                 write!(
                     f,
-                    "type {}[{}] = {}",
-                    name,
-                    commas_iter(|| params.iter().map(|p| format!("{}", p.name()))),
+                    "NameAssign({name}, {style:?}, {}, {})",
+                    ctx.display(*annot),
+                    m.display(expr)
+                )
+            }
+            Self::ScopedTypeAlias(name, params, expr) => {
+                write!(
+                    f,
+                    "ScopedTypeAlias({name}, {}, {})",
+                    match params {
+                        None => "None".to_owned(),
+                        Some(params) => commas_iter(|| params.iter().map(|p| p.name())).to_string(),
+                    },
                     m.display(expr)
                 )
             }
             Self::PatternMatchMapping(mapping_key, binding_key) => {
                 write!(
                     f,
-                    "PatternMatchMapping {} = {}",
+                    "PatternMatchMapping({}, {})",
                     m.display(mapping_key),
                     ctx.display(*binding_key),
                 )
@@ -1166,9 +1165,8 @@ impl DisplayWith<Bindings> for Binding {
             Self::PatternMatchClassPositional(class, idx, key, range) => {
                 write!(
                     f,
-                    "PatternMatchClassPositional {}[{}] = {} {}",
+                    "PatternMatchClassPositional({}, {idx}, {}, {})",
                     m.display(class),
-                    idx,
                     ctx.display(*key),
                     m.display(range),
                 )
@@ -1176,25 +1174,38 @@ impl DisplayWith<Bindings> for Binding {
             Self::PatternMatchClassKeyword(class, attr, key) => {
                 write!(
                     f,
-                    "PatternMatchClassKeyword {}.{} = {}",
+                    "PatternMatchClassKeyword({}, {attr}, {})",
                     m.display(class),
-                    attr,
                     ctx.display(*key),
                 )
             }
-            Self::Decorator(e) => write!(f, "decorator {}", m.display(e)),
-            Self::LambdaParameter(_) => write!(f, "lambda parameter"),
-            Self::FunctionParameter(_) => write!(f, "function parameter"),
+            Self::Decorator(e) => write!(f, "Decorator({})", m.display(e)),
+            Self::LambdaParameter(x) => write!(f, "LambdaParameter({x})"),
+            Self::FunctionParameter(x) => write!(
+                f,
+                "FunctionParameter({})",
+                match x {
+                    Either::Left(k) => ctx.display(*k).to_string(),
+                    Either::Right((x, k)) => format!("{x}, {}", ctx.display(*k)),
+                }
+            ),
             Self::SuperInstance(SuperStyle::ExplicitArgs(cls, obj), _range) => {
-                write!(f, "super({}, {})", ctx.display(*cls), ctx.display(*obj))
+                write!(
+                    f,
+                    "SuperInstance::Explicit({}, {})",
+                    ctx.display(*cls),
+                    ctx.display(*obj)
+                )
             }
-            Self::SuperInstance(SuperStyle::ImplicitArgs(_, _), _range) => write!(f, "super()"),
-            Self::SuperInstance(SuperStyle::Any, _range) => write!(f, "super(Any, Any)"),
+            Self::SuperInstance(SuperStyle::ImplicitArgs(k, v), _range) => {
+                write!(f, "SuperInstance::Implicit({}, {v})", ctx.display(*k))
+            }
+            Self::SuperInstance(SuperStyle::Any, _range) => write!(f, "SuperInstance::Any"),
             Self::AssignToAttribute(box (attr, x)) => {
                 write!(
                     f,
-                    "check assign type to attr {}.{} ({})",
-                    m.display(attr.value.as_ref()),
+                    "AssignToAttribute({}, {}, {})",
+                    m.display(&attr.value),
                     attr.attr,
                     x.display_with(ctx)
                 )
@@ -1202,40 +1213,37 @@ impl DisplayWith<Bindings> for Binding {
             Self::AssignToSubscript(box (subscript, x)) => {
                 write!(
                     f,
-                    "check assign type to subscript {}[{}] ({})",
+                    "AssignToSubscript({}, {}, {})",
                     m.display(subscript.value.as_ref()),
                     m.display(subscript.slice.as_ref()),
                     x.display_with(ctx)
                 )
             }
             Self::UsageLink(usage_key) => {
-                write!(f, "usage link to ",)?;
+                write!(f, "UsageLink(")?;
                 match usage_key {
-                    LinkedKey::Yield(idx) => {
-                        write!(f, "{}", m.display(ctx.idx_to_key(*idx)))
-                    }
-                    LinkedKey::YieldFrom(idx) => {
-                        write!(f, "{}", m.display(ctx.idx_to_key(*idx)))
-                    }
-                    LinkedKey::Expect(idx) => {
-                        write!(f, "{}", m.display(ctx.idx_to_key(*idx)))
-                    }
-                }
-            }
-            Self::Pin(k, first_use) => {
-                write!(f, "pin {}", ctx.display(*k),)?;
-                match first_use {
-                    FirstUse::Undetermined => write!(f, " (undetermined first use)"),
-                    FirstUse::DoesNotPin => write!(f, " (non-pinning first use)"),
-                    FirstUse::UsedBy(idx) => write!(f, " (first use: {})", ctx.display(*idx)),
-                }
-            }
-            Self::PinUpstream(k, first_used_by) => {
-                write!(f, "pin upstream {} (upstream: ", ctx.display(*k),)?;
-                for idx in first_used_by {
-                    write!(f, "{},", ctx.display(*idx))?;
+                    LinkedKey::Yield(idx) => write!(f, "{}", m.display(ctx.idx_to_key(*idx)))?,
+                    LinkedKey::YieldFrom(idx) => write!(f, "{}", m.display(ctx.idx_to_key(*idx)))?,
+                    LinkedKey::Expect(idx) => write!(f, "{}", m.display(ctx.idx_to_key(*idx)))?,
                 }
                 write!(f, ")")
+            }
+            Self::Pin(k, first_use) => {
+                write!(f, "Pin({}, ", ctx.display(*k),)?;
+                match first_use {
+                    FirstUse::Undetermined => write!(f, "Undetermined")?,
+                    FirstUse::DoesNotPin => write!(f, "DoesNotPin")?,
+                    FirstUse::UsedBy(idx) => write!(f, "UsedBy {}", ctx.display(*idx))?,
+                }
+                write!(f, ")")
+            }
+            Self::PinUpstream(k, first_used_by) => {
+                write!(
+                    f,
+                    "PinUpstream({}, [{}])",
+                    ctx.display(*k),
+                    commas_iter(|| first_used_by.iter().map(|x| ctx.display(*x)))
+                )
             }
         }
     }
@@ -1420,16 +1428,16 @@ pub enum BindingAnnotation {
 impl DisplayWith<Bindings> for BindingAnnotation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         match self {
-            Self::AnnotateExpr(_, x, class_key) => write!(
+            Self::AnnotateExpr(target, x, class_key) => write!(
                 f,
-                "_: {}{}",
+                "AnnotateExpr({target}, {}, {})",
                 ctx.module_info().display(x),
                 match class_key {
-                    None => String::new(),
-                    Some(t) => format!(" (self {})", ctx.display(*t)),
+                    None => "None".to_owned(),
+                    Some(t) => ctx.display(*t).to_string(),
                 }
             ),
-            Self::Type(_, t) => write!(f, "type {t}"),
+            Self::Type(target, t) => write!(f, "Type({target}, {t})"),
         }
     }
 }
@@ -1448,8 +1456,8 @@ pub enum BindingClass {
 impl DisplayWith<Bindings> for BindingClass {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &Bindings) -> fmt::Result {
         match self {
-            Self::ClassDef(c) => write!(f, "class {}", c.def.name),
-            Self::FunctionalClassDef(_, id, _) => write!(f, "class {}", id),
+            Self::ClassDef(c) => write!(f, "ClassDef({})", c.def.name),
+            Self::FunctionalClassDef(_, id, _) => write!(f, "FunctionalClassDef({})", id),
         }
     }
 }
@@ -1471,11 +1479,13 @@ pub struct BindingClassField {
 
 impl DisplayWith<Bindings> for BindingClassField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
-        write!(f, "class field ")?;
-        match &self.value {
-            ExprOrBinding::Expr(e) => write!(f, "{}", ctx.module_info().display(e)),
-            ExprOrBinding::Binding(b) => write!(f, "{}", b.display_with(ctx)),
-        }
+        write!(
+            f,
+            "BindingClassField({}, {}, {})",
+            ctx.display(self.class_idx),
+            self.name,
+            self.value.display_with(ctx),
+        )
     }
 }
 
@@ -1502,7 +1512,7 @@ pub struct BindingClassSynthesizedFields(pub Idx<KeyClass>);
 
 impl DisplayWith<Bindings> for BindingClassSynthesizedFields {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
-        write!(f, "synthesized fields of {}", ctx.display(self.0))
+        write!(f, "BindingClassSynthesizedFields({})", ctx.display(self.0))
     }
 }
 
@@ -1513,7 +1523,7 @@ pub struct BindingVariance {
 
 impl DisplayWith<Bindings> for BindingVariance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
-        write!(f, "Variance of {}", ctx.display(self.class_key))
+        write!(f, "BindingVariance({})", ctx.display(self.class_key))
     }
 }
 
@@ -1536,7 +1546,11 @@ pub struct BindingClassMetadata {
 
 impl DisplayWith<Bindings> for BindingClassMetadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
-        write!(f, "metadata {}", ctx.display(self.class_idx))
+        write!(
+            f,
+            "BindingClassMetadata({}, ..)",
+            ctx.display(self.class_idx)
+        )
     }
 }
 
@@ -1545,7 +1559,7 @@ pub struct BindingLegacyTypeParam(pub Idx<Key>);
 
 impl DisplayWith<Bindings> for BindingLegacyTypeParam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
-        write!(f, "legacy_type_param {}", ctx.display(self.0))
+        write!(f, "BindingLegacyTypeParam({})", ctx.display(self.0))
     }
 }
 
@@ -1567,7 +1581,7 @@ impl BindingYield {
 impl DisplayWith<Bindings> for BindingYield {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         let m = ctx.module_info();
-        write!(f, "{}", m.display(&self.expr()))
+        write!(f, "BindingYield({})", m.display(&self.expr()))
     }
 }
 
@@ -1589,6 +1603,6 @@ impl BindingYieldFrom {
 impl DisplayWith<Bindings> for BindingYieldFrom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         let m = ctx.module_info();
-        write!(f, "{}", m.display(&self.expr()))
+        write!(f, "BindingYieldFrom({})", m.display(&self.expr()))
     }
 }
