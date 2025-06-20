@@ -289,6 +289,49 @@ assert_type(v11, object)
 );
 
 testcase!(
+    test_typed_dict_del,
+    r#"
+from typing import TypedDict, NotRequired
+
+class TDRequired(TypedDict):
+    a: int
+    b: str
+
+class TDOptional(TypedDict):
+    x: NotRequired[int]
+    y: NotRequired[str]
+
+class TDMixed(TypedDict):
+    a: int
+    x: NotRequired[int]
+
+td_r: TDRequired = {"a": 10, "b": "hi"}
+td_o: TDOptional = {"x": 42}
+td_m: TDMixed = {"a": 1, "x": 99}
+
+del td_r["a"]  # E: 
+del td_o["x"]  # OK
+del td_o["y"]  # OK
+del td_m["x"]  # OK
+del td_m["a"]  # E: 
+del td_r["nonexistent"]  # E: 
+
+# Delete optional key from TDOptional again 
+del td_o["x"]  # OK
+
+del td_r["b"]  # E:
+
+del td_o["unknown"]  # E:
+
+key_var = "x"
+del td_o[key_var]  
+
+unknown_key = "a"
+del td_m[unknown_key]  # E: 
+    "#,
+);
+
+testcase!(
     test_typed_dict_subtype,
     r#"
 from typing import TypedDict
