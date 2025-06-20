@@ -123,7 +123,7 @@ impl Display for ClassField {
         match &self.0 {
             ClassFieldInner::Simple {
                 ty, initialization, ..
-            } => write!(f, "@{ty} ({initialization})"),
+            } => write!(f, "{ty} ({initialization})"),
         }
     }
 }
