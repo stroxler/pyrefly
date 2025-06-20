@@ -220,7 +220,6 @@ Invalid = TypedDict()  # E: Expected a callable, got type[TypedDict]
 );
 
 testcase!(
-    bug = "TypedDict should allow pop()",
     test_typed_dict_pop,
     r#"
 from typing import TypedDict, NotRequired
@@ -229,7 +228,63 @@ class TD(TypedDict):
     x: NotRequired[int]
     
 def f(td: TD):
-    td.pop("x") # E:  Argument `Literal['x']` is not assignable to parameter `k` with type `Never` in function `_typeshed._type_checker_internals.TypedDictFallback.pop`
+    td.pop("x") 
+    "#,
+);
+
+testcase!(
+    test_typed_dict_pop_2,
+    r#"
+from typing import TypedDict, NotRequired, assert_type, Any
+
+class TDRequired(TypedDict):
+    a: int
+    b: str
+
+class TDOptional(TypedDict):
+    x: NotRequired[int]
+    y: NotRequired[str]
+
+class TDMixed(TypedDict):
+    a: int
+    x: NotRequired[int]
+
+td_r: TDRequired = {"a": 10, "b": "hi"}
+td_o: TDOptional = {"x": 42}
+td_m: TDMixed = {"a": 1, "x": 99}
+
+v1 = td_r.pop("a") # E: 
+assert_type(v1, object)
+
+v2 = td_r.pop("a", 3.14) # E: 
+assert_type(v2, object)
+
+v3 = td_o.pop("x")
+assert_type(v3, int | None)
+
+v4 = td_o.pop("x", -1)
+assert_type(v4, int)
+
+v5 = td_o.pop("x", "fallback")
+assert_type(v5, int | str)
+
+v6 = td_m.pop("a") # E: 
+assert_type(v6, Any)
+
+v7 = td_m.pop("x")
+assert_type(v7, int | None)
+
+v8 = td_m.pop("x", 0)
+assert_type(v8, int)
+
+v9 = td_m.pop("x", "fallback")
+assert_type(v9, int | str)
+
+v10 = td_r.pop("abc", 123) # E:
+assert_type(v10, object)
+
+v11 = td_r.pop("abc", "default") # E: 
+assert_type(v11, object)
     "#,
 );
 

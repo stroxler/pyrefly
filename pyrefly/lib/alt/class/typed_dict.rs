@@ -49,6 +49,7 @@ use crate::types::types::TParams;
 use crate::types::types::Type;
 
 const GET_METHOD: Name = Name::new_static("get");
+const POP_METHOD: Name = Name::new_static("pop");
 const SETDEFAULT_METHOD: Name = Name::new_static("setdefault");
 const KEY_PARAM: Name = Name::new_static("key");
 const DEFAULT_PARAM: Name = Name::new_static("default");
@@ -319,6 +320,74 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }))
     }
 
+    // Synthesize a method for every non-required field. Thus, this method returns None if all fields are required since no methods are synthesized
+    fn get_typed_dict_pop(
+        &self,
+        cls: &Class,
+        fields: &SmallMap<Name, bool>,
+    ) -> Option<ClassSynthesizedField> {
+        let metadata = FuncMetadata::def(self.module_info().name(), cls.name().clone(), POP_METHOD);
+        let self_param = self.class_self_param(cls, true);
+
+        let mut literal_signatures: Vec<OverloadType> = Vec::new();
+        for (name, field) in self.names_to_fields(cls, fields) {
+            if field.required {
+                // do not pop required keys
+                continue;
+            } else {
+                let key_param = Param::PosOnly(
+                    Some(KEY_PARAM.clone()),
+                    name_to_literal_type(name),
+                    Required::Required,
+                );
+
+                let q = Quantified::type_var(
+                    Name::new("_T"),
+                    self.uniques,
+                    None,
+                    Restriction::Unrestricted,
+                );
+                let tparams = vec![TParam {
+                    quantified: q.clone(),
+                    variance: PreInferenceVariance::PInvariant,
+                }];
+
+                // 1) no default: (self, key: Literal["field_name"]) -> Optional[FieldType]
+                literal_signatures.push(OverloadType::Callable(Callable::list(
+                    ParamList::new(vec![self_param.clone(), key_param.clone()]),
+                    Type::Union(vec![field.ty.clone(), Type::None]),
+                )));
+
+                // 2) default: (self, key: Literal["field_name"], default: _T) -> Union[FieldType, _T]
+                literal_signatures.push(OverloadType::Forall(Forall {
+                    tparams: TParams::new(tparams.clone()),
+                    body: Function {
+                        signature: Callable::list(
+                            ParamList::new(vec![
+                                self_param.clone(),
+                                key_param.clone(),
+                                Param::PosOnly(
+                                    Some(DEFAULT_PARAM.clone()),
+                                    q.clone().to_type(),
+                                    Required::Required,
+                                ),
+                            ]),
+                            Type::Union(vec![field.ty.clone(), q.clone().to_type()]),
+                        ),
+                        metadata: metadata.clone(),
+                    },
+                }));
+            }
+        }
+
+        let signatures = Vec1::try_from_vec(literal_signatures).ok()?;
+
+        Some(ClassSynthesizedField::new(Type::Overload(Overload {
+            signatures,
+            metadata: Box::new(metadata),
+        })))
+    }
+
     fn get_typed_dict_setdefault(
         &self,
         cls: &Class,
@@ -359,13 +428,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn get_typed_dict_synthesized_fields(&self, cls: &Class) -> Option<ClassSynthesizedFields> {
-        // TODO: we're still missing pop, update, __delitem__, __or__, __ror__, and __ior__
+        // TODO: we're still missing update, __delitem__, __or__, __ror__, and __ior__
         let metadata = self.get_metadata_for_class(cls);
         let td = metadata.typed_dict_metadata()?;
         let mut fields = smallmap! {
             dunder::INIT => self.get_typed_dict_init(cls, &td.fields),
             GET_METHOD => self.get_typed_dict_get(cls, &td.fields),
         };
+
+        if let Some(m) = self.get_typed_dict_pop(cls, &td.fields) {
+            fields.insert(POP_METHOD, m);
+        }
+
         if let Some(m) = self.get_typed_dict_setdefault(cls, &td.fields) {
             fields.insert(SETDEFAULT_METHOD, m);
         }
