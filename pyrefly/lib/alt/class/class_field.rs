@@ -794,6 +794,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             _ => {}
         };
 
+        // Pin any vars in the type: leaking a var in a class field is particularly
+        // likely to lead to data races where downstream uses can pin inconsistently.
+        //
+        // TODO(stroxler): Ideally we would implement some simple heuristics, similar to
+        // first-use based inference we use with assignments, to get more useful types here.
+        let ty = self.solver().deep_force(ty);
+
         // Create the resulting field and check for override inconsistencies before returning
         let class_field = ClassField::new(
             ty,
