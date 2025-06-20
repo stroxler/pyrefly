@@ -17,6 +17,7 @@ use serde::Serialize;
 use yansi::Paint;
 use yansi::Painted;
 
+// IMPORTANT: these cases should be listed in order of severity
 #[derive(Debug, Clone, Dupe, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum Severity {
     Info,
