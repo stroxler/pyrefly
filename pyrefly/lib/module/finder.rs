@@ -162,25 +162,16 @@ fn find_one_part_prefix<'a>(
                                     .or_default()
                                     .push(path.clone());
                             }
-                        }
-
-                        for candidate_file_suffix in ["pyi", "py"] {
-                            let suffix: String = format!(".{}", candidate_file_suffix);
-                            let not_allowed_names =
-                                ["__init__", "__main__"].map(|s| format!("{}{}", s, suffix));
-                            if name.ends_with(&suffix)
-                                && !not_allowed_names.contains(&name.to_owned())
-                                && path.is_file()
-                            {
-                                let module_name = &name[..name.len() - suffix.len()];
-                                if module_name.starts_with(prefix.as_str()) {
-                                    results.push((
-                                        FindResult::SingleFileModule(path.clone()),
-                                        ModuleName::from_str(module_name),
-                                    ));
-                                    break;
-                                }
-                            }
+                        } else if let Some((stem, ext)) = name.rsplit_once('.')
+                            && ["pyi", "py"].contains(&ext)
+                            && !["__init__", "__main__"].contains(&stem)
+                            && stem.starts_with(prefix.as_str())
+                            && path.is_file()
+                        {
+                            results.push((
+                                FindResult::SingleFileModule(path.clone()),
+                                ModuleName::from_str(stem),
+                            ));
                         }
                     }
                 }
