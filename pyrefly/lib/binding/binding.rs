@@ -689,12 +689,7 @@ impl Ranged for KeyYield {
 
 impl DisplayWith<ModuleInfo> for KeyYield {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
-        write!(
-            f,
-            "{} {}",
-            ctx.display(&self.0),
-            ctx.display(&self.0.range())
-        )
+        write!(f, "{}", ctx.display(&self.0),)
     }
 }
 
@@ -709,12 +704,7 @@ impl Ranged for KeyYieldFrom {
 
 impl DisplayWith<ModuleInfo> for KeyYieldFrom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
-        write!(
-            f,
-            "{} {}",
-            ctx.display(&self.0),
-            ctx.display(&self.0.range()),
-        )
+        write!(f, "{}", ctx.display(&self.0),)
     }
 }
 
