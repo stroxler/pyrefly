@@ -1105,7 +1105,7 @@ impl<'a> Transaction<'a> {
                     let error_range = module_info.to_text_range(error.source_range());
                     if error_range.contains_range(range) {
                         let unknown_name = module_info.code_at(error_range);
-                        for handle_to_import_from in self.search_exports(unknown_name) {
+                        for handle_to_import_from in self.search_exports_exact(unknown_name) {
                             let (position, insert_text) =
                                 insert_import_edit(&ast, handle_to_import_from, unknown_name);
                             let range = TextRange::at(position, TextSize::new(0));
