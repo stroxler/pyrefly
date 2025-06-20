@@ -391,6 +391,15 @@ pub enum ExprOrBinding {
     Binding(Binding),
 }
 
+impl DisplayWith<Bindings> for ExprOrBinding {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
+        match self {
+            Self::Expr(x) => write!(f, "{}", x.display_with(ctx.module_info())),
+            Self::Binding(x) => write!(f, "{}", x.display_with(ctx)),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum BindingExpect {
     /// An expression where we need to check for type errors, but don't need the result type.
@@ -1181,40 +1190,22 @@ impl DisplayWith<Bindings> for Binding {
             }
             Self::SuperInstance(SuperStyle::ImplicitArgs(_, _), _range) => write!(f, "super()"),
             Self::SuperInstance(SuperStyle::Any, _range) => write!(f, "super(Any, Any)"),
-            Self::AssignToAttribute(box (attr, ExprOrBinding::Expr(value))) => {
-                write!(
-                    f,
-                    "check assign expr to attr {}.{} {}",
-                    m.display(attr.value.as_ref()),
-                    attr.attr,
-                    m.display(value),
-                )
-            }
-            Self::AssignToAttribute(box (attr, ExprOrBinding::Binding(binding))) => {
+            Self::AssignToAttribute(box (attr, x)) => {
                 write!(
                     f,
                     "check assign type to attr {}.{} ({})",
                     m.display(attr.value.as_ref()),
                     attr.attr,
-                    binding.display_with(ctx)
+                    x.display_with(ctx)
                 )
             }
-            Self::AssignToSubscript(box (subscript, ExprOrBinding::Expr(value))) => {
-                write!(
-                    f,
-                    "check assign expr to subscript {}[{}] ({})",
-                    m.display(subscript.value.as_ref()),
-                    m.display(subscript.slice.as_ref()),
-                    m.display(value),
-                )
-            }
-            Self::AssignToSubscript(box (subscript, ExprOrBinding::Binding(binding))) => {
+            Self::AssignToSubscript(box (subscript, x)) => {
                 write!(
                     f,
                     "check assign type to subscript {}[{}] ({})",
                     m.display(subscript.value.as_ref()),
                     m.display(subscript.slice.as_ref()),
-                    binding.display_with(ctx)
+                    x.display_with(ctx)
                 )
             }
             Self::UsageLink(usage_key) => {
