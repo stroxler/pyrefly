@@ -54,6 +54,14 @@ pub fn debug_info(transaction: &Transaction, handles: &[Handle], is_javascript: 
     let debug_info =
         DebugInfo::new(&owned.map(|x| (&*x.0, &x.1.module_info, &x.1.errors, &x.2, &*x.3)));
     let mut output = serde_json::to_string(&debug_info).unwrap();
+
+    // It's super handy to be able to diff the output, which we can do most easily if each binding is on its own line.
+    // Doing that with Serde isn't possible (you can make it pretty, or you can make it compact, but not pretty on weird metrics),
+    // therefore we mangle the code after with string manipulation.
+    output = output
+        .replace("{\"key\":", "\n{\"key\":")
+        .replace("],\"errors\":", "\n],\"errors\":");
+
     if is_javascript {
         output = format!("var data = {output}");
     }
