@@ -136,12 +136,16 @@ impl AttrSubsetError {
                     ", the type of "
                 };
                 format!(
-                    "{got_desc}`{child_class}.{attr_name}` has type `{got}`, which is not assignable to `{want}`{want_desc}`{parent_class}.{attr_name}`"
+                    "{got_desc}`{child_class}.{attr_name}` has type `{}`, which is not assignable to `{}`{want_desc}`{parent_class}.{attr_name}`",
+                    got.deterministic_printing(),
+                    want.deterministic_printing()
                 )
             }
             AttrSubsetError::Invariant { got, want } => {
                 format!(
-                    "`{child_class}.{attr_name}` has type `{got}`, which is not consistent with `{want}` in `{parent_class}.{attr_name}` (the type of read-write attributes cannot be changed)"
+                    "`{child_class}.{attr_name}` has type `{}`, which is not consistent with `{}` in `{parent_class}.{attr_name}` (the type of read-write attributes cannot be changed)",
+                    got.deterministic_printing(),
+                    want.deterministic_printing()
                 )
             }
             AttrSubsetError::Contravariant {
@@ -155,7 +159,9 @@ impl AttrSubsetError {
                     ""
                 };
                 format!(
-                    "{desc}`{child_class}.{attr_name}` has type `{got}`, which is not assignable from `{want}`, the property getter for `{parent_class}.{attr_name}`"
+                    "{desc}`{child_class}.{attr_name}` has type `{}`, which is not assignable from `{}`, the property getter for `{parent_class}.{attr_name}`",
+                    got.deterministic_printing(),
+                    want.deterministic_printing()
                 )
             }
         }
