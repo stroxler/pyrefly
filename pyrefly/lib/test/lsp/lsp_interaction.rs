@@ -381,6 +381,19 @@ fn test_hover() {
     });
 }
 
+/*
+// TODO: debug inconsistent results from this test.
+//
+// stroxler disabled this after observing that the results are not reliably the same.
+// It currently appears that it might depend what system we run on, but it also might
+// just be nondeterminism.
+//
+// A couple datapoints for anyone debugging this:
+// - I observed local and internal CI results diverging on D77031603
+// - I noticed that the exact same issue from D77031603 (where an unexpected
+//    `from ast import MatchSequence` popped up) also failed external CI
+//    on https://github.com/facebook/pyrefly/actions/runs/15783803313/job/44495614983
+//
 #[test]
 fn test_completion() {
     let root = get_test_files_root();
@@ -503,6 +516,7 @@ fn test_completion() {
         ..Default::default()
     });
 }
+*/
 
 #[test]
 fn test_module_completion() {
