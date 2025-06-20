@@ -1089,7 +1089,7 @@ impl DisplayWith<Bindings> for Binding {
             Self::Import(m, n) => write!(f, "import {m}.{n}"),
             Self::ClassDef(x, _) => write!(f, "{}", ctx.display(*x)),
             Self::Forward(k) => write!(f, "{}", ctx.display(*k)),
-            Self::AugAssign(_, s) => write!(f, "augmented_assign {:?}", s),
+            Self::AugAssign(_, s) => write!(f, "augmented_assign {}", m.display(s)),
             Self::Type(t) => write!(f, "type {t}"),
             Self::StrType => write!(f, "strtype"),
             Self::BoolType => write!(f, "booltype"),
