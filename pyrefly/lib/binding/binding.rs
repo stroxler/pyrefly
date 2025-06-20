@@ -19,6 +19,7 @@ use pyrefly_util::assert_words;
 use pyrefly_util::display::DisplayWith;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::display::commas_iter;
+use pyrefly_util::display::intersperse_iter;
 use pyrefly_util::uniques::Unique;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
@@ -1115,14 +1116,11 @@ impl DisplayWith<Bindings> for Binding {
                 )
             }
             Self::Phi(xs) => {
-                write!(f, "phi(")?;
-                for (i, x) in xs.iter().enumerate() {
-                    if i != 0 {
-                        write!(f, "; ")?;
-                    }
-                    write!(f, "{}", ctx.display(*x))?;
-                }
-                write!(f, ")")
+                write!(
+                    f,
+                    "phi({})",
+                    intersperse_iter("; ", || xs.iter().map(|x| ctx.display(*x)))
+                )
             }
             Self::Default(k, x) => {
                 write!(f, "default({}): {}", ctx.display(*k), x.display_with(ctx))
