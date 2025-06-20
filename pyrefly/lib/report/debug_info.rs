@@ -10,6 +10,7 @@ use std::sync::Arc;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::visit::VisitMut;
 use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
@@ -98,6 +99,7 @@ impl DebugInfo {
             t: &AnswerEntry<K>,
             module_info: &ModuleInfo,
             bindings: &Bindings,
+            answers: &Answers,
             res: &mut Vec<Binding>,
         ) where
             BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
@@ -111,7 +113,13 @@ impl DebugInfo {
                     binding: bindings.get(idx).display_with(bindings).to_string(),
                     result: match val.get() {
                         None => "None".to_owned(),
-                        Some(v) => v.to_string(),
+                        Some(v) => {
+                            let mut r = (*v).clone();
+                            r.visit_mut(&mut |t| {
+                                answers.solver().expand_mut(t);
+                            });
+                            r.to_string()
+                        }
                     },
                 })
             }
@@ -123,7 +131,13 @@ impl DebugInfo {
                 .map(|(config, module_info, errors, bindings, answers)| {
                     let mut res = Vec::new();
                     let error_config = config.get_error_config(module_info.path().as_path());
-                    table_for_each!(answers.table(), |t| f(t, module_info, bindings, &mut res));
+                    table_for_each!(answers.table(), |t| f(
+                        t,
+                        module_info,
+                        bindings,
+                        answers,
+                        &mut res
+                    ));
                     let errors = errors.collect(&error_config).shown.map(|e| Error {
                         location: e.source_range().to_string(),
                         message: e.msg().to_owned(),
