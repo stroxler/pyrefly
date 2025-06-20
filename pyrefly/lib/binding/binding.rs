@@ -1040,7 +1040,7 @@ impl DisplayWith<Bindings> for Binding {
                     f,
                     "multi_target_assign {} at {}",
                     ctx.display(*idx),
-                    range.display_with(ctx.module_info()),
+                    m.display(range),
                 )
             }
             Self::MultiTargetAssign(Some(ann), idx, range) => {
@@ -1049,7 +1049,7 @@ impl DisplayWith<Bindings> for Binding {
                     "multi_target_assign {}: {} at {}",
                     ctx.display(*idx),
                     ctx.display(*ann),
-                    range.display_with(ctx.module_info()),
+                    m.display(range),
                 )
             }
             Self::TypeVar(_, name, x) => {
@@ -1108,7 +1108,7 @@ impl DisplayWith<Bindings> for Binding {
                     f,
                     "unpack {} {} @ {}",
                     ctx.display(*x),
-                    range.display_with(ctx.module_info()),
+                    m.display(range),
                     pos
                 )
             }
@@ -1158,24 +1158,13 @@ impl DisplayWith<Bindings> for Binding {
                 write!(f, "narrow({}, {op:?})", ctx.display(*k))
             }
             Self::NameAssign(name, None, expr) => {
-                write!(f, "{} = {}", name, expr.display_with(ctx.module_info()))
+                write!(f, "{} = {}", name, m.display(expr))
             }
             Self::NameAssign(name, Some((_, annot)), expr) => {
-                write!(
-                    f,
-                    "{}: {} = {}",
-                    name,
-                    ctx.display(*annot),
-                    expr.display_with(ctx.module_info())
-                )
+                write!(f, "{}: {} = {}", name, ctx.display(*annot), m.display(expr))
             }
             Self::ScopedTypeAlias(name, None, expr) => {
-                write!(
-                    f,
-                    "type {} = {}",
-                    name,
-                    expr.display_with(ctx.module_info())
-                )
+                write!(f, "type {} = {}", name, m.display(expr))
             }
             Self::ScopedTypeAlias(name, Some(params), expr) => {
                 write!(
@@ -1183,7 +1172,7 @@ impl DisplayWith<Bindings> for Binding {
                     "type {}[{}] = {}",
                     name,
                     commas_iter(|| params.iter().map(|p| format!("{}", p.name()))),
-                    expr.display_with(ctx.module_info())
+                    m.display(expr)
                 )
             }
             Self::PatternMatchMapping(mapping_key, binding_key) => {
@@ -1201,7 +1190,7 @@ impl DisplayWith<Bindings> for Binding {
                     m.display(class),
                     idx,
                     ctx.display(*key),
-                    range.display_with(ctx.module_info()),
+                    m.display(range),
                 )
             }
             Self::PatternMatchClassKeyword(class, attr, key) => {
