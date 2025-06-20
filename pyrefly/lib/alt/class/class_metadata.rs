@@ -492,21 +492,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ///
     /// TODO(stroxler): See if there's a way to express this more clearly in the types.
     fn special_base_class(&self, base_expr: &Expr, errors: &ErrorCollector) -> Option<BaseClass> {
-        if matches!(base_expr, Expr::Name(_) | Expr::Attribute(_)) {
-            match self.expr_infer(base_expr, errors) {
-                Type::Type(box Type::SpecialForm(special)) => match special {
-                    SpecialForm::Protocol => Some(BaseClass::Protocol(Vec::new())),
-                    SpecialForm::Generic => Some(BaseClass::Generic(Vec::new())),
-                    SpecialForm::TypedDict => Some(BaseClass::TypedDict),
-                    _ => None,
-                },
-                Type::ClassDef(cls) if cls.has_qname("typing", "NamedTuple") => {
-                    Some(BaseClass::NamedTuple(base_expr.range()))
-                }
+        let name = match base_expr {
+            Expr::Name(x) => &x.id,
+            Expr::Attribute(x) => &x.attr.id,
+            _ => return None,
+        };
+        if !["Protocol", "Generic", "TypedDict", "NamedTuple"].contains(&name.as_str()) {
+            // Calling expr_infer when figuring out the base class leads to cycles, so we really want to try
+            // and avoid doing it unless there is a high likelihood of a special form.
+            // Downside is that you can't alias `Generic` etc, but I'm not sure you should want to.
+            return None;
+        }
+
+        match self.expr_infer(base_expr, errors) {
+            Type::Type(box Type::SpecialForm(special)) => match special {
+                SpecialForm::Protocol => Some(BaseClass::Protocol(Vec::new())),
+                SpecialForm::Generic => Some(BaseClass::Generic(Vec::new())),
+                SpecialForm::TypedDict => Some(BaseClass::TypedDict),
                 _ => None,
+            },
+            Type::ClassDef(cls) if cls.has_qname("typing", "NamedTuple") => {
+                Some(BaseClass::NamedTuple(base_expr.range()))
             }
-        } else {
-            None
+            _ => None,
         }
     }
 
