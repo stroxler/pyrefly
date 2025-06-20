@@ -29,6 +29,8 @@ use std::time::Instant;
 
 use dupe::Dupe;
 use enum_iterator::Sequence;
+use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::events::CategorizedEvents;
@@ -79,6 +81,7 @@ use crate::config::finder::ConfigFinder;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::export::definitions::DocString;
+use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
@@ -371,6 +374,30 @@ impl<'a> Transaction<'a> {
                 Vec::new()
             }
         })
+    }
+
+    pub fn search_exports_fuzzy(&self, pattern: &str) -> Vec<(Handle, String, Export)> {
+        self.search_exports_helper(|handle, exports| {
+            let matcher = SkimMatcherV2::default().smart_case();
+            let mut results = Vec::new();
+            for (name, location) in exports.iter() {
+                let name = name.as_str();
+                if let Some(score) = matcher.fuzzy_match(name, pattern) {
+                    match location {
+                        ExportLocation::OtherModule(_) => {}
+                        ExportLocation::ThisModule(export) => {
+                            results.push((score, handle.dupe(), name.to_owned(), export.clone()));
+                        }
+                    }
+                }
+            }
+            results
+        })
+        .into_iter()
+        .sorted_by_key(|(score, _, _, _)| *score)
+        .rev()
+        .map(|(_, handle, name, export)| (handle, name, export))
+        .collect()
     }
 
     fn search_exports_helper<V: Send + Sync>(
