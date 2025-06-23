@@ -62,6 +62,7 @@ use crate::types::class::Class;
 use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassFieldProperties;
 use crate::types::equality::TypeEq;
+use crate::types::globals::Global;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::stdlib::Stdlib;
 use crate::types::tuple::Tuple;
@@ -925,10 +926,8 @@ pub enum Binding {
     AugAssign(Option<Idx<KeyAnnotation>>, StmtAugAssign),
     /// An explicit type.
     Type(Type),
-    /// The str type.
-    StrType,
-    /// The bool type.
-    BoolType,
+    /// A global variable.
+    Global(Global),
     /// A type parameter.
     TypeParameter(Box<TypeParameter>),
     /// The type of a function. The fields are:
@@ -1092,8 +1091,7 @@ impl DisplayWith<Bindings> for Binding {
             Self::Forward(k) => write!(f, "Forward({})", ctx.display(*k)),
             Self::AugAssign(a, s) => write!(f, "AugAssign({}, {})", ann(a), m.display(s)),
             Self::Type(t) => write!(f, "Type({t})"),
-            Self::StrType => write!(f, "Type(str)"),
-            Self::BoolType => write!(f, "Type(bool)"),
+            Self::Global(g) => write!(f, "Global({})", g.name()),
             Self::TypeParameter(box TypeParameter { unique, kind, .. }) => {
                 write!(f, "TypeParameter({unique}, {kind}, ..)")
             }
@@ -1257,7 +1255,7 @@ impl Binding {
             | Binding::TypeVarTuple(_, _, _)
             | Binding::TypeParameter(_)
             | Binding::CheckLegacyTypeParam(_, _) => Some(SymbolKind::TypeParameter),
-            Binding::StrType | Binding::BoolType => Some(SymbolKind::Variable),
+            Binding::Global(_) => Some(SymbolKind::Variable),
             Binding::Function(_, _, _) => Some(SymbolKind::Function),
             Binding::Import(_, _) => {
                 // TODO: maybe we can resolve it to see its symbol kind

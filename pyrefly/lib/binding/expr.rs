@@ -51,6 +51,7 @@ use crate::graph::index::Idx;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::types::callable::unexpected_keyword;
+use crate::types::globals::Global;
 use crate::types::types::Type;
 
 /// Looking up names in an expression requires knowing the identity of the binding
@@ -241,18 +242,12 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 self.insert_binding(key, value)
             }
-            Err(_) if name.id == dunder::FILE || name.id == dunder::NAME => {
-                self.insert_binding(key, Binding::StrType)
+            Err(_) if name.id == dunder::DOC => {
+                self.insert_binding(key, Binding::Global(Global::doc(self.has_docstring)))
             }
-            Err(_) if name.id == dunder::DEBUG => self.insert_binding(key, Binding::BoolType),
-            Err(_) if name.id == dunder::DOC => self.insert_binding(
-                key,
-                if self.has_docstring {
-                    Binding::StrType
-                } else {
-                    Binding::Type(Type::None)
-                },
-            ),
+            Err(_) if let Some(global) = Global::from_name(&name.id) => {
+                self.insert_binding(key, Binding::Global(global))
+            }
             Err(error) => {
                 // Record a type error and fall back to `Any`.
                 self.error(

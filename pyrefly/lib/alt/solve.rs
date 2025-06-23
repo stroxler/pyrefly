@@ -2531,8 +2531,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None => self.binding_to_type(val, errors),
             },
             Binding::Type(x) => x.clone(),
-            Binding::StrType => self.stdlib.str().clone().to_type(),
-            Binding::BoolType => self.stdlib.bool().clone().to_type(),
+            Binding::Global(global) => global.as_type(self.stdlib),
             Binding::TypeParameter(box TypeParameter {
                 name,
                 unique,
