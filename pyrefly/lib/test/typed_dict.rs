@@ -369,6 +369,32 @@ td15 = td1 | td5 # E: No matching overload found for function `_typeshed._type_c
 );
 
 testcase!(
+    test_typed_dict_dunder_ior,
+    r#"
+from typing import TypedDict, assert_type
+
+class TD(TypedDict):
+    a: int | str
+    b: int | str
+
+x: TD = {"a": 1, "b": 2}
+
+y: TD = {"a": "3", "b": "4"}
+
+x |= y  
+
+assert_type((x["a"]), int | str)
+
+x |= {} # E: Augmented assignment produces a value of type `dict[str, object]`, which is not assignable to `TypedDict[TD]`
+
+x: TD = {"a": 1, "b": 2}
+x.__ior__(y)
+x.__ior__({}) # E:  Missing required key `a` for TypedDict `TD` # E: Missing required key `b` for TypedDict `TD` 
+
+    "#,
+);
+
+testcase!(
     test_typed_dict_subtype,
     r#"
 from typing import TypedDict
