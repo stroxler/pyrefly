@@ -7566,6 +7566,16 @@
     },
     {
       "code": -2,
+      "column": 5,
+      "concise_description": "NamedTuple field 'latitude' without a default may not follow NamedTuple field with a default",
+      "description": "NamedTuple field 'latitude' without a default may not follow NamedTuple field with a default",
+      "line": 59,
+      "name": "bad-class-definition",
+      "stop_column": 13,
+      "stop_line": 59
+    },
+    {
+      "code": -2,
       "column": 19,
       "concise_description": "Argument `float` is not assignable to parameter `value` with type `str` in function `Property.__new__`",
       "description": "Argument `float` is not assignable to parameter `value` with type `str` in function `Property.__new__`",

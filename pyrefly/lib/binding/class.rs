@@ -226,13 +226,17 @@ impl<'a> BindingsBuilder<'a> {
                     value,
                     annotation: stat_info.annot,
                     range: stat_info.loc,
-                    initial_value,
+                    initial_value: initial_value.clone(),
                     is_function_without_return_annotation,
                     implicit_def_method: None,
                 };
                 fields_possibly_defined_by_this_class.insert_hashed(
                     name.cloned(),
-                    ClassFieldProperties::new(stat_info.annot.is_some(), stat_info.loc),
+                    ClassFieldProperties::new(
+                        stat_info.annot.is_some(),
+                        matches!(initial_value, ClassFieldInitialValue::Class(_)),
+                        stat_info.loc,
+                    ),
                 );
 
                 let key_field = KeyClassField(class_indices.def_index, name.into_key().clone());
@@ -258,9 +262,10 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         None
                     };
+
                     fields_possibly_defined_by_this_class.insert_hashed(
                         name.clone(),
-                        ClassFieldProperties::new(annotation.is_some(), range),
+                        ClassFieldProperties::new(annotation.is_some(), false, range),
                     );
 
                     let key_field = KeyClassField(class_indices.def_index, name.key().clone());
@@ -442,14 +447,14 @@ impl<'a> BindingsBuilder<'a> {
                     IllegalIdentifierHandling::Allow => {}
                     IllegalIdentifierHandling::Error => {
                         self.error(
-                            range,
-                            ErrorKind::BadClassDefinition,
-                            None,
-                            format!(
-                                "NamedTuple field name may not start with an underscore: `{member_name}`"
-                            ),
+                             range,
+                             ErrorKind::BadClassDefinition,
+                             None,
+                             format!(
+                                 "NamedTuple field name may not start with an underscore: `{member_name}`"
+                             ),
 
-                        );
+                         );
                         continue;
                     }
                     IllegalIdentifierHandling::Rename => member_name = format!("_{idx}"),
@@ -470,6 +475,7 @@ impl<'a> BindingsBuilder<'a> {
                 member_name.clone(),
                 ClassFieldProperties::new(
                     member_annotation.is_some() || class_kind == SynthesizedClassKind::NamedTuple,
+                    member_value.is_some(),
                     range,
                 ),
             );

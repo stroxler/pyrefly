@@ -3,7 +3,7 @@
   "pass": 59,
   "fail": 77,
   "pass_rate": 0.43,
-  "differences": 372,
+  "differences": 371,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -114,7 +114,7 @@
     "historical_positional.py": 4,
     "literals_interactions.py": 2,
     "literals_literalstring.py": 3,
-    "namedtuples_define_class.py": 2,
+    "namedtuples_define_class.py": 1,
     "narrowing_typeguard.py": 2,
     "narrowing_typeis.py": 4,
     "overloads_consistency.py": 2,

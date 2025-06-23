@@ -81,12 +81,13 @@ impl Visit<Type> for Class {
 #[derive(Debug, Clone)]
 pub struct ClassFieldProperties {
     is_annotated: bool,
+    has_default_value: bool,
     range: TextRange,
 }
 
 impl PartialEq for ClassFieldProperties {
     fn eq(&self, other: &Self) -> bool {
-        self.is_annotated == other.is_annotated
+        self.is_annotated == other.is_annotated && self.has_default_value == other.has_default_value
     }
 }
 
@@ -99,11 +100,16 @@ impl TypeEq for ClassFieldProperties {}
 pub struct ClassDefIndex(pub u32);
 
 impl ClassFieldProperties {
-    pub fn new(is_annotated: bool, range: TextRange) -> Self {
+    pub fn new(is_annotated: bool, has_default_value: bool, range: TextRange) -> Self {
         Self {
             is_annotated,
+            has_default_value,
             range,
         }
+    }
+
+    pub fn has_default_value(&self) -> bool {
+        self.has_default_value
     }
 }
 
@@ -233,6 +239,13 @@ impl Class {
             .fields
             .get(name)
             .is_some_and(|prop| prop.is_annotated)
+    }
+
+    pub fn field_has_default_value(&self, name: &Name) -> bool {
+        self.0
+            .fields
+            .get(name)
+            .is_some_and(|prop| prop.has_default_value)
     }
 
     pub fn field_decl_range(&self, name: &Name) -> Option<TextRange> {

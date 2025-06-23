@@ -140,7 +140,7 @@ class Pair(NamedTuple):
 class Pair2[T](NamedTuple):
     x: int
     y: T
-    
+
 def test(p: Pair, p2: Pair2[bytes]):
     reveal_type(p.__iter__)  # E: BoundMethod[Pair, (self: Pair) -> Iterable[int | str]]
     reveal_type(p2.__iter__)  # E: BoundMethod[Pair2[bytes], (self: Pair2[bytes]) -> Iterable[bytes | int]]
@@ -243,5 +243,16 @@ class Bar(Foo):
     w: Final[int] = 7
 assert_type(Bar.z, int)
 assert_type(Bar(1, "y").w, int)
+"#,
+);
+
+testcase!(
+    get_named_tuple_elements,
+    r#"
+from typing import NamedTuple, ClassVar, Final, assert_type
+class Foo(NamedTuple):
+    x: int = 1
+    z: int = 2
+    y: str # E: NamedTuple field 'y' without a default may not follow NamedTuple field with a default
 "#,
 );

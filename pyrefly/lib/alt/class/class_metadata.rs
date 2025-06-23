@@ -343,7 +343,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             {
                                 if named_tuple_metadata.is_none() {
                                     named_tuple_metadata = Some(NamedTupleMetadata {
-                                        elements: self.get_named_tuple_elements(cls)
+                                        elements: self.get_named_tuple_elements(cls, errors)
                                     })
                                 }
                             } else if let Some(base_named_tuple) = base_class_metadata.named_tuple_metadata() {
@@ -398,7 +398,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 class_metadata,
                             ))
                         }
-                        // todo zeina: Ideally, we can directly add this class to the list of base classes. Revisit this when fixing the "Any" representation.  
+                        // todo zeina: Ideally, we can directly add this class to the list of base classes. Revisit this when fixing the "Any" representation.
                         Some((Type::Any(_), _)) => {
                             has_base_any = true;
                             None
