@@ -45,6 +45,7 @@ use crate::types::tuple::Tuple;
 use crate::types::types::AnyStyle;
 use crate::types::types::CalleeKind;
 use crate::types::types::TParam;
+use crate::types::types::TParams;
 use crate::types::types::Type;
 
 /// Private helper type used to share part of the logic needed for the
@@ -75,7 +76,7 @@ impl BaseClass {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    pub fn class_tparams(
+    pub fn compute_tparams(
         &self,
         name: &Identifier,
         scoped_tparams: Vec<TParam>,
@@ -183,6 +184,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         tparams.into_iter().collect()
+    }
+
+    #[expect(dead_code)]
+    fn class_tparams(&self, class: &Class) -> Arc<TParams> {
+        class.arc_tparams().dupe()
     }
 
     fn new_type_base(

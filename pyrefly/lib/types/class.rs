@@ -204,6 +204,10 @@ impl Class {
         ClassKind::from_qname(self.qname())
     }
 
+    pub fn arc_tparams(&self) -> &Arc<TParams> {
+        &self.0.tparams
+    }
+
     pub fn tparams(&self) -> &TParams {
         &self.0.tparams
     }
