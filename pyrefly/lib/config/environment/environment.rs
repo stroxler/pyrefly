@@ -25,7 +25,7 @@ use tracing::warn;
 use which::which;
 
 use crate::config::environment::active_environment::ActiveEnvironment;
-use crate::config::environment::venv::Venv;
+use crate::config::environment::venv;
 use crate::sys_info::PythonPlatform;
 use crate::sys_info::PythonVersion;
 
@@ -264,7 +264,7 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         }
 
         if let Some(start_path) = path {
-            let venv = Venv::find(start_path);
+            let venv = venv::find(start_path);
             if venv.is_some() {
                 return venv;
             }

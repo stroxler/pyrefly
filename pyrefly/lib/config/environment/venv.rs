@@ -10,46 +10,41 @@ use std::path::PathBuf;
 
 use crate::config::environment::finder::walk_interpreter;
 
-pub struct Venv {}
+const CONFIG_FILE: &str = "pyvenv.cfg";
+/// How deep within a project root should we attempt to search for a valid Python executable?
+/// 3 seems like a reasonable default to be able to find something in `.venv/bin/python3`.
+const SEARCH_DEPTH: usize = 3;
 
-impl Venv {
-    const CONFIG_FILE: &str = "pyvenv.cfg";
-    /// How deep within a project root should we attempt to search for a valid Python executable?
-    /// 3 seems like a reasonable default to be able to find something in `.venv/bin/python3`.
-    const SEARCH_DEPTH: usize = 3;
+fn has_standard_relative_config(interp: &Path) -> bool {
+    interp
+        .parent()
+        .and_then(|p| p.parent())
+        .is_some_and(|p| p.join(CONFIG_FILE).exists())
+}
 
-    fn has_standard_relative_config(interp: &Path) -> bool {
-        interp
-            .parent()
-            .and_then(|p| p.parent())
-            .is_some_and(|p| p.join(Venv::CONFIG_FILE).exists())
+fn has_backup_relative_config(interp: &Path) -> bool {
+    interp
+        .parent()
+        .is_some_and(|p| p.join(CONFIG_FILE).exists())
+}
+
+pub fn find(project_path: &Path) -> Option<PathBuf> {
+    let interpreters = walk_interpreter(project_path, SEARCH_DEPTH).collect::<Vec<PathBuf>>();
+
+    if interpreters.is_empty() {
+        return None;
     }
 
-    fn has_backup_relative_config(interp: &Path) -> bool {
-        interp
-            .parent()
-            .is_some_and(|p| p.join(Venv::CONFIG_FILE).exists())
+    if let Some(first) = interpreters
+        .iter()
+        .find(|i| has_standard_relative_config(i))
+    {
+        return Some(first.to_owned());
     }
 
-    pub fn find(project_path: &Path) -> Option<PathBuf> {
-        let interpreters =
-            walk_interpreter(project_path, Venv::SEARCH_DEPTH).collect::<Vec<PathBuf>>();
-
-        if interpreters.is_empty() {
-            return None;
-        }
-
-        if let Some(first) = interpreters
-            .iter()
-            .find(|i| Self::has_standard_relative_config(i))
-        {
-            return Some(first.to_owned());
-        }
-
-        interpreters
-            .into_iter()
-            .find(|i| Self::has_backup_relative_config(i))
-    }
+    interpreters
+        .into_iter()
+        .find(|i| has_backup_relative_config(i))
 }
 
 #[cfg(test)]
@@ -75,7 +70,7 @@ mod tests {
             ],
         );
 
-        assert_eq!(Venv::find(root), None);
+        assert_eq!(find(root), None);
     }
 
     #[test]
@@ -92,7 +87,7 @@ mod tests {
                     TestPath::dir(
                         ".venv",
                         vec![
-                            TestPath::file(Venv::CONFIG_FILE),
+                            TestPath::file(CONFIG_FILE),
                             TestPath::dir("bin", vec![TestPath::file(&interp_name)]),
                             // we should never find this first
                             TestPath::file(&interp_name),
@@ -101,10 +96,7 @@ mod tests {
                 ],
             );
 
-            assert_eq!(
-                Venv::find(root),
-                Some(root.join(".venv/bin").join(interp_name)),
-            );
+            assert_eq!(find(root), Some(root.join(".venv/bin").join(interp_name)),);
         }
 
         test("");
@@ -126,15 +118,12 @@ mod tests {
                     TestPath::dir("foo", vec![TestPath::file("bar.py")]),
                     TestPath::dir(
                         ".venv",
-                        vec![
-                            TestPath::file(Venv::CONFIG_FILE),
-                            TestPath::file(&interp_name),
-                        ],
+                        vec![TestPath::file(CONFIG_FILE), TestPath::file(&interp_name)],
                     ),
                 ],
             );
 
-            assert_eq!(Venv::find(root), Some(root.join(".venv").join(interp_name)),);
+            assert_eq!(find(root), Some(root.join(".venv").join(interp_name)),);
         }
 
         test("");
@@ -163,6 +152,6 @@ mod tests {
             ],
         );
 
-        assert_eq!(Venv::find(root), None);
+        assert_eq!(find(root), None);
     }
 }
