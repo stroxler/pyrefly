@@ -1074,17 +1074,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<Attribute> {
         let mut foralled = match ty {
             Type::Function(func) => Type::Forall(Box::new(Forall {
-                tparams: cls.tparams().clone(),
+                tparams: self.class_tparams(cls),
                 body: Forallable::Function((**func).clone()),
             })),
             Type::Forall(box Forall {
                 tparams,
                 body: body @ Forallable::Function(_),
             }) => {
-                let mut new_tparams = tparams.clone();
+                let mut new_tparams = tparams.as_ref().clone();
                 new_tparams.extend(cls.tparams());
                 Type::Forall(Box::new(Forall {
-                    tparams: new_tparams,
+                    tparams: Arc::new(new_tparams),
                     body: body.clone(),
                 }))
             }
@@ -1094,17 +1094,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }) => {
                 let new_signatures = signatures.clone().mapped(|sig| match sig {
                     OverloadType::Callable(callable) => OverloadType::Forall(Forall {
-                        tparams: cls.tparams().clone(),
+                        tparams: self.class_tparams(cls),
                         body: Function {
                             signature: callable,
                             metadata: (**metadata).clone(),
                         },
                     }),
                     OverloadType::Forall(Forall { tparams, body }) => {
-                        let mut new_tparams = tparams.clone();
+                        let mut new_tparams = tparams.as_ref().clone();
                         new_tparams.extend(cls.tparams());
                         OverloadType::Forall(Forall {
-                            tparams: new_tparams,
+                            tparams: Arc::new(new_tparams),
                             body,
                         })
                     }

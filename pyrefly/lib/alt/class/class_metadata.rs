@@ -186,8 +186,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         tparams.into_iter().collect()
     }
 
-    #[expect(dead_code)]
-    fn class_tparams(&self, class: &Class) -> Arc<TParams> {
+    pub fn class_tparams(&self, class: &Class) -> Arc<TParams> {
         class.arc_tparams().dupe()
     }
 

@@ -1081,9 +1081,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         tparams: Vec<TParam>,
         errors: &ErrorCollector,
-    ) -> TParams {
+    ) -> Arc<TParams> {
         self.validate_type_params(range, &tparams, errors);
-        TParams::new(tparams)
+        Arc::new(TParams::new(tparams))
     }
 
     pub fn solve_binding(&self, binding: &Binding, errors: &ErrorCollector) -> Arc<TypeInfo> {

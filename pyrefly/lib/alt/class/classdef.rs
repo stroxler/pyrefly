@@ -89,7 +89,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             def_index,
             name.clone(),
             self.module_info().dupe(),
-            TParams::default(),
+            Arc::new(TParams::default()),
             fields.clone(),
         )
     }

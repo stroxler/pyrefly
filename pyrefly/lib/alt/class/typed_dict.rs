@@ -276,7 +276,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }];
 
                 literal_signatures.push(OverloadType::Forall(Forall {
-                    tparams: TParams::new(tparams),
+                    tparams: Arc::new(TParams::new(tparams)),
                     body: Function {
                         signature: Callable::list(
                             ParamList::new(vec![
@@ -360,7 +360,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
                 // 2) default: (self, key: Literal["field_name"], default: _T) -> Union[FieldType, _T]
                 literal_signatures.push(OverloadType::Forall(Forall {
-                    tparams: TParams::new(tparams.clone()),
+                    tparams: Arc::new(TParams::new(tparams.clone())),
                     body: Function {
                         signature: Callable::list(
                             ParamList::new(vec![

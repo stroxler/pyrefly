@@ -108,6 +108,24 @@ impl TParam {
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct TParams(Vec<TParam>);
 
+/// Implement `VisitMut` for `Arc<TParams>` as a no-op.
+///
+/// This is not technically correct, because TParams can contain types inside
+/// the bounds on `Quantified`, but we only use `VisitMut` to eliminate `Var`s,
+/// and we do not need to eliminate vars on tparams.
+///
+/// Without making this simplifying assumption we would not be able to use `Arc`
+/// to share the `TParams`.
+impl VisitMut<Type> for Arc<TParams> {
+    fn recurse_mut(&mut self, _: &mut dyn FnMut(&mut Type)) {}
+}
+
+impl Visit<Type> for Arc<TParams> {
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Type)) {
+        self.as_ref().recurse(f);
+    }
+}
+
 impl Display for TParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[{}]", commas_iter(|| self.0.iter()))
@@ -465,7 +483,7 @@ impl OverloadType {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct Forall<T> {
-    pub tparams: TParams,
+    pub tparams: Arc<TParams>,
     pub body: T,
 }
 
@@ -489,7 +507,7 @@ pub enum Forallable {
 }
 
 impl Forallable {
-    pub fn forall(self, tparams: TParams) -> Type {
+    pub fn forall(self, tparams: Arc<TParams>) -> Type {
         if tparams.is_empty() {
             self.as_type()
         } else {

@@ -372,7 +372,7 @@ mod tests {
                     flags: FuncFlags::default(),
                 },
             })
-            .forall(tparams)
+            .forall(Arc::new(tparams))
         }
 
         let a = mk_function(&uniques);

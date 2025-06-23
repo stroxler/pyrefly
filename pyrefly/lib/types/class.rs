@@ -173,13 +173,13 @@ impl Class {
         def_index: ClassDefIndex,
         name: Identifier,
         module_info: ModuleInfo,
-        tparams: TParams,
+        tparams: Arc<TParams>,
         fields: SmallMap<Name, ClassFieldProperties>,
     ) -> Self {
         Self(Arc::new(ClassInner {
             def_index,
             qname: QName::new(name, module_info),
-            tparams: Arc::new(tparams),
+            tparams,
             fields,
         }))
     }
