@@ -81,7 +81,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
         );
-        forall.subst(targs)
+        forall.apply_targs(targs)
     }
 
     /// Given a class or typed dictionary, create a `Type` that represents to an instance annotated
@@ -104,7 +104,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn promote_forall(&self, forall: Forall<Forallable>, range: TextRange) -> Type {
         let targs = self.create_default_targs(forall.tparams.dupe(), Some(range));
-        forall.subst(targs)
+        forall.apply_targs(targs)
     }
 
     /// Version of `promote` that does not potentially raise errors.

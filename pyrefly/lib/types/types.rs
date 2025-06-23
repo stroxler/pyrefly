@@ -502,13 +502,8 @@ pub struct Forall<T> {
 }
 
 impl Forall<Forallable> {
-    pub fn subst(self, targs: TArgs) -> Type {
-        let param_map = self
-            .tparams
-            .quantifieds()
-            .zip(targs.as_slice())
-            .collect::<SmallMap<_, _>>();
-        self.body.as_type().subst(&param_map)
+    pub fn apply_targs(self, targs: TArgs) -> Type {
+        targs.substitute(self.body.as_type())
     }
 }
 
