@@ -111,7 +111,7 @@ impl ClassFieldProperties {
 struct ClassInner {
     def_index: ClassDefIndex,
     qname: QName,
-    tparams: TParams,
+    tparams: Arc<TParams>,
     fields: SmallMap<Name, ClassFieldProperties>,
 }
 
@@ -179,7 +179,7 @@ impl Class {
         Self(Arc::new(ClassInner {
             def_index,
             qname: QName::new(name, module_info),
-            tparams,
+            tparams: Arc::new(tparams),
             fields,
         }))
     }
