@@ -61,7 +61,6 @@ use crate::types::types::Forall;
 use crate::types::types::Forallable;
 use crate::types::types::Overload;
 use crate::types::types::OverloadType;
-use crate::types::types::Substitution;
 use crate::types::types::SuperObj;
 use crate::types::types::TArgs;
 use crate::types::types::Type;
@@ -441,7 +440,7 @@ impl<'a> Instance<'a> {
     /// Instantiate a type that is relative to the class type parameters
     /// by substituting in the type arguments.
     fn instantiate_member(&self, raw_member: Type) -> Type {
-        Substitution::new(self.targs).substitute(raw_member)
+        self.targs.substitute(raw_member)
     }
 
     fn to_type(&self) -> Type {

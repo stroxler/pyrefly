@@ -160,7 +160,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn typed_dict_fields(&self, typed_dict: &TypedDict) -> SmallMap<Name, TypedDictField> {
         let class = typed_dict.class_object();
         let metadata = self.get_metadata_for_class(class);
-        let substitution = Substitution::new(typed_dict.targs());
+        let substitution = typed_dict.targs().substitution();
         Self::fields_from_metadata(&metadata)
             .iter()
             .filter_map(|(name, is_total)| {
@@ -173,7 +173,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn typed_dict_field(&self, typed_dict: &TypedDict, name: &Name) -> Option<TypedDictField> {
         let class = typed_dict.class_object();
         let metadata = self.get_metadata_for_class(class);
-        let substitution = Substitution::new(typed_dict.targs());
+        let substitution = typed_dict.targs().substitution();
         Self::fields_from_metadata(&metadata)
             .get(name)
             .and_then(|is_total| {
