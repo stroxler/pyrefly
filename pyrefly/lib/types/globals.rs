@@ -20,10 +20,29 @@ pub struct Global {
     ty: fn(&Stdlib) -> Type,
 }
 
+fn dict_str_any(stdlib: &Stdlib) -> Type {
+    stdlib
+        .dict(stdlib.str().clone().to_type(), Type::any_explicit())
+        .clone()
+        .to_type()
+}
+
 const GLOBALS: &[Global] = &[
+    Global::new("__annotations__", dict_str_any),
+    Global::new("__builtins__", |_| Type::any_explicit()),
+    Global::new("__cached__", |stdlib| stdlib.str().clone().to_type()),
     Global::new("__debug__", |stdlib| stdlib.bool().clone().to_type()),
+    Global::new("__dict__", dict_str_any),
     Global::new("__file__", |stdlib| stdlib.str().clone().to_type()),
+    Global::new("__loader__", |_| Type::any_explicit()),
     Global::new("__name__", |stdlib| stdlib.str().clone().to_type()),
+    Global::new("__package__", |stdlib| {
+        Type::Union(vec![stdlib.str().clone().to_type(), Type::None])
+    }),
+    Global::new("__path__", |stdlib| {
+        stdlib.iterable(stdlib.str().clone().to_type()).to_type()
+    }),
+    Global::new("__spec__", |_| Type::any_explicit()),
 ];
 
 impl Global {

@@ -200,10 +200,13 @@ x: "list" "[int]" = [] # E: Expected a type form
 testcase!(
     test_globals,
     r#"
-from typing import assert_type
+from typing import assert_type, Any
 assert_type(__file__, str)
 assert_type(__name__, str)
 assert_type(__debug__, bool)
+assert_type(__package__, str | None)
+assert_type(__annotations__, dict[str, Any])
+assert_type(__spec__, Any)
 "#,
 );
 
