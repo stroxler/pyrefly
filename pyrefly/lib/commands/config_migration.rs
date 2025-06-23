@@ -119,7 +119,13 @@ impl Args {
             );
             MypyConfig::parse_mypy_config(original_config_path)?
         } else if original_config_path.file_name() == Some("pyproject.toml".as_ref()) {
-            Self::load_from_pyproject(original_config_path)?
+            match Self::load_from_pyproject(original_config_path) {
+                Ok(config) => config,
+                Err(e) => {
+                    error!("Failed to load config from pyproject.toml: {}", e);
+                    return Ok(CommandExitStatus::UserError);
+                }
+            }
         } else {
             error!(
                 "Currently only migration from pyrightconfig.json, mypy.ini, and pyproject.toml is supported, not `{}`",
@@ -372,7 +378,7 @@ description = "A test project"
             original_config_path: Some(original_config_path.clone()),
         };
         let result = args.run();
-        assert!(result.is_err() || matches!(result.unwrap(), CommandExitStatus::UserError));
+        assert!(matches!(result.unwrap(), CommandExitStatus::UserError));
         let content = fs_anyhow::read_to_string(&original_config_path)?;
         assert_eq!(content, std::str::from_utf8(pyproject)?);
         Ok(())
