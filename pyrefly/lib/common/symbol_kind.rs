@@ -27,8 +27,6 @@ pub enum SymbolKind {
     TypeAlias,
     Function,
     Class,
-    Bool,
-    Str,
 }
 
 impl SymbolKind {
@@ -43,8 +41,6 @@ impl SymbolKind {
             SymbolKind::TypeAlias => CompletionItemKind::INTERFACE,
             SymbolKind::Function => CompletionItemKind::FUNCTION,
             SymbolKind::Class => CompletionItemKind::CLASS,
-            SymbolKind::Bool => CompletionItemKind::VALUE,
-            SymbolKind::Str => CompletionItemKind::VALUE,
         }
     }
 
@@ -59,7 +55,6 @@ impl SymbolKind {
             SymbolKind::TypeAlias => "(type alias)".to_owned(),
             SymbolKind::Function => "(function)".to_owned(),
             SymbolKind::Class => "(class)".to_owned(),
-            SymbolKind::Bool | SymbolKind::Str => "".to_owned(),
         }
     }
 
@@ -80,8 +75,6 @@ impl SymbolKind {
             // todo(samzhou19815): modifier for async
             SymbolKind::Function => (SemanticTokenType::FUNCTION, vec![]),
             SymbolKind::Class => (SemanticTokenType::CLASS, vec![]),
-            SymbolKind::Bool => (SemanticTokenType::VARIABLE, vec![]),
-            SymbolKind::Str => (SemanticTokenType::STRING, vec![]),
         }
     }
 }

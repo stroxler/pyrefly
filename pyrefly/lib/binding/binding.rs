@@ -1257,8 +1257,7 @@ impl Binding {
             | Binding::TypeVarTuple(_, _, _)
             | Binding::TypeParameter(_)
             | Binding::CheckLegacyTypeParam(_, _) => Some(SymbolKind::TypeParameter),
-            Binding::StrType => Some(SymbolKind::Str),
-            Binding::BoolType => Some(SymbolKind::Bool),
+            Binding::StrType | Binding::BoolType => Some(SymbolKind::Variable),
             Binding::Function(_, _, _) => Some(SymbolKind::Function),
             Binding::Import(_, _) => {
                 // TODO: maybe we can resolve it to see its symbol kind
