@@ -395,6 +395,25 @@ x.__ior__({}) # E:  Missing required key `a` for TypedDict `TD` # E: Missing req
 );
 
 testcase!(
+    test_typed_dict_dunder_ror,
+    r#"
+from typing import TypedDict, assert_type
+
+class TD(TypedDict):
+    a: int | str
+    b: int | str
+
+x: TD = {"a": 1, "b": 2}
+
+result = {"a": "1", "b": "2", "c":4} | x
+assert_type(result.get("c"), object | None)
+
+result = x.__ror__({"a": "1", "b": "2", "c":4})
+assert_type(result.get("c"), object | None)
+    "#,
+);
+
+testcase!(
     test_typed_dict_subtype,
     r#"
 from typing import TypedDict
