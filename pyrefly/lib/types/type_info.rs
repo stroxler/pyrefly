@@ -527,9 +527,9 @@ mod tests {
 
     use crate::binding::narrow::FacetKind;
     use crate::types::class::ClassType;
-    use crate::types::class::TArgs;
     use crate::types::display::tests::fake_class;
     use crate::types::type_info::TypeInfo;
+    use crate::types::types::TArgs;
     use crate::types::types::Type;
 
     fn fake_class_type(class_name: &str) -> Type {

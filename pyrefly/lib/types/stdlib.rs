@@ -12,7 +12,7 @@ use crate::module::module_name::ModuleName;
 use crate::sys_info::PythonVersion;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
-use crate::types::class::TArgs;
+use crate::types::types::TArgs;
 use crate::types::types::Type;
 
 #[derive(Debug, Clone)]

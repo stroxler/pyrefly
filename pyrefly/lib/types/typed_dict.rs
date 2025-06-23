@@ -11,9 +11,9 @@ use pyrefly_derive::VisitMut;
 use ruff_python_ast::name::Name;
 
 use crate::types::class::Class;
-use crate::types::class::Substitution;
-use crate::types::class::TArgs;
 use crate::types::qname::QName;
+use crate::types::types::Substitution;
+use crate::types::types::TArgs;
 use crate::types::types::Type;
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq, Hash)]

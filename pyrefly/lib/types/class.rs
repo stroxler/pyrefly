@@ -32,7 +32,8 @@ use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::types::equality::TypeEq;
 use crate::types::qname::QName;
-use crate::types::quantified::Quantified;
+use crate::types::types::Substitution;
+use crate::types::types::TArgs;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 
@@ -271,61 +272,6 @@ impl Class {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[derive(Visit, VisitMut, TypeEq)]
-pub struct TArgs(Box<[Type]>);
-
-impl TArgs {
-    pub fn new(targs: Vec<Type>) -> Self {
-        Self(targs.into_boxed_slice())
-    }
-
-    pub fn as_slice(&self) -> &[Type] {
-        &self.0
-    }
-
-    pub fn as_mut(&mut self) -> &mut [Type] {
-        &mut self.0
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Apply a substitution to type arguments.
-    ///
-    /// This is useful mainly to re-express ancestors (which, in the MRO, are in terms of class
-    /// type parameters)
-    ///
-    /// This is mainly useful to take ancestors coming from the MRO (which are always in terms
-    /// of the current class's type parameters) and re-express them in terms of the current
-    /// class specialized with type arguments.
-    pub fn substitute(&self, substitution: &Substitution) -> Self {
-        Self::new(
-            self.0
-                .iter()
-                .map(|ty| substitution.substitute(ty.clone()))
-                .collect(),
-        )
-    }
-}
-
-pub struct Substitution<'a>(SmallMap<&'a Quantified, &'a Type>);
-
-impl<'a> Substitution<'a> {
-    pub fn substitute(&self, ty: Type) -> Type {
-        ty.subst(&self.0)
-    }
-
-    /// Creates a Substitution from a class specialized with type arguments.
-    /// Assumes that the number of args equals the number of type parameters on the class.
-    pub fn new(cls: &'a Class, args: &'a TArgs) -> Self {
-        let tparams = cls.tparams();
-        let targs = args.as_slice();
-        Substitution(tparams.quantified().zip(targs.iter()).collect())
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct ClassType(Class, TArgs);
@@ -341,14 +287,14 @@ impl ClassType {
     /// The `targs` must match the `tparams`, if this fails we will panic.
     pub fn new(class: Class, targs: TArgs) -> Self {
         let tparams = class.tparams();
-        if targs.0.len() != tparams.len() && !tparams.contain_type_var_tuple() {
+        if targs.len() != tparams.len() && !tparams.contain_type_var_tuple() {
             // Invariant violation: we should always have valid type arguments when
             // constructing `ClassType`.
             panic!(
                 "Encountered invalid type arguments in class `{}`, expected `{}` type arguments, got `{}`.",
                 class.name(),
                 tparams.len(),
-                targs.0.len(),
+                targs.len(),
             )
         }
         Self(class, targs)

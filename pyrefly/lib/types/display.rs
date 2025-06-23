@@ -21,7 +21,6 @@ use starlark_map::smallmap;
 
 use crate::module::module_name::ModuleName;
 use crate::types::callable::Function;
-use crate::types::class::TArgs;
 use crate::types::qname::QName;
 use crate::types::tuple::Tuple;
 use crate::types::types::AnyStyle;
@@ -30,6 +29,7 @@ use crate::types::types::Forall;
 use crate::types::types::Forallable;
 use crate::types::types::NeverStyle;
 use crate::types::types::SuperObj;
+use crate::types::types::TArgs;
 use crate::types::types::TParam;
 use crate::types::types::TParams;
 use crate::types::types::Type;

@@ -50,8 +50,6 @@ use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
-use crate::types::class::Substitution;
-use crate::types::class::TArgs;
 use crate::types::literal::Lit;
 use crate::types::quantified::Quantified;
 use crate::types::typed_dict::TypedDict;
@@ -63,7 +61,9 @@ use crate::types::types::Forall;
 use crate::types::types::Forallable;
 use crate::types::types::Overload;
 use crate::types::types::OverloadType;
+use crate::types::types::Substitution;
 use crate::types::types::SuperObj;
+use crate::types::types::TArgs;
 use crate::types::types::Type;
 
 /// Correctly analyzing which attributes are visible on class objects, as well
