@@ -1640,7 +1640,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .arc_clone();
                     type_info.update_for_assignment(chain.facets(), narrowed);
                     type_info
-                } else if let Some((identifier, properties)) =
+                } else if let Some((identifier, facets)) =
                     identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
                 {
                     // If the chain contains an unknown subscript index, we clear narrowing for
@@ -1648,7 +1648,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let mut type_info = self
                         .get(&Key::BoundName(ShortIdentifier::new(&identifier)))
                         .arc_clone();
-                    type_info.invalidate_all_indexes_for_assignment(&properties);
+                    type_info.invalidate_all_indexes_for_assignment(&facets);
                     type_info
                 } else {
                     // Placeholder: in this case, we're assigning to an anonymous base and the
@@ -1672,7 +1672,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .arc_clone();
                     type_info.update_for_assignment(chain.facets(), narrowed);
                     type_info
-                } else if let Some((identifier, properties)) =
+                } else if let Some((identifier, facets)) =
                     identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
                 {
                     // If the chain contains an unknown subscript index, we clear narrowing for
@@ -1680,7 +1680,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let mut type_info = self
                         .get(&Key::BoundName(ShortIdentifier::new(&identifier)))
                         .arc_clone();
-                    type_info.invalidate_all_indexes_for_assignment(&properties);
+                    type_info.invalidate_all_indexes_for_assignment(&facets);
                     type_info
                 } else {
                     // Placeholder: in this case, we're assigning to an anonymous base and the
