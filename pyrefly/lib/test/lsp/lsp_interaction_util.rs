@@ -25,6 +25,7 @@ use lsp_types::CodeActionProviderCapability;
 use lsp_types::CompletionOptions;
 use lsp_types::HoverProviderCapability;
 use lsp_types::OneOf;
+use lsp_types::PositionEncodingKind;
 use lsp_types::ServerCapabilities;
 use lsp_types::SignatureHelpOptions;
 use lsp_types::TextDocumentSyncCapability;
@@ -282,7 +283,8 @@ fn get_initialize_responses(find_refs: bool) -> Vec<Message> {
     vec![Message::Response(Response {
         id: RequestId::from(1),
         result: Some(serde_json::json!({"capabilities": &ServerCapabilities {
-            text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+            position_encoding: Some(PositionEncodingKind::UTF16),
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::INCREMENTAL)),
             definition_provider: Some(OneOf::Left(true)),
             code_action_provider: Some(CodeActionProviderCapability::Options(
                 CodeActionOptions {

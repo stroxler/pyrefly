@@ -80,6 +80,7 @@ use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
 use lsp_types::NumberOrString;
 use lsp_types::OneOf;
+use lsp_types::PositionEncodingKind;
 use lsp_types::PublishDiagnosticsParams;
 use lsp_types::Range;
 use lsp_types::ReferenceParams;
@@ -99,12 +100,14 @@ use lsp_types::ServerCapabilities;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureHelpOptions;
 use lsp_types::SignatureHelpParams;
+use lsp_types::TextDocumentContentChangeEvent;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
 use lsp_types::TextEdit;
 use lsp_types::Unregistration;
 use lsp_types::UnregistrationParams;
 use lsp_types::Url;
+use lsp_types::VersionedTextDocumentIdentifier;
 use lsp_types::WatchKind;
 use lsp_types::WorkspaceClientCapabilities;
 use lsp_types::WorkspaceEdit;
@@ -148,6 +151,9 @@ use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
+use ruff_source_file::LineIndex;
+use ruff_source_file::OneIndexed;
+use ruff_source_file::SourceLocation;
 use ruff_text_size::TextRange;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
@@ -320,6 +326,7 @@ struct Server {
     outgoing_request_id: Arc<AtomicI32>,
     outgoing_requests: Mutex<HashMap<RequestId, Request>>,
     filewatcher_registered: Arc<AtomicBool>,
+    version_info: Mutex<HashMap<PathBuf, i32>>,
 }
 
 /// Information about the Python environment p
@@ -600,7 +607,10 @@ fn initialize_connection(
         .unwrap_or(false);
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
     let server_capabilities = serde_json::to_value(&ServerCapabilities {
-        text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+        position_encoding: Some(PositionEncodingKind::UTF16),
+        text_document_sync: Some(TextDocumentSyncCapability::Kind(
+            TextDocumentSyncKind::INCREMENTAL,
+        )),
         definition_provider: Some(OneOf::Left(true)),
         code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
             code_action_kinds: Some(vec![CodeActionKind::QUICKFIX]),
@@ -1013,6 +1023,7 @@ impl Server {
             outgoing_request_id: Arc::new(AtomicI32::new(1)),
             outgoing_requests: Mutex::new(HashMap::new()),
             filewatcher_registered: Arc::new(AtomicBool::new(false)),
+            version_info: Mutex::new(HashMap::new()),
         };
         s.configure(&folders, &[]);
 
@@ -1269,6 +1280,9 @@ impl Server {
         } else {
             None
         };
+        self.version_info
+            .lock()
+            .insert(uri.clone(), params.text_document.version);
         self.open_files
             .write()
             .insert(uri, Arc::new(params.text_document.text));
@@ -1292,10 +1306,52 @@ impl Server {
         ide_transaction_manager: &mut IDETransactionManager<'a>,
         params: DidChangeTextDocumentParams,
     ) -> anyhow::Result<()> {
-        // We asked for Sync full, so can just grab all the text from params
-        let change = params.content_changes.into_iter().next().unwrap();
-        let uri = params.text_document.uri.to_file_path().unwrap();
-        self.open_files.write().insert(uri, Arc::new(change.text));
+        /// Convert lsp_types::Position to usize index for a given text.
+        fn position_to_usize(
+            position: lsp_types::Position,
+            index: &LineIndex,
+            source_text: &str,
+        ) -> usize {
+            let source_location = SourceLocation {
+                line: OneIndexed::from_zero_indexed(position.line as usize),
+                character_offset: OneIndexed::from_zero_indexed(position.character as usize),
+            };
+            let text_size = index.offset(
+                source_location,
+                source_text,
+                ruff_source_file::PositionEncoding::Utf16,
+            );
+            text_size.to_usize()
+        }
+
+        let VersionedTextDocumentIdentifier { uri, version } = params.text_document;
+        let file_path = uri.to_file_path().unwrap();
+
+        let mut version_info = self.version_info.lock();
+        let old_version = version_info.get(&file_path).unwrap_or(&0);
+        if version <= *old_version {
+            return Err(anyhow::anyhow!(
+                "Expected version in didChange notification to be greater than: {:?}",
+                old_version
+            ));
+        }
+        version_info.insert(file_path.clone(), version);
+        let mut new_text = String::from(self.open_files.read().get(&file_path).unwrap().as_ref());
+        for change in params.content_changes {
+            let TextDocumentContentChangeEvent { range, text, .. } = change;
+            // If no range is given, we can full text replace.
+            let Some(range) = range else {
+                new_text = text;
+                continue;
+            };
+            let index = LineIndex::from_source_text(&new_text);
+            let start = position_to_usize(range.start, &index, &new_text);
+            let end = position_to_usize(range.end, &index, &new_text);
+            new_text.replace_range(start..end, &text);
+        }
+        self.open_files
+            .write()
+            .insert(file_path.clone(), Arc::new(new_text));
         self.validate_in_memory(ide_transaction_manager)
     }
 
@@ -1351,6 +1407,7 @@ impl Server {
 
     fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
+        self.version_info.lock().remove(&uri);
         self.open_files.write().remove(&uri);
         self.connection
             .publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
