@@ -259,7 +259,7 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.collect_quantifieds(&mut qs),
         };
-        tparams.quantified().any(|q| qs.contains(q))
+        tparams.quantifieds().any(|q| qs.contains(q))
     }
 
     fn as_raw_special_method_type(self, instance: &Instance) -> Option<Type> {

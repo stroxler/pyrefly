@@ -105,7 +105,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn targs_of_tparams(&self, class: &Class) -> TArgs {
-        class.tparams().as_targs()
+        let tparams = class.tparams();
+        TArgs::new(tparams.quantifieds().map(|q| q.clone().to_type()).collect())
     }
 
     /// Given a class or typed dictionary, create a `Type` that represents a generic instance of

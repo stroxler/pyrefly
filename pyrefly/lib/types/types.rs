@@ -131,12 +131,8 @@ impl TParams {
         self.0.iter()
     }
 
-    pub fn quantified(&self) -> impl ExactSizeIterator<Item = &Quantified> + '_ {
+    pub fn quantifieds(&self) -> impl ExactSizeIterator<Item = &Quantified> + '_ {
         self.0.iter().map(|x| &x.quantified)
-    }
-
-    pub fn as_targs(&self) -> TArgs {
-        TArgs::new(self.quantified().map(|q| q.clone().to_type()).collect())
     }
 
     pub fn contain_type_var_tuple(&self) -> bool {
@@ -209,7 +205,7 @@ impl<'a> Substitution<'a> {
     pub fn new(cls: &'a Class, args: &'a TArgs) -> Self {
         let tparams = cls.tparams();
         let targs = args.as_slice();
-        Substitution(tparams.quantified().zip(targs.iter()).collect())
+        Substitution(tparams.quantifieds().zip(targs.iter()).collect())
     }
 }
 
@@ -477,7 +473,7 @@ impl Forall<Forallable> {
     pub fn subst(self, targs: TArgs) -> Type {
         let param_map = self
             .tparams
-            .quantified()
+            .quantifieds()
             .zip(targs.as_slice())
             .collect::<SmallMap<_, _>>();
         self.body.as_type().subst(&param_map)
