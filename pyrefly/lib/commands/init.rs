@@ -146,11 +146,11 @@ impl Args {
             }
         }
 
-        // 1. Check for mypy configuration
+        // 1. Check for mypy or pyright configuration
         let found_mypy = Args::check_for_existing_config(&path, ConfigFileKind::MyPy)?;
         let found_pyright = Args::check_for_existing_config(&path, ConfigFileKind::Pyright)?;
-        // 2. Pyrefly configuration
 
+        // 2. Migrate existing configuration to Pyrefly configuration
         if found_mypy || found_pyright {
             println!("Found an existing type checking configuration - setting up pyrefly ...");
             let args = config_migration::Args {
@@ -167,7 +167,7 @@ impl Args {
             ..Default::default()
         };
 
-        // 3. pyproject.toml configuration
+        // 3. Initialize pyproject.toml configuration in the case that there are no existing Mypy or Pyright configurations but user specified a pyproject.toml
         if Args::check_for_pyproject_file(&path) {
             let config_path = if path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
                 path
@@ -179,6 +179,7 @@ impl Args {
             return Ok(CommandExitStatus::Success);
         }
 
+        // 4. Initialize pyrefly.toml configuration in the case that there are no existing Mypy or Pyright configurations and user didn't specify a pyproject.toml
         let config_path = if path.is_dir() {
             path.join(ConfigFile::PYREFLY_FILE_NAME)
         } else if path.ends_with(ConfigFile::PYREFLY_FILE_NAME) {
