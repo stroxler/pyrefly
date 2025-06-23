@@ -330,7 +330,7 @@ impl ClassType {
     }
 
     pub fn substitution(&self) -> Substitution {
-        Substitution::new(self.class_object(), self.targs())
+        Substitution::new(self.targs())
     }
 
     pub fn name(&self) -> &Name {

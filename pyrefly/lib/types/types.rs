@@ -232,10 +232,10 @@ impl<'a> Substitution<'a> {
 
     /// Creates a Substitution from a class specialized with type arguments.
     /// Assumes that the number of args equals the number of type parameters on the class.
-    pub fn new(cls: &'a Class, args: &'a TArgs) -> Self {
-        let tparams = cls.tparams();
-        let targs = args.as_slice();
-        Substitution(tparams.quantifieds().zip(targs.iter()).collect())
+    pub fn new(targs: &'a TArgs) -> Self {
+        let tparams = targs.tparams();
+        let tys = targs.as_slice();
+        Substitution(tparams.quantifieds().zip(tys.iter()).collect())
     }
 }
 

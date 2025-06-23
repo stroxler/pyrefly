@@ -441,7 +441,7 @@ impl<'a> Instance<'a> {
     /// Instantiate a type that is relative to the class type parameters
     /// by substituting in the type arguments.
     fn instantiate_member(&self, raw_member: Type) -> Type {
-        Substitution::new(self.class, self.args).substitute(raw_member)
+        Substitution::new(self.args).substitute(raw_member)
     }
 
     fn to_type(&self) -> Type {
