@@ -31,7 +31,6 @@ use crate::types::types::NeverStyle;
 use crate::types::types::SuperObj;
 use crate::types::types::TArgs;
 use crate::types::types::TParam;
-use crate::types::types::TParams;
 use crate::types::types::Type;
 
 /// Information about the classes we have seen.
@@ -161,19 +160,13 @@ impl<'a> TypeDisplayContext<'a> {
         }
     }
 
-    fn fmt_targs(
-        &self,
-        tparams: &TParams,
-        targs: &TArgs,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt_targs(&self, targs: &TArgs, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if !targs.is_empty() {
             write!(
                 f,
                 "[{}]",
-                commas_iter(|| tparams
-                    .iter()
-                    .zip(targs.as_slice().iter())
+                commas_iter(|| targs
+                    .iter_paired()
                     .map(|(param, arg)| Fmt(|f| self.fmt_targ(param, arg, f))))
             )
         } else {
@@ -210,12 +203,12 @@ impl<'a> TypeDisplayContext<'a> {
             }
             Type::ClassType(class_type) => {
                 self.fmt_qname(class_type.qname(), f)?;
-                self.fmt_targs(class_type.tparams(), class_type.targs(), f)
+                self.fmt_targs(class_type.targs(), f)
             }
             Type::TypedDict(typed_dict) => {
                 write!(f, "TypedDict[")?;
                 self.fmt_qname(typed_dict.qname(), f)?;
-                self.fmt_targs(typed_dict.class_object().tparams(), typed_dict.targs(), f)?;
+                self.fmt_targs(typed_dict.targs(), f)?;
                 write!(f, "]")
             }
             Type::TypeVar(t) => {
@@ -353,7 +346,7 @@ impl<'a> TypeDisplayContext<'a> {
                 match obj {
                     SuperObj::Instance(obj) => {
                         self.fmt_qname(obj.qname(), f)?;
-                        self.fmt_targs(obj.tparams(), obj.targs(), f)?;
+                        self.fmt_targs(obj.targs(), f)?;
                     }
                     SuperObj::Class(obj) => {
                         self.fmt_qname(obj.qname(), f)?;
