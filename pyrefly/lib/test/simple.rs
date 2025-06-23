@@ -198,11 +198,12 @@ x: "list" "[int]" = [] # E: Expected a type form
 );
 
 testcase!(
-    test_line_file,
+    test_globals,
     r#"
 from typing import assert_type
 assert_type(__file__, str)
 assert_type(__name__, str)
+assert_type(__debug__, bool)
 "#,
 );
 
@@ -1284,14 +1285,6 @@ from typing import assert_type
 assert_type(round(0.123456789, 3), float)
 assert_type(round(0.123456789), int)
 "#,
-);
-
-testcase!(
-    test_debug,
-    r#"
-from typing import assert_type
-assert_type(__debug__, bool)
-    "#,
 );
 
 testcase!(
