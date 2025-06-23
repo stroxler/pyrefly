@@ -112,7 +112,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// promote(list) == list[Any]
     /// instantiate(list) == list[T]
     pub fn instantiate(&self, cls: &Class) -> Type {
-        self.type_of_instance(cls, cls.tparams_as_targs())
+        self.type_of_instance(cls, cls.tparams().as_targs())
     }
 
     /// Instantiates a class or typed dictionary with fresh variables for its type parameters.

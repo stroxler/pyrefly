@@ -33,7 +33,6 @@ use crate::module::module_path::ModulePath;
 use crate::types::equality::TypeEq;
 use crate::types::qname::QName;
 use crate::types::quantified::Quantified;
-use crate::types::quantified::QuantifiedKind;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 
@@ -212,21 +211,12 @@ impl Class {
         &self.0.tparams
     }
 
-    pub fn tparams_as_targs(&self) -> TArgs {
-        TArgs::new(
-            self.tparams()
-                .quantified()
-                .map(|q| q.clone().to_type())
-                .collect(),
-        )
-    }
-
     /// Gets this Class as a ClassType with its tparams as the arguments. For non-TypedDict
     /// classes, this is the type of an instance of this class. Unless you specifically need the
     /// ClassType inside the Type and know you don't have a TypedDict, you should instead use
     /// AnswersSolver::instantiate() to get an instance type.
     pub fn as_class_type(&self) -> ClassType {
-        ClassType::new(self.dupe(), self.tparams_as_targs())
+        ClassType::new(self.dupe(), self.tparams().as_targs())
     }
 
     pub fn index(&self) -> ClassDefIndex {
@@ -351,11 +341,7 @@ impl ClassType {
     /// The `targs` must match the `tparams`, if this fails we will panic.
     pub fn new(class: Class, targs: TArgs) -> Self {
         let tparams = class.tparams();
-        if targs.0.len() != tparams.len()
-            && !tparams
-                .quantified()
-                .any(|q| q.kind() == QuantifiedKind::TypeVarTuple)
-        {
+        if targs.0.len() != tparams.len() && !tparams.contain_type_var_tuple() {
             // Invariant violation: we should always have valid type arguments when
             // constructing `ClassType`.
             panic!(

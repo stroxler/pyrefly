@@ -41,6 +41,7 @@ use crate::types::literal::Lit;
 use crate::types::module::Module;
 use crate::types::param_spec::ParamSpec;
 use crate::types::quantified::Quantified;
+use crate::types::quantified::QuantifiedKind;
 use crate::types::simplify::unions;
 use crate::types::special_form::SpecialForm;
 use crate::types::stdlib::Stdlib;
@@ -133,6 +134,16 @@ impl TParams {
 
     pub fn quantified(&self) -> impl ExactSizeIterator<Item = &Quantified> + '_ {
         self.0.iter().map(|x| &x.quantified)
+    }
+
+    pub fn as_targs(&self) -> TArgs {
+        TArgs::new(self.quantified().map(|q| q.clone().to_type()).collect())
+    }
+
+    pub fn contain_type_var_tuple(&self) -> bool {
+        self.0
+            .iter()
+            .any(|tparam| tparam.quantified.kind() == QuantifiedKind::TypeVarTuple)
     }
 
     pub fn as_vec(&self) -> &[TParam] {
