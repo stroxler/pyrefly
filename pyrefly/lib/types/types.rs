@@ -180,6 +180,10 @@ impl TArgs {
         Self(Box::new((tparams, targs.into_boxed_slice())))
     }
 
+    pub fn tparams(&self) -> &TParams {
+        &self.0.0
+    }
+
     pub fn iter_paired(&self) -> impl ExactSizeIterator<Item = (&TParam, &Type)> {
         self.0.0.iter().zip(self.0.1.iter())
     }

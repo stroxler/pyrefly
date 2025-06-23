@@ -310,7 +310,7 @@ impl ClassType {
     }
 
     pub fn tparams(&self) -> &TParams {
-        self.0.tparams()
+        self.1.tparams()
     }
 
     pub fn targs(&self) -> &TArgs {
