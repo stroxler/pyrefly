@@ -11,6 +11,7 @@ pub mod check;
 pub mod config_finder;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod config_migration;
+pub mod globs_and_config_getter;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod init;
 #[cfg(not(target_arch = "wasm32"))]
