@@ -156,7 +156,10 @@ impl Args {
             let args = config_migration::Args {
                 original_config_path: Some(path),
             };
-            return args.run();
+            match args.run() {
+                Ok((status, _)) => return Ok(status),
+                Err(e) => return Err(e),
+            }
         }
 
         // Generate a basic config with a couple sensible defaults.
