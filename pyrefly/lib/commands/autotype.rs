@@ -8,7 +8,6 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::Context as _;
 use clap::Parser;
 use dupe::Dupe;
 use pyrefly_util::forgetter::Forgetter;
@@ -150,8 +149,7 @@ impl Args {
         file_path: &Path,
         sorted: Vec<(TextSize, String)>,
     ) -> anyhow::Result<()> {
-        let file_content = fs_anyhow::read_to_string(file_path)
-            .with_context(|| format!("Failed to read file: {}", file_path.display()))?;
+        let file_content = fs_anyhow::read_to_string(file_path)?;
         let mut result = file_content;
         for inlay_hint in sorted {
             let (position, hint) = inlay_hint;
