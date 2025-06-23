@@ -410,7 +410,7 @@ enum InstanceKind {
 struct Instance<'a> {
     kind: InstanceKind,
     class: &'a Class,
-    args: &'a TArgs,
+    targs: &'a TArgs,
 }
 
 impl<'a> Instance<'a> {
@@ -418,7 +418,7 @@ impl<'a> Instance<'a> {
         Self {
             kind: InstanceKind::ClassType,
             class: cls.class_object(),
-            args: cls.targs(),
+            targs: cls.targs(),
         }
     }
 
@@ -426,7 +426,7 @@ impl<'a> Instance<'a> {
         Self {
             kind: InstanceKind::TypedDict,
             class: td.class_object(),
-            args: td.targs(),
+            targs: td.targs(),
         }
     }
 
@@ -434,23 +434,23 @@ impl<'a> Instance<'a> {
         Self {
             kind: InstanceKind::TypeVar(q),
             class: bound.class_object(),
-            args: bound.targs(),
+            targs: bound.targs(),
         }
     }
 
     /// Instantiate a type that is relative to the class type parameters
     /// by substituting in the type arguments.
     fn instantiate_member(&self, raw_member: Type) -> Type {
-        Substitution::new(self.args).substitute(raw_member)
+        Substitution::new(self.targs).substitute(raw_member)
     }
 
     fn to_type(&self) -> Type {
         match &self.kind {
             InstanceKind::ClassType => {
-                ClassType::new(self.class.dupe(), self.args.clone()).to_type()
+                ClassType::new(self.class.dupe(), self.targs.clone()).to_type()
             }
             InstanceKind::TypedDict => {
-                Type::TypedDict(TypedDict::new(self.class.dupe(), self.args.clone()))
+                Type::TypedDict(TypedDict::new(self.class.dupe(), self.targs.clone()))
             }
             InstanceKind::TypeVar(q) => Type::Quantified(q.clone()),
         }
@@ -1006,7 +1006,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ty,
                     DescriptorBase::Instance(ClassType::new(
                         instance.class.dupe(),
-                        instance.args.clone(),
+                        instance.targs.clone(),
                     )),
                     descriptor_getter,
                     descriptor_setter,

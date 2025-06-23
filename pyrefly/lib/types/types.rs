@@ -212,7 +212,7 @@ impl TArgs {
     /// This is mainly useful to take ancestors coming from the MRO (which are always in terms
     /// of the current class's type parameters) and re-express them in terms of the current
     /// class specialized with type arguments.
-    pub fn substitute(&self, substitution: &Substitution) -> Self {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> Self {
         let tys = self
             .0
             .1

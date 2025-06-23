@@ -326,7 +326,7 @@ impl ClassType {
     /// This is used to propagate instantiation of base class type parameters when computing
     /// the MRO.
     pub fn substitute(&self, substitution: &Substitution) -> Self {
-        Self(self.0.dupe(), self.1.substitute(substitution))
+        Self(self.0.dupe(), self.1.apply_substitution(substitution))
     }
 
     pub fn substitution(&self) -> Substitution {
