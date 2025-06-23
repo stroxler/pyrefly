@@ -282,7 +282,9 @@ impl Stdlib {
 
     fn apply(cls: &StdlibResult<Class>, targs: Vec<Type>) -> ClassType {
         // Note: this construction will panic if we use `apply` with the wrong arity.
-        ClassType::new(Self::unwrap(cls).dupe(), TArgs::new(targs))
+        let cls = Self::unwrap(cls);
+        let targs = TArgs::new(cls.arc_tparams().dupe(), targs);
+        ClassType::new(cls.dupe(), targs)
     }
 
     pub fn base_exception_group(&self, x: Type) -> Option<ClassType> {

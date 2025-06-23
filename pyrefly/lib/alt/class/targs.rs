@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::sync::Arc;
+
 use dupe::Dupe;
 use pyrefly_util::display::count;
 use pyrefly_util::prelude::SliceExt;
@@ -36,7 +38,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// caller to ensure they are not calling this method on a TypedDict class, which should be
     /// promoted to TypedDict instead of ClassType.
     pub fn promote_nontypeddict_silently_to_classtype(&self, cls: &Class) -> ClassType {
-        ClassType::new(cls.dupe(), self.create_default_targs(cls.tparams(), None))
+        ClassType::new(
+            cls.dupe(),
+            self.create_default_targs(self.class_tparams(cls), None),
+        )
     }
 
     /// Given a class or typed dictionary and some (explicit) type arguments, construct a `Type`
@@ -57,7 +62,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Accept any number of arguments (by ignoring them).
             TArgs::default()
         } else {
-            self.check_and_create_targs(cls.name(), cls.tparams(), targs, range, errors)
+            self.check_and_create_targs(cls.name(), self.class_tparams(cls), targs, range, errors)
         };
         self.type_of_instance(cls, targs)
     }
@@ -69,8 +74,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        let targs =
-            self.check_and_create_targs(&forall.body.name(), &forall.tparams, targs, range, errors);
+        let targs = self.check_and_create_targs(
+            &forall.body.name(),
+            forall.tparams.dupe(),
+            targs,
+            range,
+            errors,
+        );
         forall.subst(targs)
     }
 
@@ -88,25 +98,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// promote(list) == list[Any]
     /// instantiate(list) == list[T]
     pub fn promote(&self, cls: &Class, range: TextRange) -> Type {
-        let targs = self.create_default_targs(cls.tparams(), Some(range));
+        let targs = self.create_default_targs(self.class_tparams(cls), Some(range));
         self.type_of_instance(cls, targs)
     }
 
     pub fn promote_forall(&self, forall: Forall<Forallable>, range: TextRange) -> Type {
-        let targs = self.create_default_targs(&forall.tparams, Some(range));
+        let targs = self.create_default_targs(forall.tparams.dupe(), Some(range));
         forall.subst(targs)
     }
 
     /// Version of `promote` that does not potentially raise errors.
     /// Should only be used for unusual scenarios.
     pub fn promote_silently(&self, cls: &Class) -> Type {
-        let targs = self.create_default_targs(cls.tparams(), None);
+        let targs = self.create_default_targs(self.class_tparams(cls), None);
         self.type_of_instance(cls, targs)
     }
 
     fn targs_of_tparams(&self, class: &Class) -> TArgs {
-        let tparams = class.tparams();
-        TArgs::new(tparams.quantifieds().map(|q| q.clone().to_type()).collect())
+        let tparams = class.arc_tparams();
+        TArgs::new(
+            tparams.dupe(),
+            tparams.quantifieds().map(|q| q.clone().to_type()).collect(),
+        )
     }
 
     /// Given a class or typed dictionary, create a `Type` that represents a generic instance of
@@ -131,14 +144,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Instantiates a class or typed dictionary with fresh variables for its type parameters.
     pub fn instantiate_fresh(&self, cls: &Class) -> Type {
         self.solver()
-            .fresh_quantified(cls.tparams(), self.instantiate(cls), self.uniques)
+            .fresh_quantified(
+                &self.class_tparams(cls),
+                self.instantiate(cls),
+                self.uniques,
+            )
             .1
     }
 
     /// Creates default type arguments for a class, falling back to Any for type parameters without defaults.
     fn create_default_targs(
         &self,
-        tparams: &TParams,
+        tparams: Arc<TParams>,
         // Placeholder for strict mode: we want to force callers to pass a range so
         // that we don't refactor in a way where none is available, but this is unused
         // because we do not have a strict mode yet.
@@ -153,12 +170,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             //
             // Our plumbing isn't ready for that yet, so for now we are silently
             // using gradual type arguments.
-            TArgs::new(
-                tparams
-                    .iter()
-                    .map(|x| x.quantified.as_gradual_type())
-                    .collect(),
-            )
+            let tys = tparams
+                .iter()
+                .map(|x| x.quantified.as_gradual_type())
+                .collect();
+            TArgs::new(tparams, tys)
         }
     }
 
@@ -174,7 +190,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn check_and_create_targs(
         &self,
         name: &Name,
-        tparams: &TParams,
+        tparams: Arc<TParams>,
         targs: Vec<Type>,
         range: TextRange,
         errors: &ErrorCollector,
@@ -192,7 +208,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // We know that ParamSpec params must be matched by ParamSpec args, so chop off both params and args
                         // at the next ParamSpec when computing how many args the TypeVarTuple should consume.
                         let paramspec_param_idx =
-                            self.peek_next_paramspec_param(param_idx + 1, tparams);
+                            self.peek_next_paramspec_param(param_idx + 1, &tparams);
                         let paramspec_arg_idx = self.peek_next_paramspec_arg(targ_idx, &targs);
                         let nparams_for_tvt = paramspec_param_idx.unwrap_or(nparams);
                         let nargs_for_tvt = paramspec_arg_idx.unwrap_or(nargs);
@@ -230,7 +246,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // We've run out of arguments, and we have type parameters left to consume.
                 checked_targs.extend(self.consume_remaining_tparams(
                     name,
-                    tparams,
+                    &tparams,
                     param_idx,
                     &checked_targs,
                     nargs,
@@ -256,7 +272,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
             );
         }
-        TArgs::new(checked_targs)
+        drop(name_to_idx);
+        TArgs::new(tparams, checked_targs)
     }
 
     fn peek_next_paramspec_param(&self, start_idx: usize, tparams: &TParams) -> Option<usize> {

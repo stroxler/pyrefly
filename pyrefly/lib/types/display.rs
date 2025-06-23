@@ -476,25 +476,38 @@ pub mod tests {
         assert_eq!(
             class_type(
                 &tuple_param,
-                TArgs::new(vec![Type::tuple(vec![
-                    class_type(&foo1, TArgs::default()),
-                    class_type(&foo1, TArgs::default())
-                ])])
+                TArgs::new(
+                    tuple_param.arc_tparams().dupe(),
+                    vec![Type::tuple(vec![
+                        class_type(&foo1, TArgs::default()),
+                        class_type(&foo1, TArgs::default())
+                    ])]
+                )
             )
             .to_string(),
             "TupleParam[foo, foo]"
         );
         assert_eq!(
-            class_type(&tuple_param, TArgs::new(vec![Type::tuple(Vec::new())])).to_string(),
+            class_type(
+                &tuple_param,
+                TArgs::new(
+                    tuple_param.arc_tparams().dupe(),
+                    vec![Type::tuple(Vec::new())]
+                )
+            )
+            .to_string(),
             "TupleParam[*tuple[()]]"
         );
         assert_eq!(
             class_type(
                 &tuple_param,
-                TArgs::new(vec![Type::Tuple(Tuple::Unbounded(Box::new(class_type(
-                    &foo1,
-                    TArgs::default()
-                ))))])
+                TArgs::new(
+                    tuple_param.arc_tparams().dupe(),
+                    vec![Type::Tuple(Tuple::Unbounded(Box::new(class_type(
+                        &foo1,
+                        TArgs::default()
+                    ))))]
+                )
             )
             .to_string(),
             "TupleParam[*tuple[foo, ...]]"
@@ -502,14 +515,17 @@ pub mod tests {
         assert_eq!(
             class_type(
                 &tuple_param,
-                TArgs::new(vec![Type::Tuple(Tuple::Unpacked(Box::new((
-                    vec![class_type(&foo1, TArgs::default())],
-                    Type::Tuple(Tuple::Unbounded(Box::new(class_type(
-                        &foo1,
-                        TArgs::default(),
-                    )))),
-                    vec![class_type(&foo1, TArgs::default())],
-                ))))])
+                TArgs::new(
+                    tuple_param.arc_tparams().dupe(),
+                    vec![Type::Tuple(Tuple::Unpacked(Box::new((
+                        vec![class_type(&foo1, TArgs::default())],
+                        Type::Tuple(Tuple::Unbounded(Box::new(class_type(
+                            &foo1,
+                            TArgs::default(),
+                        )))),
+                        vec![class_type(&foo1, TArgs::default())],
+                    ))))]
+                )
             )
             .to_string(),
             "TupleParam[foo, *tuple[foo, ...], foo]"
@@ -522,7 +538,13 @@ pub mod tests {
         assert_eq!(
             Type::Tuple(Tuple::concrete(vec![
                 class_type(&foo1, TArgs::default()),
-                class_type(&bar, TArgs::new(vec![class_type(&foo1, TArgs::default())]))
+                class_type(
+                    &bar,
+                    TArgs::new(
+                        bar.arc_tparams().dupe(),
+                        vec![class_type(&foo1, TArgs::default())]
+                    )
+                )
             ]))
             .to_string(),
             "tuple[foo, bar[foo]]"
@@ -530,7 +552,13 @@ pub mod tests {
         assert_eq!(
             Type::Tuple(Tuple::concrete(vec![
                 class_type(&foo1, TArgs::default()),
-                class_type(&bar, TArgs::new(vec![class_type(&foo2, TArgs::default())]))
+                class_type(
+                    &bar,
+                    TArgs::new(
+                        bar.arc_tparams().dupe(),
+                        vec![class_type(&foo2, TArgs::default())]
+                    )
+                )
             ]))
             .to_string(),
             "tuple[mod.ule.foo@1:6, bar[mod.ule.foo@1:9]]"
@@ -686,7 +714,7 @@ pub mod tests {
             vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVar)],
         );
         let t = Type::None;
-        let targs = TArgs::new(vec![t]);
+        let targs = TArgs::new(cls.arc_tparams().dupe(), vec![t]);
         let td = TypedDict::new(cls, targs);
         assert_eq!(Type::TypedDict(td).to_string(), "TypedDict[C[None]]");
     }

@@ -170,27 +170,30 @@ impl TParams {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[derive(Visit, VisitMut, TypeEq)]
-pub struct TArgs(Box<[Type]>);
+pub struct TArgs(Box<(Arc<TParams>, Box<[Type]>)>);
 
 impl TArgs {
-    pub fn new(targs: Vec<Type>) -> Self {
-        Self(targs.into_boxed_slice())
+    pub fn new(tparams: Arc<TParams>, targs: Vec<Type>) -> Self {
+        if tparams.len() != targs.len() {
+            panic!("TParams and TArgs must have the same length");
+        }
+        Self(Box::new((tparams, targs.into_boxed_slice())))
     }
 
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.0.1.len()
     }
 
     pub fn as_slice(&self) -> &[Type] {
-        &self.0
+        &self.0.1
     }
 
     pub fn as_mut(&mut self) -> &mut [Type] {
-        &mut self.0
+        &mut self.0.1
     }
 
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.0.1.is_empty()
     }
 
     /// Apply a substitution to type arguments.
@@ -202,12 +205,13 @@ impl TArgs {
     /// of the current class's type parameters) and re-express them in terms of the current
     /// class specialized with type arguments.
     pub fn substitute(&self, substitution: &Substitution) -> Self {
-        Self::new(
-            self.0
-                .iter()
-                .map(|ty| substitution.substitute(ty.clone()))
-                .collect(),
-        )
+        let tys = self
+            .0
+            .1
+            .iter()
+            .map(|ty| substitution.substitute(ty.clone()))
+            .collect();
+        Self::new(self.0.0.dupe(), tys)
     }
 }
 
