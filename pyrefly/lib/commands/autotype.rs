@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context as _;
@@ -60,7 +61,6 @@ fn format_hints(
         if formatted_hint.contains("Unknown") {
             continue;
         }
-
         if formatted_hint.contains("Never") {
             continue;
         }
@@ -99,6 +99,7 @@ impl Args {
     pub fn new() -> Self {
         Self {}
     }
+
     pub fn run(
         self,
         files_to_check: FilteredGlobs,
@@ -133,32 +134,34 @@ impl Args {
                 .into_iter()
                 .filter_map(|p| p.to_inlay_hint())
                 .collect();
-            let i_types = match inferred_types {
-                Some(inferred_types) => {
-                    parameter_types.extend(inferred_types);
-                    parameter_types
-                }
-                None => parameter_types,
-            };
-            let formatted = format_hints(i_types, &stdlib.clone());
-            let sorted = sort_inlay_hints(formatted);
-
-            let file_path = handle.path().as_path();
-            let file_content = fs_anyhow::read_to_string(file_path)
-                .with_context(|| format!("Failed to read file: {}", file_path.display()))?;
-            let mut result = file_content;
-            for inlay_hint in sorted {
-                let (position, hint) = inlay_hint;
-                // Convert the TextSize to a byte offset
-                let offset = (position).into();
-                if offset <= result.len() {
-                    result.insert_str(offset, &hint);
-                }
+            if let Some(inferred_types) = inferred_types {
+                parameter_types.extend(inferred_types);
+                let formatted = format_hints(parameter_types, &stdlib);
+                let sorted = sort_inlay_hints(formatted);
+                let file_path = handle.path().as_path();
+                self.add_annotations_to_file(file_path, sorted)?;
             }
-            fs_anyhow::write(file_path, result.as_bytes())
-                .with_context(|| format!("Failed to write to file: {}", file_path.display()))?;
         }
         Ok(CommandExitStatus::Success)
+    }
+
+    fn add_annotations_to_file(
+        &self,
+        file_path: &Path,
+        sorted: Vec<(TextSize, String)>,
+    ) -> anyhow::Result<()> {
+        let file_content = fs_anyhow::read_to_string(file_path)
+            .with_context(|| format!("Failed to read file: {}", file_path.display()))?;
+        let mut result = file_content;
+        for inlay_hint in sorted {
+            let (position, hint) = inlay_hint;
+            // Convert the TextSize to a byte offset
+            let offset = (position).into();
+            if offset <= result.len() {
+                result.insert_str(offset, &hint);
+            }
+        }
+        fs_anyhow::write(file_path, result.as_bytes())
     }
 }
 
