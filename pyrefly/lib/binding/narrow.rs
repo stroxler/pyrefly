@@ -6,6 +6,7 @@
  */
 
 use std::fmt;
+use std::fmt::Display;
 
 use pyrefly_derive::TypeEq;
 use pyrefly_util::assert_words;
@@ -90,7 +91,7 @@ pub enum FacetKind {
     Key(String),
 }
 
-impl fmt::Display for FacetKind {
+impl Display for FacetKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Attribute(name) => write!(f, ".{}", name),
@@ -121,6 +122,15 @@ impl FacetChain {
         match self {
             Self(chain) => chain,
         }
+    }
+}
+
+impl Display for FacetChain {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for facet in self.0.iter() {
+            write!(f, "{}", facet)?;
+        }
+        Ok(())
     }
 }
 
