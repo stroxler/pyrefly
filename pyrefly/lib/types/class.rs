@@ -41,122 +41,6 @@ use crate::types::types::Type;
 #[derive(Debug, Clone, TypeEq, Display, Dupe)]
 pub struct Class(Arc<ClassInner>);
 
-// A note on terminology regarding attribute-related concepts:
-// - "field" refers to something defined in a class body, with a raw type as written.
-// - "member" refers to a name defined on a class, including inherited members whose
-//   types should be expressed in terms of the type parameters of the current class
-// - "attribute" refers to a value actually accessed from an instance or class object,
-//   which involves substituting type arguments for the class type parameters as
-//   well as descriptor handling (including method binding).
-impl Class {
-    pub fn new(
-        def_index: ClassDefIndex,
-        name: Identifier,
-        module_info: ModuleInfo,
-        tparams: TParams,
-        fields: SmallMap<Name, ClassFieldProperties>,
-    ) -> Self {
-        Self(Arc::new(ClassInner {
-            def_index,
-            qname: QName::new(name, module_info),
-            tparams,
-            fields,
-        }))
-    }
-
-    pub fn contains(&self, name: &Name) -> bool {
-        self.0.fields.contains_key(name)
-    }
-
-    pub fn range(&self) -> TextRange {
-        self.0.qname.range()
-    }
-
-    pub fn name(&self) -> &Name {
-        self.0.qname.id()
-    }
-
-    pub fn qname(&self) -> &QName {
-        &self.0.qname
-    }
-
-    pub fn kind(&self) -> ClassKind {
-        ClassKind::from_qname(self.qname())
-    }
-
-    pub fn tparams(&self) -> &TParams {
-        &self.0.tparams
-    }
-
-    pub fn tparams_as_targs(&self) -> TArgs {
-        TArgs::new(
-            self.tparams()
-                .quantified()
-                .map(|q| q.clone().to_type())
-                .collect(),
-        )
-    }
-
-    /// Gets this Class as a ClassType with its tparams as the arguments. For non-TypedDict
-    /// classes, this is the type of an instance of this class. Unless you specifically need the
-    /// ClassType inside the Type and know you don't have a TypedDict, you should instead use
-    /// AnswersSolver::instantiate() to get an instance type.
-    pub fn as_class_type(&self) -> ClassType {
-        ClassType::new(self.dupe(), self.tparams_as_targs())
-    }
-
-    pub fn index(&self) -> ClassDefIndex {
-        self.0.def_index
-    }
-
-    pub fn module_name(&self) -> ModuleName {
-        self.0.qname.module_name()
-    }
-
-    pub fn module_info(&self) -> &ModuleInfo {
-        self.0.qname.module_info()
-    }
-
-    pub fn fields(&self) -> impl ExactSizeIterator<Item = &Name> {
-        self.0.fields.keys()
-    }
-
-    pub fn is_field_annotated(&self, name: &Name) -> bool {
-        self.0
-            .fields
-            .get(name)
-            .is_some_and(|prop| prop.is_annotated)
-    }
-
-    pub fn field_decl_range(&self, name: &Name) -> Option<TextRange> {
-        Some(self.0.fields.get(name)?.range)
-    }
-
-    pub fn has_qname(&self, module: &str, name: &str) -> bool {
-        self.0.qname.module_name().as_str() == module && self.0.qname.id() == name
-    }
-
-    pub fn is_builtin(&self, name: &str) -> bool {
-        self.has_qname("builtins", name)
-    }
-
-    /// Key to use for equality purposes. If we have the same module and index,
-    /// we must point at the same class underneath.
-    fn key_eq(&self) -> (ClassDefIndex, ModuleName, &ModulePath) {
-        (
-            self.0.def_index,
-            self.0.qname.module_name(),
-            self.0.qname.module_info().path(),
-        )
-    }
-
-    /// Key to use for comparison purposes. Main used to sort identifiers in union,
-    /// and then alphabetically sorting by the name gives a predictable answer.
-    fn key_ord(&self) -> (&QName, ClassDefIndex) {
-        (&self.0.qname, self.0.def_index)
-    }
-}
-
 impl Hash for Class {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.key_eq().hash(state)
@@ -274,6 +158,122 @@ impl Display for ClassInner {
             write!(f, "[{}]", commas_iter(|| self.tparams.iter()))?;
         }
         writeln!(f, ": ...")
+    }
+}
+
+// A note on terminology regarding attribute-related concepts:
+// - "field" refers to something defined in a class body, with a raw type as written.
+// - "member" refers to a name defined on a class, including inherited members whose
+//   types should be expressed in terms of the type parameters of the current class
+// - "attribute" refers to a value actually accessed from an instance or class object,
+//   which involves substituting type arguments for the class type parameters as
+//   well as descriptor handling (including method binding).
+impl Class {
+    pub fn new(
+        def_index: ClassDefIndex,
+        name: Identifier,
+        module_info: ModuleInfo,
+        tparams: TParams,
+        fields: SmallMap<Name, ClassFieldProperties>,
+    ) -> Self {
+        Self(Arc::new(ClassInner {
+            def_index,
+            qname: QName::new(name, module_info),
+            tparams,
+            fields,
+        }))
+    }
+
+    pub fn contains(&self, name: &Name) -> bool {
+        self.0.fields.contains_key(name)
+    }
+
+    pub fn range(&self) -> TextRange {
+        self.0.qname.range()
+    }
+
+    pub fn name(&self) -> &Name {
+        self.0.qname.id()
+    }
+
+    pub fn qname(&self) -> &QName {
+        &self.0.qname
+    }
+
+    pub fn kind(&self) -> ClassKind {
+        ClassKind::from_qname(self.qname())
+    }
+
+    pub fn tparams(&self) -> &TParams {
+        &self.0.tparams
+    }
+
+    pub fn tparams_as_targs(&self) -> TArgs {
+        TArgs::new(
+            self.tparams()
+                .quantified()
+                .map(|q| q.clone().to_type())
+                .collect(),
+        )
+    }
+
+    /// Gets this Class as a ClassType with its tparams as the arguments. For non-TypedDict
+    /// classes, this is the type of an instance of this class. Unless you specifically need the
+    /// ClassType inside the Type and know you don't have a TypedDict, you should instead use
+    /// AnswersSolver::instantiate() to get an instance type.
+    pub fn as_class_type(&self) -> ClassType {
+        ClassType::new(self.dupe(), self.tparams_as_targs())
+    }
+
+    pub fn index(&self) -> ClassDefIndex {
+        self.0.def_index
+    }
+
+    pub fn module_name(&self) -> ModuleName {
+        self.0.qname.module_name()
+    }
+
+    pub fn module_info(&self) -> &ModuleInfo {
+        self.0.qname.module_info()
+    }
+
+    pub fn fields(&self) -> impl ExactSizeIterator<Item = &Name> {
+        self.0.fields.keys()
+    }
+
+    pub fn is_field_annotated(&self, name: &Name) -> bool {
+        self.0
+            .fields
+            .get(name)
+            .is_some_and(|prop| prop.is_annotated)
+    }
+
+    pub fn field_decl_range(&self, name: &Name) -> Option<TextRange> {
+        Some(self.0.fields.get(name)?.range)
+    }
+
+    pub fn has_qname(&self, module: &str, name: &str) -> bool {
+        self.0.qname.module_name().as_str() == module && self.0.qname.id() == name
+    }
+
+    pub fn is_builtin(&self, name: &str) -> bool {
+        self.has_qname("builtins", name)
+    }
+
+    /// Key to use for equality purposes. If we have the same module and index,
+    /// we must point at the same class underneath.
+    fn key_eq(&self) -> (ClassDefIndex, ModuleName, &ModulePath) {
+        (
+            self.0.def_index,
+            self.0.qname.module_name(),
+            self.0.qname.module_info().path(),
+        )
+    }
+
+    /// Key to use for comparison purposes. Main used to sort identifiers in union,
+    /// and then alphabetically sorting by the name gives a predictable answer.
+    fn key_ord(&self) -> (&QName, ClassDefIndex) {
+        (&self.0.qname, self.0.def_index)
     }
 }
 
