@@ -212,14 +212,6 @@ impl Class {
         &self.0.tparams
     }
 
-    /// Gets this Class as a ClassType with its tparams as the arguments. For non-TypedDict
-    /// classes, this is the type of an instance of this class. Unless you specifically need the
-    /// ClassType inside the Type and know you don't have a TypedDict, you should instead use
-    /// AnswersSolver::instantiate() to get an instance type.
-    pub fn as_class_type(&self) -> ClassType {
-        ClassType::new(self.dupe(), self.tparams().as_targs())
-    }
-
     pub fn index(&self) -> ClassDefIndex {
         self.0.def_index
     }

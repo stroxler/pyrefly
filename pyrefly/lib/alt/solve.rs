@@ -238,7 +238,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 {
                     let class = &*self.get_idx(*class_key);
                     if let Some(cls) = &class.0 {
-                        ty.subst_self_special_form_mut(&Type::SelfType(cls.as_class_type()));
+                        ty.subst_self_special_form_mut(&Type::SelfType(
+                            self.as_class_type_unchecked(cls),
+                        ));
                     }
                 }
                 Arc::new(AnnotationWithTarget {
@@ -1408,7 +1410,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Type::ClassType(obj_cls) => make_super_instance(obj_cls, &|| SuperObj::Instance(obj_cls.clone())),
                             Type::Type(box Type::ClassType(obj_cls)) => make_super_instance(obj_cls, &|| SuperObj::Class(obj_cls.class_object().dupe())),
                             Type::ClassDef(obj_cls) => {
-                                let obj_type = obj_cls.as_class_type();
+                                let obj_type = self.type_order().as_class_type_unchecked(obj_cls);
                                 make_super_instance(&obj_type, &|| SuperObj::Class(obj_cls.dupe()))
                             }
                             Type::SelfType(obj_cls) => {
@@ -1443,7 +1445,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             SuperStyle::ImplicitArgs(self_binding, method) => {
                 match &self.get_idx(*self_binding).0 {
                     Some(obj_cls) => {
-                        let obj_type = obj_cls.as_class_type();
+                        let obj_type = self.as_class_type_unchecked(obj_cls);
                         let lookup_cls = self.get_super_lookup_class(obj_cls, &obj_type).unwrap();
                         let obj = if method.id == dunder::NEW {
                             // __new__ is special: it's the only static method in which the

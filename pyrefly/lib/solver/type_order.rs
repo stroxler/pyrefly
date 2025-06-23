@@ -52,6 +52,10 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0.as_superclass(class, want)
     }
 
+    pub fn as_class_type_unchecked(self, class: &Class) -> ClassType {
+        self.0.as_class_type_unchecked(class)
+    }
+
     pub fn is_compatible_constructor_return(self, ty: &Type, class: &Class) -> bool {
         self.0.is_compatible_constructor_return(ty, class)
     }

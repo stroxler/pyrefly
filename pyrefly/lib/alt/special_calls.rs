@@ -386,7 +386,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(protocol_metadata) = metadata.protocol_metadata() {
             for field_name in &protocol_metadata.members {
                 // Use the class type to access the field
-                let class_type = cls.as_class_type();
+                let class_type = self.as_class_type_unchecked(cls);
                 let ty = self.type_of_attr_get(
                     &class_type.to_type(),
                     field_name,

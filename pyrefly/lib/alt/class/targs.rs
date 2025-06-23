@@ -104,6 +104,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.type_of_instance(cls, targs)
     }
 
+    fn targs_of_tparams(&self, class: &Class) -> TArgs {
+        class.tparams().as_targs()
+    }
+
     /// Given a class or typed dictionary, create a `Type` that represents a generic instance of
     /// the class or typed dictionary.
     ///
@@ -112,7 +116,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// promote(list) == list[Any]
     /// instantiate(list) == list[T]
     pub fn instantiate(&self, cls: &Class) -> Type {
-        self.type_of_instance(cls, cls.tparams().as_targs())
+        self.type_of_instance(cls, self.targs_of_tparams(cls))
+    }
+
+    /// Gets this Class as a ClassType with its tparams as the arguments. For non-TypedDict
+    /// classes, this is the type of an instance of this class. Unless you specifically need the
+    /// ClassType inside the Type and know you don't have a TypedDict, you should instead use
+    /// AnswersSolver::instantiate() to get an instance type.
+    pub fn as_class_type_unchecked(&self, class: &Class) -> ClassType {
+        ClassType::new(class.dupe(), self.targs_of_tparams(class))
     }
 
     /// Instantiates a class or typed dictionary with fresh variables for its type parameters.

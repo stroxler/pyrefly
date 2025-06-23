@@ -1204,7 +1204,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Optimisation: Only compute the `got_attr` once, and only if we actually need it.
                 got_attr = Some(self.as_instance_attribute(
                     class_field,
-                    &Instance::of_class(&class.as_class_type()),
+                    &Instance::of_class(&self.as_class_type_unchecked(class)),
                 ));
             }
             let attr_check =
