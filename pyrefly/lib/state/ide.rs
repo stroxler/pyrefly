@@ -54,7 +54,7 @@ pub fn key_to_intermediate_definition(
     }
 }
 
-pub fn binding_to_intermediate_definition(
+fn binding_to_intermediate_definition(
     bindings: &Bindings,
     binding: &Binding,
     gas: &mut Gas,

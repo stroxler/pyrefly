@@ -58,7 +58,7 @@ use crate::module::module_path::ModulePath;
 use crate::solver::solver::Solver;
 use crate::solver::type_order::TypeOrder;
 use crate::state::ide::IntermediateDefinition;
-use crate::state::ide::binding_to_intermediate_definition;
+use crate::state::ide::key_to_intermediate_definition;
 use crate::table;
 use crate::table_for_each;
 use crate::table_mut_for_each;
@@ -504,19 +504,16 @@ impl Answers {
             let mut index = index.lock();
             // Index bindings with external definitions.
             for idx in bindings.keys::<Key>() {
-                let binding = bindings.get(idx);
-                let (imported_module_name, imported_name) = match binding_to_intermediate_definition(
-                    bindings,
-                    binding,
-                    &mut Gas::new(20),
-                ) {
-                    None => continue,
-                    Some(IntermediateDefinition::Local(_)) => continue,
-                    Some(IntermediateDefinition::Module(_)) => continue,
-                    Some(IntermediateDefinition::NamedImport(module_name, name)) => {
-                        (module_name, name)
-                    }
-                };
+                let key = bindings.idx_to_key(idx);
+                let (imported_module_name, imported_name) =
+                    match key_to_intermediate_definition(bindings, key, &mut Gas::new(20)) {
+                        None => continue,
+                        Some(IntermediateDefinition::Local(_)) => continue,
+                        Some(IntermediateDefinition::Module(_)) => continue,
+                        Some(IntermediateDefinition::NamedImport(module_name, name)) => {
+                            (module_name, name)
+                        }
+                    };
                 let reference_range = bindings.idx_to_key(idx).range();
                 // Sanity check: the reference should have the same text as the definition.
                 // This check helps to filter out synthetic bindings.
