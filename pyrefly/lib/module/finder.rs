@@ -23,7 +23,7 @@ use crate::state::loader::FindError;
 static PY_TYPED_CACHE: LazyLock<Mutex<SmallMap<PathBuf, PyTyped>>> =
     LazyLock::new(|| Mutex::new(SmallMap::new()));
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Default, Clone, Dupe)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone, Dupe)]
 enum PyTyped {
     #[default]
     Missing,
@@ -31,6 +31,7 @@ enum PyTyped {
     Partial,
 }
 
+#[derive(Debug, PartialEq)]
 enum FindResult {
     /// Found a single-file module. The path must not point to an __init__ file.
     SingleFileModule(PathBuf),
@@ -41,6 +42,9 @@ enum FindResult {
     /// The path component indicates where to continue search next. It may contain more than one directories as the namespace package
     /// may span across multiple search roots.
     NamespacePackage(Vec1<PathBuf>),
+    /// Found a compiled Python file (.pyc). Represents a module compiled to bytecode, lacking source and type info.
+    /// Treated as `typing.Any` to handle imports without type errors.
+    CompiledModule(PathBuf),
 }
 
 impl FindResult {
@@ -82,6 +86,7 @@ impl FindResult {
                 .map(|path| py_typed_cached(path))
                 .max()
                 .unwrap_or_default(),
+            Self::CompiledModule(_) => PyTyped::Partial, //TODO(melvinhe): Handle specially with new PyTyped enum variant
         }
     }
 }
@@ -106,6 +111,11 @@ fn find_one_part<'a>(name: &Name, roots: impl Iterator<Item = &'a PathBuf>) -> O
             if candidate_path.exists() {
                 return Some(FindResult::SingleFileModule(candidate_path));
             }
+        }
+        // Check if `name` corresponds to a compiled module.
+        let candidate_pyc_path = root.join(format!("{name}.pyc"));
+        if candidate_pyc_path.exists() {
+            return Some(FindResult::CompiledModule(candidate_pyc_path));
         }
         // Finally check if `name` corresponds to a namespace package.
         if candidate_dir.is_dir() {
@@ -199,7 +209,7 @@ fn continue_find_module(start_result: FindResult, components_rest: &[Name]) -> O
                 // Nothing has been found in the previous round. No point keep looking.
                 break;
             }
-            Some(FindResult::SingleFileModule(_)) => {
+            Some(FindResult::SingleFileModule(_)) | Some(FindResult::CompiledModule(_)) => {
                 // We've already reached leaf nodes. Cannot keep searching
                 current_result = None;
                 break;
@@ -213,7 +223,10 @@ fn continue_find_module(start_result: FindResult, components_rest: &[Name]) -> O
         }
     }
     current_result.map(|x| match x {
-        FindResult::SingleFileModule(path) | FindResult::RegularPackage(path, _) => {
+        FindResult::SingleFileModule(path) |
+        FindResult::RegularPackage(path, _) |
+        // TODO(melvinhe): Address CompiledModule differently, for Typing.Any treatment
+        FindResult::CompiledModule(path) => {
             ModulePath::filesystem(path)
         }
         FindResult::NamespacePackage(roots) => {
@@ -330,7 +343,7 @@ pub fn find_module_prefixes<'a>(
                 None => {
                     break;
                 }
-                Some(FindResult::SingleFileModule(_)) => {
+                Some(FindResult::SingleFileModule(_) | FindResult::CompiledModule(_)) => {
                     break;
                 }
                 Some(FindResult::RegularPackage(_, next_root)) => {
@@ -982,6 +995,151 @@ mod tests {
         assert_eq!(
             find_module_prefixes(ModuleName::from_str("fo"), [root.to_path_buf()].iter(),),
             vec![ModuleName::from_str("foo"), ModuleName::from_str("foo2")]
+        );
+    }
+
+    #[test]
+    fn test_find_compiled_module() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(root, vec![TestPath::file("compiled_module.pyc")]);
+        assert_eq!(
+            find_module_in_search_path(
+                ModuleName::from_str("compiled_module"),
+                [root.to_path_buf()].iter(),
+            ),
+            Some(ModulePath::filesystem(root.join("compiled_module.pyc")))
+        );
+        assert_eq!(
+            find_module_in_search_path(
+                ModuleName::from_str("compiled_module.nested"),
+                [root.to_path_buf()].iter(),
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn test_find_compiled_module_with_source() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::file("foo.py"), TestPath::file("foo.pyc")],
+        );
+        // Ensure that the source file takes precedence over the compiled file
+        assert_eq!(
+            find_module_in_search_path(ModuleName::from_str("foo"), [root.to_path_buf()].iter(),),
+            Some(ModulePath::filesystem(root.join("foo.py")))
+        );
+    }
+
+    #[test]
+    fn test_nested_imports_with_compiled_modules() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::dir(
+                "subdir",
+                vec![
+                    TestPath::file("another_compiled_module.pyc"),
+                    TestPath::file("nested_import.py"),
+                ],
+            )],
+        );
+        assert_eq!(
+            find_module_in_search_path(
+                ModuleName::from_str("subdir.nested_import"),
+                [root.to_path_buf()].iter(),
+            ),
+            Some(ModulePath::filesystem(root.join("subdir/nested_import.py")))
+        );
+        assert_eq!(
+            find_module_in_search_path(
+                ModuleName::from_str("subdir.another_compiled_module"),
+                [root.to_path_buf()].iter(),
+            ),
+            Some(ModulePath::filesystem(
+                root.join("subdir/another_compiled_module.pyc")
+            ))
+        );
+    }
+
+    #[test]
+    fn test_pyc_file_treated_differently() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(root, vec![TestPath::file("compiled_module.pyc")]);
+        let find_result =
+            find_one_part(&Name::new("compiled_module"), [root.to_path_buf()].iter()).unwrap();
+        assert_eq!(find_result.py_typed(), PyTyped::Partial); // TODO(melvinhe): Update to new PyTyped enum variant
+    }
+
+    #[test]
+    fn test_find_one_part_with_pyc() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::dir(
+                "subdir",
+                vec![
+                    TestPath::file("nested_module.pyc"),
+                    TestPath::file("another_nested_module.py"),
+                ],
+            )],
+        );
+        let result = find_one_part(&Name::new("nested_module"), [root.join("subdir")].iter());
+        assert_eq!(
+            result,
+            Some(FindResult::CompiledModule(
+                root.join("subdir/nested_module.pyc")
+            ))
+        );
+        let result = find_one_part(
+            &Name::new("another_nested_module"),
+            [root.join("subdir")].iter(),
+        );
+        assert_eq!(
+            result,
+            Some(FindResult::SingleFileModule(
+                root.join("subdir/another_nested_module.py")
+            ))
+        );
+    }
+
+    #[test]
+    fn test_continue_find_module_with_pyc() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::dir(
+                "subdir",
+                vec![
+                    TestPath::file("nested_module.pyc"),
+                    TestPath::file("another_nested_module.py"),
+                ],
+            )],
+        );
+        let start_result =
+            find_one_part(&Name::new("subdir"), [root.to_path_buf()].iter()).unwrap();
+        let module_path = continue_find_module(start_result, &[Name::new("nested_module")]);
+        assert_eq!(
+            module_path,
+            Some(ModulePath::filesystem(
+                root.join("subdir/nested_module.pyc")
+            ))
+        );
+        let start_result =
+            find_one_part(&Name::new("subdir"), [root.to_path_buf()].iter()).unwrap();
+        let module_path = continue_find_module(start_result, &[Name::new("another_nested_module")]);
+        assert_eq!(
+            module_path,
+            Some(ModulePath::filesystem(
+                root.join("subdir/another_nested_module.py")
+            ))
         );
     }
 }
