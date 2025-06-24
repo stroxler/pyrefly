@@ -84,6 +84,8 @@ enum Target {
     FunctionOverload(Vec1<Callable>, FuncMetadata),
     /// An overloaded method.
     BoundMethodOverload(Type, Vec1<Callable>, FuncMetadata),
+    /// The result of a `typing.dataclass_transform` call. See Type::DataclassTransformDecorator.
+    DataclassTransformDecorator(BoolKeywords),
     Any(AnyStyle),
 }
 
@@ -226,6 +228,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: handle constraints
                 Restriction::Constraints(_) | Restriction::Unrestricted => None,
             },
+            Type::DataclassTransformDecorator(kws) => {
+                Some(CallTarget::new(Target::DataclassTransformDecorator(*kws)))
+            }
             _ => None,
         }
     }
@@ -513,7 +518,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         hint: Option<Type>,
     ) -> Type {
         let kind = call_target.target.function_metadata().map(|m| &m.kind);
-        let is_dataclass = matches!(kind, Some(FunctionKind::Dataclass(_)));
+        let mut is_dataclass = false;
+        let mut is_dataclass_transform = false;
+        match kind {
+            Some(FunctionKind::Dataclass(_)) => is_dataclass = true,
+            Some(FunctionKind::DataclassTransform) => is_dataclass_transform = true,
+            _ => {}
+        }
         let res = match call_target.target {
             Target::Class(cls) => {
                 if let Some(hint) = hint {
@@ -623,6 +634,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
                 context,
             ),
+            Target::DataclassTransformDecorator(_) => {
+                // TODO(rechen): mark the first argument as having dataclass-like semantics.
+                // For now, we just pretend `dataclass_transform()` is the identity function.
+                let first_arg = self.first_arg_type(args, errors);
+                first_arg.unwrap_or_else(Type::any_implicit)
+            }
             Target::Any(style) => {
                 // Make sure we still catch errors in the arguments.
                 for arg in args {
@@ -651,6 +668,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     flags: FuncFlags::default(),
                 },
             }))
+        } else if is_dataclass_transform {
+            // TODO(rechen): store the keyword arguments.
+            Type::DataclassTransformDecorator(Box::new(BoolKeywords::new()))
         } else {
             res
         }
