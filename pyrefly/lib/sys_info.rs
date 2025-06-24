@@ -18,7 +18,6 @@ use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::with_hash::WithHash;
 use regex::Match;
 use regex::Regex;
-use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::CmpOp;
 use ruff_python_ast::Expr;
@@ -291,35 +290,34 @@ impl SysInfo {
                 self.evaluate(&x.left)?
                     .compare(x.ops[0], &self.evaluate(&x.comparators[0])?)?,
             )),
-            Expr::Attribute(ExprAttribute {
-                value: box Expr::Name(name),
-                attr,
-                ..
-            }) if &name.id == "sys" => match attr.as_str() {
-                "platform" => Some(Value::String(self.0.platform.as_str().to_owned())),
-                "version_info" => Some(Value::Tuple(vec![
-                    Value::Int(self.0.version.major as i64),
-                    Value::Int(self.0.version.minor as i64),
-                ])),
-                _ => None,
-            },
+            Expr::Attribute(ExprAttribute { value, attr, .. })
+                if let Expr::Name(name) = &**value
+                    && &name.id == "sys" =>
+            {
+                match attr.as_str() {
+                    "platform" => Some(Value::String(self.0.platform.as_str().to_owned())),
+                    "version_info" => Some(Value::Tuple(vec![
+                        Value::Int(self.0.version.major as i64),
+                        Value::Int(self.0.version.minor as i64),
+                    ])),
+                    _ => None,
+                }
+            }
             Expr::Name(name) if name.id == "TYPE_CHECKING" => Some(Value::Bool(true)),
             Expr::Attribute(ExprAttribute {
                 // We support TYPE_CHECKING regardless of which import (or reimport) it is from.
-                value: box Expr::Name(_),
+                value,
                 attr,
                 ..
-            }) if attr.as_str() == "TYPE_CHECKING" => Some(Value::Bool(true)),
+            }) if value.is_name_expr() && attr.as_str() == "TYPE_CHECKING" => {
+                Some(Value::Bool(true))
+            }
             Expr::Call(ExprCall {
-                func: box Expr::Attribute(ExprAttribute { value, attr, .. }),
-                arguments:
-                    Arguments {
-                        args: box [arg],
-                        keywords: box [],
-                        ..
-                    },
-                ..
-            }) if attr.as_str() == "startswith"
+                func, arguments, ..
+            }) if let Expr::Attribute(ExprAttribute { value, attr, .. }) = &**func
+                && attr.as_str() == "startswith"
+                && arguments.keywords.is_empty()
+                && let [arg] = &*arguments.args
                 && let Some(Value::String(x)) = self.evaluate(value)
                 && let Some(Value::String(y)) = self.evaluate(arg) =>
             {
