@@ -84,6 +84,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AnyIdx::Key(idx) => self.show_idx_with(bindings, idx),
             AnyIdx::KeyExpect(idx) => self.show_idx_with(bindings, idx),
             AnyIdx::KeyClass(idx) => self.show_idx_with(bindings, idx),
+            AnyIdx::KeyTParams(idx) => self.show_idx_with(bindings, idx),
             AnyIdx::KeyClassField(idx) => self.show_idx_with(bindings, idx),
             AnyIdx::KeyVariance(idx) => self.show_idx_with(bindings, idx),
             AnyIdx::KeyClassSynthesizedFields(idx) => self.show_idx_with(bindings, idx),
@@ -130,6 +131,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AnyIdx::Key(idx) => self.show_binding_for_with(&bindings, idx),
                 AnyIdx::KeyExpect(idx) => self.show_binding_for_with(&bindings, idx),
                 AnyIdx::KeyClass(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyTParams(idx) => self.show_binding_for_with(&bindings, idx),
                 AnyIdx::KeyClassField(idx) => self.show_binding_for_with(&bindings, idx),
                 AnyIdx::KeyVariance(idx) => self.show_binding_for_with(&bindings, idx),
                 AnyIdx::KeyClassSynthesizedFields(idx) => {

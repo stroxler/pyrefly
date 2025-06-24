@@ -34,6 +34,7 @@ use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingExport;
 use crate::binding::binding::BindingFunction;
 use crate::binding::binding::BindingLegacyTypeParam;
+use crate::binding::binding::BindingTParams;
 use crate::binding::binding::BindingVariance;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
@@ -49,6 +50,7 @@ use crate::binding::binding::KeyExpect;
 use crate::binding::binding::KeyExport;
 use crate::binding::binding::KeyFunction;
 use crate::binding::binding::KeyLegacyTypeParam;
+use crate::binding::binding::KeyTParams;
 use crate::binding::binding::KeyVariance;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
@@ -58,6 +60,7 @@ use crate::error::collector::ErrorCollector;
 use crate::types::annotation::Annotation;
 use crate::types::class::Class;
 use crate::types::type_info::TypeInfo;
+use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::Var;
 
@@ -78,6 +81,9 @@ impl SolveRecursive for KeyFunction {
     type Recursive = ();
 }
 impl SolveRecursive for KeyClass {
+    type Recursive = ();
+}
+impl SolveRecursive for KeyTParams {
     type Recursive = ();
 }
 impl SolveRecursive for KeyClassField {
@@ -237,6 +243,22 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyClass {
 
     fn promote_recursive(_: Self::Recursive) -> Self::Answer {
         NoneIfRecursive(None)
+    }
+}
+
+impl<Ans: LookupAnswer> Solve<Ans> for KeyTParams {
+    fn solve(
+        answers: &AnswersSolver<Ans>,
+        binding: &BindingTParams,
+        errors: &ErrorCollector,
+    ) -> Arc<TParams> {
+        answers.solve_tparams(binding, errors)
+    }
+
+    fn create_recursive(_: &AnswersSolver<Ans>, _: &Self::Value) -> Self::Recursive {}
+
+    fn promote_recursive(_: Self::Recursive) -> Self::Answer {
+        TParams::default()
     }
 }
 

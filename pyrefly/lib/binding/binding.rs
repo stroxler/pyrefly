@@ -67,6 +67,7 @@ use crate::types::quantified::QuantifiedKind;
 use crate::types::stdlib::Stdlib;
 use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
+use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::Var;
 
@@ -74,6 +75,7 @@ assert_words!(Key, 5);
 assert_words!(KeyExpect, 1);
 assert_words!(KeyExport, 3);
 assert_words!(KeyClass, 1);
+assert_bytes!(KeyTParams, 4);
 assert_words!(KeyClassField, 4);
 assert_bytes!(KeyClassSynthesizedFields, 4);
 assert_bytes!(KeyAnnotation, 12);
@@ -87,6 +89,7 @@ assert_words!(Binding, 9);
 assert_words!(BindingExpect, 8);
 assert_words!(BindingAnnotation, 13);
 assert_words!(BindingClass, 22);
+assert_words!(BindingTParams, 9);
 assert_words!(BindingClassMetadata, 8);
 assert_words!(BindingClassField, 26);
 assert_bytes!(BindingClassSynthesizedFields, 4);
@@ -100,6 +103,7 @@ pub enum AnyIdx {
     Key(Idx<Key>),
     KeyExpect(Idx<KeyExpect>),
     KeyClass(Idx<KeyClass>),
+    KeyTParams(Idx<KeyTParams>),
     KeyClassField(Idx<KeyClassField>),
     KeyVariance(Idx<KeyVariance>),
     KeyClassSynthesizedFields(Idx<KeyClassSynthesizedFields>),
@@ -118,6 +122,7 @@ impl AnyIdx {
             Self::Key(..) => "Key",
             Self::KeyExpect(..) => "KeyExpect",
             Self::KeyClass(..) => "KeyClass",
+            Self::KeyTParams(..) => "KeyTParams",
             Self::KeyClassField(..) => "KeyClassField",
             Self::KeyVariance(..) => "KeyVariance",
             Self::KeyClassSynthesizedFields(..) => "KeyClassSynthesizedFields",
@@ -164,6 +169,15 @@ impl Keyed for KeyClass {
         AnyIdx::KeyClass(idx)
     }
 }
+impl Keyed for KeyTParams {
+    const EXPORTED: bool = true;
+    type Value = BindingTParams;
+    type Answer = TParams;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyTParams(idx)
+    }
+}
+impl Exported for KeyTParams {}
 impl Keyed for KeyClassField {
     const EXPORTED: bool = true;
     type Value = BindingClassField;
@@ -553,6 +567,22 @@ impl DisplayWith<ModuleInfo> for KeyClass {
             ctx.display(&self.0),
             ctx.display(&self.0.range())
         )
+    }
+}
+
+/// A reference to a class.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyTParams(pub ClassDefIndex);
+
+impl Ranged for KeyTParams {
+    fn range(&self) -> TextRange {
+        TextRange::default()
+    }
+}
+
+impl DisplayWith<ModuleInfo> for KeyTParams {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _: &ModuleInfo) -> fmt::Result {
+        write!(f, "KeyTParams({})", self.0)
     }
 }
 
@@ -1456,6 +1486,24 @@ impl DisplayWith<Bindings> for BindingClass {
             Self::ClassDef(c) => write!(f, "ClassDef({})", c.def.name),
             Self::FunctionalClassDef(_, id, _) => write!(f, "FunctionalClassDef({})", id),
         }
+    }
+}
+
+/// Binding for a class.
+#[derive(Clone, Debug)]
+pub struct BindingTParams {
+    pub name: Identifier,
+    #[expect(dead_code)]
+    pub scoped_type_params: Option<Box<TypeParams>>,
+    #[expect(dead_code)]
+    pub bases: Box<[Expr]>,
+    #[expect(dead_code)]
+    pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
+}
+
+impl DisplayWith<Bindings> for BindingTParams {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _: &Bindings) -> fmt::Result {
+        write!(f, "BindingTParams({})", self.name)
     }
 }
 

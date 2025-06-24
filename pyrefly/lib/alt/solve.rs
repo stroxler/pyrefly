@@ -47,6 +47,7 @@ use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingFunction;
 use crate::binding::binding::BindingLegacyTypeParam;
+use crate::binding::binding::BindingTParams;
 use crate::binding::binding::BindingVariance;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
@@ -1299,6 +1300,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
         Arc::new(NoneIfRecursive(Some(cls)))
+    }
+
+    pub fn solve_tparams(
+        &self,
+        _binding: &BindingTParams,
+        _errors: &ErrorCollector,
+    ) -> Arc<TParams> {
+        unimplemented!("AnswersSolver::solve_tparams")
     }
 
     pub fn solve_class_field(
