@@ -293,17 +293,6 @@ impl ClassType {
     /// Create a class type.
     /// The `targs` must match the `tparams`, if this fails we will panic.
     pub fn new(class: Class, targs: TArgs) -> Self {
-        let tparams = class.tparams();
-        if targs.len() != tparams.len() && !tparams.contain_type_var_tuple() {
-            // Invariant violation: we should always have valid type arguments when
-            // constructing `ClassType`.
-            panic!(
-                "Encountered invalid type arguments in class `{}`, expected `{}` type arguments, got `{}`.",
-                class.name(),
-                tparams.len(),
-                targs.len(),
-            )
-        }
         Self(class, targs)
     }
 
