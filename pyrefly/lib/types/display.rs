@@ -211,6 +211,12 @@ impl<'a> TypeDisplayContext<'a> {
                 self.fmt_targs(typed_dict.targs(), f)?;
                 write!(f, "]")
             }
+            Type::PartialTypedDict(typed_dict) => {
+                write!(f, "Partial[")?;
+                self.fmt_qname(typed_dict.qname(), f)?;
+                self.fmt_targs(typed_dict.targs(), f)?;
+                write!(f, "]")
+            }
             Type::TypeVar(t) => {
                 write!(f, "TypeVar[")?;
                 self.fmt_qname(t.qname(), f)?;

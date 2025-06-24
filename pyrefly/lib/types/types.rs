@@ -603,6 +603,10 @@ pub enum Type {
     /// that TypedDict class definitions are still represented as `ClassDef(TD)`, just
     /// like regular classes.
     TypedDict(TypedDict),
+    /// Represents a "partial" version of a TypedDict.
+    /// For a TypedDict type `C`, `Partial[C]` represents an object with any subset of keys from `C`,
+    /// where each present key has the same value type as in `C`.
+    PartialTypedDict(TypedDict),
     Tuple(Tuple),
     Module(Module),
     Forall(Box<Forall<Forallable>>),
@@ -659,6 +663,7 @@ impl Visit for Type {
             Type::ClassDef(x) => x.visit(f),
             Type::ClassType(x) => x.visit(f),
             Type::TypedDict(x) => x.visit(f),
+            Type::PartialTypedDict(x) => x.visit(f),
             Type::Tuple(x) => x.visit(f),
             Type::Module(x) => x.visit(f),
             Type::Forall(x) => x.visit(f),
@@ -701,6 +706,7 @@ impl VisitMut for Type {
             Type::ClassDef(x) => x.visit_mut(f),
             Type::ClassType(x) => x.visit_mut(f),
             Type::TypedDict(x) => x.visit_mut(f),
+            Type::PartialTypedDict(x) => x.visit_mut(f),
             Type::Tuple(x) => x.visit_mut(f),
             Type::Module(x) => x.visit_mut(f),
             Type::Forall(x) => x.visit_mut(f),

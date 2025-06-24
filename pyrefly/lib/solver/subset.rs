@@ -997,6 +997,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     .all(|constraint| self.is_subset_eq(t1, constraint)),
                 _ => false,
             },
+            // TODO Zeina: Add a case for Partial[C] here
             _ => false,
         }
     }

@@ -1465,7 +1465,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::SelfType(class_type)) => {
                 Some(AttributeBase::ClassObject(class_type.class_object().dupe()))
             }
-            Type::TypedDict(typed_dict) => Some(AttributeBase::TypedDict(typed_dict.clone())),
+            Type::TypedDict(td) | Type::PartialTypedDict(td) => {
+                Some(AttributeBase::TypedDict(td.clone()))
+            }
             Type::Tuple(Tuple::Unbounded(element)) => {
                 Some(AttributeBase::ClassInstance(self.stdlib.tuple(*element)))
             }
