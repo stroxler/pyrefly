@@ -87,6 +87,18 @@ enum Target {
     Any(AnyStyle),
 }
 
+impl Target {
+    fn function_metadata(&self) -> Option<&FuncMetadata> {
+        match self {
+            Self::Function(func) | Self::BoundMethod(_, func) => Some(&func.metadata),
+            Self::FunctionOverload(_, metadata) | Self::BoundMethodOverload(_, _, metadata) => {
+                Some(metadata)
+            }
+            _ => None,
+        }
+    }
+}
+
 struct CalledOverload {
     signature: Callable,
     arg_errors: ErrorCollector,
@@ -500,7 +512,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<Type>,
     ) -> Type {
-        let is_dataclass = matches!(&call_target.target, Target::FunctionOverload(_, meta) if matches!(meta.kind, FunctionKind::Dataclass(_)));
+        let kind = call_target.target.function_metadata().map(|m| &m.kind);
+        let is_dataclass = matches!(kind, Some(FunctionKind::Dataclass(_)));
         let res = match call_target.target {
             Target::Class(cls) => {
                 if let Some(hint) = hint {
