@@ -1328,16 +1328,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn solve_class_synthesized_fields(
         &self,
+        errors: &ErrorCollector,
         fields: &BindingClassSynthesizedFields,
     ) -> Arc<ClassSynthesizedFields> {
         let fields = match &self.get_idx(fields.0).0 {
             None => ClassSynthesizedFields::default(),
-            Some(cls) => self
-                .get_typed_dict_synthesized_fields(cls)
-                .or_else(|| self.get_dataclass_synthesized_fields(cls))
-                .or_else(|| self.get_named_tuple_synthesized_fields(cls))
-                .or_else(|| self.get_new_type_synthesized_fields(cls))
-                .unwrap_or_default(),
+            Some(cls) => {
+                let mut fields = ClassSynthesizedFields::default();
+                if let Some(new_fields) = self.get_typed_dict_synthesized_fields(cls) {
+                    fields = fields.combine(new_fields);
+                }
+                if let Some(new_fields) = self.get_dataclass_synthesized_fields(cls) {
+                    fields = fields.combine(new_fields);
+                }
+                if let Some(new_fields) = self.get_named_tuple_synthesized_fields(cls) {
+                    fields = fields.combine(new_fields);
+                }
+                if let Some(new_fields) = self.get_new_type_synthesized_fields(cls) {
+                    fields = fields.combine(new_fields);
+                }
+                if let Some(new_fields) = self.get_total_ordering_synthesized_fields(errors, cls) {
+                    fields = fields.combine(new_fields);
+                }
+                fields
+            }
         };
         Arc::new(fields)
     }

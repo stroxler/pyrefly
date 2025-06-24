@@ -28,6 +28,7 @@ use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::alt::types::class_metadata::EnumMetadata;
 use crate::alt::types::class_metadata::NamedTupleMetadata;
 use crate::alt::types::class_metadata::ProtocolMetadata;
+use crate::alt::types::class_metadata::TotalOrderingMetadata;
 use crate::alt::types::class_metadata::TypedDictMetadata;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyLegacyTypeParam;
@@ -50,7 +51,7 @@ use crate::types::types::Type;
 
 /// Private helper type used to share part of the logic needed for the
 /// binding-level work of finding legacy type parameters versus the type-level
-/// work of computing inherticance information and the MRO.
+/// work of computing inheritance information and the MRO.
 #[derive(Debug, Clone)]
 pub enum BaseClass {
     TypedDict,
@@ -268,7 +269,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         bases: &[Expr],
         keywords: &[(Name, Expr)],
-        decorators: &[Idx<Key>],
+        decorators: &[(Idx<Key>, TextRange)],
         is_new_type: bool,
         special_base: &Option<Box<BaseClass>>,
         errors: &ErrorCollector,
@@ -520,8 +521,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         let mut is_final = false;
-        for decorator in decorators {
-            let decorator = self.get_idx(*decorator);
+        let mut total_ordering_metadata = None;
+        for (decorator_key, decorator_range) in decorators {
+            let decorator = self.get_idx(*decorator_key);
             match decorator.ty().callee_kind() {
                 Some(CalleeKind::Function(FunctionKind::Dataclass(kws))) => {
                     let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
@@ -545,6 +547,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             "@runtime_checkable can only be applied to Protocol classes".to_owned(),
                         );
                     }
+                }
+                Some(CalleeKind::Function(FunctionKind::TotalOrdering)) => {
+                    total_ordering_metadata = Some(TotalOrderingMetadata {
+                        location: *decorator_range,
+                    });
                 }
                 _ => {}
             }
@@ -592,6 +599,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_new_type,
             is_final,
             has_unknown_tparams,
+            total_ordering_metadata,
             errors,
         )
     }
