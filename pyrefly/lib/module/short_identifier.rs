@@ -49,8 +49,6 @@ mod tests {
 
     use dupe::Dupe;
     use ruff_python_ast::Expr;
-    use ruff_python_ast::Stmt;
-    use ruff_python_ast::StmtAssign;
 
     use super::*;
     use crate::error::collector::ErrorCollector;
@@ -78,17 +76,11 @@ mod tests {
             &ErrorCollector::new(module_info.dupe(), ErrorStyle::Delayed),
         );
         let show = |x: &ShortIdentifier| module_info.display(x).to_string();
-        if let Stmt::Assign(StmtAssign {
-            targets: x1,
-            value: box Expr::Attribute(x23),
-            ..
-        }) = &module.body[0]
-        {
-            assert_eq!(show(&from_expr(&x1[0])), "hello_world");
-            assert_eq!(show(&from_expr(&x23.value)), "Baz123");
-            assert_eq!(show(&ShortIdentifier::new(&x23.attr)), "attribute");
-            return;
-        }
-        unreachable!();
+
+        let assign = &module.body[0].as_assign_stmt().unwrap();
+        let attribute = assign.value.as_attribute_expr().unwrap();
+        assert_eq!(show(&from_expr(&assign.targets[0])), "hello_world");
+        assert_eq!(show(&from_expr(&attribute.value)), "Baz123");
+        assert_eq!(show(&ShortIdentifier::new(&attribute.attr)), "attribute");
     }
 }
