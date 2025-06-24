@@ -236,6 +236,9 @@ pub struct ConfigFile {
     )]
     pub python_interpreter: Option<PathBuf>,
 
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conda_environment: Option<String>,
+
     /// Values representing the environment of the Python interpreter
     /// (which platform, Python version, ...). When we parse, these values
     /// are default to false so we know to query the `python_interpreter` before falling
@@ -293,6 +296,7 @@ impl Default for ConfigFile {
             project_includes: Default::default(),
             project_excludes: Default::default(),
             python_interpreter: None,
+            conda_environment: None,
             search_path_from_args: Vec::new(),
             search_path_from_file: Vec::new(),
             import_root: None,
@@ -611,6 +615,13 @@ impl ConfigFile {
             }
         }
         errors.extend(validate(&self.search_path_from_file, "search_path"));
+
+        if self.python_interpreter.is_some() && self.conda_environment.is_some() {
+            errors.push(anyhow::anyhow!(
+                "Cannot use both `python-interpreter` and `conda-environment`. Finding environment info using `python-interpreter`.",
+            ));
+        }
+
         if let ConfigSource::File(path) = &self.source {
             errors.into_map(|e| ConfigError::warn(e.context(format!("{}", path.display()))))
         } else {
@@ -809,6 +820,7 @@ mod tests {
                     site_package_path_source: SitePackagePathSource::ConfigFile,
                 },
                 python_interpreter: Some(PathBuf::from("venv/my/python")),
+                conda_environment: None,
                 root: ConfigBase {
                     extras: Default::default(),
                     errors: Some(ErrorDisplayConfig::new(HashMap::from_iter([
@@ -1037,6 +1049,7 @@ mod tests {
             fallback_search_path: Vec::new(),
             python_environment: python_environment.clone(),
             python_interpreter: Some(PathBuf::from(interpreter.clone())),
+            conda_environment: None,
             root: Default::default(),
             custom_module_paths: Default::default(),
             sub_configs: vec![SubConfig {
@@ -1068,6 +1081,7 @@ mod tests {
             project_includes: Globs::new(project_includes_vec),
             project_excludes: Globs::new(project_excludes_vec),
             python_interpreter: Some(test_path.join(interpreter)),
+            conda_environment: None,
             search_path_from_args: Vec::new(),
             search_path_from_file: search_path,
             import_root: None,
@@ -1380,6 +1394,23 @@ mod tests {
                         .collect::<Vec<_>>()
                 ),
             )
+        );
+    }
+
+    #[test]
+    fn test_python_interpreter_conda_environment() {
+        let config = ConfigFile {
+            python_interpreter: Some(PathBuf::new()),
+            conda_environment: Some("".to_owned()),
+            ..Default::default()
+        };
+
+        let validation_errors = config.validate();
+
+        assert!(
+            validation_errors.iter().any(|e| {
+                e.get_message() == "Cannot use both `python-interpreter` and `conda-environment`. Finding environment info using `python-interpreter`."
+            })
         );
     }
 }

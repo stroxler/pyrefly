@@ -73,6 +73,10 @@ impl ConfigError {
     pub fn severity(&self) -> Severity {
         self.severity
     }
+
+    pub fn get_message(&self) -> String {
+        self.msg.to_string()
+    }
 }
 
 /// When debugging is enabled, log errors.
