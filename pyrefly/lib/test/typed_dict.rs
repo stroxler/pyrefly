@@ -328,6 +328,20 @@ del td_o[key_var]
 
 unknown_key = "a"
 del td_m[unknown_key]  # E: 
+
+td_r: TDRequired = {"a": 10, "b": "hi"}
+td_o: TDOptional = {"x": 42}
+td_m: TDMixed = {"a": 1, "x": 99}
+
+td_r.__delitem__("a") # E: Argument `Literal['a']` is not assignable to parameter `k` with type `Never`
+td_o.__delitem__("x")
+td_o.__delitem__("y")
+td_m.__delitem__("x")
+td_m.__delitem__("a") # E: No matching overload found for function `TDMixed.__delitem__`
+
+td_r.__delitem__("nonexistent") # E: Argument `Literal['nonexistent']` is not assignable to parameter `k` with type `Never`
+td_r.__delitem__("unknown") # E:  Argument `Literal['unknown']` is not assignable to parameter `k` with type `Never
+ 
     "#,
 );
 
