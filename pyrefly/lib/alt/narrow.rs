@@ -61,7 +61,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .into_iter()
                 .filter_map(|f| {
                     if let Lit::Enum(box (_, member_name, _)) = &f
-                        && *member_name == *name
+                        && member_name == name
                     {
                         None
                     } else {
@@ -318,7 +318,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let mut result = t.clone();
                     for right in &literal_types {
                         match (t, right) {
-                            (_, _) if *t == *right => {
+                            (_, _) if t == right => {
                                 result = Type::never();
                             }
                             (Type::ClassType(cls), Type::Literal(Lit::Bool(b)))
@@ -329,7 +329,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             (
                                 Type::ClassType(left_cls),
                                 Type::Literal(Lit::Enum(box (right_cls, name, _))),
-                            ) if *left_cls == *right_cls => {
+                            ) if left_cls == right_cls => {
                                 result = self.subtract_enum_member(left_cls, name);
                             }
                             _ => {}
@@ -361,7 +361,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         (
                             Type::ClassType(left_cls),
                             Type::Literal(Lit::Enum(box (right_cls, name, _))),
-                        ) if *left_cls == *right_cls => self.subtract_enum_member(left_cls, name),
+                        ) if left_cls == right_cls => self.subtract_enum_member(left_cls, name),
                         _ => t.clone(),
                     }
                 })
@@ -449,7 +449,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         (
                             Type::ClassType(left_cls),
                             Type::Literal(Lit::Enum(box (right_cls, name, _))),
-                        ) if *left_cls == *right_cls => self.subtract_enum_member(left_cls, name),
+                        ) if left_cls == right_cls => self.subtract_enum_member(left_cls, name),
                         _ => t.clone(),
                     })
                 } else {

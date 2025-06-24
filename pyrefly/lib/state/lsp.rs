@@ -1213,7 +1213,7 @@ impl<'a> Transaction<'a> {
         let relevant_attributes = if let Some(mod_module) = self.get_ast(handle) {
             fn f(x: &Expr, expected_name: &Name, res: &mut Vec<ExprAttribute>) {
                 if let Expr::Attribute(x) = x
-                    && x.attr.id == *expected_name
+                    && &x.attr.id == expected_name
                 {
                     res.push(x.clone());
                 }
