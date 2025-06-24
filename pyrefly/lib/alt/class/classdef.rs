@@ -8,7 +8,6 @@
 use std::sync::Arc;
 
 use dupe::Dupe;
-use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::StmtClassDef;
@@ -62,13 +61,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         legacy_tparams: &[Idx<KeyLegacyTypeParam>],
         errors: &ErrorCollector,
     ) -> Class {
-        let scoped_tparams = self.scoped_type_params(x.type_params.as_deref(), errors);
-        let bases = bases.map(|x| self.base_class_of(x, errors));
         let name = &x.name;
-        let class_tparams =
-            self.compute_tparams(name, scoped_tparams, bases, legacy_tparams, errors);
-
-        let tparams = self.type_params(name.range, class_tparams, errors);
+        let tparams = self.compute_tparams(
+            name,
+            x.type_params.as_deref(),
+            bases,
+            legacy_tparams,
+            errors,
+        );
 
         Class::new(
             def_index,

@@ -9,7 +9,10 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_util::prelude::SliceExt;
+use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
+use ruff_python_ast::TypeParams;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
@@ -22,7 +25,6 @@ use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 use crate::types::class::Class;
 use crate::types::types::AnyStyle;
-use crate::types::types::TParam;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 
@@ -30,11 +32,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn compute_tparams(
         &self,
         name: &Identifier,
-        scoped_tparams: Vec<TParam>,
-        bases: Vec<BaseClass>,
+        scoped_type_params: Option<&TypeParams>,
+        bases: &[Expr],
         legacy: &[Idx<KeyLegacyTypeParam>],
         errors: &ErrorCollector,
-    ) -> Vec<TParam> {
+    ) -> Arc<TParams> {
+        let bases = bases.map(|x| self.base_class_of(x, errors));
+        let scoped_tparams = self.scoped_type_params(scoped_type_params, errors);
         let legacy_tparams = legacy
             .iter()
             .filter_map(|key| self.get_idx(*key).deref().parameter().cloned())
@@ -43,7 +47,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .iter()
             .map(|p| (p.quantified.clone(), p))
             .collect::<SmallMap<_, _>>();
-
         let lookup_tparam = |t: &Type| {
             let (q, kind) = match t {
                 Type::Unpack(t) => (t.as_quantified(), "TypeVarTuple"),
@@ -134,7 +137,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
 
-        tparams.into_iter().collect()
+        // Convert our set of `TParam`s into a `TParams` object, which will also perform
+        // some additional validation that isn't specific to classes.
+        self.type_params(name.range, tparams.into_iter().collect(), errors)
     }
 
     pub fn get_class_tparams(&self, class: &Class) -> Arc<TParams> {
