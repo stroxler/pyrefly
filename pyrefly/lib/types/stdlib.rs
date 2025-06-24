@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::sync::Arc;
+
 use dupe::Dupe;
 use ruff_python_ast::name::Name;
 
@@ -13,6 +15,7 @@ use crate::sys_info::PythonVersion;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::types::TArgs;
+use crate::types::types::TParams;
 use crate::types::types::Type;
 
 #[derive(Debug, Clone)]
@@ -31,23 +34,23 @@ pub struct Stdlib {
     bytes: StdlibResult<ClassType>,
     float: StdlibResult<ClassType>,
     complex: StdlibResult<ClassType>,
-    slice: StdlibResult<Class>,
+    slice: StdlibResult<(Class, Arc<TParams>)>,
     base_exception: StdlibResult<ClassType>,
     /// Introduced in Python 3.11.
-    base_exception_group: Option<StdlibResult<Class>>,
+    base_exception_group: Option<StdlibResult<(Class, Arc<TParams>)>>,
     /// Introduced in Python 3.11.
-    exception_group: Option<StdlibResult<Class>>,
-    list: StdlibResult<Class>,
-    dict: StdlibResult<Class>,
-    mapping: StdlibResult<Class>,
-    set: StdlibResult<Class>,
-    tuple: StdlibResult<Class>,
-    iterable: StdlibResult<Class>,
-    async_iterable: StdlibResult<Class>,
-    generator: StdlibResult<Class>,
-    async_generator: StdlibResult<Class>,
-    awaitable: StdlibResult<Class>,
-    coroutine: StdlibResult<Class>,
+    exception_group: Option<StdlibResult<(Class, Arc<TParams>)>>,
+    list: StdlibResult<(Class, Arc<TParams>)>,
+    dict: StdlibResult<(Class, Arc<TParams>)>,
+    mapping: StdlibResult<(Class, Arc<TParams>)>,
+    set: StdlibResult<(Class, Arc<TParams>)>,
+    tuple: StdlibResult<(Class, Arc<TParams>)>,
+    iterable: StdlibResult<(Class, Arc<TParams>)>,
+    async_iterable: StdlibResult<(Class, Arc<TParams>)>,
+    generator: StdlibResult<(Class, Arc<TParams>)>,
+    async_generator: StdlibResult<(Class, Arc<TParams>)>,
+    awaitable: StdlibResult<(Class, Arc<TParams>)>,
+    coroutine: StdlibResult<(Class, Arc<TParams>)>,
     type_var: StdlibResult<ClassType>,
     /// Defined in `typing_extensions` util 3.13, defined in `typing` since 3.10.
     /// After 3.13, `typing_extensions` reexports from `typing`.
@@ -89,7 +92,7 @@ pub struct Stdlib {
 impl Stdlib {
     pub fn new(
         version: PythonVersion,
-        lookup_class: &dyn Fn(ModuleName, &Name) -> Option<Class>,
+        lookup_class: &dyn Fn(ModuleName, &Name) -> Option<(Class, Arc<TParams>)>,
     ) -> Self {
         Self::new_with_bootstrapping(false, version, lookup_class)
     }
@@ -97,7 +100,7 @@ impl Stdlib {
     pub fn new_with_bootstrapping(
         bootstrapping: bool,
         version: PythonVersion,
-        lookup_class: &dyn Fn(ModuleName, &Name) -> Option<Class>,
+        lookup_class: &dyn Fn(ModuleName, &Name) -> Option<(Class, Arc<TParams>)>,
     ) -> Self {
         let builtins = ModuleName::builtins();
         let types = ModuleName::types();
@@ -111,14 +114,17 @@ impl Stdlib {
                 module,
                 &Name::new_static(name),
             ) {
-                Some(cls) if cls.tparams().len() == args => Ok(cls),
+                Some((cls, tparams)) if tparams.len() == args => Ok((cls, tparams)),
                 _ => Err(StdlibError {
                     bootstrapping,
                     name,
                 }),
             };
         let lookup_concrete = |module: ModuleName, name: &'static str| {
-            lookup_generic(module, name, 0).map(|obj| ClassType::new(obj, TArgs::default()))
+            lookup_generic(module, name, 0).map(|(obj, tparams)| {
+                assert!(tparams.is_empty());
+                ClassType::new(obj, TArgs::default())
+            })
         };
 
         let none_location = if version.at_least(3, 10) {
@@ -273,18 +279,21 @@ impl Stdlib {
     }
 
     pub fn slice_class_object(&self) -> Class {
-        Self::unwrap(&self.slice).dupe()
+        Self::unwrap(&self.slice).0.dupe()
     }
 
     pub fn base_exception(&self) -> &ClassType {
         Self::primitive(&self.base_exception)
     }
 
-    fn apply(cls: &StdlibResult<Class>, targs: Vec<Type>) -> ClassType {
+    fn apply(
+        class_and_tparams: &StdlibResult<(Class, Arc<TParams>)>,
+        targs: Vec<Type>,
+    ) -> ClassType {
         // Note: this construction will panic if we use `apply` with the wrong arity.
-        let cls = Self::unwrap(cls);
-        let targs = TArgs::new(cls.arc_tparams().dupe(), targs);
-        ClassType::new(cls.dupe(), targs)
+        let (class, tparams) = Self::unwrap(class_and_tparams);
+        let targs = TArgs::new(tparams.dupe(), targs);
+        ClassType::new(class.dupe(), targs)
     }
 
     pub fn base_exception_group(&self, x: Type) -> Option<ClassType> {

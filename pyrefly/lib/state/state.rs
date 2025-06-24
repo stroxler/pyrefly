@@ -111,6 +111,7 @@ use crate::state::subscriber::Subscriber;
 use crate::sys_info::SysInfo;
 use crate::types::class::Class;
 use crate::types::stdlib::Stdlib;
+use crate::types::types::TParams;
 use crate::types::types::Type;
 
 /// `ModuleData` is a snapshot of `ArcId<ModuleDataMut>` in the main state.
@@ -914,7 +915,12 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn lookup_stdlib(&self, handle: &Handle, name: &Name, stack: &CalcStack) -> Option<Class> {
+    fn lookup_stdlib(
+        &self,
+        handle: &Handle,
+        name: &Name,
+        stack: &CalcStack,
+    ) -> Option<(Class, Arc<TParams>)> {
         let module_data = self.get_module(handle);
         if !self
             .lookup_export(&module_data)
@@ -934,7 +940,7 @@ impl<'a> Transaction<'a> {
         }
 
         let t = self.lookup_answer(module_data.dupe(), &KeyExport(name.clone()), stack);
-        match t.arc_clone() {
+        let class = match t.arc_clone() {
             Type::ClassDef(cls) => Some(cls),
             ty => {
                 self.add_error(
@@ -948,7 +954,11 @@ impl<'a> Transaction<'a> {
                 );
                 None
             }
-        }
+        };
+        class.map(|class| {
+            let tparams = class.arc_tparams().dupe();
+            (class, tparams)
+        })
     }
 
     fn lookup_export(&self, module_data: &ArcId<ModuleDataMut>) -> Exports {
