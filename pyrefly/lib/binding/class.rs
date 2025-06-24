@@ -306,6 +306,11 @@ impl<'a> BindingsBuilder<'a> {
             Binding::ClassDef(class_indices.class_idx, decorator_keys),
             FlowStyle::Other,
         );
+
+        let may_have_legacy_tparams = bases.iter().any(|x| match x {
+            Expr::Name(_) | Expr::Attribute(_) => false,
+            _ => true,
+        });
         fields_possibly_defined_by_this_class.reserve(0); // Attempt to shrink to capacity
         self.insert_binding_idx(
             class_indices.class_idx,
@@ -313,7 +318,13 @@ impl<'a> BindingsBuilder<'a> {
                 def_index: class_indices.def_index,
                 def: x,
                 fields: fields_possibly_defined_by_this_class,
-                bases: bases.clone().into_boxed_slice(),
+                // Bases are exclusively used for legacy tparams in the `BindingClass` calculation;
+                // the actual class hierarchy is defined by class metadata which is another binding.
+                bases: if may_have_legacy_tparams {
+                    bases.clone().into_boxed_slice()
+                } else {
+                    Box::new([])
+                },
                 legacy_tparams: legacy_tparams.into_boxed_slice(),
             }),
         );
