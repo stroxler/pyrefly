@@ -220,13 +220,15 @@ impl<'a> BindingsBuilder<'a> {
                     ClassFieldInitialValue::Class(Some(e)) => ExprOrBinding::Expr(e.clone()),
                     _ => ExprOrBinding::Binding(Binding::Forward(info.key)),
                 };
+                let is_initialized_on_class =
+                    matches!(initial_value, ClassFieldInitialValue::Class(_));
                 let binding = BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: name.into_key().clone(),
                     value,
                     annotation: stat_info.annot,
                     range: stat_info.loc,
-                    initial_value: initial_value.clone(),
+                    initial_value,
                     is_function_without_return_annotation,
                     implicit_def_method: None,
                 };
@@ -234,15 +236,12 @@ impl<'a> BindingsBuilder<'a> {
                     name.cloned(),
                     ClassFieldProperties::new(
                         stat_info.annot.is_some(),
-                        matches!(initial_value, ClassFieldInitialValue::Class(_)),
+                        is_initialized_on_class,
                         stat_info.loc,
                     ),
                 );
-
                 let key_field = KeyClassField(class_indices.def_index, name.into_key().clone());
-
                 key_class_fields.insert(self.idx_for_promise(key_field.clone()));
-
                 self.insert_binding(key_field, binding);
             }
         }

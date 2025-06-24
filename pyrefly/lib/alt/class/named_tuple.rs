@@ -42,7 +42,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         elements.sort_by_key(|e: &(Name, ruff_text_size::TextRange)| e.1.start());
         let mut has_seen_default: bool = false;
         for (name, range) in &elements {
-            let has_default = cls.field_has_default_value(name);
+            let has_default = cls.is_field_initialized_on_class(name);
             if !has_default && has_seen_default {
                 self.error(
                     errors,
