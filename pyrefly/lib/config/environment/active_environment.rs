@@ -17,13 +17,13 @@ pub struct ActiveEnvironment {}
 impl ActiveEnvironment {
     pub fn find() -> Option<PathBuf> {
         // TODO(connernilsen): don't perform upward search for `VIRTUAL_ENV` finding
-        if let Ok(venv_path) = std::env::var("VIRTUAL_ENV")
+        if let Ok(venv_path) = std::env::var(venv::ENV_VAR)
             && let Some(env) = venv::find(Path::new(&venv_path))
         {
             return Some(env);
         }
 
-        if let Ok(conda_prefix) = std::env::var("CONDA_PREFIX")
+        if let Ok(conda_prefix) = std::env::var(conda::ENV_VAR)
             && let Some(env) = conda::find(Path::new(&conda_prefix))
         {
             return Some(env);

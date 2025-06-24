@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use crate::config::environment::finder::walk_interpreter;
 
 const SEARCH_DEPTH: usize = 2;
+pub const ENV_VAR: &str = "CONDA_PREFIX";
 
 pub fn find(env_path: &Path) -> Option<PathBuf> {
     walk_interpreter(env_path, SEARCH_DEPTH).next()
