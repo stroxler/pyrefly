@@ -366,33 +366,42 @@ impl<'a> BindingsBuilder<'a> {
             })
             .into_boxed_slice();
 
-        let return_type_binding =
-            if let Some(implicit_return) = implicit_return_if_inferring_return_type {
-                let kind = match return_ann_with_range {
-                    None => ReturnTypeKind::ShouldInferType {
-                        returns: return_keys,
-                        implicit_return,
-                        yields: yield_keys,
-                        yield_froms: yield_from_keys,
-                    },
-                    Some((range, annotation)) => ReturnTypeKind::ShouldValidateAnnotation {
-                        range,
-                        annotation,
-                        stub_or_impl,
-                        decorators,
-                        implicit_return,
-                        is_generator: !(yield_keys.is_empty() && yield_from_keys.is_empty()),
-                        has_explicit_return: !return_keys.is_empty(),
-                    },
+        let return_type_binding = match (
+            return_ann_with_range,
+            implicit_return_if_inferring_return_type,
+        ) {
+            (Some((range, annotation)), Some(implicit_return)) => {
+                // We have an explicit return annotation and we want to validate it.
+                let kind = ReturnTypeKind::ShouldValidateAnnotation {
+                    range,
+                    annotation,
+                    stub_or_impl,
+                    decorators,
+                    implicit_return,
+                    is_generator: !(yield_keys.is_empty() && yield_from_keys.is_empty()),
+                    has_explicit_return: !return_keys.is_empty(),
                 };
                 Binding::ReturnType(Box::new(ReturnType { kind, is_async }))
-            } else {
-                let inferred_any = Binding::Type(Type::any_implicit());
-                match return_ann {
-                    Some(ann) => Binding::AnnotatedType(ann, Box::new(inferred_any)),
-                    None => inferred_any,
-                }
-            };
+            }
+            (Some((_, annotation)), None) => {
+                // We have an explicit return annotation and we just want to trust it.
+                Binding::AnnotatedType(annotation, Box::new(Binding::Type(Type::any_implicit())))
+            }
+            (None, Some(implicit_return)) => {
+                // We don't have an explicit return annotation, but we want to infer it.
+                let kind = ReturnTypeKind::ShouldInferType {
+                    returns: return_keys,
+                    implicit_return,
+                    yields: yield_keys,
+                    yield_froms: yield_from_keys,
+                };
+                Binding::ReturnType(Box::new(ReturnType { kind, is_async }))
+            }
+            (None, None) => {
+                // We don't have an explicit return annotation, and we want to just treat it as returning `Any`.
+                Binding::Type(Type::any_implicit())
+            }
+        };
         self.insert_binding(
             Key::ReturnType(ShortIdentifier::new(func_name)),
             return_type_binding,
