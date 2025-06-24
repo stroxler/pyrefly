@@ -465,13 +465,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &base_metaclasses,
             errors,
         );
+        let empty_tparams = self.class_tparams(cls).is_empty();
         if let Some(metaclass) = &metaclass {
             self.check_base_class_metaclasses(cls, metaclass, &base_metaclasses, errors);
             if self.is_subset_eq(
                 &Type::ClassType(metaclass.clone()),
                 &Type::ClassType(self.stdlib.enum_meta().clone()),
             ) {
-                if !cls.tparams().is_empty() {
+                if !empty_tparams {
                     self.error(
                         errors,
                         cls.range(),
@@ -583,8 +584,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // - the class inherits from Any, or
         // - the class inherits from Generic[...] or Protocol [...]. We probably dropped the type
         //   arguments because we found an error in them.
-        let has_unknown_tparams =
-            cls.tparams().is_empty() && (has_base_any || has_generic_base_class);
+        let has_unknown_tparams = empty_tparams && (has_base_any || has_generic_base_class);
         ClassMetadata::new(
             cls,
             bases_with_metadata,

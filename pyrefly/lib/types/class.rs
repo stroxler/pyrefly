@@ -216,10 +216,6 @@ impl Class {
         &self.0.tparams
     }
 
-    pub fn tparams(&self) -> &TParams {
-        &self.0.tparams
-    }
-
     pub fn index(&self) -> ClassDefIndex {
         self.0.def_index
     }
