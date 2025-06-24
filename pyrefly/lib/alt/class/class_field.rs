@@ -1059,7 +1059,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn depends_on_class_type_parameter(&self, field: &ClassField, cls: &Class) -> bool {
-        let tparams = self.class_tparams(cls);
+        let tparams = self.get_class_tparams(cls);
         let mut qs = SmallSet::new();
         match &field.0 {
             ClassFieldInner::Simple { ty, .. } => ty.collect_quantifieds(&mut qs),
@@ -1074,7 +1074,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<Attribute> {
         let mut foralled = match ty {
             Type::Function(func) => Type::Forall(Box::new(Forall {
-                tparams: self.class_tparams(cls),
+                tparams: self.get_class_tparams(cls),
                 body: Forallable::Function((**func).clone()),
             })),
             Type::Forall(box Forall {
@@ -1082,7 +1082,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 body: body @ Forallable::Function(_),
             }) => {
                 let mut new_tparams = tparams.as_ref().clone();
-                new_tparams.extend(&self.class_tparams(cls));
+                new_tparams.extend(&self.get_class_tparams(cls));
                 Type::Forall(Box::new(Forall {
                     tparams: Arc::new(new_tparams),
                     body: body.clone(),
@@ -1094,7 +1094,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }) => {
                 let new_signatures = signatures.clone().mapped(|sig| match sig {
                     OverloadType::Callable(callable) => OverloadType::Forall(Forall {
-                        tparams: self.class_tparams(cls),
+                        tparams: self.get_class_tparams(cls),
                         body: Function {
                             signature: callable,
                             metadata: (**metadata).clone(),
@@ -1102,7 +1102,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }),
                     OverloadType::Forall(Forall { tparams, body }) => {
                         let mut new_tparams = tparams.as_ref().clone();
-                        new_tparams.extend(&self.class_tparams(cls));
+                        new_tparams.extend(&self.get_class_tparams(cls));
                         OverloadType::Forall(Forall {
                             tparams: Arc::new(new_tparams),
                             body,

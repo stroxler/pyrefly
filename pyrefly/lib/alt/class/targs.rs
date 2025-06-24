@@ -40,7 +40,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn promote_nontypeddict_silently_to_classtype(&self, cls: &Class) -> ClassType {
         ClassType::new(
             cls.dupe(),
-            self.create_default_targs(self.class_tparams(cls), None),
+            self.create_default_targs(self.get_class_tparams(cls), None),
         )
     }
 
@@ -62,7 +62,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Accept any number of arguments (by ignoring them).
             TArgs::default()
         } else {
-            self.check_and_create_targs(cls.name(), self.class_tparams(cls), targs, range, errors)
+            self.check_and_create_targs(
+                cls.name(),
+                self.get_class_tparams(cls),
+                targs,
+                range,
+                errors,
+            )
         };
         self.type_of_instance(cls, targs)
     }
@@ -98,7 +104,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// promote(list) == list[Any]
     /// instantiate(list) == list[T]
     pub fn promote(&self, cls: &Class, range: TextRange) -> Type {
-        let targs = self.create_default_targs(self.class_tparams(cls), Some(range));
+        let targs = self.create_default_targs(self.get_class_tparams(cls), Some(range));
         self.type_of_instance(cls, targs)
     }
 
@@ -110,7 +116,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Version of `promote` that does not potentially raise errors.
     /// Should only be used for unusual scenarios.
     pub fn promote_silently(&self, cls: &Class) -> Type {
-        let targs = self.create_default_targs(self.class_tparams(cls), None);
+        let targs = self.create_default_targs(self.get_class_tparams(cls), None);
         self.type_of_instance(cls, targs)
     }
 
@@ -145,7 +151,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn instantiate_fresh(&self, cls: &Class) -> Type {
         self.solver()
             .fresh_quantified(
-                &self.class_tparams(cls),
+                &self.get_class_tparams(cls),
                 self.instantiate(cls),
                 self.uniques,
             )

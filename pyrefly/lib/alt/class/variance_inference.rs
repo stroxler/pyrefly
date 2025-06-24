@@ -372,7 +372,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut contains_bivariant: bool = false;
 
         let post_inference_initial =
-            convert_gp_to_map(&self.class_tparams(class), &mut contains_bivariant);
+            convert_gp_to_map(&self.get_class_tparams(class), &mut contains_bivariant);
 
         fn to_map(
             params: &TParamArray,
@@ -493,7 +493,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &mut contains_bivariant,
                 &|c| self.get_metadata_for_class(c),
                 &|c| self.get_class_field_map(c),
-                &|c| self.class_tparams(c),
+                &|c| self.get_class_tparams(c),
             );
 
             let environment = fixpoint(self, class, &environment);

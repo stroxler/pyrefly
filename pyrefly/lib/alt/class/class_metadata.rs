@@ -187,7 +187,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         tparams.into_iter().collect()
     }
 
-    pub fn class_tparams(&self, class: &Class) -> Arc<TParams> {
+    pub fn get_class_tparams(&self, class: &Class) -> Arc<TParams> {
         class.arc_tparams().dupe()
     }
 
@@ -465,7 +465,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &base_metaclasses,
             errors,
         );
-        let empty_tparams = self.class_tparams(cls).is_empty();
+        let empty_tparams = self.get_class_tparams(cls).is_empty();
         if let Some(metaclass) = &metaclass {
             self.check_base_class_metaclasses(cls, metaclass, &base_metaclasses, errors);
             if self.is_subset_eq(
