@@ -39,8 +39,8 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
+use crate::alt::class::base_class::BaseClass;
 use crate::alt::class::class_field::ClassField;
-use crate::alt::class::class_metadata::BaseClass;
 use crate::alt::class::variance_inference::VarianceMap;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::types::class_metadata::ClassMetadata;
