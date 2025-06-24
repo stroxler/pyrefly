@@ -809,9 +809,12 @@ impl<'a> Transaction<'a> {
     ) -> Option<(Handle, Export)> {
         match intermediate_definition {
             IntermediateDefinition::Local(export) => Some((handle.dupe(), export)),
-            IntermediateDefinition::NamedImport(_import_key, module_name, name) => {
-                self.resolve_named_import(handle, module_name, name, &mut gas)
-            }
+            IntermediateDefinition::NamedImport(
+                _import_key,
+                module_name,
+                name,
+                _original_name_range,
+            ) => self.resolve_named_import(handle, module_name, name, &mut gas),
             IntermediateDefinition::Module(name) => {
                 let handle = self.import_handle(handle, name, None).ok()?;
                 let docstring = self.get_module_docstring(&handle);
