@@ -106,11 +106,10 @@ impl DunderAllEntry {
         match x {
             Expr::List(x) => x.elts.iter().filter_map(DunderAllEntry::as_item).collect(),
             Expr::Tuple(x) => x.elts.iter().filter_map(DunderAllEntry::as_item).collect(),
-            Expr::Attribute(ExprAttribute {
-                value: box Expr::Name(name),
-                attr,
-                ..
-            }) if attr.id == dunder::ALL => {
+            Expr::Attribute(ExprAttribute { value, attr, .. })
+                if let Expr::Name(name) = &**value
+                    && attr.id == dunder::ALL =>
+            {
                 vec![DunderAllEntry::Module(
                     name.range,
                     ModuleName::from_name(&name.id),
@@ -394,20 +393,17 @@ impl<'a> DefinitionsBuilder<'a> {
                     self.expr_lvalue(&x.target);
                 }
             }
-            Stmt::Expr(StmtExpr {
-                value:
-                    box Expr::Call(
-                        ExprCall {
-                            func: box Expr::Attribute(ExprAttribute { value, attr, .. }),
-                            arguments,
-                            ..
-                        },
-                        ..,
-                    ),
-                ..
-            }) if DunderAllEntry::is_all(value)
-                && arguments.len() == 1
-                && arguments.keywords.is_empty() =>
+            Stmt::Expr(StmtExpr { value, .. })
+                if let Expr::Call(
+                    ExprCall {
+                        func, arguments, ..
+                    },
+                    ..,
+                ) = &**value
+                    && let Expr::Attribute(ExprAttribute { value, attr, .. }) = &**func
+                    && DunderAllEntry::is_all(value)
+                    && arguments.len() == 1
+                    && arguments.keywords.is_empty() =>
             {
                 match attr.as_str() {
                     "extend" => self
