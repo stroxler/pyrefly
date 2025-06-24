@@ -2192,7 +2192,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::ReturnType(x) => {
-                let is_generator = !(x.yields.is_empty() && x.yield_froms.is_empty());
                 let implicit_return = self.get_idx(x.implicit_return);
                 match &x.kind {
                     ReturnTypeKind::ShouldValidateAnnotation {
@@ -2200,6 +2199,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         annotation,
                         stub_or_impl,
                         decorators,
+                        is_generator,
                     } => {
                         // TODO: A return type annotation like `Final` is invalid in this context.
                         // It will result in an implicit Any type, which is reasonable, but we should
@@ -2222,7 +2222,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 implicit_return,
                                 &ty,
                                 x.is_async,
-                                is_generator,
+                                *is_generator,
                                 !x.returns.is_empty(),
                                 *range,
                                 errors,
@@ -2236,7 +2236,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ty
                         }
                     }
-                    ReturnTypeKind::ShouldInferType => {
+                    ReturnTypeKind::ShouldInferType {
+                        yields,
+                        yield_froms,
+                    } => {
+                        let is_generator = !(yields.is_empty() && yield_froms.is_empty());
                         let returns = x.returns.iter().map(|k| self.get_idx(*k).arc_clone_ty());
                         // TODO: It should always be a no-op to include a `Type::Never` in unions, but
                         // `simple::test_solver_variables` fails if we do, because `solver::unions` does
@@ -2253,12 +2257,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         };
                         if is_generator {
                             let yield_ty = self.unions({
-                                let yield_tys = x
-                                    .yields
-                                    .iter()
-                                    .map(|idx| self.get_idx(*idx).yield_ty.clone());
-                                let yield_from_tys = x
-                                    .yield_froms
+                                let yield_tys =
+                                    yields.iter().map(|idx| self.get_idx(*idx).yield_ty.clone());
+                                let yield_from_tys = yield_froms
                                     .iter()
                                     .map(|idx| self.get_idx(*idx).yield_ty.clone());
                                 yield_tys.chain(yield_from_tys).collect()

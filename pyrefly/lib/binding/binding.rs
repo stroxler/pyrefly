@@ -840,15 +840,22 @@ pub enum ReturnTypeKind {
         /// We keep this just so we can scan for `@abstractmethod` and use the info to decide
         /// whether to skip the validation.
         decorators: Box<[Idx<Key>]>,
+        is_generator: bool,
     },
-    ShouldInferType,
+    ShouldInferType {
+        /// The yeilds and yield froms. If either of these are nonempty, this is a generator function.
+        /// We don't need to store `is_generator` flag in this case, as we can deduce that info by checking
+        /// whether these two fields are empty or not.
+        yields: Box<[Idx<KeyYield>]>,
+        yield_froms: Box<[Idx<KeyYieldFrom>]>,
+    },
 }
 
 impl ReturnTypeKind {
     pub fn has_return_annotation(&self) -> bool {
         match self {
             Self::ShouldValidateAnnotation { .. } => true,
-            Self::ShouldInferType => false,
+            Self::ShouldInferType { .. } => false,
         }
     }
 }
@@ -859,9 +866,6 @@ pub struct ReturnType {
     /// The returns from the function.
     pub returns: Box<[Idx<Key>]>,
     pub implicit_return: Idx<Key>,
-    /// The yeilds and yield froms. If either of these are nonempty, this is a generator function.
-    pub yields: Box<[Idx<KeyYield>]>,
-    pub yield_froms: Box<[Idx<KeyYieldFrom>]>,
     pub is_async: bool,
 }
 
