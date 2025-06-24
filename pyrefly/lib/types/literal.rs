@@ -37,9 +37,17 @@ pub enum Lit {
     Int(LitInt),
     Bool(bool),
     Bytes(Box<[u8]>),
-    /// (enum class, member name, raw type assigned to name in class def)
+    Enum(Box<LitEnum>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
+pub struct LitEnum {
+    pub class: ClassType,
+    pub member: Name,
+    /// Raw type assigned to name in class def.
     /// We store the raw type so we can return it when the value or _value_ attribute is accessed.
-    Enum(Box<(ClassType, Name, Type)>),
+    pub ty: Type,
 }
 
 impl Display for Lit {
@@ -61,9 +69,8 @@ impl Display for Lit {
                 }
                 write!(f, "'")
             }
-            Lit::Enum(box (enumeration, member, _)) => {
-                let name = &enumeration.name();
-                write!(f, "{name}.{member}")
+            Lit::Enum(lit_enum) => {
+                write!(f, "{}.{}", lit_enum.class.name(), lit_enum.member)
             }
         }
     }
@@ -148,7 +155,7 @@ impl Lit {
             Lit::Int(_) => stdlib.int(),
             Lit::Bool(_) => stdlib.bool(),
             Lit::Bytes(_) => stdlib.bytes(),
-            Lit::Enum(box (class_type, ..)) => class_type,
+            Lit::Enum(lit_enum) => &lit_enum.class,
         }
     }
 

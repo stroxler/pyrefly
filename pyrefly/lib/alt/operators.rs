@@ -410,8 +410,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Type::ClassType(_) | Type::SelfType(_) => {
                     self.call_method_or_error(t, method, x.range, &[], &[], errors, Some(&context))
                 }
-                Type::Literal(Lit::Enum(box (cls, ..))) => self.call_method_or_error(
-                    &cls.clone().to_type(),
+                Type::Literal(Lit::Enum(lit_enum)) => self.call_method_or_error(
+                    &lit_enum.class.clone().to_type(),
                     method,
                     x.range,
                     &[],

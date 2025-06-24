@@ -60,8 +60,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.get_enum_members(cls.class_object())
                 .into_iter()
                 .filter_map(|f| {
-                    if let Lit::Enum(box (_, member_name, _)) = &f
-                        && member_name == name
+                    if let Lit::Enum(lit_enum) = &f
+                        && &lit_enum.member == name
                     {
                         None
                     } else {
@@ -326,11 +326,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             {
                                 result = Type::Literal(Lit::Bool(!b));
                             }
-                            (
-                                Type::ClassType(left_cls),
-                                Type::Literal(Lit::Enum(box (right_cls, name, _))),
-                            ) if left_cls == right_cls => {
-                                result = self.subtract_enum_member(left_cls, name);
+                            (Type::ClassType(left_cls), Type::Literal(Lit::Enum(right)))
+                                if left_cls == &right.class =>
+                            {
+                                result = self.subtract_enum_member(left_cls, &right.member);
                             }
                             _ => {}
                         }
@@ -358,10 +357,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         {
                             Type::Literal(Lit::Bool(!b))
                         }
-                        (
-                            Type::ClassType(left_cls),
-                            Type::Literal(Lit::Enum(box (right_cls, name, _))),
-                        ) if left_cls == right_cls => self.subtract_enum_member(left_cls, name),
+                        (Type::ClassType(left_cls), Type::Literal(Lit::Enum(right)))
+                            if left_cls == &right.class =>
+                        {
+                            self.subtract_enum_member(left_cls, &right.member)
+                        }
                         _ => t.clone(),
                     }
                 })
@@ -446,10 +446,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         {
                             Type::Literal(Lit::Bool(!b))
                         }
-                        (
-                            Type::ClassType(left_cls),
-                            Type::Literal(Lit::Enum(box (right_cls, name, _))),
-                        ) if left_cls == right_cls => self.subtract_enum_member(left_cls, name),
+                        (Type::ClassType(left_cls), Type::Literal(Lit::Enum(right)))
+                            if left_cls == &right.class =>
+                        {
+                            self.subtract_enum_member(left_cls, &right.member)
+                        }
                         _ => t.clone(),
                     })
                 } else {

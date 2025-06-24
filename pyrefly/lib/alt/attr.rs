@@ -1496,9 +1496,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.stdlib.tuple(Type::any_implicit()),
             )),
             Type::LiteralString => Some(AttributeBase::ClassInstance(self.stdlib.str().clone())),
-            Type::Literal(Lit::Enum(box (class, member, raw_ty))) => {
-                Some(AttributeBase::EnumLiteral(class, member, raw_ty))
-            }
+            Type::Literal(Lit::Enum(lit_enum)) => Some(AttributeBase::EnumLiteral(
+                lit_enum.class,
+                lit_enum.member,
+                lit_enum.ty,
+            )),
             Type::Literal(lit) => Some(AttributeBase::ClassInstance(
                 lit.general_class_type(self.stdlib).clone(),
             )),

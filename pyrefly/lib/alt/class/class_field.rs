@@ -51,6 +51,7 @@ use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
+use crate::types::literal::LitEnum;
 use crate::types::quantified::Quantified;
 use crate::types::typed_dict::TypedDict;
 use crate::types::typed_dict::TypedDictField;
@@ -323,7 +324,7 @@ impl ClassField {
             ClassFieldInner::Simple {
                 ty: Type::Literal(lit),
                 ..
-            } if matches!(&lit, Lit::Enum(box (lit_cls, ..)) if lit_cls.class_object() == enum_cls) => {
+            } if matches!(&lit, Lit::Enum(lit_enum) if lit_enum.class.class_object() == enum_cls) => {
                 Some(lit)
             }
             _ => None,
@@ -761,11 +762,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         format!("The value for enum member `{}` must match the annotation of the _value_ attribute", name), 
                     );
             }
-            Type::Literal(Lit::Enum(Box::new((
-                enum_.cls.clone(),
-                name.clone(),
-                ty.clone(),
-            ))))
+            Type::Literal(Lit::Enum(Box::new(LitEnum {
+                class: enum_.cls.clone(),
+                member: name.clone(),
+                ty: ty.clone(),
+            })))
         } else {
             ty
         };
