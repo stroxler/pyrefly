@@ -40,6 +40,7 @@ use crate::binding::binding::LastStmt;
 use crate::binding::binding::ReturnExplicit;
 use crate::binding::binding::ReturnImplicit;
 use crate::binding::binding::ReturnType;
+use crate::binding::binding::ReturnTypeKind;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::expr::Usage;
@@ -367,15 +368,22 @@ impl<'a> BindingsBuilder<'a> {
 
         let return_type_binding =
             if let Some(implicit_return) = implicit_return_if_inferring_return_type {
+                let kind = match return_ann_with_range {
+                    None => ReturnTypeKind::ShouldInferType,
+                    Some((range, annotation)) => ReturnTypeKind::ShouldValidateAnnotation {
+                        range,
+                        annotation,
+                        stub_or_impl,
+                        decorators,
+                    },
+                };
                 Binding::ReturnType(Box::new(ReturnType {
-                    annot: return_ann_with_range,
+                    kind,
                     returns: return_keys,
                     implicit_return,
                     yields: yield_keys,
                     yield_froms: yield_from_keys,
                     is_async,
-                    stub_or_impl,
-                    decorators,
                 }))
             } else {
                 let inferred_any = Binding::Type(Type::any_implicit());

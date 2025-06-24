@@ -64,6 +64,7 @@ use crate::binding::binding::LastStmt;
 use crate::binding::binding::LinkedKey;
 use crate::binding::binding::NoneIfRecursive;
 use crate::binding::binding::RaisedException;
+use crate::binding::binding::ReturnTypeKind;
 use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::SuperStyle;
 use crate::binding::binding::TypeParameter;
@@ -2193,81 +2194,91 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::ReturnType(x) => {
                 let is_generator = !(x.yields.is_empty() && x.yield_froms.is_empty());
                 let implicit_return = self.get_idx(x.implicit_return);
-                if let Some((range, annot)) = &x.annot {
-                    // TODO: A return type annotation like `Final` is invalid in this context.
-                    // It will result in an implicit Any type, which is reasonable, but we should
-                    // at least error here.
-                    let ty = self.get_idx(*annot).annotation.get_type().clone();
-                    // If the function body is stubbed out or if the function is decorated with
-                    // `@abstractmethod`, we blindly accept the return type annotation.
-                    if x.stub_or_impl != FunctionStubOrImpl::Stub
-                        && !x.decorators.iter().any(|k| {
-                            let decorator = self.get_idx(*k);
-                            match decorator.ty().callee_kind() {
-                                Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => true,
-                                _ => false,
-                            }
-                        })
-                    {
-                        self.check_implicit_return_against_annotation(
-                            implicit_return,
-                            &ty,
-                            x.is_async,
-                            is_generator,
-                            !x.returns.is_empty(),
-                            *range,
-                            errors,
-                        );
-                    }
-                    if x.is_async && !is_generator {
-                        self.stdlib
-                            .coroutine(Type::any_implicit(), Type::any_implicit(), ty)
-                            .to_type()
-                    } else {
-                        ty
-                    }
-                } else {
-                    let returns = x.returns.iter().map(|k| self.get_idx(*k).arc_clone_ty());
-                    // TODO: It should always be a no-op to include a `Type::Never` in unions, but
-                    // `simple::test_solver_variables` fails if we do, because `solver::unions` does
-                    // `is_subset_eq` to force free variables, causing them to be equated to
-                    // `Type::Never` instead of becoming `Type::Any`.
-                    let return_ty = if implicit_return.ty().is_never() {
-                        self.unions(returns.collect())
-                    } else {
-                        self.unions(
-                            returns
-                                .chain(iter::once(implicit_return.arc_clone_ty()))
-                                .collect(),
-                        )
-                    };
-                    if is_generator {
-                        let yield_ty = self.unions({
-                            let yield_tys = x
-                                .yields
-                                .iter()
-                                .map(|idx| self.get_idx(*idx).yield_ty.clone());
-                            let yield_from_tys = x
-                                .yield_froms
-                                .iter()
-                                .map(|idx| self.get_idx(*idx).yield_ty.clone());
-                            yield_tys.chain(yield_from_tys).collect()
-                        });
-                        if x.is_async {
+                match &x.kind {
+                    ReturnTypeKind::ShouldValidateAnnotation {
+                        range,
+                        annotation,
+                        stub_or_impl,
+                        decorators,
+                    } => {
+                        // TODO: A return type annotation like `Final` is invalid in this context.
+                        // It will result in an implicit Any type, which is reasonable, but we should
+                        // at least error here.
+                        let ty = self.get_idx(*annotation).annotation.get_type().clone();
+                        // If the function body is stubbed out or if the function is decorated with
+                        // `@abstractmethod`, we blindly accept the return type annotation.
+                        if *stub_or_impl != FunctionStubOrImpl::Stub
+                            && !decorators.iter().any(|k| {
+                                let decorator = self.get_idx(*k);
+                                match decorator.ty().callee_kind() {
+                                    Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => {
+                                        true
+                                    }
+                                    _ => false,
+                                }
+                            })
+                        {
+                            self.check_implicit_return_against_annotation(
+                                implicit_return,
+                                &ty,
+                                x.is_async,
+                                is_generator,
+                                !x.returns.is_empty(),
+                                *range,
+                                errors,
+                            );
+                        }
+                        if x.is_async && !is_generator {
                             self.stdlib
-                                .async_generator(yield_ty, Type::any_implicit())
+                                .coroutine(Type::any_implicit(), Type::any_implicit(), ty)
                                 .to_type()
                         } else {
-                            self.stdlib
-                                .generator(yield_ty, Type::any_implicit(), return_ty)
-                                .to_type()
+                            ty
                         }
-                    } else if x.is_async {
-                        self.stdlib
-                            .coroutine(Type::any_implicit(), Type::any_implicit(), return_ty)
-                            .to_type()
-                    } else {
-                        return_ty
+                    }
+                    ReturnTypeKind::ShouldInferType => {
+                        let returns = x.returns.iter().map(|k| self.get_idx(*k).arc_clone_ty());
+                        // TODO: It should always be a no-op to include a `Type::Never` in unions, but
+                        // `simple::test_solver_variables` fails if we do, because `solver::unions` does
+                        // `is_subset_eq` to force free variables, causing them to be equated to
+                        // `Type::Never` instead of becoming `Type::Any`.
+                        let return_ty = if implicit_return.ty().is_never() {
+                            self.unions(returns.collect())
+                        } else {
+                            self.unions(
+                                returns
+                                    .chain(iter::once(implicit_return.arc_clone_ty()))
+                                    .collect(),
+                            )
+                        };
+                        if is_generator {
+                            let yield_ty = self.unions({
+                                let yield_tys = x
+                                    .yields
+                                    .iter()
+                                    .map(|idx| self.get_idx(*idx).yield_ty.clone());
+                                let yield_from_tys = x
+                                    .yield_froms
+                                    .iter()
+                                    .map(|idx| self.get_idx(*idx).yield_ty.clone());
+                                yield_tys.chain(yield_from_tys).collect()
+                            });
+                            if x.is_async {
+                                self.stdlib
+                                    .async_generator(yield_ty, Type::any_implicit())
+                                    .to_type()
+                            } else {
+                                self.stdlib
+                                    .generator(yield_ty, Type::any_implicit(), return_ty)
+                                    .to_type()
+                            }
+                        } else if x.is_async {
+                            self.stdlib
+                                .coroutine(Type::any_implicit(), Type::any_implicit(), return_ty)
+                                .to_type()
+                        } else {
+                            return_ty
+                        }
                     }
                 }
             }

@@ -830,9 +830,32 @@ pub struct ReturnExplicit {
 }
 
 #[derive(Clone, Debug)]
+pub enum ReturnTypeKind {
+    ShouldValidateAnnotation {
+        range: TextRange,
+        annotation: Idx<KeyAnnotation>,
+        /// Used to skip the validation for stub functions (returning `...`). This is
+        /// unsafe, but is convenient and matches Pyright's behavior.
+        stub_or_impl: FunctionStubOrImpl,
+        /// We keep this just so we can scan for `@abstractmethod` and use the info to decide
+        /// whether to skip the validation.
+        decorators: Box<[Idx<Key>]>,
+    },
+    ShouldInferType,
+}
+
+impl ReturnTypeKind {
+    pub fn has_return_annotation(&self) -> bool {
+        match self {
+            Self::ShouldValidateAnnotation { .. } => true,
+            Self::ShouldInferType => false,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct ReturnType {
-    /// The annotation for the return type.
-    pub annot: Option<(TextRange, Idx<KeyAnnotation>)>,
+    pub kind: ReturnTypeKind,
     /// The returns from the function.
     pub returns: Box<[Idx<Key>]>,
     pub implicit_return: Idx<Key>,
@@ -840,10 +863,6 @@ pub struct ReturnType {
     pub yields: Box<[Idx<KeyYield>]>,
     pub yield_froms: Box<[Idx<KeyYieldFrom>]>,
     pub is_async: bool,
-    /// Used to ignore the implicit return type for stub functions (returning `...`). This is
-    /// unsafe, but is convenient and matches Pyright's behavior.
-    pub stub_or_impl: FunctionStubOrImpl,
-    pub decorators: Box<[Idx<Key>]>,
 }
 
 #[derive(Clone, Dupe, Copy, Debug)]
