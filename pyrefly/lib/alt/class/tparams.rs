@@ -29,7 +29,7 @@ use crate::types::types::TParams;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    pub fn compute_tparams(
+    pub fn calculate_class_tparams(
         &self,
         name: &Identifier,
         scoped_type_params: Option<&TypeParams>,
@@ -139,7 +139,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Convert our set of `TParam`s into a `TParams` object, which will also perform
         // some additional validation that isn't specific to classes.
-        self.type_params(name.range, tparams.into_iter().collect(), errors)
+        self.validated_tparams(name.range, tparams.into_iter().collect(), errors)
     }
 
     pub fn get_class_tparams(&self, class: &Class) -> Arc<TParams> {

@@ -422,7 +422,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             signature: callable,
             metadata: metadata.clone(),
         })
-        .forall(self.type_params(def.range, tparams, errors));
+        .forall(self.validated_tparams(def.range, tparams, errors));
         for x in decorators.into_iter().rev() {
             ty = match self.apply_decorator(*x, ty, errors) {
                 // Preserve function metadata, so things like method binding still work.

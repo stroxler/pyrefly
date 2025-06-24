@@ -831,7 +831,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &mut tparams,
         );
         let ta = TypeAlias::new(name.clone(), Type::type_form(ty), style);
-        Forallable::TypeAlias(ta).forall(self.type_params(range, tparams, errors))
+        Forallable::TypeAlias(ta).forall(self.validated_tparams(range, tparams, errors))
     }
 
     fn context_value_enter(
@@ -1076,7 +1076,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn type_params(
+    pub fn validated_tparams(
         &self,
         range: TextRange,
         tparams: Vec<TParam>,
@@ -2666,7 +2666,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ),
                     Type::TypeAlias(ta) => {
                         let params_range = params.as_ref().map_or(expr.range(), |x| x.range);
-                        Forallable::TypeAlias(ta).forall(self.type_params(
+                        Forallable::TypeAlias(ta).forall(self.validated_tparams(
                             params_range,
                             self.scoped_type_params(params.as_ref(), errors),
                             errors,

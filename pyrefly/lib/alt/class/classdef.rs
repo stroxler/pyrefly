@@ -62,7 +62,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Class {
         let name = &x.name;
-        let tparams = self.compute_tparams(
+        let tparams = self.calculate_class_tparams(
             name,
             x.type_params.as_deref(),
             bases,
