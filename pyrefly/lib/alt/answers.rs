@@ -505,14 +505,16 @@ impl Answers {
             // Index bindings with external definitions.
             for idx in bindings.keys::<Key>() {
                 let key = bindings.idx_to_key(idx);
-                let (imported_module_name, imported_name) =
+                let (_import_key, imported_module_name, imported_name) =
                     match key_to_intermediate_definition(bindings, key, &mut Gas::new(20)) {
                         None => continue,
                         Some(IntermediateDefinition::Local(_)) => continue,
                         Some(IntermediateDefinition::Module(_)) => continue,
-                        Some(IntermediateDefinition::NamedImport(module_name, name)) => {
-                            (module_name, name)
-                        }
+                        Some(IntermediateDefinition::NamedImport(
+                            import_key,
+                            module_name,
+                            name,
+                        )) => (import_key, module_name, name),
                     };
                 let reference_range = bindings.idx_to_key(idx).range();
                 // Sanity check: the reference should have the same text as the definition.

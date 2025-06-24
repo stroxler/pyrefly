@@ -10,6 +10,7 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
+use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
 use crate::binding::binding::Binding;
@@ -24,7 +25,7 @@ use crate::state::handle::Handle;
 
 pub enum IntermediateDefinition {
     Local(Export),
-    NamedImport(ModuleName, Name),
+    NamedImport(TextRange, ModuleName, Name),
     Module(ModuleName),
 }
 
@@ -35,11 +36,11 @@ pub fn key_to_intermediate_definition(
 ) -> Option<IntermediateDefinition> {
     let idx = bindings.key_to_idx(key);
     let binding = bindings.get(idx);
-    let res = binding_to_intermediate_definition(bindings, binding, gas);
+    let res = binding_to_intermediate_definition(bindings, binding, key, gas);
     match &res {
         Some(IntermediateDefinition::Local(_))
         | Some(IntermediateDefinition::Module(_))
-        | Some(IntermediateDefinition::NamedImport(_, _)) => res,
+        | Some(IntermediateDefinition::NamedImport(_, _, _)) => res,
         None => {
             if let Key::Definition(x) = key {
                 Some(IntermediateDefinition::Local(Export {
@@ -57,6 +58,7 @@ pub fn key_to_intermediate_definition(
 fn binding_to_intermediate_definition(
     bindings: &Bindings,
     binding: &Binding,
+    key: &Key,
     gas: &mut Gas,
 ) -> Option<IntermediateDefinition> {
     if gas.stop() {
@@ -84,13 +86,19 @@ fn binding_to_intermediate_definition(
         Binding::Forward(k) | Binding::Narrow(k, _, _) | Binding::Pin(k, ..) => {
             key_to_intermediate_definition(bindings, bindings.idx_to_key(*k), gas)
         }
-        Binding::Default(_, m) => binding_to_intermediate_definition(bindings, m, gas),
+        Binding::Default(k, m) => {
+            binding_to_intermediate_definition(bindings, m, bindings.idx_to_key(*k), gas)
+        }
         Binding::Phi(ks) if !ks.is_empty() => key_to_intermediate_definition(
             bindings,
             bindings.idx_to_key(*ks.iter().next().unwrap()),
             gas,
         ),
-        Binding::Import(m, name) => Some(IntermediateDefinition::NamedImport(*m, name.clone())),
+        Binding::Import(m, name) => Some(IntermediateDefinition::NamedImport(
+            key.range(),
+            *m,
+            name.clone(),
+        )),
         Binding::Module(name, _, _) => Some(IntermediateDefinition::Module(*name)),
         Binding::CheckLegacyTypeParam(k, _) => {
             let binding = bindings.get(*k);
