@@ -88,7 +88,7 @@ assert_words!(KeyFunction, 1);
 assert_words!(Binding, 9);
 assert_words!(BindingExpect, 8);
 assert_words!(BindingAnnotation, 13);
-assert_words!(BindingClass, 22);
+assert_words!(BindingClass, 18);
 assert_words!(BindingTParams, 9);
 assert_words!(BindingClassMetadata, 8);
 assert_words!(BindingClassField, 26);
@@ -815,8 +815,10 @@ pub struct ClassBinding {
     pub def: StmtClassDef,
     pub def_index: ClassDefIndex,
     pub fields: SmallMap<Name, ClassFieldProperties>,
-    pub bases: Box<[Expr]>,
-    pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
+    /// Were we able to determine, using only syntactic analysis at bindings time,
+    /// that there can be no legacy tparams? If no, we need a `BindingTParams`, if yes
+    /// we can directly compute the `TParams` from the class def.
+    pub tparams_require_binding: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -1493,11 +1495,8 @@ impl DisplayWith<Bindings> for BindingClass {
 #[derive(Clone, Debug)]
 pub struct BindingTParams {
     pub name: Identifier,
-    #[expect(dead_code)]
     pub scoped_type_params: Option<Box<TypeParams>>,
-    #[expect(dead_code)]
     pub bases: Box<[Expr]>,
-    #[expect(dead_code)]
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
 }
 

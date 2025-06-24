@@ -403,7 +403,7 @@ pub mod tests {
     use crate::types::types::TParam;
     use crate::types::types::TParams;
 
-    pub fn fake_class(name: &str, module: &str, range: u32, tparams: Vec<TParam>) -> Class {
+    pub fn fake_class(name: &str, module: &str, range: u32) -> Class {
         let mi = ModuleInfo::new(
             ModuleName::from_str(module),
             ModulePath::filesystem(PathBuf::from(module)),
@@ -414,9 +414,13 @@ pub mod tests {
             ClassDefIndex(0),
             Identifier::new(Name::new(name), TextRange::empty(TextSize::new(range))),
             mi,
-            Arc::new(TParams::new(tparams)),
+            None,
             SmallMap::new(),
         )
+    }
+
+    pub fn fake_tparams(tparams: Vec<TParam>) -> Arc<TParams> {
+        Arc::new(TParams::new(tparams))
     }
 
     fn fake_tparam(uniques: &UniqueFactory, name: &str, kind: QuantifiedKind) -> TParam {
@@ -452,22 +456,17 @@ pub mod tests {
     #[test]
     fn test_display() {
         let uniques = UniqueFactory::new();
-        let foo1 = fake_class("foo", "mod.ule", 5, Vec::new());
-        let foo2 = fake_class("foo", "mod.ule", 8, Vec::new());
-        let foo3 = fake_class("foo", "ule", 3, Vec::new());
-        let bar = fake_class(
-            "bar",
-            "mod.ule",
-            0,
-            vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVar)],
-        );
-        let tuple_param = fake_class(
-            "TupleParam",
-            "mod.ule",
-            0,
-            vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVarTuple)],
-        );
-
+        let foo1 = fake_class("foo", "mod.ule", 5);
+        let foo2 = fake_class("foo", "mod.ule", 8);
+        let foo3 = fake_class("foo", "ule", 3);
+        let bar = fake_class("bar", "mod.ule", 0);
+        let bar_tparams = fake_tparams(vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVar)]);
+        let tuple_param = fake_class("TupleParam", "mod.ule", 0);
+        let tuple_param_tparams = fake_tparams(vec![fake_tparam(
+            &uniques,
+            "T",
+            QuantifiedKind::TypeVarTuple,
+        )]);
         fn class_type(class: &Class, targs: TArgs) -> Type {
             Type::ClassType(ClassType::new(class.dupe(), targs))
         }
@@ -476,7 +475,7 @@ pub mod tests {
             class_type(
                 &tuple_param,
                 TArgs::new(
-                    tuple_param.arc_tparams().dupe(),
+                    tuple_param_tparams.dupe(),
                     vec![Type::tuple(vec![
                         class_type(&foo1, TArgs::default()),
                         class_type(&foo1, TArgs::default())
@@ -489,10 +488,7 @@ pub mod tests {
         assert_eq!(
             class_type(
                 &tuple_param,
-                TArgs::new(
-                    tuple_param.arc_tparams().dupe(),
-                    vec![Type::tuple(Vec::new())]
-                )
+                TArgs::new(tuple_param_tparams.dupe(), vec![Type::tuple(Vec::new())])
             )
             .to_string(),
             "TupleParam[*tuple[()]]"
@@ -501,7 +497,7 @@ pub mod tests {
             class_type(
                 &tuple_param,
                 TArgs::new(
-                    tuple_param.arc_tparams().dupe(),
+                    tuple_param_tparams.dupe(),
                     vec![Type::Tuple(Tuple::Unbounded(Box::new(class_type(
                         &foo1,
                         TArgs::default()
@@ -515,7 +511,7 @@ pub mod tests {
             class_type(
                 &tuple_param,
                 TArgs::new(
-                    tuple_param.arc_tparams().dupe(),
+                    tuple_param_tparams.dupe(),
                     vec![Type::Tuple(Tuple::Unpacked(Box::new((
                         vec![class_type(&foo1, TArgs::default())],
                         Type::Tuple(Tuple::Unbounded(Box::new(class_type(
@@ -540,7 +536,7 @@ pub mod tests {
                 class_type(
                     &bar,
                     TArgs::new(
-                        bar.arc_tparams().dupe(),
+                        bar_tparams.dupe(),
                         vec![class_type(&foo1, TArgs::default())]
                     )
                 )
@@ -554,7 +550,7 @@ pub mod tests {
                 class_type(
                     &bar,
                     TArgs::new(
-                        bar.arc_tparams().dupe(),
+                        bar_tparams.dupe(),
                         vec![class_type(&foo2, TArgs::default())]
                     )
                 )
@@ -586,7 +582,7 @@ pub mod tests {
 
     #[test]
     fn test_display_qualified() {
-        let c = fake_class("foo", "mod.ule", 5, Vec::new());
+        let c = fake_class("foo", "mod.ule", 5);
         let t = Type::ClassType(ClassType::new(c, TArgs::default()));
         let mut ctx = TypeDisplayContext::new(&[&t]);
         assert_eq!(ctx.display(&t).to_string(), "foo");
@@ -706,14 +702,10 @@ pub mod tests {
     #[test]
     fn test_display_generic_typeddict() {
         let uniques = UniqueFactory::new();
-        let cls = fake_class(
-            "C",
-            "test",
-            0,
-            vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVar)],
-        );
+        let cls = fake_class("C", "test", 0);
+        let tparams = fake_tparams(vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVar)]);
         let t = Type::None;
-        let targs = TArgs::new(cls.arc_tparams().dupe(), vec![t]);
+        let targs = TArgs::new(tparams.dupe(), vec![t]);
         let td = TypedDict::new(cls, targs);
         assert_eq!(Type::TypedDict(td).to_string(), "TypedDict[C[None]]");
     }

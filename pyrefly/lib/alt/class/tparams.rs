@@ -20,6 +20,7 @@ use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::class::base_class::BaseClass;
 use crate::binding::binding::KeyLegacyTypeParam;
+use crate::binding::binding::KeyTParams;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
@@ -29,6 +30,18 @@ use crate::types::types::TParams;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    /// Calculate class type parameters in the case where we were able to predetermine
+    /// syntactically (from looking at the base class expressions) that there are no legacy type variables.
+    pub fn calculate_class_tparams_no_legacy(
+        &self,
+        name: &Identifier,
+        scoped_type_params: Option<&TypeParams>,
+        errors: &ErrorCollector,
+    ) -> Arc<TParams> {
+        let scoped_tparams = self.scoped_type_params(scoped_type_params, errors);
+        self.validated_tparams(name.range, scoped_tparams, errors)
+    }
+
     pub fn calculate_class_tparams(
         &self,
         name: &Identifier,
@@ -143,6 +156,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn get_class_tparams(&self, class: &Class) -> Arc<TParams> {
-        class.arc_tparams().dupe()
+        match class.precomputed_tparams() {
+            Some(tparams) => tparams.dupe(),
+            None => self.get_from_class(class, &KeyTParams(class.index())),
+        }
     }
 }

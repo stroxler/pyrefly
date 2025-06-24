@@ -8,7 +8,6 @@
 use std::sync::Arc;
 
 use dupe::Dupe;
-use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::name::Name;
@@ -21,9 +20,7 @@ use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::EnumMetadata;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
-use crate::binding::binding::KeyLegacyTypeParam;
 use crate::error::collector::ErrorCollector;
-use crate::graph::index::Idx;
 use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::Class;
@@ -57,24 +54,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         def_index: ClassDefIndex,
         x: &StmtClassDef,
         fields: SmallMap<Name, ClassFieldProperties>,
-        bases: &[Expr],
-        legacy_tparams: &[Idx<KeyLegacyTypeParam>],
+        tparams_require_binding: bool,
         errors: &ErrorCollector,
     ) -> Class {
         let name = &x.name;
-        let tparams = self.calculate_class_tparams(
-            name,
-            x.type_params.as_deref(),
-            bases,
-            legacy_tparams,
-            errors,
-        );
-
+        let precomputed_tparams = if tparams_require_binding {
+            None
+        } else {
+            Some(self.calculate_class_tparams_no_legacy(name, x.type_params.as_deref(), errors))
+        };
         Class::new(
             def_index,
             x.name.clone(),
             self.module_info().dupe(),
-            tparams,
+            precomputed_tparams,
             fields,
         )
     }
@@ -89,7 +82,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             def_index,
             name.clone(),
             self.module_info().dupe(),
-            Arc::new(TParams::default()),
+            Some(Arc::new(TParams::default())),
             fields.clone(),
         )
     }

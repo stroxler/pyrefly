@@ -1291,8 +1291,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 x.def_index,
                 &x.def,
                 x.fields.clone(),
-                &x.bases,
-                &x.legacy_tparams,
+                x.tparams_require_binding,
                 errors,
             ),
             BindingClass::FunctionalClassDef(def_index, x, fields) => {
@@ -1302,12 +1301,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Arc::new(NoneIfRecursive(Some(cls)))
     }
 
-    pub fn solve_tparams(
-        &self,
-        _binding: &BindingTParams,
-        _errors: &ErrorCollector,
-    ) -> Arc<TParams> {
-        unimplemented!("AnswersSolver::solve_tparams")
+    pub fn solve_tparams(&self, binding: &BindingTParams, errors: &ErrorCollector) -> Arc<TParams> {
+        self.calculate_class_tparams(
+            &binding.name,
+            binding.scoped_type_params.as_deref(),
+            &binding.bases,
+            &binding.legacy_tparams,
+            errors,
+        )
     }
 
     pub fn solve_class_field(

@@ -121,7 +121,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn targs_of_tparams(&self, class: &Class) -> TArgs {
-        let tparams = class.arc_tparams();
+        let tparams = self.get_class_tparams(class);
         TArgs::new(
             tparams.dupe(),
             tparams.quantifieds().map(|q| q.clone().to_type()).collect(),

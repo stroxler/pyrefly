@@ -534,7 +534,7 @@ mod tests {
 
     fn fake_class_type(class_name: &str) -> Type {
         Type::ClassType(ClassType::new(
-            fake_class(class_name, "class_defs_module", 5, Vec::new()),
+            fake_class(class_name, "class_defs_module", 5),
             TArgs::default(),
         ))
     }

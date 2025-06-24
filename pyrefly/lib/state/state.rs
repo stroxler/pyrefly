@@ -70,6 +70,7 @@ use crate::alt::answers::SolutionsTable;
 use crate::alt::traits::Solve;
 use crate::binding::binding::Exported;
 use crate::binding::binding::KeyExport;
+use crate::binding::binding::KeyTParams;
 use crate::binding::binding::Keyed;
 use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
@@ -956,7 +957,10 @@ impl<'a> Transaction<'a> {
             }
         };
         class.map(|class| {
-            let tparams = class.arc_tparams().dupe();
+            let tparams = match class.precomputed_tparams() {
+                Some(tparams) => tparams.dupe(),
+                None => self.lookup_answer(module_data.dupe(), &KeyTParams(class.index()), stack),
+            };
             (class, tparams)
         })
     }

@@ -32,6 +32,7 @@ use crate::binding::binding::BindingClass;
 use crate::binding::binding::BindingClassField;
 use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassSynthesizedFields;
+use crate::binding::binding::BindingTParams;
 use crate::binding::binding::BindingVariance;
 use crate::binding::binding::ClassBinding;
 use crate::binding::binding::ClassFieldInitialValue;
@@ -42,6 +43,7 @@ use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassSynthesizedFields;
+use crate::binding::binding::KeyTParams;
 use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
@@ -307,10 +309,25 @@ impl<'a> BindingsBuilder<'a> {
             FlowStyle::Other,
         );
 
-        let may_have_legacy_tparams = bases.iter().any(|x| match x {
+        // Insert a `KeyTParams` / `BindingTParams` pair, but only if there is at least
+        // one generic base class - otherwise, it is not possible that legacy tparams are used.
+        let tparams_require_binding = bases.iter().any(|x| match x {
             Expr::Name(_) | Expr::Attribute(_) => false,
             _ => true,
         });
+        if tparams_require_binding {
+            let scoped_type_params = mem::take(&mut x.type_params);
+            self.insert_binding(
+                KeyTParams(class_indices.def_index),
+                BindingTParams {
+                    name: x.name.clone(),
+                    scoped_type_params,
+                    bases: bases.clone().into_boxed_slice(),
+                    legacy_tparams: legacy_tparams.into_boxed_slice(),
+                },
+            );
+        }
+
         fields_possibly_defined_by_this_class.reserve(0); // Attempt to shrink to capacity
         self.insert_binding_idx(
             class_indices.class_idx,
@@ -318,14 +335,7 @@ impl<'a> BindingsBuilder<'a> {
                 def_index: class_indices.def_index,
                 def: x,
                 fields: fields_possibly_defined_by_this_class,
-                // Bases are exclusively used for legacy tparams in the `BindingClass` calculation;
-                // the actual class hierarchy is defined by class metadata which is another binding.
-                bases: if may_have_legacy_tparams {
-                    bases.clone().into_boxed_slice()
-                } else {
-                    Box::new([])
-                },
-                legacy_tparams: legacy_tparams.into_boxed_slice(),
+                tparams_require_binding,
             }),
         );
 

@@ -19,7 +19,6 @@ use parse_display::Display;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
-use pyrefly_util::display::commas_iter;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Identifier;
@@ -119,7 +118,11 @@ impl ClassFieldProperties {
 struct ClassInner {
     def_index: ClassDefIndex,
     qname: QName,
-    tparams: Arc<TParams>,
+    /// The precomputed tparams will be `Some(..)` if we were able to verify that there
+    /// are no legacy type variables (at which point there's no chance of producing a cycle
+    /// when computing the class tparams). Whenever it is `None`, there will be a corresponding
+    /// `KeyTParams` / `BindingTParams` pair to compute the class tparams.
+    precomputed_tparams: Option<Arc<TParams>>,
     fields: SmallMap<Name, ClassFieldProperties>,
 }
 
@@ -128,7 +131,7 @@ impl Debug for ClassInner {
         f.debug_struct("ClassInner")
             .field("index", &self.def_index)
             .field("qname", &self.qname)
-            .field("tparams", &self.tparams)
+            .field("tparams", &self.precomputed_tparams)
             // We don't print `fields` because it's way too long.
             .finish_non_exhaustive()
     }
@@ -162,9 +165,6 @@ impl ClassKind {
 impl Display for ClassInner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "class {}", self.qname.id())?;
-        if !self.tparams.is_empty() {
-            write!(f, "[{}]", commas_iter(|| self.tparams.iter()))?;
-        }
         writeln!(f, ": ...")
     }
 }
@@ -181,13 +181,13 @@ impl Class {
         def_index: ClassDefIndex,
         name: Identifier,
         module_info: ModuleInfo,
-        tparams: Arc<TParams>,
+        precomputed_tparams: Option<Arc<TParams>>,
         fields: SmallMap<Name, ClassFieldProperties>,
     ) -> Self {
         Self(Arc::new(ClassInner {
             def_index,
             qname: QName::new(name, module_info),
-            tparams,
+            precomputed_tparams,
             fields,
         }))
     }
@@ -212,8 +212,8 @@ impl Class {
         ClassKind::from_qname(self.qname())
     }
 
-    pub fn arc_tparams(&self) -> &Arc<TParams> {
-        &self.0.tparams
+    pub fn precomputed_tparams(&self) -> &Option<Arc<TParams>> {
+        &self.0.precomputed_tparams
     }
 
     pub fn index(&self) -> ClassDefIndex {
