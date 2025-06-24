@@ -175,9 +175,13 @@ struct ConfigOverrideArgs {
     /// after first checking `search_path` and `typeshed`.
     #[arg(long, env = clap_env("SITE_PACKAGE_PATH"))]
     site_package_path: Option<Vec<PathBuf>>,
+    /// Use a specific Conda environment to query Python environment information,
+    /// even if it isn't activated.
+    #[arg(long, env = clap_env("CONDA_ENVIRONMENT"), group = "env_source")]
+    conda_environment: Option<String>,
     /// The Python executable that will be queried for `python_version`
     /// `python_platform`, or `site_package_path` if any of the values are missing.
-    #[arg(long, env = clap_env("PYTHON_INTERPRETER"), value_name = "EXE_PATH")]
+    #[arg(long, env = clap_env("PYTHON_INTERPRETER"), value_name = "EXE_PATH", group = "env_source")]
     python_interpreter: Option<PathBuf>,
     /// Whether to search imports in `site-package-path` that do not have a `py.typed` file unconditionally.
     #[arg(long, env = clap_env("USE_UNTYPED_IMPORTS"))]
@@ -562,8 +566,13 @@ impl Args {
             config.python_environment.site_package_path = Some(x.clone());
             config.python_environment.site_package_path_source = SitePackagePathSource::CommandLine;
         }
+        if let Some(conda_environment) = &self.config_override.conda_environment {
+            config.conda_environment = Some(conda_environment.clone());
+            config.python_interpreter = None;
+        }
         if let Some(x) = &self.config_override.python_interpreter {
             config.python_interpreter = Some(x.clone());
+            config.conda_environment = None;
         }
         if let Some(x) = &self.config_override.use_untyped_imports {
             config.use_untyped_imports = *x;
