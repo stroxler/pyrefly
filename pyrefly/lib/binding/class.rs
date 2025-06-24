@@ -149,7 +149,7 @@ impl<'a> BindingsBuilder<'a> {
             // If it's really obvious this can't be a legacy type var (since they can't be raw names under bases)
             // then don't even record it.
             let mut none = None;
-            let legacy = if matches!(base, Expr::Name(_)) {
+            let legacy = if matches!(base, Expr::Name(_) | Expr::Attribute(_)) {
                 &mut none
             } else {
                 &mut legacy
@@ -297,11 +297,9 @@ impl<'a> BindingsBuilder<'a> {
             unreachable!("Expected class body scope, got {:?}", last_scope.kind);
         }
 
-        let legacy_tparams = legacy_tparam_builder.lookup_keys();
         let decorator_keys = decorators_with_ranges
             .map(|(idx, _)| *idx)
             .into_boxed_slice();
-
         self.bind_definition_user(
             &x.name,
             class_object,
@@ -311,10 +309,8 @@ impl<'a> BindingsBuilder<'a> {
 
         // Insert a `KeyTParams` / `BindingTParams` pair, but only if there is at least
         // one generic base class - otherwise, it is not possible that legacy tparams are used.
-        let tparams_require_binding = bases.iter().any(|x| match x {
-            Expr::Name(_) | Expr::Attribute(_) => false,
-            _ => true,
-        });
+        let legacy_tparams = legacy_tparam_builder.lookup_keys();
+        let tparams_require_binding = !legacy_tparams.is_empty();
         if tparams_require_binding {
             let scoped_type_params = mem::take(&mut x.type_params);
             self.insert_binding(
