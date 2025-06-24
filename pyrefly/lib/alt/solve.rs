@@ -1522,7 +1522,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        kind.error_kind(),
+                        ErrorKind::from_quantified(kind),
                         None,
                         format!(
                             "Expected default `{}` of `{}` to be assignable to the upper bound of `{}`",
@@ -1548,7 +1548,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        kind.error_kind(),
+                        ErrorKind::from_quantified(kind),
                         None,
                         format!(
                             "Expected default `{}` of `{}` to be one of the following constraints: {}",
