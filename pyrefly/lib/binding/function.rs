@@ -370,6 +370,7 @@ impl<'a> BindingsBuilder<'a> {
             if let Some(implicit_return) = implicit_return_if_inferring_return_type {
                 let kind = match return_ann_with_range {
                     None => ReturnTypeKind::ShouldInferType {
+                        returns: return_keys,
                         yields: yield_keys,
                         yield_froms: yield_from_keys,
                     },
@@ -379,11 +380,11 @@ impl<'a> BindingsBuilder<'a> {
                         stub_or_impl,
                         decorators,
                         is_generator: !(yield_keys.is_empty() && yield_from_keys.is_empty()),
+                        has_explicit_return: !return_keys.is_empty(),
                     },
                 };
                 Binding::ReturnType(Box::new(ReturnType {
                     kind,
-                    returns: return_keys,
                     implicit_return,
                     is_async,
                 }))

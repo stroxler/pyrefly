@@ -2200,6 +2200,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         stub_or_impl,
                         decorators,
                         is_generator,
+                        has_explicit_return,
                     } => {
                         // TODO: A return type annotation like `Final` is invalid in this context.
                         // It will result in an implicit Any type, which is reasonable, but we should
@@ -2223,7 +2224,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 &ty,
                                 x.is_async,
                                 *is_generator,
-                                !x.returns.is_empty(),
+                                *has_explicit_return,
                                 *range,
                                 errors,
                             );
@@ -2237,11 +2238,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                     ReturnTypeKind::ShouldInferType {
+                        returns,
                         yields,
                         yield_froms,
                     } => {
                         let is_generator = !(yields.is_empty() && yield_froms.is_empty());
-                        let returns = x.returns.iter().map(|k| self.get_idx(*k).arc_clone_ty());
+                        let returns = returns.iter().map(|k| self.get_idx(*k).arc_clone_ty());
                         // TODO: It should always be a no-op to include a `Type::Never` in unions, but
                         // `simple::test_solver_variables` fails if we do, because `solver::unions` does
                         // `is_subset_eq` to force free variables, causing them to be equated to

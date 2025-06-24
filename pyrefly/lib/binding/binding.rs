@@ -841,8 +841,11 @@ pub enum ReturnTypeKind {
         /// whether to skip the validation.
         decorators: Box<[Idx<Key>]>,
         is_generator: bool,
+        has_explicit_return: bool,
     },
     ShouldInferType {
+        /// The returns from the function.
+        returns: Box<[Idx<Key>]>,
         /// The yeilds and yield froms. If either of these are nonempty, this is a generator function.
         /// We don't need to store `is_generator` flag in this case, as we can deduce that info by checking
         /// whether these two fields are empty or not.
@@ -863,8 +866,6 @@ impl ReturnTypeKind {
 #[derive(Clone, Debug)]
 pub struct ReturnType {
     pub kind: ReturnTypeKind,
-    /// The returns from the function.
-    pub returns: Box<[Idx<Key>]>,
     pub implicit_return: Idx<Key>,
     pub is_async: bool,
 }
