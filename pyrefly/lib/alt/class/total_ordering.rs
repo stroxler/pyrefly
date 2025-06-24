@@ -75,7 +75,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .iter()
             .filter(|cmp| !cls.contains(cmp))
             .collect();
-        let mut fields = SmallMap::new();
+        let mut fields = SmallMap::with_capacity(rich_cmps_to_synthesize.len());
         for cmp in rich_cmps_to_synthesize {
             let synthesized_field = self.synthesize_rich_cmp(cls, cmp);
             fields.insert(cmp.clone(), synthesized_field);
