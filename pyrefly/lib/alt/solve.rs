@@ -2192,13 +2192,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::ReturnType(x) => {
-                let implicit_return = self.get_idx(x.implicit_return);
                 match &x.kind {
                     ReturnTypeKind::ShouldValidateAnnotation {
                         range,
                         annotation,
                         stub_or_impl,
                         decorators,
+                        implicit_return,
                         is_generator,
                         has_explicit_return,
                     } => {
@@ -2219,6 +2219,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 }
                             })
                         {
+                            let implicit_return = self.get_idx(*implicit_return);
                             self.check_implicit_return_against_annotation(
                                 implicit_return,
                                 &ty,
@@ -2239,11 +2240,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     ReturnTypeKind::ShouldInferType {
                         returns,
+                        implicit_return,
                         yields,
                         yield_froms,
                     } => {
                         let is_generator = !(yields.is_empty() && yield_froms.is_empty());
                         let returns = returns.iter().map(|k| self.get_idx(*k).arc_clone_ty());
+                        let implicit_return = self.get_idx(*implicit_return);
                         // TODO: It should always be a no-op to include a `Type::Never` in unions, but
                         // `simple::test_solver_variables` fails if we do, because `solver::unions` does
                         // `is_subset_eq` to force free variables, causing them to be equated to

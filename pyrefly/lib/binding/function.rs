@@ -371,6 +371,7 @@ impl<'a> BindingsBuilder<'a> {
                 let kind = match return_ann_with_range {
                     None => ReturnTypeKind::ShouldInferType {
                         returns: return_keys,
+                        implicit_return,
                         yields: yield_keys,
                         yield_froms: yield_from_keys,
                     },
@@ -379,15 +380,12 @@ impl<'a> BindingsBuilder<'a> {
                         annotation,
                         stub_or_impl,
                         decorators,
+                        implicit_return,
                         is_generator: !(yield_keys.is_empty() && yield_from_keys.is_empty()),
                         has_explicit_return: !return_keys.is_empty(),
                     },
                 };
-                Binding::ReturnType(Box::new(ReturnType {
-                    kind,
-                    implicit_return,
-                    is_async,
-                }))
+                Binding::ReturnType(Box::new(ReturnType { kind, is_async }))
             } else {
                 let inferred_any = Binding::Type(Type::any_implicit());
                 match return_ann {
