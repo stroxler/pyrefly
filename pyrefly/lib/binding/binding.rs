@@ -846,13 +846,11 @@ pub enum ReturnTypeKind {
         has_explicit_return: bool,
     },
     /// We have an explicit return annotation, and we should blindly trust it without any validation
-    #[expect(dead_code)]
     ShouldTrustAnnotation {
         annotation: Idx<KeyAnnotation>,
         is_generator: bool,
     },
     /// We don't have an explicit return annotation, and we should just act as if the return is annotated as `Any`
-    #[expect(dead_code)]
     ShouldReturnAny { is_generator: bool },
     /// We don't have an explicit return annotation, and we should do our best to infer the return type
     ShouldInferType {
