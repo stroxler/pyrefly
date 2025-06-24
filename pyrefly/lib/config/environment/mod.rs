@@ -6,6 +6,7 @@
  */
 
 pub mod active_environment;
+pub mod conda;
 pub mod environment;
 pub mod finder;
 pub mod venv;

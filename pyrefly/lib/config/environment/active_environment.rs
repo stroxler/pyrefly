@@ -8,6 +8,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use crate::config::environment::conda;
 use crate::config::environment::venv;
 
 /// Gets the first Python interpreter set in environment variables.
@@ -22,7 +23,11 @@ impl ActiveEnvironment {
             return Some(env);
         }
 
-        // TODO(connernilsen): also handle $CONDA_PREFIX
+        if let Ok(conda_prefix) = std::env::var("CONDA_PREFIX")
+            && let Some(env) = conda::find(Path::new(&conda_prefix))
+        {
+            return Some(env);
+        }
 
         None
     }
