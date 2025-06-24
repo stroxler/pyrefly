@@ -623,20 +623,14 @@ fn function_last_expressions<'a>(
 
 fn is_docstring(x: &Stmt) -> bool {
     match x {
-        Stmt::Expr(StmtExpr {
-            value: box Expr::StringLiteral(..),
-            ..
-        }) => true,
+        Stmt::Expr(StmtExpr { value, .. }) => value.is_string_literal_expr(),
         _ => false,
     }
 }
 
 fn is_ellipse(x: &[Stmt]) -> bool {
     match x.iter().find(|x| !is_docstring(x)) {
-        Some(Stmt::Expr(StmtExpr {
-            value: box Expr::EllipsisLiteral(_),
-            ..
-        })) => true,
+        Some(Stmt::Expr(StmtExpr { value, .. })) => value.is_ellipsis_literal_expr(),
         _ => false,
     }
 }

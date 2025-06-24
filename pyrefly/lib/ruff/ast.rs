@@ -25,7 +25,6 @@ use ruff_python_ast::PatternMatchSingleton;
 use ruff_python_ast::PySourceType;
 use ruff_python_ast::Singleton;
 use ruff_python_ast::Stmt;
-use ruff_python_ast::StmtExpr;
 use ruff_python_ast::StmtIf;
 use ruff_python_ast::StringFlags;
 use ruff_python_ast::StringLiteral;
@@ -271,10 +270,7 @@ impl Ast {
     pub fn has_docstring(x: &ModModule) -> bool {
         matches!(
             x.body.first(),
-            Some(Stmt::Expr(StmtExpr {
-                range: _,
-                value: box Expr::StringLiteral(_),
-            }))
+            Some(Stmt::Expr(x)) if x.value.is_string_literal_expr()
         )
     }
 
