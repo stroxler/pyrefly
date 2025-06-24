@@ -253,15 +253,6 @@ impl ClassField {
         }
     }
 
-    fn depends_on_class_type_parameter(&self, cls: &Class) -> bool {
-        let tparams = cls.tparams();
-        let mut qs = SmallSet::new();
-        match &self.0 {
-            ClassFieldInner::Simple { ty, .. } => ty.collect_quantifieds(&mut qs),
-        };
-        tparams.quantifieds().any(|q| qs.contains(q))
-    }
-
     fn as_raw_special_method_type(self, instance: &Instance) -> Option<Type> {
         match self.instantiate_for(instance).0 {
             ClassFieldInner::Simple { ty, .. } => match self.initialization() {
@@ -1053,7 +1044,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ..
             } => Attribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(cls.dupe())),
             ClassFieldInner::Simple { ty, .. } => {
-                if field.depends_on_class_type_parameter(cls) {
+                if self.depends_on_class_type_parameter(&field, cls) {
                     self.get_function_depending_on_class_type_parameter(cls, ty)
                         .unwrap_or_else(|| {
                             Attribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
@@ -1065,6 +1056,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
         }
+    }
+
+    fn depends_on_class_type_parameter(&self, field: &ClassField, cls: &Class) -> bool {
+        let tparams = self.class_tparams(cls);
+        let mut qs = SmallSet::new();
+        match &field.0 {
+            ClassFieldInner::Simple { ty, .. } => ty.collect_quantifieds(&mut qs),
+        };
+        tparams.quantifieds().any(|q| qs.contains(q))
     }
 
     fn get_function_depending_on_class_type_parameter(
@@ -1082,7 +1082,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 body: body @ Forallable::Function(_),
             }) => {
                 let mut new_tparams = tparams.as_ref().clone();
-                new_tparams.extend(cls.tparams());
+                new_tparams.extend(&self.class_tparams(cls));
                 Type::Forall(Box::new(Forall {
                     tparams: Arc::new(new_tparams),
                     body: body.clone(),
@@ -1102,7 +1102,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }),
                     OverloadType::Forall(Forall { tparams, body }) => {
                         let mut new_tparams = tparams.as_ref().clone();
-                        new_tparams.extend(cls.tparams());
+                        new_tparams.extend(&self.class_tparams(cls));
                         OverloadType::Forall(Forall {
                             tparams: Arc::new(new_tparams),
                             body,
