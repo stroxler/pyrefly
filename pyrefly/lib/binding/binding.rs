@@ -831,6 +831,7 @@ pub struct ReturnExplicit {
 
 #[derive(Clone, Debug)]
 pub enum ReturnTypeKind {
+    /// We have an explicit return annotation, and we should validate it against the implicit returns
     ShouldValidateAnnotation {
         range: TextRange,
         annotation: Idx<KeyAnnotation>,
@@ -844,6 +845,16 @@ pub enum ReturnTypeKind {
         is_generator: bool,
         has_explicit_return: bool,
     },
+    /// We have an explicit return annotation, and we should blindly trust it without any validation
+    #[expect(dead_code)]
+    ShouldTrustAnnotation {
+        annotation: Idx<KeyAnnotation>,
+        is_generator: bool,
+    },
+    /// We don't have an explicit return annotation, and we should just act as if the return is annotated as `Any`
+    #[expect(dead_code)]
+    ShouldReturnAny { is_generator: bool },
+    /// We don't have an explicit return annotation, and we should do our best to infer the return type
     ShouldInferType {
         /// The returns from the function.
         returns: Box<[Idx<Key>]>,
@@ -860,6 +871,8 @@ impl ReturnTypeKind {
     pub fn has_return_annotation(&self) -> bool {
         match self {
             Self::ShouldValidateAnnotation { .. } => true,
+            Self::ShouldTrustAnnotation { .. } => true,
+            Self::ShouldReturnAny { .. } => false,
             Self::ShouldInferType { .. } => false,
         }
     }

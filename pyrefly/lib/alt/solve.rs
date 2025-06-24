@@ -1904,6 +1904,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn return_type_from_annotation(
+        &self,
+        annotated_ty: Type,
+        is_async: bool,
+        is_generator: bool,
+    ) -> Type {
+        if is_async && !is_generator {
+            self.stdlib
+                .coroutine(Type::any_implicit(), Type::any_implicit(), annotated_ty)
+                .to_type()
+        } else {
+            annotated_ty
+        }
+    }
+
     fn binding_to_type(&self, binding: &Binding, errors: &ErrorCollector) -> Type {
         match binding {
             Binding::Forward(..)
@@ -2230,14 +2245,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 errors,
                             );
                         }
-                        if x.is_async && !is_generator {
-                            self.stdlib
-                                .coroutine(Type::any_implicit(), Type::any_implicit(), ty)
-                                .to_type()
-                        } else {
-                            ty
-                        }
+                        self.return_type_from_annotation(ty, x.is_async, *is_generator)
                     }
+                    ReturnTypeKind::ShouldTrustAnnotation {
+                        annotation,
+                        is_generator,
+                    } => {
+                        // TODO: A return type annotation like `Final` is invalid in this context.
+                        // It will result in an implicit Any type, which is reasonable, but we should
+                        // at least error here.
+                        let ty = self.get_idx(*annotation).annotation.get_type().clone();
+                        self.return_type_from_annotation(ty, x.is_async, *is_generator)
+                    }
+                    ReturnTypeKind::ShouldReturnAny { is_generator } => self
+                        .return_type_from_annotation(
+                            Type::any_implicit(),
+                            x.is_async,
+                            *is_generator,
+                        ),
                     ReturnTypeKind::ShouldInferType {
                         returns,
                         implicit_return,
