@@ -69,6 +69,37 @@ Completion Results:
 }
 
 #[test]
+fn dot_complete_types_test() {
+    let code = r#"
+class Foo:
+    x: int
+    def method(self): ...
+    @staticmethod
+    def static_method(): ...
+    @classmethod
+    def class_method(cls): ...
+foo = Foo()
+foo.
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+10 | foo.
+         ^
+Completion Results:
+- (Field) x: int
+- (Method) method: BoundMethod[Foo, (self: Self@Foo) -> None]
+- (Function) static_method: () -> None
+- (Method) class_method: BoundMethod[type[Foo], (cls: type[Self@Foo]) -> None]
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn dot_complete_rankded_test() {
     let code = r#"
 class Foo:

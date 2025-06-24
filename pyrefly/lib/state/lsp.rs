@@ -1373,11 +1373,18 @@ impl<'a> Transaction<'a> {
                 self.ad_hoc_solve(handle, |solver| {
                     solver
                         .completions(base_type.arc_clone(), None, true)
-                        .into_map(|x| CompletionItem {
-                            label: x.name.as_str().to_owned(),
-                            detail: x.ty.map(|t| t.to_string()),
-                            kind: Some(CompletionItemKind::FIELD),
-                            ..Default::default()
+                        .into_map(|x| {
+                            let kind = match x.ty {
+                                Some(Type::BoundMethod(_)) => Some(CompletionItemKind::METHOD),
+                                Some(Type::Function(_)) => Some(CompletionItemKind::FUNCTION),
+                                _ => Some(CompletionItemKind::FIELD),
+                            };
+                            CompletionItem {
+                                label: x.name.as_str().to_owned(),
+                                detail: x.ty.map(|t| t.to_string()),
+                                kind,
+                                ..Default::default()
+                            }
                         })
                 })
             }
