@@ -336,6 +336,7 @@ fn loop_fn<'a>(
     contains_bivariant: &mut bool,
     get_metadata: &impl Fn(&Class) -> Arc<ClassMetadata>,
     get_fields: &impl Fn(&Class) -> SmallMap<String, Arc<ClassField>>,
+    get_tparams: &impl Fn(&Class) -> Arc<TParams>,
 ) -> TParamArray {
     let class_name = class.qname();
 
@@ -344,14 +345,22 @@ fn loop_fn<'a>(
     }
 
     let params: Vec<(String, Variance, bool)> =
-        params_from_gp(class.tparams().as_vec(), contains_bivariant);
+        params_from_gp(get_tparams(class).as_vec(), contains_bivariant);
 
     environment.insert(class_name.clone(), params.clone());
     let mut on_var = |_name: &str, _variance: Variance, _inj: Injectivity| {};
 
     // get the variance results of a given class c
-    let mut on_edge =
-        |c: &Class| loop_fn(c, environment, contains_bivariant, get_metadata, get_fields);
+    let mut on_edge = |c: &Class| {
+        loop_fn(
+            c,
+            environment,
+            contains_bivariant,
+            get_metadata,
+            get_fields,
+            get_tparams,
+        )
+    };
 
     variance_visitor::on_class(class, &mut on_edge, &mut on_var, get_metadata, get_fields);
 
@@ -362,7 +371,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn variance_map(&self, class: &Class) -> Arc<VarianceMap> {
         let mut contains_bivariant: bool = false;
 
-        let post_inference_initial = convert_gp_to_map(class.tparams(), &mut contains_bivariant);
+        let post_inference_initial =
+            convert_gp_to_map(&self.class_tparams(class), &mut contains_bivariant);
 
         fn to_map(
             params: &TParamArray,
@@ -483,6 +493,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &mut contains_bivariant,
                 &|c| self.get_metadata_for_class(c),
                 &|c| self.get_class_field_map(c),
+                &|c| self.class_tparams(c),
             );
 
             let environment = fixpoint(self, class, &environment);
