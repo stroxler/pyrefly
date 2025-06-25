@@ -198,7 +198,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn solve_mro(
+    pub fn solve_class_metadata(
         &self,
         binding: &BindingClassMetadata,
         errors: &ErrorCollector,

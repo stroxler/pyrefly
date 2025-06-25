@@ -337,7 +337,7 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyClassMetadata {
         binding: &BindingClassMetadata,
         errors: &ErrorCollector,
     ) -> Arc<ClassMetadata> {
-        answers.solve_mro(binding, errors)
+        answers.solve_class_metadata(binding, errors)
     }
 
     fn create_recursive(_answers: &AnswersSolver<Ans>, _: &Self::Value) -> Self::Recursive {}
