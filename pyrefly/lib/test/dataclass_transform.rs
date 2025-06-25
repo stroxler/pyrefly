@@ -8,7 +8,6 @@
 use crate::testcase;
 
 testcase!(
-    bug = "Not yet supported",
     test_function_basic,
     r#"
 from typing import dataclass_transform
@@ -19,8 +18,8 @@ def create[T](cls: type[T]) -> type[T]: ...
 @create
 class C:
     x: int
-C(x=0)  # Should be ok  # E: Unexpected keyword
-C(x="oops")  # E: Unexpected keyword
+C(x=0)
+C(x="oops")  # E: `Literal['oops']` is not assignable to parameter `x` with type `int`
     "#,
 );
 

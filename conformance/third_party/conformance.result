@@ -192,8 +192,7 @@
     "Line 50: Unexpected errors ['Unexpected keyword argument `id` in function `object.__init__`', 'Unexpected keyword argument `name` in function `object.__init__`']",
     "Line 53: Unexpected errors ['Expected 0 positional arguments, got 2 in function `object.__init__`']",
     "Line 67: Unexpected errors ['Unexpected keyword argument `id` in function `object.__init__`', 'Unexpected keyword argument `name` in function `object.__init__`']",
-    "Line 73: Unexpected errors ['`<` is not supported between `Customer2` and `Customer2`\\n  Cannot find `__lt__` or `__gt__`']",
-    "Line 94: Unexpected errors ['Unexpected keyword argument `id` in function `object.__init__`', 'Unexpected keyword argument `name` in function `object.__init__`']"
+    "Line 73: Unexpected errors ['`<` is not supported between `Customer2` and `Customer2`\\n  Cannot find `__lt__` or `__gt__`']"
   ],
   "dataclasses_transform_meta.py": [
     "Line 51: Expected 1 errors",

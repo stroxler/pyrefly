@@ -3969,26 +3969,6 @@
       "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 73
-    },
-    {
-      "code": -2,
-      "column": 18,
-      "concise_description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "line": 94,
-      "name": "unexpected-keyword",
-      "stop_column": 22,
-      "stop_line": 94
-    },
-    {
-      "code": -2,
-      "column": 24,
-      "concise_description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "line": 94,
-      "name": "unexpected-keyword",
-      "stop_column": 33,
-      "stop_line": 94
     }
   ],
   "dataclasses_transform_meta.py": [

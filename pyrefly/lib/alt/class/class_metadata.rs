@@ -34,6 +34,7 @@ use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 use crate::module::module_name::ModuleName;
+use crate::types::callable::BoolKeywords;
 use crate::types::callable::FunctionKind;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
@@ -390,6 +391,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     dataclass_metadata = Some(DataclassMetadata {
                         fields: dataclass_fields,
                         kws: *kws,
+                    });
+                }
+                Some(CalleeKind::Function(FunctionKind::DataclassLike(_))) => {
+                    // TODO(rechen): Take keyword values to `dataclass_transform(...)` into account.
+                    let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
+                    dataclass_metadata = Some(DataclassMetadata {
+                        fields: dataclass_fields,
+                        kws: BoolKeywords::new(),
                     });
                 }
                 Some(CalleeKind::Function(FunctionKind::Final)) => {
