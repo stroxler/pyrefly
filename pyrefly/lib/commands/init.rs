@@ -129,9 +129,9 @@ impl Args {
                 // 2. Run pyrefly check
                 info!("Running pyrefly check...");
 
-                // Create check args by parsing an empty array of arguments
+                // Create check args by parsing arguments with output-format set to omit-errors
                 let mut check_args =
-                    check::Args::parse_from(Vec::<std::ffi::OsString>::new().iter());
+                    check::Args::parse_from(["check", "--output-format", "omit-errors"]);
 
                 // Use get to get the filtered globs and config finder
                 let (filtered_globs, config_finder) =

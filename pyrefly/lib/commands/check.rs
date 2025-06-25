@@ -78,6 +78,8 @@ enum OutputFormat {
     FullText,
     /// JSON output
     Json,
+    /// Only show error count, omitting individual errors
+    OmitErrors,
 }
 
 #[derive(Debug, Parser, Clone)]
@@ -252,6 +254,7 @@ impl OutputFormat {
             Self::MinText => Self::write_error_text_to_file(path, errors, false),
             Self::FullText => Self::write_error_text_to_file(path, errors, true),
             Self::Json => Self::write_error_json_to_file(path, errors),
+            Self::OmitErrors => Ok(()),
         }
     }
 
@@ -260,6 +263,7 @@ impl OutputFormat {
             Self::MinText => Self::write_error_text_to_console(errors, false),
             Self::FullText => Self::write_error_text_to_console(errors, true),
             Self::Json => Self::write_error_json_to_console(errors),
+            Self::OmitErrors => Ok(()),
         }
     }
 }
