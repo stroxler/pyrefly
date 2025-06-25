@@ -44,8 +44,8 @@ use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
-use crate::alt::types::class_metadata::Mro;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
@@ -246,7 +246,7 @@ impl Exported for KeyClassMetadata {}
 impl Keyed for KeyClassMro {
     const EXPORTED: bool = true;
     type Value = BindingClassMro;
-    type Answer = Mro;
+    type Answer = ClassMro;
     fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
         AnyIdx::KeyClassMro(idx)
     }

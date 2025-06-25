@@ -30,8 +30,8 @@ use crate::alt::callable::CallArg;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
-use crate::alt::types::class_metadata::Mro;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
@@ -228,9 +228,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Arc::new(metadata)
     }
 
-    pub fn solve_class_mro(&self, binding: &BindingClassMro, errors: &ErrorCollector) -> Arc<Mro> {
+    pub fn solve_class_mro(
+        &self,
+        binding: &BindingClassMro,
+        errors: &ErrorCollector,
+    ) -> Arc<ClassMro> {
         let mro = match &self.get_idx(binding.class_idx).0 {
-            None => Mro::recursive(),
+            None => ClassMro::recursive(),
             Some(cls) => self.calculate_class_mro(cls, errors),
         };
         Arc::new(mro)

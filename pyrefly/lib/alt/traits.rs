@@ -17,8 +17,8 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
-use crate::alt::types::class_metadata::Mro;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
@@ -358,14 +358,14 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyClassMro {
         answers: &AnswersSolver<Ans>,
         binding: &BindingClassMro,
         errors: &ErrorCollector,
-    ) -> Arc<Mro> {
+    ) -> Arc<ClassMro> {
         answers.solve_class_mro(binding, errors)
     }
 
     fn create_recursive(_answers: &AnswersSolver<Ans>, _: &Self::Value) -> Self::Recursive {}
 
     fn promote_recursive(_: Self::Recursive) -> Self::Answer {
-        Mro::recursive()
+        ClassMro::recursive()
     }
 }
 

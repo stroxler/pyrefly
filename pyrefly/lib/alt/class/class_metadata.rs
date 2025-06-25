@@ -22,9 +22,9 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::class::base_class::BaseClass;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::alt::types::class_metadata::EnumMetadata;
-use crate::alt::types::class_metadata::Mro;
 use crate::alt::types::class_metadata::NamedTupleMetadata;
 use crate::alt::types::class_metadata::ProtocolMetadata;
 use crate::alt::types::class_metadata::TotalOrderingMetadata;
@@ -591,7 +591,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn calculate_class_mro(&self, cls: &Class, errors: &ErrorCollector) -> Mro {
+    pub fn calculate_class_mro(&self, cls: &Class, errors: &ErrorCollector) -> ClassMro {
         let metadata = self.get_metadata_for_class(cls);
         let bases_with_mros = metadata
             .bases_with_metadata()
@@ -601,6 +601,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 (base, mro)
             })
             .collect();
-        Mro::new(cls, bases_with_mros, errors)
+        ClassMro::new(cls, bases_with_mros, errors)
     }
 }

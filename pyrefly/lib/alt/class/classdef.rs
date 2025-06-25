@@ -17,8 +17,8 @@ use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::EnumMetadata;
-use crate::alt::types::class_metadata::Mro;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
@@ -93,7 +93,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.get_from_class(cls, &KeyClassMetadata(cls.index()))
     }
 
-    pub fn get_mro_for_class(&self, cls: &Class) -> Arc<Mro> {
+    pub fn get_mro_for_class(&self, cls: &Class) -> Arc<ClassMro> {
         self.get_from_class(cls, &KeyClassMro(cls.index()))
     }
 
