@@ -424,7 +424,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else if class.qname() == class_name {
                     class
                 } else {
-                    let class_name_module = class_name.module_info().name();
+                    let class_name_module = class_name.module_name();
                     let curr_module = solver.module_info().name();
 
                     if class_name_module != curr_module {
@@ -438,7 +438,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
 
                     let ty = solver.get_from_module(
-                        class_name.module_info().name(),
+                        class_name.module_name(),
                         Some(class_name.module_info().path()),
                         &KeyExport(class_name.id().clone()),
                     );
