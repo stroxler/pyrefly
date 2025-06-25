@@ -28,6 +28,7 @@ use tracing::warn;
 
 use crate::config::base::ConfigBase;
 use crate::config::base::UntypedDefBehavior;
+use crate::config::environment::conda;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::environment::environment::SitePackagePathSource;
 use crate::config::error::ErrorConfig;
@@ -523,21 +524,33 @@ impl ConfigFile {
     /// which should probably be everything except for `PathBuf` or `Globs` types.
     pub fn configure(&mut self) {
         if self.python_environment.any_empty() {
-            if let Some(interpreter) = self
-                .python_interpreter
-                .clone()
-                .or_else(|| PythonEnvironment::find_interpreter(self.source.root()))
-            {
-                let system_env = PythonEnvironment::get_interpreter_env(&interpreter);
-                self.python_environment.override_empty(system_env);
-                self.python_interpreter = Some(interpreter);
-            } else {
-                self.python_environment.set_empty_to_default();
-                warn!(
-                    "Python environment (version, platform, or site_package_path) has value unset, \
-                but no Python interpreter could be found to query for values. Falling back to \
-                Pyrefly defaults for missing values."
-                )
+            let find_interpreter = || -> anyhow::Result<PathBuf> {
+                if let Some(interpreter) = self.python_interpreter.clone() {
+                    Ok(interpreter)
+                } else if let Some(conda_env) = &self.conda_environment {
+                    conda::find_interpreter_from_env(conda_env)
+                } else if let Some(interpreter) =
+                    PythonEnvironment::find_interpreter(self.source.root())
+                {
+                    Ok(interpreter)
+                } else {
+                    Err(anyhow::anyhow!(
+                        "Python environment (version, platform, or site-package-path) has value unset, \
+                    but no Python interpreter could be found to query for values. Falling back to \
+                    Pyrefly defaults for missing values."
+                    ))
+                }
+            };
+            match find_interpreter() {
+                Ok(interpreter) => {
+                    let env = PythonEnvironment::get_interpreter_env(&interpreter);
+                    self.python_environment.override_empty(env);
+                    self.python_interpreter = Some(interpreter);
+                }
+                Err(error) => {
+                    self.python_environment.set_empty_to_default();
+                    warn!("Encountered problem finding Python interpreter. {error}")
+                }
             }
         }
 

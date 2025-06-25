@@ -492,6 +492,7 @@ impl Workspaces {
         standard_config_finder(Arc::new(move |dir, mut config| {
             if let Some(dir) = dir
                 && config.python_interpreter.is_none()
+                && config.conda_environment.is_none()
             {
                 workspaces.get_with(dir.to_owned(), |w| {
                     let Some(PythonInfo { interpreter, env }) = w.python_info.clone() else {

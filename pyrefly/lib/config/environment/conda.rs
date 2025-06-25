@@ -61,7 +61,6 @@ pub fn get_env_path(env_name: &str) -> anyhow::Result<PathBuf> {
     })
 }
 
-#[expect(dead_code)]
 pub fn find_interpreter_from_env(env_name: &str) -> anyhow::Result<PathBuf> {
     get_env_path(env_name).and_then(|p| {
         find(&p).ok_or_else(|| {
