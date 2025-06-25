@@ -250,7 +250,6 @@ impl ClassMetadata {
         self.dataclass_metadata.as_ref()
     }
 
-    #[expect(dead_code)]
     pub fn dataclass_transform_metadata(&self) -> Option<&BoolKeywords> {
         self.dataclass_transform_metadata.as_ref()
     }

@@ -150,6 +150,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let mut has_base_any = false;
         let mut has_generic_base_class = false;
+        // This is set when we should apply dataclass-like transformations to the class. The class
+        // should be transformed if:
+        // - it inherits from a base class decorated with `dataclass_transform(...)`, or
+        // - it inherits from a base class whose metaclass is decorated with `dataclass_transform(...)`, or
+        // - it is decorated with a decorator that is decorated with `dataclass_transform(...)`.
+        let mut dataclass_defaults_from_dataclass_transform = None;
         let bases_with_metadata = bases
             .iter()
             .filter_map(|x| {
@@ -231,6 +237,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 // If we inherit from a dataclass, inherit its metadata. Note that if this class is
                                 // itself decorated with @dataclass, we'll compute new metadata and overwrite this.
                                 dataclass_metadata = Some(base_dataclass.inherit());
+                            }
+                            if let Some(m) = base_class_metadata.dataclass_transform_metadata() {
+                                dataclass_defaults_from_dataclass_transform = Some(m.clone());
                             }
                             Some((c, base_class_metadata))
                         }
@@ -387,9 +396,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // this does not turn the class into a dataclass! Instead, it becomes a special base class
         // (or metaclass) that turns child classes into dataclasses.
         let mut dataclass_transform_metadata = None;
-        // This is set when a class is decorated with a function that is decorated with
-        // `dataclass_transform(...)`. This applies dataclass-like transformations to the class.
-        let mut dataclass_defaults_from_dataclass_transform = None;
         for (decorator_key, decorator_range) in decorators {
             let decorator = self.get_idx(*decorator_key);
             let decorator_ty = decorator.ty();

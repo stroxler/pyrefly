@@ -24,7 +24,6 @@ C(x="oops")  # E: `Literal['oops']` is not assignable to parameter `x` with type
 );
 
 testcase!(
-    bug = "Not yet supported",
     test_class_basic,
     r#"
 from typing import dataclass_transform
@@ -34,8 +33,25 @@ class C: ...
 
 class D(C):
     x: int
-D(x=0)  # Should be ok  # E: Unexpected keyword
-D(x="oops")  # E: Unexpected keyword
+D(x=0)
+D(x="oops")  # E: `Literal['oops']` is not assignable to parameter `x` with type `int`
+    "#,
+);
+
+testcase!(
+    bug = "We fail to pick up dataclass field `y`",
+    test_class_inheritance,
+    r#"
+from typing import dataclass_transform
+
+@dataclass_transform()
+class C: ...
+
+class D(C):
+    x: int
+class E(D):
+    y: str
+E(x=0, y="")  # E: Unexpected keyword argument `y`
     "#,
 );
 
