@@ -115,6 +115,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn protocol_metadata(cls: &Class, bases: &[BaseClass]) -> Option<ProtocolMetadata> {
+        if bases.iter().any(|x| matches!(x, BaseClass::Protocol(_))) {
+            Some(ProtocolMetadata {
+                members: cls.fields().cloned().collect(),
+                is_runtime_checkable: false,
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn class_metadata_of(
         &self,
         cls: &Class,
@@ -133,14 +144,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(special_base) = special_base {
             bases.push((**special_base).clone());
         }
-        let mut protocol_metadata = if bases.iter().any(|x| matches!(x, BaseClass::Protocol(_))) {
-            Some(ProtocolMetadata {
-                members: cls.fields().cloned().collect(),
-                is_runtime_checkable: false,
-            })
-        } else {
-            None
-        };
+        let mut protocol_metadata = Self::protocol_metadata(cls, bases.as_slice());
+
         let mut has_base_any = false;
         let mut has_generic_base_class = false;
         let bases_with_metadata = bases
