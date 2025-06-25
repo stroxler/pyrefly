@@ -3994,63 +3994,13 @@
   "dataclasses_transform_meta.py": [
     {
       "code": -2,
-      "column": 18,
-      "concise_description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "line": 60,
-      "name": "unexpected-keyword",
-      "stop_column": 22,
-      "stop_line": 60
-    },
-    {
-      "code": -2,
-      "column": 24,
-      "concise_description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "line": 60,
-      "name": "unexpected-keyword",
-      "stop_column": 34,
-      "stop_line": 60
-    },
-    {
-      "code": -2,
       "column": 36,
-      "concise_description": "Unexpected keyword argument `other_name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `other_name` in function `object.__init__`",
+      "concise_description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
+      "description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
       "line": 60,
       "name": "unexpected-keyword",
       "stop_column": 54,
       "stop_line": 60
-    },
-    {
-      "code": -2,
-      "column": 18,
-      "concise_description": "Expected 0 positional arguments, got 2 in function `object.__init__`",
-      "description": "Expected 0 positional arguments, got 2 in function `object.__init__`",
-      "line": 66,
-      "name": "bad-argument-type",
-      "stop_column": 19,
-      "stop_line": 66
-    },
-    {
-      "code": -2,
-      "column": 18,
-      "concise_description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "line": 69,
-      "name": "unexpected-keyword",
-      "stop_column": 22,
-      "stop_line": 69
-    },
-    {
-      "code": -2,
-      "column": 24,
-      "concise_description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "line": 69,
-      "name": "unexpected-keyword",
-      "stop_column": 35,
-      "stop_line": 69
     },
     {
       "code": -2,
@@ -4064,36 +4014,6 @@
     },
     {
       "code": -2,
-      "column": 18,
-      "concise_description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "line": 75,
-      "name": "unexpected-keyword",
-      "stop_column": 22,
-      "stop_line": 75
-    },
-    {
-      "code": -2,
-      "column": 24,
-      "concise_description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "line": 75,
-      "name": "unexpected-keyword",
-      "stop_column": 35,
-      "stop_line": 75
-    },
-    {
-      "code": -2,
-      "column": 18,
-      "concise_description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "line": 77,
-      "name": "unexpected-keyword",
-      "stop_column": 22,
-      "stop_line": 77
-    },
-    {
-      "code": -2,
       "column": 6,
       "concise_description": "`<` is not supported between `Customer2` and `Customer2`",
       "description": "`<` is not supported between `Customer2` and `Customer2`\n  Cannot find `__lt__` or `__gt__`",
@@ -4101,36 +4021,6 @@
       "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 79
-    },
-    {
-      "code": -2,
-      "column": 18,
-      "concise_description": "Expected 0 positional arguments, got 2 in function `object.__init__`",
-      "description": "Expected 0 positional arguments, got 2 in function `object.__init__`",
-      "line": 83,
-      "name": "bad-argument-type",
-      "stop_column": 19,
-      "stop_line": 83
-    },
-    {
-      "code": -2,
-      "column": 18,
-      "concise_description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "line": 100,
-      "name": "unexpected-keyword",
-      "stop_column": 22,
-      "stop_line": 100
-    },
-    {
-      "code": -2,
-      "column": 24,
-      "concise_description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "line": 100,
-      "name": "unexpected-keyword",
-      "stop_column": 33,
-      "stop_line": 100
     }
   ],
   "dataclasses_usage.py": [

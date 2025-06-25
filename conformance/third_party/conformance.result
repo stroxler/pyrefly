@@ -194,13 +194,11 @@
   "dataclasses_transform_meta.py": [
     "Line 51: Expected 1 errors",
     "Line 63: Expected 1 errors",
+    "Line 66: Expected 1 errors",
+    "Line 83: Expected 1 errors",
     "Line 103: Expected 1 errors",
-    "Line 60: Unexpected errors ['Unexpected keyword argument `id` in function `object.__init__`', 'Unexpected keyword argument `name` in function `object.__init__`', 'Unexpected keyword argument `other_name` in function `object.__init__`']",
-    "Line 69: Unexpected errors ['Unexpected keyword argument `id` in function `object.__init__`', 'Unexpected keyword argument `name` in function `object.__init__`']",
-    "Line 75: Unexpected errors ['Unexpected keyword argument `id` in function `object.__init__`', 'Unexpected keyword argument `name` in function `object.__init__`']",
-    "Line 77: Unexpected errors ['Unexpected keyword argument `id` in function `object.__init__`']",
-    "Line 79: Unexpected errors ['`<` is not supported between `Customer2` and `Customer2`\\n  Cannot find `__lt__` or `__gt__`']",
-    "Line 100: Unexpected errors ['Unexpected keyword argument `id` in function `object.__init__`', 'Unexpected keyword argument `name` in function `object.__init__`']"
+    "Line 60: Unexpected errors ['Unexpected keyword argument `other_name` in function `Customer1.__init__`']",
+    "Line 79: Unexpected errors ['`<` is not supported between `Customer2` and `Customer2`\\n  Cannot find `__lt__` or `__gt__`']"
   ],
   "dataclasses_usage.py": [
     "Lines 58, 61: Expected error (tag 'DC1')",

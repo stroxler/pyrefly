@@ -334,6 +334,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &base_metaclasses,
             errors,
         );
+        // This is set when a class is decorated with `@typing.dataclass_transform(...)`. Note that
+        // this does not turn the class into a dataclass! Instead, it becomes a special base class
+        // (or metaclass) that turns child classes into dataclasses.
+        let mut dataclass_transform_metadata = None;
+        if let Some(c) = &metaclass
+            && let Some(m) = self
+                .get_metadata_for_class(c.class_object())
+                .dataclass_transform_metadata()
+        {
+            dataclass_transform_metadata = Some(m.clone());
+        }
         let empty_tparams = self.get_class_tparams(cls).is_empty();
         if let Some(metaclass) = &metaclass {
             self.check_base_class_metaclasses(cls, metaclass, &base_metaclasses, errors);
@@ -392,10 +403,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         let mut is_final = false;
         let mut total_ordering_metadata = None;
-        // This is set when a class is decorated with `@typing.dataclass_transform(...)`. Note that
-        // this does not turn the class into a dataclass! Instead, it becomes a special base class
-        // (or metaclass) that turns child classes into dataclasses.
-        let mut dataclass_transform_metadata = None;
         for (decorator_key, decorator_range) in decorators {
             let decorator = self.get_idx(*decorator_key);
             let decorator_ty = decorator.ty();

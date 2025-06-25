@@ -56,7 +56,6 @@ E(x=0, y="")  # E: Unexpected keyword argument `y`
 );
 
 testcase!(
-    bug = "Not yet supported",
     test_metaclass_basic,
     r#"
 from typing import dataclass_transform
@@ -67,7 +66,7 @@ class C(metaclass=Meta): ...
 
 class D(C):
     x: int
-D(x=0)  # Should be ok  # E: Unexpected keyword
-D(x="oops")  # E: Unexpected keyword
+D(x=0)
+D(x="oops")  # E: `Literal['oops']` is not assignable to parameter `x` with type `int`
     "#,
 );
