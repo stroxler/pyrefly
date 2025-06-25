@@ -229,14 +229,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn solve_class_mro(&self, binding: &BindingClassMro, errors: &ErrorCollector) -> Arc<Mro> {
-        let BindingClassMro {
-            class_idx: k,
-            bases,
-            special_base,
-        } = binding;
-        let mro = match &self.get_idx(*k).0 {
+        let mro = match &self.get_idx(binding.class_idx).0 {
             None => Mro::recursive(),
-            Some(cls) => self.calculate_class_mro(cls, bases, special_base, errors),
+            Some(cls) => self.calculate_class_mro(cls, errors),
         };
         Arc::new(mro)
     }

@@ -93,7 +93,7 @@ assert_words!(BindingAnnotation, 13);
 assert_words!(BindingClass, 18);
 assert_words!(BindingTParams, 9);
 assert_words!(BindingClassMetadata, 8);
-assert_words!(BindingClassMro, 4);
+assert_bytes!(BindingClassMro, 4);
 assert_words!(BindingClassField, 26);
 assert_bytes!(BindingClassSynthesizedFields, 4);
 assert_bytes!(BindingLegacyTypeParam, 4);
@@ -1676,8 +1676,6 @@ impl DisplayWith<Bindings> for BindingClassMetadata {
 #[derive(Clone, Debug)]
 pub struct BindingClassMro {
     pub class_idx: Idx<KeyClass>,
-    pub bases: Box<[Expr]>,
-    pub special_base: Option<Box<BaseClass>>,
 }
 
 impl DisplayWith<Bindings> for BindingClassMro {

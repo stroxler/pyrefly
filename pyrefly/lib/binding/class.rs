@@ -196,8 +196,6 @@ impl<'a> BindingsBuilder<'a> {
             class_indices.mro_idx,
             BindingClassMro {
                 class_idx: class_indices.class_idx,
-                bases: bases.clone().into_boxed_slice(),
-                special_base: None,
             },
         );
         self.insert_binding_idx(
@@ -446,19 +444,13 @@ impl<'a> BindingsBuilder<'a> {
                 keywords,
                 decorators: Box::new([]),
                 is_new_type: class_kind == SynthesizedClassKind::NewType,
-                special_base: special_base.clone(),
+                special_base,
             },
         );
         self.insert_binding_idx(
             class_indices.mro_idx,
             BindingClassMro {
                 class_idx: class_indices.class_idx,
-                bases: base
-                    .clone()
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
-                special_base,
             },
         );
         self.insert_binding_idx(

@@ -461,7 +461,7 @@ impl Mro {
     /// `Generic`, `Protocol`, and `object`.
     pub fn new(
         cls: &Class,
-        bases_with_mro: Vec<(ClassType, Arc<Mro>)>,
+        bases_with_mro: Vec<(&ClassType, Arc<Mro>)>,
         errors: &ErrorCollector,
     ) -> Self {
         match Linearization::new(cls, bases_with_mro, errors) {
@@ -529,7 +529,7 @@ impl Linearization {
     /// - One consisting of the base classes themselves in the order defined.
     fn new(
         cls: &Class,
-        bases_with_mro: Vec<(ClassType, Arc<Mro>)>,
+        bases_with_mro: Vec<(&ClassType, Arc<Mro>)>,
         errors: &ErrorCollector,
     ) -> Linearization {
         let bases = match Vec1::try_from_vec(
