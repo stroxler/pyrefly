@@ -1371,54 +1371,62 @@ impl<'a> Transaction<'a> {
         named_bindings
     }
 
-    fn kwargs_completions(
+    fn add_kwargs_completions(
         &self,
         handle: &Handle,
         position: TextSize,
-    ) -> Option<Vec<CompletionItem>> {
-        let mod_module = self.get_ast(handle)?;
+        completions: &mut Vec<CompletionItem>,
+    ) {
+        let mod_module = match self.get_ast(handle) {
+            Some(module) => module,
+            None => return,
+        };
 
         let mut call_context = None;
         mod_module
             .visit(&mut |x| Self::visit_finding_signature_range(x, position, &mut call_context));
-        let (callee_range, _call_args_range, _arg_index) = call_context?;
+        let (callee_range, _call_args_range, _arg_index) = match call_context {
+            Some(context) => context,
+            None => return,
+        };
 
-        let answers = self.get_answers(handle)?;
-        let callee_type = answers.get_type_trace(callee_range)?;
+        let answers = match self.get_answers(handle) {
+            Some(answers) => answers,
+            None => return,
+        };
+        let callee_type = match answers.get_type_trace(callee_range) {
+            Some(ty) => ty,
+            None => return,
+        };
 
-        let params = Self::normalize_singleton_function_type_into_params(callee_type.arc_clone())?;
+        let params =
+            match Self::normalize_singleton_function_type_into_params(callee_type.arc_clone()) {
+                Some(params) => params,
+                None => return,
+            };
 
-        Some(
-            params
-                .iter()
-                .filter_map(|param| match param {
-                    Param::Pos(name, ty, _)
-                    | Param::PosOnly(Some(name), ty, _)
-                    | Param::KwOnly(name, ty, _)
-                    | Param::VarArg(Some(name), ty) => {
-                        if name.as_str() == "self" {
-                            None
-                        } else {
-                            Some(CompletionItem {
-                                label: format!("{}=", name.as_str()),
-                                detail: Some(ty.to_string()),
-                                kind: Some(CompletionItemKind::VARIABLE),
-                                ..Default::default()
-                            })
-                        }
+        for param in params {
+            match param {
+                Param::Pos(name, ty, _)
+                | Param::PosOnly(Some(name), ty, _)
+                | Param::KwOnly(name, ty, _)
+                | Param::VarArg(Some(name), ty) => {
+                    if name.as_str() != "self" {
+                        completions.push(CompletionItem {
+                            label: format!("{}=", name.as_str()),
+                            detail: Some(ty.to_string()),
+                            kind: Some(CompletionItemKind::VARIABLE),
+                            ..Default::default()
+                        });
                     }
-                    Param::VarArg(None, _) | Param::Kwargs(_, _) | Param::PosOnly(None, _, _) => {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>(),
-        )
+                }
+                Param::VarArg(None, _) | Param::Kwargs(_, _) | Param::PosOnly(None, _, _) => {}
+            }
+        }
     }
 
     pub fn completion(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
-        let mut results = self
-            .completion_unsorted_opt(handle, position)
-            .unwrap_or_default();
+        let mut results = self.completion_unsorted_opt(handle, position);
         for item in &mut results {
             let sort_text = if item.label.starts_with("__") {
                 "2"
@@ -1434,14 +1442,9 @@ impl<'a> Transaction<'a> {
         results
     }
 
-    fn completion_unsorted_opt(
-        &self,
-        handle: &Handle,
-        position: TextSize,
-    ) -> Option<Vec<CompletionItem>> {
-        if let Some(kwargs_completions) = self.kwargs_completions(handle, position) {
-            return Some(kwargs_completions);
-        }
+    fn completion_unsorted_opt(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
+        let mut result = Vec::new();
+        self.add_kwargs_completions(handle, position, &mut result);
 
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
@@ -1449,25 +1452,26 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::ImportedName { module_name, .. },
             }) => {
                 // TODO: Handle relative import (via ModuleName::new_maybe_relative)
-                let handle = self.import_handle(handle, module_name, None).ok()?;
-                let exports = self.get_exports(&handle);
-                let completions = exports
-                    .keys()
-                    .map(|name| CompletionItem {
-                        label: name.to_string(),
-                        // todo(kylei): completion kind for exports
-                        kind: Some(CompletionItemKind::VARIABLE),
-                        ..Default::default()
-                    })
-                    .collect();
-                Some(completions)
+                if let Ok(handle) = self.import_handle(handle, module_name, None) {
+                    let exports = self.get_exports(&handle);
+                    for name in exports.keys() {
+                        result.push(CompletionItem {
+                            label: name.to_string(),
+                            // todo(kylei): completion kind for exports
+                            kind: Some(CompletionItemKind::VARIABLE),
+                            ..Default::default()
+                        })
+                    }
+                }
             }
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::ImportedModule { .. },
-            }) => Some(
-                self.import_prefixes(handle, ModuleName::from_name(identifier.id()))
-                    .map(|module_name| CompletionItem {
+            }) => self
+                .import_prefixes(handle, ModuleName::from_name(identifier.id()))
+                .iter()
+                .for_each(|module_name| {
+                    result.push(CompletionItem {
                         label: module_name
                             .components()
                             .last()
@@ -1476,91 +1480,98 @@ impl<'a> Transaction<'a> {
                         detail: Some(module_name.to_string()),
                         kind: Some(CompletionItemKind::MODULE),
                         ..Default::default()
-                    }),
-            ),
+                    })
+                }),
             Some(IdentifierWithContext {
                 identifier: _,
                 context: IdentifierContext::Attribute { base_range, .. },
             }) => {
-                let base_type = self.get_answers(handle)?.get_type_trace(base_range)?;
-                self.ad_hoc_solve(handle, |solver| {
-                    solver
-                        .completions(base_type.arc_clone(), None, true)
-                        .into_map(|x| {
-                            let kind = match x.ty {
-                                Some(Type::BoundMethod(_)) => Some(CompletionItemKind::METHOD),
-                                Some(Type::Function(_)) => Some(CompletionItemKind::FUNCTION),
-                                _ => Some(CompletionItemKind::FIELD),
-                            };
-                            CompletionItem {
-                                label: x.name.as_str().to_owned(),
-                                detail: x.ty.map(|t| t.to_string()),
-                                kind,
-                                ..Default::default()
-                            }
-                        })
-                })
-            }
-            Some(IdentifierWithContext { identifier, .. }) => {
-                let bindings = self.get_bindings(handle)?;
-                let module_info = self.get_module_info(handle)?;
-                let mut names = bindings
-                    .available_definitions(position)
-                    .into_iter()
-                    .filter_map(|idx| {
-                        let key = bindings.idx_to_key(idx);
-                        if let Key::Definition(id) = key {
-                            let binding = bindings.get(idx);
-                            let detail = self.get_type(handle, key).map(|t| t.to_string());
-                            Some(CompletionItem {
-                                label: module_info.code_at(id.range()).to_owned(),
-                                detail,
-                                kind: binding
-                                    .symbol_kind()
-                                    .map_or(Some(CompletionItemKind::VARIABLE), |k| {
-                                        Some(k.to_lsp_completion_item_kind())
-                                    }),
-                                ..Default::default()
-                            })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                // We should not try to generate autoimport when the user has typed very few
-                // characters. It's unhelpful to narrow down suggestions.
-                if identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
-                    && let Some(ast) = self.get_ast(handle)
-                {
-                    for (handle_to_import_from, name, export) in
-                        self.search_exports_fuzzy(identifier.as_str())
-                    {
-                        let (position, insert_text) =
-                            insert_import_edit(&ast, handle_to_import_from, &name);
-                        let import_text_edit = TextEdit {
-                            range: source_range_to_range(
-                                &module_info
-                                    .source_range(TextRange::at(position, TextSize::new(0))),
-                            ),
-                            new_text: insert_text.clone(),
-                        };
-                        names.push(CompletionItem {
-                            label: name,
-                            detail: Some(insert_text),
-                            kind: export
-                                .symbol_kind
-                                .map_or(Some(CompletionItemKind::VARIABLE), |k| {
-                                    Some(k.to_lsp_completion_item_kind())
-                                }),
-                            additional_text_edits: Some(vec![import_text_edit]),
-                            ..Default::default()
+                if let Some(answers) = self.get_answers(handle) {
+                    if let Some(base_type) = answers.get_type_trace(base_range) {
+                        self.ad_hoc_solve(handle, |solver| {
+                            solver
+                                .completions(base_type.arc_clone(), None, true)
+                                .iter()
+                                .for_each(|x| {
+                                    let kind = match x.ty {
+                                        Some(Type::BoundMethod(_)) => {
+                                            Some(CompletionItemKind::METHOD)
+                                        }
+                                        Some(Type::Function(_)) => {
+                                            Some(CompletionItemKind::FUNCTION)
+                                        }
+                                        _ => Some(CompletionItemKind::FIELD),
+                                    };
+                                    result.push(CompletionItem {
+                                        label: x.name.as_str().to_owned(),
+                                        detail: x.ty.clone().map(|t| t.to_string()),
+                                        kind,
+                                        ..Default::default()
+                                    });
+                                });
                         });
                     }
                 }
-                Some(names)
             }
-            None => None,
+            Some(IdentifierWithContext { identifier, .. }) => {
+                if let Some(bindings) = self.get_bindings(handle) {
+                    if let Some(module_info) = self.get_module_info(handle) {
+                        bindings
+                            .available_definitions(position)
+                            .into_iter()
+                            .for_each(|idx| {
+                                let key = bindings.idx_to_key(idx);
+                                if let Key::Definition(id) = key {
+                                    let binding = bindings.get(idx);
+                                    let detail = self.get_type(handle, key).map(|t| t.to_string());
+                                    result.push(CompletionItem {
+                                        label: module_info.code_at(id.range()).to_owned(),
+                                        detail,
+                                        kind: binding
+                                            .symbol_kind()
+                                            .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                                                Some(k.to_lsp_completion_item_kind())
+                                            }),
+                                        ..Default::default()
+                                    })
+                                }
+                            });
+                        // We should not try to generate autoimport when the user has typed very few
+                        // characters. It's unhelpful to narrow down suggestions.
+                        if identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
+                            && let Some(ast) = self.get_ast(handle)
+                        {
+                            for (handle_to_import_from, name, export) in
+                                self.search_exports_fuzzy(identifier.as_str())
+                            {
+                                let (position, insert_text) =
+                                    insert_import_edit(&ast, handle_to_import_from, &name);
+                                let import_text_edit =
+                                    TextEdit {
+                                        range: source_range_to_range(&module_info.source_range(
+                                            TextRange::at(position, TextSize::new(0)),
+                                        )),
+                                        new_text: insert_text.clone(),
+                                    };
+                                result.push(CompletionItem {
+                                    label: name,
+                                    detail: Some(insert_text),
+                                    kind: export
+                                        .symbol_kind
+                                        .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                                            Some(k.to_lsp_completion_item_kind())
+                                        }),
+                                    additional_text_edits: Some(vec![import_text_edit]),
+                                    ..Default::default()
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            None => {}
         }
+        result
     }
 
     fn collect_types_from_callees(&self, range: TextRange, handle: &Handle) -> Vec<Type> {

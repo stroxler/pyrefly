@@ -306,18 +306,21 @@ Completion Results:
 fn kwargs_completion_basic() {
     let code = r#"
 def foo(a: int, b: str): ...
-foo(
-#   ^
+xyz = 5
+foo(x
+#    ^
 "#;
     let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
     assert_eq!(
         r#"
 # main.py
-3 | foo(
-        ^
+4 | foo(x
+         ^
 Completion Results:
 - (Variable) a=: int
 - (Variable) b=: str
+- (Function) foo: (a: int, b: str) -> None
+- (Variable) xyz: Literal[5]
 "#
         .trim(),
         report.trim(),
