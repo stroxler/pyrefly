@@ -652,6 +652,20 @@ def test(foo: Foo) -> None:
 );
 
 testcase!(
+    test_object_delattr,
+    r#"
+from typing import assert_type
+
+class Foo:
+    def __getattr__(self, name: str) -> int: ...
+    def __delattr__(self, name: str) -> None: ...
+
+def test(foo: Foo) -> None:
+    del foo.x
+    "#,
+);
+
+testcase!(
     test_object_setattr_wrong_signature,
     r#"
 from typing import assert_type

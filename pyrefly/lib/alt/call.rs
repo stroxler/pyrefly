@@ -873,7 +873,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.call_infer(call_target, &args, &[], range, errors, context, None)
     }
 
-    pub fn call_getattr(
+    pub fn call_getattr_or_delattr(
         &self,
         getattr_ty: Type,
         attr_name: Name,

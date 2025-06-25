@@ -677,6 +677,54 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn check_delattr(
+        &self,
+        attr_base: AttributeBase,
+        attr_name: &Name,
+        not_found: NotFound,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) {
+        let delattr_lookup_result = self.lookup_magic_dunder_attr(attr_base, &dunder::DELATTR);
+        match delattr_lookup_result {
+            LookupResult::NotFound(_) | LookupResult::InternalError(_) => {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::MissingAttribute,
+                    context,
+                    not_found.to_error_msg(attr_name),
+                );
+            }
+            LookupResult::Found(delattr_attr) => {
+                let result = self
+                    .resolve_get_access(Attribute::new(delattr_attr.inner), range, errors, context)
+                    .map(|delattr_attr_ty| {
+                        self.call_getattr_or_delattr(
+                            delattr_attr_ty,
+                            attr_name.clone(),
+                            range,
+                            errors,
+                            context,
+                        )
+                    });
+                match result {
+                    Ok(_) => {}
+                    Err(no_access) => {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorKind::MissingAttribute,
+                            context,
+                            no_access.to_error_msg(attr_name),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     fn check_attr_set_and_infer_narrow(
         &self,
         base: &Type,
@@ -830,11 +878,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) {
         let bases = self.get_possible_attribute_bases(base);
         for attr_base in bases {
-            let lookup_result = attr_base.map_or_else(
-                || LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone())),
-                |attr_base| self.lookup_attr_from_base_no_union(attr_base, attr_name),
-            );
-            match lookup_result {
+            let Some(attr_base) = attr_base else {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::InternalError,
+                    context,
+                    InternalError::AttributeBaseUndefined(base.clone())
+                        .to_error_msg(attr_name, todo_ctx),
+                );
+                return;
+            };
+            match self.lookup_attr_from_base_no_union(attr_base.clone(), attr_name) {
                 LookupResult::Found(attr) => match attr.inner {
                     // TODO: deleting attributes is allowed at runtime, but is not type-safe
                     // except for descriptors that implement `__delete__`
@@ -859,16 +914,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             format!("Cannot delete read-only attribute `{attr_name}`"),
                         );
                     }
-                    AttributeInner::GetAttr(not_found, _, name) => {
-                        // Attribute deleting bypasses `__getattr__` lookup and behaves the same
-                        // as if the `__getattr__` lookup did not happen.
-                        self.error(
-                            errors,
-                            range,
-                            ErrorKind::MissingAttribute,
-                            context,
-                            not_found.to_error_msg(&name),
-                        );
+                    AttributeInner::GetAttr(not_found, _, _) => {
+                        // Attribute deletion bypasses `__getattr__` lookup checks `__delattr__` directly
+                        self.check_delattr(attr_base, attr_name, not_found, range, errors, context);
                     }
                 },
                 LookupResult::InternalError(e) => {
@@ -881,13 +929,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 LookupResult::NotFound(e) => {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorKind::MissingAttribute,
-                        context,
-                        e.to_error_msg(attr_name),
-                    );
+                    self.check_delattr(attr_base, attr_name, e, range, errors, context);
                 }
             }
         }
@@ -1113,7 +1155,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AttributeInner::GetAttr(_, getattr_attr, name) => self
                 .resolve_get_access(Attribute::new(*getattr_attr), range, errors, context)
-                .map(|getattr_ty| self.call_getattr(getattr_ty, name, range, errors, context)),
+                .map(|getattr_ty| {
+                    self.call_getattr_or_delattr(getattr_ty, name, range, errors, context)
+                }),
         }
     }
 
