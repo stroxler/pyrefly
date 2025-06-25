@@ -85,7 +85,11 @@ impl ClassMetadata {
         total_ordering_metadata: Option<TotalOrderingMetadata>,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
-        let mro = Mro::new(cls, &bases_with_metadata, errors);
+        let bases_with_mro = bases_with_metadata
+            .iter()
+            .map(|(base, metadata)| (base, &metadata.mro))
+            .collect();
+        let mro = Mro::new(cls, bases_with_mro, errors);
         Self::validate_frozen_dataclass_inheritance(
             cls,
             &dataclass_metadata,
@@ -478,10 +482,10 @@ impl Mro {
     /// `Generic`, `Protocol`, and `object`.
     pub fn new(
         cls: &Class,
-        bases_with_metadata: &[(ClassType, Arc<ClassMetadata>)],
+        bases_with_mro: Vec<(&ClassType, &Mro)>,
         errors: &ErrorCollector,
     ) -> Self {
-        match Linearization::new(cls, bases_with_metadata, errors) {
+        match Linearization::new(cls, bases_with_mro, errors) {
             Linearization::Cyclic => Self::Cyclic,
             Linearization::Resolved(ancestor_chains) => {
                 let ancestors = Linearization::merge(cls, ancestor_chains, errors);
@@ -536,26 +540,23 @@ impl Linearization {
     /// - One consisting of the base classes themselves in the order defined.
     fn new(
         cls: &Class,
-        bases_with_metadata: &[(ClassType, Arc<ClassMetadata>)],
+        bases_with_mro: Vec<(&ClassType, &Mro)>,
         errors: &ErrorCollector,
     ) -> Linearization {
         let bases = match Vec1::try_from_vec(
-            bases_with_metadata
+            bases_with_mro
                 .iter()
                 .rev()
-                .map(|(base, _)| base.clone())
+                .map(|(base, _)| (*base).clone())
                 .collect(),
         ) {
             Ok(bases) => bases,
             Err(_) => return Linearization::empty(),
         };
         let mut ancestor_chains = Vec::new();
-        for (base, mro) in bases_with_metadata {
-            match &**mro {
-                ClassMetadata {
-                    mro: Mro::Resolved(ancestors),
-                    ..
-                } => {
+        for (base, mro) in bases_with_mro {
+            match mro {
+                Mro::Resolved(ancestors) => {
                     let ancestors_through_base = ancestors
                         .iter()
                         .map(|ancestor| ancestor.substitute(&base.substitution()))
@@ -568,9 +569,7 @@ impl Linearization {
                 }
                 // None and Cyclic both indicate a cycle, the distinction just
                 // depends on how exactly the recursion in resolving keys plays out.
-                ClassMetadata {
-                    mro: Mro::Cyclic, ..
-                } => {
+                Mro::Cyclic => {
                     errors.add(
                         cls.range(),
                         ErrorKind::InvalidInheritance,
