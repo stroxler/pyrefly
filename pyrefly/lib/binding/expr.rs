@@ -352,25 +352,26 @@ impl<'a> BindingsBuilder<'a> {
                 return None;
             }
             match func {
-                Expr::Attribute(ExprAttribute {
-                    value: box Expr::Name(base_name),
-                    attr,
-                    ..
-                }) if base_name.id.as_str() == "self" => match attr.id.as_str() {
-                    "assertTrue" => Some(TestAssertion::AssertTrue),
-                    "assertFalse" => Some(TestAssertion::AssertFalse),
-                    "assertIsNone" => Some(TestAssertion::AssertIsNone),
-                    "assertIsNotNone" => Some(TestAssertion::AssertIsNotNone),
-                    "assertIsInstance" => Some(TestAssertion::AssertIsInstance),
-                    "assertNotIsInstance" => Some(TestAssertion::AssertNotIsInstance),
-                    "assertIs" => Some(TestAssertion::AssertIs),
-                    "assertIsNot" => Some(TestAssertion::AssertIsNot),
-                    "assertEqual" => Some(TestAssertion::AssertEqual),
-                    "assertNotEqual" => Some(TestAssertion::AssertNotEqual),
-                    "assertIn" => Some(TestAssertion::AssertIn),
-                    "assertNotIn" => Some(TestAssertion::AssertNotIn),
-                    _ => None,
-                },
+                Expr::Attribute(ExprAttribute { value, attr, .. })
+                    if let Expr::Name(base_name) = &**value
+                        && base_name.id.as_str() == "self" =>
+                {
+                    match attr.id.as_str() {
+                        "assertTrue" => Some(TestAssertion::AssertTrue),
+                        "assertFalse" => Some(TestAssertion::AssertFalse),
+                        "assertIsNone" => Some(TestAssertion::AssertIsNone),
+                        "assertIsNotNone" => Some(TestAssertion::AssertIsNotNone),
+                        "assertIsInstance" => Some(TestAssertion::AssertIsInstance),
+                        "assertNotIsInstance" => Some(TestAssertion::AssertNotIsInstance),
+                        "assertIs" => Some(TestAssertion::AssertIs),
+                        "assertIsNot" => Some(TestAssertion::AssertIsNot),
+                        "assertEqual" => Some(TestAssertion::AssertEqual),
+                        "assertNotEqual" => Some(TestAssertion::AssertNotEqual),
+                        "assertIn" => Some(TestAssertion::AssertIn),
+                        "assertNotIn" => Some(TestAssertion::AssertNotIn),
+                        _ => None,
+                    }
+                }
                 _ => None,
             }
         } else {
