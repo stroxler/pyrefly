@@ -654,10 +654,8 @@ impl<'a> BindingsBuilder<'a> {
                     .as_special_export(&name.id, None, self.module_info.name())
             }
             Expr::Attribute(ExprAttribute {
-                value: box Expr::Name(base_name),
-                attr: name,
-                ..
-            }) => self.scopes.as_special_export(
+                value, attr: name, ..
+            }) if let Expr::Name(base_name) = &**value => self.scopes.as_special_export(
                 &name.id,
                 Some(&base_name.id),
                 self.module_info.name(),
