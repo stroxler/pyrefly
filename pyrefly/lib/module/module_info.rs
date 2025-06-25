@@ -28,8 +28,8 @@ use crate::error::kind::ErrorKind;
 use crate::module::ignore::Ignore;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
-use crate::ruff::ast::Ast;
-use crate::sys_info::PythonVersion;
+use crate::python::ast::Ast;
+use crate::python::sys_info::PythonVersion;
 
 pub static GENERATED_TOKEN: &str = concat!("@", "generated");
 

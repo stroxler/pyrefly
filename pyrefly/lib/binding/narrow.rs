@@ -30,7 +30,7 @@ use vec1::Vec1;
 
 use crate::binding::bindings::BindingsBuilder;
 use crate::export::special::SpecialExport;
-use crate::ruff::ast::Ast;
+use crate::python::ast::Ast;
 use crate::types::facet::FacetChain;
 use crate::types::facet::FacetKind;
 use crate::types::types::Type;

@@ -42,7 +42,6 @@ use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::User;
 use crate::binding::function::SelfAssignments;
 use crate::common::symbol_kind::SymbolKind;
-use crate::dunder;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
 use crate::export::exports::LookupExport;
@@ -51,8 +50,9 @@ use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
-use crate::ruff::ast::Ast;
-use crate::sys_info::SysInfo;
+use crate::python::ast::Ast;
+use crate::python::dunder;
+use crate::python::sys_info::SysInfo;
 use crate::types::class::ClassDefIndex;
 
 /// Many names may map to the same TextRange (e.g. from foo import *).

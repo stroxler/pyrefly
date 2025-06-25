@@ -21,8 +21,8 @@ use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
 use starlark_map::ordered_map::OrderedMap;
 
-use crate::dunder;
 use crate::module::module_name::ModuleName;
+use crate::python::dunder;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
 use crate::types::types::Type;

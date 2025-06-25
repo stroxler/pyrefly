@@ -22,10 +22,10 @@ use crate::error::kind::Severity;
 use crate::module::module_info::SourceRange;
 use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
+use crate::python::sys_info::SysInfo;
 use crate::state::handle::Handle;
 use crate::state::require::Require;
 use crate::state::state::State;
-use crate::sys_info::SysInfo;
 
 #[derive(Serialize)]
 pub struct Position {

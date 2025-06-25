@@ -59,15 +59,15 @@ use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::module::wildcard::ModuleWildcard;
+use crate::python::sys_info::PythonPlatform;
+use crate::python::sys_info::PythonVersion;
+use crate::python::sys_info::SysInfo;
 use crate::report;
 use crate::state::handle::Handle;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::subscriber::ProgressBarSubscriber;
-use crate::sys_info::PythonPlatform;
-use crate::sys_info::PythonVersion;
-use crate::sys_info::SysInfo;
 
 #[derive(Debug, Clone, ValueEnum, Default)]
 enum OutputFormat {

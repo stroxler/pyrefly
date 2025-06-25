@@ -18,7 +18,7 @@ use tracing::error;
 
 use crate::error::error::Error;
 use crate::module::module_info::GENERATED_TOKEN;
-use crate::ruff::ast::Ast;
+use crate::python::ast::Ast;
 
 /// Combines all errors that affect one line into a single entry.
 // The current format is: `# pyrefly: ignore  # error1, error2, ...`
