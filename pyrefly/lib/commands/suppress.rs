@@ -188,6 +188,7 @@ mod tests {
     use std::sync::Arc;
 
     use pretty_assertions::assert_str_eq;
+    use pyrefly_util::lined_buffer::SourceRange;
     use ruff_source_file::LineColumn;
     use ruff_source_file::OneIndexed;
     use tempfile;
@@ -196,7 +197,6 @@ mod tests {
     use super::*;
     use crate::error::kind::ErrorKind;
     use crate::module::module_info::ModuleInfo;
-    use crate::module::module_info::SourceRange;
     use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
 
