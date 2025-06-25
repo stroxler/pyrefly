@@ -531,6 +531,29 @@ Completion Results:
     );
 }
 
+// todo(kylei): completion on known dict values
+// Pyright completes "a", "b"
+#[test]
+fn completion_dict() {
+    let code = r#"
+x = {"a": 3, "b", 4}
+x["
+# ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+3 | x["
+      ^
+Completion Results:
+- (Variable) x: dict[int | str, int]
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
 // todo(kylei): kwarg completion on overload
 #[test]
 fn kwargs_completion_literal() {
