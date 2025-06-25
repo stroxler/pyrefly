@@ -666,38 +666,43 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    fn visit_finding_signature_range(
+        x: &Expr,
+        find: TextSize,
+        res: &mut Option<(TextRange, TextRange, usize)>,
+    ) {
+        if let Expr::Call(call) = x
+            && call.arguments.range.contains_inclusive(find)
+        {
+            for (i, arg) in call.arguments.args.as_ref().iter().enumerate() {
+                if arg.range().contains_inclusive(find) {
+                    Self::visit_finding_signature_range(arg, find, res);
+                    if res.is_some() {
+                        return;
+                    }
+                    *res = Some((call.func.range(), call.arguments.range, i));
+                }
+            }
+            if res.is_none() {
+                *res = Some((
+                    call.func.range(),
+                    call.arguments.range,
+                    call.arguments.len(),
+                ));
+            }
+        } else {
+            x.recurse(&mut |x| Self::visit_finding_signature_range(x, find, res));
+        }
+    }
+
     pub fn get_signature_help_at(
         &self,
         handle: &Handle,
         position: TextSize,
     ) -> Option<SignatureHelp> {
         let mod_module = self.get_ast(handle)?;
-        fn visit(x: &Expr, find: TextSize, res: &mut Option<(TextRange, TextRange, usize)>) {
-            if let Expr::Call(call) = x
-                && call.arguments.range.contains_inclusive(find)
-            {
-                for (i, arg) in call.arguments.args.as_ref().iter().enumerate() {
-                    if arg.range().contains_inclusive(find) {
-                        visit(arg, find, res);
-                        if res.is_some() {
-                            return;
-                        }
-                        *res = Some((call.func.range(), call.arguments.range, i));
-                    }
-                }
-                if res.is_none() {
-                    *res = Some((
-                        call.func.range(),
-                        call.arguments.range,
-                        call.arguments.len(),
-                    ));
-                }
-            } else {
-                x.recurse(&mut |x| visit(x, find, res));
-            }
-        }
         let mut res = None;
-        mod_module.visit(&mut |x| visit(x, position, &mut res));
+        mod_module.visit(&mut |x| Self::visit_finding_signature_range(x, position, &mut res));
         let (callee_range, call_args_range, arg_index) = res?;
         let answers = self.get_answers(handle)?;
         if let Some((overloads, chosen_overload_index)) =
@@ -728,24 +733,23 @@ impl<'a> Transaction<'a> {
     fn create_signature_information(type_: Type, arg_index: usize) -> SignatureInformation {
         let type_ = type_.deterministic_printing();
         let label = format!("{}", type_);
-        let (parameters, active_parameter) = if let Some(params) =
-            Self::normalize_singleton_function_type_for_signature_help(type_)
-        {
-            let active_parameter = if arg_index < params.len() {
-                Some(arg_index as u32)
+        let (parameters, active_parameter) =
+            if let Some(params) = Self::normalize_singleton_function_type_into_params(type_) {
+                let active_parameter = if arg_index < params.len() {
+                    Some(arg_index as u32)
+                } else {
+                    None
+                };
+                (
+                    Some(params.map(|param| ParameterInformation {
+                        label: ParameterLabel::Simple(format!("{}", param)),
+                        documentation: None,
+                    })),
+                    active_parameter,
+                )
             } else {
-                None
+                (None, None)
             };
-            (
-                Some(params.map(|param| ParameterInformation {
-                    label: ParameterLabel::Simple(format!("{}", param)),
-                    documentation: None,
-                })),
-                active_parameter,
-            )
-        } else {
-            (None, None)
-        };
         SignatureInformation {
             label,
             documentation: None,
@@ -754,7 +758,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn normalize_singleton_function_type_for_signature_help(type_: Type) -> Option<Vec<Param>> {
+    fn normalize_singleton_function_type_into_params(type_: Type) -> Option<Vec<Param>> {
         let callable = match type_ {
             Type::Callable(callable) => Some(*callable),
             Type::Function(function) => Some(function.signature),
@@ -1367,6 +1371,50 @@ impl<'a> Transaction<'a> {
         named_bindings
     }
 
+    fn kwargs_completions(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+    ) -> Option<Vec<CompletionItem>> {
+        let mod_module = self.get_ast(handle)?;
+
+        let mut call_context = None;
+        mod_module
+            .visit(&mut |x| Self::visit_finding_signature_range(x, position, &mut call_context));
+        let (callee_range, _call_args_range, _arg_index) = call_context?;
+
+        let answers = self.get_answers(handle)?;
+        let callee_type = answers.get_type_trace(callee_range)?;
+
+        let params = Self::normalize_singleton_function_type_into_params(callee_type.arc_clone())?;
+
+        Some(
+            params
+                .iter()
+                .filter_map(|param| match param {
+                    Param::Pos(name, ty, _)
+                    | Param::PosOnly(Some(name), ty, _)
+                    | Param::KwOnly(name, ty, _)
+                    | Param::VarArg(Some(name), ty) => {
+                        if name.as_str() == "self" {
+                            None
+                        } else {
+                            Some(CompletionItem {
+                                label: format!("{}=", name.as_str()),
+                                detail: Some(ty.to_string()),
+                                kind: Some(CompletionItemKind::VARIABLE),
+                                ..Default::default()
+                            })
+                        }
+                    }
+                    Param::VarArg(None, _) | Param::Kwargs(_, _) | Param::PosOnly(None, _, _) => {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>(),
+        )
+    }
+
     pub fn completion(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
         let mut results = self
             .completion_unsorted_opt(handle, position)
@@ -1391,6 +1439,10 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
     ) -> Option<Vec<CompletionItem>> {
+        if let Some(kwargs_completions) = self.kwargs_completions(handle, position) {
+            return Some(kwargs_completions);
+        }
+
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
                 identifier: _,
