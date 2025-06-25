@@ -12,9 +12,9 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::lined_buffer::LinedBuffer;
 use ruff_python_ast::ModModule;
 use ruff_source_file::LineColumn;
-use ruff_source_file::LineIndex;
 use ruff_source_file::OneIndexed;
 use ruff_source_file::PositionEncoding;
 use ruff_source_file::SourceLocation;
@@ -84,22 +84,20 @@ pub struct ModuleInfo(ArcId<ModuleInfoInner>);
 struct ModuleInfoInner {
     name: ModuleName,
     path: ModulePath,
-    index: LineIndex,
     ignore: Ignore,
     is_generated: bool,
-    contents: Arc<String>,
+    contents: LinedBuffer,
 }
 
 impl ModuleInfo {
     /// Create a new ModuleInfo. Will NOT read the `path`, but use the value from `contents` instead.
     pub fn new(name: ModuleName, path: ModulePath, contents: Arc<String>) -> Self {
-        let index = LineIndex::from_source_text(&contents);
         let ignore = Ignore::new(&contents);
         let is_generated = contents.contains(GENERATED_TOKEN);
+        let contents = LinedBuffer::new(contents);
         Self(ArcId::new(ModuleInfoInner {
             name,
             path,
-            index,
             ignore,
             is_generated,
             contents,
@@ -107,7 +105,7 @@ impl ModuleInfo {
     }
 
     pub fn len(&self) -> usize {
-        self.0.contents.len()
+        self.0.contents.buffer.len()
     }
 
     pub fn line_count(&self) -> usize {
@@ -115,10 +113,11 @@ impl ModuleInfo {
         // we might need to only count the non-empty/non-comment lines.
         const COUNT_EMPTY_LINES: bool = true;
         if COUNT_EMPTY_LINES {
-            self.0.index.line_count()
+            self.0.contents.lines.line_count()
         } else {
             self.0
                 .contents
+                .buffer
                 .lines()
                 .filter(|x| {
                     let res = x.trim_start();
@@ -144,17 +143,20 @@ impl ModuleInfo {
             offset.to_usize(),
             self.len()
         );
-        self.0.index.line_column(offset, &self.0.contents)
+        self.0
+            .contents
+            .lines
+            .line_column(offset, &self.0.contents.buffer)
     }
 
     pub fn code_at(&self, range: TextRange) -> &str {
-        match self.0.contents.get(Range::<usize>::from(range)) {
+        match self.0.contents.buffer.get(Range::<usize>::from(range)) {
             Some(code) => code,
             None => panic!(
                 "Module {}({}): `range` is invalid, got {range:?}, but file is {} bytes long",
                 self.0.name,
                 self.0.path,
-                self.0.contents.len()
+                self.0.contents.buffer.len()
             ),
         }
     }
@@ -168,7 +170,7 @@ impl ModuleInfo {
     }
 
     pub fn contents(&self) -> &Arc<String> {
-        &self.0.contents
+        &self.0.contents.buffer
     }
 
     pub fn parse(&self, version: PythonVersion, errors: &ErrorCollector) -> ModModule {
@@ -190,12 +192,12 @@ impl ModuleInfo {
     }
 
     pub fn to_text_size(&self, line: u32, column: u32) -> TextSize {
-        self.0.index.offset(
+        self.0.contents.lines.offset(
             SourceLocation {
                 line: OneIndexed::from_zero_indexed(line as usize),
                 character_offset: OneIndexed::from_zero_indexed(column as usize),
             },
-            &self.0.contents,
+            &self.0.contents.buffer,
             PositionEncoding::Utf32,
         )
     }
@@ -216,13 +218,24 @@ impl ModuleInfo {
     /// Gets the content from the beginning of start_line to the end of end_line.
     pub fn content_in_line_range(&self, start_line: OneIndexed, end_line: OneIndexed) -> &str {
         debug_assert!(start_line <= end_line);
-        let start = self.0.index.line_start(start_line, &self.0.contents);
-        let end = self.0.index.line_end(end_line, &self.0.contents);
-        &self.0.contents[start.to_usize()..end.to_usize()]
+        let start = self
+            .0
+            .contents
+            .lines
+            .line_start(start_line, &self.0.contents.buffer);
+        let end = self
+            .0
+            .contents
+            .lines
+            .line_end(end_line, &self.0.contents.buffer);
+        &self.0.contents.buffer[start.to_usize()..end.to_usize()]
     }
 
     pub fn line_start(&self, line: OneIndexed) -> TextSize {
-        self.0.index.line_start(line, &self.0.contents)
+        self.0
+            .contents
+            .lines
+            .line_start(line, &self.0.contents.buffer)
     }
 
     pub fn is_ignored(&self, source_range: &SourceRange) -> bool {
