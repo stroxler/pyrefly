@@ -667,15 +667,14 @@ impl<'a> BindingsBuilder<'a> {
                 // Don't go inside a literal, since you might find strings which are really strings, not string-types
                 self.ensure_expr(x, static_type_usage);
             }
-            Expr::Subscript(ExprSubscript {
-                value,
-                slice: box Expr::Tuple(tup),
-                ..
-            }) if self.as_special_export(value) == Some(SpecialExport::Annotated)
-                && !tup.is_empty() =>
+            Expr::Subscript(ExprSubscript { value, slice, .. })
+                if self.as_special_export(value) == Some(SpecialExport::Annotated)
+                    && matches!(&**slice, Expr::Tuple(tup) if !tup.is_empty()) =>
             {
                 // Only go inside the first argument to Annotated, the rest are non-type metadata.
                 self.ensure_type(&mut *value, tparams_builder);
+                // We can't bind a mut box in the guard (sadly), so force unwrapping it here
+                let tup = slice.as_tuple_expr_mut().unwrap();
                 self.ensure_type(&mut tup.elts[0], tparams_builder);
                 for e in tup.elts[1..].iter_mut() {
                     self.ensure_expr(e, static_type_usage);
