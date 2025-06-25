@@ -50,6 +50,9 @@ pub struct ClassMetadata {
     /// This can happen if, e.g., a class inherits from Any.
     has_unknown_tparams: bool,
     total_ordering_metadata: Option<TotalOrderingMetadata>,
+    /// If this class is decorated with `typing.dataclass_transform(...)`, the keyword arguments
+    /// that were passed to the `dataclass_transform` call.
+    dataclass_transform_metadata: Option<BoolKeywords>,
 }
 
 impl VisitMut<Type> for ClassMetadata {
@@ -81,6 +84,7 @@ impl ClassMetadata {
         is_final: bool,
         has_unknown_tparams: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
+        dataclass_transform_metadata: Option<BoolKeywords>,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         Self::validate_frozen_dataclass_inheritance(
@@ -103,6 +107,7 @@ impl ClassMetadata {
             is_final,
             has_unknown_tparams,
             total_ordering_metadata,
+            dataclass_transform_metadata,
         }
     }
 
@@ -166,6 +171,7 @@ impl ClassMetadata {
             is_final: false,
             has_unknown_tparams: false,
             total_ordering_metadata: None,
+            dataclass_transform_metadata: None,
         }
     }
 
@@ -242,6 +248,11 @@ impl ClassMetadata {
 
     pub fn dataclass_metadata(&self) -> Option<&DataclassMetadata> {
         self.dataclass_metadata.as_ref()
+    }
+
+    #[expect(dead_code)]
+    pub fn dataclass_transform_metadata(&self) -> Option<&BoolKeywords> {
+        self.dataclass_transform_metadata.as_ref()
     }
 }
 
