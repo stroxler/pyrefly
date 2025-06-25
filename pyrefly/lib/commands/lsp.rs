@@ -81,6 +81,7 @@ use lsp_types::MarkupKind;
 use lsp_types::NumberOrString;
 use lsp_types::OneOf;
 use lsp_types::PositionEncodingKind;
+use lsp_types::PrepareRenameResponse;
 use lsp_types::PublishDiagnosticsParams;
 use lsp_types::Range;
 use lsp_types::ReferenceParams;
@@ -88,6 +89,7 @@ use lsp_types::Registration;
 use lsp_types::RegistrationParams;
 use lsp_types::RelatedFullDocumentDiagnosticReport;
 use lsp_types::RelativePattern;
+use lsp_types::RenameOptions;
 use lsp_types::SemanticTokens;
 use lsp_types::SemanticTokensFullOptions;
 use lsp_types::SemanticTokensOptions;
@@ -101,6 +103,7 @@ use lsp_types::SignatureHelp;
 use lsp_types::SignatureHelpOptions;
 use lsp_types::SignatureHelpParams;
 use lsp_types::TextDocumentContentChangeEvent;
+use lsp_types::TextDocumentPositionParams;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
 use lsp_types::TextEdit;
@@ -132,6 +135,7 @@ use lsp_types::request::DocumentSymbolRequest;
 use lsp_types::request::GotoDefinition;
 use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
+use lsp_types::request::PrepareRenameRequest;
 use lsp_types::request::References;
 use lsp_types::request::RegisterCapability;
 use lsp_types::request::SemanticTokensFullRequest;
@@ -628,6 +632,15 @@ fn initialize_connection(
                 Some(OneOf::Left(true))
             }
         },
+        rename_provider: match args.indexing_mode {
+            IndexingMode::None => None,
+            IndexingMode::LazyNonBlockingBackground | IndexingMode::LazyBlocking => {
+                Some(OneOf::Right(RenameOptions {
+                    prepare_provider: Some(true),
+                    work_done_progress_options: Default::default(),
+                }))
+            }
+        },
         signature_help_provider: Some(SignatureHelpOptions {
             trigger_characters: Some(vec!["(".to_owned(), ",".to_owned()]),
             ..Default::default()
@@ -903,6 +916,14 @@ impl Server {
                     ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<References>(&x) {
                     self.references(x.id, ide_transaction_manager, params);
+                } else if let Some(params) = as_request::<PrepareRenameRequest>(&x) {
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(self.prepare_rename(&transaction, params)),
+                    ));
+                    ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<SignatureHelpRequest>(&x) {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
@@ -1658,6 +1679,20 @@ impl Server {
                 }
             }
         });
+    }
+
+    fn prepare_rename(
+        &self,
+        transaction: &Transaction<'_>,
+        params: TextDocumentPositionParams,
+    ) -> Option<PrepareRenameResponse> {
+        let uri = &params.text_document.uri;
+        let handle = self.make_handle_if_enabled(uri)?;
+        let info = transaction.get_module_info(&handle)?;
+        let position = position_to_text_size(&info, params.position);
+        transaction.prepare_rename(&handle, position).map(|range| {
+            PrepareRenameResponse::Range(source_range_to_range(&info.source_range(range)))
+        })
     }
 
     fn signature_help(

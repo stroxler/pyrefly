@@ -1003,6 +1003,39 @@ fn test_references() {
 }
 
 #[test]
+fn test_prepare_rename() {
+    let root = get_test_files_root();
+
+    run_test_lsp(TestCase {
+        messages_from_language_client: vec![
+            Message::from(build_did_open_notification(root.path().join("foo.py"))),
+            Message::from(Request {
+                id: RequestId::from(2),
+                method: "textDocument/prepareRename".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                    },
+                    "position": {
+                        "line": 6,
+                        "character": 16
+                    }
+                }),
+            }),
+        ],
+        expected_messages_from_language_server: vec![Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(serde_json::json!({
+                "start":{"line":6,"character":16},
+                "end":{"line":6,"character":19},
+            })),
+            error: None,
+        })],
+        ..Default::default()
+    });
+}
+
+#[test]
 fn test_did_change_configuration() {
     let root = get_test_files_root();
     let scope_uri = Url::from_file_path(root.path()).unwrap();

@@ -1174,6 +1174,15 @@ impl<'a> Transaction<'a> {
         Some(code_actions)
     }
 
+    pub fn prepare_rename(&self, handle: &Handle, position: TextSize) -> Option<TextRange> {
+        self.identifier_at(handle, position).map(
+            |IdentifierWithContext {
+                 identifier,
+                 context: _,
+             }| identifier.range,
+        )
+    }
+
     pub fn find_local_references(&self, handle: &Handle, position: TextSize) -> Vec<TextRange> {
         if let Some((definition_kind, definition, _docstring)) =
             self.find_definition(handle, position, false)
