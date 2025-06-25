@@ -1268,7 +1268,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // TODO(stroxler): it is probably possible to synthesize a forall type here
                     // that uses a type var to propagate the setter. Investigate this option later.
                     getter.transform_func_metadata(|meta: &mut FuncMetadata| {
-                        meta.kind = FunctionKind::PropertySetter(Box::new(meta.kind.as_func_id()));
+                        meta.flags.is_property_setter_decorator = true;
                     });
                     LookupResult::found_type(
                         // TODO(samzhou19815): Support go-to-definition for @property applied symbols

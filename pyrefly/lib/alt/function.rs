@@ -176,8 +176,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .iter()
             .filter(|k| {
                 let decorator = self.get_idx(**k);
-                is_deprecated |= matches!(decorator.ty(), Type::ClassType(cls) if cls.has_qname("warnings", "deprecated"));
-                match decorator.ty().callee_kind() {
+                let decorator_ty = decorator.ty();
+                is_deprecated |= matches!(decorator_ty, Type::ClassType(cls) if cls.has_qname("warnings", "deprecated"));
+                match decorator_ty.callee_kind() {
                     Some(CalleeKind::Function(FunctionKind::Overload)) => {
                         is_overload = true;
                         false
@@ -194,9 +195,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         is_property_getter = true;
                         false
                     }
-                    Some(CalleeKind::Function(FunctionKind::PropertySetter(_))) => {
+                    Some(CalleeKind::Function(_)) if decorator_ty.is_property_setter_decorator() => {
                         // When the `setter` attribute is accessed on a property, we return the
-                        // getter with its kind set to FunctionKind::PropertySetter. See
+                        // getter with the is_property_setter_decorator flag set to true. See
                         // AnswersSolver::lookup_attr_from_attribute_base for details.
                         is_property_setter_with_getter = Some(decorator.arc_clone_ty());
                         false
@@ -459,6 +460,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 is_classmethod,
                 is_deprecated,
                 is_property_getter,
+                is_property_setter_decorator: false,
                 is_property_setter_with_getter,
                 has_enum_member_decoration,
                 is_override,

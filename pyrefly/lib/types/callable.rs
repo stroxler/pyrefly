@@ -199,6 +199,9 @@ pub struct FuncFlags {
     pub is_deprecated: bool,
     /// A function decorated with `@property`
     pub is_property_getter: bool,
+    /// A `foo.setter` function, where `foo` is some `@property`-decorated function.
+    /// When used to decorate a function, turns the decorated function into a property setter.
+    pub is_property_setter_decorator: bool,
     /// A function decorated with `@foo.setter`, where `foo` is some `@property`-decorated function.
     /// The stored type is `foo` (the getter).
     pub is_property_setter_with_getter: Option<Type>,
@@ -257,7 +260,6 @@ pub enum FunctionKind {
     RevealType,
     Final,
     RuntimeCheckable,
-    PropertySetter(Box<FuncId>),
     Def(Box<FuncId>),
     AbstractMethod,
     /// Instance of a protocol with a `__call__` method. The function has the `__call__` signature.
@@ -628,12 +630,12 @@ impl FunctionKind {
                 func: Name::new_static("abstractmethod"),
             },
             Self::DataclassLike(x) => x.0.clone(),
-            Self::PropertySetter(func_id) | Self::Def(func_id) => (**func_id).clone(),
             Self::TotalOrdering => FuncId {
                 module: ModuleName::functools(),
                 cls: None,
                 func: Name::new_static("total_ordering"),
             },
+            Self::Def(func_id) => (**func_id).clone(),
         }
     }
 }

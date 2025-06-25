@@ -1028,6 +1028,10 @@ impl Type {
         self.check_func_metadata(&|meta| meta.flags.is_property_getter)
     }
 
+    pub fn is_property_setter_decorator(&self) -> bool {
+        self.check_func_metadata(&|meta| meta.flags.is_property_setter_decorator)
+    }
+
     pub fn is_property_setter_with_getter(&self) -> Option<Type> {
         self.check_func_metadata(&|meta| meta.flags.is_property_setter_with_getter.clone())
     }
