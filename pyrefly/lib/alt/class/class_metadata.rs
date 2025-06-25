@@ -159,7 +159,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         has_generic_base_class = true;
                         None
                     }
-                    _ => None,
+                    // Skip over empty generic. Empty protocol is only relevant for `protocol_metadata`, defined
+                    // above so we can skip it here.
+                    BaseClass::Generic(_) | BaseClass::Protocol(_) => None
                 };
                 if is_new_type {
                     self.new_type_base(base_type_and_range, cls.range(), errors)
