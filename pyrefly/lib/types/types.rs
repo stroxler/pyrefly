@@ -650,7 +650,7 @@ pub enum Type {
     /// The result of a `typing.dataclass_transform` call. When used as a decorator, it marks
     /// whatever it is applied to as having special dataclass-like semantics. See
     /// https://typing.python.org/en/latest/spec/dataclasses.html#specification.
-    DataclassTransformDecorator(Box<BoolKeywords>),
+    DataclassTransformDecorator(Box<(BoolKeywords, Type)>),
     None,
 }
 

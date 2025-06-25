@@ -84,8 +84,6 @@ enum Target {
     FunctionOverload(Vec1<Callable>, FuncMetadata),
     /// An overloaded method.
     BoundMethodOverload(Type, Vec1<Callable>, FuncMetadata),
-    /// The result of a `typing.dataclass_transform` call. See Type::DataclassTransformDecorator.
-    DataclassTransformDecorator(BoolKeywords),
     Any(AnyStyle),
 }
 
@@ -228,9 +226,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: handle constraints
                 Restriction::Constraints(_) | Restriction::Unrestricted => None,
             },
-            Type::DataclassTransformDecorator(kws) => {
-                Some(CallTarget::new(Target::DataclassTransformDecorator(*kws)))
-            }
+            Type::DataclassTransformDecorator(dec) => self.as_call_target((*dec).1),
             _ => None,
         }
     }
@@ -634,12 +630,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
                 context,
             ),
-            Target::DataclassTransformDecorator(_) => {
-                // TODO(rechen): mark the first argument as having dataclass-like semantics.
-                // For now, we just pretend `dataclass_transform()` is the identity function.
-                let first_arg = self.first_arg_type(args, errors);
-                first_arg.unwrap_or_else(Type::any_implicit)
-            }
             Target::Any(style) => {
                 // Make sure we still catch errors in the arguments.
                 for arg in args {
@@ -670,7 +660,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }))
         } else if is_dataclass_transform {
             // TODO(rechen): store the keyword arguments.
-            Type::DataclassTransformDecorator(Box::new(BoolKeywords::new()))
+            Type::DataclassTransformDecorator(Box::new((BoolKeywords::new(), res)))
         } else {
             res
         }
