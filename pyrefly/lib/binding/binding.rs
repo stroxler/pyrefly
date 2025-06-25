@@ -1673,7 +1673,6 @@ impl DisplayWith<Bindings> for BindingClassMetadata {
 
 /// Binding for the class's MRO
 /// This rerquires base classes; these should match what `BindingClassMetadata` has.
-#[expect(dead_code)]
 #[derive(Clone, Debug)]
 pub struct BindingClassMro {
     pub class_idx: Idx<KeyClass>,

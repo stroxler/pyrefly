@@ -228,12 +228,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Arc::new(metadata)
     }
 
-    pub fn solve_class_mro(
-        &self,
-        _binding: &BindingClassMro,
-        _errors: &ErrorCollector,
-    ) -> Arc<Mro> {
-        unimplemented!("This binding is not yet in use")
+    pub fn solve_class_mro(&self, binding: &BindingClassMro, errors: &ErrorCollector) -> Arc<Mro> {
+        let BindingClassMro {
+            class_idx: k,
+            bases,
+            special_base,
+        } = binding;
+        let mro = match &self.get_idx(*k).0 {
+            None => Mro::recursive(),
+            Some(cls) => self.calculate_class_mro(cls, bases, special_base, errors),
+        };
+        Arc::new(mro)
     }
 
     pub fn solve_annotation(
@@ -1393,9 +1398,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// This is the class above `cls` in `obj`'s MRO.
     fn get_super_lookup_class(&self, cls: &Class, obj: &ClassType) -> Option<ClassType> {
         let mut lookup_cls = None;
-        let metadata = self.get_metadata_for_class(obj.class_object());
+        let mro = self.get_mro_for_class(obj.class_object());
         let mut found = false;
-        for ancestor in iter::once(obj).chain(metadata.ancestors(self.stdlib)) {
+        for ancestor in iter::once(obj).chain(mro.ancestors(self.stdlib)) {
             if ancestor.class_object() == cls {
                 found = true;
                 // Handle the corner case of `ancestor` being `object` (and

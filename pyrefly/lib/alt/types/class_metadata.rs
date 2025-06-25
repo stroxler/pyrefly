@@ -35,7 +35,6 @@ use crate::types::types::Type;
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
 pub struct ClassMetadata {
-    mro: Mro,
     metaclass: Metaclass,
     keywords: Keywords,
     typed_dict_metadata: Option<TypedDictMetadata>,
@@ -54,16 +53,15 @@ pub struct ClassMetadata {
 }
 
 impl VisitMut<Type> for ClassMetadata {
-    fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut Type)) {
+    fn recurse_mut(&mut self, _: &mut dyn FnMut(&mut Type)) {
         // TODO: This is definitely wrong. We have types in lots of these places.
         // Doesn't seem to have gone wrong yet, but it will.
-        self.mro.recurse_mut(f);
     }
 }
 
 impl Display for ClassMetadata {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "ClassMetadata({}, {})", self.mro, self.metaclass)
+        write!(f, "ClassMetadata(metaclass={})", self.metaclass)
     }
 }
 
@@ -85,11 +83,6 @@ impl ClassMetadata {
         total_ordering_metadata: Option<TotalOrderingMetadata>,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
-        let bases_with_mro = bases_with_metadata
-            .iter()
-            .map(|(base, metadata)| (base, &metadata.mro))
-            .collect();
-        let mro = Mro::new(cls, bases_with_mro, errors);
         Self::validate_frozen_dataclass_inheritance(
             cls,
             &dataclass_metadata,
@@ -97,7 +90,6 @@ impl ClassMetadata {
             errors,
         );
         ClassMetadata {
-            mro,
             metaclass: Metaclass(metaclass),
             keywords: Keywords(keywords),
             typed_dict_metadata,
@@ -161,7 +153,6 @@ impl ClassMetadata {
 
     pub fn recursive() -> Self {
         ClassMetadata {
-            mro: Mro::Cyclic,
             metaclass: Metaclass::default(),
             keywords: Keywords::default(),
             typed_dict_metadata: None,
@@ -251,18 +242,6 @@ impl ClassMetadata {
 
     pub fn dataclass_metadata(&self) -> Option<&DataclassMetadata> {
         self.dataclass_metadata.as_ref()
-    }
-
-    pub fn ancestors<'a>(&'a self, stdlib: &'a Stdlib) -> impl Iterator<Item = &'a ClassType> {
-        self.ancestors_no_object()
-            .iter()
-            .chain(iter::once(stdlib.object()))
-    }
-
-    /// The MRO doesn't track `object` directly for efficiency, since it always comes last, and
-    /// some use cases (for example checking if the type is an enum) do not care about `object`.
-    pub fn ancestors_no_object(&self) -> &[ClassType] {
-        self.mro.ancestors_no_object()
     }
 }
 
@@ -482,7 +461,7 @@ impl Mro {
     /// `Generic`, `Protocol`, and `object`.
     pub fn new(
         cls: &Class,
-        bases_with_mro: Vec<(&ClassType, &Mro)>,
+        bases_with_mro: Vec<(ClassType, Arc<Mro>)>,
         errors: &ErrorCollector,
     ) -> Self {
         match Linearization::new(cls, bases_with_mro, errors) {
@@ -501,6 +480,12 @@ impl Mro {
             Mro::Resolved(ancestors) => ancestors,
             Mro::Cyclic => &[],
         }
+    }
+
+    pub fn ancestors<'a>(&'a self, stdlib: &'a Stdlib) -> impl Iterator<Item = &'a ClassType> {
+        self.ancestors_no_object()
+            .iter()
+            .chain(iter::once(stdlib.object()))
     }
 
     pub fn recursive() -> Self {
@@ -544,7 +529,7 @@ impl Linearization {
     /// - One consisting of the base classes themselves in the order defined.
     fn new(
         cls: &Class,
-        bases_with_mro: Vec<(&ClassType, &Mro)>,
+        bases_with_mro: Vec<(ClassType, Arc<Mro>)>,
         errors: &ErrorCollector,
     ) -> Linearization {
         let bases = match Vec1::try_from_vec(
@@ -559,7 +544,7 @@ impl Linearization {
         };
         let mut ancestor_chains = Vec::new();
         for (base, mro) in bases_with_mro {
-            match mro {
+            match &*mro {
                 Mro::Resolved(ancestors) => {
                     let ancestors_through_base = ancestors
                         .iter()

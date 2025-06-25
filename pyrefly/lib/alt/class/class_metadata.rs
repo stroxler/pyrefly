@@ -24,6 +24,7 @@ use crate::alt::solve::TypeFormContext;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::alt::types::class_metadata::EnumMetadata;
+use crate::alt::types::class_metadata::Mro;
 use crate::alt::types::class_metadata::NamedTupleMetadata;
 use crate::alt::types::class_metadata::ProtocolMetadata;
 use crate::alt::types::class_metadata::TotalOrderingMetadata;
@@ -588,5 +589,75 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None
             }
         }
+    }
+
+    pub fn calculate_class_mro(
+        &self,
+        cls: &Class,
+        bases: &[Expr],
+        special_base: &Option<Box<BaseClass>>,
+        errors: &ErrorCollector,
+    ) -> Mro {
+        let mut bases: Vec<BaseClass> = bases.map(|x| self.base_class_of(x, errors));
+        if let Some(special_base) = special_base {
+            bases.push((**special_base).clone());
+        }
+        let bases_with_mros = bases
+            .iter()
+            .filter_map(|x| {
+                let base_type = match x {
+                    BaseClass::Expr(x) => {
+                        Some(self.expr_untype(x, TypeFormContext::BaseClassList, errors))
+                    }
+                    BaseClass::NamedTuple(_) => {
+                        Some(self.stdlib.named_tuple_fallback().clone().to_type())
+                    }
+                    BaseClass::TypedDict | BaseClass::Generic(_) | BaseClass::Protocol(_) => None,
+                };
+                match base_type {
+                    Some(Type::ClassType(c)) => {
+                        let base_cls = c.class_object();
+                        let base_class_mro = self.get_mro_for_class(base_cls);
+                        Some((c, base_class_mro))
+                    }
+                    Some(Type::Tuple(Tuple::Concrete(ts))) => {
+                        let class_ty = self.stdlib.tuple(self.unions(ts));
+                        let mro = self.get_mro_for_class(class_ty.class_object());
+                        Some((class_ty, mro))
+                    }
+                    Some(Type::Tuple(Tuple::Unbounded(t))) => {
+                        let class_ty = self.stdlib.tuple(*t);
+                        let mro = self.get_mro_for_class(class_ty.class_object());
+                        Some((class_ty, mro))
+                    }
+                    Some(Type::TypedDict(typed_dict)) => {
+                        let class_object = typed_dict.class_object();
+                        let mro = self.get_mro_for_class(class_object);
+                        Some((
+                            ClassType::new(
+                                typed_dict.class_object().dupe(),
+                                typed_dict.targs().clone(),
+                            ),
+                            mro,
+                        ))
+                    }
+                    // We rely on ClassMetadata to catch invalid cases, just skip over anything that isn't a
+                    // reasonable base class.
+                    Some(_) | None => None,
+                }
+            })
+            .collect::<Vec<_>>();
+        // TODO(stroxler): Clean this up, it's a tricky edge case duplicated with the metadata.
+        let metadata = self.get_metadata_for_class(cls);
+        let bases_with_mros = if metadata.is_typed_dict() && bases_with_mros.is_empty() {
+            let td_fallback = self.stdlib.typed_dict_fallback();
+            vec![(
+                td_fallback.clone(),
+                self.get_mro_for_class(td_fallback.class_object()),
+            )]
+        } else {
+            bases_with_mros
+        };
+        Mro::new(cls, bases_with_mros, errors)
     }
 }

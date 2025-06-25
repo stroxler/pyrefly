@@ -411,8 +411,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             for (class_name, params) in env.iter() {
                 let mut params_prime = params.clone();
 
-                let metadata = solver.get_metadata_for_class(class);
-                let ancestor_class = metadata.ancestors(solver.stdlib).find(|ancestor| {
+                let mro = solver.get_mro_for_class(class);
+                let ancestor_class = mro.ancestors(solver.stdlib).find(|ancestor| {
                     let class_obj = ancestor.class_object();
                     class_obj.qname() == class_name
                 });

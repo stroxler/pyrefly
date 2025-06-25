@@ -839,7 +839,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn get_inherited_annotation(&self, class: &Class, name: &Name) -> (bool, Option<Annotation>) {
         let mut found_field = false;
         let annotation = self
-            .get_metadata_for_class(class)
+            .get_mro_for_class(class)
             .ancestors(self.stdlib)
             .find_map(|parent| {
                 let parent_field =
@@ -1288,7 +1288,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 defining_class: cls.dupe(),
             })
         } else {
-            self.get_metadata_for_class(cls)
+            self.get_mro_for_class(cls)
                 .ancestors(self.stdlib)
                 .find_map(|ancestor| {
                     self.get_field_from_current_class_only(
@@ -1352,7 +1352,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
         // Skip ancestors in the MRO until we find the class we want to start at
-        let metadata = self.get_metadata_for_class(cls);
+        let metadata = self.get_mro_for_class(cls);
         let ancestors = metadata
             .ancestors(self.stdlib)
             .skip_while(|ancestor| *ancestor != start_lookup_cls);
