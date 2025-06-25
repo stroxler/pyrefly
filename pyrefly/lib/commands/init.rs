@@ -24,6 +24,8 @@ use crate::commands::globs_and_config_getter;
 use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
 
+const MAX_ERRORS_TO_PROMPT_SUPPRESSION: usize = 100;
+
 // This should likely be moved into config.rs
 #[derive(Clone, Debug, Parser, Copy, Display)]
 pub enum ConfigFileKind {
@@ -122,17 +124,33 @@ impl Args {
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
         // 1. Create Pyrefly Config
         let create_config_result = self.create_config();
+
         match create_config_result {
             Err(e) => Err(e),
             Ok((status, _)) if status != CommandExitStatus::Success => Ok(status),
             Ok((_, config_path)) => {
                 // 2. Run pyrefly check
-                self.run_check(config_path)
+                let check_result = self.run_check(config_path.clone());
+
+                // Check if there are errors and if there are fewer than 100
+                if let Ok((_, error_count)) = check_result {
+                    if error_count == 0 {
+                        return Ok(CommandExitStatus::Success);
+                    }
+                    // 3a. Prompt error suppression if there are less than the maximum number of errors
+                    else if error_count <= MAX_ERRORS_TO_PROMPT_SUPPRESSION {
+                        return self.prompt_error_suppression(config_path, error_count);
+                    }
+                }
+                Ok(CommandExitStatus::Success)
             }
         }
     }
 
-    fn run_check(&self, config_path: Option<PathBuf>) -> anyhow::Result<CommandExitStatus> {
+    fn run_check(
+        &self,
+        config_path: Option<PathBuf>,
+    ) -> anyhow::Result<(CommandExitStatus, usize)> {
         info!("Running pyrefly check...");
 
         // Create check args by parsing arguments with output-format set to errors-omitted
@@ -144,12 +162,51 @@ impl Args {
 
         // Run the check directly
         match check_args.run_once(filtered_globs, config_finder, true) {
-            Ok(_) => Ok(CommandExitStatus::Success),
+            Ok((status, error_count)) => Ok((status, error_count)),
             Err(e) => {
                 error!("Failed to run pyrefly check: {}", e);
-                Ok(CommandExitStatus::Success) // Still return success to match original behavior
+                Ok((CommandExitStatus::Success, 0)) // Still return success to match original behavior
             }
         }
+    }
+
+    fn prompt_error_suppression(
+        &self,
+        config_path: Option<PathBuf>,
+        error_count: usize,
+    ) -> anyhow::Result<CommandExitStatus> {
+        let prompt = format!(
+            "Found {} errors. Would you like to suppress them? (y/N): ",
+            error_count
+        );
+
+        if Self::prompt_user_confirmation(&prompt) {
+            info!("Running pyrefly check with suppress-errors flag...");
+
+            // Create check args with suppress-errors flag
+            let mut suppress_args = check::Args::parse_from([
+                "check",
+                "--suppress-errors",
+                "--output-format",
+                "errors-omitted",
+                "--no-summary",
+            ]);
+
+            // Use get to get the filtered globs and config finder
+            let (suppress_globs, suppress_config_finder) =
+                globs_and_config_getter::get(Vec::new(), None, config_path, &mut suppress_args)?;
+
+            // Run the check with suppress-errors flag
+            match suppress_args.run_once(suppress_globs, suppress_config_finder, true) {
+                Ok(_) => return Ok(CommandExitStatus::Success),
+                Err(e) => {
+                    error!("Failed to run pyrefly check with suppress-errors: {}", e);
+                    return Ok(CommandExitStatus::Success); // Still return success to match original behavior
+                }
+            }
+        }
+
+        Ok(CommandExitStatus::Success)
     }
 
     fn create_config(&self) -> anyhow::Result<(CommandExitStatus, Option<PathBuf>)> {

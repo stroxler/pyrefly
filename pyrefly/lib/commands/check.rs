@@ -450,7 +450,7 @@ impl Args {
         files_to_check: FilteredGlobs,
         config_finder: ConfigFinder,
         allow_forget: bool,
-    ) -> anyhow::Result<CommandExitStatus> {
+    ) -> anyhow::Result<(CommandExitStatus, usize)> {
         let mut timings = Timings::new();
         let list_files_start = Instant::now();
         let expanded_file_list = checkpoint(files_to_check.files(), &config_finder)?;
@@ -461,7 +461,7 @@ impl Args {
             Timings::show(timings.list_files),
         );
         if expanded_file_list.is_empty() {
-            return Ok(CommandExitStatus::Success);
+            return Ok((CommandExitStatus::Success, 0));
         }
 
         let holder = Forgetter::new(State::new(config_finder), allow_forget);
@@ -629,7 +629,7 @@ impl Args {
         mut timings: Timings,
         transaction: &mut Transaction,
         handles: &[(Handle, Require)],
-    ) -> anyhow::Result<CommandExitStatus> {
+    ) -> anyhow::Result<(CommandExitStatus, usize)> {
         let mut memory_trace = MemoryUsageTrace::start(Duration::from_secs_f32(0.1));
 
         let type_check_start = Instant::now();
@@ -760,11 +760,11 @@ impl Args {
         }
         if self.behavior.expectations {
             loads.check_against_expectations()?;
-            Ok(CommandExitStatus::Success)
+            Ok((CommandExitStatus::Success, shown_errors_count))
         } else if shown_errors_count > 0 {
-            Ok(CommandExitStatus::UserError)
+            Ok((CommandExitStatus::UserError, shown_errors_count))
         } else {
-            Ok(CommandExitStatus::Success)
+            Ok((CommandExitStatus::Success, shown_errors_count))
         }
     }
 }
