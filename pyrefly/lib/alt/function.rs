@@ -37,7 +37,6 @@ use crate::module::short_identifier::ShortIdentifier;
 use crate::python::dunder;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncFlags;
-use crate::types::callable::FuncId;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
@@ -171,7 +170,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut has_enum_member_decoration = false;
         let mut is_override = false;
         let mut has_final_decoration = false;
-        let mut dataclass_like = None;
+        let mut dataclass_transform_metadata = None;
         let decorators = decorators
             .iter()
             .filter(|k| {
@@ -215,7 +214,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         false
                     }
                     Some(CalleeKind::DataclassTransformDecorator(kws)) => {
-                        dataclass_like = Some(kws);
+                        dataclass_transform_metadata = Some(kws);
                         false
                     }
                     _ => true,
@@ -437,21 +436,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             Callable::list(ParamList::new(params), ret)
         };
-        let module = self.module_info().name();
-        let cls = defining_cls.as_ref().map(|cls| cls.name());
-        let func = &def.name.id;
-        let kind = if let Some(kws) = dataclass_like {
-            FunctionKind::DataclassLike(Box::new((
-                FuncId {
-                    module,
-                    cls: cls.cloned(),
-                    func: func.clone(),
-                },
-                kws,
-            )))
-        } else {
-            FunctionKind::from_name(module, cls, func)
-        };
+        let kind = FunctionKind::from_name(
+            self.module_info().name(),
+            defining_cls.as_ref().map(|cls| cls.name()),
+            &def.name.id,
+        );
         let metadata = FuncMetadata {
             kind,
             flags: FuncFlags {
@@ -465,6 +454,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 has_enum_member_decoration,
                 is_override,
                 has_final_decoration,
+                dataclass_transform_metadata,
             },
         };
         let mut ty = Forallable::Function(Function {

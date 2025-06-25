@@ -385,7 +385,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut total_ordering_metadata = None;
         for (decorator_key, decorator_range) in decorators {
             let decorator = self.get_idx(*decorator_key);
-            match decorator.ty().callee_kind() {
+            let decorator_ty = decorator.ty();
+            match decorator_ty.callee_kind() {
                 Some(CalleeKind::Function(FunctionKind::Dataclass(kws))) => {
                     let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
                     dataclass_metadata = Some(DataclassMetadata {
@@ -393,7 +394,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         kws: *kws,
                     });
                 }
-                Some(CalleeKind::Function(FunctionKind::DataclassLike(_))) => {
+                Some(CalleeKind::Function(_))
+                    if let Some(_) = decorator_ty.dataclass_transform_metadata() =>
+                {
                     // TODO(rechen): Take keyword values to `dataclass_transform(...)` into account.
                     let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
                     dataclass_metadata = Some(DataclassMetadata {

@@ -1048,6 +1048,10 @@ impl Type {
         self.check_func_metadata(&|meta| meta.flags.has_final_decoration)
     }
 
+    pub fn dataclass_transform_metadata(&self) -> Option<BoolKeywords> {
+        self.check_func_metadata(&|meta| meta.flags.dataclass_transform_metadata.clone())
+    }
+
     pub fn transform_func_metadata(&mut self, mut f: impl FnMut(&mut FuncMetadata)) {
         match self {
             Type::Function(box func)
