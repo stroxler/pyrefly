@@ -244,6 +244,11 @@ pub enum FunctionKind {
     /// decorator created by a `dataclass_transform(...)` call. See
     /// https://typing.python.org/en/latest/spec/dataclasses.html#specification.
     DataclassTransform,
+    /// A function decorated with `typing.dataclass_transform(...)`, turning it into a
+    /// `dataclasses.dataclass`-like decorator. Stores the keyword values passed to the
+    /// `dataclass_transform` call. See
+    /// https://typing.python.org/en/latest/spec/dataclasses.html#specification.
+    DataclassLike(Box<(FuncId, BoolKeywords)>),
     ClassMethod,
     Overload,
     Override,
@@ -622,6 +627,7 @@ impl FunctionKind {
                 cls: None,
                 func: Name::new_static("abstractmethod"),
             },
+            Self::DataclassLike(x) => x.0.clone(),
             Self::PropertySetter(func_id) | Self::Def(func_id) => (**func_id).clone(),
             Self::TotalOrdering => FuncId {
                 module: ModuleName::functools(),

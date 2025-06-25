@@ -37,6 +37,7 @@ use crate::module::short_identifier::ShortIdentifier;
 use crate::python::dunder;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncFlags;
+use crate::types::callable::FuncId;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
@@ -170,6 +171,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut has_enum_member_decoration = false;
         let mut is_override = false;
         let mut has_final_decoration = false;
+        let mut dataclass_like = None;
         let decorators = decorators
             .iter()
             .filter(|k| {
@@ -209,6 +211,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     Some(CalleeKind::Function(FunctionKind::Final)) => {
                         has_final_decoration = true;
+                        false
+                    }
+                    Some(CalleeKind::DataclassTransformDecorator(kws)) => {
+                        dataclass_like = Some(kws);
                         false
                     }
                     _ => true,
@@ -430,11 +436,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             Callable::list(ParamList::new(params), ret)
         };
-        let kind = FunctionKind::from_name(
-            self.module_info().name(),
-            defining_cls.as_ref().map(|cls| cls.name()),
-            &def.name.id,
-        );
+        let module = self.module_info().name();
+        let cls = defining_cls.as_ref().map(|cls| cls.name());
+        let func = &def.name.id;
+        let kind = if let Some(kws) = dataclass_like {
+            FunctionKind::DataclassLike(Box::new((
+                FuncId {
+                    module,
+                    cls: cls.cloned(),
+                    func: func.clone(),
+                },
+                kws,
+            )))
+        } else {
+            FunctionKind::from_name(module, cls, func)
+        };
         let metadata = FuncMetadata {
             kind,
             flags: FuncFlags {
