@@ -31,6 +31,7 @@ use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
+use crate::alt::types::class_metadata::Mro;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
@@ -43,6 +44,7 @@ use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingClass;
 use crate::binding::binding::BindingClassField;
 use crate::binding::binding::BindingClassMetadata;
+use crate::binding::binding::BindingClassMro;
 use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingFunction;
@@ -224,6 +226,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ),
         };
         Arc::new(metadata)
+    }
+
+    pub fn solve_class_mro(
+        &self,
+        _binding: &BindingClassMro,
+        _errors: &ErrorCollector,
+    ) -> Arc<Mro> {
+        unimplemented!("This binding is not yet in use")
     }
 
     pub fn solve_annotation(

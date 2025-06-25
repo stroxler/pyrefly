@@ -442,7 +442,7 @@ pub struct TotalOrderingMetadata {
 /// different type arguments. The type arguments computed here will always be
 /// those coming from the instance that was selected during lineariation.
 #[derive(Clone, Debug, VisitMut, TypeEq, PartialEq, Eq)]
-enum Mro {
+pub enum Mro {
     Resolved(Vec<ClassType>),
     Cyclic,
 }
@@ -501,6 +501,10 @@ impl Mro {
             Mro::Resolved(ancestors) => ancestors,
             Mro::Cyclic => &[],
         }
+    }
+
+    pub fn recursive() -> Self {
+        Self::Cyclic
     }
 }
 
