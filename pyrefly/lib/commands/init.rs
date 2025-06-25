@@ -17,8 +17,10 @@ use pyrefly_util::fs_anyhow;
 use tracing::error;
 use tracing::info;
 
+use crate::commands::check;
 use crate::commands::config_migration;
 use crate::commands::config_migration::write_pyproject;
+use crate::commands::globs_and_config_getter;
 use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
 
@@ -118,15 +120,36 @@ impl Args {
     }
 
     pub fn run(&self) -> anyhow::Result<CommandExitStatus> {
+        // 1. Create Pyrefly Config
         let create_config_result = self.create_config();
         match create_config_result {
-            Err(_) => create_config_result,
-            Ok(status) if status != CommandExitStatus::Success => create_config_result,
-            _ => Ok(CommandExitStatus::Success),
+            Err(e) => Err(e),
+            Ok((status, _)) if status != CommandExitStatus::Success => Ok(status),
+            Ok((_, config_path)) => {
+                // 2. Run pyrefly check
+                info!("Running pyrefly check...");
+
+                // Create check args by parsing an empty array of arguments
+                let mut check_args =
+                    check::Args::parse_from(Vec::<std::ffi::OsString>::new().iter());
+
+                // Use get to get the filtered globs and config finder
+                let (filtered_globs, config_finder) =
+                    globs_and_config_getter::get(Vec::new(), None, config_path, &mut check_args)?;
+
+                // Run the check directly
+                match check_args.run_once(filtered_globs, config_finder, true) {
+                    Ok(_) => Ok(CommandExitStatus::Success),
+                    Err(e) => {
+                        error!("Failed to run pyrefly check: {}", e);
+                        Ok(CommandExitStatus::Success) // Still return success to match original behavior
+                    }
+                }
+            }
         }
     }
 
-    fn create_config(&self) -> anyhow::Result<CommandExitStatus> {
+    fn create_config(&self) -> anyhow::Result<(CommandExitStatus, Option<PathBuf>)> {
         let path = self.path.absolutize()?.to_path_buf();
 
         let dir: Option<&Path> = if path.is_dir() {
@@ -142,7 +165,7 @@ impl Args {
                 dir.display()
             );
             if !Self::prompt_user_confirmation(&prompt) {
-                return Ok(CommandExitStatus::UserError);
+                return Ok((CommandExitStatus::UserError, None));
             }
         }
 
@@ -154,10 +177,11 @@ impl Args {
         if found_mypy || found_pyright {
             println!("Found an existing type checking configuration - setting up pyrefly ...");
             let args = config_migration::Args {
-                original_config_path: Some(path),
+                original_config_path: Some(path.clone()),
             };
             match args.run() {
-                Ok((status, _)) => return Ok(status),
+                Ok((status, Some(config_path))) => return Ok((status, Some(config_path))),
+                Ok((status, None)) => return Ok((status, None)),
                 Err(e) => return Err(e),
             }
         }
@@ -179,7 +203,7 @@ impl Args {
             };
             write_pyproject(&config_path, cfg)?;
             info!("Config written to `{}`", config_path.display());
-            return Ok(CommandExitStatus::Success);
+            return Ok((CommandExitStatus::Success, Some(config_path)));
         }
 
         // 4. Initialize pyrefly.toml configuration in the case that there are no existing Mypy or Pyright configurations and user didn't specify a pyproject.toml
@@ -189,18 +213,18 @@ impl Args {
             path
         } else if !path.exists() {
             error!("Path `{}` does not exist", path.display());
-            return Ok(CommandExitStatus::UserError);
+            return Ok((CommandExitStatus::UserError, None));
         } else {
             error!(
                 "Pyrefly configs must reside in `pyrefly.toml` or `pyproject.toml`, not `{}`",
                 path.display()
             );
-            return Ok(CommandExitStatus::UserError);
+            return Ok((CommandExitStatus::UserError, None));
         };
         let serialized = toml::to_string_pretty(&cfg)?;
         fs_anyhow::write(&config_path, serialized.as_bytes())?;
         info!("New config written to `{}`", config_path.display());
-        Ok(CommandExitStatus::Success)
+        Ok((CommandExitStatus::Success, Some(config_path)))
     }
 }
 
