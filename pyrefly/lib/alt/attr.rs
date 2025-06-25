@@ -1693,12 +1693,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         expected_attribute_name: Option<&Name>,
         res: &mut Vec<AttrInfo>,
     ) {
+        let metadata = self.get_metadata_for_class(cls);
         let mut seen = SmallSet::new();
-        for c in iter::once(cls).chain(
-            self.get_metadata_for_class(cls)
-                .ancestors(self.stdlib)
-                .map(|x| x.class_object()),
-        ) {
+        for c in iter::once(cls).chain(metadata.ancestors(self.stdlib).map(|x| x.class_object())) {
             if c == self.stdlib.object().class_object() {
                 // Don't want to suggest `__hash__`
                 break;
@@ -1706,7 +1703,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match expected_attribute_name {
                 None => {
                     for fld in c.fields() {
-                        if seen.insert(fld.clone())
+                        if seen.insert(fld)
                             && let Some(range) = c.field_decl_range(fld)
                         {
                             res.push(AttrInfo {
