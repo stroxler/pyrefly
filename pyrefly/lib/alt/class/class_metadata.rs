@@ -387,6 +387,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // this does not turn the class into a dataclass! Instead, it becomes a special base class
         // (or metaclass) that turns child classes into dataclasses.
         let mut dataclass_transform_metadata = None;
+        // This is set when a class is decorated with a function that is decorated with
+        // `dataclass_transform(...)`. This applies dataclass-like transformations to the class.
+        let mut dataclass_defaults_from_dataclass_transform = None;
         for (decorator_key, decorator_range) in decorators {
             let decorator = self.get_idx(*decorator_key);
             let decorator_ty = decorator.ty();
@@ -399,14 +402,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     });
                 }
                 Some(CalleeKind::Function(_))
-                    if let Some(_) = decorator_ty.dataclass_transform_metadata() =>
+                    if let Some(m) = decorator_ty.dataclass_transform_metadata() =>
                 {
-                    // TODO(rechen): Take keyword values to `dataclass_transform(...)` into account.
-                    let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
-                    dataclass_metadata = Some(DataclassMetadata {
-                        fields: dataclass_fields,
-                        kws: BoolKeywords::new(),
-                    });
+                    dataclass_defaults_from_dataclass_transform = Some(m);
                 }
                 Some(CalleeKind::Function(FunctionKind::Final)) => {
                     is_final = true;
@@ -434,6 +432,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 _ => {}
             }
+        }
+        if dataclass_metadata.is_none()
+            && let Some(_) = dataclass_defaults_from_dataclass_transform
+        {
+            // TODO(rechen): Take keyword values to `dataclass_transform(...)` into account.
+            let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
+            dataclass_metadata = Some(DataclassMetadata {
+                fields: dataclass_fields,
+                kws: BoolKeywords::new(),
+            });
         }
         if is_typed_dict
             && let Some(bad) = bases_with_metadata.iter().find(|x| !x.1.is_typed_dict())
