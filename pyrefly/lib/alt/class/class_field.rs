@@ -613,7 +613,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let magically_initialized = {
             // We consider fields to be always-initialized if it's defined within stub files.
             // See https://github.com/python/typeshed/pull/13875 for reasoning.
-            class.module_info().path().is_interface()
+            class.module_path().is_interface()
             // We consider fields to be always-initialized if it's annotated explicitly with `ClassVar`.
             || direct_annotation
                 .as_ref()

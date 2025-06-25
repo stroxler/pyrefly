@@ -439,7 +439,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
                     let ty = solver.get_from_module(
                         class_name.module_name(),
-                        Some(class_name.module_info().path()),
+                        Some(class_name.module_path()),
                         &KeyExport(class_name.id().clone()),
                     );
                     if let Type::ClassDef(cls) = &*ty {
