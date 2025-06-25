@@ -127,24 +127,27 @@ impl Args {
             Ok((status, _)) if status != CommandExitStatus::Success => Ok(status),
             Ok((_, config_path)) => {
                 // 2. Run pyrefly check
-                info!("Running pyrefly check...");
+                self.run_check(config_path)
+            }
+        }
+    }
 
-                // Create check args by parsing arguments with output-format set to omit-errors
-                let mut check_args =
-                    check::Args::parse_from(["check", "--output-format", "omit-errors"]);
+    fn run_check(&self, config_path: Option<PathBuf>) -> anyhow::Result<CommandExitStatus> {
+        info!("Running pyrefly check...");
 
-                // Use get to get the filtered globs and config finder
-                let (filtered_globs, config_finder) =
-                    globs_and_config_getter::get(Vec::new(), None, config_path, &mut check_args)?;
+        // Create check args by parsing arguments with output-format set to errors-omitted
+        let mut check_args = check::Args::parse_from(["check", "--output-format", "omit-errors"]);
 
-                // Run the check directly
-                match check_args.run_once(filtered_globs, config_finder, true) {
-                    Ok(_) => Ok(CommandExitStatus::Success),
-                    Err(e) => {
-                        error!("Failed to run pyrefly check: {}", e);
-                        Ok(CommandExitStatus::Success) // Still return success to match original behavior
-                    }
-                }
+        // Use get to get the filtered globs and config finder
+        let (filtered_globs, config_finder) =
+            globs_and_config_getter::get(Vec::new(), None, config_path, &mut check_args)?;
+
+        // Run the check directly
+        match check_args.run_once(filtered_globs, config_finder, true) {
+            Ok(_) => Ok(CommandExitStatus::Success),
+            Err(e) => {
+                error!("Failed to run pyrefly check: {}", e);
+                Ok(CommandExitStatus::Success) // Still return success to match original behavior
             }
         }
     }
