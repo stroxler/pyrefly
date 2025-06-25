@@ -1610,19 +1610,23 @@ impl DisplayWith<Bindings> for BindingVariance {
 }
 
 /// Binding for the class's metadata (type level information derived from the class header - this
-/// includes the MRO, the class keywords, and the metaclass).
-///
-/// The `Key` points to the definition of the class.
-/// The `[Expr]` contains the base classes from the class header.
-/// The `[(Name, Expr)]` contains the class keywords from the class header.
-/// The `[Idx<Key>]` points to the class's decorators.
+/// includes the MRO, the class keywords, the metaclass, and some other data).
 #[derive(Clone, Debug)]
 pub struct BindingClassMetadata {
     pub class_idx: Idx<KeyClass>,
+    /// The base class list, as expressions.
     pub bases: Box<[Expr]>,
+    /// The class keywords (these are keyword args that appear in the base class list, the
+    /// Python runtime will dispatch most of them to the metaclass, but the metaclass
+    /// itself can also potentially be one of these).
     pub keywords: Box<[(Name, Expr)]>,
+    /// The class decorators, which may determine
     pub decorators: Box<[(Idx<Key>, TextRange)]>,
+    /// Is this a new type? True only for synthesized classes created from a `NewType` call.
     pub is_new_type: bool,
+    /// May contain a base class to directly inject into the base class list. This is needed
+    /// for some synthesized classes, which have no actual class body and therefore usually have no
+    /// base class expressions, but may have a known base class for the synthesized class.
     pub special_base: Option<Box<BaseClass>>,
 }
 
