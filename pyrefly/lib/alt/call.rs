@@ -894,4 +894,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             None,
         )
     }
+
+    pub fn call_setattr(
+        &self,
+        setattr_ty: Type,
+        arg: CallArg,
+        attr_name: Name,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) -> Type {
+        let call_target =
+            self.as_call_target_or_error(setattr_ty, CallStyle::FreeForm, range, errors, context);
+        let attr_name_ty = Type::Literal(Lit::Str(attr_name.as_str().into()));
+        self.call_infer(
+            call_target,
+            &[CallArg::ty(&attr_name_ty, range), arg],
+            &[],
+            range,
+            errors,
+            context,
+            None,
+        )
+    }
 }
