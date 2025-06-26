@@ -4,7 +4,7 @@ use pyrefly_util::lined_buffer::UserRange;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
-pub fn user_range_to_range(x: &UserRange) -> lsp_types::Range {
+fn user_range_to_range(x: &UserRange) -> lsp_types::Range {
     lsp_types::Range::new(
         source_location_to_position(&x.start),
         source_location_to_position(&x.end),

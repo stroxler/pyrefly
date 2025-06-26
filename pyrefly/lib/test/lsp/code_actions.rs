@@ -36,11 +36,11 @@ fn apply_patch(
 fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String {
     let mut report = "Code Actions Results:\n".to_owned();
     let transaction = state.transaction();
-    for (title, range, patch) in transaction
+    for (title, info, range, patch) in transaction
         .local_quickfix_code_actions(handle, TextRange::new(position, position))
         .unwrap_or_default()
     {
-        let (before, after) = apply_patch(&transaction, handle, range, patch);
+        let (before, after) = apply_patch(&transaction, handle, info.user_range(range), patch);
         report.push_str("# Title: ");
         report.push_str(&title);
         report.push('\n');

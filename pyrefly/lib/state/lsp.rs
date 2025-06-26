@@ -19,7 +19,6 @@ use lsp_types::SignatureHelp;
 use lsp_types::SignatureInformation;
 use lsp_types::TextEdit;
 use pyrefly_util::gas::Gas;
-use pyrefly_util::lined_buffer::UserRange;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::task_heap::Cancelled;
@@ -1150,7 +1149,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         range: TextRange,
-    ) -> Option<Vec<(String, UserRange, String)>> {
+    ) -> Option<Vec<(String, ModuleInfo, TextRange, String)>> {
         let module_info = self.get_module_info(handle)?;
         let ast = self.get_ast(handle)?;
         let errors = self.get_errors(vec![handle]).collect_errors().shown;
@@ -1165,16 +1164,15 @@ impl<'a> Transaction<'a> {
                             let (position, insert_text) =
                                 insert_import_edit(&ast, handle_to_import_from, unknown_name);
                             let range = TextRange::at(position, TextSize::new(0));
-                            let source_range = module_info.user_range(range);
                             let title = format!("Insert import: `{}`", insert_text.trim());
-                            code_actions.push((title, source_range, insert_text));
+                            code_actions.push((title, module_info.dupe(), range, insert_text));
                         }
                     }
                 }
                 _ => {}
             }
         }
-        code_actions.sort_by(|(title1, _, _), (title2, _, _)| title1.cmp(title2));
+        code_actions.sort_by(|(title1, _, _, _), (title2, _, _, _)| title1.cmp(title2));
         Some(code_actions)
     }
 

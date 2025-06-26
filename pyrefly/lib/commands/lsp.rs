@@ -192,7 +192,6 @@ use crate::types::lsp::position_to_text_size;
 use crate::types::lsp::range_to_text_range;
 use crate::types::lsp::text_range_to_range;
 use crate::types::lsp::text_size_to_position;
-use crate::types::lsp::user_range_to_range;
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]
 pub(crate) enum IndexingMode {
@@ -1584,7 +1583,7 @@ impl Server {
         let range = range_to_text_range(module_info.lined_buffer(), params.range);
         let code_actions = transaction
             .local_quickfix_code_actions(&handle, range)?
-            .into_map(|(title, range, insert_text)| {
+            .into_map(|(title, info, range, insert_text)| {
                 CodeActionOrCommand::CodeAction(CodeAction {
                     title,
                     kind: Some(CodeActionKind::QUICKFIX),
@@ -1592,7 +1591,7 @@ impl Server {
                         changes: Some(HashMap::from([(
                             uri.clone(),
                             vec![TextEdit {
-                                range: user_range_to_range(&range),
+                                range: text_range_to_range(info.lined_buffer(), range),
                                 new_text: insert_text,
                             }],
                         )])),
@@ -1764,9 +1763,9 @@ impl Server {
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
         let position = position_to_text_size(info.lined_buffer(), params.position);
-        transaction
-            .prepare_rename(&handle, position)
-            .map(|range| PrepareRenameResponse::Range(user_range_to_range(&info.user_range(range))))
+        transaction.prepare_rename(&handle, position).map(|range| {
+            PrepareRenameResponse::Range(text_range_to_range(info.lined_buffer(), range))
+        })
     }
 
     fn signature_help(
