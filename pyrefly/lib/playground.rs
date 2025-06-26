@@ -36,7 +36,7 @@ pub struct Position {
 }
 
 impl Position {
-    fn new(position: UserPos) -> Self {
+    fn from_user_pos(position: UserPos) -> Self {
         Self {
             line: position.line.to_zero_indexed() as i32 + 1,
             column: position.column.to_zero_indexed() as i32 + 1,
@@ -248,7 +248,7 @@ impl Playground {
             .zip(transaction.inlay_hints(&handle))
             .map(|(info, hints)| {
                 hints.into_map(|(position, label)| {
-                    let position = Position::new(info.user_pos(position));
+                    let position = Position::from_user_pos(info.user_pos(position));
                     InlayHint { label, position }
                 })
             })
