@@ -33,7 +33,7 @@ use crate::module::module_path::ModulePath;
 pub struct Error {
     module_info: ModuleInfo,
     range: TextRange,
-    user_range: DisplayRange,
+    display_range: DisplayRange,
     error_kind: ErrorKind,
     /// First line of the error message
     msg_header: Box<str>,
@@ -72,7 +72,7 @@ impl Error {
                 "{} {}:{}: {} [{}]",
                 self.error_kind().severity().label(),
                 self.path(),
-                self.user_range,
+                self.display_range,
                 self.msg_header,
                 self.error_kind.to_name(),
             )?;
@@ -100,7 +100,7 @@ impl Error {
                 "{} {}:{}: {} {}",
                 self.error_kind().severity().painted(),
                 Paint::blue(&self.path().as_path().display()),
-                Paint::dim(self.user_range()),
+                Paint::dim(self.display_range()),
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
             );
@@ -118,11 +118,11 @@ impl Error {
         let source = self
             .module_info
             .lined_buffer()
-            .content_in_line_range(self.user_range.start.line, self.user_range.end.line);
+            .content_in_line_range(self.display_range.start.line, self.display_range.end.line);
         let line_start = self
             .module_info
             .lined_buffer()
-            .line_start(self.user_range.start.line);
+            .line_start(self.display_range.start.line);
 
         let level = match self.error_kind().severity() {
             Severity::Error => Level::Error,
@@ -133,7 +133,7 @@ impl Error {
         let span_end = span_start + self.range.len().to_usize();
         Level::None.title("").snippet(
             Snippet::source(source)
-                .line_start(self.user_range.start.line.get())
+                .line_start(self.display_range.start.line.get())
                 .origin(origin)
                 .annotation(level.span(span_start..span_end)),
         )
@@ -177,8 +177,8 @@ impl Error {
         msg: Vec1<String>,
         error_kind: ErrorKind,
     ) -> Self {
-        let user_range = module_info.user_range(range);
-        let is_ignored = module_info.is_ignored(&user_range);
+        let display_range = module_info.display_range(range);
+        let is_ignored = module_info.is_ignored(&display_range);
         let msg_has_details = msg.len() > 1;
         let mut msg = msg.into_iter();
         let msg_header = msg.next().unwrap().into_boxed_str();
@@ -190,7 +190,7 @@ impl Error {
         Self {
             module_info,
             range,
-            user_range,
+            display_range,
             error_kind,
             msg_header,
             msg_details,
@@ -198,8 +198,8 @@ impl Error {
         }
     }
 
-    pub fn user_range(&self) -> &DisplayRange {
-        &self.user_range
+    pub fn display_range(&self) -> &DisplayRange {
+        &self.display_range
     }
 
     pub fn lined_buffer(&self) -> &LinedBuffer {

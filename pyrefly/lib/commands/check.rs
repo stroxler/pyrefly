@@ -751,7 +751,7 @@ impl Args {
                     suppressed_errors
                         .entry(path)
                         .or_default()
-                        .insert(e.user_range().start.line);
+                        .insert(e.display_range().start.line);
                 }
             }
 

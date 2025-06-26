@@ -43,7 +43,7 @@ impl Position {
         Self { line, column }
     }
 
-    fn from_user_pos(position: DisplayPos) -> Self {
+    fn from_display_pos(position: DisplayPos) -> Self {
         Self {
             line: position.line.get() as i32,
             column: position.column.get() as i32,
@@ -51,7 +51,7 @@ impl Position {
     }
 
     // This should always succeed, but we are being convervative
-    fn to_user_pos(&self) -> Option<DisplayPos> {
+    fn to_display_pos(&self) -> Option<DisplayPos> {
         Some(DisplayPos {
             line: OneIndexed::new(usize::try_from(self.line).ok()?)?,
             column: OneIndexed::new(usize::try_from(self.column).ok()?)?,
@@ -167,7 +167,7 @@ impl Playground {
             .collect_errors()
             .shown
             .into_map(|e| {
-                let range = e.user_range();
+                let range = e.display_range();
                 Diagnostic {
                     start_line: range.start.line.get() as i32,
                     start_col: range.start.column.get() as i32,
@@ -187,7 +187,7 @@ impl Playground {
 
     fn to_text_size(&self, transaction: &Transaction, pos: Position) -> Option<TextSize> {
         let info = transaction.get_module_info(&self.handle)?;
-        Some(info.lined_buffer().from_user_pos(pos.to_user_pos()?))
+        Some(info.lined_buffer().from_display_pos(pos.to_display_pos()?))
     }
 
     pub fn query_type(&self, pos: Position) -> Option<TypeQueryResult> {
@@ -209,7 +209,7 @@ impl Playground {
         Some(Range::new(
             range_with_mod_info
                 .module_info
-                .user_range(range_with_mod_info.range),
+                .display_range(range_with_mod_info.range),
         ))
     }
 
@@ -242,7 +242,7 @@ impl Playground {
             .zip(transaction.inlay_hints(&self.handle))
             .map(|(info, hints)| {
                 hints.into_map(|(position, label)| {
-                    let position = Position::from_user_pos(info.user_pos(position));
+                    let position = Position::from_display_pos(info.display_pos(position));
                     InlayHint { label, position }
                 })
             })

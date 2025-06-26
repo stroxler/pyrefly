@@ -26,7 +26,7 @@ fn dedup_errors(errors: &[Error]) -> SmallMap<usize, String> {
     let mut deduped_errors = SmallMap::new();
     for error in errors {
         let e: &mut String = deduped_errors
-            .entry(error.user_range().start.line.to_zero_indexed())
+            .entry(error.display_range().start.line.to_zero_indexed())
             .or_default();
         let contains_error = e.contains(error.error_kind().to_name());
         if e.is_empty() {
@@ -215,7 +215,7 @@ mod tests {
             error_kind,
         );
         assert_eq!(
-            e.user_range().start,
+            e.display_range().start,
             DisplayPos {
                 line: OneIndexed::new(row).unwrap(),
                 column: OneIndexed::new(column).unwrap()

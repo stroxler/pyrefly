@@ -72,12 +72,12 @@ impl ModuleInfo {
         }
     }
 
-    pub fn user_range(&self, range: TextRange) -> DisplayRange {
-        self.0.contents.user_range(range)
+    pub fn display_range(&self, range: TextRange) -> DisplayRange {
+        self.0.contents.display_range(range)
     }
 
-    pub fn user_pos(&self, offset: TextSize) -> DisplayPos {
-        self.0.contents.user_pos(offset)
+    pub fn display_pos(&self, offset: TextSize) -> DisplayPos {
+        self.0.contents.display_pos(offset)
     }
 
     pub fn code_at(&self, range: TextRange) -> &str {

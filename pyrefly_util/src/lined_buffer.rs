@@ -46,7 +46,7 @@ impl LinedBuffer {
         self.buffer.lines()
     }
 
-    pub fn user_pos(&self, offset: TextSize) -> DisplayPos {
+    pub fn display_pos(&self, offset: TextSize) -> DisplayPos {
         assert!(
             offset.to_usize() <= self.buffer.len(),
             "offset out of range, expected {} <= {}",
@@ -57,10 +57,10 @@ impl LinedBuffer {
         DisplayPos { line, column }
     }
 
-    pub fn user_range(&self, range: TextRange) -> DisplayRange {
+    pub fn display_range(&self, range: TextRange) -> DisplayRange {
         DisplayRange {
-            start: self.user_pos(range.start()),
-            end: self.user_pos(range.end()),
+            start: self.display_pos(range.start()),
+            end: self.display_pos(range.end()),
         }
     }
 
@@ -76,7 +76,7 @@ impl LinedBuffer {
 
     /// Convert from a user position to a `TextSize`.
     /// Doesn't take account of a leading BOM, so should be used carefully.
-    pub fn from_user_pos(&self, pos: DisplayPos) -> TextSize {
+    pub fn from_display_pos(&self, pos: DisplayPos) -> TextSize {
         self.lines.offset(
             SourceLocation {
                 line: pos.line,
@@ -89,10 +89,10 @@ impl LinedBuffer {
 
     /// Convert from a user range to a `TextRange`.
     /// Doesn't take account of a leading BOM, so should be used carefully.
-    pub fn from_user_range(&self, source_range: &DisplayRange) -> TextRange {
+    pub fn from_display_range(&self, source_range: &DisplayRange) -> TextRange {
         TextRange::new(
-            self.from_user_pos(source_range.start),
-            self.from_user_pos(source_range.end),
+            self.from_display_pos(source_range.start),
+            self.from_display_pos(source_range.end),
         )
     }
 
@@ -241,16 +241,16 @@ mod tests {
         };
 
         assert_eq!(
-            lined_buffer.code_at(lined_buffer.from_user_range(&range(1, 4, 2, 0))),
+            lined_buffer.code_at(lined_buffer.from_display_range(&range(1, 4, 2, 0))),
             "return f\"Bonjour {name}! 👋 Café? ☕\"\n"
         );
 
         assert_eq!(
-            lined_buffer.code_at(lined_buffer.from_user_range(&range(1, 29, 1, 36))),
+            lined_buffer.code_at(lined_buffer.from_display_range(&range(1, 29, 1, 36))),
             "👋 Café?"
         );
         assert_eq!(
-            lined_buffer.code_at(lined_buffer.from_user_range(&range(2, 2, 2, 4))),
+            lined_buffer.code_at(lined_buffer.from_display_range(&range(2, 2, 2, 4))),
             "do"
         );
     }
