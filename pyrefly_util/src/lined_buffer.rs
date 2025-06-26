@@ -74,27 +74,25 @@ impl LinedBuffer {
         }
     }
 
-    pub fn to_text_size(&self, line: u32, column: u32) -> TextSize {
+    /// Convert from a user position to a `TextSize`.
+    /// Doesn't take account of a leading BOM, so should be used carefully.
+    pub fn from_user_pos(&self, pos: UserPos) -> TextSize {
         self.lines.offset(
             SourceLocation {
-                line: OneIndexed::from_zero_indexed(line as usize),
-                character_offset: OneIndexed::from_zero_indexed(column as usize),
+                line: pos.line,
+                character_offset: pos.column,
             },
             &self.buffer,
             PositionEncoding::Utf32,
         )
     }
 
-    pub fn to_text_range(&self, source_range: &UserRange) -> TextRange {
+    /// Convert from a user range to a `TextRange`.
+    /// Doesn't take account of a leading BOM, so should be used carefully.
+    pub fn from_user_range(&self, source_range: &UserRange) -> TextRange {
         TextRange::new(
-            self.to_text_size(
-                source_range.start.line.to_zero_indexed() as u32,
-                source_range.start.column.to_zero_indexed() as u32,
-            ),
-            self.to_text_size(
-                source_range.end.line.to_zero_indexed() as u32,
-                source_range.end.column.to_zero_indexed() as u32,
-            ),
+            self.from_user_pos(source_range.start),
+            self.from_user_pos(source_range.end),
         )
     }
 
@@ -126,7 +124,10 @@ impl LinedBuffer {
     }
 
     pub fn from_lsp_position(&self, position: lsp_types::Position) -> TextSize {
-        self.to_text_size(position.line, position.character)
+        self.from_user_pos(UserPos {
+            line: OneIndexed::from_zero_indexed(position.line as usize),
+            column: OneIndexed::from_zero_indexed(position.character as usize),
+        })
     }
 
     pub fn from_lsp_range(&self, position: lsp_types::Range) -> TextRange {
@@ -234,16 +235,16 @@ mod tests {
         };
 
         assert_eq!(
-            lined_buffer.code_at(lined_buffer.to_text_range(&range(1, 4, 2, 0))),
+            lined_buffer.code_at(lined_buffer.from_user_range(&range(1, 4, 2, 0))),
             "return f\"Bonjour {name}! 👋 Café? ☕\"\n"
         );
 
         assert_eq!(
-            lined_buffer.code_at(lined_buffer.to_text_range(&range(1, 29, 1, 36))),
+            lined_buffer.code_at(lined_buffer.from_user_range(&range(1, 29, 1, 36))),
             "👋 Café?"
         );
         assert_eq!(
-            lined_buffer.code_at(lined_buffer.to_text_range(&range(2, 2, 2, 4))),
+            lined_buffer.code_at(lined_buffer.from_user_range(&range(2, 2, 2, 4))),
             "do"
         );
     }

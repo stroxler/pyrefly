@@ -15,6 +15,7 @@ use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lined_buffer::UserPos;
 use pyrefly_util::lined_buffer::UserRange;
 use pyrefly_util::prelude::VecExt;
+use ruff_source_file::OneIndexed;
 use ruff_text_size::TextSize;
 use serde::Serialize;
 
@@ -47,6 +48,14 @@ impl Position {
             line: position.line.get() as i32,
             column: position.column.get() as i32,
         }
+    }
+
+    // This should always succeed, but we are being convervative
+    fn to_user_pos(&self) -> Option<UserPos> {
+        Some(UserPos {
+            line: OneIndexed::new(usize::try_from(self.line).ok()?)?,
+            column: OneIndexed::new(usize::try_from(self.column).ok()?)?,
+        })
     }
 }
 
@@ -178,10 +187,7 @@ impl Playground {
 
     fn to_text_size(&self, transaction: &Transaction, pos: Position) -> Option<TextSize> {
         let info = transaction.get_module_info(&self.handle)?;
-        Some(
-            info.lined_buffer()
-                .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32),
-        )
+        Some(info.lined_buffer().from_user_pos(pos.to_user_pos()?))
     }
 
     pub fn query_type(&self, pos: Position) -> Option<TypeQueryResult> {
