@@ -1,5 +1,5 @@
+use pyrefly_util::lined_buffer::UserPos;
 use pyrefly_util::lined_buffer::UserRange;
-use ruff_source_file::LineColumn;
 use ruff_text_size::TextSize;
 
 use crate::module::module_info::ModuleInfo;
@@ -11,7 +11,7 @@ pub fn user_range_to_range(x: &UserRange) -> lsp_types::Range {
     )
 }
 
-fn source_location_to_position(x: &LineColumn) -> lsp_types::Position {
+fn source_location_to_position(x: &UserPos) -> lsp_types::Position {
     lsp_types::Position {
         line: x.line.to_zero_indexed() as u32,
         character: x.column.to_zero_indexed() as u32,

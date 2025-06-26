@@ -10,9 +10,9 @@ use std::sync::Arc;
 use dupe::Dupe;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lined_buffer::LinedBuffer;
+use pyrefly_util::lined_buffer::UserPos;
 use pyrefly_util::lined_buffer::UserRange;
 use ruff_python_ast::ModModule;
-use ruff_source_file::LineColumn;
 use ruff_source_file::OneIndexed;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
@@ -82,7 +82,7 @@ impl ModuleInfo {
         self.0.contents.user_range(range)
     }
 
-    pub fn line_column(&self, offset: TextSize) -> LineColumn {
+    pub fn line_column(&self, offset: TextSize) -> UserPos {
         self.0.contents.line_column(offset)
     }
 

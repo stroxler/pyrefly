@@ -46,14 +46,15 @@ impl LinedBuffer {
         self.buffer.lines()
     }
 
-    pub fn line_column(&self, offset: TextSize) -> LineColumn {
+    pub fn line_column(&self, offset: TextSize) -> UserPos {
         assert!(
             offset.to_usize() <= self.buffer.len(),
             "offset out of range, expected {} <= {}",
             offset.to_usize(),
             self.buffer.len()
         );
-        self.lines.line_column(offset, &self.buffer)
+        let LineColumn { line, column } = self.lines.line_column(offset, &self.buffer);
+        UserPos { line, column }
     }
 
     pub fn user_range(&self, range: TextRange) -> UserRange {
@@ -114,8 +115,8 @@ impl LinedBuffer {
 /// Stored in terms of characters, not including any BOM.
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Default)]
 pub struct UserRange {
-    pub start: LineColumn,
-    pub end: LineColumn,
+    pub start: UserPos,
+    pub end: UserPos,
 }
 
 impl Serialize for UserRange {
@@ -155,11 +156,34 @@ impl Display for UserRange {
     }
 }
 
+/// The line and column of an offset in a source file.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct UserPos {
+    /// The line in the source text.
+    pub line: OneIndexed,
+    /// The column (UTF scalar values) relative to the start of the line except any
+    /// potential BOM on the first line.
+    pub column: OneIndexed,
+}
+
+impl Default for UserPos {
+    fn default() -> Self {
+        Self {
+            line: OneIndexed::MIN,
+            column: OneIndexed::MIN,
+        }
+    }
+}
+
+impl Display for UserPos {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-
-    use ruff_source_file::LineColumn;
 
     use super::*;
 
@@ -173,11 +197,11 @@ mod tests {
         assert_eq!(lined_buffer.line_count(), 4);
 
         let range = |l1, c1, l2, c2| UserRange {
-            start: LineColumn {
+            start: UserPos {
                 line: OneIndexed::from_zero_indexed(l1),
                 column: OneIndexed::from_zero_indexed(c1),
             },
-            end: LineColumn {
+            end: UserPos {
                 line: OneIndexed::from_zero_indexed(l2),
                 column: OneIndexed::from_zero_indexed(c2),
             },

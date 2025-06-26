@@ -12,9 +12,9 @@ use dupe::Dupe;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::lined_buffer::UserPos;
 use pyrefly_util::lined_buffer::UserRange;
 use pyrefly_util::prelude::VecExt;
-use ruff_source_file::LineColumn;
 use serde::Serialize;
 
 use crate::config::config::ConfigFile;
@@ -36,7 +36,7 @@ pub struct Position {
 }
 
 impl Position {
-    fn new(position: LineColumn) -> Self {
+    fn new(position: UserPos) -> Self {
         Self {
             line: position.line.to_zero_indexed() as i32 + 1,
             column: position.column.to_zero_indexed() as i32 + 1,

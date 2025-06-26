@@ -188,8 +188,8 @@ mod tests {
     use std::sync::Arc;
 
     use pretty_assertions::assert_str_eq;
+    use pyrefly_util::lined_buffer::UserPos;
     use pyrefly_util::lined_buffer::UserRange;
-    use ruff_source_file::LineColumn;
     use ruff_source_file::OneIndexed;
     use tempfile;
     use vec1::Vec1;
@@ -204,8 +204,8 @@ mod tests {
         let line = OneIndexed::new(row).unwrap();
         let column = OneIndexed::new(column).unwrap();
         UserRange {
-            start: LineColumn { line, column },
-            end: LineColumn { line, column },
+            start: UserPos { line, column },
+            end: UserPos { line, column },
         }
     }
 
