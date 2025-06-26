@@ -17,6 +17,7 @@ use ruff_annotate_snippets::Level;
 use ruff_annotate_snippets::Message;
 use ruff_annotate_snippets::Renderer;
 use ruff_annotate_snippets::Snippet;
+use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
 use yansi::Paint;
@@ -162,11 +163,12 @@ pub fn print_error_counts(errors: &[Error], limit: usize) {
 impl Error {
     pub fn new(
         module_info: ModuleInfo,
-        range: UserRange,
+        range: TextRange,
         msg: Vec1<String>,
-        is_ignored: bool,
         error_kind: ErrorKind,
     ) -> Self {
+        let range = module_info.user_range(range);
+        let is_ignored = module_info.is_ignored(&range);
         let msg_has_details = msg.len() > 1;
         let mut msg = msg.into_iter();
         let msg_header = msg.next().unwrap().into_boxed_str();

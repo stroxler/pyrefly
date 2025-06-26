@@ -127,12 +127,10 @@ impl ErrorCollector {
         if self.style == ErrorStyle::Never {
             return;
         }
-        let source_range = self.module_info.user_range(range);
-        let is_ignored = self.module_info.is_ignored(&source_range);
         if let Some(ctx) = context {
             msg.insert(0, ctx().format());
         }
-        let err = Error::new(self.module_info.dupe(), source_range, msg, is_ignored, kind);
+        let err = Error::new(self.module_info.dupe(), range, msg, kind);
         self.errors.lock().push(err);
     }
 

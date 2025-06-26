@@ -189,8 +189,9 @@ mod tests {
 
     use pretty_assertions::assert_str_eq;
     use pyrefly_util::lined_buffer::UserPos;
-    use pyrefly_util::lined_buffer::UserRange;
     use ruff_source_file::OneIndexed;
+    use ruff_text_size::TextRange;
+    use ruff_text_size::TextSize;
     use tempfile;
     use vec1::Vec1;
 
@@ -200,27 +201,27 @@ mod tests {
     use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
 
-    fn sourcerange(row: usize, column: usize) -> UserRange {
-        let line = OneIndexed::new(row).unwrap();
-        let column = OneIndexed::new(column).unwrap();
-        UserRange {
-            start: UserPos { line, column },
-            end: UserPos { line, column },
-        }
-    }
-
     fn error(path: PathBuf, row: usize, column: usize, error_kind: ErrorKind) -> Error {
-        Error::new(
+        let contents = format!("{}{}", "\n".repeat(row - 1), " ".repeat(column - 1));
+        let pos = TextSize::new(contents.len() as u32);
+        let e = Error::new(
             ModuleInfo::new(
                 ModuleName::unknown(),
                 ModulePath::filesystem(path),
-                Arc::new("".to_owned()),
+                Arc::new(contents),
             ),
-            sourcerange(row, column),
+            TextRange::new(pos, pos),
             Vec1::new("test message".to_owned()),
-            false,
             error_kind,
-        )
+        );
+        assert_eq!(
+            e.user_range().start,
+            UserPos {
+                line: OneIndexed::new(row).unwrap(),
+                column: OneIndexed::new(column).unwrap()
+            }
+        );
+        e
     }
 
     fn test_remove_suppressions(lines: SmallSet<OneIndexed>, input: &str, want: &str) {
