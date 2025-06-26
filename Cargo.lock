@@ -1954,6 +1954,7 @@ dependencies = [
  "lsp-types",
  "memory-stats",
  "notify",
+ "parse-display",
  "path-absolutize",
  "pyrefly_derive",
  "rayon",

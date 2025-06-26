@@ -13,6 +13,7 @@ use std::ops::Range;
 use std::str::Lines;
 use std::sync::Arc;
 
+use parse_display::Display;
 use ruff_source_file::LineColumn;
 use ruff_source_file::LineIndex;
 use ruff_source_file::OneIndexed;
@@ -54,7 +55,10 @@ impl LinedBuffer {
             self.buffer.len()
         );
         let LineColumn { line, column } = self.lines.line_column(offset, &self.buffer);
-        DisplayPos { line, column }
+        DisplayPos {
+            line: LineNumber(line),
+            column,
+        }
     }
 
     pub fn display_range(&self, range: TextRange) -> DisplayRange {
@@ -79,7 +83,7 @@ impl LinedBuffer {
     pub fn from_display_pos(&self, pos: DisplayPos) -> TextSize {
         self.lines.offset(
             SourceLocation {
-                line: pos.line,
+                line: pos.line.0,
                 character_offset: pos.column,
             },
             &self.buffer,
@@ -99,13 +103,13 @@ impl LinedBuffer {
     /// Gets the content from the beginning of start_line to the end of end_line.
     pub fn content_in_line_range(&self, start_line: LineNumber, end_line: LineNumber) -> &str {
         debug_assert!(start_line <= end_line);
-        let start = self.lines.line_start(start_line, &self.buffer);
-        let end = self.lines.line_end(end_line, &self.buffer);
+        let start = self.lines.line_start(start_line.0, &self.buffer);
+        let end = self.lines.line_end(end_line.0, &self.buffer);
         &self.buffer[start.to_usize()..end.to_usize()]
     }
 
     pub fn line_start(&self, line: LineNumber) -> TextSize {
-        self.lines.line_start(line, &self.buffer)
+        self.lines.line_start(line.0, &self.buffer)
     }
 
     pub fn to_lsp_range(&self, x: TextRange) -> lsp_types::Range {
@@ -159,9 +163,9 @@ impl Serialize for DisplayRange {
     {
         use serde::ser::SerializeStruct;
         let mut state = serializer.serialize_struct("DisplayRange", 4)?;
-        state.serialize_field("start_line", &self.start.line.get())?;
+        state.serialize_field("start_line", &self.start.line.0.get())?;
         state.serialize_field("start_col", &self.start.column.get())?;
-        state.serialize_field("end_line", &self.end.line.get())?;
+        state.serialize_field("end_line", &self.end.line.0.get())?;
         state.serialize_field("end_col", &self.end.column.get())?;
         state.end()
     }
@@ -190,7 +194,40 @@ impl Display for DisplayRange {
 }
 
 /// A line number in a file.
-pub type LineNumber = OneIndexed;
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
+pub struct LineNumber(OneIndexed);
+
+impl Default for LineNumber {
+    fn default() -> Self {
+        LineNumber(OneIndexed::MIN)
+    }
+}
+
+impl LineNumber {
+    pub fn new(x: usize) -> Option<Self> {
+        Some(LineNumber(OneIndexed::new(x)?))
+    }
+
+    pub fn from_zero_indexed(x: usize) -> Self {
+        LineNumber(OneIndexed::from_zero_indexed(x))
+    }
+
+    pub fn to_zero_indexed(self) -> usize {
+        self.0.to_zero_indexed()
+    }
+
+    pub fn decrement(&self) -> Option<Self> {
+        Some(Self(self.0.checked_sub(OneIndexed::MIN)?))
+    }
+
+    pub fn increment(self) -> Self {
+        Self(self.0.saturating_add(1))
+    }
+
+    pub fn get(self) -> usize {
+        self.0.get()
+    }
+}
 
 /// The line and column of an offset in a source file.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -205,7 +242,7 @@ pub struct DisplayPos {
 impl Default for DisplayPos {
     fn default() -> Self {
         Self {
-            line: OneIndexed::MIN,
+            line: LineNumber::default(),
             column: OneIndexed::MIN,
         }
     }
@@ -234,11 +271,11 @@ mod tests {
 
         let range = |l1, c1, l2, c2| DisplayRange {
             start: DisplayPos {
-                line: OneIndexed::from_zero_indexed(l1),
+                line: LineNumber::from_zero_indexed(l1),
                 column: OneIndexed::from_zero_indexed(c1),
             },
             end: DisplayPos {
-                line: OneIndexed::from_zero_indexed(l2),
+                line: LineNumber::from_zero_indexed(l2),
                 column: OneIndexed::from_zero_indexed(c2),
             },
         };

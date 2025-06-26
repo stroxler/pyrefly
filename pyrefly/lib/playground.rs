@@ -14,6 +14,7 @@ use lsp_types::CompletionItemKind;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lined_buffer::DisplayPos;
 use pyrefly_util::lined_buffer::DisplayRange;
+use pyrefly_util::lined_buffer::LineNumber;
 use pyrefly_util::prelude::VecExt;
 use ruff_source_file::OneIndexed;
 use ruff_text_size::TextSize;
@@ -53,7 +54,7 @@ impl Position {
     // This should always succeed, but we are being convervative
     fn to_display_pos(&self) -> Option<DisplayPos> {
         Some(DisplayPos {
-            line: OneIndexed::new(usize::try_from(self.line).ok()?)?,
+            line: LineNumber::new(usize::try_from(self.line).ok()?)?,
             column: OneIndexed::new(usize::try_from(self.column).ok()?)?,
         })
     }

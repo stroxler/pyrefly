@@ -12,7 +12,6 @@ use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lined_buffer::DisplayPos;
 use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::lined_buffer::LinedBuffer;
-use ruff_source_file::OneIndexed;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
@@ -105,7 +104,7 @@ impl ModuleInfo {
         // This makes it so that the preceding ignore could "see through" comments.
         let start_line = {
             let mut start_line = source_range.start.line;
-            while let Some(earlier_line) = start_line.checked_sub(OneIndexed::MIN) {
+            while let Some(earlier_line) = start_line.decrement() {
                 let earlier_line_content = &self
                     .lined_buffer()
                     .content_in_line_range(earlier_line, earlier_line)
