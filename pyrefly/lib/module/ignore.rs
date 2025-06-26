@@ -7,6 +7,7 @@
 
 use dupe::Dupe;
 use itertools::Itertools;
+use pyrefly_util::lined_buffer::LineNumber;
 use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -22,14 +23,14 @@ pub enum SuppressionKind {
 /// For now we don't record the content of the ignore, but we could.
 #[derive(Debug, Clone, Default)]
 pub struct Ignore {
-    ignores: SmallMap<OneIndexed, Vec<SuppressionKind>>,
+    ignores: SmallMap<LineNumber, Vec<SuppressionKind>>,
     ignore_all: bool,
 }
 
 impl Ignore {
     pub fn new(code: &str) -> Self {
         // process line level comments
-        let mut ignores: SmallMap<OneIndexed, Vec<SuppressionKind>> = SmallMap::new();
+        let mut ignores: SmallMap<LineNumber, Vec<SuppressionKind>> = SmallMap::new();
         for (line, line_str) in code.lines().enumerate() {
             if let Some(kind) = Self::get_suppression_kind(line_str) {
                 ignores.insert(OneIndexed::from_zero_indexed(line), [kind].to_vec());
@@ -92,7 +93,7 @@ impl Ignore {
         None
     }
 
-    pub fn is_ignored(&self, start_line: OneIndexed, end_line: OneIndexed) -> bool {
+    pub fn is_ignored(&self, start_line: LineNumber, end_line: LineNumber) -> bool {
         if self.ignore_all {
             true
         } else {
@@ -104,7 +105,7 @@ impl Ignore {
     }
 
     /// Get all the ignores of a given kind.
-    pub fn get_ignores(&self, kind: SuppressionKind) -> SmallSet<OneIndexed> {
+    pub fn get_ignores(&self, kind: SuppressionKind) -> SmallSet<LineNumber> {
         self.ignores
             .iter()
             .filter(|ignore| ignore.1.contains(&kind))

@@ -97,14 +97,14 @@ impl LinedBuffer {
     }
 
     /// Gets the content from the beginning of start_line to the end of end_line.
-    pub fn content_in_line_range(&self, start_line: OneIndexed, end_line: OneIndexed) -> &str {
+    pub fn content_in_line_range(&self, start_line: LineNumber, end_line: LineNumber) -> &str {
         debug_assert!(start_line <= end_line);
         let start = self.lines.line_start(start_line, &self.buffer);
         let end = self.lines.line_end(end_line, &self.buffer);
         &self.buffer[start.to_usize()..end.to_usize()]
     }
 
-    pub fn line_start(&self, line: OneIndexed) -> TextSize {
+    pub fn line_start(&self, line: LineNumber) -> TextSize {
         self.lines.line_start(line, &self.buffer)
     }
 
@@ -189,11 +189,14 @@ impl Display for DisplayRange {
     }
 }
 
+/// A line number in a file.
+pub type LineNumber = OneIndexed;
+
 /// The line and column of an offset in a source file.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct DisplayPos {
     /// The line in the source text.
-    pub line: OneIndexed,
+    pub line: LineNumber,
     /// The column (UTF scalar values) relative to the start of the line except any
     /// potential BOM on the first line.
     pub column: OneIndexed,

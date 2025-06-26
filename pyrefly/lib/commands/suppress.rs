@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use pyrefly_util::fs_anyhow;
+use pyrefly_util::lined_buffer::LineNumber;
 use regex::Regex;
 use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
@@ -121,12 +122,12 @@ pub fn suppress_errors(path_errors: &SmallMap<PathBuf, Vec<Error>>) {
 }
 
 pub fn find_unused_ignores<'a>(
-    all_ignores: SmallMap<&'a PathBuf, SmallSet<OneIndexed>>,
-    suppressed_errors: SmallMap<&PathBuf, SmallSet<OneIndexed>>,
-) -> SmallMap<&'a PathBuf, SmallSet<OneIndexed>> {
-    let mut all_unused_ignores: SmallMap<&PathBuf, SmallSet<OneIndexed>> = SmallMap::new();
+    all_ignores: SmallMap<&'a PathBuf, SmallSet<LineNumber>>,
+    suppressed_errors: SmallMap<&PathBuf, SmallSet<LineNumber>>,
+) -> SmallMap<&'a PathBuf, SmallSet<LineNumber>> {
+    let mut all_unused_ignores: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
     let one = OneIndexed::new(1).unwrap();
-    let default_set: SmallSet<OneIndexed> = SmallSet::new();
+    let default_set: SmallSet<LineNumber> = SmallSet::new();
     // Loop over each path only save the ignores that are not in use
     for (path, ignores) in all_ignores {
         let errors = suppressed_errors.get(path).unwrap_or(&default_set);
@@ -145,7 +146,7 @@ pub fn find_unused_ignores<'a>(
     all_unused_ignores
 }
 
-pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<OneIndexed>>) {
+pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<LineNumber>>) {
     let regex = Regex::new(r"# pyrefly: ignore.*$").unwrap();
     let mut removed_ignores: SmallMap<&PathBuf, usize> = SmallMap::new();
     for (path, ignores) in path_ignores {
@@ -224,7 +225,7 @@ mod tests {
         e
     }
 
-    fn test_remove_suppressions(lines: SmallSet<OneIndexed>, input: &str, want: &str) {
+    fn test_remove_suppressions(lines: SmallSet<LineNumber>, input: &str, want: &str) {
         let tdir = tempfile::tempdir().unwrap();
         let path = tdir.path().join("test.py");
         fs_anyhow::write(&path, input.as_bytes()).unwrap();
