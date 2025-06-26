@@ -12,8 +12,8 @@ use std::io::Write;
 
 use itertools::Itertools;
 use pyrefly_util::display::number_thousands;
+use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::lined_buffer::LinedBuffer;
-use pyrefly_util::lined_buffer::UserRange;
 use ruff_annotate_snippets::Level;
 use ruff_annotate_snippets::Message;
 use ruff_annotate_snippets::Renderer;
@@ -33,7 +33,7 @@ use crate::module::module_path::ModulePath;
 pub struct Error {
     module_info: ModuleInfo,
     range: TextRange,
-    user_range: UserRange,
+    user_range: DisplayRange,
     error_kind: ErrorKind,
     /// First line of the error message
     msg_header: Box<str>,
@@ -198,7 +198,7 @@ impl Error {
         }
     }
 
-    pub fn user_range(&self) -> &UserRange {
+    pub fn user_range(&self) -> &DisplayRange {
         &self.user_range
     }
 

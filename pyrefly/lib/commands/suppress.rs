@@ -188,7 +188,7 @@ mod tests {
     use std::sync::Arc;
 
     use pretty_assertions::assert_str_eq;
-    use pyrefly_util::lined_buffer::UserPos;
+    use pyrefly_util::lined_buffer::DisplayPos;
     use ruff_source_file::OneIndexed;
     use ruff_text_size::TextRange;
     use ruff_text_size::TextSize;
@@ -216,7 +216,7 @@ mod tests {
         );
         assert_eq!(
             e.user_range().start,
-            UserPos {
+            DisplayPos {
                 line: OneIndexed::new(row).unwrap(),
                 column: OneIndexed::new(column).unwrap()
             }

@@ -9,9 +9,9 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::lined_buffer::DisplayPos;
+use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::lined_buffer::LinedBuffer;
-use pyrefly_util::lined_buffer::UserPos;
-use pyrefly_util::lined_buffer::UserRange;
 use ruff_source_file::OneIndexed;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
@@ -72,11 +72,11 @@ impl ModuleInfo {
         }
     }
 
-    pub fn user_range(&self, range: TextRange) -> UserRange {
+    pub fn user_range(&self, range: TextRange) -> DisplayRange {
         self.0.contents.user_range(range)
     }
 
-    pub fn user_pos(&self, offset: TextSize) -> UserPos {
+    pub fn user_pos(&self, offset: TextSize) -> DisplayPos {
         self.0.contents.user_pos(offset)
     }
 
@@ -100,7 +100,7 @@ impl ModuleInfo {
         self.0.name
     }
 
-    pub fn is_ignored(&self, source_range: &UserRange) -> bool {
+    pub fn is_ignored(&self, source_range: &DisplayRange) -> bool {
         // Extend the range of the error to include comment lines before it.
         // This makes it so that the preceding ignore could "see through" comments.
         let start_line = {

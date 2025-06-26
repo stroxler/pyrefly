@@ -12,8 +12,8 @@ use dupe::Dupe;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use pyrefly_util::arc_id::ArcId;
-use pyrefly_util::lined_buffer::UserPos;
-use pyrefly_util::lined_buffer::UserRange;
+use pyrefly_util::lined_buffer::DisplayPos;
+use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::prelude::VecExt;
 use ruff_source_file::OneIndexed;
 use ruff_text_size::TextSize;
@@ -43,7 +43,7 @@ impl Position {
         Self { line, column }
     }
 
-    fn from_user_pos(position: UserPos) -> Self {
+    fn from_user_pos(position: DisplayPos) -> Self {
         Self {
             line: position.line.get() as i32,
             column: position.column.get() as i32,
@@ -51,8 +51,8 @@ impl Position {
     }
 
     // This should always succeed, but we are being convervative
-    fn to_user_pos(&self) -> Option<UserPos> {
-        Some(UserPos {
+    fn to_user_pos(&self) -> Option<DisplayPos> {
+        Some(DisplayPos {
             line: OneIndexed::new(usize::try_from(self.line).ok()?)?,
             column: OneIndexed::new(usize::try_from(self.column).ok()?)?,
         })
@@ -72,7 +72,7 @@ pub struct Range {
 }
 
 impl Range {
-    fn new(range: UserRange) -> Self {
+    fn new(range: DisplayRange) -> Self {
         Self {
             start_line: range.start.line.get() as i32,
             start_col: range.start.column.get() as i32,

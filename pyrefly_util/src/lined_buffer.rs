@@ -46,7 +46,7 @@ impl LinedBuffer {
         self.buffer.lines()
     }
 
-    pub fn user_pos(&self, offset: TextSize) -> UserPos {
+    pub fn user_pos(&self, offset: TextSize) -> DisplayPos {
         assert!(
             offset.to_usize() <= self.buffer.len(),
             "offset out of range, expected {} <= {}",
@@ -54,11 +54,11 @@ impl LinedBuffer {
             self.buffer.len()
         );
         let LineColumn { line, column } = self.lines.line_column(offset, &self.buffer);
-        UserPos { line, column }
+        DisplayPos { line, column }
     }
 
-    pub fn user_range(&self, range: TextRange) -> UserRange {
-        UserRange {
+    pub fn user_range(&self, range: TextRange) -> DisplayRange {
+        DisplayRange {
             start: self.user_pos(range.start()),
             end: self.user_pos(range.end()),
         }
@@ -76,7 +76,7 @@ impl LinedBuffer {
 
     /// Convert from a user position to a `TextSize`.
     /// Doesn't take account of a leading BOM, so should be used carefully.
-    pub fn from_user_pos(&self, pos: UserPos) -> TextSize {
+    pub fn from_user_pos(&self, pos: DisplayPos) -> TextSize {
         self.lines.offset(
             SourceLocation {
                 line: pos.line,
@@ -89,7 +89,7 @@ impl LinedBuffer {
 
     /// Convert from a user range to a `TextRange`.
     /// Doesn't take account of a leading BOM, so should be used carefully.
-    pub fn from_user_range(&self, source_range: &UserRange) -> TextRange {
+    pub fn from_user_range(&self, source_range: &DisplayRange) -> TextRange {
         TextRange::new(
             self.from_user_pos(source_range.start),
             self.from_user_pos(source_range.end),
@@ -147,18 +147,18 @@ impl LinedBuffer {
 /// A range in a file, with a start and end, both containing line and column.
 /// Stored in terms of characters, not including any BOM.
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Default)]
-pub struct UserRange {
-    pub start: UserPos,
-    pub end: UserPos,
+pub struct DisplayRange {
+    pub start: DisplayPos,
+    pub end: DisplayPos,
 }
 
-impl Serialize for UserRange {
+impl Serialize for DisplayRange {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("UserRange", 4)?;
+        let mut state = serializer.serialize_struct("DisplayRange", 4)?;
         state.serialize_field("start_line", &self.start.line.get())?;
         state.serialize_field("start_col", &self.start.column.get())?;
         state.serialize_field("end_line", &self.end.line.get())?;
@@ -167,7 +167,7 @@ impl Serialize for UserRange {
     }
 }
 
-impl Display for UserRange {
+impl Display for DisplayRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.start.line == self.end.line {
             if self.start.column == self.end.column {
@@ -191,7 +191,7 @@ impl Display for UserRange {
 
 /// The line and column of an offset in a source file.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct UserPos {
+pub struct DisplayPos {
     /// The line in the source text.
     pub line: OneIndexed,
     /// The column (UTF scalar values) relative to the start of the line except any
@@ -199,7 +199,7 @@ pub struct UserPos {
     pub column: OneIndexed,
 }
 
-impl Default for UserPos {
+impl Default for DisplayPos {
     fn default() -> Self {
         Self {
             line: OneIndexed::MIN,
@@ -208,7 +208,7 @@ impl Default for UserPos {
     }
 }
 
-impl Display for UserPos {
+impl Display for DisplayPos {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}", self.line, self.column)
     }
@@ -229,12 +229,12 @@ mod tests {
 
         assert_eq!(lined_buffer.line_count(), 4);
 
-        let range = |l1, c1, l2, c2| UserRange {
-            start: UserPos {
+        let range = |l1, c1, l2, c2| DisplayRange {
+            start: DisplayPos {
                 line: OneIndexed::from_zero_indexed(l1),
                 column: OneIndexed::from_zero_indexed(c1),
             },
-            end: UserPos {
+            end: DisplayPos {
                 line: OneIndexed::from_zero_indexed(l2),
                 column: OneIndexed::from_zero_indexed(c2),
             },
