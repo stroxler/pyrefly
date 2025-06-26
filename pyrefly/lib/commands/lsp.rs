@@ -161,6 +161,7 @@ use pyrefly_util::thread_pool::ThreadPool;
 use ruff_source_file::LineIndex;
 use ruff_source_file::OneIndexed;
 use ruff_source_file::SourceLocation;
+use ruff_text_size::Ranged;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -1118,7 +1119,7 @@ impl Server {
                 return Some((
                     path.to_path_buf(),
                     Diagnostic {
-                        range: user_range_to_range(e.user_range()),
+                        range: text_range_to_range(e.lined_buffer(), e.range()),
                         severity: Some(match e.error_kind().severity() {
                             Severity::Error => lsp_types::DiagnosticSeverity::ERROR,
                             Severity::Warn => lsp_types::DiagnosticSeverity::WARNING,

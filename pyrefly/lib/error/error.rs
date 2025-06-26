@@ -12,6 +12,7 @@ use std::io::Write;
 
 use itertools::Itertools;
 use pyrefly_util::display::number_thousands;
+use pyrefly_util::lined_buffer::LinedBuffer;
 use pyrefly_util::lined_buffer::UserRange;
 use ruff_annotate_snippets::Level;
 use ruff_annotate_snippets::Message;
@@ -198,6 +199,10 @@ impl Error {
 
     pub fn user_range(&self) -> &UserRange {
         &self.user_range
+    }
+
+    pub fn lined_buffer(&self) -> &LinedBuffer {
+        self.module_info.lined_buffer()
     }
 
     pub fn path(&self) -> &ModulePath {

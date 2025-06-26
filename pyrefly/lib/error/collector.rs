@@ -9,8 +9,8 @@ use std::fmt::Debug;
 use std::mem;
 
 use dupe::Dupe;
-use pyrefly_util::lined_buffer::UserRange;
 use pyrefly_util::lock::Mutex;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use vec1::Vec1;
 
@@ -46,18 +46,19 @@ impl ModuleErrors {
         self.clean = true;
         // We want to sort only by source-range, not by message.
         // When we get an overload error, we want that overload to remain before whatever the precise overload failure is.
-        self.items.sort_by_key(|x| x.user_range().clone());
+        self.items
+            .sort_by_key(|x| (x.range().start(), x.range().end()));
 
         // Within a single source range we want to dedupe, even if the error messages aren't adjacent
         let mut res = Vec::with_capacity(self.items.len());
         mem::swap(&mut res, &mut self.items);
 
         // The range and where that range started in self.items
-        let mut previous_range = UserRange::default();
+        let mut previous_range = TextRange::default();
         let mut previous_start = 0;
         for x in res {
-            if x.user_range() != &previous_range {
-                previous_range = x.user_range().clone();
+            if x.range() != previous_range {
+                previous_range = x.range();
                 previous_start = self.items.len();
                 self.items.push(x);
             } else if !self.items[previous_start..].contains(&x) {
