@@ -174,7 +174,7 @@ impl Playground {
             })
     }
 
-    pub fn query_type(&mut self, pos: Position) -> Option<TypeQueryResult> {
+    pub fn query_type(&self, pos: Position) -> Option<TypeQueryResult> {
         let transaction = self.state.transaction();
         let info = transaction.get_module_info(&self.handle)?;
         let position = info
@@ -203,7 +203,7 @@ impl Playground {
         ))
     }
 
-    pub fn autocomplete(&mut self, pos: Position) -> Vec<AutoCompletionItem> {
+    pub fn autocomplete(&self, pos: Position) -> Vec<AutoCompletionItem> {
         let transaction = self.state.transaction();
         transaction
             .get_module_info(&self.handle)
@@ -232,7 +232,7 @@ impl Playground {
             .collect::<Vec<_>>()
     }
 
-    pub fn inlay_hint(&mut self) -> Vec<InlayHint> {
+    pub fn inlay_hint(&self) -> Vec<InlayHint> {
         let transaction = self.state.transaction();
         transaction
             .get_module_info(&self.handle)
