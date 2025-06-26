@@ -44,8 +44,8 @@ impl Position {
 
     fn from_user_pos(position: UserPos) -> Self {
         Self {
-            line: position.line.to_zero_indexed() as i32 + 1,
-            column: position.column.to_zero_indexed() as i32 + 1,
+            line: position.line.get() as i32,
+            column: position.column.get() as i32,
         }
     }
 }
@@ -65,10 +65,10 @@ pub struct Range {
 impl Range {
     fn new(range: UserRange) -> Self {
         Self {
-            start_line: range.start.line.to_zero_indexed() as i32 + 1,
-            start_col: range.start.column.to_zero_indexed() as i32 + 1,
-            end_line: range.end.line.to_zero_indexed() as i32 + 1,
-            end_col: range.end.column.to_zero_indexed() as i32 + 1,
+            start_line: range.start.line.get() as i32,
+            start_col: range.start.column.get() as i32,
+            end_line: range.end.line.get() as i32,
+            end_col: range.end.column.get() as i32,
         }
     }
 }
@@ -160,10 +160,10 @@ impl Playground {
             .into_map(|e| {
                 let range = e.user_range();
                 Diagnostic {
-                    start_line: range.start.line.to_zero_indexed() as i32 + 1,
-                    start_col: range.start.column.to_zero_indexed() as i32 + 1,
-                    end_line: range.end.line.to_zero_indexed() as i32 + 1,
-                    end_col: range.end.column.to_zero_indexed() as i32 + 1,
+                    start_line: range.start.line.get() as i32,
+                    start_col: range.start.column.get() as i32,
+                    end_line: range.end.line.get() as i32,
+                    end_col: range.end.column.get() as i32,
                     message: e.msg().to_owned(),
                     kind: e.error_kind().to_name().to_owned(),
                     // Severity values defined here: https://microsoft.github.io/monaco-editor/typedoc/enums/MarkerSeverity.html
