@@ -75,10 +75,7 @@ impl ModuleInfo {
     }
 
     pub fn user_range(&self, range: TextRange) -> UserRange {
-        UserRange {
-            start: self.line_column(range.start()),
-            end: self.line_column(range.end()),
-        }
+        self.0.contents.user_range(range)
     }
 
     pub fn line_column(&self, offset: TextSize) -> LineColumn {

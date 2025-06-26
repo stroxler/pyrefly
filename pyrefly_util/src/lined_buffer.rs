@@ -56,6 +56,13 @@ impl LinedBuffer {
         self.lines.line_column(offset, &self.buffer)
     }
 
+    pub fn user_range(&self, range: TextRange) -> UserRange {
+        UserRange {
+            start: self.line_column(range.start()),
+            end: self.line_column(range.end()),
+        }
+    }
+
     pub fn code_at(&self, range: TextRange) -> &str {
         match self.buffer.get(Range::<usize>::from(range)) {
             Some(code) => code,
