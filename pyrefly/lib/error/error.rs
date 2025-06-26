@@ -114,25 +114,26 @@ impl Error {
     fn get_source_snippet<'a>(&'a self, origin: &'a str) -> Message<'a> {
         // Warning: The SourceRange is char indexed, while the snippet is byte indexed.
         //          Be careful in the conversion.
-        let range = self.user_range();
         // Question: Should we just keep the original TextRange around?
-        let text_range = self.module_info.lined_buffer().to_text_range(range);
         let source = self
             .module_info
             .lined_buffer()
-            .content_in_line_range(range.start.line, range.end.line);
-        let line_start = self.module_info.lined_buffer().line_start(range.start.line);
+            .content_in_line_range(self.user_range.start.line, self.user_range.end.line);
+        let line_start = self
+            .module_info
+            .lined_buffer()
+            .line_start(self.user_range.start.line);
 
         let level = match self.error_kind().severity() {
             Severity::Error => Level::Error,
             Severity::Warn => Level::Warning,
             Severity::Info => Level::Info,
         };
-        let span_start = (text_range.start() - line_start).to_usize();
-        let span_end = span_start + text_range.len().to_usize();
+        let span_start = (self.range.start() - line_start).to_usize();
+        let span_end = span_start + self.range.len().to_usize();
         Level::None.title("").snippet(
             Snippet::source(source)
-                .line_start(range.start.line.get())
+                .line_start(self.user_range.start.line.get())
                 .origin(origin)
                 .annotation(level.span(span_start..span_end)),
         )
