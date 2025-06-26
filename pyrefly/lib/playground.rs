@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -16,7 +17,6 @@ use pyrefly_util::lined_buffer::DisplayPos;
 use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::lined_buffer::LineNumber;
 use pyrefly_util::prelude::VecExt;
-use ruff_source_file::OneIndexed;
 use ruff_text_size::TextSize;
 use serde::Serialize;
 
@@ -55,7 +55,7 @@ impl Position {
     fn to_display_pos(&self) -> Option<DisplayPos> {
         Some(DisplayPos {
             line: LineNumber::new(u32::try_from(self.line).ok()?)?,
-            column: OneIndexed::new(usize::try_from(self.column).ok()?)?,
+            column: NonZeroU32::new(u32::try_from(self.column).ok()?)?,
         })
     }
 }

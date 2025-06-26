@@ -58,7 +58,7 @@ impl LinedBuffer {
         let LineColumn { line, column } = self.lines.line_column(offset, &self.buffer);
         DisplayPos {
             line: LineNumber(NonZeroU32::new(line.get() as u32).unwrap()),
-            column,
+            column: NonZeroU32::new(column.get() as u32).unwrap(),
         }
     }
 
@@ -85,7 +85,7 @@ impl LinedBuffer {
         self.lines.offset(
             SourceLocation {
                 line: pos.line.to_one_indexed(),
-                character_offset: pos.column,
+                character_offset: OneIndexed::new(pos.column.get() as usize).unwrap(),
             },
             &self.buffer,
             PositionEncoding::Utf32,
@@ -243,14 +243,14 @@ pub struct DisplayPos {
     pub line: LineNumber,
     /// The column (UTF scalar values) relative to the start of the line except any
     /// potential BOM on the first line.
-    pub column: OneIndexed,
+    pub column: NonZeroU32,
 }
 
 impl Default for DisplayPos {
     fn default() -> Self {
         Self {
             line: LineNumber::default(),
-            column: OneIndexed::MIN,
+            column: NonZeroU32::MIN,
         }
     }
 }
@@ -279,11 +279,11 @@ mod tests {
         let range = |l1, c1, l2, c2| DisplayRange {
             start: DisplayPos {
                 line: LineNumber::from_zero_indexed(l1),
-                column: OneIndexed::from_zero_indexed(c1),
+                column: NonZeroU32::new(c1 + 1u32).unwrap(),
             },
             end: DisplayPos {
                 line: LineNumber::from_zero_indexed(l2),
-                column: OneIndexed::from_zero_indexed(c2),
+                column: NonZeroU32::new(c2 + 1u32).unwrap(),
             },
         };
 

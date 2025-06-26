@@ -33,9 +33,9 @@ impl LegacyError {
         let error_range = error.display_range();
         Self {
             line: error_range.start.line.get() as usize,
-            column: error_range.start.column.get(),
+            column: error_range.start.column.get() as usize,
             stop_line: error_range.end.line.get() as usize,
-            stop_column: error_range.end.column.get(),
+            stop_column: error_range.end.column.get() as usize,
             path: error.path().to_string(),
             // -2 is chosen because it's an unused error code in Pyre1
             code: -2, // TODO: replace this dummy value

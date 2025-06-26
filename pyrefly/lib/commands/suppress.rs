@@ -184,11 +184,11 @@ pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<LineNumbe
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU32;
     use std::sync::Arc;
 
     use pretty_assertions::assert_str_eq;
     use pyrefly_util::lined_buffer::DisplayPos;
-    use ruff_source_file::OneIndexed;
     use ruff_text_size::TextRange;
     use ruff_text_size::TextSize;
     use tempfile;
@@ -217,7 +217,7 @@ mod tests {
             e.display_range().start,
             DisplayPos {
                 line: LineNumber::new(row as u32).unwrap(),
-                column: OneIndexed::new(column).unwrap()
+                column: NonZeroU32::new(column as u32).unwrap()
             }
         );
         e
