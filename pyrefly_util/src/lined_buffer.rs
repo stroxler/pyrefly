@@ -38,14 +38,6 @@ impl LinedBuffer {
         self.lines.len()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.buffer.is_empty()
-    }
-
-    pub fn len(&self) -> usize {
-        self.buffer.len()
-    }
-
     pub fn contents(&self) -> &Arc<String> {
         &self.buffer
     }
@@ -56,10 +48,10 @@ impl LinedBuffer {
 
     pub fn line_column(&self, offset: TextSize) -> LineColumn {
         assert!(
-            offset.to_usize() <= self.len(),
+            offset.to_usize() <= self.buffer.len(),
             "offset out of range, expected {} <= {}",
             offset.to_usize(),
-            self.len()
+            self.buffer.len()
         );
         self.lines.line_column(offset, &self.buffer)
     }

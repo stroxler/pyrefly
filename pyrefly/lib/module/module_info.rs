@@ -56,10 +56,6 @@ impl ModuleInfo {
         }))
     }
 
-    pub fn len(&self) -> usize {
-        self.0.contents.len()
-    }
-
     pub fn line_count(&self) -> usize {
         // By default we count the empty lines, but sometimes to get stats
         // we might need to only count the non-empty/non-comment lines.
