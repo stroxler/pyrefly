@@ -30,7 +30,7 @@ pub struct LegacyError {
 
 impl LegacyError {
     pub fn from_error(error: &Error) -> Self {
-        let error_range = error.source_range();
+        let error_range = error.user_range();
         Self {
             line: error_range.start.line.get(),
             column: error_range.start.column.get(),

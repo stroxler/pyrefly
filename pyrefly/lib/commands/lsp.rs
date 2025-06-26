@@ -189,8 +189,8 @@ use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionData;
 use crate::types::lsp::position_to_text_size;
-use crate::types::lsp::source_range_to_range;
 use crate::types::lsp::text_size_to_position;
+use crate::types::lsp::user_range_to_range;
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]
 pub(crate) enum IndexingMode {
@@ -1117,7 +1117,7 @@ impl Server {
                 return Some((
                     path.to_path_buf(),
                     Diagnostic {
-                        range: source_range_to_range(e.source_range()),
+                        range: user_range_to_range(e.user_range()),
                         severity: Some(match e.error_kind().severity() {
                             Severity::Error => lsp_types::DiagnosticSeverity::ERROR,
                             Severity::Warn => lsp_types::DiagnosticSeverity::WARNING,
@@ -1531,7 +1531,7 @@ impl Server {
         };
         Some(GotoDefinitionResponse::Scalar(Location {
             uri,
-            range: source_range_to_range(&definition_module_info.source_range(range)),
+            range: user_range_to_range(&definition_module_info.user_range(range)),
         }))
     }
 
@@ -1587,7 +1587,7 @@ impl Server {
                         changes: Some(HashMap::from([(
                             uri.clone(),
                             vec![TextEdit {
-                                range: source_range_to_range(&range),
+                                range: user_range_to_range(&range),
                                 new_text: insert_text,
                             }],
                         )])),
@@ -1612,7 +1612,7 @@ impl Server {
             transaction
                 .find_local_references(&handle, position)
                 .into_map(|range| DocumentHighlight {
-                    range: source_range_to_range(&info.source_range(range)),
+                    range: user_range_to_range(&info.user_range(range)),
                     kind: None,
                 }),
         )
@@ -1667,9 +1667,8 @@ impl Server {
                         if let Some(uri) = module_info_to_uri(&info) {
                             locations.push((
                                 uri,
-                                ranges.into_map(|range| {
-                                    source_range_to_range(&info.source_range(range))
-                                }),
+                                ranges
+                                    .into_map(|range| user_range_to_range(&info.user_range(range))),
                             ));
                         };
                     }
@@ -1756,9 +1755,9 @@ impl Server {
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
         let position = position_to_text_size(&info, params.position);
-        transaction.prepare_rename(&handle, position).map(|range| {
-            PrepareRenameResponse::Range(source_range_to_range(&info.source_range(range)))
-        })
+        transaction
+            .prepare_rename(&handle, position)
+            .map(|range| PrepareRenameResponse::Range(user_range_to_range(&info.user_range(range))))
     }
 
     fn signature_help(

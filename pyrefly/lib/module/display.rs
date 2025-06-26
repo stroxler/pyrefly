@@ -74,7 +74,7 @@ impl DisplayWith<ModuleInfo> for Stmt {
 
 impl DisplayWith<ModuleInfo> for TextRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, m: &ModuleInfo) -> fmt::Result {
-        write!(f, "{}", m.source_range(*self))
+        write!(f, "{}", m.user_range(*self))
     }
 }
 

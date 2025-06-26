@@ -96,7 +96,7 @@ impl SemanticTokensLegends {
         let mut previous_col = 0;
         let mut lsp_semantic_tokens = Vec::new();
         for token in tokens {
-            let source_range = module_info.source_range(token.range);
+            let source_range = module_info.user_range(token.range);
             let length = token.range.len().to_u32();
             let current_line = source_range.start.line.to_zero_indexed();
             let current_col = source_range.start.column.to_zero_indexed();

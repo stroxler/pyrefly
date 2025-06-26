@@ -90,10 +90,7 @@ impl Query {
             if let Some(ty) = answers.get_type_trace(range) {
                 let mut ctx = TypeDisplayContext::new(&[&ty]);
                 ctx.always_display_module_name();
-                res.push((
-                    module_info.source_range(range),
-                    ctx.display(&ty).to_string(),
-                ));
+                res.push((module_info.user_range(range), ctx.display(&ty).to_string()));
             }
             x.recurse(&mut |x| f(x, module_info, answers, res));
         }

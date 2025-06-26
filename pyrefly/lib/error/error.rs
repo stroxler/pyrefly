@@ -90,7 +90,7 @@ impl Error {
                 "{} {}:{}: {} {}",
                 self.error_kind().severity().painted(),
                 Paint::blue(&self.path().as_path().display()),
-                Paint::dim(self.source_range()),
+                Paint::dim(self.user_range()),
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
             );
@@ -104,7 +104,7 @@ impl Error {
     fn get_source_snippet<'a>(&'a self, origin: &'a str) -> Message<'a> {
         // Warning: The SourceRange is char indexed, while the snippet is byte indexed.
         //          Be careful in the conversion.
-        let range = self.source_range();
+        let range = self.user_range();
         // Question: Should we just keep the original TextRange around?
         let text_range = self.module_info.to_text_range(range);
         let source = self
@@ -184,7 +184,7 @@ impl Error {
         }
     }
 
-    pub fn source_range(&self) -> &UserRange {
+    pub fn user_range(&self) -> &UserRange {
         &self.range
     }
 

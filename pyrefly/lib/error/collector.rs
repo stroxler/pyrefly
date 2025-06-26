@@ -46,7 +46,7 @@ impl ModuleErrors {
         self.clean = true;
         // We want to sort only by source-range, not by message.
         // When we get an overload error, we want that overload to remain before whatever the precise overload failure is.
-        self.items.sort_by_key(|x| x.source_range().clone());
+        self.items.sort_by_key(|x| x.user_range().clone());
 
         // Within a single source range we want to dedupe, even if the error messages aren't adjacent
         let mut res = Vec::with_capacity(self.items.len());
@@ -56,8 +56,8 @@ impl ModuleErrors {
         let mut previous_range = UserRange::default();
         let mut previous_start = 0;
         for x in res {
-            if x.source_range() != &previous_range {
-                previous_range = x.source_range().clone();
+            if x.user_range() != &previous_range {
+                previous_range = x.user_range().clone();
                 previous_start = self.items.len();
                 self.items.push(x);
             } else if !self.items[previous_start..].contains(&x) {
@@ -127,7 +127,7 @@ impl ErrorCollector {
         if self.style == ErrorStyle::Never {
             return;
         }
-        let source_range = self.module_info.source_range(range);
+        let source_range = self.module_info.user_range(range);
         let is_ignored = self.module_info.is_ignored(&source_range);
         if let Some(ctx) = context {
             msg.insert(0, ctx().format());

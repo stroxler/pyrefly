@@ -153,7 +153,7 @@ impl Playground {
             .shown
             .into_iter()
             .map(|e| {
-                let range = e.source_range();
+                let range = e.user_range();
                 Diagnostic {
                     start_line: range.start.line.to_zero_indexed() as i32 + 1,
                     start_col: range.start.column.to_zero_indexed() as i32 + 1,
@@ -199,7 +199,7 @@ impl Playground {
                 Range::new(
                     range_with_mod_info
                         .module_info
-                        .source_range(range_with_mod_info.range),
+                        .user_range(range_with_mod_info.range),
                 )
             })
     }

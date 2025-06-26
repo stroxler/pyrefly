@@ -72,7 +72,7 @@ use crate::state::state::CancellableTransaction;
 use crate::state::state::Transaction;
 use crate::types::callable::Param;
 use crate::types::callable::Params;
-use crate::types::lsp::source_range_to_range;
+use crate::types::lsp::user_range_to_range;
 use crate::types::module::Module;
 use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
@@ -1158,14 +1158,14 @@ impl<'a> Transaction<'a> {
         for error in errors {
             match error.error_kind() {
                 ErrorKind::UnknownName => {
-                    let error_range = module_info.to_text_range(error.source_range());
+                    let error_range = module_info.to_text_range(error.user_range());
                     if error_range.contains_range(range) {
                         let unknown_name = module_info.code_at(error_range);
                         for handle_to_import_from in self.search_exports_exact(unknown_name) {
                             let (position, insert_text) =
                                 insert_import_edit(&ast, handle_to_import_from, unknown_name);
                             let range = TextRange::at(position, TextSize::new(0));
-                            let source_range = module_info.source_range(range);
+                            let source_range = module_info.user_range(range);
                             let title = format!("Insert import: `{}`", insert_text.trim());
                             code_actions.push((title, source_range, insert_text));
                         }
@@ -1546,13 +1546,13 @@ impl<'a> Transaction<'a> {
                             {
                                 let (position, insert_text) =
                                     insert_import_edit(&ast, handle_to_import_from, &name);
-                                let import_text_edit =
-                                    TextEdit {
-                                        range: source_range_to_range(&module_info.source_range(
-                                            TextRange::at(position, TextSize::new(0)),
-                                        )),
-                                        new_text: insert_text.clone(),
-                                    };
+                                let import_text_edit = TextEdit {
+                                    range: user_range_to_range(
+                                        &module_info
+                                            .user_range(TextRange::at(position, TextSize::new(0))),
+                                    ),
+                                    new_text: insert_text.clone(),
+                                };
                                 result.push(CompletionItem {
                                     label: name,
                                     detail: Some(insert_text),
@@ -1853,11 +1853,11 @@ impl<'a> Transaction<'a> {
                         kind: lsp_types::SymbolKind::FUNCTION,
                         tags: None,
                         deprecated: None,
-                        range: source_range_to_range(
-                            &module_info.source_range(stmt_function_def.range),
+                        range: user_range_to_range(
+                            &module_info.user_range(stmt_function_def.range),
                         ),
-                        selection_range: source_range_to_range(
-                            &module_info.source_range(stmt_function_def.name.range),
+                        selection_range: user_range_to_range(
+                            &module_info.user_range(stmt_function_def.name.range),
                         ),
                         children: Some(children),
                     });
@@ -1875,11 +1875,9 @@ impl<'a> Transaction<'a> {
                         kind: lsp_types::SymbolKind::CLASS,
                         tags: None,
                         deprecated: None,
-                        range: source_range_to_range(
-                            &module_info.source_range(stmt_class_def.range),
-                        ),
-                        selection_range: source_range_to_range(
-                            &module_info.source_range(stmt_class_def.name.range),
+                        range: user_range_to_range(&module_info.user_range(stmt_class_def.range)),
+                        selection_range: user_range_to_range(
+                            &module_info.user_range(stmt_class_def.name.range),
                         ),
                         children: Some(children),
                     });

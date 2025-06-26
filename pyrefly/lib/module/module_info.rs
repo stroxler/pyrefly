@@ -82,7 +82,7 @@ impl ModuleInfo {
         }
     }
 
-    pub fn source_range(&self, range: TextRange) -> UserRange {
+    pub fn user_range(&self, range: TextRange) -> UserRange {
         UserRange {
             start: self.line_column(range.start()),
             end: self.line_column(range.end()),

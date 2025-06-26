@@ -4,7 +4,7 @@ use ruff_text_size::TextSize;
 
 use crate::module::module_info::ModuleInfo;
 
-pub fn source_range_to_range(x: &UserRange) -> lsp_types::Range {
+pub fn user_range_to_range(x: &UserRange) -> lsp_types::Range {
     lsp_types::Range::new(
         source_location_to_position(&x.start),
         source_location_to_position(&x.end),
