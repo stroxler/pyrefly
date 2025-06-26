@@ -17,6 +17,7 @@ use ruff_annotate_snippets::Level;
 use ruff_annotate_snippets::Message;
 use ruff_annotate_snippets::Renderer;
 use ruff_annotate_snippets::Snippet;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
@@ -30,7 +31,8 @@ use crate::module::module_path::ModulePath;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Error {
     module_info: ModuleInfo,
-    range: UserRange,
+    range: TextRange,
+    user_range: UserRange,
     error_kind: ErrorKind,
     /// First line of the error message
     msg_header: Box<str>,
@@ -38,6 +40,12 @@ pub struct Error {
     /// Note that this is formatted for pretty-printing, with two spaces at the beginning and after every newline.
     msg_details: Option<Box<str>>,
     is_ignored: bool,
+}
+
+impl Ranged for Error {
+    fn range(&self) -> TextRange {
+        self.range
+    }
 }
 
 impl Error {
@@ -63,7 +71,7 @@ impl Error {
                 "{} {}:{}: {} [{}]",
                 self.error_kind().severity().label(),
                 self.path(),
-                self.range,
+                self.user_range,
                 self.msg_header,
                 self.error_kind.to_name(),
             )?;
@@ -167,8 +175,8 @@ impl Error {
         msg: Vec1<String>,
         error_kind: ErrorKind,
     ) -> Self {
-        let range = module_info.user_range(range);
-        let is_ignored = module_info.is_ignored(&range);
+        let user_range = module_info.user_range(range);
+        let is_ignored = module_info.is_ignored(&user_range);
         let msg_has_details = msg.len() > 1;
         let mut msg = msg.into_iter();
         let msg_header = msg.next().unwrap().into_boxed_str();
@@ -180,6 +188,7 @@ impl Error {
         Self {
             module_info,
             range,
+            user_range,
             error_kind,
             msg_header,
             msg_details,
@@ -188,7 +197,7 @@ impl Error {
     }
 
     pub fn user_range(&self) -> &UserRange {
-        &self.range
+        &self.user_range
     }
 
     pub fn path(&self) -> &ModulePath {
