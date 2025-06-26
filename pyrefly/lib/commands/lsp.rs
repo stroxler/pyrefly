@@ -161,7 +161,6 @@ use pyrefly_util::thread_pool::ThreadPool;
 use ruff_source_file::LineIndex;
 use ruff_source_file::OneIndexed;
 use ruff_source_file::SourceLocation;
-use ruff_text_size::TextRange;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -189,6 +188,7 @@ use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionData;
 use crate::types::lsp::position_to_text_size;
+use crate::types::lsp::range_to_text_range;
 use crate::types::lsp::text_size_to_position;
 use crate::types::lsp::user_range_to_range;
 
@@ -1579,10 +1579,7 @@ impl Server {
         let uri = &params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let module_info = transaction.get_module_info(&handle)?;
-        let range = TextRange::new(
-            position_to_text_size(module_info.lined_buffer(), params.range.start),
-            position_to_text_size(module_info.lined_buffer(), params.range.end),
-        );
+        let range = range_to_text_range(module_info.lined_buffer(), params.range);
         let code_actions = transaction
             .local_quickfix_code_actions(&handle, range)?
             .into_map(|(title, range, insert_text)| {
@@ -1873,10 +1870,7 @@ impl Server {
         let uri = &params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let module_info = transaction.get_module_info(&handle)?;
-        let range = TextRange::new(
-            position_to_text_size(module_info.lined_buffer(), params.range.start),
-            position_to_text_size(module_info.lined_buffer(), params.range.end),
-        );
+        let range = range_to_text_range(module_info.lined_buffer(), params.range);
         Some(SemanticTokensRangeResult::Tokens(SemanticTokens {
             result_id: None,
             data: transaction
