@@ -177,39 +177,32 @@ impl Playground {
     pub fn query_type(&mut self, pos: Position) -> Option<TypeQueryResult> {
         let handle = self.handle.dupe();
         let transaction = self.state.transaction();
-        transaction
-            .get_module_info(&handle)
-            .map(|info| {
-                info.lined_buffer()
-                    .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32)
-            })
-            .and_then(|position| transaction.get_type_at(&handle, position))
-            .map(|t| t.to_string())
-            .map(|result| TypeQueryResult {
-                contents: vec![TypeQueryContent {
-                    language: "python".to_owned(),
-                    value: result,
-                }],
-            })
+        let info = transaction.get_module_info(&handle)?;
+        let position = info
+            .lined_buffer()
+            .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32);
+        let t = transaction.get_type_at(&handle, position)?;
+        Some(TypeQueryResult {
+            contents: vec![TypeQueryContent {
+                language: "python".to_owned(),
+                value: t.to_string(),
+            }],
+        })
     }
 
     pub fn goto_definition(&mut self, pos: Position) -> Option<Range> {
         let handle = self.handle.dupe();
         let transaction = self.state.transaction();
-        transaction
-            .get_module_info(&handle)
-            .map(|info| {
-                info.lined_buffer()
-                    .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32)
-            })
-            .and_then(|position| transaction.goto_definition(&handle, position))
-            .map(|range_with_mod_info| {
-                Range::new(
-                    range_with_mod_info
-                        .module_info
-                        .user_range(range_with_mod_info.range),
-                )
-            })
+        let info = transaction.get_module_info(&handle)?;
+        let position = info
+            .lined_buffer()
+            .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32);
+        let range_with_mod_info = transaction.goto_definition(&handle, position)?;
+        Some(Range::new(
+            range_with_mod_info
+                .module_info
+                .user_range(range_with_mod_info.range),
+        ))
     }
 
     pub fn autocomplete(&mut self, pos: Position) -> Vec<AutoCompletionItem> {
