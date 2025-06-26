@@ -116,18 +116,24 @@ impl LinedBuffer {
     }
 
     pub fn to_lsp_position(&self, x: TextSize) -> lsp_types::Position {
-        let user_pos = self.user_pos(x);
+        let loc = self
+            .lines
+            .source_location(x, &self.buffer, PositionEncoding::Utf16);
         lsp_types::Position {
-            line: user_pos.line.to_zero_indexed() as u32,
-            character: user_pos.column.to_zero_indexed() as u32,
+            line: loc.line.to_zero_indexed() as u32,
+            character: loc.character_offset.to_zero_indexed() as u32,
         }
     }
 
     pub fn from_lsp_position(&self, position: lsp_types::Position) -> TextSize {
-        self.from_user_pos(UserPos {
-            line: OneIndexed::from_zero_indexed(position.line as usize),
-            column: OneIndexed::from_zero_indexed(position.character as usize),
-        })
+        self.lines.offset(
+            SourceLocation {
+                line: OneIndexed::from_zero_indexed(position.line as usize),
+                character_offset: OneIndexed::from_zero_indexed(position.character as usize),
+            },
+            &self.buffer,
+            PositionEncoding::Utf16,
+        )
     }
 
     pub fn from_lsp_range(&self, position: lsp_types::Range) -> TextRange {
