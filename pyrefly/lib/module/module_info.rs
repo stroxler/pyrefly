@@ -11,7 +11,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lined_buffer::LinedBuffer;
-use pyrefly_util::lined_buffer::SourceRange;
+use pyrefly_util::lined_buffer::UserRange;
 use ruff_python_ast::ModModule;
 use ruff_source_file::LineColumn;
 use ruff_source_file::OneIndexed;
@@ -82,8 +82,8 @@ impl ModuleInfo {
         }
     }
 
-    pub fn source_range(&self, range: TextRange) -> SourceRange {
-        SourceRange {
+    pub fn source_range(&self, range: TextRange) -> UserRange {
+        UserRange {
             start: self.line_column(range.start()),
             end: self.line_column(range.end()),
         }
@@ -157,7 +157,7 @@ impl ModuleInfo {
         )
     }
 
-    pub fn to_text_range(&self, source_range: &SourceRange) -> TextRange {
+    pub fn to_text_range(&self, source_range: &UserRange) -> TextRange {
         TextRange::new(
             self.to_text_size(
                 source_range.start.line.to_zero_indexed() as u32,
@@ -193,7 +193,7 @@ impl ModuleInfo {
             .line_start(line, &self.0.contents.buffer)
     }
 
-    pub fn is_ignored(&self, source_range: &SourceRange) -> bool {
+    pub fn is_ignored(&self, source_range: &UserRange) -> bool {
         // Extend the range of the error to include comment lines before it.
         // This makes it so that the preceding ignore could "see through" comments.
         let start_line = {
@@ -352,7 +352,7 @@ mod tests {
 
         assert_eq!(module_info.line_count(), 4);
 
-        let range = |l1, c1, l2, c2| SourceRange {
+        let range = |l1, c1, l2, c2| UserRange {
             start: LineColumn {
                 line: OneIndexed::from_zero_indexed(l1),
                 column: OneIndexed::from_zero_indexed(c1),

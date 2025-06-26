@@ -12,7 +12,7 @@ use std::io::Write;
 
 use itertools::Itertools;
 use pyrefly_util::display::number_thousands;
-use pyrefly_util::lined_buffer::SourceRange;
+use pyrefly_util::lined_buffer::UserRange;
 use ruff_annotate_snippets::Level;
 use ruff_annotate_snippets::Message;
 use ruff_annotate_snippets::Renderer;
@@ -29,7 +29,7 @@ use crate::module::module_path::ModulePath;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Error {
     module_info: ModuleInfo,
-    range: SourceRange,
+    range: UserRange,
     error_kind: ErrorKind,
     /// First line of the error message
     msg_header: Box<str>,
@@ -161,7 +161,7 @@ pub fn print_error_counts(errors: &[Error], limit: usize) {
 impl Error {
     pub fn new(
         module_info: ModuleInfo,
-        range: SourceRange,
+        range: UserRange,
         msg: Vec1<String>,
         is_ignored: bool,
         error_kind: ErrorKind,
@@ -184,7 +184,7 @@ impl Error {
         }
     }
 
-    pub fn source_range(&self) -> &SourceRange {
+    pub fn source_range(&self) -> &UserRange {
         &self.range
     }
 

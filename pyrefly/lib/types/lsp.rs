@@ -1,10 +1,10 @@
-use pyrefly_util::lined_buffer::SourceRange;
+use pyrefly_util::lined_buffer::UserRange;
 use ruff_source_file::LineColumn;
 use ruff_text_size::TextSize;
 
 use crate::module::module_info::ModuleInfo;
 
-pub fn source_range_to_range(x: &SourceRange) -> lsp_types::Range {
+pub fn source_range_to_range(x: &UserRange) -> lsp_types::Range {
     lsp_types::Range::new(
         source_location_to_position(&x.start),
         source_location_to_position(&x.end),

@@ -188,7 +188,7 @@ mod tests {
     use std::sync::Arc;
 
     use pretty_assertions::assert_str_eq;
-    use pyrefly_util::lined_buffer::SourceRange;
+    use pyrefly_util::lined_buffer::UserRange;
     use ruff_source_file::LineColumn;
     use ruff_source_file::OneIndexed;
     use tempfile;
@@ -200,10 +200,10 @@ mod tests {
     use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
 
-    fn sourcerange(row: usize, column: usize) -> SourceRange {
+    fn sourcerange(row: usize, column: usize) -> UserRange {
         let line = OneIndexed::new(row).unwrap();
         let column = OneIndexed::new(column).unwrap();
-        SourceRange {
+        UserRange {
             start: LineColumn { line, column },
             end: LineColumn { line, column },
         }

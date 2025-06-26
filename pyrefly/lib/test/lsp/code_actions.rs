@@ -6,7 +6,7 @@
  */
 
 use pretty_assertions::assert_eq;
-use pyrefly_util::lined_buffer::SourceRange;
+use pyrefly_util::lined_buffer::UserRange;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
@@ -18,7 +18,7 @@ use crate::test::util::get_batched_lsp_operations_report_allow_error;
 fn apply_patch(
     transaction: &Transaction<'_>,
     handle: &Handle,
-    range: SourceRange,
+    range: UserRange,
     patch: String,
 ) -> (String, String) {
     let module_info = transaction.get_module_info(handle).unwrap();

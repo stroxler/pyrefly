@@ -9,7 +9,7 @@ use std::fmt::Debug;
 use std::mem;
 
 use dupe::Dupe;
-use pyrefly_util::lined_buffer::SourceRange;
+use pyrefly_util::lined_buffer::UserRange;
 use pyrefly_util::lock::Mutex;
 use ruff_text_size::TextRange;
 use vec1::Vec1;
@@ -53,7 +53,7 @@ impl ModuleErrors {
         mem::swap(&mut res, &mut self.items);
 
         // The range and where that range started in self.items
-        let mut previous_range = SourceRange::default();
+        let mut previous_range = UserRange::default();
         let mut previous_start = 0;
         for x in res {
             if x.source_range() != &previous_range {

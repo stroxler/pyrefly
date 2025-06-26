@@ -10,7 +10,7 @@
 use std::io::Cursor;
 
 use dupe::Dupe;
-use pyrefly_util::lined_buffer::SourceRange;
+use pyrefly_util::lined_buffer::UserRange;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
@@ -71,7 +71,7 @@ impl Query {
         &self,
         name: ModuleName,
         path: ModulePath,
-    ) -> Option<Vec<(SourceRange, String)>> {
+    ) -> Option<Vec<(UserRange, String)>> {
         let handle = self.make_handle(name, path);
 
         let transaction = self.state.transaction();
@@ -84,7 +84,7 @@ impl Query {
             x: &Expr,
             module_info: &ModuleInfo,
             answers: &Answers,
-            res: &mut Vec<(SourceRange, String)>,
+            res: &mut Vec<(UserRange, String)>,
         ) {
             let range = x.range();
             if let Some(ty) = answers.get_type_trace(range) {

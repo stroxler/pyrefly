@@ -12,7 +12,7 @@ use dupe::Dupe;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use pyrefly_util::arc_id::ArcId;
-use pyrefly_util::lined_buffer::SourceRange;
+use pyrefly_util::lined_buffer::UserRange;
 use pyrefly_util::prelude::VecExt;
 use ruff_source_file::LineColumn;
 use serde::Serialize;
@@ -57,7 +57,7 @@ pub struct Range {
 }
 
 impl Range {
-    fn new(range: SourceRange) -> Self {
+    fn new(range: UserRange) -> Self {
         Self {
             start_line: range.start.line.to_zero_indexed() as i32 + 1,
             start_col: range.start.column.to_zero_indexed() as i32 + 1,
