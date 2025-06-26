@@ -32,9 +32,9 @@ impl LegacyError {
     pub fn from_error(error: &Error) -> Self {
         let error_range = error.display_range();
         Self {
-            line: error_range.start.line.get(),
+            line: error_range.start.line.get() as usize,
             column: error_range.start.column.get(),
-            stop_line: error_range.end.line.get(),
+            stop_line: error_range.end.line.get() as usize,
             stop_column: error_range.end.column.get(),
             path: error.path().to_string(),
             // -2 is chosen because it's an unused error code in Pyre1

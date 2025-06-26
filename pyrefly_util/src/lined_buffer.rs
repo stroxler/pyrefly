@@ -9,6 +9,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::num::NonZeroU32;
 use std::ops::Range;
 use std::str::Lines;
 use std::sync::Arc;
@@ -56,7 +57,7 @@ impl LinedBuffer {
         );
         let LineColumn { line, column } = self.lines.line_column(offset, &self.buffer);
         DisplayPos {
-            line: LineNumber(line),
+            line: LineNumber(NonZeroU32::new(line.get() as u32).unwrap()),
             column,
         }
     }
@@ -83,7 +84,7 @@ impl LinedBuffer {
     pub fn from_display_pos(&self, pos: DisplayPos) -> TextSize {
         self.lines.offset(
             SourceLocation {
-                line: pos.line.0,
+                line: pos.line.to_one_indexed(),
                 character_offset: pos.column,
             },
             &self.buffer,
@@ -103,13 +104,15 @@ impl LinedBuffer {
     /// Gets the content from the beginning of start_line to the end of end_line.
     pub fn content_in_line_range(&self, start_line: LineNumber, end_line: LineNumber) -> &str {
         debug_assert!(start_line <= end_line);
-        let start = self.lines.line_start(start_line.0, &self.buffer);
-        let end = self.lines.line_end(end_line.0, &self.buffer);
+        let start = self
+            .lines
+            .line_start(start_line.to_one_indexed(), &self.buffer);
+        let end = self.lines.line_end(end_line.to_one_indexed(), &self.buffer);
         &self.buffer[start.to_usize()..end.to_usize()]
     }
 
     pub fn line_start(&self, line: LineNumber) -> TextSize {
-        self.lines.line_start(line.0, &self.buffer)
+        self.lines.line_start(line.to_one_indexed(), &self.buffer)
     }
 
     pub fn to_lsp_range(&self, x: TextRange) -> lsp_types::Range {
@@ -195,36 +198,40 @@ impl Display for DisplayRange {
 
 /// A line number in a file.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
-pub struct LineNumber(OneIndexed);
+pub struct LineNumber(NonZeroU32);
 
 impl Default for LineNumber {
     fn default() -> Self {
-        LineNumber(OneIndexed::MIN)
+        Self(NonZeroU32::MIN)
     }
 }
 
 impl LineNumber {
-    pub fn new(x: usize) -> Option<Self> {
-        Some(LineNumber(OneIndexed::new(x)?))
+    pub fn new(x: u32) -> Option<Self> {
+        Some(LineNumber(NonZeroU32::new(x)?))
     }
 
-    pub fn from_zero_indexed(x: usize) -> Self {
-        LineNumber(OneIndexed::from_zero_indexed(x))
+    pub fn from_zero_indexed(x: u32) -> Self {
+        Self(NonZeroU32::MIN.saturating_add(x))
     }
 
-    pub fn to_zero_indexed(self) -> usize {
-        self.0.to_zero_indexed()
+    pub fn to_zero_indexed(self) -> u32 {
+        self.0.get() - 1
+    }
+
+    fn to_one_indexed(self) -> OneIndexed {
+        OneIndexed::new(self.0.get() as usize).unwrap()
     }
 
     pub fn decrement(&self) -> Option<Self> {
-        Some(Self(self.0.checked_sub(OneIndexed::MIN)?))
+        Self::new(self.0.get() - 1)
     }
 
     pub fn increment(self) -> Self {
         Self(self.0.saturating_add(1))
     }
 
-    pub fn get(self) -> usize {
+    pub fn get(self) -> u32 {
         self.0.get()
     }
 }

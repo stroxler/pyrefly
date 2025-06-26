@@ -111,7 +111,7 @@ impl SemanticTokensLegends {
                 let delta_line = current_line - previous_line;
                 previous_line = current_line;
                 previous_col = current_col;
-                (delta_line as u32, current_col as u32)
+                (delta_line, current_col as u32)
             };
             let token_type = *self.token_types_index.get(&token.token_type).unwrap();
             let mut token_modifiers_bitset = 0;

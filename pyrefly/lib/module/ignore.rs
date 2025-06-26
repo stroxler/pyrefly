@@ -32,7 +32,7 @@ impl Ignore {
         let mut ignores: SmallMap<LineNumber, Vec<SuppressionKind>> = SmallMap::new();
         for (line, line_str) in code.lines().enumerate() {
             if let Some(kind) = Self::get_suppression_kind(line_str) {
-                ignores.insert(LineNumber::from_zero_indexed(line), [kind].to_vec());
+                ignores.insert(LineNumber::from_zero_indexed(line as u32), [kind].to_vec());
             }
         }
         Self {

@@ -133,7 +133,7 @@ impl Error {
         let span_end = span_start + self.range.len().to_usize();
         Level::None.title("").snippet(
             Snippet::source(source)
-                .line_start(self.display_range.start.line.get())
+                .line_start(self.display_range.start.line.get() as usize)
                 .origin(origin)
                 .annotation(level.span(span_start..span_end)),
         )

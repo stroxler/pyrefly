@@ -54,7 +54,7 @@ impl Position {
     // This should always succeed, but we are being convervative
     fn to_display_pos(&self) -> Option<DisplayPos> {
         Some(DisplayPos {
-            line: LineNumber::new(usize::try_from(self.line).ok()?)?,
+            line: LineNumber::new(u32::try_from(self.line).ok()?)?,
             column: OneIndexed::new(usize::try_from(self.column).ok()?)?,
         })
     }

@@ -26,7 +26,7 @@ fn dedup_errors(errors: &[Error]) -> SmallMap<usize, String> {
     let mut deduped_errors = SmallMap::new();
     for error in errors {
         let e: &mut String = deduped_errors
-            .entry(error.display_range().start.line.to_zero_indexed())
+            .entry(error.display_range().start.line.to_zero_indexed() as usize)
             .or_default();
         let contains_error = e.contains(error.error_kind().to_name());
         if e.is_empty() {
@@ -147,8 +147,10 @@ pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<LineNumbe
     let mut removed_ignores: SmallMap<&PathBuf, usize> = SmallMap::new();
     for (path, ignores) in path_ignores {
         let mut unused_ignore_count = 0;
-        let zero_index_ignores: SmallSet<usize> =
-            ignores.iter().map(|i| i.to_zero_indexed()).collect();
+        let zero_index_ignores: SmallSet<usize> = ignores
+            .iter()
+            .map(|i| i.to_zero_indexed() as usize)
+            .collect();
         if let Ok(file) = read_and_validate_file(path) {
             let mut buf = String::with_capacity(file.len());
             let lines = file.lines();
@@ -214,7 +216,7 @@ mod tests {
         assert_eq!(
             e.display_range().start,
             DisplayPos {
-                line: LineNumber::new(row).unwrap(),
+                line: LineNumber::new(row as u32).unwrap(),
                 column: OneIndexed::new(column).unwrap()
             }
         );
