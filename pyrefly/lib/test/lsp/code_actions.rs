@@ -23,7 +23,7 @@ fn apply_patch(
 ) -> (String, String) {
     let module_info = transaction.get_module_info(handle).unwrap();
     let before = module_info.contents().as_str().to_owned();
-    let range = module_info.to_text_range(&range);
+    let range = module_info.lined_buffer().to_text_range(&range);
     let after = [
         &before[0..range.start().to_usize()],
         patch.as_str(),

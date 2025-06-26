@@ -177,7 +177,10 @@ impl Playground {
         let transaction = self.state.transaction();
         transaction
             .get_module_info(&handle)
-            .map(|info| info.to_text_size((line - 1) as u32, (column - 1) as u32))
+            .map(|info| {
+                info.lined_buffer()
+                    .to_text_size((line - 1) as u32, (column - 1) as u32)
+            })
             .and_then(|position| transaction.get_type_at(&handle, position))
             .map(|t| t.to_string())
             .map(|result| TypeQueryResult {
@@ -193,7 +196,10 @@ impl Playground {
         let transaction = self.state.transaction();
         transaction
             .get_module_info(&handle)
-            .map(|info| info.to_text_size((line - 1) as u32, (column - 1) as u32))
+            .map(|info| {
+                info.lined_buffer()
+                    .to_text_size((line - 1) as u32, (column - 1) as u32)
+            })
             .and_then(|position| transaction.goto_definition(&handle, position))
             .map(|range_with_mod_info| {
                 Range::new(
@@ -209,7 +215,10 @@ impl Playground {
         let transaction = self.state.transaction();
         transaction
             .get_module_info(&handle)
-            .map(|info| info.to_text_size((line - 1) as u32, (column - 1) as u32))
+            .map(|info| {
+                info.lined_buffer()
+                    .to_text_size((line - 1) as u32, (column - 1) as u32)
+            })
             .map_or(Vec::new(), |position| {
                 transaction.completion(&handle, position)
             })

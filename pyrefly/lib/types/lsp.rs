@@ -23,5 +23,6 @@ pub fn text_size_to_position(info: &ModuleInfo, x: TextSize) -> lsp_types::Posit
 }
 
 pub fn position_to_text_size(info: &ModuleInfo, position: lsp_types::Position) -> TextSize {
-    info.to_text_size(position.line, position.character)
+    info.lined_buffer()
+        .to_text_size(position.line, position.character)
 }

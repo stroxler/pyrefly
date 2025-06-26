@@ -56,6 +56,10 @@ impl ModuleInfo {
         }))
     }
 
+    pub fn lined_buffer(&self) -> &LinedBuffer {
+        &self.0.contents
+    }
+
     pub fn line_count(&self) -> usize {
         // By default we count the empty lines, but sometimes to get stats
         // we might need to only count the non-empty/non-comment lines.
@@ -116,23 +120,6 @@ impl ModuleInfo {
         self.0.name
     }
 
-    pub fn to_text_size(&self, line: u32, column: u32) -> TextSize {
-        self.0.contents.to_text_size(line, column)
-    }
-
-    pub fn to_text_range(&self, source_range: &UserRange) -> TextRange {
-        self.0.contents.to_text_range(source_range)
-    }
-
-    /// Gets the content from the beginning of start_line to the end of end_line.
-    pub fn content_in_line_range(&self, start_line: OneIndexed, end_line: OneIndexed) -> &str {
-        self.0.contents.content_in_line_range(start_line, end_line)
-    }
-
-    pub fn line_start(&self, line: OneIndexed) -> TextSize {
-        self.0.contents.line_start(line)
-    }
-
     pub fn is_ignored(&self, source_range: &UserRange) -> bool {
         // Extend the range of the error to include comment lines before it.
         // This makes it so that the preceding ignore could "see through" comments.
@@ -140,6 +127,7 @@ impl ModuleInfo {
             let mut start_line = source_range.start.line;
             while let Some(earlier_line) = start_line.checked_sub(OneIndexed::MIN) {
                 let earlier_line_content = &self
+                    .lined_buffer()
                     .content_in_line_range(earlier_line, earlier_line)
                     .trim();
                 if Ignore::get_suppression_kind(earlier_line_content).is_some() {

@@ -1158,7 +1158,7 @@ impl<'a> Transaction<'a> {
         for error in errors {
             match error.error_kind() {
                 ErrorKind::UnknownName => {
-                    let error_range = module_info.to_text_range(error.user_range());
+                    let error_range = module_info.lined_buffer().to_text_range(error.user_range());
                     if error_range.contains_range(range) {
                         let unknown_name = module_info.code_at(error_range);
                         for handle_to_import_from in self.search_exports_exact(unknown_name) {

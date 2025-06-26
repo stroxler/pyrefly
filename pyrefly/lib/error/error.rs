@@ -106,11 +106,12 @@ impl Error {
         //          Be careful in the conversion.
         let range = self.user_range();
         // Question: Should we just keep the original TextRange around?
-        let text_range = self.module_info.to_text_range(range);
+        let text_range = self.module_info.lined_buffer().to_text_range(range);
         let source = self
             .module_info
+            .lined_buffer()
             .content_in_line_range(range.start.line, range.end.line);
-        let line_start = self.module_info.line_start(range.start.line);
+        let line_start = self.module_info.lined_buffer().line_start(range.start.line);
 
         let level = match self.error_kind().severity() {
             Severity::Error => Level::Error,
