@@ -175,13 +175,12 @@ impl Playground {
     }
 
     pub fn query_type(&mut self, pos: Position) -> Option<TypeQueryResult> {
-        let handle = self.handle.dupe();
         let transaction = self.state.transaction();
-        let info = transaction.get_module_info(&handle)?;
+        let info = transaction.get_module_info(&self.handle)?;
         let position = info
             .lined_buffer()
             .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32);
-        let t = transaction.get_type_at(&handle, position)?;
+        let t = transaction.get_type_at(&self.handle, position)?;
         Some(TypeQueryResult {
             contents: vec![TypeQueryContent {
                 language: "python".to_owned(),
@@ -191,13 +190,12 @@ impl Playground {
     }
 
     pub fn goto_definition(&mut self, pos: Position) -> Option<Range> {
-        let handle = self.handle.dupe();
         let transaction = self.state.transaction();
-        let info = transaction.get_module_info(&handle)?;
+        let info = transaction.get_module_info(&self.handle)?;
         let position = info
             .lined_buffer()
             .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32);
-        let range_with_mod_info = transaction.goto_definition(&handle, position)?;
+        let range_with_mod_info = transaction.goto_definition(&self.handle, position)?;
         Some(Range::new(
             range_with_mod_info
                 .module_info
@@ -206,16 +204,15 @@ impl Playground {
     }
 
     pub fn autocomplete(&mut self, pos: Position) -> Vec<AutoCompletionItem> {
-        let handle = self.handle.dupe();
         let transaction = self.state.transaction();
         transaction
-            .get_module_info(&handle)
+            .get_module_info(&self.handle)
             .map(|info| {
                 info.lined_buffer()
                     .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32)
             })
             .map_or(Vec::new(), |position| {
-                transaction.completion(&handle, position)
+                transaction.completion(&self.handle, position)
             })
             .into_iter()
             .map(
@@ -236,11 +233,10 @@ impl Playground {
     }
 
     pub fn inlay_hint(&mut self) -> Vec<InlayHint> {
-        let handle = self.handle.dupe();
         let transaction = self.state.transaction();
         transaction
-            .get_module_info(&handle)
-            .zip(transaction.inlay_hints(&handle))
+            .get_module_info(&self.handle)
+            .zip(transaction.inlay_hints(&self.handle))
             .map(|(info, hints)| {
                 hints.into_map(|(position, label)| {
                     let position = Position::from_user_pos(info.user_pos(position));
