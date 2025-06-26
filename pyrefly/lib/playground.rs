@@ -15,6 +15,7 @@ use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lined_buffer::UserPos;
 use pyrefly_util::lined_buffer::UserRange;
 use pyrefly_util::prelude::VecExt;
+use ruff_text_size::TextSize;
 use serde::Serialize;
 
 use crate::config::config::ConfigFile;
@@ -26,6 +27,7 @@ use crate::python::sys_info::SysInfo;
 use crate::state::handle::Handle;
 use crate::state::require::Require;
 use crate::state::state::State;
+use crate::state::state::Transaction;
 
 #[derive(Serialize)]
 pub struct Position {
@@ -174,12 +176,17 @@ impl Playground {
             })
     }
 
+    fn to_text_size(&self, transaction: &Transaction, pos: Position) -> Option<TextSize> {
+        let info = transaction.get_module_info(&self.handle)?;
+        Some(
+            info.lined_buffer()
+                .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32),
+        )
+    }
+
     pub fn query_type(&self, pos: Position) -> Option<TypeQueryResult> {
         let transaction = self.state.transaction();
-        let info = transaction.get_module_info(&self.handle)?;
-        let position = info
-            .lined_buffer()
-            .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32);
+        let position = self.to_text_size(&transaction, pos)?;
         let t = transaction.get_type_at(&self.handle, position)?;
         Some(TypeQueryResult {
             contents: vec![TypeQueryContent {
@@ -191,10 +198,7 @@ impl Playground {
 
     pub fn goto_definition(&mut self, pos: Position) -> Option<Range> {
         let transaction = self.state.transaction();
-        let info = transaction.get_module_info(&self.handle)?;
-        let position = info
-            .lined_buffer()
-            .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32);
+        let position = self.to_text_size(&transaction, pos)?;
         let range_with_mod_info = transaction.goto_definition(&self.handle, position)?;
         Some(Range::new(
             range_with_mod_info
@@ -205,17 +209,11 @@ impl Playground {
 
     pub fn autocomplete(&self, pos: Position) -> Vec<AutoCompletionItem> {
         let transaction = self.state.transaction();
-        transaction
-            .get_module_info(&self.handle)
-            .map(|info| {
-                info.lined_buffer()
-                    .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32)
-            })
+        self.to_text_size(&transaction, pos)
             .map_or(Vec::new(), |position| {
                 transaction.completion(&self.handle, position)
             })
-            .into_iter()
-            .map(
+            .into_map(
                 |CompletionItem {
                      label,
                      detail,
@@ -229,7 +227,6 @@ impl Playground {
                     sort_text,
                 },
             )
-            .collect::<Vec<_>>()
     }
 
     pub fn inlay_hint(&self) -> Vec<InlayHint> {
