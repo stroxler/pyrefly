@@ -82,8 +82,8 @@ impl ModuleInfo {
         self.0.contents.user_range(range)
     }
 
-    pub fn line_column(&self, offset: TextSize) -> UserPos {
-        self.0.contents.line_column(offset)
+    pub fn user_pos(&self, offset: TextSize) -> UserPos {
+        self.0.contents.user_pos(offset)
     }
 
     pub fn code_at(&self, range: TextRange) -> &str {

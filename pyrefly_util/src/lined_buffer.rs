@@ -46,7 +46,7 @@ impl LinedBuffer {
         self.buffer.lines()
     }
 
-    pub fn line_column(&self, offset: TextSize) -> UserPos {
+    pub fn user_pos(&self, offset: TextSize) -> UserPos {
         assert!(
             offset.to_usize() <= self.buffer.len(),
             "offset out of range, expected {} <= {}",
@@ -59,8 +59,8 @@ impl LinedBuffer {
 
     pub fn user_range(&self, range: TextRange) -> UserRange {
         UserRange {
-            start: self.line_column(range.start()),
-            end: self.line_column(range.end()),
+            start: self.user_pos(range.start()),
+            end: self.user_pos(range.end()),
         }
     }
 

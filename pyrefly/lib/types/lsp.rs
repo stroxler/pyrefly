@@ -19,7 +19,7 @@ fn source_location_to_position(x: &UserPos) -> lsp_types::Position {
 }
 
 pub fn text_size_to_position(info: &ModuleInfo, x: TextSize) -> lsp_types::Position {
-    source_location_to_position(&info.line_column(x))
+    source_location_to_position(&info.user_pos(x))
 }
 
 pub fn position_to_text_size(info: &ModuleInfo, position: lsp_types::Position) -> TextSize {

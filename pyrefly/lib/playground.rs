@@ -248,7 +248,7 @@ impl Playground {
             .zip(transaction.inlay_hints(&handle))
             .map(|(info, hints)| {
                 hints.into_map(|(position, label)| {
-                    let position = Position::new(info.line_column(position));
+                    let position = Position::new(info.user_pos(position));
                     InlayHint { label, position }
                 })
             })

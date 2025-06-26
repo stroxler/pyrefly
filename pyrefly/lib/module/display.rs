@@ -80,6 +80,6 @@ impl DisplayWith<ModuleInfo> for TextRange {
 
 impl DisplayWith<ModuleInfo> for TextSize {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, m: &ModuleInfo) -> fmt::Result {
-        write!(f, "{}", m.line_column(*self))
+        write!(f, "{}", m.user_pos(*self))
     }
 }
