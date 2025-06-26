@@ -1544,9 +1544,9 @@ impl<'a> Transaction<'a> {
                                 let (position, insert_text) =
                                     insert_import_edit(&ast, handle_to_import_from, &name);
                                 let import_text_edit = TextEdit {
-                                    range: module_info.lined_buffer().text_range_to_range(
-                                        TextRange::at(position, TextSize::new(0)),
-                                    ),
+                                    range: module_info
+                                        .lined_buffer()
+                                        .to_lsp_range(TextRange::at(position, TextSize::new(0))),
                                     new_text: insert_text.clone(),
                                 };
                                 result.push(CompletionItem {
@@ -1851,10 +1851,10 @@ impl<'a> Transaction<'a> {
                         deprecated: None,
                         range: module_info
                             .lined_buffer()
-                            .text_range_to_range(stmt_function_def.range),
+                            .to_lsp_range(stmt_function_def.range),
                         selection_range: module_info
                             .lined_buffer()
-                            .text_range_to_range(stmt_function_def.name.range),
+                            .to_lsp_range(stmt_function_def.name.range),
 
                         children: Some(children),
                     });
@@ -1874,10 +1874,10 @@ impl<'a> Transaction<'a> {
                         deprecated: None,
                         range: module_info
                             .lined_buffer()
-                            .text_range_to_range(stmt_class_def.range),
+                            .to_lsp_range(stmt_class_def.range),
                         selection_range: module_info
                             .lined_buffer()
-                            .text_range_to_range(stmt_class_def.name.range),
+                            .to_lsp_range(stmt_class_def.name.range),
                         children: Some(children),
                     });
                 }
