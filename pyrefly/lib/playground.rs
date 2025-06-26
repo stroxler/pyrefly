@@ -36,6 +36,10 @@ pub struct Position {
 }
 
 impl Position {
+    pub fn new(line: i32, column: i32) -> Self {
+        Self { line, column }
+    }
+
     fn from_user_pos(position: UserPos) -> Self {
         Self {
             line: position.line.to_zero_indexed() as i32 + 1,
@@ -172,14 +176,14 @@ impl Playground {
             .collect()
     }
 
-    pub fn query_type(&mut self, line: i32, column: i32) -> Option<TypeQueryResult> {
+    pub fn query_type(&mut self, pos: Position) -> Option<TypeQueryResult> {
         let handle = self.handle.dupe();
         let transaction = self.state.transaction();
         transaction
             .get_module_info(&handle)
             .map(|info| {
                 info.lined_buffer()
-                    .to_text_size((line - 1) as u32, (column - 1) as u32)
+                    .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32)
             })
             .and_then(|position| transaction.get_type_at(&handle, position))
             .map(|t| t.to_string())
@@ -191,14 +195,14 @@ impl Playground {
             })
     }
 
-    pub fn goto_definition(&mut self, line: i32, column: i32) -> Option<Range> {
+    pub fn goto_definition(&mut self, pos: Position) -> Option<Range> {
         let handle = self.handle.dupe();
         let transaction = self.state.transaction();
         transaction
             .get_module_info(&handle)
             .map(|info| {
                 info.lined_buffer()
-                    .to_text_size((line - 1) as u32, (column - 1) as u32)
+                    .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32)
             })
             .and_then(|position| transaction.goto_definition(&handle, position))
             .map(|range_with_mod_info| {
@@ -210,14 +214,14 @@ impl Playground {
             })
     }
 
-    pub fn autocomplete(&mut self, line: i32, column: i32) -> Vec<AutoCompletionItem> {
+    pub fn autocomplete(&mut self, pos: Position) -> Vec<AutoCompletionItem> {
         let handle = self.handle.dupe();
         let transaction = self.state.transaction();
         transaction
             .get_module_info(&handle)
             .map(|info| {
                 info.lined_buffer()
-                    .to_text_size((line - 1) as u32, (column - 1) as u32)
+                    .to_text_size((pos.line - 1) as u32, (pos.column - 1) as u32)
             })
             .map_or(Vec::new(), |position| {
                 transaction.completion(&handle, position)
