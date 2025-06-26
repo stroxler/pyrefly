@@ -15,7 +15,6 @@ pub mod facet;
 pub mod globals;
 pub mod lit_int;
 pub mod literal;
-pub mod lsp;
 pub mod module;
 pub mod param_spec;
 pub mod qname;

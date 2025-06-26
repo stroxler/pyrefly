@@ -109,6 +109,32 @@ impl LinedBuffer {
     pub fn line_start(&self, line: OneIndexed) -> TextSize {
         self.lines.line_start(line, &self.buffer)
     }
+
+    pub fn text_range_to_range(&self, x: TextRange) -> lsp_types::Range {
+        lsp_types::Range::new(
+            self.text_size_to_position(x.start()),
+            self.text_size_to_position(x.end()),
+        )
+    }
+
+    pub fn text_size_to_position(&self, x: TextSize) -> lsp_types::Position {
+        let user_pos = self.user_pos(x);
+        lsp_types::Position {
+            line: user_pos.line.to_zero_indexed() as u32,
+            character: user_pos.column.to_zero_indexed() as u32,
+        }
+    }
+
+    pub fn position_to_text_size(&self, position: lsp_types::Position) -> TextSize {
+        self.to_text_size(position.line, position.character)
+    }
+
+    pub fn range_to_text_range(&self, position: lsp_types::Range) -> TextRange {
+        TextRange::new(
+            self.position_to_text_size(position.start),
+            self.position_to_text_size(position.end),
+        )
+    }
 }
 
 /// A range in a file, with a start and end, both containing line and column.

@@ -188,10 +188,6 @@ use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionData;
-use crate::types::lsp::position_to_text_size;
-use crate::types::lsp::range_to_text_range;
-use crate::types::lsp::text_range_to_range;
-use crate::types::lsp::text_size_to_position;
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]
 pub(crate) enum IndexingMode {
@@ -1118,7 +1114,7 @@ impl Server {
                 return Some((
                     path.to_path_buf(),
                     Diagnostic {
-                        range: text_range_to_range(e.lined_buffer(), e.range()),
+                        range: e.lined_buffer().text_range_to_range(e.range()),
                         severity: Some(match e.error_kind().severity() {
                             Severity::Error => lsp_types::DiagnosticSeverity::ERROR,
                             Severity::Warn => lsp_types::DiagnosticSeverity::WARNING,
@@ -1517,10 +1513,9 @@ impl Server {
         let uri = &params.text_document_position_params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
-        let range = position_to_text_size(
-            info.lined_buffer(),
-            params.text_document_position_params.position,
-        );
+        let range = info
+            .lined_buffer()
+            .position_to_text_size(params.text_document_position_params.position);
         let TextRangeWithModuleInfo {
             module_info: definition_module_info,
             range,
@@ -1535,7 +1530,9 @@ impl Server {
         };
         Some(GotoDefinitionResponse::Scalar(Location {
             uri,
-            range: text_range_to_range(definition_module_info.lined_buffer(), range),
+            range: definition_module_info
+                .lined_buffer()
+                .text_range_to_range(range),
         }))
     }
 
@@ -1559,10 +1556,8 @@ impl Server {
             .map(|info| {
                 transaction.completion(
                     &handle,
-                    position_to_text_size(
-                        info.lined_buffer(),
-                        params.text_document_position.position,
-                    ),
+                    info.lined_buffer()
+                        .position_to_text_size(params.text_document_position.position),
                 )
             })
             .unwrap_or_default();
@@ -1580,7 +1575,7 @@ impl Server {
         let uri = &params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let module_info = transaction.get_module_info(&handle)?;
-        let range = range_to_text_range(module_info.lined_buffer(), params.range);
+        let range = module_info.lined_buffer().range_to_text_range(params.range);
         let code_actions = transaction
             .local_quickfix_code_actions(&handle, range)?
             .into_map(|(title, info, range, insert_text)| {
@@ -1591,7 +1586,7 @@ impl Server {
                         changes: Some(HashMap::from([(
                             uri.clone(),
                             vec![TextEdit {
-                                range: text_range_to_range(info.lined_buffer(), range),
+                                range: info.lined_buffer().text_range_to_range(range),
                                 new_text: insert_text,
                             }],
                         )])),
@@ -1611,15 +1606,14 @@ impl Server {
         let uri = &params.text_document_position_params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
-        let position = position_to_text_size(
-            info.lined_buffer(),
-            params.text_document_position_params.position,
-        );
+        let position = info
+            .lined_buffer()
+            .position_to_text_size(params.text_document_position_params.position);
         Some(
             transaction
                 .find_local_references(&handle, position)
                 .into_map(|range| DocumentHighlight {
-                    range: text_range_to_range(info.lined_buffer(), range),
+                    range: info.lined_buffer().text_range_to_range(range),
                     kind: None,
                 }),
         )
@@ -1644,7 +1638,7 @@ impl Server {
             ide_transaction_manager.save(transaction);
             return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
         };
-        let position = position_to_text_size(info.lined_buffer(), position);
+        let position = info.lined_buffer().position_to_text_size(position);
         let Some((definition_kind, definition, _docstring)) =
             transaction.find_definition(&handle, position, false)
         else {
@@ -1675,7 +1669,7 @@ impl Server {
                             locations.push((
                                 uri,
                                 ranges.into_map(|range| {
-                                    text_range_to_range(info.lined_buffer(), range)
+                                    info.lined_buffer().text_range_to_range(range)
                                 }),
                             ));
                         };
@@ -1762,9 +1756,9 @@ impl Server {
         let uri = &params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
-        let position = position_to_text_size(info.lined_buffer(), params.position);
+        let position = info.lined_buffer().position_to_text_size(params.position);
         transaction.prepare_rename(&handle, position).map(|range| {
-            PrepareRenameResponse::Range(text_range_to_range(info.lined_buffer(), range))
+            PrepareRenameResponse::Range(info.lined_buffer().text_range_to_range(range))
         })
     }
 
@@ -1776,10 +1770,9 @@ impl Server {
         let uri = &params.text_document_position_params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
-        let position = position_to_text_size(
-            info.lined_buffer(),
-            params.text_document_position_params.position,
-        );
+        let position = info
+            .lined_buffer()
+            .position_to_text_size(params.text_document_position_params.position);
         transaction.get_signature_help_at(&handle, position)
     }
 
@@ -1787,10 +1780,9 @@ impl Server {
         let uri = &params.text_document_position_params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
-        let range = position_to_text_size(
-            info.lined_buffer(),
-            params.text_document_position_params.position,
-        );
+        let range = info
+            .lined_buffer()
+            .position_to_text_size(params.text_document_position_params.position);
         let t = transaction.get_type_at(&handle, range)?;
         let mut kind_formatted: String = "".to_owned();
         let mut docstring_formatted: String = "".to_owned();
@@ -1832,7 +1824,7 @@ impl Server {
         let info = transaction.get_module_info(&handle)?;
         let t = transaction.inlay_hints(&handle)?;
         Some(t.into_map(|x| {
-            let position = text_size_to_position(info.lined_buffer(), x.0);
+            let position = info.lined_buffer().text_size_to_position(x.0);
             InlayHint {
                 position,
                 label: InlayHintLabel::String(x.1.clone()),
@@ -1872,7 +1864,7 @@ impl Server {
         let uri = &params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let module_info = transaction.get_module_info(&handle)?;
-        let range = range_to_text_range(module_info.lined_buffer(), params.range);
+        let range = module_info.lined_buffer().range_to_text_range(params.range);
         Some(SemanticTokensRangeResult::Tokens(SemanticTokens {
             result_id: None,
             data: transaction
