@@ -155,8 +155,7 @@ impl Playground {
             .get_errors([&self.handle])
             .collect_errors()
             .shown
-            .into_iter()
-            .map(|e| {
+            .into_map(|e| {
                 let range = e.user_range();
                 Diagnostic {
                     start_line: range.start.line.to_zero_indexed() as i32 + 1,
@@ -173,7 +172,6 @@ impl Playground {
                     },
                 }
             })
-            .collect()
     }
 
     pub fn query_type(&mut self, pos: Position) -> Option<TypeQueryResult> {
