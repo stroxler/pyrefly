@@ -1,8 +1,7 @@
+use pyrefly_util::lined_buffer::LinedBuffer;
 use pyrefly_util::lined_buffer::UserPos;
 use pyrefly_util::lined_buffer::UserRange;
 use ruff_text_size::TextSize;
-
-use crate::module::module_info::ModuleInfo;
 
 pub fn user_range_to_range(x: &UserRange) -> lsp_types::Range {
     lsp_types::Range::new(
@@ -18,11 +17,10 @@ fn source_location_to_position(x: &UserPos) -> lsp_types::Position {
     }
 }
 
-pub fn text_size_to_position(info: &ModuleInfo, x: TextSize) -> lsp_types::Position {
+pub fn text_size_to_position(info: &LinedBuffer, x: TextSize) -> lsp_types::Position {
     source_location_to_position(&info.user_pos(x))
 }
 
-pub fn position_to_text_size(info: &ModuleInfo, position: lsp_types::Position) -> TextSize {
-    info.lined_buffer()
-        .to_text_size(position.line, position.character)
+pub fn position_to_text_size(info: &LinedBuffer, position: lsp_types::Position) -> TextSize {
+    info.to_text_size(position.line, position.character)
 }
