@@ -189,6 +189,7 @@ use crate::state::state::Transaction;
 use crate::state::state::TransactionData;
 use crate::types::lsp::position_to_text_size;
 use crate::types::lsp::range_to_text_range;
+use crate::types::lsp::text_range_to_range;
 use crate::types::lsp::text_size_to_position;
 use crate::types::lsp::user_range_to_range;
 
@@ -1534,7 +1535,7 @@ impl Server {
         };
         Some(GotoDefinitionResponse::Scalar(Location {
             uri,
-            range: user_range_to_range(&definition_module_info.user_range(range)),
+            range: text_range_to_range(definition_module_info.lined_buffer(), range),
         }))
     }
 
@@ -1618,7 +1619,7 @@ impl Server {
             transaction
                 .find_local_references(&handle, position)
                 .into_map(|range| DocumentHighlight {
-                    range: user_range_to_range(&info.user_range(range)),
+                    range: text_range_to_range(info.lined_buffer(), range),
                     kind: None,
                 }),
         )
@@ -1673,8 +1674,9 @@ impl Server {
                         if let Some(uri) = module_info_to_uri(&info) {
                             locations.push((
                                 uri,
-                                ranges
-                                    .into_map(|range| user_range_to_range(&info.user_range(range))),
+                                ranges.into_map(|range| {
+                                    text_range_to_range(info.lined_buffer(), range)
+                                }),
                             ));
                         };
                     }

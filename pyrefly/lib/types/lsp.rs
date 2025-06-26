@@ -11,6 +11,10 @@ pub fn user_range_to_range(x: &UserRange) -> lsp_types::Range {
     )
 }
 
+pub fn text_range_to_range(info: &LinedBuffer, x: TextRange) -> lsp_types::Range {
+    user_range_to_range(&info.user_range(x))
+}
+
 fn source_location_to_position(x: &UserPos) -> lsp_types::Position {
     lsp_types::Position {
         line: x.line.to_zero_indexed() as u32,

@@ -72,7 +72,7 @@ use crate::state::state::CancellableTransaction;
 use crate::state::state::Transaction;
 use crate::types::callable::Param;
 use crate::types::callable::Params;
-use crate::types::lsp::user_range_to_range;
+use crate::types::lsp::text_range_to_range;
 use crate::types::module::Module;
 use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
@@ -1547,9 +1547,9 @@ impl<'a> Transaction<'a> {
                                 let (position, insert_text) =
                                     insert_import_edit(&ast, handle_to_import_from, &name);
                                 let import_text_edit = TextEdit {
-                                    range: user_range_to_range(
-                                        &module_info
-                                            .user_range(TextRange::at(position, TextSize::new(0))),
+                                    range: text_range_to_range(
+                                        module_info.lined_buffer(),
+                                        TextRange::at(position, TextSize::new(0)),
                                     ),
                                     new_text: insert_text.clone(),
                                 };
@@ -1853,12 +1853,15 @@ impl<'a> Transaction<'a> {
                         kind: lsp_types::SymbolKind::FUNCTION,
                         tags: None,
                         deprecated: None,
-                        range: user_range_to_range(
-                            &module_info.user_range(stmt_function_def.range),
+                        range: text_range_to_range(
+                            module_info.lined_buffer(),
+                            stmt_function_def.range,
                         ),
-                        selection_range: user_range_to_range(
-                            &module_info.user_range(stmt_function_def.name.range),
+                        selection_range: text_range_to_range(
+                            module_info.lined_buffer(),
+                            stmt_function_def.name.range,
                         ),
+
                         children: Some(children),
                     });
                 }
@@ -1875,9 +1878,13 @@ impl<'a> Transaction<'a> {
                         kind: lsp_types::SymbolKind::CLASS,
                         tags: None,
                         deprecated: None,
-                        range: user_range_to_range(&module_info.user_range(stmt_class_def.range)),
-                        selection_range: user_range_to_range(
-                            &module_info.user_range(stmt_class_def.name.range),
+                        range: text_range_to_range(
+                            module_info.lined_buffer(),
+                            stmt_class_def.range,
+                        ),
+                        selection_range: text_range_to_range(
+                            module_info.lined_buffer(),
+                            stmt_class_def.name.range,
                         ),
                         children: Some(children),
                     });
