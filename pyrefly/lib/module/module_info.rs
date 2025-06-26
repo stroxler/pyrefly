@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::ops::Range;
 use std::sync::Arc;
 
 use dupe::Dupe;
@@ -15,8 +14,6 @@ use pyrefly_util::lined_buffer::UserRange;
 use ruff_python_ast::ModModule;
 use ruff_source_file::LineColumn;
 use ruff_source_file::OneIndexed;
-use ruff_source_file::PositionEncoding;
-use ruff_source_file::SourceLocation;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use vec1::vec1;
@@ -60,7 +57,7 @@ impl ModuleInfo {
     }
 
     pub fn len(&self) -> usize {
-        self.0.contents.buffer.len()
+        self.0.contents.len()
     }
 
     pub fn line_count(&self) -> usize {
@@ -68,11 +65,10 @@ impl ModuleInfo {
         // we might need to only count the non-empty/non-comment lines.
         const COUNT_EMPTY_LINES: bool = true;
         if COUNT_EMPTY_LINES {
-            self.0.contents.lines.line_count()
+            self.0.contents.line_count()
         } else {
             self.0
                 .contents
-                .buffer
                 .lines()
                 .filter(|x| {
                     let res = x.trim_start();
@@ -90,30 +86,11 @@ impl ModuleInfo {
     }
 
     pub fn line_column(&self, offset: TextSize) -> LineColumn {
-        assert!(
-            offset.to_usize() <= self.len(),
-            "Module {}({}): offset out of range, expected {} <= {}",
-            self.0.name,
-            self.0.path,
-            offset.to_usize(),
-            self.len()
-        );
-        self.0
-            .contents
-            .lines
-            .line_column(offset, &self.0.contents.buffer)
+        self.0.contents.line_column(offset)
     }
 
     pub fn code_at(&self, range: TextRange) -> &str {
-        match self.0.contents.buffer.get(Range::<usize>::from(range)) {
-            Some(code) => code,
-            None => panic!(
-                "Module {}({}): `range` is invalid, got {range:?}, but file is {} bytes long",
-                self.0.name,
-                self.0.path,
-                self.0.contents.buffer.len()
-            ),
-        }
+        self.0.contents.code_at(range)
     }
 
     pub fn path(&self) -> &ModulePath {
@@ -125,7 +102,7 @@ impl ModuleInfo {
     }
 
     pub fn contents(&self) -> &Arc<String> {
-        &self.0.contents.buffer
+        self.0.contents.contents()
     }
 
     pub fn parse(&self, version: PythonVersion, errors: &ErrorCollector) -> ModModule {
@@ -147,50 +124,20 @@ impl ModuleInfo {
     }
 
     pub fn to_text_size(&self, line: u32, column: u32) -> TextSize {
-        self.0.contents.lines.offset(
-            SourceLocation {
-                line: OneIndexed::from_zero_indexed(line as usize),
-                character_offset: OneIndexed::from_zero_indexed(column as usize),
-            },
-            &self.0.contents.buffer,
-            PositionEncoding::Utf32,
-        )
+        self.0.contents.to_text_size(line, column)
     }
 
     pub fn to_text_range(&self, source_range: &UserRange) -> TextRange {
-        TextRange::new(
-            self.to_text_size(
-                source_range.start.line.to_zero_indexed() as u32,
-                source_range.start.column.to_zero_indexed() as u32,
-            ),
-            self.to_text_size(
-                source_range.end.line.to_zero_indexed() as u32,
-                source_range.end.column.to_zero_indexed() as u32,
-            ),
-        )
+        self.0.contents.to_text_range(source_range)
     }
 
     /// Gets the content from the beginning of start_line to the end of end_line.
     pub fn content_in_line_range(&self, start_line: OneIndexed, end_line: OneIndexed) -> &str {
-        debug_assert!(start_line <= end_line);
-        let start = self
-            .0
-            .contents
-            .lines
-            .line_start(start_line, &self.0.contents.buffer);
-        let end = self
-            .0
-            .contents
-            .lines
-            .line_end(end_line, &self.0.contents.buffer);
-        &self.0.contents.buffer[start.to_usize()..end.to_usize()]
+        self.0.contents.content_in_line_range(start_line, end_line)
     }
 
     pub fn line_start(&self, line: OneIndexed) -> TextSize {
-        self.0
-            .contents
-            .lines
-            .line_start(line, &self.0.contents.buffer)
+        self.0.contents.line_start(line)
     }
 
     pub fn is_ignored(&self, source_range: &UserRange) -> bool {
