@@ -154,3 +154,47 @@ impl Display for UserRange {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use ruff_source_file::LineColumn;
+
+    use super::*;
+
+    #[test]
+    fn test_line_buffer_unicode() {
+        // Test with a mix of ASCII, accented characters, and emoji
+        let contents =
+            "def greet(name: str) -> str:\n    return f\"Bonjour {name}! 👋 Café? ☕\"\n# done\n";
+        let lined_buffer = LinedBuffer::new(Arc::new(contents.to_owned()));
+
+        assert_eq!(lined_buffer.line_count(), 4);
+
+        let range = |l1, c1, l2, c2| UserRange {
+            start: LineColumn {
+                line: OneIndexed::from_zero_indexed(l1),
+                column: OneIndexed::from_zero_indexed(c1),
+            },
+            end: LineColumn {
+                line: OneIndexed::from_zero_indexed(l2),
+                column: OneIndexed::from_zero_indexed(c2),
+            },
+        };
+
+        assert_eq!(
+            lined_buffer.code_at(lined_buffer.to_text_range(&range(1, 4, 2, 0))),
+            "return f\"Bonjour {name}! 👋 Café? ☕\"\n"
+        );
+
+        assert_eq!(
+            lined_buffer.code_at(lined_buffer.to_text_range(&range(1, 29, 1, 36))),
+            "👋 Café?"
+        );
+        assert_eq!(
+            lined_buffer.code_at(lined_buffer.to_text_range(&range(2, 2, 2, 4))),
+            "do"
+        );
+    }
+}
