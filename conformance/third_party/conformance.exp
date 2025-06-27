@@ -4782,9 +4782,29 @@
       "code": -2,
       "column": 12,
       "concise_description": "`+` is not supported between `AnyStr` and `AnyStr`",
-      "description": "`+` is not supported between `AnyStr` and `AnyStr`\n  Expected `__add__` to be a callable, got BoundMethod[AnyStr, (self: Self@bytes, value: Buffer, /) -> bytes] | BoundMethod[AnyStr, Overload[(self: LiteralString, value: LiteralString, /) -> LiteralString, (self: Self@str, value: str, /) -> str]]",
+      "description": "`+` is not supported between `AnyStr` and `AnyStr`\n  Argument `AnyStr` is not assignable to parameter `self` with type `Self@bytes` in function `bytes.__add__`",
       "line": 34,
-      "name": "not-callable",
+      "name": "bad-argument-type",
+      "stop_column": 17,
+      "stop_line": 34
+    },
+    {
+      "code": -2,
+      "column": 12,
+      "concise_description": "`+` is not supported between `AnyStr` and `AnyStr`",
+      "description": "`+` is not supported between `AnyStr` and `AnyStr`\n  No matching overload found for function `str.__add__`\n  Possible overloads:\n  (value: LiteralString, /) -> LiteralString [closest match]\n  (value: str, /) -> str",
+      "line": 34,
+      "name": "no-matching-overload",
+      "stop_column": 17,
+      "stop_line": 34
+    },
+    {
+      "code": -2,
+      "column": 12,
+      "concise_description": "Returned type `bytes | Unknown` is not assignable to declared return type `AnyStr`",
+      "description": "Returned type `bytes | Unknown` is not assignable to declared return type `AnyStr`",
+      "line": 34,
+      "name": "bad-return",
       "stop_column": 17,
       "stop_line": 34
     },

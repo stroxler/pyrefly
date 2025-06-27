@@ -1501,3 +1501,25 @@ compiler = os.environ.get("CXX", "cl")
 assert_type(compiler, str) # E: assert_type(str | Any, str) failed
 "#,
 );
+
+testcase!(
+    test_call_union_any,
+    r#"
+from typing import Any
+def f(x: dict[str, str] | Any):
+    x["test"] = "test"
+"#,
+);
+
+testcase!(
+    test_call_union_two,
+    r#"
+from typing import Any, assert_type
+
+def f() -> str: return "test"
+def g() -> int: return 42
+
+def op(b: bool):
+    assert_type((f if b else g)(), str | int)
+"#,
+);
