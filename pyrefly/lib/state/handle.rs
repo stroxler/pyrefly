@@ -6,9 +6,9 @@
  */
 
 use dupe::Dupe;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::sys_info::SysInfo;
 
-use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 
 #[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash)]

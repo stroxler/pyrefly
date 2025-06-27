@@ -58,6 +58,7 @@ pub mod library {
     pub mod library {
         pub mod library {
             pub mod library {
+                pub use pyrefly_python::module_name::ModuleName;
                 pub use pyrefly_python::sys_info::PythonPlatform;
                 pub use pyrefly_python::sys_info::PythonVersion;
 
@@ -74,7 +75,6 @@ pub mod library {
                 pub use crate::config::environment::environment::PythonEnvironment;
                 pub use crate::config::finder;
                 pub use crate::error::kind::Severity;
-                pub use crate::module::module_name::ModuleName;
                 pub use crate::module::module_path::ModulePath;
             }
         }

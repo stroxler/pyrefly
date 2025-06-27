@@ -142,13 +142,13 @@ mod tests {
 
     use clap::Parser;
     use pretty_assertions::assert_eq;
+    use pyrefly_python::module_name::ModuleName;
     use pyrefly_util::test_path::TestPath;
 
     use super::*;
     use crate::commands::check::Args;
     use crate::config::config::ConfigSource;
     use crate::config::environment::environment::PythonEnvironment;
-    use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
 
     #[test]

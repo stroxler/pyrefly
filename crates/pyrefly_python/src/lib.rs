@@ -8,6 +8,7 @@
 #![warn(clippy::all)]
 #![allow(clippy::match_like_matches_macro)]
 #![allow(clippy::needless_lifetimes)]
+#![allow(clippy::should_implement_trait)]
 #![deny(clippy::cloned_instead_of_copied)]
 #![deny(clippy::derive_partial_eq_without_eq)]
 #![deny(clippy::inefficient_to_string)]
@@ -20,4 +21,5 @@
 
 pub mod ast;
 pub mod dunder;
+pub mod module_name;
 pub mod sys_info;

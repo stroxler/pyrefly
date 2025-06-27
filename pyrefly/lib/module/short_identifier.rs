@@ -48,10 +48,10 @@ mod tests {
     use std::sync::Arc;
 
     use pyrefly_python::ast::Ast;
+    use pyrefly_python::module_name::ModuleName;
     use ruff_python_ast::Expr;
 
     use super::*;
-    use crate::module::module_name::ModuleName;
     use crate::module::module_path::ModulePath;
 
     fn from_expr(x: &Expr) -> ShortIdentifier {

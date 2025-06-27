@@ -11,6 +11,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::sys_info::SysInfo;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::name::Name;
@@ -25,7 +26,6 @@ use crate::export::definitions::DocString;
 use crate::export::definitions::DunderAllEntry;
 use crate::graph::calculation::Calculation;
 use crate::module::module_info::ModuleInfo;
-use crate::module::module_name::ModuleName;
 use crate::state::loader::FindError;
 
 /// Find the exports of a given module.
