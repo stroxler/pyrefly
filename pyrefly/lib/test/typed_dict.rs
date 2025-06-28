@@ -767,9 +767,9 @@ def f(c1: C, c2: C, c3: dict[str, int], d: D, e: E, f: F):
     c1.update(e)  # E: No matching overload found for function `C.update`
     # This is not ok because `F` could contain `y` with an incompatible type
     c1.update(f) # E: No matching overload found for function `C.update`
-    c1.update({"x": 1, "y": 1}) # E: No matching overload found for function `C.update`
-    c1.update({"x": 1})  # Should be OK  # E: No matching overload found for function `C.update`
-    c1.update({"z": 1})  # E: No matching overload found for function `C.update`
+    c1.update({"x": 1, "y": 1})
+    c1.update({"x": 1})  
+    c1.update({"z": 1})  # E: Key `z` is not defined in TypedDict `C`
     "#,
 );
 
@@ -785,8 +785,8 @@ class X[T](TypedDict):
 def f(x: X[int], y: dict[str, int]):
     x.update(y)  # E: No matching overload found for function `X.update`
     x.update(x)   # E:  No matching overload found for function `X.update`
-    x.update({"a": 1}) # E: No matching overload found for function `X.update`
-    x.update({"b": 1}) # E:  No matching overload found for function `X.update`
+    x.update({"a": 1})
+    x.update({"b": 1}) # E: Key `b` is not defined in TypedDict `X`
     "#,
 );
 

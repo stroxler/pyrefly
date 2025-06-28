@@ -1169,6 +1169,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.check_dict_items_against_typed_dict(
                         flattened_items,
                         typed_dict,
+                        false,
+                        x.range,
+                        errors,
+                    );
+                    hint.clone()
+                } else if let Some(hint @ Type::PartialTypedDict(typed_dict)) = hint {
+                    self.check_dict_items_against_typed_dict(
+                        flattened_items,
+                        typed_dict,
+                        true,
                         x.range,
                         errors,
                     );

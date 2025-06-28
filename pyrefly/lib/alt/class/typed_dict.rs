@@ -60,6 +60,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         dict_items: Vec<&DictItem>,
         typed_dict: &TypedDict,
+        is_partial: bool,
         range: TextRange,
         errors: &ErrorCollector,
     ) {
@@ -119,7 +120,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             }
         });
-        if !has_expansion {
+        // If the TypedDict is not partial, then all required fields must be present.
+        if !has_expansion && !is_partial {
             for (key, field) in &fields {
                 if field.required && !keys.contains(key) {
                     self.error(
