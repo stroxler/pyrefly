@@ -281,7 +281,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::None,
         ));
 
-        let signatures = vec1![partial_overload, tuple_overload];
+        // ---- Overload: update(*, x=..., y=...)
+        let keyword_params: Vec<_> = self
+            .names_to_fields(cls, fields)
+            .map(|(name, field)| Param::KwOnly(name.clone(), field.ty.clone(), Required::Optional))
+            .collect();
+
+        let overload_kwargs = OverloadType::Callable(Callable::list(
+            ParamList::new(
+                std::iter::once(self_param.clone())
+                    .chain(keyword_params)
+                    .collect(),
+            ),
+            Type::None,
+        ));
+
+        let signatures = vec1![partial_overload, tuple_overload, overload_kwargs];
 
         Some(ClassSynthesizedField::new(Type::Overload(Overload {
             signatures,
@@ -535,8 +550,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn get_typed_dict_synthesized_fields(&self, cls: &Class) -> Option<ClassSynthesizedFields> {
-        // TODO: we're still missing an overload for update. Assume we have two fields, then we need:
-        // (*, field_name1: field_type1, field_name2: field_type2) -> None
         let metadata = self.get_metadata_for_class(cls);
         let td = metadata.typed_dict_metadata()?;
         let mut fields = smallmap! {
