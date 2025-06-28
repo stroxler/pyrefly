@@ -259,6 +259,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // ---- Overload: update(__m: Iterable[tuple[Literal["key"], value]])
         let tuple_types: Vec<Type> = self
             .names_to_fields(cls, fields)
+            .filter(|(_, field)| !field.is_read_only()) // filter read-only fields
             .map(|(name, field)| {
                 Type::Tuple(Tuple::Concrete(vec![
                     name_to_literal_type(name),
@@ -284,6 +285,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // ---- Overload: update(*, x=..., y=...)
         let keyword_params: Vec<_> = self
             .names_to_fields(cls, fields)
+            .filter(|(_, field)| !field.is_read_only()) // filter read-only fields
             .map(|(name, field)| Param::KwOnly(name.clone(), field.ty.clone(), Required::Optional))
             .collect();
 

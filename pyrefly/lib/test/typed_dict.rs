@@ -113,7 +113,7 @@ def foo(c: Coord) -> None:
 
 testcase!(
     bug = "a1.update(a2) should be an error and a.update(b) should not be",
-    test_typed_dict_readonly2,
+    test_typed_dict_readonly_partial_update,
     r#"
 from typing import Never, NotRequired, TypedDict, ReadOnly
 from typing_extensions import ReadOnly
@@ -132,6 +132,23 @@ class B(TypedDict):
 
 def update_a(a: A, b: B) -> None:
     a.update(b) # E: No matching overload found for function `A.update` 
+    "#,
+);
+
+testcase!(
+    test_typed_dict_readonly_kwargs_tuple_update,
+    r#"
+from typing import TypedDict, ReadOnly
+
+class A(TypedDict):
+    x: ReadOnly[int]
+    y: int
+
+def test(a: A) -> None:
+    a.update([("x", 123), ("y", 456)])  # E: No matching overload found for function `A.update`
+    a.update([("y", 456)]) 
+    a.update(x=789, y=999)  # E: No matching overload found for function `A.update`
+    a.update(y=999) 
     "#,
 );
 

@@ -558,7 +558,7 @@
   "typeddicts_readonly_kwargs.py": [],
   "typeddicts_readonly_update.py": [
     "Line 23: Expected 1 errors",
-    "Line 34: Unexpected errors [\"No matching overload found for function `A.update`\\n  Possible overloads:\\n  (__m: Partial[typeddicts_readonly_update.A@16:7-8], /) -> None [closest match]\\n  (__m: Iterable[tuple[Literal['x'], int] | tuple[Literal['y'], int]], /) -> None\\n  (*, x: int, y: int) -> None\"]"
+    "Line 34: Unexpected errors [\"No matching overload found for function `A.update`\\n  Possible overloads:\\n  (__m: Partial[typeddicts_readonly_update.A@16:7-8], /) -> None [closest match]\\n  (__m: Iterable[tuple[Literal['y'], int]], /) -> None\\n  (*, y: int) -> None\"]"
   ],
   "typeddicts_required.py": [
     "Line 62: Expected 1 errors",
