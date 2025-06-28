@@ -769,6 +769,8 @@ def f(c1: C, c2: C, c3: dict[str, int], d: D, e: E, f: F):
     c1.update({"x": 1, "y": 1})
     c1.update({"x": 1})  
     c1.update({"z": 1})  # E: Key `z` is not defined in TypedDict `C`
+    c1.update([("x", 1), ("y", 2)])
+    c1.update([("z", 3)]) # E: No matching overload found for function `C.update`
     "#,
 );
 

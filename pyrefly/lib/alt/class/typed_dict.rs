@@ -36,6 +36,7 @@ use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::literal::Lit;
 use crate::types::quantified::Quantified;
+use crate::types::tuple::Tuple;
 use crate::types::type_var::PreInferenceVariance;
 use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
@@ -232,7 +233,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn get_typed_dict_update(
         &self,
         cls: &Class,
-        _fields: &SmallMap<Name, bool>,
+        fields: &SmallMap<Name, bool>,
     ) -> Option<ClassSynthesizedField> {
         let metadata =
             FuncMetadata::def(self.module_info().name(), cls.name().clone(), UPDATE_METHOD);
@@ -243,7 +244,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let full_typed_dict = self.as_typed_dict_unchecked(cls);
         let partial_typed_dict_ty = Type::PartialTypedDict(full_typed_dict);
 
-        let overload = OverloadType::Callable(Callable::list(
+        let partial_overload = OverloadType::Callable(Callable::list(
             ParamList::new(vec![
                 self_param.clone(),
                 Param::PosOnly(
@@ -255,7 +256,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::None,
         ));
 
-        let signatures = vec1![overload];
+        // ---- Overload: update(__m: Iterable[tuple[Literal["key"], value]])
+        let tuple_types: Vec<Type> = self
+            .names_to_fields(cls, fields)
+            .map(|(name, field)| {
+                Type::Tuple(Tuple::Concrete(vec![
+                    name_to_literal_type(name),
+                    field.ty.clone(),
+                ]))
+            })
+            .collect();
+
+        let iterable_ty = self.stdlib.iterable(Type::Union(tuple_types)).to_type();
+
+        let tuple_overload = OverloadType::Callable(Callable::list(
+            ParamList::new(vec![
+                self_param.clone(),
+                Param::PosOnly(
+                    Some(Name::new_static("__m")),
+                    iterable_ty,
+                    Required::Required,
+                ),
+            ]),
+            Type::None,
+        ));
+
+        let signatures = vec1![partial_overload, tuple_overload];
 
         Some(ClassSynthesizedField::new(Type::Overload(Overload {
             signatures,
@@ -509,9 +535,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn get_typed_dict_synthesized_fields(&self, cls: &Class) -> Option<ClassSynthesizedFields> {
-        // TODO: we're still missing two more overloads for update. Assume we have two fields, then we need:
-        // (__m: Iterable[tuple[Literal['field_name'], field_type] | tuple[Literal['field_name2'], field_type2]], /) -> None
-        // and (*, field_name1: field_type1, field_name2: field_type2) -> None
+        // TODO: we're still missing an overload for update. Assume we have two fields, then we need:
+        // (*, field_name1: field_type1, field_name2: field_type2) -> None
         let metadata = self.get_metadata_for_class(cls);
         let td = metadata.typed_dict_metadata()?;
         let mut fields = smallmap! {
