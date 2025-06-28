@@ -745,7 +745,7 @@ def f(c: C):
 );
 
 testcase!(
-    bug = "Omitting keys should be allowed",
+    bug = "TODO: handle partial type in subtyping and expr_infer",
     test_update,
     r#"
 from typing import TypedDict
@@ -761,15 +761,32 @@ class E(TypedDict):
 class F(TypedDict):
     x: int
 def f(c1: C, c2: C, c3: dict[str, int], d: D, e: E, f: F):
-    c1.update(c2)
-    c1.update(c3)  # E: `dict[str, int]` is not assignable to parameter `m` with type `TypedDict[C]`
-    c1.update(d)
-    c1.update(e)  # E: `TypedDict[E]` is not assignable to parameter `m` with type `TypedDict[C]`
+    c1.update(c2) # E: No matching overload found for function `C.update`
+    c1.update(c3)  # E: No matching overload found for function `C.update`
+    c1.update(d)  # E: No matching overload found for function `C.update`
+    c1.update(e)  # E: No matching overload found for function `C.update`
     # This is not ok because `F` could contain `y` with an incompatible type
-    c1.update(f)  # E: `TypedDict[F]` is not assignable to parameter `m` with type `TypedDict[C]`
-    c1.update({"x": 1, "y": 1})
-    c1.update({"x": 1})  # Should be OK  # E: Missing required key `y`
-    c1.update({"z": 1})  # E: Missing required key `x`  # E: Missing required key `y`  # E: Key `z` is not defined
+    c1.update(f) # E: No matching overload found for function `C.update`
+    c1.update({"x": 1, "y": 1}) # E: No matching overload found for function `C.update`
+    c1.update({"x": 1})  # Should be OK  # E: No matching overload found for function `C.update`
+    c1.update({"z": 1})  # E: No matching overload found for function `C.update`
+    "#,
+);
+
+testcase!(
+    bug = "TODO: handle partial type in subtyping and expr_infer",
+    test_update_with_type_var,
+    r#"
+from typing import TypedDict
+
+class X[T](TypedDict):
+    a: T
+    
+def f(x: X[int], y: dict[str, int]):
+    x.update(y)  # E: No matching overload found for function `X.update`
+    x.update(x)   # E:  No matching overload found for function `X.update`
+    x.update({"a": 1}) # E: No matching overload found for function `X.update`
+    x.update({"b": 1}) # E:  No matching overload found for function `X.update`
     "#,
 );
 

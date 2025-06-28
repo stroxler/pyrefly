@@ -16,6 +16,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_map::smallmap;
 use vec1::Vec1;
+use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
@@ -52,6 +53,7 @@ const POP_METHOD: Name = Name::new_static("pop");
 const SETDEFAULT_METHOD: Name = Name::new_static("setdefault");
 const KEY_PARAM: Name = Name::new_static("key");
 const DEFAULT_PARAM: Name = Name::new_static("default");
+const UPDATE_METHOD: Name = Name::new_static("update");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn check_dict_items_against_typed_dict(
@@ -223,6 +225,40 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ),
         }));
         ClassSynthesizedField::new(ty)
+    }
+
+    fn get_typed_dict_update(
+        &self,
+        cls: &Class,
+        _fields: &SmallMap<Name, bool>,
+    ) -> Option<ClassSynthesizedField> {
+        let metadata =
+            FuncMetadata::def(self.module_info().name(), cls.name().clone(), UPDATE_METHOD);
+
+        let self_param = self.class_self_param(cls, true);
+
+        // ---- Overload: def update(__m: Partial[C], /)
+        let full_typed_dict = self.as_typed_dict_unchecked(cls);
+        let partial_typed_dict_ty = Type::PartialTypedDict(full_typed_dict);
+
+        let overload = OverloadType::Callable(Callable::list(
+            ParamList::new(vec![
+                self_param.clone(),
+                Param::PosOnly(
+                    Some(Name::new_static("__m")),
+                    partial_typed_dict_ty,
+                    Required::Required,
+                ),
+            ]),
+            Type::None,
+        ));
+
+        let signatures = vec1![overload];
+
+        Some(ClassSynthesizedField::new(Type::Overload(Overload {
+            signatures,
+            metadata: Box::new(metadata),
+        })))
     }
 
     fn get_typed_dict_get(
@@ -485,6 +521,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         if let Some(m) = self.get_typed_dict_delitem(cls, &td.fields) {
             fields.insert(dunder::DELITEM, m);
+        }
+
+        if let Some(m) = self.get_typed_dict_update(cls, &td.fields) {
+            fields.insert(UPDATE_METHOD, m);
         }
 
         if let Some(m) = self.get_typed_dict_setdefault(cls, &td.fields) {
