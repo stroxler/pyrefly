@@ -112,6 +112,30 @@ def foo(c: Coord) -> None:
 );
 
 testcase!(
+    bug = "a1.update(a2) should be an error and a.update(b) should not be",
+    test_typed_dict_readonly2,
+    r#"
+from typing import Never, NotRequired, TypedDict, ReadOnly
+from typing_extensions import ReadOnly
+
+class A(TypedDict):
+    x: ReadOnly[int]
+    y: int
+
+a1: A = {"x": 1, "y": 2}
+a2: A = {"x": 3, "y": 4}
+a1.update(a2) 
+
+class B(TypedDict):
+    x: NotRequired[Never]
+    y: ReadOnly[int]
+
+def update_a(a: A, b: B) -> None:
+    a.update(b) # E: No matching overload found for function `A.update` 
+    "#,
+);
+
+testcase!(
     test_typed_dict_contextual,
     r#"
 from typing import TypedDict
