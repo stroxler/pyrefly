@@ -745,7 +745,6 @@ def f(c: C):
 );
 
 testcase!(
-    bug = "TODO: handle partial type in subtyping and expr_infer",
     test_update,
     r#"
 from typing import TypedDict
@@ -761,9 +760,9 @@ class E(TypedDict):
 class F(TypedDict):
     x: int
 def f(c1: C, c2: C, c3: dict[str, int], d: D, e: E, f: F):
-    c1.update(c2) # E: No matching overload found for function `C.update`
+    c1.update(c2) 
     c1.update(c3)  # E: No matching overload found for function `C.update`
-    c1.update(d)  # E: No matching overload found for function `C.update`
+    c1.update(d) 
     c1.update(e)  # E: No matching overload found for function `C.update`
     # This is not ok because `F` could contain `y` with an incompatible type
     c1.update(f) # E: No matching overload found for function `C.update`
@@ -774,7 +773,6 @@ def f(c1: C, c2: C, c3: dict[str, int], d: D, e: E, f: F):
 );
 
 testcase!(
-    bug = "TODO: handle partial type in subtyping and expr_infer",
     test_update_with_type_var,
     r#"
 from typing import TypedDict
@@ -784,7 +782,7 @@ class X[T](TypedDict):
     
 def f(x: X[int], y: dict[str, int]):
     x.update(y)  # E: No matching overload found for function `X.update`
-    x.update(x)   # E:  No matching overload found for function `X.update`
+    x.update(x) 
     x.update({"a": 1})
     x.update({"b": 1}) # E: Key `b` is not defined in TypedDict `X`
     "#,

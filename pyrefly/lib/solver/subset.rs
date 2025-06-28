@@ -720,7 +720,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 };
                 args_subset && self.is_subset_eq(&l.ret, &u.ret)
             }
-            (Type::TypedDict(got), Type::TypedDict(want)) => {
+            (Type::TypedDict(got), Type::TypedDict(want))
+            | (Type::TypedDict(got), Type::PartialTypedDict(want)) => {
                 // For each key in `want`, `got` has the corresponding key
                 // and the corresponding value type in `got` is consistent with the value type in `want`.
                 // For each required key in `got`, the corresponding key is required in `want`.
@@ -997,7 +998,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     .all(|constraint| self.is_subset_eq(t1, constraint)),
                 _ => false,
             },
-            // TODO Zeina: Add a case for Partial[C] here
             _ => false,
         }
     }

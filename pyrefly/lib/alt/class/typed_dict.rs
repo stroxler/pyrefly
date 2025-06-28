@@ -509,7 +509,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn get_typed_dict_synthesized_fields(&self, cls: &Class) -> Option<ClassSynthesizedFields> {
-        // TODO: we're still missing update
+        // TODO: we're still missing two more overloads for update. Assume we have two fields, then we need:
+        // (__m: Iterable[tuple[Literal['field_name'], field_type] | tuple[Literal['field_name2'], field_type2]], /) -> None
+        // and (*, field_name1: field_type1, field_name2: field_type2) -> None
         let metadata = self.get_metadata_for_class(cls);
         let td = metadata.typed_dict_metadata()?;
         let mut fields = smallmap! {

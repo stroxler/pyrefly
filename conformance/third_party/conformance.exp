@@ -10315,16 +10315,6 @@
   "typeddicts_readonly_update.py": [
     {
       "code": -2,
-      "column": 10,
-      "concise_description": "No matching overload found for function `A.update`",
-      "description": "No matching overload found for function `A.update`\n  Possible overloads:\n  (__m: Partial[typeddicts_readonly_update.A@16:7-8], /) -> None [closest match]",
-      "line": 23,
-      "name": "no-matching-overload",
-      "stop_column": 14,
-      "stop_line": 23
-    },
-    {
-      "code": -2,
       "column": 13,
       "concise_description": "No matching overload found for function `A.update`",
       "description": "No matching overload found for function `A.update`\n  Possible overloads:\n  (__m: Partial[typeddicts_readonly_update.A@16:7-8], /) -> None [closest match]",
