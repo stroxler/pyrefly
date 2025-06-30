@@ -245,14 +245,14 @@ impl Cycles {
     /// Return whether or not to break immediately (which is relatively
     /// common, since we break on the minimal idx which is often where we would
     /// detect the problem).
-    fn cycle_detected(&self, raw: Vec1<CalcId>) -> bool {
+    fn on_cycle_detected(&self, raw: Vec1<CalcId>) -> bool {
         let cycle = Cycle::new(raw);
         let res = cycle.break_at == cycle.detected_at;
         self.0.borrow_mut().push(cycle);
         res
     }
 
-    fn cycle_completed(&self) {
+    fn on_cycle_completed(&self) {
         self.0.borrow_mut().pop();
     }
 
@@ -389,7 +389,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ProposalResult::CycleBroken(r) => Arc::new(K::promote_recursive(r)),
                 ProposalResult::CycleDetected => {
                     let current_cycle = self.stack.current_cycle().unwrap();
-                    let break_immediately = self.cycles.cycle_detected(current_cycle);
+                    let break_immediately = self.cycles.on_cycle_detected(current_cycle);
                     if break_immediately {
                         self.attempt_to_unwind_cycle_from_here(idx, calculation)
                             .unwrap_or_else(|r| Arc::new(K::promote_recursive(r)))
@@ -458,7 +458,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // are isolated until we finish (otherwise we can get data races pinning `Var`s).
             }
             CycleState::BreakAt => {
-                self.cycles.cycle_completed();
+                self.cycles.on_cycle_completed();
             }
         }
         v
