@@ -190,17 +190,19 @@ def f(c: C):
 "#,
 );
 
+// This test is adapted from a Pytorch example.
 testcase!(
-    bug = "PyTorch TODO: Implement getitem narrowing",
-    test_attr_arg,
+    test_isinstance_getitem,
     r#"
 from typing import Any, Optional, reveal_type
 
 Arg = Optional[tuple["Arg", ...]]
 
+class DataType: pass
+
 class N:
     _args: tuple["Arg", ...]
-    type: Optional[Any]
+    type: Optional[DataType]
 
     @property
     def args(self) -> tuple[Arg, ...]:
@@ -210,7 +212,7 @@ class N:
 def f(n: N):
     assert isinstance(n.args[0], N)
     t1 = n.args[0].type
-    reveal_type(t1) # E: revealed type: Any | None
+    reveal_type(t1)  # E: revealed type: DataType | None
 "#,
 );
 
