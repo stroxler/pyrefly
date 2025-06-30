@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::vec;
-
 use dupe::Dupe;
 use lsp_types::CompletionItemKind;
 use lsp_types::SemanticTokenModifier;
