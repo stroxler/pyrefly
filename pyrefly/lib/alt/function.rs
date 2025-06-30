@@ -70,20 +70,48 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let ty = def.ty.clone();
             if successor.is_none() {
                 // This is the last definition in the chain. We should produce an overload type.
-                let mut acc = Vec1::new((def.id_range, ty));
+                let last_range = def.id_range;
+                let has_impl = def.stub_or_impl == FunctionStubOrImpl::Impl;
+                let mut acc = Vec1::new((last_range, ty));
                 let mut first = def;
-                while let Some(def) = self.step_overload_pred(predecessor) {
-                    acc.push((def.id_range, def.ty.clone()));
-                    first = def;
+                let mut impl_before_overload_range = None;
+                while let Some(def) = self.step_pred(predecessor) {
+                    if def.metadata.flags.is_overload {
+                        acc.push((def.id_range, def.ty.clone()));
+                        first = def;
+                    } else {
+                        impl_before_overload_range = Some(def.id_range);
+                        break;
+                    }
                 }
                 if !skip_implementation {
-                    self.error(
-                        errors,
-                        first.id_range,
-                        ErrorKind::InvalidOverload,
-                        None,
-                        "Overloaded function must have an implementation".to_owned(),
-                    );
+                    if let Some(range) = impl_before_overload_range {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorKind::InvalidOverload,
+                            None,
+                            "@overload declarations must come before function implementation"
+                                .to_owned(),
+                        );
+                    } else if has_impl {
+                        self.error(
+                            errors,
+                            last_range,
+                            ErrorKind::InvalidOverload,
+                            None,
+                            "@overload decorator should not be used on function implementation"
+                                .to_owned(),
+                        );
+                    } else {
+                        self.error(
+                            errors,
+                            first.id_range,
+                            ErrorKind::InvalidOverload,
+                            None,
+                            "Overloaded function must have an implementation".to_owned(),
+                        );
+                    }
                 }
                 if acc.len() == 1 {
                     self.error(
@@ -111,7 +139,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             let mut acc = Vec::new();
             let mut first = def;
-            while let Some(def) = self.step_overload_pred(predecessor) {
+            while let Some(def) = self.step_pred(predecessor)
+                && def.metadata.flags.is_overload
+            {
                 acc.push((def.id_range, def.ty.clone()));
                 first = def;
             }
@@ -502,6 +532,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             id_range: def.name.range,
             ty,
             metadata,
+            stub_or_impl,
         })
     }
 
@@ -512,7 +543,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     // Given the index to a function binding, return the previous function binding, if any.
-    fn step_overload_pred(&self, pred: &mut Option<Idx<Key>>) -> Option<Arc<DecoratedFunction>> {
+    fn step_pred(&self, pred: &mut Option<Idx<Key>>) -> Option<Arc<DecoratedFunction>> {
         let pred_idx = (*pred)?;
         let mut b = self.bindings().get(pred_idx);
         while let Binding::Forward(k) = b {
@@ -520,12 +551,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         if let Binding::Function(idx, pred_, _) = b {
             let def = self.get_idx(*idx);
-            if def.metadata.flags.is_overload {
-                *pred = *pred_;
-                Some(def)
-            } else {
-                None
-            }
+            *pred = *pred_;
+            Some(def)
         } else {
             None
         }
