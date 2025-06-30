@@ -1651,7 +1651,7 @@ pub struct BindingClassMetadata {
     /// Python runtime will dispatch most of them to the metaclass, but the metaclass
     /// itself can also potentially be one of these).
     pub keywords: Box<[(Name, Expr)]>,
-    /// The class decorators, which may determine
+    /// The class decorators.
     pub decorators: Box<[(Idx<Key>, TextRange)]>,
     /// Is this a new type? True only for synthesized classes created from a `NewType` call.
     pub is_new_type: bool,
