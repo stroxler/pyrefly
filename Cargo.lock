@@ -1942,6 +1942,7 @@ dependencies = [
  "dupe",
  "equivalent",
  "itertools 0.14.0",
+ "lsp-types",
  "parse-display",
  "pyrefly_util",
  "regex",

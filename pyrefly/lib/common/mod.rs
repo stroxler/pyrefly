@@ -6,4 +6,3 @@
  */
 
 pub mod files;
-pub mod symbol_kind;

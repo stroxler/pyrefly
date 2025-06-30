@@ -11,6 +11,7 @@ use std::sync::Arc;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::ExceptHandler;
@@ -29,7 +30,6 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::common::symbol_kind::SymbolKind;
 use crate::module::module_path::ModuleStyle;
 use crate::module::short_identifier::ShortIdentifier;
 

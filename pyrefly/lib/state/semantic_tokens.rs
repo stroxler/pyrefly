@@ -12,6 +12,7 @@ use lsp_types::SemanticTokenModifier;
 use lsp_types::SemanticTokenType;
 use lsp_types::SemanticTokensLegend;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_util::visit::Visit as _;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
@@ -20,7 +21,6 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
 use crate::binding::binding::Key;
-use crate::common::symbol_kind::SymbolKind;
 use crate::module::module_info::ModuleInfo;
 
 pub struct SemanticTokensLegends {
