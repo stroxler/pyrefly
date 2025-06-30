@@ -139,7 +139,6 @@ impl CalcStack {
 }
 
 /// Represent a cycle we are currently solving.
-#[allow(dead_code)]
 pub struct Cycle {
     /// Where do we want to break the cycle
     break_at: CalcId,
@@ -162,7 +161,6 @@ pub struct Cycle {
     unwind_stack: Vec<CalcId>,
     /// The algorithm doesn't actually require knowing where we were when we detected the cycle, but it is
     /// essentially free and could be very useful for debugging.
-    #[allow(dead_code)]
     detected_at: CalcId,
 }
 
