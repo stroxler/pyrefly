@@ -581,7 +581,7 @@ impl<'a> Transaction<'a> {
             }) => {
                 // TODO: Handle relative import (via ModuleName::new_maybe_relative)
                 Some(Type::Module(Module::new(
-                    module_name.components().first().unwrap().clone(),
+                    module_name.first_component(),
                     OrderedSet::from_iter([module_name]),
                 )))
             }
