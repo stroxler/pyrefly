@@ -40,15 +40,15 @@ impl Glean {
                 schema_id: builtin::SCHEMA_ID.to_owned(),
             },
             GleanEntry::Predicate {
-                predicate: "python.Name.4".to_owned(),
+                predicate: python::Name::GLEAN_name(),
                 facts: vec![json(python::Name::new("".to_owned()))],
             },
             GleanEntry::Predicate {
-                predicate: "python.Module.4".to_owned(),
+                predicate: python::Module::GLEAN_name(),
                 facts: vec![json(module_fact)],
             },
             GleanEntry::Predicate {
-                predicate: "digest.FileDigest.1".to_owned(),
+                predicate: digest::FileDigest::GLEAN_name(),
                 facts: vec![json(digest_fact)],
             },
         ];

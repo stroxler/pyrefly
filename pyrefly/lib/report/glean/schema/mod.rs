@@ -5,7 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#[rustfmt::skip]
 pub mod builtin;
+#[rustfmt::skip]
 pub mod digest;
+#[rustfmt::skip]
 pub mod python;
+#[rustfmt::skip]
 pub mod src;

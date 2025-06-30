@@ -22,6 +22,22 @@ pub struct FileDigest {
     pub key: Box<FileDigest_key>,
 }
 
+impl FileDigest {
+    pub fn GLEAN_name() -> String {
+        String::from("digest.FileDigest.1")
+    }
+
+    pub fn new(file: src::File, digest: Digest) -> Self {
+        FileDigest {
+            id: 0,
+            key: Box::new(FileDigest_key {
+                file,
+                digest
+            }),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Digest {
     pub hash: String,
