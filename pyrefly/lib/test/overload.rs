@@ -178,16 +178,16 @@ testcase!(
 from typing import overload, Protocol
 
 @overload
-def f(x: int) -> int: ...  # E: Overloaded function needs at least two signatures
+def f(x: int) -> int: ...  # E: Overloaded function needs at least two @overload declarations
 def f(x: int) -> int:
     return x
 
 @overload
-def g(x: int) -> int: ...  # E: Overloaded function must have an implementation  # E: Overloaded function needs at least two signatures
+def g(x: int) -> int: ...  # E: Overloaded function must have an implementation  # E: Overloaded function needs at least two @overload declarations
 
 class P(Protocol):
     @overload
-    def m(x: int) -> int: ...  # E: Overloaded function needs at least two signatures
+    def m(x: int) -> int: ...  # E: Overloaded function needs at least two @overload declarations
 "#,
 );
 

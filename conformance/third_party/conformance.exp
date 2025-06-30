@@ -7833,8 +7833,8 @@
     {
       "code": -2,
       "column": 5,
-      "concise_description": "Overloaded function needs at least two signatures",
-      "description": "Overloaded function needs at least two signatures",
+      "concise_description": "Overloaded function needs at least two @overload declarations",
+      "description": "Overloaded function needs at least two @overload declarations",
       "line": 16,
       "name": "invalid-overload",
       "stop_column": 10,

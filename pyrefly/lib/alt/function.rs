@@ -119,7 +119,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         first.id_range,
                         ErrorKind::InvalidOverload,
                         None,
-                        "Overloaded function needs at least two signatures".to_owned(),
+                        "Overloaded function needs at least two @overload declarations".to_owned(),
                     );
                     acc.split_off_first().0.1
                 } else {
@@ -153,7 +153,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         first.id_range,
                         ErrorKind::InvalidOverload,
                         None,
-                        "Overloaded function needs at least two signatures".to_owned(),
+                        "Overloaded function needs at least two @overload declarations".to_owned(),
                     );
                     defs.split_off_first().0.1
                 } else {
