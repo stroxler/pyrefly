@@ -359,6 +359,7 @@ struct Workspace {
     #[expect(dead_code)]
     root: PathBuf,
     python_info: Option<PythonInfo>,
+    search_path: Option<Vec<PathBuf>>,
     disable_language_services: bool,
     disable_type_errors: bool,
 }
@@ -368,6 +369,7 @@ impl Workspace {
         Self {
             root: workspace_root.to_path_buf(),
             python_info,
+            search_path: None,
             disable_language_services: false,
             disable_type_errors: false,
         }
@@ -383,6 +385,7 @@ impl Default for Workspace {
         Self {
             root: PathBuf::from("/"),
             python_info: None,
+            search_path: None,
             disable_language_services: Default::default(),
             disable_type_errors: false,
         }
@@ -492,20 +495,22 @@ impl Workspaces {
                 && config.conda_environment.is_none()
             {
                 workspaces.get_with(dir.to_owned(), |w| {
-                    let Some(PythonInfo { interpreter, env }) = w.python_info.clone() else {
-                        return;
-                    };
-                    let site_package_path = config.python_environment.site_package_path.take();
-                    config.python_interpreter = Some(interpreter);
-                    config.python_environment = env;
-                    if let Some(new) = site_package_path {
-                        let mut workspace = config
-                            .python_environment
-                            .site_package_path
-                            .take()
-                            .unwrap_or_default();
-                        workspace.extend(new);
-                        config.python_environment.site_package_path = Some(workspace);
+                    if let Some(search_path) = w.search_path.clone() {
+                        config.search_path_from_args = search_path;
+                    }
+                    if let Some(PythonInfo { interpreter, env }) = w.python_info.clone() {
+                        let site_package_path = config.python_environment.site_package_path.take();
+                        config.python_interpreter = Some(interpreter);
+                        config.python_environment = env;
+                        if let Some(new) = site_package_path {
+                            let mut workspace = config
+                                .python_environment
+                                .site_package_path
+                                .take()
+                                .unwrap_or_default();
+                            workspace.extend(new);
+                            config.python_environment.site_package_path = Some(workspace);
+                        }
                     }
                 })
             };
@@ -2056,6 +2061,15 @@ impl Server {
                         if let Some(serde_json::Value::Object(pyrefly_settings)) =
                             map.get("pyrefly")
                         {
+                            if let Some(serde_json::Value::Array(search_paths)) =
+                                pyrefly_settings.get("extraPaths")
+                            {
+                                let paths: Vec<PathBuf> = search_paths
+                                    .iter()
+                                    .map(|path| serde_json::from_value(path.clone()).unwrap())
+                                    .collect();
+                                self.update_search_paths(&mut modified, &id.scope_uri, paths);
+                            }
                             if let Some(serde_json::Value::Bool(disable_language_services)) =
                                 pyrefly_settings.get("disableLanguageServices")
                             {
@@ -2140,6 +2154,30 @@ impl Server {
             None => {
                 *modified = true;
                 self.workspaces.default.write().python_info = python_info;
+            }
+        }
+        self.invalidate_config();
+    }
+
+    // Updates search paths for scope uri.
+    fn update_search_paths(
+        &self,
+        modified: &mut bool,
+        scope_uri: &Option<Url>,
+        search_paths: Vec<PathBuf>,
+    ) {
+        let mut workspaces = self.workspaces.workspaces.write();
+        match scope_uri {
+            Some(scope_uri) => {
+                let workspace_path = scope_uri.to_file_path().unwrap();
+                if let Some(workspace) = workspaces.get_mut(&workspace_path) {
+                    *modified = true;
+                    workspace.search_path = Some(search_paths);
+                }
+            }
+            None => {
+                *modified = true;
+                self.workspaces.default.write().search_path = Some(search_paths);
             }
         }
         self.invalidate_config();
