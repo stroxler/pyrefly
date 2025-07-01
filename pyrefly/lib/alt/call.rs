@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::iter;
+
 use dupe::Dupe;
 use pyrefly_python::dunder;
 use pyrefly_util::prelude::VecExt;
@@ -412,8 +414,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let (overrides_new, dunder_new_has_errors) =
             if let Some(new_method) = self.get_dunder_new(&cls) {
                 let cls_ty = Type::type_form(instance_ty.clone());
-                let mut full_args = vec![CallArg::ty(&cls_ty, range)];
-                full_args.extend_from_slice(args);
+                let full_args = iter::once(CallArg::ty(&cls_ty, range))
+                    .chain(args.iter().cloned())
+                    .collect::<Vec<_>>();
                 let dunder_new_errors = self.error_collector();
                 let ret = self.call_infer(
                     self.as_call_target_or_error(
