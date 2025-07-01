@@ -302,11 +302,35 @@ impl Cycles {
     }
 }
 
+/// Represents thread-local state for the current `AnswersSolver` and any
+/// `AnswersSolver`s waiting for the results that we are currently computing.
+///
+/// This state is initially created by some top-level `AnswersSolver` - when
+/// we're calculating results for bindings, we started at either:
+/// - a solver that is type-checking some module end-to-end, or
+/// - an ad-hoc solver (used in some LSP functionality) solving one specific binding
+///
+/// We'll create a new `AnswersSolver` will change every time we switch modules,
+/// which happens as we resolve types of imported names, but when this happens
+/// we always pass the current `ThreadState`.
+pub struct ThreadState {
+    cycles: Cycles,
+    stack: CalcStack,
+}
+
+impl ThreadState {
+    pub fn new() -> Self {
+        Self {
+            cycles: Cycles::new(),
+            stack: CalcStack::new(),
+        }
+    }
+}
+
 pub struct AnswersSolver<'a, Ans: LookupAnswer> {
     answers: &'a Ans,
     current: &'a Answers,
-    stack: &'a CalcStack,
-    cycles: &'a Cycles,
+    thread_state: &'a ThreadState,
     // The base solver is only used to reset the error collector at binding
     // boundaries. Answers code should generally use the error collector passed
     // along the call stack instead.
@@ -328,8 +352,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         uniques: &'a UniqueFactory,
         recurser: &'a Recurser<Var>,
         stdlib: &'a Stdlib,
-        stack: &'a CalcStack,
-        cycles: &'a Cycles,
+        thread_state: &'a ThreadState,
     ) -> AnswersSolver<'a, Ans> {
         AnswersSolver {
             stdlib,
@@ -340,8 +363,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             exports,
             recurser,
             current,
-            stack,
-            cycles,
+            thread_state,
         }
     }
 
@@ -362,7 +384,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn stack(&self) -> &CalcStack {
-        self.stack
+        &self.thread_state.stack
+    }
+
+    fn cycles(&self) -> &Cycles {
+        &self.thread_state.cycles
     }
 
     pub fn for_display(&self, t: Type) -> Type {
@@ -380,14 +406,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     {
         let current = CalcId(self.bindings().dupe(), K::to_anyidx(idx));
         let calculation = self.get_calculation(idx);
-        self.stack.push(current.dupe());
-        let result = match self.cycles.pre_calculate_state(&current) {
+        self.stack().push(current.dupe());
+        let result = match self.cycles().pre_calculate_state(&current) {
             CycleState::NoDetectedCycle => match calculation.propose_calculation() {
                 ProposalResult::Calculated(v) => v,
                 ProposalResult::CycleBroken(r) => Arc::new(K::promote_recursive(r)),
                 ProposalResult::CycleDetected => {
-                    let current_cycle = self.stack.current_cycle().unwrap();
-                    let break_immediately = self.cycles.on_cycle_detected(current_cycle);
+                    let current_cycle = self.stack().current_cycle().unwrap();
+                    let break_immediately = self.cycles().on_cycle_detected(current_cycle);
                     if break_immediately {
                         self.attempt_to_unwind_cycle_from_here(idx, calculation)
                             .unwrap_or_else(|r| Arc::new(K::promote_recursive(r)))
@@ -421,7 +447,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
         };
-        self.stack.pop();
+        self.stack().pop();
         result
     }
 
@@ -449,14 +475,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             K::record_recursive(self, k, &v, r, self.base_errors);
         }
         // Handle cycle unwinding, if applicable.
-        match self.cycles.post_calculate_state(&current) {
+        match self.cycles().post_calculate_state(&current) {
             CycleState::NoDetectedCycle => {}
             CycleState::Participant => {
                 // TODO: at some point we'll want refactor so that at least some results in a cycle
                 // are isolated until we finish (otherwise we can get data races pinning `Var`s).
             }
             CycleState::BreakAt => {
-                self.cycles.on_cycle_completed();
+                self.cycles().on_cycle_completed();
             }
         }
         v
@@ -511,7 +537,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             self.get(k)
         } else {
-            self.answers.get(module, path, k, self.stack, self.cycles)
+            self.answers.get(module, path, k, self.thread_state)
         }
     }
 

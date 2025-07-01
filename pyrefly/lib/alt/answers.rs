@@ -28,8 +28,7 @@ use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::answers_solver::CalcStack;
-use crate::alt::answers_solver::Cycles;
+use crate::alt::answers_solver::ThreadState;
 use crate::alt::attr::AttrDefinition;
 use crate::alt::attr::AttrInfo;
 use crate::alt::traits::Solve;
@@ -325,8 +324,7 @@ pub trait LookupAnswer: Sized {
         module: ModuleName,
         path: Option<&ModulePath>,
         k: &K,
-        stack: &CalcStack,
-        cycles: &Cycles,
+        stack: &ThreadState,
     ) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -422,10 +420,17 @@ impl Answers {
             }
         }
         let recurser = &Recurser::new();
-        let cycles = &Cycles::new();
-        let stack = &CalcStack::new();
+        let thread_state = &ThreadState::new();
         let answers_solver = AnswersSolver::new(
-            answers, self, errors, bindings, exports, uniques, recurser, stdlib, stack, cycles,
+            answers,
+            self,
+            errors,
+            bindings,
+            exports,
+            uniques,
+            recurser,
+            stdlib,
+            thread_state,
         );
         table_mut_for_each!(&mut res, |items| pre_solve(
             items,
@@ -499,8 +504,7 @@ impl Answers {
         stdlib: &Stdlib,
         uniques: &UniqueFactory,
         key: Hashed<&K>,
-        stack: &CalcStack,
-        cycles: &Cycles,
+        thread_state: &ThreadState,
     ) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -508,7 +512,15 @@ impl Answers {
     {
         let recurser = &Recurser::new();
         let solver = AnswersSolver::new(
-            answers, self, errors, bindings, exports, uniques, recurser, stdlib, stack, cycles,
+            answers,
+            self,
+            errors,
+            bindings,
+            exports,
+            uniques,
+            recurser,
+            stdlib,
+            thread_state,
         );
         let v = solver.get_hashed(key);
         let mut vv = (*v).clone();
