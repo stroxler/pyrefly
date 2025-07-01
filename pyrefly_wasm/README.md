@@ -5,9 +5,11 @@ Pyrefly's WASM build is used in browser-based applications like the
 
 ## Prerequisites
 
-- Ensure you have clang installed. For mac, `brew install llvm`
-  ([source](https://github.com/briansmith/ring/issues/1824)). For CentOS,
-  `sudo dnf install clang`
+- Ensure you have clang installed:
+  - For mac: `brew install llvm`
+    ([source](https://github.com/briansmith/ring/issues/1824))
+  - For CentOS: `sudo dnf install clang`
+- Install Mercurial: `sudo apt install mercurial`
 
 ## Building Pyrefly for WASM
 

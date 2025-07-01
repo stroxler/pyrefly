@@ -7,6 +7,12 @@ This file shows details on how to develop the Website locally, as well as deploy
 
 ### Prerequisites
 
+-   Website development isn't currently supported on Windows, please use Linux or Mac or WSL (Windows Subsystem for Linux) for development.
+-   Ensure you have clang installed:
+    -   For mac: `brew install llvm` ([source](https://github.com/briansmith/ring/issues/1824))
+    -   For CentOS: `sudo dnf install clang`
+-   Install Mercurial: `sudo apt install mercurial`
+
 Install dependencies:
 
 ```bash
@@ -20,6 +26,8 @@ If you are running into issues with compiling zstd on your mac when running `bui
 ### Running the Website
 
 **Running the External Site**
+
+Please ignore the flags for `unset FB_INTERNAL` and `INTERNAL_DOCS=0` in the following commands, these are commands used to hide information meant to be shown in the internal site.
 
 ```bash
 yarn start-with-wasm
@@ -44,13 +52,13 @@ Most changes are reflected live without having to restart the server.
 If you want to run the static docs website, run the following command:
 
 ```bash
-yarn start-internal-docs
+yarn start-internal
 ```
 
 Similar to above, if you don't need to rebuild the wasm, you can use the following command instead:
 
 ```bash
-yarn start-internal-docs-with-wasm
+yarn start-internal-with-wasm
 ```
 
 ## Writing Docs
