@@ -994,17 +994,6 @@ def f(cond1: bool, cond2: bool):
 );
 
 testcase!(
-    test_augassign_in_loop,
-    r#"
-def f(args, cond):
-    n = 0
-    for arg in args:
-        if cond:
-            n += 1
-"#,
-);
-
-testcase!(
     test_nested_loops_return,
     r#"
 from typing import assert_type, Literal
@@ -1017,6 +1006,17 @@ def f(cond1: bool, cond2: bool):
     return n
 
 assert_type(f(True, True), int)
+"#,
+);
+
+testcase!(
+    test_augassign_in_loop_simple,
+    r#"
+def f(args, cond):
+    n = 0
+    for arg in args:
+        if cond:
+            n += 1
 "#,
 );
 
