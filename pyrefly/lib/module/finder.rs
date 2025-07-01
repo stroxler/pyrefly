@@ -201,7 +201,10 @@ fn find_one_part_prefix<'a>(
 }
 
 /// Find a module from a single package. Returns None if no module is found.
-fn continue_find_module(start_result: FindResult, components_rest: &[Name]) -> Option<ModulePath> {
+fn continue_find_module(
+    start_result: FindResult,
+    components_rest: &[Name],
+) -> Result<Option<ModulePath>, FindError> {
     let mut current_result = Some(start_result);
     for part in components_rest.iter() {
         match current_result {
@@ -222,10 +225,10 @@ fn continue_find_module(start_result: FindResult, components_rest: &[Name]) -> O
             }
         }
     }
-    current_result.map(|x| match x {
+    Ok(current_result.map(|x| match x {
         FindResult::SingleFileModule(path) |
         FindResult::RegularPackage(path, _) |
-        // TODO(melvinhe): Address CompiledModule differently, for Typing.Any treatment
+        // TODO(melvinhe): Address CompiledModule to return an ignored Error, for Typing.Any treatment
         FindResult::CompiledModule(path) => {
             ModulePath::filesystem(path)
         }
@@ -233,7 +236,7 @@ fn continue_find_module(start_result: FindResult, components_rest: &[Name]) -> O
             // TODO(grievejia): Preserving all info in the list instead of dropping all but the first one.
             ModulePath::namespace(roots.first().clone())
         }
-    })
+    }))
 }
 
 pub fn find_module_in_search_path<'a, I>(module: ModuleName, include: I) -> Option<ModulePath>
@@ -244,15 +247,15 @@ where
         [] => None,
         [first, rest @ ..] => {
             let start_result = find_one_part(first, include.clone());
-            let result =
-                start_result.and_then(|start_result| continue_find_module(start_result, rest));
+            let result = start_result
+                .and_then(|start_result| continue_find_module(start_result, rest).unwrap());
             if result.is_some() {
                 return result;
             }
             // If we can't find the module, try to find a stub by adding the -stubs suffix
             let stub_first = Name::new(format!("{first}-stubs"));
             let start_stub_result = find_one_part(&stub_first, include)?;
-            continue_find_module(start_stub_result, rest)
+            continue_find_module(start_stub_result, rest).unwrap()
         }
     }
 }
@@ -279,7 +282,7 @@ pub fn find_module_in_site_package_path(
         let stub_module_py_typed = stub_module_import.py_typed();
         any_has_partial_py_typed |= stub_module_py_typed == PyTyped::Partial;
         checked_one_stub = true;
-        if let Some(stub_result) = continue_find_module(stub_module_import, rest) {
+        if let Some(stub_result) = continue_find_module(stub_module_import, rest).unwrap() {
             found_stubs = Some(stub_result);
             break;
         }
@@ -313,7 +316,7 @@ pub fn find_module_in_site_package_path(
             && module.py_typed() == PyTyped::Missing
         {
             any_has_none_py_typed = true;
-        } else if let Some(module_result) = continue_find_module(module, rest) {
+        } else if let Some(module_result) = continue_find_module(module, rest).unwrap() {
             return Ok(Some(module_result));
         }
     }
@@ -1151,7 +1154,8 @@ mod tests {
         );
         let start_result =
             find_one_part(&Name::new("subdir"), [root.to_path_buf()].iter()).unwrap();
-        let module_path = continue_find_module(start_result, &[Name::new("nested_module")]);
+        let module_path =
+            continue_find_module(start_result, &[Name::new("nested_module")]).unwrap();
         assert_eq!(
             module_path,
             Some(ModulePath::filesystem(
@@ -1160,12 +1164,25 @@ mod tests {
         );
         let start_result =
             find_one_part(&Name::new("subdir"), [root.to_path_buf()].iter()).unwrap();
-        let module_path = continue_find_module(start_result, &[Name::new("another_nested_module")]);
+        let module_path =
+            continue_find_module(start_result, &[Name::new("another_nested_module")]).unwrap();
         assert_eq!(
             module_path,
             Some(ModulePath::filesystem(
                 root.join("subdir/another_nested_module.py")
             ))
         );
+    }
+
+    #[test]
+    fn test_continue_find_module_signature() {
+        let start_result =
+            FindResult::RegularPackage(PathBuf::from("path/to/init.py"), PathBuf::from("path/to"));
+        let components_rest = vec![Name::new("test_module")];
+        let result: Result<Option<ModulePath>, FindError> =
+            continue_find_module(start_result, &components_rest);
+        assert!(result.is_ok());
+        let unwrapped_result = result.unwrap();
+        assert_eq!(unwrapped_result, None);
     }
 }
