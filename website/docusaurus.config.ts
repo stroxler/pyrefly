@@ -259,6 +259,21 @@ const config: Config = {
                 },
             };
         },
+        function enableRedirectsPlugin() {
+            return {
+              name: 'enableRedirectsPlugin',
+              async contentLoaded({ actions }) {
+                const { addRoute } = actions;
+                // Example: Add a redirect from /old-path to /new-path
+                addRoute({
+                  path: '/pyohio2025',
+                  component: '@site/src/pages/landingPage.tsx',
+                  exact: true,
+                });
+              },
+            };
+        },
+
     ],
     themeConfig: {
         prism: {
