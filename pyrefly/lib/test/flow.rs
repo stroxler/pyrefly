@@ -983,7 +983,7 @@ assert_type(f(True), int)
 );
 
 testcase!(
-    test_nested_loops,
+    test_nested_loops_simple,
     r#"
 def f(cond1: bool, cond2: bool):
     n = 0
