@@ -284,6 +284,10 @@ impl SysInfo {
         }
     }
 
+    fn is_type_checking_constant_name(x: &str) -> bool {
+        x == "TYPE_CHECKING" || x == "TYPE_CHECKING_WITH_PYREFLY"
+    }
+
     fn evaluate(&self, x: &Expr) -> Option<Value> {
         match x {
             Expr::Compare(x) if x.ops.len() == 1 && x.comparators.len() == 1 => Some(Value::Bool(
@@ -303,13 +307,15 @@ impl SysInfo {
                     _ => None,
                 }
             }
-            Expr::Name(name) if name.id == "TYPE_CHECKING" => Some(Value::Bool(true)),
+            Expr::Name(name) if Self::is_type_checking_constant_name(name.id()) => {
+                Some(Value::Bool(true))
+            }
             Expr::Attribute(ExprAttribute {
                 // We support TYPE_CHECKING regardless of which import (or reimport) it is from.
                 value,
                 attr,
                 ..
-            }) if value.is_name_expr() && attr.as_str() == "TYPE_CHECKING" => {
+            }) if value.is_name_expr() && Self::is_type_checking_constant_name(attr.as_str()) => {
                 Some(Value::Bool(true))
             }
             Expr::Call(ExprCall {

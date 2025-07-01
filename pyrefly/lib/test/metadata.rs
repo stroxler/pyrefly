@@ -119,6 +119,28 @@ assert_type(Z1(), str)
 );
 
 testcase!(
+    test_typechecking_with_pyrefly_constant,
+    TestEnv::one("foo", "TYPE_CHECKING_WITH_PYREFLY: bool = False"),
+    r#"
+from typing import assert_type
+from foo import TYPE_CHECKING_WITH_PYREFLY
+
+if TYPE_CHECKING_WITH_PYREFLY:
+    X0 = str
+else:
+    X0 = int
+assert_type(X0(), str)
+
+import foo
+if foo.TYPE_CHECKING_WITH_PYREFLY:
+    X1 = str
+else:
+    X1 = int
+assert_type(X1(), str)
+"#,
+);
+
+testcase!(
     test_platform,
     r#"
 from typing import assert_type
