@@ -24,6 +24,34 @@ name with the `--config`/`-c` flag, but they will not be automatically found by
 
 Both absolute and config-relative paths are supported.
 
+## Simple Configuration Example
+
+Here's an example of a simple config. To see more complex examples,
+including in a `pyproject.toml`, look at
+[Example Configurations](#example-configurations), which show Pyrefly's default
+config, as well as other ways you can set your configuration.
+
+```toml
+# set the directory Pyrefly will search for files to type check
+project-incldues = [
+    "a", "b/c/d", "e"
+]
+
+# manually set the `sys.platform` Pyrefly will assume when type checking
+python-platform = "linux"
+
+# return an import error when `<library>-stubs` can be imported, but no
+# non-stubs version of that library can be found
+ignore-missing-source = false
+
+# a table mapping error codes to an `is-enabled` boolean
+[errors]
+# disable `bad-assignment` errors
+bad-assignment = false
+# disable `bad-return` errors
+bad-return = false
+```
+
 ## Precedence in Options
 
 [Configuration options](#configuration-options) are selected in the following order
@@ -539,7 +567,7 @@ To pick up your packages even when your environment isn't sourced, you can query
 location with `conda env list`, and add `<conda_environment_path>/bin/python3` to your Pyrefly configuration
 under [`python-interpreter`](#python-interpreter) or pass it in with the `--python-interpreter` flag.
 
-## Example Configuration
+## Example Configurations
 
 This section displays an example config showing the usage of all config options listed above to make creating
 your own easier, and to give you an easy place to start.
