@@ -525,8 +525,8 @@ dependencies = [
 
 [[package]]
 name = "cxx"
-version = "1.0.150"
-source = "git+https://github.com/facebookexperimental/cxx.git?rev=fbe91091fd26aea4a30fd08b8f0230078f4db2ce#fbe91091fd26aea4a30fd08b8f0230078f4db2ce"
+version = "1.0.160"
+source = "git+https://github.com/facebookexperimental/cxx.git?rev=43f8f85eb1b9d99f10f7228ab679997c484ade69#43f8f85eb1b9d99f10f7228ab679997c484ade69"
 dependencies = [
  "cc",
  "cxxbridge-cmd",
@@ -538,11 +538,12 @@ dependencies = [
 
 [[package]]
 name = "cxx-build"
-version = "1.0.150"
-source = "git+https://github.com/facebookexperimental/cxx.git?rev=fbe91091fd26aea4a30fd08b8f0230078f4db2ce#fbe91091fd26aea4a30fd08b8f0230078f4db2ce"
+version = "1.0.160"
+source = "git+https://github.com/facebookexperimental/cxx.git?rev=43f8f85eb1b9d99f10f7228ab679997c484ade69#43f8f85eb1b9d99f10f7228ab679997c484ade69"
 dependencies = [
  "cc",
  "codespan-reporting",
+ "indexmap",
  "proc-macro2",
  "quote",
  "scratch",
@@ -551,11 +552,12 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-cmd"
-version = "1.0.150"
-source = "git+https://github.com/facebookexperimental/cxx.git?rev=fbe91091fd26aea4a30fd08b8f0230078f4db2ce#fbe91091fd26aea4a30fd08b8f0230078f4db2ce"
+version = "1.0.160"
+source = "git+https://github.com/facebookexperimental/cxx.git?rev=43f8f85eb1b9d99f10f7228ab679997c484ade69#43f8f85eb1b9d99f10f7228ab679997c484ade69"
 dependencies = [
  "clap",
  "codespan-reporting",
+ "indexmap",
  "proc-macro2",
  "quote",
  "syn 2.0.101",
@@ -563,14 +565,15 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-flags"
-version = "1.0.150"
-source = "git+https://github.com/facebookexperimental/cxx.git?rev=fbe91091fd26aea4a30fd08b8f0230078f4db2ce#fbe91091fd26aea4a30fd08b8f0230078f4db2ce"
+version = "1.0.160"
+source = "git+https://github.com/facebookexperimental/cxx.git?rev=43f8f85eb1b9d99f10f7228ab679997c484ade69#43f8f85eb1b9d99f10f7228ab679997c484ade69"
 
 [[package]]
 name = "cxxbridge-macro"
-version = "1.0.150"
-source = "git+https://github.com/facebookexperimental/cxx.git?rev=fbe91091fd26aea4a30fd08b8f0230078f4db2ce#fbe91091fd26aea4a30fd08b8f0230078f4db2ce"
+version = "1.0.160"
+source = "git+https://github.com/facebookexperimental/cxx.git?rev=43f8f85eb1b9d99f10f7228ab679997c484ade69#43f8f85eb1b9d99f10f7228ab679997c484ade69"
 dependencies = [
+ "indexmap",
  "proc-macro2",
  "quote",
  "rustversion",
