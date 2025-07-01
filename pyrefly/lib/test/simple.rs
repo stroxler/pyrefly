@@ -1523,3 +1523,15 @@ def op(b: bool):
     assert_type((f if b else g)(), str | int)
 "#,
 );
+
+testcase!(
+    test_invalid_base,
+    r#"
+class C(Invalid): # E: Could not find name `Invalid`
+    pass
+
+def f(x: C):
+    x.unknown
+    C("test")
+"#,
+);

@@ -445,9 +445,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } else {
                 (false, false)
             };
+
         // If the class overrides `object.__new__` but not `object.__init__`, the `__init__` call
         // always succeeds at runtime, so we skip analyzing it.
-        if let Some(init_method) = self.get_dunder_init(&cls, !overrides_new) {
+        // If we have Any as a base class, we shouldn't fall back to `object.__init__`.
+        let get_object_init = !overrides_new
+            && !self
+                .get_metadata_for_class(cls.class_object())
+                .has_base_any();
+
+        if let Some(init_method) = self.get_dunder_init(&cls, get_object_init) {
             let dunder_init_errors = self.error_collector();
             self.call_infer(
                 self.as_call_target_or_error(
