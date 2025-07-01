@@ -65,6 +65,17 @@ impl Query {
         self.add_files(all_files);
     }
 
+    pub fn change(&self, files: Vec<(ModuleName, std::path::PathBuf)>) {
+        let modified_paths = files.into_iter().map(|(_, path)| path).collect();
+        let events = CategorizedEvents {
+            created: Vec::new(),
+            modified: modified_paths,
+            removed: Vec::new(),
+            unknown: Vec::new(),
+        };
+        self.change_files(&events);
+    }
+
     /// Load the given files and return any errors associated with them
     pub fn add_files(&self, files: Vec<(ModuleName, ModulePath)>) -> Vec<String> {
         self.files.lock().extend(files.clone());
