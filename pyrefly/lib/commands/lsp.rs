@@ -1358,10 +1358,9 @@ impl Server {
 
         let mut version_info = self.version_info.lock();
         let old_version = version_info.get(&file_path).unwrap_or(&0);
-        if version <= *old_version {
+        if version < *old_version {
             return Err(anyhow::anyhow!(
-                "Expected version in didChange notification to be greater than: {:?}",
-                old_version
+                "Unexpected version in didChange notification: {version:?} is less than {old_version:?}"
             ));
         }
         version_info.insert(file_path.clone(), version);
