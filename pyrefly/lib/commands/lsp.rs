@@ -1497,6 +1497,7 @@ impl Server {
         let path = uri.to_file_path().unwrap();
         self.workspaces.get_with(path.clone(), |workspace| {
             if workspace.disable_language_services {
+                eprintln!("Skipping request - language services disabled");
                 None
             } else {
                 let module_path = if self.open_files.read().contains_key(&path) {
