@@ -12,12 +12,15 @@ use std::io::Cursor;
 use dupe::Dupe;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::sys_info::SysInfo;
+use pyrefly_util::events::CategorizedEvents;
 use pyrefly_util::lined_buffer::DisplayRange;
+use pyrefly_util::lock::Mutex;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Expr;
 use ruff_text_size::Ranged;
+use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::Answers;
 use crate::config::finder::ConfigFinder;
@@ -29,8 +32,12 @@ use crate::state::state::State;
 use crate::types::display::TypeDisplayContext;
 
 pub struct Query {
+    /// The state that we use.
     state: State,
+    /// The SysInfo, the same for all handles.
     sys_info: SysInfo,
+    /// The files that have been used with `add_files`, used when files change.
+    files: Mutex<SmallSet<(ModuleName, ModulePath)>>,
 }
 
 impl Query {
@@ -39,6 +46,7 @@ impl Query {
         Self {
             state,
             sys_info: SysInfo::default(),
+            files: Mutex::new(SmallSet::new()),
         }
     }
 
@@ -46,8 +54,20 @@ impl Query {
         Handle::new(name, path, self.sys_info.dupe())
     }
 
+    pub fn change_files(&self, events: &CategorizedEvents) {
+        let mut transaction = self
+            .state
+            .new_committable_transaction(Require::Everything, None);
+        let new_transaction_mut = transaction.as_mut();
+        new_transaction_mut.invalidate_events(events);
+        self.state.commit_transaction(transaction);
+        let all_files = self.files.lock().iter().cloned().collect::<Vec<_>>();
+        self.add_files(all_files);
+    }
+
     /// Load the given files and return any errors associated with them
     pub fn add_files(&self, files: Vec<(ModuleName, ModulePath)>) -> Vec<String> {
+        self.files.lock().extend(files.clone());
         let mut transaction = self
             .state
             .new_committable_transaction(Require::Everything, None);
