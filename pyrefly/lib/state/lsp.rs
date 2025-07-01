@@ -1425,7 +1425,9 @@ impl<'a> Transaction<'a> {
     pub fn completion(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
         let mut results = self.completion_unsorted_opt(handle, position);
         for item in &mut results {
-            let sort_text = if item.label.starts_with("__") {
+            let sort_text = if item.additional_text_edits.is_some() {
+                "3"
+            } else if item.label.starts_with("__") {
                 "2"
             } else if item.label.as_str().starts_with("_") {
                 "1"

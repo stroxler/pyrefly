@@ -515,7 +515,7 @@ fn test_completion_with_autoimport() {
                         "detail":"from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n",
                         "kind":3,
                         "label":"this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search",
-                        "sortText":"0"
+                        "sortText":"3"
                     },
                 ]
             })),
