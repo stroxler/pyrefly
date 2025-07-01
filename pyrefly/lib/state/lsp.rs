@@ -1438,6 +1438,7 @@ impl<'a> Transaction<'a> {
             item.sort_text = Some(sort_text);
         }
         results.sort_by(|item1, item2| item1.sort_text.cmp(&item2.sort_text));
+        results.dedup_by(|item1, item2| item1.label == item2.label && item1.detail == item2.detail);
         results
     }
 

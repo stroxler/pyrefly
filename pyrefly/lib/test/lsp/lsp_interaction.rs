@@ -553,7 +553,7 @@ fn test_module_completion() {
         expected_messages_from_language_server: vec![Message::Response(Response {
             id: RequestId::from(2),
             result: Some(
-                serde_json::json!({"isIncomplete":false,"items":[{"detail":"bar","kind":9,"label":"bar","sortText":"0"},{"detail":"bar","kind":9,"label":"bar","sortText":"0"}]}),
+                serde_json::json!({"isIncomplete":false,"items":[{"detail":"bar","kind":9,"label":"bar","sortText":"0"}]}),
             ),
             error: None,
         })],
