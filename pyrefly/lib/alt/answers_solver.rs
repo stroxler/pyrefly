@@ -56,8 +56,14 @@ use crate::types::types::Var;
 
 /// Compactly represents the identity of a binding, for the purposes of
 /// understanding the calculation stack.
-#[derive(Debug, Clone, Dupe)]
+#[derive(Clone, Dupe)]
 pub struct CalcId(pub Bindings, pub AnyIdx);
+
+impl Debug for CalcId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CalcId({}, {:?})", self.0.module_info().name(), self.1)
+    }
+}
 
 impl PartialEq for CalcId {
     fn eq(&self, other: &Self) -> bool {
