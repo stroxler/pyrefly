@@ -250,8 +250,16 @@ impl Cycles {
         res
     }
 
-    fn on_cycle_completed(&self) {
-        self.0.borrow_mut().pop();
+    /// Handle the completion of a cycle, which happens when we are ready to produce the
+    /// final answer (not the cyclic placeholder) for the cycle-breaking Idx.
+    ///
+    /// Return `true` if we are no longer in a cycle (i.e. the cycle stack is now empty). because we can potentially enter
+    /// many cycles while analyzing a densely-connected graph of bindings, this is not
+    /// necessarily the case.
+    fn on_cycle_completed(&self) -> bool {
+        let mut cycle_stack = self.0.borrow_mut();
+        cycle_stack.pop();
+        cycle_stack.is_empty()
     }
 
     fn pre_calculate_state(&self, current: &CalcId) -> CycleState {
