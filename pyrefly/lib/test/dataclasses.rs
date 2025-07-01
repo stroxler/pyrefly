@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
@@ -706,5 +707,67 @@ class SomeClass:
 
 SomeClass(x=1) # OK
 SomeClass(1) # OK
+    "#,
+);
+
+testcase!(
+    test_alias,
+    r#"
+from dataclasses import dataclass
+
+mutable = dataclass
+@mutable
+class Mut:
+    x: int
+m = Mut(x=0)
+m.x = 42
+
+frozen = dataclass(frozen=True)
+@mutable(frozen=True)
+class Froz1:
+    x: int
+@frozen
+class Froz2:
+    x: int
+froz1 = Froz1(x=0)
+froz1.x = 42  # E: frozen dataclass member
+froz2 = Froz2(x=0)
+froz2.x = 42  # E: frozen dataclass member
+    "#,
+);
+
+fn dataclass_alias_env() -> TestEnv {
+    TestEnv::one(
+        "foo",
+        r#"
+from dataclasses import dataclass
+mutable = dataclass
+frozen = dataclass(frozen=True)
+    "#,
+    )
+}
+
+testcase!(
+    test_imported_alias,
+    dataclass_alias_env(),
+    r#"
+import foo
+
+@foo.mutable
+class Mut:
+    x: int
+m = Mut(x=0)
+m.x = 42
+
+@foo.mutable(frozen=True)
+class Froz1:
+    x: int
+@foo.frozen
+class Froz2:
+    x: int
+froz1 = Froz1(x=0)
+froz1.x = 42  # E: frozen dataclass member
+froz2 = Froz2(x=0)
+froz2.x = 42  # E: frozen dataclass member
     "#,
 );
