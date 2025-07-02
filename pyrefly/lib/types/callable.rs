@@ -299,7 +299,7 @@ impl BoolKeywords {
         }
     }
 
-    pub fn is_set(&self, name_and_default: &(Name, bool)) -> bool {
+    pub fn get(&self, name_and_default: &(Name, bool)) -> bool {
         let (name, default) = name_and_default;
         *(self.0.get(name).unwrap_or(default))
     }

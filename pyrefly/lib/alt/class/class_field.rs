@@ -395,7 +395,7 @@ impl ClassField {
         }
         // Frozen dataclass fields (not methods) are read-only
         if let Some(dm) = metadata.dataclass_metadata() {
-            if dm.kws.is_set(&DataclassKeywords::FROZEN) && dm.fields.contains(name) {
+            if dm.kws.get(&DataclassKeywords::FROZEN) && dm.fields.contains(name) {
                 return Some(ReadOnlyReason::FrozenDataclass);
             }
         }
@@ -431,7 +431,7 @@ impl ClassField {
                     ClassFieldInitialization::Instance(_) => BoolKeywords::new(),
                 };
                 // If kw_only hasn't been explicitly set to false on the field, set it to true
-                if kw_only && flags.is_set(&(DataclassKeywords::KW_ONLY.0, true)) {
+                if kw_only && flags.get(&(DataclassKeywords::KW_ONLY.0, true)) {
                     flags.set(DataclassKeywords::KW_ONLY.0, true);
                 }
                 flags

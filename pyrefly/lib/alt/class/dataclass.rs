@@ -66,7 +66,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let metadata = self.get_metadata_for_class(cls);
         let dataclass = metadata.dataclass_metadata()?;
         let mut fields = SmallMap::new();
-        if dataclass.kws.is_set(&DataclassKeywords::INIT) {
+        if dataclass.kws.get(&DataclassKeywords::INIT) {
             fields.insert(
                 dunder::INIT,
                 self.get_dataclass_init(cls, dataclass, errors),
@@ -81,10 +81,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ClassSynthesizedField::new(dataclass_fields_type.to_type()),
         );
 
-        if dataclass.kws.is_set(&DataclassKeywords::ORDER) {
+        if dataclass.kws.get(&DataclassKeywords::ORDER) {
             fields.extend(self.get_dataclass_rich_comparison_methods(cls));
         }
-        if dataclass.kws.is_set(&DataclassKeywords::MATCH_ARGS) {
+        if dataclass.kws.get(&DataclassKeywords::MATCH_ARGS) {
             fields.insert(
                 dunder::MATCH_ARGS,
                 self.get_dataclass_match_args(cls, dataclass),
@@ -92,12 +92,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         // See rules for `__hash__` creation under "unsafe_hash":
         // https://docs.python.org/3/library/dataclasses.html#module-contents
-        if dataclass.kws.is_set(&DataclassKeywords::UNSAFE_HASH)
-            || (dataclass.kws.is_set(&DataclassKeywords::EQ)
-                && dataclass.kws.is_set(&DataclassKeywords::FROZEN))
+        if dataclass.kws.get(&DataclassKeywords::UNSAFE_HASH)
+            || (dataclass.kws.get(&DataclassKeywords::EQ)
+                && dataclass.kws.get(&DataclassKeywords::FROZEN))
         {
             fields.insert(dunder::HASH, self.get_dataclass_hash(cls));
-        } else if dataclass.kws.is_set(&DataclassKeywords::EQ) {
+        } else if dataclass.kws.get(&DataclassKeywords::EQ) {
             fields.insert(dunder::HASH, ClassSynthesizedField::new(Type::None));
         }
         Some(ClassSynthesizedFields::new(fields))
@@ -112,7 +112,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut seen_kw_only_marker = false;
         let mut positional_fields = Vec::new();
         let mut kwonly_fields = Vec::new();
-        let cls_is_kw_only = dataclass.kws.is_set(&DataclassKeywords::KW_ONLY);
+        let cls_is_kw_only = dataclass.kws.get(&DataclassKeywords::KW_ONLY);
         for name in dataclass.fields.iter() {
             match self.get_dataclass_member(cls, name, cls_is_kw_only, seen_kw_only_marker) {
                 DataclassMember::KwOnlyMarker => {
@@ -120,7 +120,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 DataclassMember::NotAField => {}
                 DataclassMember::Field(field, keywords) => {
-                    if keywords.is_set(&DataclassKeywords::KW_ONLY) {
+                    if keywords.get(&DataclassKeywords::KW_ONLY) {
                         kwonly_fields.push((name.clone(), field, keywords))
                     } else {
                         positional_fields.push((name.clone(), field, keywords))
@@ -128,7 +128,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 DataclassMember::InitVar(field, keywords) => {
                     if include_initvar {
-                        if keywords.is_set(&DataclassKeywords::KW_ONLY) {
+                        if keywords.get(&DataclassKeywords::KW_ONLY) {
                             kwonly_fields.push((name.clone(), field, keywords))
                         } else {
                             positional_fields.push((name.clone(), field, keywords))
@@ -151,9 +151,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut params = vec![self.class_self_param(cls, false)];
         let mut has_seen_default = false;
         for (name, field, field_flags) in self.iter_fields(cls, dataclass, true) {
-            if field_flags.is_set(&DataclassKeywords::INIT) {
-                let has_default = field_flags.is_set(&DataclassKeywords::DEFAULT);
-                let is_kw_only = field_flags.is_set(&DataclassKeywords::KW_ONLY);
+            if field_flags.get(&DataclassKeywords::INIT) {
+                let has_default = field_flags.get(&DataclassKeywords::DEFAULT);
+                let is_kw_only = field_flags.get(&DataclassKeywords::KW_ONLY);
                 if !is_kw_only {
                     if !has_default && has_seen_default {
                         if let Some(range) = cls.field_decl_range(&name) {
@@ -193,7 +193,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         dataclass: &DataclassMetadata,
     ) -> ClassSynthesizedField {
         // Keyword-only fields do not appear in __match_args__.
-        let kw_only = dataclass.kws.is_set(&DataclassKeywords::KW_ONLY);
+        let kw_only = dataclass.kws.get(&DataclassKeywords::KW_ONLY);
         let ts = if kw_only {
             Vec::new()
         } else {
@@ -201,7 +201,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             filtered_fields
                 .iter()
                 .filter_map(|(name, _, field_flags)| {
-                    if field_flags.is_set(&DataclassKeywords::KW_ONLY) {
+                    if field_flags.get(&DataclassKeywords::KW_ONLY) {
                         None
                     } else {
                         Some(Type::Literal(Lit::Str(name.as_str().into())))
