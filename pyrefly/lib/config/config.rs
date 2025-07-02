@@ -28,7 +28,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
-use tracing::warn;
 
 use crate::config::base::ConfigBase;
 use crate::config::base::UntypedDefBehavior;
@@ -545,13 +544,16 @@ impl ConfigFile {
             };
             match find_interpreter() {
                 Ok(interpreter) => {
-                    let env = PythonEnvironment::get_interpreter_env(&interpreter);
+                    let (env, error) = PythonEnvironment::get_interpreter_env(&interpreter);
                     self.python_environment.override_empty(env);
                     self.python_interpreter = Some(interpreter);
+                    if let Some(error) = error {
+                        configure_errors.push(error);
+                    }
                 }
                 Err(error) => {
                     self.python_environment.set_empty_to_default();
-                    warn!("Encountered problem finding Python interpreter. {error}")
+                    configure_errors.push(error.context("While finding Python interpreter."));
                 }
             }
         }

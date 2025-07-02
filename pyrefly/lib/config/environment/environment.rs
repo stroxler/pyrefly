@@ -21,7 +21,6 @@ use pyrefly_util::lock::Mutex;
 use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
-use tracing::error;
 use tracing::warn;
 #[cfg(not(target_arch = "wasm32"))]
 use which::which;
@@ -29,8 +28,9 @@ use which::which;
 use crate::config::environment::active_environment::ActiveEnvironment;
 use crate::config::environment::venv;
 
-static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonEnvironment>>>> =
-    LazyLock::new(|| Mutex::new(SmallMap::new()));
+static INTERPRETER_ENV_REGISTRY: LazyLock<
+    Mutex<SmallMap<PathBuf, Result<PythonEnvironment, String>>>,
+> = LazyLock::new(|| Mutex::new(SmallMap::new()));
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
 pub enum SitePackagePathSource {
@@ -235,20 +235,26 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
     ///
     /// In the case of failure, log an error message and return Pyrefly's
     /// [`PythonEnvironment::default()`].
-    pub fn get_interpreter_env(interpreter: &Path) -> PythonEnvironment {
-        INTERPRETER_ENV_REGISTRY.lock()
+    pub fn get_interpreter_env(interpreter: &Path) -> (PythonEnvironment, Option<anyhow::Error>) {
+        let env = INTERPRETER_ENV_REGISTRY.lock()
         .entry(interpreter.to_path_buf()).or_insert_with(move || {
-            Self::get_env_from_interpreter(interpreter).inspect_err(|e| {
-                error!("Failed to query interpreter at {}, falling back to default Python environment settings\n{}", interpreter.display(), e);
-            }).ok()
-        }).clone().unwrap_or_else(Self::pyrefly_default)
+            Self::get_env_from_interpreter(interpreter).map_err(|e| {
+                format!("Failed to query interpreter at {}, falling back to default Python environment settings\n{}", interpreter.display(), e)
+            })
+        }).clone();
+        match env {
+            Ok(env) => (env, None),
+            Err(message) => (Self::pyrefly_default(), Some(anyhow::anyhow!(message))),
+        }
     }
 
     /// [`Self::get_default_interpreter()`] and [`Self::get_interpreter_env()`] with the resulting value,
     /// or return [`PythonEnvironment::default()`] if `None`.
+    #[cfg(test)]
     pub fn get_default_interpreter_env() -> PythonEnvironment {
-        Self::get_default_interpreter()
-            .map_or_else(Self::pyrefly_default, Self::get_interpreter_env)
+        Self::get_default_interpreter().map_or_else(Self::pyrefly_default, |path| {
+            Self::get_interpreter_env(path).0
+        })
     }
 
     /// Uses the same logic as [vscode-python] to [find interpreters] that should be used for the given

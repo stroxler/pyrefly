@@ -348,7 +348,8 @@ struct PythonInfo {
 
 impl PythonInfo {
     fn new(interpreter: PathBuf) -> Self {
-        let env = PythonEnvironment::get_interpreter_env(&interpreter);
+        // TODO(connernilsen): propagate the error somehow
+        let env = PythonEnvironment::get_interpreter_env(&interpreter).0;
         Self { interpreter, env }
     }
 }
