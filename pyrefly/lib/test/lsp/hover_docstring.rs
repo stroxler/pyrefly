@@ -5,20 +5,26 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use itertools::Itertools as _;
 use pretty_assertions::assert_eq;
 use ruff_text_size::TextSize;
 
 use crate::state::handle::Handle;
-use crate::state::lsp::FindDefinitionItem;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report;
 
 fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String {
-    if let Some(FindDefinitionItem {
-        docstring: Some(t), ..
-    }) = state.transaction().find_definition(handle, position, true)
-    {
-        format!("Docstring Result: `{}`", t.as_string())
+    let docstrings = state
+        .transaction()
+        .find_definition(handle, position, true)
+        .into_iter()
+        .filter_map(|item| item.docstring)
+        .collect::<Vec<_>>();
+    if !docstrings.is_empty() {
+        docstrings
+            .into_iter()
+            .map(|t| format!("Docstring Result: `{}`", t.as_string()))
+            .join("\n")
     } else {
         "Docstring Result: None".to_owned()
     }

@@ -1065,7 +1065,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
         jump_through_renamed_import: bool,
-    ) -> Option<FindDefinitionItem> {
+    ) -> Vec<FindDefinitionItem> {
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
                 identifier: id,
@@ -1078,10 +1078,12 @@ impl<'a> Transaction<'a> {
                         // are guaranteed defs: they might be a modification to a name defined somewhere
                         // else.
                         self.find_definition_for_name_def(handle, &id, jump_through_renamed_import)
+                            .map_or(vec![], |item| vec![item])
                     }
                     ExprContext::Load | ExprContext::Del | ExprContext::Invalid => {
                         // This is a usage of the variable
                         self.find_definition_for_name_use(handle, &id, jump_through_renamed_import)
+                            .map_or(vec![], |item| vec![item])
                     }
                 }
             }
@@ -1091,49 +1093,65 @@ impl<'a> Transaction<'a> {
                     IdentifierContext::ImportedModule {
                         name: module_name, ..
                     },
-            }) => self.find_definition_for_imported_module(handle, module_name),
+            }) => self
+                .find_definition_for_imported_module(handle, module_name)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier: _,
                 context:
                     IdentifierContext::ImportedName {
                         name_after_import, ..
                     },
-            }) => self.find_definition_for_name_def(
-                handle,
-                &name_after_import,
-                jump_through_renamed_import,
-            ),
+            }) => self
+                .find_definition_for_name_def(
+                    handle,
+                    &name_after_import,
+                    jump_through_renamed_import,
+                )
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::FunctionDef,
-            }) => self.find_definition_for_simple_def(handle, &identifier, SymbolKind::Function),
+            }) => self
+                .find_definition_for_simple_def(handle, &identifier, SymbolKind::Function)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::ClassDef,
-            }) => self.find_definition_for_simple_def(handle, &identifier, SymbolKind::Class),
+            }) => self
+                .find_definition_for_simple_def(handle, &identifier, SymbolKind::Class)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Parameter,
-            }) => self.find_definition_for_simple_def(handle, &identifier, SymbolKind::Parameter),
+            }) => self
+                .find_definition_for_simple_def(handle, &identifier, SymbolKind::Parameter)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::TypeParameter,
-            }) => {
-                self.find_definition_for_simple_def(handle, &identifier, SymbolKind::TypeParameter)
-            }
+            }) => self
+                .find_definition_for_simple_def(handle, &identifier, SymbolKind::TypeParameter)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::ExceptionHandler | IdentifierContext::PatternMatch(_),
-            }) => self.find_definition_for_simple_def(handle, &identifier, SymbolKind::Variable),
+            }) => self
+                .find_definition_for_simple_def(handle, &identifier, SymbolKind::Variable)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::KeywordArgument(callee_kind),
-            }) => self.find_definition_for_keyword_argument(handle, &identifier, &callee_kind),
+            }) => self
+                .find_definition_for_keyword_argument(handle, &identifier, &callee_kind)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
-            }) => self.find_definition_for_attribute(handle, base_range, &identifier),
-            None => None,
+            }) => self
+                .find_definition_for_attribute(handle, base_range, &identifier)
+                .map_or(vec![], |item| vec![item]),
+            None => vec![],
         }
     }
 
@@ -1142,10 +1160,8 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
     ) -> Vec<TextRangeWithModuleInfo> {
-        match self.find_definition(handle, position, true) {
-            None => Vec::new(),
-            Some(item) => vec![item.location],
-        }
+        self.find_definition(handle, position, true)
+            .into_map(|item| item.location)
     }
 
     /// This function should not be used for user-facing go-to-definition. However, it is exposed to
@@ -1157,7 +1173,9 @@ impl<'a> Transaction<'a> {
         position: TextSize,
     ) -> Option<TextRangeWithModuleInfo> {
         self.find_definition(handle, position, false)
-            .map(|x| x.location)
+            .into_iter()
+            .next()
+            .map(|item| item.location)
     }
 
     /// Produce code actions that makes edits local to the file.
@@ -1202,17 +1220,18 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn find_local_references(&self, handle: &Handle, position: TextSize) -> Vec<TextRange> {
-        if let Some(FindDefinitionItem {
-            metadata,
-            location,
-            docstring: _,
-        }) = self.find_definition(handle, position, false)
-        {
-            self.local_references_from_definition(handle, metadata, location)
-                .unwrap_or_default()
-        } else {
-            Vec::new()
-        }
+        self.find_definition(handle, position, false)
+            .into_iter()
+            .filter_map(
+                |FindDefinitionItem {
+                     metadata,
+                     location,
+                     docstring: _,
+                 }| {
+                    self.local_references_from_definition(handle, metadata, location)
+                },
+            )
+            .concat()
     }
 
     fn local_references_from_definition(

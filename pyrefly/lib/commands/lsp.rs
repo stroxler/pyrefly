@@ -1679,7 +1679,11 @@ impl Server {
             metadata,
             location,
             docstring: _,
-        }) = transaction.find_definition(&handle, position, false)
+        }) = transaction
+            .find_definition(&handle, position, false)
+            // TODO: handle more than 1 definition
+            .into_iter()
+            .next()
         else {
             ide_transaction_manager.save(transaction);
             return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
@@ -1827,7 +1831,11 @@ impl Server {
             metadata,
             location,
             docstring,
-        }) = transaction.find_definition(&handle, range, true)
+        }) = transaction
+            .find_definition(&handle, range, true)
+            // TODO: handle more than 1 definition
+            .into_iter()
+            .next()
         {
             if let Some(symbol_kind) = metadata.symbol_kind() {
                 kind_formatted = format!(
