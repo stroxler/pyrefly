@@ -163,6 +163,7 @@ use ruff_source_file::LineIndex;
 use ruff_source_file::OneIndexed;
 use ruff_source_file::SourceLocation;
 use ruff_text_size::Ranged;
+use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -823,6 +824,21 @@ fn module_info_to_uri_with_document_content_provider(module_info: &ModuleInfo) -
 enum ProcessEvent {
     Continue,
     Exit,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PyreflyClientConfig {
+    disable_type_errors: Option<bool>,
+    disable_language_services: Option<bool>,
+    extra_paths: Option<Vec<PathBuf>>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LspConfig {
+    python_path: Option<String>,
+    pyrefly: Option<PyreflyClientConfig>,
 }
 
 impl Server {
@@ -2053,44 +2069,28 @@ impl Server {
         {
             let mut modified = false;
             for (i, id) in request.items.iter().enumerate() {
-                match response.get(i) {
-                    Some(serde_json::Value::Object(map)) => {
-                        if let Some(serde_json::Value::String(python_path)) = map.get("pythonPath")
-                        {
-                            self.update_pythonpath(&mut modified, &id.scope_uri, python_path);
-                        }
-                        if let Some(serde_json::Value::Object(pyrefly_settings)) =
-                            map.get("pyrefly")
-                        {
-                            if let Some(serde_json::Value::Array(search_paths)) =
-                                pyrefly_settings.get("extraPaths")
-                            {
-                                let paths: Vec<PathBuf> = search_paths
-                                    .iter()
-                                    .map(|path| serde_json::from_value(path.clone()).unwrap())
-                                    .collect();
-                                self.update_search_paths(&mut modified, &id.scope_uri, paths);
-                            }
-                            if let Some(serde_json::Value::Bool(disable_language_services)) =
-                                pyrefly_settings.get("disableLanguageServices")
-                            {
-                                self.update_disable_language_services(
-                                    &id.scope_uri,
-                                    *disable_language_services,
-                                );
-                            }
-                            if let Some(serde_json::Value::Bool(disable_language_services)) =
-                                pyrefly_settings.get("disableTypeErrors")
-                            {
-                                self.update_disable_type_errors(
-                                    &id.scope_uri,
-                                    *disable_language_services,
-                                );
-                            }
-                        }
+                let config: LspConfig = if let Some(value) = response.get(i) {
+                    serde_json::from_value(value.clone()).unwrap_or_default()
+                } else {
+                    continue;
+                };
+
+                if let Some(python_path) = config.python_path {
+                    self.update_pythonpath(&mut modified, &id.scope_uri, &python_path);
+                }
+
+                if let Some(pyrefly) = config.pyrefly {
+                    if let Some(extra_paths) = pyrefly.extra_paths {
+                        self.update_search_paths(&mut modified, &id.scope_uri, extra_paths);
                     }
-                    _ => {
-                        // Non-map value or no configuration returned for request
+                    if let Some(disable_language_services) = pyrefly.disable_language_services {
+                        self.update_disable_language_services(
+                            &id.scope_uri,
+                            disable_language_services,
+                        );
+                    }
+                    if let Some(disable_type_errors) = pyrefly.disable_type_errors {
+                        self.update_disable_type_errors(&id.scope_uri, disable_type_errors);
                     }
                 }
             }
