@@ -1040,16 +1040,6 @@ c3.x
 c3.y
 #  ^
 
-class Union1:
-  x = 5
-
-class Union2:
-  x = 6
-
-c4: Union1 | Union2 = Union1()
-c4.x
-#  ^
-
 dict = {"foo": '', "bar": 3}
 dict["foo"]
 #      ^
@@ -1085,15 +1075,11 @@ Definition Result:
 17 |   y = 6
        ^
 
-31 | c4.x
-        ^
-Definition Result: None
-
-35 | dict["foo"]
+25 | dict["foo"]
             ^
 Definition Result: None
 
-37 | dict["bar"]
+27 | dict["bar"]
             ^
 Definition Result: None
 "#
@@ -1161,6 +1147,37 @@ Definition Result:
 
 
 # my_class.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn union_attribute_access_test() {
+    let code = r#"
+class A:
+    x: int = 0
+
+class B:
+    x: str = "abc"
+
+def test(y: A | B) -> int | str:
+    return y.x
+           # ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+9 |     return y.x
+                 ^
+Definition Result:
+3 |     x: int = 0
+        ^
+Definition Result:
+6 |     x: str = "abc"
+        ^
 "#
         .trim(),
         report.trim(),

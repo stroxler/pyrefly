@@ -972,25 +972,44 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         base_range: TextRange,
         name: &Identifier,
-    ) -> Option<FindDefinitionItem> {
-        let base_type = self.get_answers(handle)?.get_type_trace(base_range)?;
-        self.ad_hoc_solve(handle, |solver| {
-            let items = solver.completions(base_type.arc_clone(), Some(name.id()), false);
-            items.into_iter().find_map(|x| {
-                if &x.name == name.id() {
-                    let (definition, docstring) =
-                        self.resolve_attribute_definition(handle, &x.name, x.definition?)?;
-                    Some(FindDefinitionItem {
-                        metadata: DefinitionMetadata::Attribute(x.name),
-                        location: definition,
-                        docstring,
-                    })
-                } else {
-                    None
+    ) -> Vec<FindDefinitionItem> {
+        if let Some(answers) = self.get_answers(handle)
+            && let Some(base_type) = answers.get_type_trace(base_range)
+        {
+            self.ad_hoc_solve(handle, |solver| {
+                let find_definition_for_base_type = |ty: Type| {
+                    solver
+                        .completions_no_union_intersection(ty, Some(name.id()), false)
+                        .into_iter()
+                        .find_map(|x| {
+                            if &x.name == name.id() {
+                                let (definition, docstring) = self.resolve_attribute_definition(
+                                    handle,
+                                    &x.name,
+                                    x.definition?,
+                                )?;
+                                Some(FindDefinitionItem {
+                                    metadata: DefinitionMetadata::Attribute(x.name),
+                                    location: definition,
+                                    docstring,
+                                })
+                            } else {
+                                None
+                            }
+                        })
+                };
+                match base_type.arc_clone() {
+                    Type::Union(tys) | Type::Intersect(tys) => tys
+                        .into_iter()
+                        .filter_map(&find_definition_for_base_type)
+                        .collect(),
+                    ty => find_definition_for_base_type(ty).map_or(vec![], |item| vec![item]),
                 }
             })
-        })
-        .flatten()
+            .unwrap_or_default()
+        } else {
+            vec![]
+        }
     }
 
     fn find_definition_for_imported_module(
@@ -1052,7 +1071,10 @@ impl<'a> Transaction<'a> {
         let FindDefinitionItem { location, .. } = match callee_kind {
             CalleeKind::Function(name) => self.find_definition_for_name_use(handle, name, true),
             CalleeKind::Method(base_range, name) => {
+                // TODO(grievejia): Support multiple definitions
                 self.find_definition_for_attribute(handle, *base_range, name)
+                    .into_iter()
+                    .next()
             }
             CalleeKind::Unknown => None,
         }?;
@@ -1148,9 +1170,7 @@ impl<'a> Transaction<'a> {
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
-            }) => self
-                .find_definition_for_attribute(handle, base_range, &identifier)
-                .map_or(vec![], |item| vec![item]),
+            }) => self.find_definition_for_attribute(handle, base_range, &identifier),
             None => vec![],
         }
     }
