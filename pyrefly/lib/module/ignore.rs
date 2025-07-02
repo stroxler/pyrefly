@@ -153,11 +153,11 @@ impl Ignore {
         false
     }
 
-    /// Get all the ignores of a given kind.
-    pub fn get_ignores(&self, kind: SuppressionKind) -> SmallSet<LineNumber> {
+    /// Get all pyrefly ignores.
+    pub fn get_pyrefly_ignores(&self) -> SmallSet<LineNumber> {
         self.ignores
             .iter()
-            .filter(|ignore| ignore.1.contains(&kind))
+            .filter(|ignore| ignore.1.contains(&SuppressionKind::Pyrefly))
             .map(|(line, _)| *line)
             .collect()
     }

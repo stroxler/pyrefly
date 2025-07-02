@@ -58,7 +58,6 @@ use crate::error::kind::Severity;
 use crate::error::legacy::LegacyErrors;
 use crate::error::summarise::print_error_summary;
 use crate::module::bundled::stdlib_search_path;
-use crate::module::ignore::SuppressionKind;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::module::wildcard::ModuleWildcard;
@@ -738,7 +737,7 @@ impl Args {
             let mut all_ignores: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
             for (module_path, ignore) in loads.collect_ignores() {
                 if let ModulePathDetails::FileSystem(path) = module_path.details() {
-                    all_ignores.insert(path, ignore.get_ignores(SuppressionKind::Pyrefly));
+                    all_ignores.insert(path, ignore.get_pyrefly_ignores());
                 }
             }
 
