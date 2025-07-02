@@ -898,6 +898,23 @@ impl<'a> Transaction<'a> {
         )
     }
 
+    // This is for cases where we are 100% certain that `identifier` points to a "real" name
+    // definition at a known context (e.g. `identifier is the name of a function or class`).
+    // If we are not certain (e.g. `identifier` is imported from another module so it's "real"
+    // definition could be somewhere else), use `find_definition_for_name_def()` instead.
+    fn find_definition_for_simple_def(
+        &self,
+        handle: &Handle,
+        identifier: &Identifier,
+        symbol_kind: SymbolKind,
+    ) -> Option<FindDefinitionItem> {
+        Some(FindDefinitionItem {
+            metadata: DefinitionMetadata::Variable(Some(symbol_kind)),
+            location: TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
+            docstring: None,
+        })
+    }
+
     fn find_definition_for_name_def(
         &self,
         handle: &Handle,
@@ -976,6 +993,57 @@ impl<'a> Transaction<'a> {
         .flatten()
     }
 
+    fn find_definition_for_imported_module(
+        &self,
+        handle: &Handle,
+        module_name: ModuleName,
+    ) -> Option<FindDefinitionItem> {
+        // TODO: Handle relative import (via ModuleName::new_maybe_relative)
+        let handle = self.import_handle(handle, module_name, None).ok()?;
+        Some(FindDefinitionItem {
+            metadata: DefinitionMetadata::Module,
+            location: TextRangeWithModuleInfo::new(
+                self.get_module_info(&handle)?,
+                TextRange::default(),
+            ),
+            docstring: self.get_module_docstring(&handle),
+        })
+    }
+
+    fn find_definition_for_keyword_argument(
+        &self,
+        handle: &Handle,
+        identifier: &Identifier,
+        callee_kind: &CalleeKind,
+    ) -> Option<FindDefinitionItem> {
+        // NOTE(grievejia): There might be a better way to compute this that doesn't require 2 containing node
+        // traversal, once we gain access to the callee function def from callee_kind directly.
+        let TextRangeWithModuleInfo { module_info, range } =
+            self.get_callee_location(handle, callee_kind)?;
+        let ast = {
+            let handle = Handle::new(
+                module_info.name(),
+                module_info.path().dupe(),
+                handle.sys_info().dupe(),
+            );
+            self.get_ast(&handle).unwrap_or_else(|| {
+                // We may not have the AST available for the handle if it's not opened -- in that case,
+                // Re-parse the module to get the AST.
+                Ast::parse(module_info.contents()).0.into()
+            })
+        };
+        let refined_param_range =
+            self.refine_param_location_for_callee(ast.as_ref(), range, identifier);
+        Some(FindDefinitionItem {
+            metadata: DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
+            location: TextRangeWithModuleInfo::new(
+                module_info,
+                refined_param_range.unwrap_or(range),
+            ),
+            docstring: None,
+        })
+    }
+
     fn get_callee_location(
         &self,
         handle: &Handle,
@@ -1006,6 +1074,9 @@ impl<'a> Transaction<'a> {
                 match expr_context {
                     ExprContext::Store => {
                         // This is a variable definition
+                        // Can't use `find_definition_for_simple_def()` here because not all assignments
+                        // are guaranteed defs: they might be a modification to a name defined somewhere
+                        // else.
                         self.find_definition_for_name_def(handle, &id, jump_through_renamed_import)
                     }
                     ExprContext::Load | ExprContext::Del | ExprContext::Invalid => {
@@ -1020,18 +1091,7 @@ impl<'a> Transaction<'a> {
                     IdentifierContext::ImportedModule {
                         name: module_name, ..
                     },
-            }) => {
-                // TODO: Handle relative import (via ModuleName::new_maybe_relative)
-                let handle = self.import_handle(handle, module_name, None).ok()?;
-                Some(FindDefinitionItem {
-                    metadata: DefinitionMetadata::Module,
-                    location: TextRangeWithModuleInfo::new(
-                        self.get_module_info(&handle)?,
-                        TextRange::default(),
-                    ),
-                    docstring: self.get_module_docstring(&handle),
-                })
-            }
+            }) => self.find_definition_for_imported_module(handle, module_name),
             Some(IdentifierWithContext {
                 identifier: _,
                 context:
@@ -1046,89 +1106,29 @@ impl<'a> Transaction<'a> {
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::FunctionDef,
-            }) => Some(FindDefinitionItem {
-                metadata: DefinitionMetadata::Variable(Some(SymbolKind::Function)),
-                location: TextRangeWithModuleInfo::new(
-                    self.get_module_info(handle)?,
-                    identifier.range,
-                ),
-                docstring: None,
-            }),
+            }) => self.find_definition_for_simple_def(handle, &identifier, SymbolKind::Function),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::ClassDef,
-            }) => Some(FindDefinitionItem {
-                metadata: DefinitionMetadata::Variable(Some(SymbolKind::Class)),
-                location: TextRangeWithModuleInfo::new(
-                    self.get_module_info(handle)?,
-                    identifier.range,
-                ),
-                docstring: None,
-            }),
+            }) => self.find_definition_for_simple_def(handle, &identifier, SymbolKind::Class),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Parameter,
-            }) => Some(FindDefinitionItem {
-                metadata: DefinitionMetadata::Variable(Some(SymbolKind::Parameter)),
-                location: TextRangeWithModuleInfo::new(
-                    self.get_module_info(handle)?,
-                    identifier.range,
-                ),
-                docstring: None,
-            }),
+            }) => self.find_definition_for_simple_def(handle, &identifier, SymbolKind::Parameter),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::TypeParameter,
-            }) => Some(FindDefinitionItem {
-                metadata: DefinitionMetadata::Variable(Some(SymbolKind::TypeParameter)),
-                location: TextRangeWithModuleInfo::new(
-                    self.get_module_info(handle)?,
-                    identifier.range,
-                ),
-                docstring: None,
-            }),
+            }) => {
+                self.find_definition_for_simple_def(handle, &identifier, SymbolKind::TypeParameter)
+            }
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::ExceptionHandler | IdentifierContext::PatternMatch(_),
-            }) => Some(FindDefinitionItem {
-                metadata: DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
-                location: TextRangeWithModuleInfo::new(
-                    self.get_module_info(handle)?,
-                    identifier.range,
-                ),
-                docstring: None,
-            }),
+            }) => self.find_definition_for_simple_def(handle, &identifier, SymbolKind::Variable),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::KeywordArgument(callee_kind),
-            }) => {
-                // NOTE(grievejia): There might be a better way to compute this that doesn't require 2 containing node
-                // traversal, once we gain access to the callee function def from callee_kind directly.
-                let TextRangeWithModuleInfo { module_info, range } =
-                    self.get_callee_location(handle, &callee_kind)?;
-                let ast = {
-                    let handle = Handle::new(
-                        module_info.name(),
-                        module_info.path().dupe(),
-                        handle.sys_info().dupe(),
-                    );
-                    self.get_ast(&handle).unwrap_or_else(|| {
-                        // We may not have the AST available for the handle if it's not opened -- in that case,
-                        // Re-parse the module to get the AST.
-                        Ast::parse(module_info.contents()).0.into()
-                    })
-                };
-                let refined_param_range =
-                    self.refine_param_location_for_callee(ast.as_ref(), range, &identifier);
-                Some(FindDefinitionItem {
-                    metadata: DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
-                    location: TextRangeWithModuleInfo::new(
-                        module_info,
-                        refined_param_range.unwrap_or(range),
-                    ),
-                    docstring: None,
-                })
-            }
+            }) => self.find_definition_for_keyword_argument(handle, &identifier, &callee_kind),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
