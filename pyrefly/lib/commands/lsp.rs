@@ -183,6 +183,7 @@ use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::state::handle::Handle;
+use crate::state::lsp::FindDefinitionItem;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::CommittingTransaction;
@@ -1659,8 +1660,11 @@ impl Server {
             return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
         };
         let position = info.lined_buffer().from_lsp_position(position);
-        let Some((definition_kind, definition, _docstring)) =
-            transaction.find_definition(&handle, position, false)
+        let Some(FindDefinitionItem {
+            metadata,
+            location,
+            docstring: _,
+        }) = transaction.find_definition(&handle, position, false)
         else {
             ide_transaction_manager.save(transaction);
             return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
@@ -1679,8 +1683,8 @@ impl Server {
             Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
             match transaction.find_global_references_from_definition(
                 handle.sys_info(),
-                definition_kind,
-                definition,
+                metadata,
+                location,
             ) {
                 Ok(global_references) => {
                     let mut locations = Vec::new();
@@ -1804,16 +1808,17 @@ impl Server {
         let t = transaction.get_type_at(&handle, range)?;
         let mut kind_formatted: String = "".to_owned();
         let mut docstring_formatted: String = "".to_owned();
-        if let Some((definition_metadata, text_range_with_module_info, docstring)) =
-            transaction.find_definition(&handle, range, true)
+        if let Some(FindDefinitionItem {
+            metadata,
+            location,
+            docstring,
+        }) = transaction.find_definition(&handle, range, true)
         {
-            if let Some(symbol_kind) = definition_metadata.symbol_kind() {
+            if let Some(symbol_kind) = metadata.symbol_kind() {
                 kind_formatted = format!(
                     "{} {}: ",
                     &symbol_kind.display_for_hover(),
-                    text_range_with_module_info
-                        .module_info
-                        .code_at(text_range_with_module_info.range)
+                    location.module_info.code_at(location.range)
                 );
             }
             if let Some(docstring) = docstring {

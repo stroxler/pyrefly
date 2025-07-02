@@ -78,7 +78,7 @@ use crate::types::types::Type;
 const INITIAL_GAS: Gas = Gas::new(100);
 const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum DefinitionMetadata {
     Attribute(Name),
     Module,
@@ -358,6 +358,13 @@ impl IdentifierWithContext {
             context: IdentifierContext::Expr(expr_name.ctx),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct FindDefinitionItem {
+    pub metadata: DefinitionMetadata,
+    pub location: TextRangeWithModuleInfo,
+    pub docstring: Option<DocString>,
 }
 
 impl<'a> Transaction<'a> {
@@ -896,11 +903,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         name: &Identifier,
         jump_through_renamed_import: bool,
-    ) -> Option<(
-        DefinitionMetadata,
-        TextRangeWithModuleInfo,
-        Option<DocString>,
-    )> {
+    ) -> Option<FindDefinitionItem> {
         let def_key = Key::Definition(ShortIdentifier::new(name));
         if !self.get_bindings(handle)?.is_valid_key(&def_key) {
             return None;
@@ -915,11 +918,11 @@ impl<'a> Transaction<'a> {
         ) = self.key_to_export(handle, &def_key, jump_through_renamed_import, INITIAL_GAS)?;
         let module_info = self.get_module_info(&handle)?;
         let name = Name::new(module_info.code_at(location));
-        Some((
-            DefinitionMetadata::VariableOrAttribute(name, symbol_kind),
-            TextRangeWithModuleInfo::new(module_info, location),
+        Some(FindDefinitionItem {
+            metadata: DefinitionMetadata::VariableOrAttribute(name, symbol_kind),
+            location: TextRangeWithModuleInfo::new(module_info, location),
             docstring,
-        ))
+        })
     }
 
     fn find_definition_for_name_use(
@@ -927,11 +930,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         name: &Identifier,
         jump_through_renamed_import: bool,
-    ) -> Option<(
-        DefinitionMetadata,
-        TextRangeWithModuleInfo,
-        Option<DocString>,
-    )> {
+    ) -> Option<FindDefinitionItem> {
         let use_key = Key::BoundName(ShortIdentifier::new(name));
         if !self.get_bindings(handle)?.is_valid_key(&use_key) {
             return None;
@@ -944,11 +943,11 @@ impl<'a> Transaction<'a> {
                 docstring,
             },
         ) = self.key_to_export(handle, &use_key, jump_through_renamed_import, INITIAL_GAS)?;
-        Some((
-            DefinitionMetadata::Variable(symbol_kind),
-            TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
+        Some(FindDefinitionItem {
+            metadata: DefinitionMetadata::Variable(symbol_kind),
+            location: TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
             docstring,
-        ))
+        })
     }
 
     fn find_definition_for_attribute(
@@ -956,11 +955,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         base_range: TextRange,
         name: &Identifier,
-    ) -> Option<(
-        DefinitionMetadata,
-        TextRangeWithModuleInfo,
-        Option<DocString>,
-    )> {
+    ) -> Option<FindDefinitionItem> {
         let base_type = self.get_answers(handle)?.get_type_trace(base_range)?;
         self.ad_hoc_solve(handle, |solver| {
             let items = solver.completions(base_type.arc_clone(), Some(name.id()), false);
@@ -968,7 +963,11 @@ impl<'a> Transaction<'a> {
                 if &x.name == name.id() {
                     let (definition, docstring) =
                         self.resolve_attribute_definition(handle, &x.name, x.definition?)?;
-                    Some((DefinitionMetadata::Attribute(x.name), definition, docstring))
+                    Some(FindDefinitionItem {
+                        metadata: DefinitionMetadata::Attribute(x.name),
+                        location: definition,
+                        docstring,
+                    })
                 } else {
                     None
                 }
@@ -982,7 +981,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         callee_kind: &CalleeKind,
     ) -> Option<TextRangeWithModuleInfo> {
-        let (_, location, _) = match callee_kind {
+        let FindDefinitionItem { location, .. } = match callee_kind {
             CalleeKind::Function(name) => self.find_definition_for_name_use(handle, name, true),
             CalleeKind::Method(base_range, name) => {
                 self.find_definition_for_attribute(handle, *base_range, name)
@@ -998,11 +997,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
         jump_through_renamed_import: bool,
-    ) -> Option<(
-        DefinitionMetadata,
-        TextRangeWithModuleInfo,
-        Option<DocString>,
-    )> {
+    ) -> Option<FindDefinitionItem> {
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
                 identifier: id,
@@ -1028,14 +1023,14 @@ impl<'a> Transaction<'a> {
             }) => {
                 // TODO: Handle relative import (via ModuleName::new_maybe_relative)
                 let handle = self.import_handle(handle, module_name, None).ok()?;
-                Some((
-                    DefinitionMetadata::Module,
-                    TextRangeWithModuleInfo::new(
+                Some(FindDefinitionItem {
+                    metadata: DefinitionMetadata::Module,
+                    location: TextRangeWithModuleInfo::new(
                         self.get_module_info(&handle)?,
                         TextRange::default(),
                     ),
-                    self.get_module_docstring(&handle),
-                ))
+                    docstring: self.get_module_docstring(&handle),
+                })
             }
             Some(IdentifierWithContext {
                 identifier: _,
@@ -1051,43 +1046,58 @@ impl<'a> Transaction<'a> {
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::FunctionDef,
-            }) => Some((
-                DefinitionMetadata::Variable(Some(SymbolKind::Function)),
-                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
-                None,
-            )),
+            }) => Some(FindDefinitionItem {
+                metadata: DefinitionMetadata::Variable(Some(SymbolKind::Function)),
+                location: TextRangeWithModuleInfo::new(
+                    self.get_module_info(handle)?,
+                    identifier.range,
+                ),
+                docstring: None,
+            }),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::ClassDef,
-            }) => Some((
-                DefinitionMetadata::Variable(Some(SymbolKind::Class)),
-                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
-                None,
-            )),
+            }) => Some(FindDefinitionItem {
+                metadata: DefinitionMetadata::Variable(Some(SymbolKind::Class)),
+                location: TextRangeWithModuleInfo::new(
+                    self.get_module_info(handle)?,
+                    identifier.range,
+                ),
+                docstring: None,
+            }),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Parameter,
-            }) => Some((
-                DefinitionMetadata::Variable(Some(SymbolKind::Parameter)),
-                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
-                None,
-            )),
+            }) => Some(FindDefinitionItem {
+                metadata: DefinitionMetadata::Variable(Some(SymbolKind::Parameter)),
+                location: TextRangeWithModuleInfo::new(
+                    self.get_module_info(handle)?,
+                    identifier.range,
+                ),
+                docstring: None,
+            }),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::TypeParameter,
-            }) => Some((
-                DefinitionMetadata::Variable(Some(SymbolKind::TypeParameter)),
-                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
-                None,
-            )),
+            }) => Some(FindDefinitionItem {
+                metadata: DefinitionMetadata::Variable(Some(SymbolKind::TypeParameter)),
+                location: TextRangeWithModuleInfo::new(
+                    self.get_module_info(handle)?,
+                    identifier.range,
+                ),
+                docstring: None,
+            }),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::ExceptionHandler | IdentifierContext::PatternMatch(_),
-            }) => Some((
-                DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
-                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
-                None,
-            )),
+            }) => Some(FindDefinitionItem {
+                metadata: DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
+                location: TextRangeWithModuleInfo::new(
+                    self.get_module_info(handle)?,
+                    identifier.range,
+                ),
+                docstring: None,
+            }),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::KeywordArgument(callee_kind),
@@ -1110,11 +1120,14 @@ impl<'a> Transaction<'a> {
                 };
                 let refined_param_range =
                     self.refine_param_location_for_callee(ast.as_ref(), range, &identifier);
-                Some((
-                    DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
-                    TextRangeWithModuleInfo::new(module_info, refined_param_range.unwrap_or(range)),
-                    None,
-                ))
+                Some(FindDefinitionItem {
+                    metadata: DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
+                    location: TextRangeWithModuleInfo::new(
+                        module_info,
+                        refined_param_range.unwrap_or(range),
+                    ),
+                    docstring: None,
+                })
             }
             Some(IdentifierWithContext {
                 identifier,
@@ -1129,7 +1142,8 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
     ) -> Option<TextRangeWithModuleInfo> {
-        self.find_definition(handle, position, true).map(|x| x.1)
+        self.find_definition(handle, position, true)
+            .map(|x| x.location)
     }
 
     /// This function should not be used for user-facing go-to-definition. However, it is exposed to
@@ -1140,7 +1154,8 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
     ) -> Option<TextRangeWithModuleInfo> {
-        self.find_definition(handle, position, false).map(|x| x.1)
+        self.find_definition(handle, position, false)
+            .map(|x| x.location)
     }
 
     /// Produce code actions that makes edits local to the file.
@@ -1185,10 +1200,13 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn find_local_references(&self, handle: &Handle, position: TextSize) -> Vec<TextRange> {
-        if let Some((definition_kind, definition, _docstring)) =
-            self.find_definition(handle, position, false)
+        if let Some(FindDefinitionItem {
+            metadata,
+            location,
+            docstring: _,
+        }) = self.find_definition(handle, position, false)
         {
-            self.local_references_from_definition(handle, definition_kind, definition)
+            self.local_references_from_definition(handle, metadata, location)
                 .unwrap_or_default()
         } else {
             Vec::new()
