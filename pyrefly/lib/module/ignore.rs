@@ -5,6 +5,24 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+//! Given a file, record which ignore statements are in it.
+//!
+//! Given `# type: ignore` we should ignore errors on that line.
+//! Originally specified in <https://peps.python.org/pep-0484/>.
+//!
+//! You can also use the name of the linter, e.g. `# pyright: ignore`,
+//! `# pyrefly: ignore`, `# mypy: ignore`.
+//!
+//! You can specify a specific error code, e.g. `# type: ignore[invalid-type]`.
+//! Note that Pyright will only honor such codes after `# pyright: ignore[code]`.
+//!
+//! You can also use `# mypy: ignore-errors`, `# pyrefly: ignore-all-errors`
+//! or `# type: ignore` on the top line to surpress all errors.
+//!
+//! For Pyre compatibility we also allow `# pyre-ignore` and `# pyre-fixme`
+//! as equivalents to `pyre: ignore`, and `# pyre-ignore-all-errors` as
+//! an equivalent to `type: ignore-errors`.
+
 use std::str::FromStr;
 
 use dupe::Dupe;
