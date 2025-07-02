@@ -26,12 +26,39 @@
 use std::str::FromStr;
 
 use dupe::Dupe;
-use itertools::Itertools;
 use pyrefly_util::lined_buffer::LineNumber;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::error::kind::ErrorKind;
+
+/// The name of the tool that is being suppressed.
+#[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy)]
+pub enum Tool {
+    /// Indicates a `type: ignore`.
+    Any,
+    /// Indicates a `pyrefly: ignore`.
+    Pyrefly,
+    /// Includes the `pyre-ignore` and `pyre-fixme` hints, along with `pyre: ignore`.
+    Pyre,
+    Pyright,
+    Mypy,
+    Ty,
+}
+
+impl Tool {
+    fn from_comment(x: &str) -> Option<Self> {
+        match x {
+            "type" => Some(Tool::Any),
+            "pyrefly" => Some(Tool::Pyrefly),
+            "pyre" => Some(Tool::Pyre),
+            "pyright" => Some(Tool::Pyright),
+            "mypy" => Some(Tool::Mypy),
+            "ty" => Some(Tool::Ty),
+            _ => None,
+        }
+    }
+}
 
 #[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy)]
 pub enum SuppressionKind {
@@ -46,7 +73,10 @@ pub enum SuppressionKind {
 #[derive(Debug, Clone, Default)]
 pub struct Ignore {
     ignores: SmallMap<LineNumber, Vec<SuppressionKind>>,
-    ignore_all: bool,
+    /// Do we have a generic or Pyrefly-specific ignore-all directive?
+    ignore_all_strict: bool,
+    /// Do we have any ignore-all directive, regardless of tool?
+    ignore_all_permissive: bool,
 }
 
 impl Ignore {
@@ -58,39 +88,48 @@ impl Ignore {
                 ignores.insert(LineNumber::from_zero_indexed(line as u32), [kind].to_vec());
             }
         }
+        let ignore_all = Self::parse_ignore_all(code);
+        let ignore_all_strict =
+            ignore_all.contains_key(&Tool::Pyrefly) || ignore_all.contains_key(&Tool::Any);
+        let ignore_all_permissive = !ignore_all.is_empty();
         Self {
             ignores,
-            ignore_all: Self::has_ignore_all(code),
+            ignore_all_strict,
+            ignore_all_permissive,
         }
     }
 
-    fn has_ignore_all(code: &str) -> bool {
+    /// All the errors that were ignored, and the line number that ignore happened.
+    fn parse_ignore_all(code: &str) -> SmallMap<Tool, LineNumber> {
         // process top level comments
-        for (line_str, next_line_str) in code.lines().tuple_windows() {
-            let line_str = line_str.trim();
-            // Skip blank lines
-            if line_str.is_empty() {
-                continue;
+        let mut res = SmallMap::new();
+        let mut prev_ignore = None;
+        for (line, x) in code
+            .lines()
+            .map(|x| x.trim())
+            .take_while(|x| x.is_empty() || x.starts_with('#'))
+            .enumerate()
+        {
+            if let Some(y) = prev_ignore {
+                // We consider any `# type: ignore` followed by a line with code to be a
+                // normal suppression, not an ignore-all directive.
+                res.entry(Tool::Any).or_insert(y);
+                prev_ignore = None;
             }
-            // If the line is a comment, check if it's exactly "# pyrefly: ignore-errors"
-            if !line_str.starts_with("#") {
-                return false;
-            } else if line_str == "# type: ignore" {
-                let next_line_str = next_line_str.trim();
-                if next_line_str.is_empty() || next_line_str.starts_with("#") {
-                    return true;
-                } else {
-                    // We consider any `# type: ignore` followed by a line with code to be a
-                    // normal suppression, not an ignore-all directive.
-                    return false;
-                }
-            } else if line_str == "# pyrefly: ignore-errors"
-                || line_str == "# pyre-ignore-all-errors"
+
+            let line = LineNumber::from_zero_indexed(line as u32);
+            if x == "# pyre-ignore-all-errors" {
+                res.entry(Tool::Pyre).or_insert(line);
+            } else if let Some(x) = x.strip_prefix("# ")
+                && let Some(x) = x.strip_suffix(": ignore-errors")
+                && let Some(tool) = Tool::from_comment(x)
             {
-                return true;
+                res.entry(tool).or_insert(line);
+            } else if x == "# type: ignore" {
+                prev_ignore = Some(line);
             }
         }
-        false
+        res
     }
 
     pub fn get_suppression_kind(line: &str) -> Option<SuppressionKind> {
@@ -131,9 +170,9 @@ impl Ignore {
         start_line: LineNumber,
         end_line: LineNumber,
         kind: ErrorKind,
-        #[allow(unused_variables)] permissive_ignores: bool,
+        permissive_ignores: bool,
     ) -> bool {
-        if self.ignore_all {
+        if self.ignore_all_strict || (permissive_ignores && self.ignore_all_permissive) {
             return true;
         }
 
@@ -166,6 +205,8 @@ impl Ignore {
 
 #[cfg(test)]
 mod tests {
+    use starlark_map::smallmap;
+
     use super::*;
 
     #[test]
@@ -187,61 +228,85 @@ mod tests {
     }
 
     #[test]
-    fn test_has_ignore_all() {
-        assert!(Ignore::has_ignore_all(
-            r#"
+    fn test_parse_ignore_all() {
+        assert_eq!(
+            Ignore::parse_ignore_all(
+                r#"
 # pyrefly: ignore-errors
 x = 5
 "#
-        ));
-        assert!(Ignore::has_ignore_all(
-            r#"
+            ),
+            smallmap! {Tool::Pyrefly => LineNumber::from_zero_indexed(1)}
+        );
+        assert_eq!(
+            Ignore::parse_ignore_all(
+                r#"
 # comment
 # pyrefly: ignore-errors
 x = 5
 "#
-        ));
-        assert!(Ignore::has_ignore_all(
-            r#"
+            ),
+            smallmap! {Tool::Pyrefly => LineNumber::from_zero_indexed(2)}
+        );
+        assert_eq!(
+            Ignore::parse_ignore_all(
+                r#"
 # comment
   # indented comment
 # pyrefly: ignore-errors
 x = 5
 "#
-        ));
-        assert!(!Ignore::has_ignore_all(
-            r#"
+            ),
+            smallmap! {Tool::Pyrefly => LineNumber::from_zero_indexed(3)}
+        );
+        assert_eq!(
+            Ignore::parse_ignore_all(
+                r#"
 x = 5
 # pyrefly: ignore-errors
 "#
-        ));
-        assert!(Ignore::has_ignore_all(
-            r#"
+            ),
+            smallmap! {}
+        );
+        assert_eq!(
+            Ignore::parse_ignore_all(
+                r#"
 # type: ignore
 
 x = 5
 "#
-        ));
-        assert!(Ignore::has_ignore_all(
-            r#"
+            ),
+            smallmap! {Tool::Any => LineNumber::from_zero_indexed(1)}
+        );
+        assert_eq!(
+            Ignore::parse_ignore_all(
+                r#"
 # comment
 # type: ignore
 # comment
 x = 5
 "#
-        ));
-        assert!(!Ignore::has_ignore_all(
-            r#"
+            ),
+            smallmap! {Tool::Any => LineNumber::from_zero_indexed(2)}
+        );
+        assert_eq!(
+            Ignore::parse_ignore_all(
+                r#"
 # type: ignore
 x = 5
 "#
-        ));
+            ),
+            smallmap! {}
+        );
 
-        assert!(Ignore::has_ignore_all(
-            r#"
+        assert_eq!(
+            Ignore::parse_ignore_all(
+                r#"
 # pyre-ignore-all-errors
 x = 5
 "#
-        ));
+            ),
+            smallmap! {Tool::Pyre => LineNumber::from_zero_indexed(1)}
+        );
     }
 }
