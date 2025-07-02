@@ -39,7 +39,6 @@ D(x="oops")  # E: `Literal['oops']` is not assignable to parameter `x` with type
 );
 
 testcase!(
-    bug = "We fail to pick up dataclass field `y`",
     test_class_inheritance,
     r#"
 from typing import dataclass_transform
@@ -51,7 +50,7 @@ class D(C):
     x: int
 class E(D):
     y: str
-E(x=0, y="")  # E: Unexpected keyword argument `y`
+E(x=0, y="")
     "#,
 );
 

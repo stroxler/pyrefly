@@ -157,6 +157,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // - it inherits from a base class whose metaclass is decorated with `dataclass_transform(...)`, or
         // - it is decorated with a decorator that is decorated with `dataclass_transform(...)`.
         let mut dataclass_from_dataclass_transform = None;
+        // This is set when a class is decorated with `@typing.dataclass_transform(...)`. Note that
+        // this does not turn the class into a dataclass! Instead, it becomes a special base class
+        // (or metaclass) that turns child classes into dataclasses.
+        let mut dataclass_transform_metadata = None;
         let bases_with_metadata = bases
             .iter()
             .filter_map(|x| {
@@ -244,6 +248,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     defaults: m.clone(),
                                     kws: BoolKeywords::new(),
                                 });
+                                // When a class C is transformed into a dataclass via inheriting from a class decorated
+                                // with `@dataclass_transform(...)`, then C in turn causes classes inheriting from it
+                                // to be transformed (and so on). Note that this differs from dataclass transformation
+                                // via a decorator in that if you inherit from a class transformed via decorator, you
+                                // inherit its dataclass-ness but your own fields are *not* transformed.
+                                dataclass_transform_metadata = Some(m.clone());
                             }
                             Some((c, base_class_metadata))
                         }
@@ -332,10 +342,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &base_metaclasses,
             errors,
         );
-        // This is set when a class is decorated with `@typing.dataclass_transform(...)`. Note that
-        // this does not turn the class into a dataclass! Instead, it becomes a special base class
-        // (or metaclass) that turns child classes into dataclasses.
-        let mut dataclass_transform_metadata = None;
         if let Some(c) = &metaclass
             && let Some(m) = self
                 .get_metadata_for_class(c.class_object())
@@ -469,9 +475,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 _ => {}
             }
         }
-        if dataclass_metadata.is_none()
-            && let Some(transform) = dataclass_from_dataclass_transform
-        {
+        if let Some(transform) = dataclass_from_dataclass_transform {
             let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
             let mut kws = transform.kws;
             for (name, value) in transform.defaults.iter() {

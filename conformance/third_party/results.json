@@ -1,9 +1,9 @@
 {
   "total": 136,
-  "pass": 62,
-  "fail": 74,
+  "pass": 63,
+  "fail": 73,
   "pass_rate": 0.46,
-  "differences": 339,
+  "differences": 338,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -20,6 +20,7 @@
     "dataclasses_hash.py",
     "dataclasses_inheritance.py",
     "dataclasses_order.py",
+    "dataclasses_transform_func.py",
     "dataclasses_usage.py",
     "directives_assert_type.py",
     "directives_cast.py",
@@ -90,7 +91,6 @@
     "dataclasses_transform_class.py": 4,
     "dataclasses_transform_converter.py": 7,
     "dataclasses_transform_field.py": 1,
-    "dataclasses_transform_func.py": 1,
     "dataclasses_transform_meta.py": 4,
     "directives_deprecated.py": 10,
     "enums_behaviors.py": 4,
