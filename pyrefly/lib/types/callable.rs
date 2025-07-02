@@ -307,6 +307,14 @@ impl BoolKeywords {
     pub fn set(&mut self, name: Name, value: bool) {
         self.0.insert(name, value);
     }
+
+    pub fn contains(&self, name: &Name) -> bool {
+        self.0.contains_key(name)
+    }
+
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&Name, &bool)> {
+        self.0.iter()
+    }
 }
 
 /// Namespace for keyword names and defaults.

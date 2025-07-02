@@ -45,7 +45,6 @@ use crate::types::types::Type;
 /// The data we need to apply a dataclass-like transformation specified by `typing.dataclass_transform` to a class.
 struct DataclassTransform {
     /// Defaults for dataclass behaviors - `eq_default`, `frozen_default`, etc.
-    #[expect(dead_code)]
     defaults: BoolKeywords,
     /// Keyword values customizing dataclass behaviors - `eq`, `frozen`, etc.
     kws: BoolKeywords,
@@ -473,11 +472,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if dataclass_metadata.is_none()
             && let Some(transform) = dataclass_from_dataclass_transform
         {
-            // TODO(rechen): Take keyword values to `dataclass_transform(...)` into account.
             let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
+            let mut kws = transform.kws;
+            for (name, value) in transform.defaults.iter() {
+                if let Some(kw) = name.strip_suffix("_default") {
+                    let kw = Name::new(kw);
+                    if !kws.contains(&kw) {
+                        kws.set(kw, *value);
+                    }
+                }
+            }
             dataclass_metadata = Some(DataclassMetadata {
                 fields: dataclass_fields,
-                kws: transform.kws,
+                kws,
             });
         }
         if is_typed_dict

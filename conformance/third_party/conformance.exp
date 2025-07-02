@@ -3366,6 +3366,16 @@
     },
     {
       "code": -2,
+      "column": 18,
+      "concise_description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
+      "description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
+      "line": 66,
+      "name": "bad-argument-type",
+      "stop_column": 19,
+      "stop_line": 66
+    },
+    {
+      "code": -2,
       "column": 6,
       "concise_description": "`<` is not supported between `Customer1` and `Customer1`",
       "description": "`<` is not supported between `Customer1` and `Customer1`\n  Cannot find `__lt__` or `__gt__`",
@@ -3383,6 +3393,36 @@
       "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 78
+    },
+    {
+      "code": -2,
+      "column": 17,
+      "concise_description": "Missing argument `id` in function `Customer2.__init__`",
+      "description": "Missing argument `id` in function `Customer2.__init__`",
+      "line": 82,
+      "name": "missing-argument",
+      "stop_column": 28,
+      "stop_line": 82
+    },
+    {
+      "code": -2,
+      "column": 18,
+      "concise_description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
+      "description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
+      "line": 82,
+      "name": "bad-argument-type",
+      "stop_column": 19,
+      "stop_line": 82
+    },
+    {
+      "code": -2,
+      "column": 1,
+      "concise_description": "Cannot set field `id`",
+      "description": "Cannot set field `id`\n  This field is a frozen dataclass member",
+      "line": 122,
+      "name": "read-only",
+      "stop_column": 8,
+      "stop_line": 122
     }
   ],
   "dataclasses_transform_converter.py": [
@@ -3727,7 +3767,18 @@
       "stop_line": 133
     }
   ],
-  "dataclasses_transform_field.py": [],
+  "dataclasses_transform_field.py": [
+    {
+      "code": -2,
+      "column": 16,
+      "concise_description": "Expected 0 positional arguments, got 1 in function `CustomerModel2.__init__`",
+      "description": "Expected 0 positional arguments, got 1 in function `CustomerModel2.__init__`",
+      "line": 75,
+      "name": "bad-argument-type",
+      "stop_column": 17,
+      "stop_line": 75
+    }
+  ],
   "dataclasses_transform_func.py": [
     {
       "code": -2,
@@ -3761,13 +3812,43 @@
     },
     {
       "code": -2,
-      "column": 6,
-      "concise_description": "`<` is not supported between `Customer2` and `Customer2`",
-      "description": "`<` is not supported between `Customer2` and `Customer2`\n  Cannot find `__lt__` or `__gt__`",
-      "line": 73,
-      "name": "missing-attribute",
-      "stop_column": 17,
-      "stop_line": 73
+      "column": 17,
+      "concise_description": "Missing argument `id` in function `Customer2.__init__`",
+      "description": "Missing argument `id` in function `Customer2.__init__`",
+      "line": 71,
+      "name": "missing-argument",
+      "stop_column": 28,
+      "stop_line": 71
+    },
+    {
+      "code": -2,
+      "column": 17,
+      "concise_description": "Missing argument `name` in function `Customer2.__init__`",
+      "description": "Missing argument `name` in function `Customer2.__init__`",
+      "line": 71,
+      "name": "missing-argument",
+      "stop_column": 28,
+      "stop_line": 71
+    },
+    {
+      "code": -2,
+      "column": 18,
+      "concise_description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
+      "description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
+      "line": 71,
+      "name": "bad-argument-type",
+      "stop_column": 19,
+      "stop_line": 71
+    },
+    {
+      "code": -2,
+      "column": 1,
+      "concise_description": "Cannot set field `id`",
+      "description": "Cannot set field `id`\n  This field is a frozen dataclass member",
+      "line": 97,
+      "name": "read-only",
+      "stop_column": 8,
+      "stop_line": 97
     }
   ],
   "dataclasses_transform_meta.py": [
@@ -3780,6 +3861,16 @@
       "name": "unexpected-keyword",
       "stop_column": 54,
       "stop_line": 60
+    },
+    {
+      "code": -2,
+      "column": 18,
+      "concise_description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
+      "description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
+      "line": 66,
+      "name": "bad-argument-type",
+      "stop_column": 19,
+      "stop_line": 66
     },
     {
       "code": -2,
@@ -3800,6 +3891,36 @@
       "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 79
+    },
+    {
+      "code": -2,
+      "column": 17,
+      "concise_description": "Missing argument `id` in function `Customer2.__init__`",
+      "description": "Missing argument `id` in function `Customer2.__init__`",
+      "line": 83,
+      "name": "missing-argument",
+      "stop_column": 28,
+      "stop_line": 83
+    },
+    {
+      "code": -2,
+      "column": 18,
+      "concise_description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
+      "description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
+      "line": 83,
+      "name": "bad-argument-type",
+      "stop_column": 19,
+      "stop_line": 83
+    },
+    {
+      "code": -2,
+      "column": 1,
+      "concise_description": "Cannot set field `id`",
+      "description": "Cannot set field `id`\n  This field is a frozen dataclass member",
+      "line": 103,
+      "name": "read-only",
+      "stop_column": 8,
+      "stop_line": 103
     }
   ],
   "dataclasses_usage.py": [

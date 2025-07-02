@@ -161,9 +161,6 @@
   "dataclasses_transform_class.py": [
     "Line 51: Expected 1 errors",
     "Line 63: Expected 1 errors",
-    "Line 66: Expected 1 errors",
-    "Line 82: Expected 1 errors",
-    "Line 122: Expected 1 errors",
     "Line 60: Unexpected errors ['Unexpected keyword argument `other_name` in function `Customer1.__init__`']",
     "Line 78: Unexpected errors ['`<` is not supported between `Customer2` and `Customer2`\\n  Cannot find `__lt__` or `__gt__`']"
   ],
@@ -177,21 +174,14 @@
     "Line 121: Unexpected errors [\"Argument `Literal['f0']` is not assignable to parameter `field0` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f1']` is not assignable to parameter `field1` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f2']` is not assignable to parameter `field2` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f6']` is not assignable to parameter `field3` with type `ConverterClass` in function `DC2.__init__`\", \"Argument `Literal['1']` is not assignable to parameter `field4` with type `int` in function `DC2.__init__`\", \"Argument `tuple[tuple[Literal['a'], Literal['1']], tuple[Literal['b'], Literal['2']]]` is not assignable to parameter `field5` with type `dict[str, str]` in function `DC2.__init__`\"]"
   ],
   "dataclasses_transform_field.py": [
-    "Line 64: Expected 1 errors",
-    "Line 75: Expected 1 errors"
+    "Line 64: Expected 1 errors"
   ],
   "dataclasses_transform_func.py": [
-    "Line 71: Expected 1 errors",
-    "Line 97: Expected 1 errors",
-    "Lines 89, 90: Expected error (tag 'Customer3Subclass')",
-    "Line 73: Unexpected errors ['`<` is not supported between `Customer2` and `Customer2`\\n  Cannot find `__lt__` or `__gt__`']"
+    "Lines 89, 90: Expected error (tag 'Customer3Subclass')"
   ],
   "dataclasses_transform_meta.py": [
     "Line 51: Expected 1 errors",
     "Line 63: Expected 1 errors",
-    "Line 66: Expected 1 errors",
-    "Line 83: Expected 1 errors",
-    "Line 103: Expected 1 errors",
     "Line 60: Unexpected errors ['Unexpected keyword argument `other_name` in function `Customer1.__init__`']",
     "Line 79: Unexpected errors ['`<` is not supported between `Customer2` and `Customer2`\\n  Cannot find `__lt__` or `__gt__`']"
   ],
