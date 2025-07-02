@@ -58,6 +58,7 @@ use crate::types::types::Type;
 
 struct Decorators {
     has_no_type_check: bool,
+    is_overload: bool,
     decorators: Box<[Idx<Key>]>,
 }
 
@@ -424,15 +425,20 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn decorators(&mut self, decorator_list: Vec<Decorator>, usage: &mut Usage) -> Decorators {
-        let has_no_type_check = decorator_list
-            .iter()
-            .any(|d| self.as_special_export(&d.expression) == Some(SpecialExport::NoTypeCheck));
-
+        let mut is_overload = false;
+        let mut has_no_type_check = false;
+        for d in &decorator_list {
+            let special_export = self.as_special_export(&d.expression);
+            is_overload = is_overload || matches!(special_export, Some(SpecialExport::Overload));
+            has_no_type_check =
+                has_no_type_check || matches!(special_export, Some(SpecialExport::NoTypeCheck));
+        }
         let decorators = self
             .ensure_and_bind_decorators(decorator_list, usage)
             .into_boxed_slice();
         Decorators {
             has_no_type_check,
+            is_overload,
             decorators,
         }
     }
@@ -449,11 +455,12 @@ impl<'a> BindingsBuilder<'a> {
         function_idx: Idx<KeyFunction>,
         class_key: Option<Idx<KeyClass>>,
     ) -> (FunctionStubOrImpl, Option<SelfAssignments>) {
-        let stub_or_impl = if is_ellipse(&body) {
-            FunctionStubOrImpl::Stub
-        } else {
-            FunctionStubOrImpl::Impl
-        };
+        let stub_or_impl =
+            if is_ellipse(&body) || (is_docstring(&body[0]) && decorators.is_overload) {
+                FunctionStubOrImpl::Stub
+            } else {
+                FunctionStubOrImpl::Impl
+            };
 
         let self_assignments = if decorators.has_no_type_check
             || (self.untyped_def_behavior == UntypedDefBehavior::SkipAndInferReturnAny
