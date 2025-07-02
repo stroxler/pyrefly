@@ -1141,9 +1141,11 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         position: TextSize,
-    ) -> Option<TextRangeWithModuleInfo> {
-        self.find_definition(handle, position, true)
-            .map(|x| x.location)
+    ) -> Vec<TextRangeWithModuleInfo> {
+        match self.find_definition(handle, position, true) {
+            None => Vec::new(),
+            Some(item) => vec![item.location],
+        }
     }
 
     /// This function should not be used for user-facing go-to-definition. However, it is exposed to

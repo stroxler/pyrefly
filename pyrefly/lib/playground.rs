@@ -206,12 +206,12 @@ impl Playground {
     pub fn goto_definition(&mut self, pos: Position) -> Option<Range> {
         let transaction = self.state.transaction();
         let position = self.to_text_size(&transaction, pos)?;
-        let range_with_mod_info = transaction.goto_definition(&self.handle, position)?;
-        Some(Range::new(
-            range_with_mod_info
-                .module_info
-                .display_range(range_with_mod_info.range),
-        ))
+        // TODO: Support goto multiple definitions
+        transaction
+            .goto_definition(&self.handle, position)
+            .into_iter()
+            .next()
+            .map(|r| Range::new(r.module_info.display_range(r.range)))
     }
 
     pub fn autocomplete(&self, pos: Position) -> Vec<AutoCompletionItem> {

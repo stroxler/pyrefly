@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use itertools::Itertools as _;
 use pretty_assertions::assert_eq;
 use ruff_text_size::TextSize;
 
@@ -16,13 +17,16 @@ use crate::test::util::get_batched_lsp_operations_report;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
 fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String {
-    if let Some(TextRangeWithModuleInfo { module_info, range }) =
-        state.transaction().goto_definition(handle, position)
-    {
-        format!(
-            "Definition Result:\n{}",
-            code_frame_of_source_at_range(module_info.contents(), range)
-        )
+    let defs = state.transaction().goto_definition(handle, position);
+    if !defs.is_empty() {
+        defs.into_iter()
+            .map(|TextRangeWithModuleInfo { module_info, range }| {
+                format!(
+                    "Definition Result:\n{}",
+                    code_frame_of_source_at_range(module_info.contents(), range)
+                )
+            })
+            .join("\n")
     } else {
         "Definition Result: None".to_owned()
     }

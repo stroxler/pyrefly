@@ -1528,6 +1528,25 @@ impl Server {
         })
     }
 
+    fn to_lsp_location(&self, location: &TextRangeWithModuleInfo) -> Option<Location> {
+        let TextRangeWithModuleInfo {
+            module_info: definition_module_info,
+            range,
+        } = location;
+        let uri = match &self.initialize_params.initialization_options {
+            Some(serde_json::Value::Object(map))
+                if (map.get("supportContentsAsUri") == Some(&serde_json::Value::Bool(true))) =>
+            {
+                module_info_to_uri_with_document_content_provider(definition_module_info)?
+            }
+            Some(_) | None => module_info_to_uri(definition_module_info)?,
+        };
+        Some(Location {
+            uri,
+            range: definition_module_info.lined_buffer().to_lsp_range(*range),
+        })
+    }
+
     fn goto_definition(
         &self,
         transaction: &Transaction<'_>,
@@ -1539,22 +1558,18 @@ impl Server {
         let range = info
             .lined_buffer()
             .from_lsp_position(params.text_document_position_params.position);
-        let TextRangeWithModuleInfo {
-            module_info: definition_module_info,
-            range,
-        } = transaction.goto_definition(&handle, range)?;
-        let uri = match &self.initialize_params.initialization_options {
-            Some(serde_json::Value::Object(map))
-                if (map.get("supportContentsAsUri") == Some(&serde_json::Value::Bool(true))) =>
-            {
-                module_info_to_uri_with_document_content_provider(&definition_module_info)?
-            }
-            Some(_) | None => module_info_to_uri(&definition_module_info)?,
-        };
-        Some(GotoDefinitionResponse::Scalar(Location {
-            uri,
-            range: definition_module_info.lined_buffer().to_lsp_range(range),
-        }))
+        let targets = transaction.goto_definition(&handle, range);
+        let mut lsp_targets = targets
+            .into_iter()
+            .filter_map(|t| self.to_lsp_location(&t))
+            .collect::<Vec<_>>();
+        if lsp_targets.is_empty() {
+            None
+        } else if lsp_targets.len() == 1 {
+            Some(GotoDefinitionResponse::Scalar(lsp_targets.pop().unwrap()))
+        } else {
+            Some(GotoDefinitionResponse::Array(lsp_targets))
+        }
     }
 
     fn completion(

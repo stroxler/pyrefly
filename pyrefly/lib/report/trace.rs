@@ -45,7 +45,12 @@ fn trace_module(transaction: &Transaction, handle: &Handle) -> Option<ModuleOutp
         if let Some(ty) = transaction.get_type_at(handle, loc.start()) {
             types.insert(info.display_range(x.range()).to_string(), ty.to_string());
         }
-        if let Some(def) = transaction.goto_definition(handle, loc.start()) {
+        // TODO: Support multiple definitions
+        if let Some(def) = transaction
+            .goto_definition(handle, loc.start())
+            .into_iter()
+            .next()
+        {
             definitions.insert(
                 info.display_range(x.range()).to_string(),
                 (
