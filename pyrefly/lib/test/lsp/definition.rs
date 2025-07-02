@@ -444,6 +444,38 @@ Definition Result:
 }
 
 #[test]
+fn keyword_argument_test_multiple_methods() {
+    let code = r#"
+class A:
+    def foo(self, x: int, y: str) -> None:
+        pass
+class B:
+    def foo(self, y: str, x: int) -> None:
+        pass
+
+def test(u: A | B) -> None:
+    u.foo(x=0, y="foo")
+#              ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+10 |     u.foo(x=0, y="foo")
+                    ^
+Definition Result:
+3 |     def foo(self, x: int, y: str) -> None:
+                              ^
+Definition Result:
+6 |     def foo(self, y: str, x: int) -> None:
+                      ^       
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn keyword_argument_multi_file() {
     let code_fuction_provider = r#"
 def foo(x: int, y: str) -> None:

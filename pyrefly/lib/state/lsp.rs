@@ -44,6 +44,7 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use starlark_map::ordered_set::OrderedSet;
+use starlark_map::small_map::SmallMap;
 
 use crate::alt::attr::AttrDefinition;
 use crate::alt::attr::AttrInfo;
@@ -1034,51 +1035,73 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         identifier: &Identifier,
         callee_kind: &CalleeKind,
-    ) -> Option<FindDefinitionItem> {
+    ) -> Vec<FindDefinitionItem> {
         // NOTE(grievejia): There might be a better way to compute this that doesn't require 2 containing node
         // traversal, once we gain access to the callee function def from callee_kind directly.
-        let TextRangeWithModuleInfo { module_info, range } =
-            self.get_callee_location(handle, callee_kind)?;
-        let ast = {
-            let handle = Handle::new(
-                module_info.name(),
-                module_info.path().dupe(),
-                handle.sys_info().dupe(),
-            );
-            self.get_ast(&handle).unwrap_or_else(|| {
-                // We may not have the AST available for the handle if it's not opened -- in that case,
-                // Re-parse the module to get the AST.
-                Ast::parse(module_info.contents()).0.into()
-            })
-        };
-        let refined_param_range =
-            self.refine_param_location_for_callee(ast.as_ref(), range, identifier);
-        Some(FindDefinitionItem {
-            metadata: DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
-            location: TextRangeWithModuleInfo::new(
-                module_info,
-                refined_param_range.unwrap_or(range),
-            ),
-            docstring: None,
-        })
+        let callee_locations = self.get_callee_location(handle, callee_kind);
+        if callee_locations.is_empty() {
+            return vec![];
+        }
+
+        // Group all locations by their containing module, so later we could avoid reparsing
+        // the same module multiple times.
+        let location_count = callee_locations.len();
+        let mut modules_to_ranges: SmallMap<ModuleInfo, Vec<TextRange>> =
+            SmallMap::with_capacity(location_count);
+        for TextRangeWithModuleInfo { module_info, range } in callee_locations.into_iter() {
+            modules_to_ranges
+                .entry(module_info)
+                .or_default()
+                .push(range)
+        }
+
+        let mut results: Vec<FindDefinitionItem> = Vec::with_capacity(location_count);
+        for (module_info, ranges) in modules_to_ranges.into_iter() {
+            let ast = {
+                let handle = Handle::new(
+                    module_info.name(),
+                    module_info.path().dupe(),
+                    handle.sys_info().dupe(),
+                );
+                self.get_ast(&handle).unwrap_or_else(|| {
+                    // We may not have the AST available for the handle if it's not opened -- in that case,
+                    // Re-parse the module to get the AST.
+                    Ast::parse(module_info.contents()).0.into()
+                })
+            };
+
+            for range in ranges.into_iter() {
+                let refined_param_range =
+                    self.refine_param_location_for_callee(ast.as_ref(), range, identifier);
+                // TODO(grievejia): Should we filter out unrefinable ranges here?
+                results.push(FindDefinitionItem {
+                    metadata: DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
+                    location: TextRangeWithModuleInfo::new(
+                        module_info.dupe(),
+                        refined_param_range.unwrap_or(range),
+                    ),
+                    docstring: None,
+                })
+            }
+        }
+        results
     }
 
     fn get_callee_location(
         &self,
         handle: &Handle,
         callee_kind: &CalleeKind,
-    ) -> Option<TextRangeWithModuleInfo> {
-        let FindDefinitionItem { location, .. } = match callee_kind {
-            CalleeKind::Function(name) => self.find_definition_for_name_use(handle, name, true),
+    ) -> Vec<TextRangeWithModuleInfo> {
+        let defs = match callee_kind {
+            CalleeKind::Function(name) => self
+                .find_definition_for_name_use(handle, name, true)
+                .map_or(vec![], |item| vec![item]),
             CalleeKind::Method(base_range, name) => {
-                // TODO(grievejia): Support multiple definitions
                 self.find_definition_for_attribute(handle, *base_range, name)
-                    .into_iter()
-                    .next()
             }
-            CalleeKind::Unknown => None,
-        }?;
-        Some(location)
+            CalleeKind::Unknown => vec![],
+        };
+        defs.into_iter().map(|item| item.location).collect()
     }
 
     /// Find the definition, metadata and optionally the docstring for the given position.
@@ -1164,9 +1187,7 @@ impl<'a> Transaction<'a> {
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::KeywordArgument(callee_kind),
-            }) => self
-                .find_definition_for_keyword_argument(handle, &identifier, &callee_kind)
-                .map_or(vec![], |item| vec![item]),
+            }) => self.find_definition_for_keyword_argument(handle, &identifier, &callee_kind),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
