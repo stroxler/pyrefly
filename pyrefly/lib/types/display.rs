@@ -21,6 +21,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
 
 use crate::types::callable::Function;
+use crate::types::class::Class;
 use crate::types::qname::QName;
 use crate::types::tuple::Tuple;
 use crate::types::types::AnyStyle;
@@ -91,6 +92,15 @@ impl<'a> TypeDisplayContext<'a> {
         res
     }
 
+    fn add_qname(&mut self, qname: &'a QName) {
+        match self.classes.entry(qname.id()) {
+            Entry::Vacant(e) => {
+                e.insert(ClassInfo::new(qname));
+            }
+            Entry::Occupied(mut e) => e.get_mut().update(qname),
+        }
+    }
+
     pub fn add(&mut self, t: &'a Type) {
         t.universe(&mut |t| {
             let qname = match t {
@@ -104,12 +114,7 @@ impl<'a> TypeDisplayContext<'a> {
                 _ => None,
             };
             if let Some(qname) = qname {
-                match self.classes.entry(qname.id()) {
-                    Entry::Vacant(e) => {
-                        e.insert(ClassInfo::new(qname));
-                    }
-                    Entry::Occupied(mut e) => e.get_mut().update(qname),
-                }
+                self.add_qname(qname);
             }
         })
     }
@@ -369,6 +374,24 @@ impl<'a> TypeDisplayContext<'a> {
 impl Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         TypeDisplayContext::new(&[self]).fmt(self, f)
+    }
+}
+
+pub struct ClassDisplayContext<'a>(TypeDisplayContext<'a>);
+
+impl<'a> ClassDisplayContext<'a> {
+    #[expect(dead_code)]
+    pub fn new(classes: &[&'a Class]) -> Self {
+        let mut ctx = TypeDisplayContext::new(&[]);
+        for cls in classes {
+            ctx.add_qname(cls.qname());
+        }
+        Self(ctx)
+    }
+
+    #[expect(dead_code)]
+    pub fn display(&'a self, cls: &'a Class) -> impl Display + 'a {
+        Fmt(|f| self.0.fmt_qname(cls.qname(), f))
     }
 }
 
