@@ -22,6 +22,9 @@
 //! For Pyre compatibility we also allow `# pyre-ignore` and `# pyre-fixme`
 //! as equivalents to `pyre: ignore`, and `# pyre-ignore-all-errors` as
 //! an equivalent to `type: ignore-errors`.
+//!
+//! We are permissive with whitespace, allowing `#type:ignore[code]` and
+//! `#  type:  ignore  [  code  ]`, but do not allow a space after the colon.
 
 use std::str::FromStr;
 
@@ -47,6 +50,9 @@ pub enum Tool {
 }
 
 impl Tool {
+    /// The maximum length of any tool.
+    const MAX_LEN: usize = 7;
+
     fn from_comment(x: &str) -> Option<Self> {
         match x {
             "type" => Some(Tool::Any),
@@ -57,6 +63,46 @@ impl Tool {
             "ty" => Some(Tool::Ty),
             _ => None,
         }
+    }
+}
+
+/// A simple lexer that deals with the rules around whitespace.
+/// As it consumes the string, it will move forward.
+struct Lexer<'a>(&'a str);
+
+impl<'a> Lexer<'a> {
+    /// The string starts with the given string, return `true` if so.
+    fn starts_with(&mut self, x: &str) -> bool {
+        match self.0.strip_prefix(x) {
+            Some(x) => {
+                self.0 = x;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The string starts with `tool:`, return the tool if it does.
+    fn starts_with_tool(&mut self) -> Option<Tool> {
+        let p = self
+            .0
+            .as_bytes()
+            .iter()
+            .take(Tool::MAX_LEN + 1)
+            .position(|&c| c == b':')?;
+        let tool = Tool::from_comment(&self.0[..p])?;
+        self.0 = &self.0[p + 1..];
+        Some(tool)
+    }
+
+    /// Trim whitespace from the start of the string.
+    fn trim_start(&mut self) {
+        self.0 = self.0.trim_start();
+    }
+
+    /// Return `true` if the string is empty or only whitespace.
+    fn blank(&mut self) -> bool {
+        self.0.trim_start().is_empty()
     }
 }
 
@@ -110,23 +156,28 @@ impl Ignore {
             .take_while(|x| x.is_empty() || x.starts_with('#'))
             .enumerate()
         {
-            if let Some(y) = prev_ignore {
+            let line = LineNumber::from_zero_indexed(line as u32);
+            if let Some((tool, line)) = prev_ignore {
                 // We consider any `# type: ignore` followed by a line with code to be a
                 // normal suppression, not an ignore-all directive.
-                res.entry(Tool::Any).or_insert(y);
+                res.entry(tool).or_insert(line);
                 prev_ignore = None;
             }
 
-            let line = LineNumber::from_zero_indexed(line as u32);
-            if x == "# pyre-ignore-all-errors" {
+            let mut lex = Lexer(x);
+            if !lex.starts_with("#") {
+                continue;
+            }
+            lex.trim_start();
+            if lex.starts_with("pyre-ignore-all-errors") {
                 res.entry(Tool::Pyre).or_insert(line);
-            } else if let Some(x) = x.strip_prefix("# ")
-                && let Some(x) = x.strip_suffix(": ignore-errors")
-                && let Some(tool) = Tool::from_comment(x)
-            {
-                res.entry(tool).or_insert(line);
-            } else if x == "# type: ignore" {
-                prev_ignore = Some(line);
+            } else if let Some(tool) = lex.starts_with_tool() {
+                lex.trim_start();
+                if lex.starts_with("ignore-errors") && lex.blank() {
+                    res.entry(tool).or_insert(line);
+                } else if lex.starts_with("ignore") && lex.blank() {
+                    prev_ignore = Some((tool, line));
+                }
             }
         }
         res
