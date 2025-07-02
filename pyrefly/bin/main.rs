@@ -75,12 +75,12 @@ struct FullCheckArgs {
     #[arg(long, env = clap_env("WATCH"), conflicts_with = "check_all")]
     watch: bool,
 
-    /// Explicitly set the Pyre configuration to use when type checking or starting a language server.
+    /// Explicitly set the Pyrefly configuration to use when type checking or starting a language server.
     /// In "single-file checking mode," this config is applied to all files being checked, ignoring
     /// the config's `project_includes` and `project_excludes` and ignoring any config-finding approach
     /// that would otherwise be used.
-    /// When not set, Pyre will perform an upward-filesystem-walk approach to find the nearest
-    /// pyrefly.toml or pyproject.toml with `tool.pyre` section'. If no config is found, Pyre exits with error.
+    /// When not set, Pyrefly will perform an upward-filesystem-walk approach to find the nearest
+    /// pyrefly.toml or pyproject.toml with `tool.pyrefly` section'. If no config is found, Pyrefly exits with error.
     /// If both a pyrefly.toml and valid pyproject.toml are found, pyrefly.toml takes precedence.
     #[arg(long, short, env = clap_env("CONFIG"), value_name = "FILE")]
     config: Option<PathBuf>,

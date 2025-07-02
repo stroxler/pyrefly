@@ -115,9 +115,9 @@ pub enum ErrorKind {
     /// e.g. failed to import a module.
     ImportError,
     /// Attempting to access a container with an incorrect index.
-    /// This only occurs when pyre can statically verify that the index is incorrect.
+    /// This only occurs when Pyrefly can statically verify that the index is incorrect.
     IndexError,
-    /// Internal Pyre error.
+    /// Internal Pyrefly error.
     InternalError,
     /// Attempting to write an annotation that is invalid for some reason.
     InvalidAnnotation,

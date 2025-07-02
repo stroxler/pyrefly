@@ -55,7 +55,7 @@ enum LookupResult {
     /// The attribute was not found. Callers can use fallback behavior, for
     /// example looking up a different attribute.
     NotFound(NotFound),
-    /// There was a Pyre-internal error
+    /// There was a Pyrefly-internal error
     InternalError(InternalError),
 }
 
