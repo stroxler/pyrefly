@@ -394,18 +394,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let decorator = self.get_idx(*decorator_key);
             let decorator_ty = decorator.ty();
             match decorator_ty.callee_kind() {
-                Some(CalleeKind::Function(FunctionKind::Dataclass(kws))) => {
-                    let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
-                    dataclass_metadata = Some(DataclassMetadata {
-                        fields: dataclass_fields,
-                        kws: *kws,
-                    });
-                }
-                Some(CalleeKind::Function(_))
-                    if let Some(m) = decorator_ty.dataclass_transform_metadata() =>
-                {
-                    dataclass_defaults_from_dataclass_transform = Some(m);
-                }
                 Some(CalleeKind::Function(FunctionKind::Final)) => {
                     is_final = true;
                 }
@@ -427,8 +415,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         location: *decorator_range,
                     });
                 }
+                // `@dataclass` or `@dataclass(...)`
+                Some(CalleeKind::Function(FunctionKind::Dataclass(kws))) => {
+                    let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
+                    dataclass_metadata = Some(DataclassMetadata {
+                        fields: dataclass_fields,
+                        kws: *kws,
+                    });
+                }
+                // `@dataclass_transform(...)`
                 _ if let Type::DataclassTransformDecorator(dec) = decorator_ty => {
                     dataclass_transform_metadata = Some(dec.0.clone());
+                }
+                // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
+                _ if let Some(m) = decorator_ty.dataclass_transform_metadata() => {
+                    dataclass_defaults_from_dataclass_transform = Some(m);
                 }
                 _ => {}
             }
