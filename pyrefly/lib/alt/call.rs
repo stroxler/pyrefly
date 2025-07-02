@@ -39,6 +39,7 @@ use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::types::AnyStyle;
 use crate::types::types::BoundMethod;
+use crate::types::types::KwCall;
 use crate::types::types::OverloadType;
 use crate::types::types::TParams;
 use crate::types::types::Type;
@@ -239,7 +240,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: handle constraints
                 Restriction::Constraints(_) | Restriction::Unrestricted => None,
             },
-            Type::KwCall(call) => self.as_call_target((*call).1),
+            Type::KwCall(call) => self.as_call_target(call.return_ty),
             _ => None,
         }
     }
@@ -695,7 +696,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }))
         } else if is_dataclass_transform {
             // TODO(rechen): store the keyword arguments.
-            Type::KwCall(Box::new((BoolKeywords::new(), res)))
+            Type::KwCall(Box::new(KwCall {
+                keywords: BoolKeywords::new(),
+                return_ty: res,
+            }))
         } else {
             res
         }

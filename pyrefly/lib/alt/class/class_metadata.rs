@@ -425,7 +425,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 // `@dataclass_transform(...)`
                 _ if let Type::KwCall(call) = decorator_ty => {
-                    dataclass_transform_metadata = Some(call.0.clone());
+                    dataclass_transform_metadata = Some(call.keywords.clone());
                 }
                 // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
                 _ if let Some(m) = decorator_ty.dataclass_transform_metadata() => {

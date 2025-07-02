@@ -565,6 +565,16 @@ pub enum SuperObj {
     Class(Class),
 }
 
+/// Wraps the result of a function call whose keyword arguments have typing effects.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
+pub struct KwCall {
+    /// The keyword arguments that the function was called with.
+    pub keywords: BoolKeywords,
+    /// The return type of the call.
+    pub return_ty: Type,
+}
+
 // Note: The fact that Literal and LiteralString are at the front is important for
 // optimisations in `unions_with_literals`.
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
@@ -647,7 +657,7 @@ pub enum Type {
     SelfType(ClassType),
     /// Wraps the result of a function call whose keyword arguments have typing effects, like
     /// `typing.dataclass_transform(...)`.
-    KwCall(Box<(BoolKeywords, Type)>),
+    KwCall(Box<KwCall>),
     None,
 }
 
@@ -924,7 +934,7 @@ impl Type {
             Type::ClassDef(c) => Some(CalleeKind::Class(c.kind())),
             Type::Forall(forall) => forall.body.clone().as_type().callee_kind(),
             Type::Overload(overload) => Some(CalleeKind::Function(overload.metadata.kind.clone())),
-            Type::KwCall(call) => call.1.callee_kind(),
+            Type::KwCall(call) => call.return_ty.callee_kind(),
             _ => None,
         }
     }
