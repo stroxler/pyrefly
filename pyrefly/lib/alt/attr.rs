@@ -1861,16 +1861,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    /// List all the attributes available from a type. Used to power completion.
-    /// Not all usages need types, so we can skip type computation with `include_types=false`.
-    pub fn completions(
+    // `base` is expected to be neither a union nor an intersection type
+    // if this precondition doesn't hold, the function won't crash but it
+    // will also not find an answer.
+    pub fn completions_no_union_intersection(
         &self,
         base: Type,
         expected_attribute_name: Option<&Name>,
         include_types: bool,
     ) -> Vec<AttrInfo> {
         let mut res = Vec::new();
-        // TODO: expose attributes shared across all union members
         if let Some(base) = self.as_attribute_base_no_union(base) {
             match &base {
                 AttributeBase::ClassInstance(class) | AttributeBase::EnumLiteral(class, _, _) => {
@@ -1929,6 +1929,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         res
+    }
+
+    /// List all the attributes available from a type. Used to power completion.
+    /// Not all usages need types, so we can skip type computation with `include_types=false`.
+    pub fn completions(
+        &self,
+        base: Type,
+        expected_attribute_name: Option<&Name>,
+        include_types: bool,
+    ) -> Vec<AttrInfo> {
+        // TODO:
+        // - If `base` is a union, expose only attributes shared by all members
+        // - If `base` is an intersection, expose all possible attributes for any members
+        self.completions_no_union_intersection(base, expected_attribute_name, include_types)
     }
 }
 
