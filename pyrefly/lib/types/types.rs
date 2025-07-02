@@ -645,10 +645,9 @@ pub enum Type {
     /// typing.Self with the class definition it appears in. We store the latter as a ClassType
     /// because of how often we need the type of an instance of the class.
     SelfType(ClassType),
-    /// The result of a `typing.dataclass_transform` call. When used as a decorator, it marks
-    /// whatever it is applied to as having special dataclass-like semantics. See
-    /// https://typing.python.org/en/latest/spec/dataclasses.html#specification.
-    DataclassTransformDecorator(Box<(BoolKeywords, Type)>),
+    /// Wraps the result of a function call whose keyword arguments have typing effects, like
+    /// `typing.dataclass_transform(...)`.
+    KwCall(Box<(BoolKeywords, Type)>),
     None,
 }
 
@@ -690,7 +689,7 @@ impl Visit for Type {
             Type::TypeAlias(x) => x.visit(f),
             Type::SuperInstance(x) => x.visit(f),
             Type::SelfType(x) => x.visit(f),
-            Type::DataclassTransformDecorator(x) => x.visit(f),
+            Type::KwCall(x) => x.visit(f),
             Type::None => {}
         }
     }
@@ -734,7 +733,7 @@ impl VisitMut for Type {
             Type::TypeAlias(x) => x.visit_mut(f),
             Type::SuperInstance(x) => x.visit_mut(f),
             Type::SelfType(x) => x.visit_mut(f),
-            Type::DataclassTransformDecorator(x) => x.visit_mut(f),
+            Type::KwCall(x) => x.visit_mut(f),
             Type::None => {}
         }
     }
@@ -925,7 +924,7 @@ impl Type {
             Type::ClassDef(c) => Some(CalleeKind::Class(c.kind())),
             Type::Forall(forall) => forall.body.clone().as_type().callee_kind(),
             Type::Overload(overload) => Some(CalleeKind::Function(overload.metadata.kind.clone())),
-            Type::DataclassTransformDecorator(dec) => dec.1.callee_kind(),
+            Type::KwCall(call) => call.1.callee_kind(),
             _ => None,
         }
     }

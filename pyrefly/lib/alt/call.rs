@@ -239,7 +239,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: handle constraints
                 Restriction::Constraints(_) | Restriction::Unrestricted => None,
             },
-            Type::DataclassTransformDecorator(dec) => self.as_call_target((*dec).1),
+            Type::KwCall(call) => self.as_call_target((*call).1),
             _ => None,
         }
     }
@@ -695,7 +695,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }))
         } else if is_dataclass_transform {
             // TODO(rechen): store the keyword arguments.
-            Type::DataclassTransformDecorator(Box::new((BoolKeywords::new(), res)))
+            Type::KwCall(Box::new((BoolKeywords::new(), res)))
         } else {
             res
         }

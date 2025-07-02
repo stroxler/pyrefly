@@ -246,8 +246,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         is_property_setter_with_getter = Some(decorator.arc_clone_ty());
                         false
                     }
-                    _ if let Type::DataclassTransformDecorator(dec) = decorator_ty => {
-                        dataclass_transform_metadata = Some(dec.0.clone());
+                    _ if let Type::KwCall(call) = decorator_ty => {
+                        dataclass_transform_metadata = Some(call.0.clone());
                         false
                     }
                     _ => true,

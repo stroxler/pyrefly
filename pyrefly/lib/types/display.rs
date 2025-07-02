@@ -360,7 +360,7 @@ impl<'a> TypeDisplayContext<'a> {
                 }
                 write!(f, "]")
             }
-            Type::DataclassTransformDecorator(_) => {
+            Type::KwCall(_) => {
                 // TODO(rechen): display the keyword arguments.
                 write!(f, "DataclassTransformDecorator")
             }
