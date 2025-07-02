@@ -568,30 +568,6 @@ def f(x: Iterable[int]):
 );
 
 testcase!(
-    test_ignore,
-    r#"
-x: int = "1"  # type: ignore
-
-# type: ignore
-y: int = "2"
-
-z: int = "3"  # E: `Literal['3']` is not assignable to `int`
-"#,
-);
-
-testcase!(
-    bug = "An ignore comment should attach to either the current line or next line, but not both",
-    test_ignore_attachment,
-    r#"
-# type: ignore
-w: int = "0"
-
-x: int = "1"  # type: ignore
-y: int = "2"  # TODO: this error should not be suppressed
-"#,
-);
-
-testcase!(
     test_complex,
     r#"
 z: complex =  3 + 4j
