@@ -308,7 +308,7 @@ fn definition_in_builtins_enabled() {
         expected_messages_from_language_server: vec![Message::Response(Response {
             id: RequestId::from(2),
             result: Some(serde_json::json!({
-                "range":{"end":{"character":4,"line":426},"start":{"character":0,"line":426}},"uri":format!("contentsasuri://$$MATCH_EVERYTHING$$")})),
+                "range":{"end":{"character":4,"line":425},"start":{"character":0,"line":425}},"uri":format!("contentsasuri://$$MATCH_EVERYTHING$$")})),
             error: None,
         })],
         contents_as_uri: true,
