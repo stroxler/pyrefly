@@ -86,3 +86,34 @@ C(x=0)
 C(x="oops")  # E: `Literal['oops']` is not assignable to parameter `x` with type `int`
     "#,
 );
+
+testcase!(
+    bug = "We should support frozen and frozen_default",
+    test_frozen_default,
+    r#"
+from typing import dataclass_transform, Any
+@dataclass_transform()
+def build_default_mutable(**kwargs) -> Any: ...
+@dataclass_transform(frozen_default=True)
+def build_default_frozen(**kwargs) -> Any: ...
+
+@build_default_mutable()
+class Mutable1:
+    x: int
+@build_default_mutable(frozen=True)
+class Frozen1:
+    x: int
+@build_default_frozen()
+class Frozen2:
+    x: int
+@build_default_frozen(frozen=False)
+class Mutable2:
+    x: int
+
+def f(mut1: Mutable1, mut2: Mutable2, froz1: Frozen1, froz2: Frozen2):
+    mut1.x = 42
+    mut2.x = 42
+    froz1.x = 42  # Should be an error
+    froz2.x = 42  # Should be an error
+    "#,
+);
