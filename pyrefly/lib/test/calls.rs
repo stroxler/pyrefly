@@ -60,3 +60,12 @@ def old_function() -> None: ...
 old_function()  # E: Call to deprecated function `old_function`
     "#,
 );
+
+testcase!(
+    bug = "PyTorch TODO: Should not be an error. Fixes https://github.com/facebook/pyrefly/issues/585.",
+    test_reduce_call,
+    r#"
+from functools import reduce
+reduce(max, [1,2]) # E: No matching overload found for function `functools.reduce`
+    "#,
+);
