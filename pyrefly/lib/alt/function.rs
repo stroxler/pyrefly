@@ -206,7 +206,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .filter(|k| {
                 let decorator = self.get_idx(**k);
                 let decorator_ty = decorator.ty();
-                is_deprecated |= matches!(decorator_ty, Type::ClassType(cls) if cls.has_qname("warnings", "deprecated"));
                 match decorator_ty.callee_kind() {
                     Some(CalleeKind::Function(FunctionKind::Overload)) => {
                         is_overload = true;
@@ -224,13 +223,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         is_property_getter = true;
                         false
                     }
-                    Some(CalleeKind::Function(_)) if decorator_ty.is_property_setter_decorator() => {
-                        // When the `setter` attribute is accessed on a property, we return the
-                        // getter with the is_property_setter_decorator flag set to true. See
-                        // AnswersSolver::lookup_attr_from_attribute_base for details.
-                        is_property_setter_with_getter = Some(decorator.arc_clone_ty());
-                        false
-                    }
                     Some(CalleeKind::Class(ClassKind::EnumMember)) => {
                         has_enum_member_decoration = true;
                         false
@@ -241,6 +233,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     Some(CalleeKind::Function(FunctionKind::Final)) => {
                         has_final_decoration = true;
+                        false
+                    }
+                    _ if matches!(decorator_ty, Type::ClassType(cls) if cls.has_qname("warnings", "deprecated")) => {
+                        is_deprecated = true;
+                        false
+                    }
+                    _ if decorator_ty.is_property_setter_decorator() => {
+                        // When the `setter` attribute is accessed on a property, we return the
+                        // getter with the is_property_setter_decorator flag set to true. See
+                        // AnswersSolver::lookup_attr_from_attribute_base for details.
+                        is_property_setter_with_getter = Some(decorator.arc_clone_ty());
                         false
                     }
                     _ if let Type::DataclassTransformDecorator(dec) = decorator_ty => {
