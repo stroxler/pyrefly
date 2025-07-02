@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::display::commas_iter;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
@@ -143,9 +144,9 @@ impl ClassMetadata {
                             vec1![format!(
                                 "Cannot inherit {} dataclass `{}` from {} dataclass `{}`",
                                 current_status,
-                                ClassName(cls.qname()),
+                                ClassName(cls.qname(), errors.module_info().name()),
                                 base_status,
-                                ClassName(base_type.qname()),
+                                ClassName(base_type.qname(), errors.module_info().name()),
                             )],
                         );
                     }
@@ -432,11 +433,15 @@ impl Display for ClassMro {
     }
 }
 
-struct ClassName<'a>(&'a QName);
+struct ClassName<'a>(&'a QName, ModuleName);
 
 impl Display for ClassName<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        QName::fmt_with_module(self.0, f)
+        if self.0.module_name() == self.1 {
+            self.0.fmt_name(f)
+        } else {
+            self.0.fmt_with_module(f)
+        }
     }
 }
 
@@ -560,8 +565,8 @@ impl Linearization {
                         None,
                         vec1![format!(
                             "Class `{}` inheriting from `{}` creates a cycle",
-                            ClassName(cls.qname()),
-                            ClassName(base.qname()),
+                            ClassName(cls.qname(), errors.module_info().name()),
+                            ClassName(base.qname(), errors.module_info().name()),
                         )],
                     );
                     // Signal that we detected a cycle
@@ -638,8 +643,8 @@ impl Linearization {
                     None,
                     vec1![format!(
                         "Class `{}` has a nonlinearizable inheritance chain detected at `{}`",
-                        ClassName(cls.qname()),
-                        ClassName(first_candidate.qname()),
+                        ClassName(cls.qname(), errors.module_info().name()),
+                        ClassName(first_candidate.qname(), errors.module_info().name()),
                     )],
                 );
 

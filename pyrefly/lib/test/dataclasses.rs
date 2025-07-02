@@ -611,7 +611,7 @@ class FrozenBase:
     x: int
 
 @dataclass
-class MutableChild(FrozenBase):  # E: Cannot inherit non-frozen dataclass `main.MutableChild` from frozen dataclass `main.FrozenBase`
+class MutableChild(FrozenBase):  # E: Cannot inherit non-frozen dataclass `MutableChild` from frozen dataclass `FrozenBase`
     y: str
     "#,
 );
@@ -626,7 +626,7 @@ class MutableBase:
     x: int
 
 @dataclass(frozen=True)
-class FrozenChild(MutableBase):  # E: Cannot inherit frozen dataclass `main.FrozenChild` from non-frozen dataclass `main.MutableBase`
+class FrozenChild(MutableBase):  # E: Cannot inherit frozen dataclass `FrozenChild` from non-frozen dataclass `MutableBase`
     y: str
     "#,
 );
