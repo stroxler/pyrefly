@@ -241,7 +241,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             if dataclass_metadata.is_none() && let Some(base_dataclass) = base_class_metadata.dataclass_metadata() {
                                 // If we inherit from a dataclass, inherit its metadata. Note that if this class is
                                 // itself decorated with @dataclass, we'll compute new metadata and overwrite this.
-                                dataclass_metadata = Some(base_dataclass.inherit());
+                                dataclass_metadata = Some(base_dataclass.clone());
                             }
                             if let Some(m) = base_class_metadata.dataclass_transform_metadata() {
                                 dataclass_from_dataclass_transform = Some(DataclassTransform {

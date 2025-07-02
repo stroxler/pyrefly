@@ -384,19 +384,6 @@ pub struct DataclassMetadata {
     pub kws: BoolKeywords,
 }
 
-impl DataclassMetadata {
-    /// Gets the DataclassMetadata that should be inherited by a class that is a dataclass via
-    /// inheritance but is not itself decorated with `@dataclass`.
-    pub fn inherit(&self) -> Self {
-        Self {
-            // Dataclass fields are inherited.
-            fields: self.fields.clone(),
-            // The remaining metadata are irrelevant, so just set them to some sensible-seeming value.
-            kws: self.kws.clone(),
-        }
-    }
-}
-
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
 pub struct ProtocolMetadata {
     /// All members of the protocol, excluding ones defined on `object` and not overridden in a subclass.
