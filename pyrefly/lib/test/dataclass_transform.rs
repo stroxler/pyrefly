@@ -88,7 +88,7 @@ C(x="oops")  # E: `Literal['oops']` is not assignable to parameter `x` with type
 );
 
 testcase!(
-    bug = "We should support frozen and frozen_default",
+    bug = "We should support frozen_default",
     test_frozen_default,
     r#"
 from typing import dataclass_transform, Any
@@ -113,7 +113,7 @@ class Mutable2:
 def f(mut1: Mutable1, mut2: Mutable2, froz1: Frozen1, froz2: Frozen2):
     mut1.x = 42
     mut2.x = 42
-    froz1.x = 42  # Should be an error
+    froz1.x = 42  # E: frozen dataclass member
     froz2.x = 42  # Should be an error
     "#,
 );

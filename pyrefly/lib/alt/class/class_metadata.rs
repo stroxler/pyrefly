@@ -42,6 +42,15 @@ use crate::types::literal::Lit;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
+/// The data we need to apply a dataclass-like transformation specified by `typing.dataclass_transform` to a class.
+struct DataclassTransform {
+    /// Defaults for dataclass behaviors - `eq_default`, `frozen_default`, etc.
+    #[expect(dead_code)]
+    defaults: BoolKeywords,
+    /// Keyword values customizing dataclass behaviors - `eq`, `frozen`, etc.
+    kws: BoolKeywords,
+}
+
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn new_type_base(
         &self,
@@ -148,7 +157,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // - it inherits from a base class decorated with `dataclass_transform(...)`, or
         // - it inherits from a base class whose metaclass is decorated with `dataclass_transform(...)`, or
         // - it is decorated with a decorator that is decorated with `dataclass_transform(...)`.
-        let mut dataclass_defaults_from_dataclass_transform = None;
+        let mut dataclass_from_dataclass_transform = None;
         let bases_with_metadata = bases
             .iter()
             .filter_map(|x| {
@@ -232,7 +241,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 dataclass_metadata = Some(base_dataclass.inherit());
                             }
                             if let Some(m) = base_class_metadata.dataclass_transform_metadata() {
-                                dataclass_defaults_from_dataclass_transform = Some(m.clone());
+                                dataclass_from_dataclass_transform = Some(DataclassTransform {
+                                    defaults: m.clone(),
+                                    kws: BoolKeywords::new(),
+                                });
                             }
                             Some((c, base_class_metadata))
                         }
@@ -441,25 +453,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
                 _ if let Some(m) = decorator_ty.dataclass_transform_metadata() => {
-                    dataclass_defaults_from_dataclass_transform = Some(m);
+                    dataclass_from_dataclass_transform = Some(DataclassTransform {
+                        defaults: m,
+                        kws: BoolKeywords::new(),
+                    });
                 }
                 // `@foo(...)` where `foo` is decorated with `@dataclass_transform(...)`
                 _ if let Type::KwCall(call) = decorator_ty
                     && let Some(kws) = &call.func_metadata.flags.dataclass_transform_metadata =>
                 {
-                    dataclass_defaults_from_dataclass_transform = Some(kws.clone());
+                    dataclass_from_dataclass_transform = Some(DataclassTransform {
+                        defaults: kws.clone(),
+                        kws: call.keywords.clone(),
+                    });
                 }
                 _ => {}
             }
         }
         if dataclass_metadata.is_none()
-            && let Some(_) = dataclass_defaults_from_dataclass_transform
+            && let Some(transform) = dataclass_from_dataclass_transform
         {
             // TODO(rechen): Take keyword values to `dataclass_transform(...)` into account.
             let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
             dataclass_metadata = Some(DataclassMetadata {
                 fields: dataclass_fields,
-                kws: BoolKeywords::new(),
+                kws: transform.kws,
             });
         }
         if is_typed_dict
