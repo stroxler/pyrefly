@@ -357,8 +357,12 @@ testcase!(
 from typing import Any, assert_type
 
 def f(x: Any):
-    assert_type(1 + x, int)
+    assert_type(1 + x, Any)
     assert_type(x < 10, Any)
+
+def f2(x: int | Any):
+    assert_type(1 + x, int | Any)
+    assert_type(x < 10,  bool | Any )
     "#,
 );
 

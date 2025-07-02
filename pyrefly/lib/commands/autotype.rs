@@ -217,13 +217,15 @@ def foo() -> int:
     fn test_parameter_annotation() -> anyhow::Result<()> {
         // Test parameter type annotation
         // TODO: Figure out how to get the parameter type inferred here, too
+        // TODO: A change in reflected operator implementation changed this test result.
+        // we should not infer any for bin operators with "any"
         assert_annotations(
             r#"
 def greet(name):
     return "Hello, " + name
 "#,
             r#"
-def greet(name) -> str:
+def greet(name):
     return "Hello, " + name
 "#,
         );

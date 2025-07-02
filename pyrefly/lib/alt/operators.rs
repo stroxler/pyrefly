@@ -220,7 +220,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let rhs = self.expr_infer(&x.right, errors);
         self.distribute_over_union(&lhs, |lhs| {
             self.distribute_over_union(&rhs, |rhs| {
-                if let Type::Any(style) = &lhs {
+                // If an Any appears on the RHS, do not refine the return type based on the LHS.
+                // Without loss of generality, consider e1 + e2 where e1 has type int and e2 has type Any.
+                // Then e1 + e2 should have a return type of Any since e2's __radd__  signature could be
+                // inconsistent with the signature of e1 __add__.
+                if let Type::Any(style) = &rhs {
+                    style.propagate()
+                } else if let Type::Any(style) = &lhs {
                     style.propagate()
                 } else if x.op == Operator::BitOr
                     && let Some(l) = self.untype_opt(lhs.clone(), x.left.range())
