@@ -85,7 +85,7 @@ describe('Home page', () => {
         expect(subtitle).toBeInTheDocument();
         const subtitleText = subtitle?.textContent?.trim();
         expect(subtitleText).toBe(
-            'A faster Python type checker written in Rust'
+            'A fast Python type checker written in Rust'
         );
     }
 });

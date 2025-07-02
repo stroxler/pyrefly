@@ -32,7 +32,7 @@ exports[`Home page renders external site correctly 1`] = `
             >
               <p>
                 <span>
-                  A faster Python type checker written in Rust
+                  A fast Python type checker written in Rust
                 </span>
               </p>
             </div>
@@ -432,7 +432,7 @@ exports[`Home page renders internal site correctly 1`] = `
             >
               <p>
                 <span>
-                  A faster Python type checker written in Rust
+                  A fast Python type checker written in Rust
                 </span>
               </p>
             </div>
