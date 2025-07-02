@@ -184,12 +184,12 @@ pub struct ConfigFile {
     /// NOTE: unlike other configs, this is never replaced with CLI arg overrides
     /// in this config, but may be overridden by CLI args where used.
     #[serde(
-        default = "ConfigFile::default_project_excludes",
-        skip_serializing_if = "Globs::is_empty",
-        // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
-        // alias while we migrate existing fields from snake case to kebab case.
-        alias = "project_excludes",
-    )]
+            default = "ConfigFile::default_project_excludes",
+            skip_serializing_if = "Globs::is_empty",
+            // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
+            // alias while we migrate existing fields from snake case to kebab case.
+            alias = "project_excludes",
+        )]
     pub project_excludes: Globs,
 
     #[serde(skip)]
@@ -200,13 +200,13 @@ pub struct ConfigFile {
     /// Does not include command-line overrides or the import root!
     /// Use ConfigFile::search_path() to get the full search path.
     #[serde(
-        default,
-        skip_serializing_if = "Vec::is_empty",
-        rename = "search-path", 
-        // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
-        // alias while we migrate existing fields from snake case to kebab case.
-        alias = "search_path"
-    )]
+            default,
+            skip_serializing_if = "Vec::is_empty",
+            rename = "search-path", 
+            // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
+            // alias while we migrate existing fields from snake case to kebab case.
+            alias = "search_path"
+        )]
     pub search_path_from_file: Vec<PathBuf>,
 
     /// The automatically inferred subdirectory that importable Python packages live in.
@@ -217,24 +217,24 @@ pub struct ConfigFile {
     /// project, we guess some fallback search paths that are checked after
     /// typeshed (so we don't clobber the stdlib) and before site_package_path.
     #[serde(
-        default,
-        skip_serializing_if = "Vec::is_empty",
-        // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
-        // alias while we migrate existing fields from snake case to kebab case.
-        alias = "fallback_search_path"
-    )]
+            default,
+            skip_serializing_if = "Vec::is_empty",
+            // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
+            // alias while we migrate existing fields from snake case to kebab case.
+            alias = "fallback_search_path"
+        )]
     pub fallback_search_path: Vec<PathBuf>,
 
     // TODO(connernilsen): make this mutually exclusive with venv/conda env
     /// The python executable that will be queried for `python_version`,
     /// `python_platform`, or `site_package_path` if any of the values are missing.
     #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
-        // alias while we migrate existing fields from snake case to kebab case.
-        alias = "python_interpreter"
-    )]
+                default,
+                skip_serializing_if = "Option::is_none",
+                // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
+                // alias while we migrate existing fields from snake case to kebab case.
+                alias = "python_interpreter"
+            )]
     pub python_interpreter: Option<PathBuf>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -254,23 +254,23 @@ pub struct ConfigFile {
     /// Sub-configs that can override specific `ConfigBase` settings
     /// based on path matching.
     #[serde(
-        default,
-        rename = "sub-config",
-        skip_serializing_if = "Vec::is_empty",
-        // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
-        // alias while we migrate existing fields from snake case to kebab case.
-        alias = "sub_config"
-    )]
+                default,
+                rename = "sub-config",
+                skip_serializing_if = "Vec::is_empty",
+                // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
+                // alias while we migrate existing fields from snake case to kebab case.
+                alias = "sub_config"
+            )]
     pub sub_configs: Vec<SubConfig>,
 
     /// Skips any `py.typed` checks we do when resolving `site_package_path` imports.
     #[serde(
-        default = "ConfigFile::default_true",
-        skip_serializing_if = "crate::config::util::skip_default_true",
-        // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
-        // alias while we migrate existing fields from snake case to kebab case.
-        alias = "use_untyped_imports",
-    )]
+                    default = "ConfigFile::default_true",
+                    skip_serializing_if = "crate::config::util::skip_default_true",
+                    // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
+                    // alias while we migrate existing fields from snake case to kebab case.
+                    alias = "use_untyped_imports",
+                )]
     pub use_untyped_imports: bool,
 
     /// Completely custom module to path mappings. Currently not exposed to the user.
@@ -280,12 +280,12 @@ pub struct ConfigFile {
     /// Skips the check to ensure any `-stubs` `site_package_path` entries have an
     /// installed non-stubs package.
     #[serde(
-        default = "ConfigFile::default_true",
-        skip_serializing_if = "crate::config::util::skip_default_true",
-        // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
-        // alias while we migrate existing fields from snake case to kebab case.
-        alias = "ignore_missing_source",
-    )]
+                    default = "ConfigFile::default_true",
+                    skip_serializing_if = "crate::config::util::skip_default_true",
+                    // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
+                    // alias while we migrate existing fields from snake case to kebab case.
+                    alias = "ignore_missing_source",
+                )]
     pub ignore_missing_source: bool,
 }
 
@@ -476,9 +476,9 @@ impl ConfigFile {
             self.get_from_sub_configs(ConfigBase::get_replace_imports_with_any, path)
         })
         .unwrap_or_else(||
-                // we can use unwrap here, because the value in the root config must
-                // be set in `ConfigFile::configure()`.
-                self.root.replace_imports_with_any.as_deref().unwrap())
+            // we can use unwrap here, because the value in the root config must
+            // be set in `ConfigFile::configure()`.
+            self.root.replace_imports_with_any.as_deref().unwrap())
     }
 
     pub fn untyped_def_behavior(&self, path: &Path) -> UntypedDefBehavior {
@@ -523,6 +523,8 @@ impl ConfigFile {
     /// Configures values that must be updated *after* overwriting with CLI flag values,
     /// which should probably be everything except for `PathBuf` or `Globs` types.
     pub fn configure(&mut self) -> Vec<ConfigError> {
+        let mut configure_errors = Vec::new();
+
         if self.python_environment.any_empty() {
             let find_interpreter = || -> anyhow::Result<PathBuf> {
                 if let Some(interpreter) = self.python_interpreter.clone() {
@@ -536,8 +538,8 @@ impl ConfigFile {
                 } else {
                     Err(anyhow::anyhow!(
                         "Python environment (version, platform, or site-package-path) has value unset, \
-                    but no Python interpreter could be found to query for values. Falling back to \
-                    Pyrefly defaults for missing values."
+                            but no Python interpreter could be found to query for values. Falling back to \
+                            Pyrefly defaults for missing values."
                     ))
                 }
             };
@@ -580,24 +582,24 @@ impl ConfigFile {
                     .map(|err| err.context(format!("Invalid {field}")))
             })
         }
-        let mut errors = Vec::new();
         if self.python_environment.site_package_path_source == SitePackagePathSource::ConfigFile {
             if let Some(p) = self.python_environment.site_package_path.as_ref() {
-                errors.extend(validate(p, "site_package_path"));
+                configure_errors.extend(validate(p, "site_package_path"));
             }
         }
-        errors.extend(validate(&self.search_path_from_file, "search_path"));
+        configure_errors.extend(validate(&self.search_path_from_file, "search_path"));
 
         if self.python_interpreter.is_some() && self.conda_environment.is_some() {
-            errors.push(anyhow::anyhow!(
-                "Cannot use both `python-interpreter` and `conda-environment`. Finding environment info using `python-interpreter`.",
+            configure_errors.push(anyhow::anyhow!(
+                    "Cannot use both `python-interpreter` and `conda-environment`. Finding environment info using `python-interpreter`.",
             ));
         }
 
         if let ConfigSource::File(path) = &self.source {
-            errors.into_map(|e| ConfigError::warn(e.context(format!("{}", path.display()))))
+            configure_errors
+                .into_map(|e| ConfigError::warn(e.context(format!("{}", path.display()))))
         } else {
-            errors.into_map(ConfigError::warn)
+            configure_errors.into_map(ConfigError::warn)
         }
     }
 
@@ -796,18 +798,18 @@ mod tests {
 
             [errors]
             assert-type = true
-            bad-return = false
+                bad-return = false
 
-            [[sub-config]]
-            matches = "sub/project/**"
+                [[sub-config]]
+                matches = "sub/project/**"
 
-            untyped-def-behavior = "check-and-infer-return-any"
-            replace-imports-with-any = []
-            ignore-errors-in-generated-code = false
-            [sub-config.errors]
-            assert-type = false
-            invalid-yield = false
-        "#;
+                    untyped-def-behavior = "check-and-infer-return-any"
+                    replace-imports-with-any = []
+                    ignore-errors-in-generated-code = false
+                    [sub-config.errors]
+                    assert-type = false
+                        invalid-yield = false
+                        "#;
         let config = ConfigFile::parse_config(config_str).unwrap();
         assert_eq!(
             config,
@@ -880,18 +882,18 @@ mod tests {
 
             [errors]
             assert-type = true
-            bad-return = false
+                bad-return = false
 
-            [[sub_config]]
-            matches = "sub/project/**"
+                [[sub_config]]
+                matches = "sub/project/**"
 
-            untyped_def_behavior = "check-and-infer-return-any"
-            replace_imports_with_any = []
-            ignore_errors_in_generated_code = false
-            [sub_config.errors]
-            assert-type = false
-            invalid-yield = false
-        "#;
+                    untyped_def_behavior = "check-and-infer-return-any"
+                    replace_imports_with_any = []
+                    ignore_errors_in_generated_code = false
+                    [sub_config.errors]
+                    assert-type = false
+                        invalid-yield = false
+                        "#;
         let config = ConfigFile::parse_config(config_str).unwrap();
         assert!(config.root.extras.0.is_empty());
         assert!(
@@ -925,8 +927,8 @@ mod tests {
             [[sub_config]]
             matches = "abcd"
 
-            atliens = 1
-        "#;
+                atliens = 1
+                "#;
         let config = ConfigFile::parse_config(config_str).unwrap();
         assert_eq!(
             config.root.extras.0,
@@ -943,9 +945,9 @@ mod tests {
         let config_str = r#"
             [tool.pyrefly]
             project_includes = ["./tests", "./implementation"]
-            python_platform = "darwin"
-            python_version = "1.2.3"
-        "#;
+                python_platform = "darwin"
+                python_version = "1.2.3"
+                "#;
         let config = ConfigFile::parse_pyproject_toml(config_str)
             .unwrap()
             .unwrap();
@@ -981,11 +983,11 @@ mod tests {
             top_level = 1
             [table1]
             table1_value = 2
-            [tool.pysa]
-            pysa_value = 2
-            [tool.pyrefly]
-            python_version = "1.2.3"
-        "#;
+                [tool.pysa]
+                pysa_value = 2
+                    [tool.pyrefly]
+                    python_version = "1.2.3"
+                        "#;
         let config = ConfigFile::parse_pyproject_toml(config_str)
             .unwrap()
             .unwrap();
@@ -1012,9 +1014,9 @@ mod tests {
             top_level = 1
             [table1]
             table1_value = 2
-            [tool.pysa]
-            pysa_value = 2
-        ";
+                [tool.pysa]
+                pysa_value = 2
+                    ";
         let config = ConfigFile::parse_pyproject_toml(config_str).unwrap();
         assert!(config.is_none());
     }
@@ -1025,12 +1027,12 @@ mod tests {
             top_level = 1
             [table1]
             table1_value = 2
-            [tool.pysa]
-            pysa_value = 2
-            [tool.pyrefly]
-            python_version = "1.2.3"
-            inzo = "overthinker"
-        "#;
+                [tool.pysa]
+                pysa_value = 2
+                    [tool.pyrefly]
+                    python_version = "1.2.3"
+                        inzo = "overthinker"
+                        "#;
         let config = ConfigFile::parse_pyproject_toml(config_str)
             .unwrap()
             .unwrap();
@@ -1115,9 +1117,9 @@ mod tests {
         let config_str = "
             [errors]
             subtronics = true
-            zeds_dead = false
-            GRiZ = true
-        ";
+                zeds_dead = false
+                GRiZ = true
+                ";
         let err = ConfigFile::parse_config(config_str).unwrap_err();
         assert!(err.to_string().contains("unknown variant"));
     }
@@ -1127,7 +1129,7 @@ mod tests {
         let config_str = r#"
             [[sub_config]]
             search_path = ["../../.."]
-        "#;
+                "#;
         let err = ConfigFile::parse_config(config_str).unwrap_err();
         assert!(err.to_string().contains("missing field `matches`"));
     }
