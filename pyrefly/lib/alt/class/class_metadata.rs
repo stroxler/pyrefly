@@ -415,12 +415,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         location: *decorator_range,
                     });
                 }
-                // `@dataclass` or `@dataclass(...)`
-                Some(CalleeKind::Function(FunctionKind::Dataclass(kws))) => {
+                // `@dataclass`
+                Some(CalleeKind::Function(FunctionKind::Dataclass)) => {
                     let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
                     dataclass_metadata = Some(DataclassMetadata {
                         fields: dataclass_fields,
-                        kws: *kws,
+                        kws: BoolKeywords::new(),
+                    });
+                }
+                // `@dataclass(...)`
+                _ if let Type::KwCall(call) = decorator_ty
+                    && call.has_function_kind(FunctionKind::Dataclass) =>
+                {
+                    let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
+                    dataclass_metadata = Some(DataclassMetadata {
+                        fields: dataclass_fields,
+                        kws: call.keywords.clone(),
                     });
                 }
                 // `@dataclass_transform(...)`

@@ -28,7 +28,6 @@ use crate::error::context::ErrorContext;
 use crate::error::kind::ErrorKind;
 use crate::types::callable::BoolKeywords;
 use crate::types::callable::Callable;
-use crate::types::callable::FuncFlags;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
@@ -535,18 +534,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<Type>,
     ) -> Type {
-        let (is_dataclass, dataclass_transform_metadata) = {
+        // Does this call target correspond to a function whose keyword arguments we should save?
+        let kw_metadata = {
             let metadata = call_target.target.function_metadata();
-            match metadata {
-                Some(FuncMetadata {
-                    kind: FunctionKind::Dataclass(_),
-                    ..
-                }) => (true, None),
-                Some(FuncMetadata {
-                    kind: FunctionKind::DataclassTransform,
-                    ..
-                }) => (false, metadata.cloned()),
-                _ => (false, None),
+            if let Some(m) = metadata
+                && matches!(
+                    m.kind,
+                    FunctionKind::Dataclass | FunctionKind::DataclassTransform
+                )
+            {
+                Some(m.clone())
+            } else {
+                None
             }
         };
         let res = match call_target.target {
@@ -688,23 +687,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
         self.solver().finish_quantified(&call_target.qs);
-        if is_dataclass && let Type::Callable(c) = res {
+        if let Some(func_metadata) = kw_metadata {
             let mut kws = BoolKeywords::new();
             for kw in keywords {
                 kws.set_keyword(kw.arg, kw.value.infer(self, errors));
             }
-            Type::Function(Box::new(Function {
-                signature: *c,
-                metadata: FuncMetadata {
-                    kind: FunctionKind::Dataclass(Box::new(kws)),
-                    flags: FuncFlags::default(),
-                },
-            }))
-        } else if let Some(func_metadata) = dataclass_transform_metadata {
-            // TODO(rechen): store the keyword arguments.
             Type::KwCall(Box::new(KwCall {
                 func_metadata,
-                keywords: BoolKeywords::new(),
+                keywords: kws,
                 return_ty: res,
             }))
         } else {

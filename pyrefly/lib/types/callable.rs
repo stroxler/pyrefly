@@ -246,7 +246,7 @@ impl FuncId {
 pub enum FunctionKind {
     IsInstance,
     IsSubclass,
-    Dataclass(Box<BoolKeywords>),
+    Dataclass,
     DataclassField,
     /// `typing.dataclass_transform`. Note that this is `dataclass_transform` itself, *not* the
     /// decorator created by a `dataclass_transform(...)` call. See
@@ -531,7 +531,7 @@ impl FunctionKind {
             ("builtins", None, "isinstance") => Self::IsInstance,
             ("builtins", None, "issubclass") => Self::IsSubclass,
             ("builtins", None, "classmethod") => Self::ClassMethod,
-            ("dataclasses", None, "dataclass") => Self::Dataclass(Box::new(BoolKeywords::new())),
+            ("dataclasses", None, "dataclass") => Self::Dataclass,
             ("dataclasses", None, "field") => Self::DataclassField,
             ("typing", None, "overload") => Self::Overload,
             ("typing", None, "override") => Self::Override,
@@ -569,7 +569,7 @@ impl FunctionKind {
                 cls: None,
                 func: Name::new_static("classmethod"),
             },
-            Self::Dataclass(_) => FuncId {
+            Self::Dataclass => FuncId {
                 module: ModuleName::dataclasses(),
                 cls: None,
                 func: Name::new_static("dataclass"),
