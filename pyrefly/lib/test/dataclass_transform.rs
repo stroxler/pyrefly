@@ -115,3 +115,16 @@ def f(mut1: Mutable1, mut2: Mutable2, froz1: Frozen1, froz2: Frozen2):
     froz2.x = 42  # E: frozen dataclass member
     "#,
 );
+
+testcase!(
+    test_class_keyword,
+    r#"
+from typing import dataclass_transform
+@dataclass_transform()
+class Base: ...
+class Data(Base, frozen=True):
+    x: int
+data = Data(x=0)
+data.x = 42  # E: frozen dataclass member
+    "#,
+);

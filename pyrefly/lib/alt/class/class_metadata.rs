@@ -307,6 +307,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "metaclass" => Either::Left(x),
                 _ => Either::Right((n.clone(), self.expr_infer(x, errors))),
             });
+        if let Some(m) = &mut dataclass_from_dataclass_transform {
+            // This class inherits from a dataclass_transform-ed base class, so its keywords are
+            // interpreted as dataclass keywords.
+            for (name, ty) in keywords.iter() {
+                if let Type::Literal(Lit::Bool(b)) = ty {
+                    m.kws.set(name.clone(), *b);
+                }
+            }
+        }
         let typed_dict_metadata = if is_typed_dict {
             // Validate that only 'total' keyword is allowed for TypedDict and determine is_total
             let mut is_total = true;

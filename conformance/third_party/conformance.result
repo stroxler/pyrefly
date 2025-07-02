@@ -159,10 +159,7 @@
     "Line 57: Unexpected errors ['Object of class `DC5` has no attribute `__slots__`']"
   ],
   "dataclasses_transform_class.py": [
-    "Line 51: Expected 1 errors",
-    "Line 63: Expected 1 errors",
-    "Line 60: Unexpected errors ['Unexpected keyword argument `other_name` in function `Customer1.__init__`']",
-    "Line 78: Unexpected errors ['`<` is not supported between `Customer2` and `Customer2`\\n  Cannot find `__lt__` or `__gt__`']"
+    "Line 60: Unexpected errors ['Unexpected keyword argument `other_name` in function `Customer1.__init__`']"
   ],
   "dataclasses_transform_converter.py": [
     "Line 118: Expected 1 errors",
@@ -178,10 +175,7 @@
   ],
   "dataclasses_transform_func.py": [],
   "dataclasses_transform_meta.py": [
-    "Line 51: Expected 1 errors",
-    "Line 63: Expected 1 errors",
-    "Line 60: Unexpected errors ['Unexpected keyword argument `other_name` in function `Customer1.__init__`']",
-    "Line 79: Unexpected errors ['`<` is not supported between `Customer2` and `Customer2`\\n  Cannot find `__lt__` or `__gt__`']"
+    "Line 60: Unexpected errors ['Unexpected keyword argument `other_name` in function `Customer1.__init__`']"
   ],
   "dataclasses_usage.py": [],
   "directives_assert_type.py": [],

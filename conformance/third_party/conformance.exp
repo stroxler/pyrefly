@@ -3356,6 +3356,16 @@
   "dataclasses_transform_class.py": [
     {
       "code": -2,
+      "column": 7,
+      "concise_description": "Cannot inherit non-frozen dataclass `dataclasses_transform_class.Customer1Subclass` from frozen dataclass `dataclasses_transform_class.Customer1`",
+      "description": "Cannot inherit non-frozen dataclass `dataclasses_transform_class.Customer1Subclass` from frozen dataclass `dataclasses_transform_class.Customer1`",
+      "line": 51,
+      "name": "invalid-inheritance",
+      "stop_column": 24,
+      "stop_line": 51
+    },
+    {
+      "code": -2,
       "column": 36,
       "concise_description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
       "description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
@@ -3363,6 +3373,16 @@
       "name": "unexpected-keyword",
       "stop_column": 54,
       "stop_line": 60
+    },
+    {
+      "code": -2,
+      "column": 1,
+      "concise_description": "Cannot set field `id`",
+      "description": "Cannot set field `id`\n  This field is a frozen dataclass member",
+      "line": 63,
+      "name": "read-only",
+      "stop_column": 8,
+      "stop_line": 63
     },
     {
       "code": -2,
@@ -3383,16 +3403,6 @@
       "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 72
-    },
-    {
-      "code": -2,
-      "column": 6,
-      "concise_description": "`<` is not supported between `Customer2` and `Customer2`",
-      "description": "`<` is not supported between `Customer2` and `Customer2`\n  Cannot find `__lt__` or `__gt__`",
-      "line": 78,
-      "name": "missing-attribute",
-      "stop_column": 17,
-      "stop_line": 78
     },
     {
       "code": -2,
@@ -3864,6 +3874,16 @@
   "dataclasses_transform_meta.py": [
     {
       "code": -2,
+      "column": 7,
+      "concise_description": "Cannot inherit non-frozen dataclass `dataclasses_transform_meta.Customer1Subclass` from frozen dataclass `dataclasses_transform_meta.Customer1`",
+      "description": "Cannot inherit non-frozen dataclass `dataclasses_transform_meta.Customer1Subclass` from frozen dataclass `dataclasses_transform_meta.Customer1`",
+      "line": 51,
+      "name": "invalid-inheritance",
+      "stop_column": 24,
+      "stop_line": 51
+    },
+    {
+      "code": -2,
       "column": 36,
       "concise_description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
       "description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
@@ -3871,6 +3891,16 @@
       "name": "unexpected-keyword",
       "stop_column": 54,
       "stop_line": 60
+    },
+    {
+      "code": -2,
+      "column": 1,
+      "concise_description": "Cannot set field `id`",
+      "description": "Cannot set field `id`\n  This field is a frozen dataclass member",
+      "line": 63,
+      "name": "read-only",
+      "stop_column": 8,
+      "stop_line": 63
     },
     {
       "code": -2,
@@ -3891,16 +3921,6 @@
       "name": "missing-attribute",
       "stop_column": 17,
       "stop_line": 73
-    },
-    {
-      "code": -2,
-      "column": 6,
-      "concise_description": "`<` is not supported between `Customer2` and `Customer2`",
-      "description": "`<` is not supported between `Customer2` and `Customer2`\n  Cannot find `__lt__` or `__gt__`",
-      "line": 79,
-      "name": "missing-attribute",
-      "stop_column": 17,
-      "stop_line": 79
     },
     {
       "code": -2,
