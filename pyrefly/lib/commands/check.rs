@@ -749,7 +749,7 @@ impl Args {
 
             let mut suppressed_errors: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
             for e in &errors.suppressed {
-                if e.is_ignored()
+                if e.is_ignored(false)
                     && let ModulePathDetails::FileSystem(path) = e.path().details()
                 {
                     suppressed_errors

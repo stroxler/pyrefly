@@ -508,6 +508,7 @@ impl ConfigFile {
         ErrorConfig::new(
             self.errors(path),
             self.ignore_errors_in_generated_code(path),
+            self.permissive_ignores(path),
         )
     }
 

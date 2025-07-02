@@ -37,16 +37,19 @@ impl ErrorDisplayConfig {
 pub struct ErrorConfig<'a> {
     pub display_config: &'a ErrorDisplayConfig,
     pub ignore_errors_in_generated_code: bool,
+    pub permissive_ignores: bool,
 }
 
 impl<'a> ErrorConfig<'a> {
     pub fn new(
         display_config: &'a ErrorDisplayConfig,
         ignore_errors_in_generated_code: bool,
+        permissive_ignores: bool,
     ) -> Self {
         Self {
             display_config,
             ignore_errors_in_generated_code,
+            permissive_ignores,
         }
     }
 }

@@ -155,7 +155,7 @@ impl ErrorCollector {
         let mut errors = self.errors.lock();
         if !(self.module_info.is_generated() && error_config.ignore_errors_in_generated_code) {
             for err in errors.iter() {
-                if err.is_ignored() {
+                if err.is_ignored(error_config.permissive_ignores) {
                     result.suppressed.push(err.clone());
                 } else if !error_config.display_config.is_enabled(err.error_kind()) {
                     result.disabled.push(err.clone());
@@ -234,7 +234,11 @@ mod tests {
         );
         assert_eq!(
             errors
-                .collect(&ErrorConfig::new(&ErrorDisplayConfig::default(), false))
+                .collect(&ErrorConfig::new(
+                    &ErrorDisplayConfig::default(),
+                    false,
+                    false
+                ))
                 .shown
                 .map(|x| x.msg()),
             vec!["b", "a", "a"]
@@ -285,7 +289,7 @@ mod tests {
             (ErrorKind::BadAssignment, false),
             (ErrorKind::NotIterable, false),
         ]));
-        let config = ErrorConfig::new(&display_config, false);
+        let config = ErrorConfig::new(&display_config, false, false);
 
         assert_eq!(
             errors.collect(&config).shown.map(|x| x.msg()),
@@ -309,10 +313,10 @@ mod tests {
         );
 
         let display_config = ErrorDisplayConfig::default();
-        let config0 = ErrorConfig::new(&display_config, false);
+        let config0 = ErrorConfig::new(&display_config, false, false);
         assert_eq!(errors.collect(&config0).shown.map(|x| x.msg()), vec!["a"]);
 
-        let config1 = ErrorConfig::new(&display_config, true);
+        let config1 = ErrorConfig::new(&display_config, true, false);
         assert!(errors.collect(&config1).shown.map(|x| x.msg()).is_empty());
     }
 
@@ -338,7 +342,11 @@ mod tests {
         );
         assert_eq!(
             errors
-                .collect(&ErrorConfig::new(&ErrorDisplayConfig::default(), false))
+                .collect(&ErrorConfig::new(
+                    &ErrorDisplayConfig::default(),
+                    false,
+                    false
+                ))
                 .shown
                 .map(|x| x.msg()),
             vec!["Overload", "A specific error"]

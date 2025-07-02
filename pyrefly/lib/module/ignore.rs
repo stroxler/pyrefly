@@ -131,6 +131,7 @@ impl Ignore {
         start_line: LineNumber,
         end_line: LineNumber,
         kind: ErrorKind,
+        #[allow(unused_variables)] permissive_ignores: bool,
     ) -> bool {
         if self.ignore_all {
             return true;

@@ -219,9 +219,9 @@ impl Error {
         }
     }
 
-    pub fn is_ignored(&self) -> bool {
+    pub fn is_ignored(&self, permissive_ignores: bool) -> bool {
         self.module_info
-            .is_ignored(&self.display_range, self.error_kind)
+            .is_ignored(&self.display_range, self.error_kind, permissive_ignores)
     }
 
     pub fn error_kind(&self) -> ErrorKind {
