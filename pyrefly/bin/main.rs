@@ -45,7 +45,7 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[derive(Debug, Parser)]
 #[command(name = "pyrefly")]
-#[command(about = "Next generation of Pyre type checker", long_about = None)]
+#[command(about = "A fast Python type checker", long_about = None)]
 #[command(version)]
 struct Args {
     /// Set this to true to run profiling of fast jobs.
