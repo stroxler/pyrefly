@@ -380,7 +380,6 @@ impl Display for Type {
 pub struct ClassDisplayContext<'a>(TypeDisplayContext<'a>);
 
 impl<'a> ClassDisplayContext<'a> {
-    #[expect(dead_code)]
     pub fn new(classes: &[&'a Class]) -> Self {
         let mut ctx = TypeDisplayContext::new(&[]);
         for cls in classes {
@@ -389,7 +388,6 @@ impl<'a> ClassDisplayContext<'a> {
         Self(ctx)
     }
 
-    #[expect(dead_code)]
     pub fn display(&'a self, cls: &'a Class) -> impl Display + 'a {
         Fmt(|f| self.0.fmt_qname(cls.qname(), f))
     }

@@ -11,9 +11,9 @@ use std::fmt::Formatter;
 use std::iter;
 use std::sync::Arc;
 
+use dupe::Dupe;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
-use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::display::commas_iter;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
@@ -30,7 +30,7 @@ use crate::types::callable::BoolKeywords;
 use crate::types::callable::DataclassKeywords;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
-use crate::types::qname::QName;
+use crate::types::display::ClassDisplayContext;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::Type;
 
@@ -137,6 +137,8 @@ impl ClassMetadata {
                             "non-frozen"
                         };
 
+                        let base = base_type.class_object();
+                        let ctx = ClassDisplayContext::new(&[cls, base]);
                         errors.add(
                             cls.range(),
                             ErrorKind::InvalidInheritance,
@@ -144,9 +146,9 @@ impl ClassMetadata {
                             vec1![format!(
                                 "Cannot inherit {} dataclass `{}` from {} dataclass `{}`",
                                 current_status,
-                                ClassName(cls.qname(), errors.module_info().name()),
+                                ctx.display(cls),
                                 base_status,
-                                ClassName(base_type.qname(), errors.module_info().name()),
+                                ctx.display(base),
                             )],
                         );
                     }
@@ -433,18 +435,6 @@ impl Display for ClassMro {
     }
 }
 
-struct ClassName<'a>(&'a QName, ModuleName);
-
-impl Display for ClassName<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if self.0.module_name() == self.1 {
-            self.0.fmt_name(f)
-        } else {
-            self.0.fmt_with_module(f)
-        }
-    }
-}
-
 impl ClassMro {
     /// Compute all ancestors the method resolution order (MRO).
     ///
@@ -559,14 +549,16 @@ impl Linearization {
                 // None and Cyclic both indicate a cycle, the distinction just
                 // depends on how exactly the recursion in resolving keys plays out.
                 ClassMro::Cyclic => {
+                    let base = base.class_object();
+                    let ctx = ClassDisplayContext::new(&[cls, base]);
                     errors.add(
                         cls.range(),
                         ErrorKind::InvalidInheritance,
                         None,
                         vec1![format!(
                             "Class `{}` inheriting from `{}` creates a cycle",
-                            ClassName(cls.qname(), errors.module_info().name()),
-                            ClassName(base.qname(), errors.module_info().name()),
+                            ctx.display(cls),
+                            ctx.display(base),
                         )],
                     );
                     // Signal that we detected a cycle
@@ -636,15 +628,22 @@ impl Linearization {
                 // The ancestors are not linearizable at this point. Record an error and stop with
                 // what we have so far.
                 // (The while loop invariant ensures that ancestor_chains is non-empty, so unwrap is safe.)
-                let first_candidate = &ancestor_chains.first().unwrap().0.last().class_object();
+                let first_candidate = &ancestor_chains
+                    .first()
+                    .unwrap()
+                    .0
+                    .last()
+                    .class_object()
+                    .dupe();
+                let ctx = ClassDisplayContext::new(&[cls, first_candidate]);
                 errors.add(
                     cls.range(),
                     ErrorKind::InvalidInheritance,
                     None,
                     vec1![format!(
                         "Class `{}` has a nonlinearizable inheritance chain detected at `{}`",
-                        ClassName(cls.qname(), errors.module_info().name()),
-                        ClassName(first_candidate.qname(), errors.module_info().name()),
+                        ctx.display(cls),
+                        ctx.display(first_candidate),
                     )],
                 );
 
