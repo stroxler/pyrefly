@@ -142,3 +142,15 @@ def foo() -> str:
   return len(1) # E: Returned type `int` is not assignable to declared return type `str`
 "#,
 );
+
+testcase!(
+    test_ignore_whitespace,
+    r#"
+x0: int = "hello" #type:ignore
+x1: int = "hello" # type:ignore
+x2: int = "hello" #type: ignore
+x3: int = "hello" # type: ignore
+x4: int = "hello" # type:  ignore
+x5: int = "hello" #  type:  ignore    # more
+"#,
+);

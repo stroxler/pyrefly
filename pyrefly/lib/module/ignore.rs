@@ -153,8 +153,11 @@ impl Ignore {
             None
         }
 
-        for l in line.split("# ").skip(1) {
-            if l.starts_with("type: ignore") {
+        for l in line.split("#").skip(1) {
+            let l = l.trim_start();
+            if let Some(l) = l.strip_prefix("type:")
+                && l.trim_start().starts_with("ignore")
+            {
                 return Some(SuppressionKind::Ignore);
             } else if let Some(value) = match_pyrefly_ignore(l) {
                 return Some(value);
