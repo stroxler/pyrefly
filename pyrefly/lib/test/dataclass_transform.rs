@@ -72,7 +72,6 @@ D(x="oops")  # E: `Literal['oops']` is not assignable to parameter `x` with type
 );
 
 testcase!(
-    bug = "Dataclass transformation should be applied to `C`",
     test_call_transform,
     r#"
 from typing import dataclass_transform
@@ -83,7 +82,7 @@ def build(**kwargs): ...
 @build()
 class C:
     x: int
-C(x=0)  # Should be ok  # E: Unexpected keyword argument `x`
-C(x="oops")  # E: Unexpected keyword argument `x`
+C(x=0)
+C(x="oops")  # E: `Literal['oops']` is not assignable to parameter `x` with type `int`
     "#,
 );

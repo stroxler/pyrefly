@@ -177,15 +177,13 @@
     "Line 121: Unexpected errors [\"Argument `Literal['f0']` is not assignable to parameter `field0` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f1']` is not assignable to parameter `field1` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f2']` is not assignable to parameter `field2` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f6']` is not assignable to parameter `field3` with type `ConverterClass` in function `DC2.__init__`\", \"Argument `Literal['1']` is not assignable to parameter `field4` with type `int` in function `DC2.__init__`\", \"Argument `tuple[tuple[Literal['a'], Literal['1']], tuple[Literal['b'], Literal['2']]]` is not assignable to parameter `field5` with type `dict[str, str]` in function `DC2.__init__`\"]"
   ],
   "dataclasses_transform_field.py": [
-    "Line 60: Unexpected errors ['Unexpected keyword argument `name` in function `object.__init__`']",
-    "Line 77: Unexpected errors ['Unexpected keyword argument `name` in function `object.__init__`']"
+    "Line 64: Expected 1 errors",
+    "Line 75: Expected 1 errors"
   ],
   "dataclasses_transform_func.py": [
+    "Line 71: Expected 1 errors",
     "Line 97: Expected 1 errors",
     "Lines 89, 90: Expected error (tag 'Customer3Subclass')",
-    "Line 50: Unexpected errors ['Unexpected keyword argument `id` in function `object.__init__`', 'Unexpected keyword argument `name` in function `object.__init__`']",
-    "Line 53: Unexpected errors ['Expected 0 positional arguments, got 2 in function `object.__init__`']",
-    "Line 67: Unexpected errors ['Unexpected keyword argument `id` in function `object.__init__`', 'Unexpected keyword argument `name` in function `object.__init__`']",
     "Line 73: Unexpected errors ['`<` is not supported between `Customer2` and `Customer2`\\n  Cannot find `__lt__` or `__gt__`']"
   ],
   "dataclasses_transform_meta.py": [

@@ -3727,89 +3727,8 @@
       "stop_line": 133
     }
   ],
-  "dataclasses_transform_field.py": [
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "line": 60,
-      "name": "unexpected-keyword",
-      "stop_column": 25,
-      "stop_line": 60
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "line": 64,
-      "name": "unexpected-keyword",
-      "stop_column": 20,
-      "stop_line": 64
-    },
-    {
-      "code": -2,
-      "column": 22,
-      "concise_description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "line": 64,
-      "name": "unexpected-keyword",
-      "stop_column": 31,
-      "stop_line": 64
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Expected 0 positional arguments, got 1 in function `object.__init__`",
-      "description": "Expected 0 positional arguments, got 1 in function `object.__init__`",
-      "line": 75,
-      "name": "bad-argument-type",
-      "stop_column": 17,
-      "stop_line": 75
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "line": 77,
-      "name": "unexpected-keyword",
-      "stop_column": 27,
-      "stop_line": 77
-    }
-  ],
+  "dataclasses_transform_field.py": [],
   "dataclasses_transform_func.py": [
-    {
-      "code": -2,
-      "column": 18,
-      "concise_description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "line": 50,
-      "name": "unexpected-keyword",
-      "stop_column": 22,
-      "stop_line": 50
-    },
-    {
-      "code": -2,
-      "column": 24,
-      "concise_description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "line": 50,
-      "name": "unexpected-keyword",
-      "stop_column": 34,
-      "stop_line": 50
-    },
-    {
-      "code": -2,
-      "column": 18,
-      "concise_description": "Expected 0 positional arguments, got 2 in function `object.__init__`",
-      "description": "Expected 0 positional arguments, got 2 in function `object.__init__`",
-      "line": 53,
-      "name": "bad-argument-type",
-      "stop_column": 19,
-      "stop_line": 53
-    },
     {
       "code": -2,
       "column": 13,
@@ -3832,63 +3751,13 @@
     },
     {
       "code": -2,
-      "column": 18,
-      "concise_description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "line": 65,
-      "name": "unexpected-keyword",
-      "stop_column": 22,
-      "stop_line": 65
-    },
-    {
-      "code": -2,
-      "column": 24,
-      "concise_description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "line": 65,
-      "name": "unexpected-keyword",
-      "stop_column": 34,
-      "stop_line": 65
-    },
-    {
-      "code": -2,
       "column": 36,
-      "concise_description": "Unexpected keyword argument `salary` in function `object.__init__`",
-      "description": "Unexpected keyword argument `salary` in function `object.__init__`",
+      "concise_description": "Unexpected keyword argument `salary` in function `Customer1.__init__`",
+      "description": "Unexpected keyword argument `salary` in function `Customer1.__init__`",
       "line": 65,
       "name": "unexpected-keyword",
       "stop_column": 48,
       "stop_line": 65
-    },
-    {
-      "code": -2,
-      "column": 18,
-      "concise_description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "description": "Unexpected keyword argument `id` in function `object.__init__`",
-      "line": 67,
-      "name": "unexpected-keyword",
-      "stop_column": 22,
-      "stop_line": 67
-    },
-    {
-      "code": -2,
-      "column": 24,
-      "concise_description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "description": "Unexpected keyword argument `name` in function `object.__init__`",
-      "line": 67,
-      "name": "unexpected-keyword",
-      "stop_column": 35,
-      "stop_line": 67
-    },
-    {
-      "code": -2,
-      "column": 18,
-      "concise_description": "Expected 0 positional arguments, got 2 in function `object.__init__`",
-      "description": "Expected 0 positional arguments, got 2 in function `object.__init__`",
-      "line": 71,
-      "name": "bad-argument-type",
-      "stop_column": 19,
-      "stop_line": 71
     },
     {
       "code": -2,

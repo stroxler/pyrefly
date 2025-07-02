@@ -443,6 +443,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 _ if let Some(m) = decorator_ty.dataclass_transform_metadata() => {
                     dataclass_defaults_from_dataclass_transform = Some(m);
                 }
+                // `@foo(...)` where `foo` is decorated with `@dataclass_transform(...)`
+                _ if let Type::KwCall(call) = decorator_ty
+                    && let Some(kws) = &call.func_metadata.flags.dataclass_transform_metadata =>
+                {
+                    dataclass_defaults_from_dataclass_transform = Some(kws.clone());
+                }
                 _ => {}
             }
         }

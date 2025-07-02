@@ -538,10 +538,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let kw_metadata = {
             let metadata = call_target.target.function_metadata();
             if let Some(m) = metadata
-                && matches!(
+                && (matches!(
                     m.kind,
                     FunctionKind::Dataclass | FunctionKind::DataclassTransform
-                )
+                ) || m.flags.dataclass_transform_metadata.is_some())
             {
                 Some(m.clone())
             } else {
