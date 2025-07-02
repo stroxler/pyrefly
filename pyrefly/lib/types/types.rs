@@ -348,7 +348,6 @@ pub enum CalleeKind {
     Callable,
     Function(FunctionKind),
     Class(ClassKind),
-    DataclassTransformDecorator(BoolKeywords),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -926,9 +925,7 @@ impl Type {
             Type::ClassDef(c) => Some(CalleeKind::Class(c.kind())),
             Type::Forall(forall) => forall.body.clone().as_type().callee_kind(),
             Type::Overload(overload) => Some(CalleeKind::Function(overload.metadata.kind.clone())),
-            Type::DataclassTransformDecorator(dec) => {
-                Some(CalleeKind::DataclassTransformDecorator((dec.0).clone()))
-            }
+            Type::DataclassTransformDecorator(dec) => dec.1.callee_kind(),
             _ => None,
         }
     }

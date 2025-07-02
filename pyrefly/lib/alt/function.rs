@@ -243,8 +243,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         has_final_decoration = true;
                         false
                     }
-                    Some(CalleeKind::DataclassTransformDecorator(kws)) => {
-                        dataclass_transform_metadata = Some(kws);
+                    _ if let Type::DataclassTransformDecorator(dec) = decorator_ty => {
+                        dataclass_transform_metadata = Some(dec.0.clone());
                         false
                     }
                     _ => true,
