@@ -199,6 +199,9 @@ struct ConfigOverrideArgs {
     /// Controls how Pyrefly analyzes function definitions that lack type annotations on parameters and return values.
     #[arg(long, env = clap_env("UNTYPED_DEF_BEHAVIOR"))]
     untyped_def_behavior: Option<UntypedDefBehavior>,
+    /// Whether Pyrefly will respect ignore statements for other tools, e.g. `# mypy: ignore`.
+    #[arg(long, env = clap_env("PERMISSIVE_IGNORES"))]
+    permissive_ignores: Option<bool>,
 }
 
 impl OutputFormat {
@@ -585,6 +588,9 @@ impl Args {
         }
         if let Some(x) = &self.config_override.untyped_def_behavior {
             config.root.untyped_def_behavior = Some(*x);
+        }
+        if let Some(x) = self.config_override.permissive_ignores {
+            config.root.permissive_ignores = Some(x);
         }
         if let Some(wildcards) = &self.config_override.replace_imports_with_any {
             config.root.replace_imports_with_any = Some(

@@ -30,6 +30,10 @@ pub struct ConfigBase {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub errors: Option<ErrorDisplayConfig>,
 
+    /// Consider any ignore (including from other tools) to ignore an error.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub permissive_ignores: Option<bool>,
+
     /// String-prefix-matched names of modules from which import errors should be ignored
     /// and the module should always be replaced with `typing.Any`
     #[serde(

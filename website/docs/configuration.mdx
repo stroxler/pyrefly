@@ -407,6 +407,17 @@ and finding definitions will not be available there.
   - The `"check-and-infer-return-any"` behavior emulates mypy's
     `check_untyped_defs` flag.
 
+
+### `permissive-ignores`
+
+Should Pyrefly ignore errors based on annotations from other tools, e.g. `# pyre-ignore` or `# mypy: ignore`?
+By default, respects `# pyrefly: ignore` and `# type: ignore`.
+
+- Type: `bool`
+- Default: `false`
+- Flag equivalent: `--permissive-ignores`
+- ENV equivalent: `PYREFLY_PERMISSIVE_IGNORES`
+
 ### `sub-config`
 
 Override specific config values for matched paths in your project. See

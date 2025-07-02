@@ -496,6 +496,14 @@ impl ConfigFile {
                 self.root.ignore_errors_in_generated_code.unwrap())
     }
 
+    pub fn permissive_ignores(&self, path: &Path) -> bool {
+        self.get_from_sub_configs(|x| x.permissive_ignores, path)
+            .unwrap_or_else(||
+                // we can use unwrap here, because the value in the root config must
+                // be set in `ConfigFile::configure()`.
+                self.root.permissive_ignores.unwrap())
+    }
+
     pub fn get_error_config(&self, path: &Path) -> ErrorConfig {
         ErrorConfig::new(
             self.errors(path),
@@ -572,6 +580,10 @@ impl ConfigFile {
 
         if self.root.ignore_errors_in_generated_code.is_none() {
             self.root.ignore_errors_in_generated_code = Some(Default::default());
+        }
+
+        if self.root.permissive_ignores.is_none() {
+            self.root.permissive_ignores = Some(false);
         }
 
         fn validate<'a>(
@@ -845,6 +857,7 @@ mod tests {
                     ignore_errors_in_generated_code: Some(true),
                     replace_imports_with_any: Some(vec![ModuleWildcard::new("fibonacci").unwrap()]),
                     untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnType),
+                    permissive_ignores: None,
                 },
                 custom_module_paths: Default::default(),
                 sub_configs: vec![SubConfig {
@@ -858,6 +871,7 @@ mod tests {
                         ignore_errors_in_generated_code: Some(false),
                         replace_imports_with_any: Some(Vec::new()),
                         untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnAny),
+                        permissive_ignores: None,
                     }
                 }],
                 use_untyped_imports: true,
@@ -1204,6 +1218,7 @@ mod tests {
                 untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnType),
                 ignore_errors_in_generated_code: Some(false),
                 extras: Default::default(),
+                permissive_ignores: Some(false),
             },
             sub_configs: vec![
                 SubConfig {
