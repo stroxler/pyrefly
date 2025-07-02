@@ -16,8 +16,8 @@
 //! You can specify a specific error code, e.g. `# type: ignore[invalid-type]`.
 //! Note that Pyright will only honor such codes after `# pyright: ignore[code]`.
 //!
-//! You can also use `# mypy: ignore-errors`, `# pyrefly: ignore-all-errors`
-//! or `# type: ignore` on the top line to surpress all errors.
+//! You can also use `# mypy: ignore-errors`, `# pyrefly: ignore-errors`
+//! or `# type: ignore` at the beginning of a file to surpress all errors.
 //!
 //! For Pyre compatibility we also allow `# pyre-ignore` and `# pyre-fixme`
 //! as equivalents to `pyre: ignore`, and `# pyre-ignore-all-errors` as
@@ -72,7 +72,7 @@ impl Ignore {
             if line_str.is_empty() {
                 continue;
             }
-            // If the line is a comment, check if it's exactly "# pyrefly: ignore-all-errors"
+            // If the line is a comment, check if it's exactly "# pyrefly: ignore-errors"
             if !line_str.starts_with("#") {
                 return false;
             } else if line_str == "# type: ignore" {
@@ -84,7 +84,7 @@ impl Ignore {
                     // normal suppression, not an ignore-all directive.
                     return false;
                 }
-            } else if line_str == "# pyrefly: ignore-all-errors"
+            } else if line_str == "# pyrefly: ignore-errors"
                 || line_str == "# pyre-ignore-all-errors"
             {
                 return true;
@@ -189,14 +189,14 @@ mod tests {
     fn test_has_ignore_all() {
         assert!(Ignore::has_ignore_all(
             r#"
-# pyrefly: ignore-all-errors
+# pyrefly: ignore-errors
 x = 5
 "#
         ));
         assert!(Ignore::has_ignore_all(
             r#"
 # comment
-# pyrefly: ignore-all-errors
+# pyrefly: ignore-errors
 x = 5
 "#
         ));
@@ -204,14 +204,14 @@ x = 5
             r#"
 # comment
   # indented comment
-# pyrefly: ignore-all-errors
+# pyrefly: ignore-errors
 x = 5
 "#
         ));
         assert!(!Ignore::has_ignore_all(
             r#"
 x = 5
-# pyrefly: ignore-all-errors
+# pyrefly: ignore-errors
 "#
         ));
         assert!(Ignore::has_ignore_all(
