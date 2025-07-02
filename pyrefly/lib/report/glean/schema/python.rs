@@ -117,7 +117,7 @@ impl VariableBySName {
         String::from("python.VariableBySName.4")
     }
 
-    pub fn new(key: SName, value: VariableDeclaration) -> Self {
+    pub fn new(key: SName, value: VariableBySName_value) -> Self {
         VariableBySName {
             id: 0,
             key: Box::new(key),
@@ -446,7 +446,7 @@ impl SNameToName {
         String::from("python.SNameToName.4")
     }
 
-    pub fn new(key: SName, value: Name) -> Self {
+    pub fn new(key: SName, value: SNameToName_value) -> Self {
         SNameToName {
             id: 0,
             key: Box::new(key),
@@ -511,7 +511,7 @@ impl NameToSName {
         String::from("python.NameToSName.4")
     }
 
-    pub fn new(key: Name, value: SName) -> Self {
+    pub fn new(key: Name, value: NameToSName_value) -> Self {
         NameToSName {
             id: 0,
             key: Box::new(key),
@@ -572,7 +572,7 @@ impl ModuleBySName {
         String::from("python.ModuleBySName.4")
     }
 
-    pub fn new(key: SName, value: Module) -> Self {
+    pub fn new(key: SName, value: ModuleBySName_value) -> Self {
         ModuleBySName {
             id: 0,
             key: Box::new(key),
@@ -836,7 +836,7 @@ impl FunctionBySName {
         String::from("python.FunctionBySName.4")
     }
 
-    pub fn new(key: SName, value: FunctionDeclaration) -> Self {
+    pub fn new(key: SName, value: FunctionBySName_value) -> Self {
         FunctionBySName {
             id: 0,
             key: Box::new(key),
@@ -1087,7 +1087,7 @@ impl DeclarationToName {
         String::from("python.DeclarationToName.4")
     }
 
-    pub fn new(key: Declaration, value: Name) -> Self {
+    pub fn new(key: Declaration, value: DeclarationToName_value) -> Self {
         DeclarationToName {
             id: 0,
             key: Box::new(key),
@@ -1478,7 +1478,7 @@ impl ClassBySName {
         String::from("python.ClassBySName.4")
     }
 
-    pub fn new(key: SName, value: ClassDeclaration) -> Self {
+    pub fn new(key: SName, value: ClassBySName_value) -> Self {
         ClassBySName {
             id: 0,
             key: Box::new(key),

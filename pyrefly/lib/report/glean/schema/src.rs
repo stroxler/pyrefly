@@ -119,7 +119,7 @@ impl FileDigest {
         String::from("src.FileDigest.1")
     }
 
-    pub fn new(key: File, value: String) -> Self {
+    pub fn new(key: File, value: FileDigest_value) -> Self {
         FileDigest {
             id: 0,
             key: Box::new(key),
