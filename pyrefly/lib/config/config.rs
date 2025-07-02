@@ -522,7 +522,7 @@ impl ConfigFile {
 
     /// Configures values that must be updated *after* overwriting with CLI flag values,
     /// which should probably be everything except for `PathBuf` or `Globs` types.
-    pub fn configure(&mut self) {
+    pub fn configure(&mut self) -> Vec<ConfigError> {
         if self.python_environment.any_empty() {
             let find_interpreter = || -> anyhow::Result<PathBuf> {
                 if let Some(interpreter) = self.python_interpreter.clone() {
@@ -569,6 +569,36 @@ impl ConfigFile {
         if self.root.ignore_errors_in_generated_code.is_none() {
             self.root.ignore_errors_in_generated_code = Some(Default::default());
         }
+
+        fn validate<'a>(
+            paths: &'a [PathBuf],
+            field: &'a str,
+        ) -> impl Iterator<Item = anyhow::Error> + 'a {
+            paths.iter().filter_map(move |p| {
+                validate_path(p)
+                    .err()
+                    .map(|err| err.context(format!("Invalid {field}")))
+            })
+        }
+        let mut errors = Vec::new();
+        if self.python_environment.site_package_path_source == SitePackagePathSource::ConfigFile {
+            if let Some(p) = self.python_environment.site_package_path.as_ref() {
+                errors.extend(validate(p, "site_package_path"));
+            }
+        }
+        errors.extend(validate(&self.search_path_from_file, "search_path"));
+
+        if self.python_interpreter.is_some() && self.conda_environment.is_some() {
+            errors.push(anyhow::anyhow!(
+                "Cannot use both `python-interpreter` and `conda-environment`. Finding environment info using `python-interpreter`.",
+            ));
+        }
+
+        if let ConfigSource::File(path) = &self.source {
+            errors.into_map(|e| ConfigError::warn(e.context(format!("{}", path.display()))))
+        } else {
+            errors.into_map(ConfigError::warn)
+        }
     }
 
     /// Rewrites any config values that must be updated *before* applying CLI flag values, namely
@@ -608,38 +638,6 @@ impl ConfigFile {
         self.sub_configs
             .iter_mut()
             .for_each(|c| c.rewrite_with_path_to_config(config_root));
-    }
-
-    pub fn validate(&self) -> Vec<ConfigError> {
-        fn validate<'a>(
-            paths: &'a [PathBuf],
-            field: &'a str,
-        ) -> impl Iterator<Item = anyhow::Error> + 'a {
-            paths.iter().filter_map(move |p| {
-                validate_path(p)
-                    .err()
-                    .map(|err| err.context(format!("Invalid {field}")))
-            })
-        }
-        let mut errors = Vec::new();
-        if self.python_environment.site_package_path_source == SitePackagePathSource::ConfigFile {
-            if let Some(p) = self.python_environment.site_package_path.as_ref() {
-                errors.extend(validate(p, "site_package_path"));
-            }
-        }
-        errors.extend(validate(&self.search_path_from_file, "search_path"));
-
-        if self.python_interpreter.is_some() && self.conda_environment.is_some() {
-            errors.push(anyhow::anyhow!(
-                "Cannot use both `python-interpreter` and `conda-environment`. Finding environment info using `python-interpreter`.",
-            ));
-        }
-
-        if let ConfigSource::File(path) = &self.source {
-            errors.into_map(|e| ConfigError::warn(e.context(format!("{}", path.display()))))
-        } else {
-            errors.into_map(ConfigError::warn)
-        }
     }
 
     pub fn from_file(config_path: &Path) -> (ConfigFile, Vec<ConfigError>) {
@@ -1412,13 +1410,13 @@ mod tests {
 
     #[test]
     fn test_python_interpreter_conda_environment() {
-        let config = ConfigFile {
+        let mut config = ConfigFile {
             python_interpreter: Some(PathBuf::new()),
             conda_environment: Some("".to_owned()),
             ..Default::default()
         };
 
-        let validation_errors = config.validate();
+        let validation_errors = config.configure();
 
         assert!(
             validation_errors.iter().any(|e| {

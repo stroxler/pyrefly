@@ -598,8 +598,7 @@ impl Args {
         if let Some(x) = &self.config_override.ignore_errors_in_generated_code {
             config.root.ignore_errors_in_generated_code = Some(*x);
         }
-        config.configure();
-        let errors = config.validate();
+        let errors = config.configure();
         (ArcId::new(config), errors)
     }
 
