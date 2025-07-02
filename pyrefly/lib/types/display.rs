@@ -360,10 +360,7 @@ impl<'a> TypeDisplayContext<'a> {
                 }
                 write!(f, "]")
             }
-            Type::KwCall(_) => {
-                // TODO(rechen): display the keyword arguments.
-                write!(f, "DataclassTransformDecorator")
-            }
+            Type::KwCall(call) => self.fmt(&call.return_ty, f),
             Type::None => write!(f, "None"),
         }
     }

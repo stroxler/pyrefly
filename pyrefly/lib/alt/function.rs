@@ -246,7 +246,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         is_property_setter_with_getter = Some(decorator.arc_clone_ty());
                         false
                     }
-                    _ if let Type::KwCall(call) = decorator_ty => {
+                    _ if let Type::KwCall(call) = decorator_ty && call.has_function_kind(FunctionKind::DataclassTransform) => {
                         dataclass_transform_metadata = Some(call.keywords.clone());
                         false
                     }

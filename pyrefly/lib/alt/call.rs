@@ -535,14 +535,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<Type>,
     ) -> Type {
-        let kind = call_target.target.function_metadata().map(|m| &m.kind);
-        let mut is_dataclass = false;
-        let mut is_dataclass_transform = false;
-        match kind {
-            Some(FunctionKind::Dataclass(_)) => is_dataclass = true,
-            Some(FunctionKind::DataclassTransform) => is_dataclass_transform = true,
-            _ => {}
-        }
+        let (is_dataclass, dataclass_transform_metadata) = {
+            let metadata = call_target.target.function_metadata();
+            match metadata {
+                Some(FuncMetadata {
+                    kind: FunctionKind::Dataclass(_),
+                    ..
+                }) => (true, None),
+                Some(FuncMetadata {
+                    kind: FunctionKind::DataclassTransform,
+                    ..
+                }) => (false, metadata.cloned()),
+                _ => (false, None),
+            }
+        };
         let res = match call_target.target {
             Target::Class(cls) => {
                 if let Some(hint) = hint {
@@ -694,9 +700,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     flags: FuncFlags::default(),
                 },
             }))
-        } else if is_dataclass_transform {
+        } else if let Some(func_metadata) = dataclass_transform_metadata {
             // TODO(rechen): store the keyword arguments.
             Type::KwCall(Box::new(KwCall {
+                func_metadata,
                 keywords: BoolKeywords::new(),
                 return_ty: res,
             }))

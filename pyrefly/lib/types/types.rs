@@ -569,10 +569,18 @@ pub enum SuperObj {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct KwCall {
+    /// The metadata of the called function.
+    pub func_metadata: FuncMetadata,
     /// The keyword arguments that the function was called with.
     pub keywords: BoolKeywords,
     /// The return type of the call.
     pub return_ty: Type,
+}
+
+impl KwCall {
+    pub fn has_function_kind(&self, kind: FunctionKind) -> bool {
+        self.func_metadata.kind == kind
+    }
 }
 
 // Note: The fact that Literal and LiteralString are at the front is important for

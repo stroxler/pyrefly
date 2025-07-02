@@ -1621,9 +1621,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )),
             Type::Never(_) => Some(AttributeBase::Never),
             _ if ty.is_property_getter() => Some(AttributeBase::Property(ty)),
-            Type::Callable(_) | Type::KwCall(_) => Some(AttributeBase::ClassInstance(
+            Type::Callable(_) => Some(AttributeBase::ClassInstance(
                 self.stdlib.function_type().clone(),
             )),
+            Type::KwCall(call) => self.as_attribute_base_no_union(call.return_ty),
             Type::Function(box Function {
                 signature: _,
                 metadata,

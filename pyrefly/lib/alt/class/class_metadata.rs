@@ -424,7 +424,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     });
                 }
                 // `@dataclass_transform(...)`
-                _ if let Type::KwCall(call) = decorator_ty => {
+                _ if let Type::KwCall(call) = decorator_ty
+                    && call.has_function_kind(FunctionKind::DataclassTransform) =>
+                {
                     dataclass_transform_metadata = Some(call.keywords.clone());
                 }
                 // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
