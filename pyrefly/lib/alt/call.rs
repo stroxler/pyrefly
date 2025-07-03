@@ -26,7 +26,6 @@ use crate::alt::expr::TypeOrExpr;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
 use crate::error::kind::ErrorKind;
-use crate::types::callable::BoolKeywords;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
@@ -42,6 +41,7 @@ use crate::types::types::KwCall;
 use crate::types::types::OverloadType;
 use crate::types::types::TParams;
 use crate::types::types::Type;
+use crate::types::types::TypeMap;
 use crate::types::types::Var;
 
 pub enum CallStyle<'a> {
@@ -688,10 +688,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         self.solver().finish_quantified(&call_target.qs);
         if let Some(func_metadata) = kw_metadata {
-            let mut kws = BoolKeywords::new();
+            let mut kws = TypeMap::new();
             for kw in keywords {
                 if let Some(name) = kw.arg {
-                    kws.set_keyword(&name.id, &kw.value.infer(self, errors));
+                    kws.0.insert(name.id.clone(), kw.value.infer(self, errors));
                 }
             }
             Type::KwCall(Box::new(KwCall {

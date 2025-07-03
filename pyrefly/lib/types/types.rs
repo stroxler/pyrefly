@@ -569,6 +569,12 @@ pub enum SuperObj {
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
 pub struct TypeMap(pub OrderedMap<Name, Type>);
 
+impl TypeMap {
+    pub fn new() -> Self {
+        Self(OrderedMap::new())
+    }
+}
+
 impl Visit<Type> for TypeMap {
     fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Type)) {
         for (_, ty) in self.0.iter() {
@@ -592,7 +598,7 @@ pub struct KwCall {
     /// The metadata of the called function.
     pub func_metadata: FuncMetadata,
     /// The keyword arguments that the function was called with.
-    pub keywords: BoolKeywords,
+    pub keywords: TypeMap,
     /// The return type of the call.
     pub return_ty: Type,
 }

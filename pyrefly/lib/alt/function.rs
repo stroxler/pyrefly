@@ -35,6 +35,7 @@ use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 use crate::module::module_path::ModuleStyle;
 use crate::module::short_identifier::ShortIdentifier;
+use crate::types::callable::BoolKeywords;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncFlags;
 use crate::types::callable::FuncMetadata;
@@ -247,7 +248,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         false
                     }
                     _ if let Type::KwCall(call) = decorator_ty && call.has_function_kind(FunctionKind::DataclassTransform) => {
-                        dataclass_transform_metadata = Some(call.keywords.clone());
+                        dataclass_transform_metadata = Some(BoolKeywords::from_type_map(&call.keywords));
                         false
                     }
                     _ => true,

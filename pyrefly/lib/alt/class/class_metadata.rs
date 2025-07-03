@@ -456,14 +456,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
                     dataclass_metadata = Some(DataclassMetadata {
                         fields: dataclass_fields,
-                        kws: call.keywords.clone(),
+                        kws: BoolKeywords::from_type_map(&call.keywords),
                     });
                 }
                 // `@dataclass_transform(...)`
                 _ if let Type::KwCall(call) = decorator_ty
                     && call.has_function_kind(FunctionKind::DataclassTransform) =>
                 {
-                    dataclass_transform_metadata = Some(call.keywords.clone());
+                    dataclass_transform_metadata =
+                        Some(BoolKeywords::from_type_map(&call.keywords));
                 }
                 // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
                 _ if let Some(m) = decorator_ty.dataclass_transform_metadata() => {
@@ -478,7 +479,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 {
                     dataclass_from_dataclass_transform = Some(DataclassTransform {
                         defaults: kws.clone(),
-                        kws: call.keywords.clone(),
+                        kws: BoolKeywords::from_type_map(&call.keywords),
                     });
                 }
                 _ => {}

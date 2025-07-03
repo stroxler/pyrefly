@@ -25,6 +25,7 @@ use starlark_map::ordered_map::OrderedMap;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
 use crate::types::types::Type;
+use crate::types::types::TypeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
@@ -284,6 +285,14 @@ impl VisitMut<Type> for BoolKeywords {
 impl BoolKeywords {
     pub fn new() -> Self {
         Self(OrderedMap::new())
+    }
+
+    pub fn from_type_map(map: &TypeMap) -> Self {
+        let mut kws = Self::new();
+        for (name, ty) in map.0.iter() {
+            kws.set_keyword(name, ty);
+        }
+        kws
     }
 
     pub fn set_keyword(&mut self, name: &Name, ty: &Type) {
