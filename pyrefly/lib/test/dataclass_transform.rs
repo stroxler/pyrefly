@@ -128,3 +128,19 @@ data = Data(x=0)
 data.x = 42  # E: frozen dataclass member
     "#,
 );
+
+testcase!(
+    bug = "`field` should be treated as a field specifier rather than a default",
+    test_field_specifier,
+    r#"
+from typing import dataclass_transform, Any
+def field(**kwargs) -> Any: ...
+@dataclass_transform(field_specifiers=(field,))
+def build(x): ...
+@build
+class C:
+    x: int = field()
+C(x=0)
+C()  # Should be an error
+    "#,
+);
