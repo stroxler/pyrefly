@@ -115,7 +115,8 @@ impl<'a> Lexer<'a> {
 #[derive(PartialEq, Debug, Clone, Hash, Eq)]
 pub struct Suppression {
     tool: Tool,
-    kind: Option<String>,
+    /// The permissible error kinds, use empty Vec to many any are allowed
+    kind: Vec<String>,
 }
 
 /// Record the position of `# type: ignore[valid-type]` statements.
@@ -224,11 +225,14 @@ impl Ignore {
                     if let Some((before, _)) = lex.rest().split_once(']') {
                         return Some(Suppression {
                             tool,
-                            kind: Some(before.trim().to_owned()),
+                            kind: before.split(',').map(|x| x.trim().to_owned()).collect(),
                         });
                     }
                 } else if gap || lex.blank() {
-                    return Some(Suppression { tool, kind: None });
+                    return Some(Suppression {
+                        tool,
+                        kind: Vec::new(),
+                    });
                 }
             }
         } else if (lex.starts_with("pyre-ignore") || lex.starts_with("pyre-fixme"))
@@ -236,7 +240,7 @@ impl Ignore {
         {
             return Some(Suppression {
                 tool: Tool::Pyre,
-                kind: None,
+                kind: Vec::new(),
             });
         }
         None
@@ -259,7 +263,9 @@ impl Ignore {
             if let Some(suppressions) = self.ignores.get(&LineNumber::from_zero_indexed(line)) {
                 if suppressions.iter().any(|supp| match supp.tool {
                     // We only check the subkind if they do `# ignore: pyrefly`
-                    Tool::Pyrefly => supp.kind.as_ref().is_none_or(|x| x == kind.to_name()),
+                    Tool::Pyrefly => {
+                        supp.kind.is_empty() || supp.kind.iter().any(|x| x == kind.to_name())
+                    }
                     Tool::Any => true,
                     _ => permissive_ignores,
                 }) {
@@ -279,7 +285,7 @@ impl Ignore {
                 ignore
                     .1
                     .iter()
-                    .any(|s| s.tool == Tool::Pyrefly && s.kind.is_none())
+                    .any(|s| s.tool == Tool::Pyrefly && s.kind.is_empty())
             })
             .map(|(line, _)| *line)
             .collect()
@@ -310,28 +316,28 @@ mod tests {
             f("# pyrefly: ignore"),
             Some(Suppression {
                 tool: Tool::Pyrefly,
-                kind: None
+                kind: Vec::new()
             })
         );
         assert_eq!(
             f("# pyrefly: ignore[bad-return]"),
             Some(Suppression {
                 tool: Tool::Pyrefly,
-                kind: Some("bad-return".to_owned())
+                kind: vec!["bad-return".to_owned()]
             })
         );
         assert_eq!(
             f("# pyrefly: ignore[]"),
             Some(Suppression {
                 tool: Tool::Pyrefly,
-                kind: Some("".to_owned())
+                kind: vec!["".to_owned()]
             })
         );
         assert_eq!(
             f("# pyrefly: ignore[bad-]"),
             Some(Suppression {
                 tool: Tool::Pyrefly,
-                kind: Some("bad-".to_owned())
+                kind: vec!["bad-".to_owned()]
             })
         );
     }
