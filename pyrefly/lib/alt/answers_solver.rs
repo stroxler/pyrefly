@@ -215,6 +215,27 @@ impl Cycle {
         );
         cycle
     }
+
+    /// Do a pre-calculation check, to handle progress recurively traversing
+    /// the cycle until we reach the second instance of `break_at`.
+    ///
+    /// For each cycle participant we encounter, we move it from the
+    /// `recursion_stack` to the `unwind_stack`.
+    ///
+    /// This check only occurs for the most recently detected cycle (i.e.
+    fn pre_calculate_state(&mut self, current: &CalcId) -> CycleState {
+        if *current == self.break_at {
+            CycleState::BreakAt
+        } else if let Some(c) = self.recursion_stack.last()
+            && *current == *c
+        {
+            let c = self.recursion_stack.pop().unwrap();
+            self.unwind_stack.push(c);
+            CycleState::Participant
+        } else {
+            CycleState::NoDetectedCycle
+        }
+    }
 }
 
 /// Represents the current cycle state for a given calculation. We check
@@ -287,17 +308,7 @@ impl Cycles {
 
     fn pre_calculate_state(&self, current: &CalcId) -> CycleState {
         if let Some(active_cycle) = self.0.borrow_mut().last_mut() {
-            if *current == active_cycle.break_at {
-                CycleState::BreakAt
-            } else if let Some(c) = active_cycle.recursion_stack.last()
-                && *current == *c
-            {
-                let c = active_cycle.recursion_stack.pop().unwrap();
-                active_cycle.unwind_stack.push(c);
-                CycleState::Participant
-            } else {
-                CycleState::NoDetectedCycle
-            }
+            active_cycle.pre_calculate_state(current)
         } else {
             CycleState::NoDetectedCycle
         }
