@@ -26,8 +26,6 @@
 //! We are permissive with whitespace, allowing `#type:ignore[code]` and
 //! `#  type:  ignore  [  code  ]`, but do not allow a space after the colon.
 
-use std::str::FromStr;
-
 use dupe::Dupe;
 use pyrefly_util::lined_buffer::LineNumber;
 use starlark_map::small_map::SmallMap;
@@ -114,10 +112,10 @@ impl<'a> Lexer<'a> {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy)]
+#[derive(PartialEq, Debug, Clone, Hash, Eq)]
 pub struct Suppression {
     tool: Tool,
-    kind: Option<ErrorKind>,
+    kind: Option<String>,
 }
 
 /// Record the position of `# type: ignore[valid-type]` statements.
@@ -222,16 +220,14 @@ impl Ignore {
             lex.trim_start();
             if lex.starts_with("ignore") {
                 let gap = lex.trim_start();
-                if tool == Tool::Pyrefly && lex.starts_with("[") {
-                    if let Some((before, _)) = lex.rest().split_once(']')
-                        && let Ok(kind) = ErrorKind::from_str(before.trim())
-                    {
+                if lex.starts_with("[") {
+                    if let Some((before, _)) = lex.rest().split_once(']') {
                         return Some(Suppression {
                             tool,
-                            kind: Some(kind),
+                            kind: Some(before.trim().to_owned()),
                         });
                     }
-                } else if gap || lex.blank() || lex.starts_with("[") {
+                } else if gap || lex.blank() {
                     return Some(Suppression { tool, kind: None });
                 }
             }
@@ -263,7 +259,7 @@ impl Ignore {
             if let Some(suppressions) = self.ignores.get(&LineNumber::from_zero_indexed(line)) {
                 if suppressions.iter().any(|supp| match supp.tool {
                     // We only check the subkind if they do `# ignore: pyrefly`
-                    Tool::Pyrefly => supp.kind.is_none_or(|x| x == kind),
+                    Tool::Pyrefly => supp.kind.as_ref().is_none_or(|x| x == kind.to_name()),
                     Tool::Any => true,
                     _ => permissive_ignores,
                 }) {
@@ -299,7 +295,10 @@ mod tests {
     #[test]
     fn test_get_suppression_kind() {
         fn f(x: &str) -> Option<Suppression> {
-            Ignore::parse_ignores(x).into_values().next().map(|x| x[0])
+            Ignore::parse_ignores(x)
+                .into_values()
+                .next()
+                .map(|x| x[0].clone())
         }
 
         assert!(f("stuff # type: ignore # and then stuff").is_some());
@@ -318,11 +317,23 @@ mod tests {
             f("# pyrefly: ignore[bad-return]"),
             Some(Suppression {
                 tool: Tool::Pyrefly,
-                kind: Some(ErrorKind::BadReturn)
+                kind: Some("bad-return".to_owned())
             })
         );
-        assert!(f("# pyrefly: ignore[]").is_none());
-        assert!(f("# pyrefly: ignore[bad-]").is_none());
+        assert_eq!(
+            f("# pyrefly: ignore[]"),
+            Some(Suppression {
+                tool: Tool::Pyrefly,
+                kind: Some("".to_owned())
+            })
+        );
+        assert_eq!(
+            f("# pyrefly: ignore[bad-]"),
+            Some(Suppression {
+                tool: Tool::Pyrefly,
+                kind: Some("bad-".to_owned())
+            })
+        );
     }
 
     #[test]
