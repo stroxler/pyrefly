@@ -1510,3 +1510,11 @@ def f(x: C):
     C("test")
 "#,
 );
+
+testcase!(
+    test_just_def,
+    r#"
+# Used to crash https://github.com/facebook/pyrefly/issues/620
+def # E: # E:
+"#,
+);

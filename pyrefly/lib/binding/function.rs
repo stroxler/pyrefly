@@ -455,12 +455,13 @@ impl<'a> BindingsBuilder<'a> {
         function_idx: Idx<KeyFunction>,
         class_key: Option<Idx<KeyClass>>,
     ) -> (FunctionStubOrImpl, Option<SelfAssignments>) {
-        let stub_or_impl =
-            if is_ellipse(&body) || (is_docstring(&body[0]) && decorators.is_overload) {
-                FunctionStubOrImpl::Stub
-            } else {
-                FunctionStubOrImpl::Impl
-            };
+        let stub_or_impl = if is_ellipse(&body)
+            || (body.first().is_some_and(is_docstring) && decorators.is_overload)
+        {
+            FunctionStubOrImpl::Stub
+        } else {
+            FunctionStubOrImpl::Impl
+        };
 
         let self_assignments = if decorators.has_no_type_check
             || (self.untyped_def_behavior == UntypedDefBehavior::SkipAndInferReturnAny
