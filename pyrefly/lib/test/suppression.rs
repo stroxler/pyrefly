@@ -144,6 +144,15 @@ def foo() -> str:
 );
 
 testcase!(
+    test_pyrefly_suppression_typed_multiple_codes_line,
+    r#"
+def foo() -> str:
+  # pyrefly: ignore[bad-return] # pyrefly: ignore[bad-argument-type]
+  return len(1)
+"#,
+);
+
+testcase!(
     test_ignore_whitespace,
     r#"
 x0: int = "hello" #type:ignore

@@ -180,18 +180,21 @@ impl Ignore {
         // If we see a comment on a non-code line, move it to the next non-comment line.
         let mut pending = Vec::new();
         let mut line = LineNumber::default();
-        for (idx, x) in code.lines().enumerate() {
+        for (idx, line_str) in code.lines().enumerate() {
             line = LineNumber::from_zero_indexed(idx as u32);
-            let mut xs = x.split('#');
+            let mut xs = line_str.split('#');
             let first = xs.next().unwrap_or("");
-            if let Some(supp) = Self::get_suppression_kind(x) {
-                if first.trim_start().is_empty() {
-                    pending.push(supp);
-                } else {
-                    ignores.entry(line).or_default().push(supp);
-                }
-            } else if !pending.is_empty() && (x.is_empty() || !first.trim_start().is_empty()) {
+            if !pending.is_empty() && (line_str.is_empty() || !first.trim_start().is_empty()) {
                 ignores.entry(line).or_default().append(&mut pending);
+            }
+            for x in xs {
+                if let Some(supp) = Self::get_suppression_kind(x) {
+                    if first.trim_start().is_empty() {
+                        pending.push(supp);
+                    } else {
+                        ignores.entry(line).or_default().push(supp);
+                    }
+                }
             }
         }
         if !pending.is_empty() {
@@ -203,7 +206,7 @@ impl Ignore {
         ignores
     }
 
-    fn get_suppression_kind(line: &str) -> Option<Suppression> {
+    fn get_suppression_kind(l: &str) -> Option<Suppression> {
         fn match_pyrefly_ignore(line: &str) -> Option<Suppression> {
             let mut words = line.split_whitespace();
             if let Some("pyrefly:") = words.next() {
@@ -230,23 +233,21 @@ impl Ignore {
             None
         }
 
-        for l in line.split("#").skip(1) {
-            let l = l.trim_start();
-            if let Some(l) = l.strip_prefix("type:")
-                && l.trim_start().starts_with("ignore")
-            {
-                return Some(Suppression {
-                    tool: Tool::Any,
-                    kind: None,
-                });
-            } else if let Some(value) = match_pyrefly_ignore(l) {
-                return Some(value);
-            } else if l.starts_with("pyre-ignore") || l.starts_with("pyre-fixme") {
-                return Some(Suppression {
-                    tool: Tool::Pyre,
-                    kind: None,
-                });
-            }
+        let l = l.trim_start();
+        if let Some(l) = l.strip_prefix("type:")
+            && l.trim_start().starts_with("ignore")
+        {
+            return Some(Suppression {
+                tool: Tool::Any,
+                kind: None,
+            });
+        } else if let Some(value) = match_pyrefly_ignore(l) {
+            return Some(value);
+        } else if l.starts_with("pyre-ignore") || l.starts_with("pyre-fixme") {
+            return Some(Suppression {
+                tool: Tool::Pyre,
+                kind: None,
+            });
         }
         None
     }
@@ -303,27 +304,31 @@ mod tests {
 
     #[test]
     fn test_get_suppression_kind() {
-        assert!(Ignore::get_suppression_kind("stuff # type: ignore # and then stuff").is_some());
-        assert!(Ignore::get_suppression_kind("more # stuff # type: ignore[valid-type]").is_some());
-        assert!(Ignore::get_suppression_kind("# ignore: pyrefly").is_none());
-        assert!(Ignore::get_suppression_kind(" pyrefly: ignore").is_none());
-        assert!(Ignore::get_suppression_kind("normal line").is_none());
-        assert!(
-            Ignore::get_suppression_kind("# pyrefly: ignore")
-                == Some(Suppression {
-                    tool: Tool::Pyrefly,
-                    kind: None
-                })
+        fn f(x: &str) -> Option<Suppression> {
+            Ignore::parse_ignores(x).into_values().next().map(|x| x[0])
+        }
+
+        assert!(f("stuff # type: ignore # and then stuff").is_some());
+        assert!(f("more # stuff # type: ignore[valid-type]").is_some());
+        assert!(f("# ignore: pyrefly").is_none());
+        assert!(f(" pyrefly: ignore").is_none());
+        assert!(f("normal line").is_none());
+        assert_eq!(
+            f("# pyrefly: ignore"),
+            Some(Suppression {
+                tool: Tool::Pyrefly,
+                kind: None
+            })
         );
-        assert!(
-            Ignore::get_suppression_kind("# pyrefly: ignore[bad-return]")
-                == Some(Suppression {
-                    tool: Tool::Pyrefly,
-                    kind: Some(ErrorKind::BadReturn)
-                })
+        assert_eq!(
+            f("# pyrefly: ignore[bad-return]"),
+            Some(Suppression {
+                tool: Tool::Pyrefly,
+                kind: Some(ErrorKind::BadReturn)
+            })
         );
-        assert!(Ignore::get_suppression_kind("# pyrefly: ignore[]").is_none());
-        assert!(Ignore::get_suppression_kind("# pyrefly: ignore[bad-]").is_none());
+        assert!(f("# pyrefly: ignore[]").is_none());
+        assert!(f("# pyrefly: ignore[bad-]").is_none());
     }
 
     #[test]
