@@ -109,7 +109,7 @@ impl ModuleInfo {
         self.0.ignore.is_ignored(
             source_range.start.line,
             source_range.end.line,
-            error_kind,
+            error_kind.to_name(),
             permissive_ignores,
         )
     }

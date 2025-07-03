@@ -31,8 +31,6 @@ use pyrefly_util::lined_buffer::LineNumber;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::error::kind::ErrorKind;
-
 /// The name of the tool that is being suppressed.
 #[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy)]
 pub enum Tool {
@@ -250,7 +248,7 @@ impl Ignore {
         &self,
         start_line: LineNumber,
         end_line: LineNumber,
-        kind: ErrorKind,
+        kind: &str,
         permissive_ignores: bool,
     ) -> bool {
         if self.ignore_all_strict || (permissive_ignores && self.ignore_all_permissive) {
@@ -263,9 +261,7 @@ impl Ignore {
             if let Some(suppressions) = self.ignores.get(&LineNumber::from_zero_indexed(line)) {
                 if suppressions.iter().any(|supp| match supp.tool {
                     // We only check the subkind if they do `# ignore: pyrefly`
-                    Tool::Pyrefly => {
-                        supp.kind.is_empty() || supp.kind.iter().any(|x| x == kind.to_name())
-                    }
+                    Tool::Pyrefly => supp.kind.is_empty() || supp.kind.iter().any(|x| x == kind),
                     Tool::Any => true,
                     _ => permissive_ignores,
                 }) {
