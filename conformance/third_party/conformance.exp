@@ -1510,7 +1510,7 @@
       "description": "Unexpected keyword argument `a`",
       "line": 29,
       "name": "unexpected-keyword",
-      "stop_column": 11,
+      "stop_column": 9,
       "stop_line": 29
     },
     {
@@ -1530,7 +1530,7 @@
       "description": "Unexpected keyword argument `b`",
       "line": 29,
       "name": "unexpected-keyword",
-      "stop_column": 17,
+      "stop_column": 14,
       "stop_line": 29
     },
     {
@@ -1702,7 +1702,7 @@
       "description": "Unexpected keyword argument `v4` in function `func1`",
       "line": 51,
       "name": "unexpected-keyword",
-      "stop_column": 36,
+      "stop_column": 34,
       "stop_line": 51
     },
     {
@@ -2850,7 +2850,7 @@
       "description": "Unexpected keyword argument `y`",
       "line": 39,
       "name": "unexpected-keyword",
-      "stop_column": 7,
+      "stop_column": 5,
       "stop_line": 39
     },
     {
@@ -2940,7 +2940,7 @@
       "description": "Unexpected keyword argument `y`",
       "line": 80,
       "name": "unexpected-keyword",
-      "stop_column": 7,
+      "stop_column": 5,
       "stop_line": 80
     },
     {
@@ -3371,7 +3371,7 @@
       "description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
       "line": 60,
       "name": "unexpected-keyword",
-      "stop_column": 54,
+      "stop_column": 46,
       "stop_line": 60
     },
     {
@@ -3817,7 +3817,7 @@
       "description": "Unexpected keyword argument `salary` in function `Customer1.__init__`",
       "line": 65,
       "name": "unexpected-keyword",
-      "stop_column": 48,
+      "stop_column": 42,
       "stop_line": 65
     },
     {
@@ -3889,7 +3889,7 @@
       "description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
       "line": 60,
       "name": "unexpected-keyword",
-      "stop_column": 54,
+      "stop_column": 46,
       "stop_line": 60
     },
     {
@@ -5425,7 +5425,7 @@
       "description": "Unexpected keyword argument `x` in function `foo`",
       "line": 83,
       "name": "unexpected-keyword",
-      "stop_column": 16,
+      "stop_column": 14,
       "stop_line": 83
     },
     {
@@ -5467,7 +5467,7 @@
       "description": "Expected argument `a` to be positional",
       "line": 26,
       "name": "unexpected-keyword",
-      "stop_column": 9,
+      "stop_column": 5,
       "stop_line": 26
     },
     {
@@ -5477,7 +5477,7 @@
       "description": "Expected argument `b` to be positional",
       "line": 26,
       "name": "unexpected-keyword",
-      "stop_column": 17,
+      "stop_column": 12,
       "stop_line": 26
     },
     {
@@ -6982,7 +6982,7 @@
       "description": "Expected argument `__x` to be positional in function `f1`",
       "line": 18,
       "name": "unexpected-keyword",
-      "stop_column": 9,
+      "stop_column": 7,
       "stop_line": 18
     },
     {
@@ -7012,7 +7012,7 @@
       "description": "Expected argument `__x` to be positional in function `A.m1`",
       "line": 43,
       "name": "unexpected-keyword",
-      "stop_column": 11,
+      "stop_column": 9,
       "stop_line": 43
     }
   ],
@@ -7472,7 +7472,7 @@
       "description": "Unexpected keyword argument `other` in function `Point.__new__`",
       "line": 49,
       "name": "unexpected-keyword",
-      "stop_column": 31,
+      "stop_column": 28,
       "stop_line": 49
     },
     {
@@ -7574,7 +7574,7 @@
       "description": "Unexpected keyword argument `z` in function `Point4.__new__`",
       "line": 31,
       "name": "unexpected-keyword",
-      "stop_column": 21,
+      "stop_column": 19,
       "stop_line": 31
     },
     {
@@ -8994,7 +8994,7 @@
       "description": "Unexpected keyword argument `x` in function `N.__new__`",
       "line": 133,
       "name": "unexpected-keyword",
-      "stop_column": 6,
+      "stop_column": 4,
       "stop_line": 133
     },
     {
@@ -9004,7 +9004,7 @@
       "description": "Unexpected keyword argument `y` in function `N.__new__`",
       "line": 133,
       "name": "unexpected-keyword",
-      "stop_column": 11,
+      "stop_column": 9,
       "stop_line": 133
     },
     {
@@ -9014,7 +9014,7 @@
       "description": "Unexpected keyword argument `a` in function `N.__new__`",
       "line": 134,
       "name": "unexpected-keyword",
-      "stop_column": 6,
+      "stop_column": 4,
       "stop_line": 134
     },
     {
@@ -9024,7 +9024,7 @@
       "description": "Unexpected keyword argument `x` in function `N.__new__`",
       "line": 135,
       "name": "unexpected-keyword",
-      "stop_column": 7,
+      "stop_column": 4,
       "stop_line": 135
     },
     {
@@ -9034,7 +9034,7 @@
       "description": "Unexpected keyword argument `y` in function `N.__new__`",
       "line": 135,
       "name": "unexpected-keyword",
-      "stop_column": 13,
+      "stop_column": 10,
       "stop_line": 135
     },
     {
