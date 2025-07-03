@@ -137,7 +137,7 @@ struct DefinitionsBuilder<'a> {
 }
 
 fn is_private_name(name: &Name) -> bool {
-    name.starts_with('_') && !name.starts_with("__")
+    name.starts_with('_')
 }
 
 fn implicitly_imported_submodule(

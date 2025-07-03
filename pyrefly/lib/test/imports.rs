@@ -69,7 +69,7 @@ testcase!(
     r#"
 from typing import assert_type
 from foo import *
-assert_type(__derp__(), int)
+__derp__() # E: Could not find name `__derp__`
 "#,
 );
 
