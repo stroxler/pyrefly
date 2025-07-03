@@ -48,8 +48,9 @@ use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
-use crate::types::keywords::BoolKeywords;
+use crate::types::keywords::DataclassFieldKeywords;
 use crate::types::keywords::DataclassKeywords;
+use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
 use crate::types::literal::LitEnum;
 use crate::types::quantified::Quantified;
@@ -72,9 +73,9 @@ use crate::types::types::Type;
 /// are assigned values in the class body.
 #[derive(Clone, Debug, TypeEq, VisitMut, PartialEq, Eq)]
 pub enum ClassFieldInitialization {
-    /// If this is a dataclass field, BoolKeywords stores the field's dataclass
-    /// flags (which are boolean options that control how fields behave).
-    Class(Option<BoolKeywords>),
+    /// If this is a dataclass field, DataclassFieldKeywords stores the field's
+    /// dataclass flags (which are options that control how fields behave).
+    Class(Option<DataclassFieldKeywords>),
     /// The boolean indicates whether we know the field may have been initialized
     /// outside of the class body or not.
     Instance(bool),
@@ -418,21 +419,21 @@ impl ClassField {
         }
     }
 
-    fn dataclass_flags_of(&self, kw_only: bool) -> BoolKeywords {
+    fn dataclass_flags_of(&self, kw_only: bool) -> DataclassFieldKeywords {
         match &self.0 {
             ClassFieldInner::Simple { initialization, .. } => {
                 let mut flags = match initialization {
                     ClassFieldInitialization::Class(Some(field_flags)) => field_flags.clone(),
                     ClassFieldInitialization::Class(None) => {
-                        let mut kws = BoolKeywords::new();
-                        kws.set(DataclassKeywords::DEFAULT.0, true);
+                        let mut kws = DataclassFieldKeywords::new();
+                        kws.default = true;
                         kws
                     }
-                    ClassFieldInitialization::Instance(_) => BoolKeywords::new(),
+                    ClassFieldInitialization::Instance(_) => DataclassFieldKeywords::new(),
                 };
                 // If kw_only hasn't been explicitly set to false on the field, set it to true
-                if kw_only && flags.get(&(DataclassKeywords::KW_ONLY.0, true)) {
-                    flags.set(DataclassKeywords::KW_ONLY.0, true);
+                if kw_only && flags.kw_only.is_none() {
+                    flags.kw_only = Some(true);
                 }
                 flags
             }
@@ -588,9 +589,9 @@ impl<T> WithDefiningClass<T> {
 /// The result of processing a raw dataclass member (any annotated assignment in its body).
 pub enum DataclassMember {
     /// A dataclass field
-    Field(ClassField, BoolKeywords),
+    Field(ClassField, DataclassFieldKeywords),
     /// A pseudo-field that only appears as a constructor argument
-    InitVar(ClassField, BoolKeywords),
+    InitVar(ClassField, DataclassFieldKeywords),
     /// A pseudo-field annotated with KW_ONLY
     KwOnlyMarker,
     /// Anything else
@@ -930,20 +931,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         func_ty.callee_kind(),
                         Some(CalleeKind::Function(FunctionKind::DataclassField))
                     ) {
-                        let mut flags = BoolKeywords::new();
+                        let mut map = TypeMap::new();
                         for kw in keywords {
-                            if let Some(id) = &kw.arg
-                                && (id.id == DataclassKeywords::DEFAULT.0
-                                    || id.id == "default_factory")
-                            {
-                                flags.set(DataclassKeywords::DEFAULT.0, true);
-                            } else {
-                                let val = self.expr_infer(&kw.value, &ignore_errors);
-                                if let Some(name) = kw.arg.as_ref() {
-                                    flags.set_keyword(&name.id, &val);
-                                }
+                            if let Some(name) = &kw.arg {
+                                map.0.insert(
+                                    name.id.clone(),
+                                    self.expr_infer(&kw.value, &ignore_errors),
+                                );
                             }
                         }
+                        let flags = DataclassFieldKeywords::from_type_map(&map);
                         ClassFieldInitialization::Class(Some(flags))
                     } else {
                         ClassFieldInitialization::Class(None)

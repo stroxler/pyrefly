@@ -105,6 +105,47 @@ impl DataclassTransformKeywords {
     }
 }
 
+/// Parameters to dataclass field specifiers.
+/// See https://typing.python.org/en/latest/spec/dataclasses.html#field-specifier-parameters.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
+pub struct DataclassFieldKeywords {
+    pub init: bool,
+    pub default: bool,
+    /// None means that kw_only was not explicitly set
+    pub kw_only: Option<bool>,
+    // TODO(rechen): add factory, alias, and converter
+}
+
+impl DataclassFieldKeywords {
+    const INIT: Name = Name::new_static("init");
+    /// We combine default and default_factory into a single "default" keyword indicating whether
+    /// the field has a default. The default value isn't stored.
+    const DEFAULT: Name = Name::new_static("default");
+    const DEFAULT_FACTORY: Name = Name::new_static("default_factory");
+    const KW_ONLY: Name = Name::new_static("kw_only");
+
+    pub fn from_type_map(map: &TypeMap) -> Self {
+        let init = map.get_bool(&Self::INIT, true);
+        let default =
+            map.0.contains_key(&Self::DEFAULT) | map.0.contains_key(&Self::DEFAULT_FACTORY);
+        let kw_only = map.0.get(&Self::KW_ONLY).and_then(|t| t.as_bool());
+        Self {
+            init,
+            default,
+            kw_only,
+        }
+    }
+
+    pub fn new() -> Self {
+        Self::from_type_map(&TypeMap::new())
+    }
+
+    pub fn is_kw_only(&self) -> bool {
+        self.kw_only == Some(true)
+    }
+}
+
 /// A map from keywords to boolean values. Useful for storing sets of keyword arguments for various
 /// dataclass functions.
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -166,9 +207,6 @@ impl DataclassKeywords {
     pub const FROZEN: (Name, bool) = (Name::new_static("frozen"), false);
     pub const MATCH_ARGS: (Name, bool) = (Name::new_static("match_args"), true);
     pub const KW_ONLY: (Name, bool) = (Name::new_static("kw_only"), false);
-    /// We combine default and default_factory into a single "default" keyword indicating whether
-    /// the field has a default. The default value isn't stored.
-    pub const DEFAULT: (Name, bool) = (Name::new_static("default"), false);
     pub const EQ: (Name, bool) = (Name::new_static("eq"), true);
     pub const UNSAFE_HASH: (Name, bool) = (Name::new_static("unsafe_hash"), false);
 }

@@ -30,7 +30,7 @@ use crate::types::callable::ParamList;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
-use crate::types::keywords::BoolKeywords;
+use crate::types::keywords::DataclassFieldKeywords;
 use crate::types::keywords::DataclassKeywords;
 use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
@@ -108,7 +108,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         dataclass: &DataclassMetadata,
         include_initvar: bool,
-    ) -> Vec<(Name, ClassField, BoolKeywords)> {
+    ) -> Vec<(Name, ClassField, DataclassFieldKeywords)> {
         let mut seen_kw_only_marker = false;
         let mut positional_fields = Vec::new();
         let mut kwonly_fields = Vec::new();
@@ -120,7 +120,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 DataclassMember::NotAField => {}
                 DataclassMember::Field(field, keywords) => {
-                    if keywords.get(&DataclassKeywords::KW_ONLY) {
+                    if keywords.is_kw_only() {
                         kwonly_fields.push((name.clone(), field, keywords))
                     } else {
                         positional_fields.push((name.clone(), field, keywords))
@@ -128,7 +128,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 DataclassMember::InitVar(field, keywords) => {
                     if include_initvar {
-                        if keywords.get(&DataclassKeywords::KW_ONLY) {
+                        if keywords.is_kw_only() {
                             kwonly_fields.push((name.clone(), field, keywords))
                         } else {
                             positional_fields.push((name.clone(), field, keywords))
@@ -151,9 +151,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut params = vec![self.class_self_param(cls, false)];
         let mut has_seen_default = false;
         for (name, field, field_flags) in self.iter_fields(cls, dataclass, true) {
-            if field_flags.get(&DataclassKeywords::INIT) {
-                let has_default = field_flags.get(&DataclassKeywords::DEFAULT);
-                let is_kw_only = field_flags.get(&DataclassKeywords::KW_ONLY);
+            if field_flags.init {
+                let has_default = field_flags.default;
+                let is_kw_only = field_flags.is_kw_only();
                 if !is_kw_only {
                     if !has_default && has_seen_default {
                         if let Some(range) = cls.field_decl_range(&name) {
@@ -201,7 +201,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             filtered_fields
                 .iter()
                 .filter_map(|(name, _, field_flags)| {
-                    if field_flags.get(&DataclassKeywords::KW_ONLY) {
+                    if field_flags.is_kw_only() {
                         None
                     } else {
                         Some(Type::Literal(Lit::Str(name.as_str().into())))
