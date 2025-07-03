@@ -96,13 +96,21 @@ impl<'a> Lexer<'a> {
     }
 
     /// Trim whitespace from the start of the string.
-    fn trim_start(&mut self) {
+    /// Return `true` if the string was changed.
+    fn trim_start(&mut self) -> bool {
+        let before = self.0;
         self.0 = self.0.trim_start();
+        self.0.len() != before.len()
     }
 
     /// Return `true` if the string is empty or only whitespace.
     fn blank(&mut self) -> bool {
         self.0.trim_start().is_empty()
+    }
+
+    /// Finish and return the rest of the string.
+    fn rest(self) -> &'a str {
+        self.0
     }
 }
 
@@ -207,43 +215,29 @@ impl Ignore {
     }
 
     fn get_suppression_kind(l: &str) -> Option<Suppression> {
-        fn match_pyrefly_ignore(line: &str) -> Option<Suppression> {
-            let mut words = line.split_whitespace();
-            if let Some("pyrefly:") = words.next() {
-                if let Some(word) = words.next() {
-                    if word == "ignore" {
+        let mut lex = Lexer(l);
+        lex.trim_start();
+
+        if let Some(tool) = lex.starts_with_tool() {
+            lex.trim_start();
+            if lex.starts_with("ignore") {
+                let gap = lex.trim_start();
+                if tool == Tool::Pyrefly && lex.starts_with("[") {
+                    if let Some((before, _)) = lex.rest().split_once(']')
+                        && let Ok(kind) = ErrorKind::from_str(before.trim())
+                    {
                         return Some(Suppression {
-                            tool: Tool::Pyrefly,
-                            kind: None,
+                            tool,
+                            kind: Some(kind),
                         });
                     }
-
-                    if let Some(word) = word.strip_prefix("ignore[")
-                        && let Some(word) = word.strip_suffix(']')
-                    {
-                        if let Ok(kind) = ErrorKind::from_str(word) {
-                            return Some(Suppression {
-                                tool: Tool::Pyrefly,
-                                kind: Some(kind),
-                            });
-                        }
-                    }
+                } else if gap || lex.blank() || lex.starts_with("[") {
+                    return Some(Suppression { tool, kind: None });
                 }
             }
-            None
-        }
-
-        let l = l.trim_start();
-        if let Some(l) = l.strip_prefix("type:")
-            && l.trim_start().starts_with("ignore")
+        } else if (lex.starts_with("pyre-ignore") || lex.starts_with("pyre-fixme"))
+            && (lex.trim_start() || lex.blank())
         {
-            return Some(Suppression {
-                tool: Tool::Any,
-                kind: None,
-            });
-        } else if let Some(value) = match_pyrefly_ignore(l) {
-            return Some(value);
-        } else if l.starts_with("pyre-ignore") || l.starts_with("pyre-fixme") {
             return Some(Suppression {
                 tool: Tool::Pyre,
                 kind: None,
