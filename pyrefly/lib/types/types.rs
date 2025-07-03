@@ -22,12 +22,10 @@ use pyrefly_util::uniques::UniqueFactory;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
-use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
-use crate::types::callable::BoolKeywords;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
@@ -38,6 +36,8 @@ use crate::types::callable::Params;
 use crate::types::class::Class;
 use crate::types::class::ClassKind;
 use crate::types::class::ClassType;
+use crate::types::keywords::BoolKeywords;
+use crate::types::keywords::KwCall;
 use crate::types::literal::Lit;
 use crate::types::module::Module;
 use crate::types::param_spec::ParamSpec;
@@ -564,49 +564,6 @@ impl Forallable {
 pub enum SuperObj {
     Instance(ClassType),
     Class(Class),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
-pub struct TypeMap(pub OrderedMap<Name, Type>);
-
-impl TypeMap {
-    pub fn new() -> Self {
-        Self(OrderedMap::new())
-    }
-}
-
-impl Visit<Type> for TypeMap {
-    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Type)) {
-        for (_, ty) in self.0.iter() {
-            ty.visit(f);
-        }
-    }
-}
-
-impl VisitMut<Type> for TypeMap {
-    fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut Type)) {
-        for (_, ty) in self.0.iter_mut() {
-            ty.visit_mut(f);
-        }
-    }
-}
-
-/// Wraps the result of a function call whose keyword arguments have typing effects.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
-pub struct KwCall {
-    /// The metadata of the called function.
-    pub func_metadata: FuncMetadata,
-    /// The keyword arguments that the function was called with.
-    pub keywords: TypeMap,
-    /// The return type of the call.
-    pub return_ty: Type,
-}
-
-impl KwCall {
-    pub fn has_function_kind(&self, kind: FunctionKind) -> bool {
-        self.func_metadata.kind == kind
-    }
 }
 
 // Note: The fact that Literal and LiteralString are at the front is important for

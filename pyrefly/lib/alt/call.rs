@@ -32,16 +32,16 @@ use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
 use crate::types::callable::Params;
 use crate::types::class::ClassType;
+use crate::types::keywords::KwCall;
+use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
 use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::types::AnyStyle;
 use crate::types::types::BoundMethod;
-use crate::types::types::KwCall;
 use crate::types::types::OverloadType;
 use crate::types::types::TParams;
 use crate::types::types::Type;
-use crate::types::types::TypeMap;
 use crate::types::types::Var;
 
 pub enum CallStyle<'a> {

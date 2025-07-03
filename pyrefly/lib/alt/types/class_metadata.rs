@@ -26,11 +26,11 @@ use vec1::vec1;
 use crate::alt::class::class_field::ClassField;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
-use crate::types::callable::BoolKeywords;
-use crate::types::callable::DataclassKeywords;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::display::ClassDisplayContext;
+use crate::types::keywords::BoolKeywords;
+use crate::types::keywords::DataclassKeywords;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::Type;
 

@@ -16,16 +16,12 @@ use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::display::commas_iter;
 use pyrefly_util::prelude::SliceExt;
-use pyrefly_util::visit::Visit;
-use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::types::class::ClassType;
-use crate::types::literal::Lit;
+use crate::types::keywords::BoolKeywords;
 use crate::types::types::Type;
-use crate::types::types::TypeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
@@ -265,78 +261,6 @@ pub enum FunctionKind {
     /// Instance of a protocol with a `__call__` method. The function has the `__call__` signature.
     CallbackProtocol(Box<ClassType>),
     TotalOrdering,
-}
-
-/// A map from keywords to boolean values. Useful for storing sets of keyword arguments for various
-/// dataclass functions.
-#[derive(Debug, Clone, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct BoolKeywords(OrderedMap<Name, bool>);
-
-impl Visit<Type> for BoolKeywords {
-    const RECURSE_CONTAINS: bool = false;
-    fn recurse<'a>(&'a self, _: &mut dyn FnMut(&'a Type)) {}
-}
-
-impl VisitMut<Type> for BoolKeywords {
-    const RECURSE_CONTAINS: bool = false;
-    fn recurse_mut(&mut self, _: &mut dyn FnMut(&mut Type)) {}
-}
-
-impl BoolKeywords {
-    pub fn new() -> Self {
-        Self(OrderedMap::new())
-    }
-
-    pub fn from_type_map(map: &TypeMap) -> Self {
-        let mut kws = Self::new();
-        for (name, ty) in map.0.iter() {
-            kws.set_keyword(name, ty);
-        }
-        kws
-    }
-
-    pub fn set_keyword(&mut self, name: &Name, ty: &Type) {
-        let value = match ty {
-            Type::Literal(Lit::Bool(b)) => *b,
-            _ => {
-                return;
-            }
-        };
-        self.0.insert(name.clone(), value);
-    }
-
-    pub fn get(&self, name_and_default: &(Name, bool)) -> bool {
-        let (name, default) = name_and_default;
-        *(self.0.get(name).unwrap_or(default))
-    }
-
-    pub fn set(&mut self, name: Name, value: bool) {
-        self.0.insert(name, value);
-    }
-
-    pub fn contains(&self, name: &Name) -> bool {
-        self.0.contains_key(name)
-    }
-
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&Name, &bool)> {
-        self.0.iter()
-    }
-}
-
-/// Namespace for keyword names and defaults.
-pub struct DataclassKeywords;
-
-impl DataclassKeywords {
-    pub const INIT: (Name, bool) = (Name::new_static("init"), true);
-    pub const ORDER: (Name, bool) = (Name::new_static("order"), false);
-    pub const FROZEN: (Name, bool) = (Name::new_static("frozen"), false);
-    pub const MATCH_ARGS: (Name, bool) = (Name::new_static("match_args"), true);
-    pub const KW_ONLY: (Name, bool) = (Name::new_static("kw_only"), false);
-    /// We combine default and default_factory into a single "default" keyword indicating whether
-    /// the field has a default. The default value isn't stored.
-    pub const DEFAULT: (Name, bool) = (Name::new_static("default"), false);
-    pub const EQ: (Name, bool) = (Name::new_static("eq"), true);
-    pub const UNSAFE_HASH: (Name, bool) = (Name::new_static("unsafe_hash"), false);
 }
 
 impl Callable {
