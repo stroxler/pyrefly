@@ -18,7 +18,6 @@ use pyrefly_util::display::commas_iter;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
-use ruff_python_ast::Identifier;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
 use starlark_map::ordered_map::OrderedMap;
@@ -287,16 +286,14 @@ impl BoolKeywords {
         Self(OrderedMap::new())
     }
 
-    pub fn set_keyword(&mut self, name: Option<&Identifier>, ty: Type) {
-        if let Some(name) = name.map(|id| &id.id) {
-            let value = match ty {
-                Type::Literal(Lit::Bool(b)) => b,
-                _ => {
-                    return;
-                }
-            };
-            self.0.insert(name.clone(), value);
-        }
+    pub fn set_keyword(&mut self, name: &Name, ty: &Type) {
+        let value = match ty {
+            Type::Literal(Lit::Bool(b)) => *b,
+            _ => {
+                return;
+            }
+        };
+        self.0.insert(name.clone(), value);
     }
 
     pub fn get(&self, name_and_default: &(Name, bool)) -> bool {

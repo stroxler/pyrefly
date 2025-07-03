@@ -939,7 +939,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 flags.set(DataclassKeywords::DEFAULT.0, true);
                             } else {
                                 let val = self.expr_infer(&kw.value, &ignore_errors);
-                                flags.set_keyword(kw.arg.as_ref(), val);
+                                if let Some(name) = kw.arg.as_ref() {
+                                    flags.set_keyword(&name.id, &val);
+                                }
                             }
                         }
                         ClassFieldInitialization::Class(Some(flags))

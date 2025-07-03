@@ -690,7 +690,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(func_metadata) = kw_metadata {
             let mut kws = BoolKeywords::new();
             for kw in keywords {
-                kws.set_keyword(kw.arg, kw.value.infer(self, errors));
+                if let Some(name) = kw.arg {
+                    kws.set_keyword(&name.id, &kw.value.infer(self, errors));
+                }
             }
             Type::KwCall(Box::new(KwCall {
                 func_metadata,
