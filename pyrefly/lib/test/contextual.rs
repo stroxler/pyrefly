@@ -91,21 +91,16 @@ kwarg(xs=[B()], ys=[B()])
 );
 
 testcase!(
-    test_simple_contextual_typing_against_unions,
+    bug = "Both assignments should be allowed. When decomposing the contextual hint, we eagerly resolve vars to the 'first' branch of the union. Note: due to the union's sorted representation, the first branch is not necessarily the first in source order.",
+    test_contextual_typing_against_unions,
     r#"
 class A: ...
-class B(A): ...
+class B: ...
+class B2(B): ...
+class C: ...
 
-x: list[A] | bool = [B()]
-y: list[int] | list[A] = [B()]
-"#,
-);
-
-testcase!(
-    bug = "This should type check. We believe the problem is related to union representation (which is sorted) and only handling the first element correctly.",
-    test_complex_contextual_typing_against_unions,
-    r#"
-x: dict[int, str] | dict[str, int | str] = { "a": 42 }  # E: `dict[str, int]` is not assignable to `dict[int, str] | dict[str, int | str]`
+x: list[A] | list[B] = [B2()] # E: `list[B2]` is not assignable to `list[A] | list[B]`
+y: list[B] | list[C] = [B2()]
 "#,
 );
 
