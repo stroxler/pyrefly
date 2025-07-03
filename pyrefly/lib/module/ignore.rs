@@ -125,13 +125,7 @@ pub struct Ignore {
 
 impl Ignore {
     pub fn new(code: &str) -> Self {
-        // process line level comments
-        let mut ignores: SmallMap<LineNumber, Vec<Suppression>> = SmallMap::new();
-        for (line, line_str) in code.lines().enumerate() {
-            if let Some(kind) = Self::get_suppression_kind(line_str) {
-                ignores.insert(LineNumber::from_zero_indexed(line as u32), [kind].to_vec());
-            }
-        }
+        let ignores = Self::parse_ignores(code);
         let ignore_all = Self::parse_ignore_all(code);
         let ignore_all_strict =
             ignore_all.contains_key(&Tool::Pyrefly) || ignore_all.contains_key(&Tool::Any);
@@ -179,6 +173,16 @@ impl Ignore {
             }
         }
         res
+    }
+
+    fn parse_ignores(code: &str) -> SmallMap<LineNumber, Vec<Suppression>> {
+        let mut ignores: SmallMap<LineNumber, Vec<Suppression>> = SmallMap::new();
+        for (line, line_str) in code.lines().enumerate() {
+            if let Some(kind) = Self::get_suppression_kind(line_str) {
+                ignores.insert(LineNumber::from_zero_indexed(line as u32), [kind].to_vec());
+            }
+        }
+        ignores
     }
 
     pub fn get_suppression_kind(line: &str) -> Option<Suppression> {
