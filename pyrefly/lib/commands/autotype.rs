@@ -214,6 +214,22 @@ def foo() -> int:
     }
 
     #[test]
+    fn test_literal_string() -> anyhow::Result<()> {
+        // Test return type annotation for integer literal
+        assert_annotations(
+            r#"
+def foo():
+    return ""
+"#,
+            r#"
+def foo() -> str:
+    return ""
+"#,
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_boolean_literal() -> anyhow::Result<()> {
         // Test boolean return type
         assert_annotations(
