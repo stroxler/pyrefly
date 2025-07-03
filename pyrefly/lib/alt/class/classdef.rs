@@ -97,13 +97,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.get_from_class(cls, &KeyClassMro(cls.index()))
     }
 
-    pub fn get_class_field_map(&self, cls: &Class) -> SmallMap<String, Arc<ClassField>> {
+    pub fn get_class_field_map(&self, cls: &Class) -> SmallMap<Name, Arc<ClassField>> {
         let mut map = SmallMap::new();
 
         for name in cls.fields() {
             let key = KeyClassField(cls.index(), name.clone());
             let field = self.get_from_class(cls, &key);
-            map.insert(name.as_str().to_owned(), field);
+            map.insert(name.clone(), field);
         }
 
         map
