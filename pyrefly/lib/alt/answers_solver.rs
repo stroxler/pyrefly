@@ -504,8 +504,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.calculate_and_record_answer(current, idx, calculation)
                     }
                     // Short circuit if another thread has already written an answer or recursive placeholder.
-                    ProposalResult::Calculated(v) => v,
-                    ProposalResult::CycleBroken(r) => Arc::new(K::promote_recursive(r)),
+                    //
+                    // In either case, we needs to treat this as if we finished a calculation to preserve
+                    // the fidelity of the unwind stack.
+                    ProposalResult::Calculated(v) => {
+                        self.cycles().on_calculation_finished(&current);
+                        v
+                    }
+                    ProposalResult::CycleBroken(r) => {
+                        self.cycles().on_calculation_finished(&current);
+                        Arc::new(K::promote_recursive(r))
+                    }
                 }
             }
         };
