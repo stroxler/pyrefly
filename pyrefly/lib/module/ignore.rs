@@ -234,7 +234,7 @@ impl Ignore {
                 }
             }
         } else if (lex.starts_with("pyre-ignore") || lex.starts_with("pyre-fixme"))
-            && (lex.trim_start() || lex.blank())
+            && (lex.starts_with("[") || lex.trim_start() || lex.blank())
         {
             return Some(Suppression {
                 tool: Tool::Pyre,
