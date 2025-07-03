@@ -166,6 +166,31 @@ def test(f: Callable):
 );
 
 testcase!(
+    test_callable_subtype_vararg_and_positional,
+    r#"
+from typing import Protocol
+class P1(Protocol):
+    def __call__(self, a: int, b: str) -> None: ...
+
+class P2(Protocol):
+    def __call__(self, *args: int | str) -> None: ...
+
+class P3(Protocol):
+    def __call__(self, *args: int | str, a: int, b: str) -> None: ...
+
+class P4(Protocol):
+    def __call__(self, *args: int | str, a: int = 1, b: str = "") -> None: ...
+
+def test(p2: P2, p3: P3, p4: P4):
+    # this one doesn't work because a/b can be passed by name
+    x1: P1 = p2  # E: `P2` is not assignable to `P1`
+    # this one doesn't work because a/b isn't always passed by name
+    x2: P1 = p3  # E: `P3` is not assignable to `P1`
+    x3: P1 = p4  # OK
+"#,
+);
+
+testcase!(
     test_callable_annot_too_few_args,
     r#"
 from typing import Callable

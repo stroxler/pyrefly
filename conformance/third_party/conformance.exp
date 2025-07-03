@@ -8228,16 +8228,6 @@
     },
     {
       "code": -2,
-      "column": 23,
-      "concise_description": "`Concrete5_Good2` is not assignable to `Template5`",
-      "description": "`Concrete5_Good2` is not assignable to `Template5`",
-      "line": 281,
-      "name": "bad-assignment",
-      "stop_column": 40,
-      "stop_line": 281
-    },
-    {
-      "code": -2,
       "column": 22,
       "concise_description": "`Concrete5_Bad1` is not assignable to `Template5`",
       "description": "`Concrete5_Bad1` is not assignable to `Template5`",

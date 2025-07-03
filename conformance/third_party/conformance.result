@@ -405,8 +405,7 @@
   "protocols_definition.py": [
     "Line 116: Expected 1 errors",
     "Line 117: Expected 1 errors",
-    "Line 79: Unexpected errors ['`Concrete` is not assignable to `Template`']",
-    "Line 281: Unexpected errors ['`Concrete5_Good2` is not assignable to `Template5`']"
+    "Line 79: Unexpected errors ['`Concrete` is not assignable to `Template`']"
   ],
   "protocols_explicit.py": [
     "Line 27: Expected 1 errors",

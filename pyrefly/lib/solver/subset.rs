@@ -41,10 +41,21 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         let mut u_args = u_args.iter();
         let mut l_arg = l_args.next();
         let mut u_arg = u_args.next();
+        // This holds any Param::Pos from `u` that matched *args from `l`.
+        // When handling keyword params, we make sure that they can be passed by name.
+        let mut u_param_matched_with_l_varargs = Vec::new();
         // Handle positional args
         loop {
             match (l_arg, u_arg) {
-                (None, None) => return true,
+                (None, None) => {
+                    if u_param_matched_with_l_varargs.is_empty() {
+                        return true;
+                    } else {
+                        // We can't return early since we need to check that the matched params from `u`
+                        // can be called by name.
+                        break;
+                    }
+                }
                 (
                     Some(Param::PosOnly(_, l, l_req) | Param::Pos(_, l, l_req)),
                     Some(Param::PosOnly(_, u, u_req)),
@@ -78,13 +89,20 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     Some(
                         Param::PosOnly(_, _, Required::Optional)
                         | Param::Pos(_, _, Required::Optional)
-                        | Param::KwOnly(_, _, Required::Optional)
-                        | Param::VarArg(_, _)
-                        | Param::Kwargs(_, _),
+                        | Param::VarArg(_, _),
                     ),
                     None,
                 ) => {
                     l_arg = l_args.next();
+                }
+                (Some(Param::KwOnly(_, _, Required::Optional) | Param::Kwargs(_, _)), None) => {
+                    if u_param_matched_with_l_varargs.is_empty() {
+                        l_arg = l_args.next();
+                    } else {
+                        // Don't consume kw-only and kwarg params from `l` yet, we need them to
+                        // check that the matched params from `u` can be called by name
+                        break;
+                    }
                 }
                 (
                     Some(Param::VarArg(_, Type::Unpack(l))),
@@ -172,8 +190,18 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         }
                     }
                 }
-                (Some(Param::VarArg(_, l)), Some(Param::PosOnly(_, u, Required::Required))) => {
+                (Some(Param::VarArg(_, l)), Some(Param::PosOnly(_, u, _))) => {
                     if self.is_subset_eq(u, l) {
+                        u_arg = u_args.next();
+                    } else {
+                        return false;
+                    }
+                }
+                (Some(Param::VarArg(_, l)), Some(Param::Pos(name, u, _))) => {
+                    // Param::Pos can be passed positionally or by name, so if it matches *args
+                    // we need to make sure it matches an optional kw-only argument or *kwargs
+                    if self.is_subset_eq(u, l) {
+                        u_param_matched_with_l_varargs.push((name, u));
                         u_arg = u_args.next();
                     } else {
                         return false;
@@ -220,7 +248,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 _ => return false,
             }
         }
-        let mut l_keywords = HashMap::new(); // All iterations don't matter about determinism
+        // We can use a HashMap for `l_keywords` since the order does not matter
+        let mut l_keywords = HashMap::new();
         let mut l_kwargs = None;
         for arg in Option::into_iter(l_arg).chain(l_args) {
             match arg {
@@ -284,6 +313,23 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (l_kwargs, _) => l_kwargs,
         };
+        // These parameters from `u` may be passed by name or position. We matched the positional
+        // case with *args from `l` already; now we check that they can be passed by name.
+        for (name, u_ty) in u_param_matched_with_l_varargs {
+            if let Some((l_ty, l_req)) = l_keywords.remove(name) {
+                // Matched kw-only param from `l` must be optional, since the argument will not be
+                // present if passed positionally.
+                if l_req != Required::Optional || !self.is_subset_eq(u_ty, &l_ty) {
+                    return false;
+                }
+            } else if let Some(l_ty) = &l_kwargs {
+                if !self.is_subset_eq(u_ty, l_ty) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
         // Handle keyword-only args
         for (name, (u_ty, u_req)) in u_keywords.iter() {
             if let Some((l_ty, l_req)) = l_keywords.remove(name) {
