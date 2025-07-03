@@ -22,6 +22,7 @@ use pyrefly_util::uniques::UniqueFactory;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
+use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
@@ -563,6 +564,25 @@ impl Forallable {
 pub enum SuperObj {
     Instance(ClassType),
     Class(Class),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+pub struct TypeMap(pub OrderedMap<Name, Type>);
+
+impl Visit<Type> for TypeMap {
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Type)) {
+        for (_, ty) in self.0.iter() {
+            ty.visit(f);
+        }
+    }
+}
+
+impl VisitMut<Type> for TypeMap {
+    fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut Type)) {
+        for (_, ty) in self.0.iter_mut() {
+            ty.visit_mut(f);
+        }
+    }
 }
 
 /// Wraps the result of a function call whose keyword arguments have typing effects.
