@@ -1727,6 +1727,25 @@ impl<'a> Transaction<'a> {
         Vec::new()
     }
 
+    fn filter_parameters(
+        &self,
+        param_with_default: ParameterWithDefault,
+        handle: &Handle,
+    ) -> Option<ParameterAnnotation> {
+        if param_with_default.name() == "self" || param_with_default.name() == "cls" {
+            return None;
+        }
+        let ty = match param_with_default.default() {
+            Some(expr) => self.get_type_trace(handle, expr.range()),
+            None => None,
+        };
+        Some(ParameterAnnotation {
+            text_size: param_with_default.parameter.range().end(),
+            ty,
+            has_annotation: param_with_default.annotation().is_some(),
+        })
+    }
+
     pub fn infer_parameter_annotations(
         &self,
         handle: &Handle,
@@ -1748,18 +1767,7 @@ impl<'a> Transaction<'a> {
                 }
                 result
             }
-            fn filter_parameters(
-                param_with_default: ParameterWithDefault,
-            ) -> Option<ParameterAnnotation> {
-                if param_with_default.name() == "self" || param_with_default.name() == "cls" {
-                    return None;
-                }
-                Some(ParameterAnnotation {
-                    text_size: param_with_default.parameter.range().end(),
-                    ty: None,
-                    has_annotation: param_with_default.annotation().is_some(),
-                })
-            }
+
             fn zip_types(
                 inferred_types: Vec<Vec<Type>>,
                 function_arguments: Vec<ParameterAnnotation>,
@@ -1768,8 +1776,11 @@ impl<'a> Transaction<'a> {
                 function_arguments
                     .into_iter()
                     .zip(zipped_inferred_types)
-                    .map(|(arg, ty)| {
+                    .map(|(arg, mut ty)| {
                         let mut arg = arg;
+                        if let Some(default_type) = arg.ty {
+                            ty.push(default_type)
+                        }
                         if ty.len() == 1 {
                             arg.ty = Some(ty[0].clone());
                         } else {
@@ -1789,8 +1800,12 @@ impl<'a> Transaction<'a> {
                     if let Binding::Function(key_function, _, _) = binding {
                         let binding_func = bindings.get(*key_function);
                         let args = binding_func.def.parameters.args.clone();
-                        let func_args: Vec<ParameterAnnotation> =
-                            args.into_iter().filter_map(filter_parameters).collect();
+                        let func_args: Vec<ParameterAnnotation> = args
+                            .into_iter()
+                            .filter_map(|param_with_default| {
+                                self.filter_parameters(param_with_default, handle)
+                            })
+                            .collect();
                         let references =
                             self.collect_references(handle, idx, bindings.clone(), transaction);
                         let ranges: Vec<&TextRange> =
