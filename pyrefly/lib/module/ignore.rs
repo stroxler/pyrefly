@@ -107,18 +107,16 @@ impl<'a> Lexer<'a> {
 }
 
 #[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy)]
-pub enum SuppressionKind {
-    Ignore,
-    Pyre,
-    Pyrefly,
-    TypedPyrefly(ErrorKind),
+pub struct Suppression {
+    tool: Tool,
+    kind: Option<ErrorKind>,
 }
 
 /// Record the position of `# type: ignore[valid-type]` statements.
 /// For now we don't record the content of the ignore, but we could.
 #[derive(Debug, Clone, Default)]
 pub struct Ignore {
-    ignores: SmallMap<LineNumber, Vec<SuppressionKind>>,
+    ignores: SmallMap<LineNumber, Vec<Suppression>>,
     /// Do we have a generic or Pyrefly-specific ignore-all directive?
     ignore_all_strict: bool,
     /// Do we have any ignore-all directive, regardless of tool?
@@ -128,7 +126,7 @@ pub struct Ignore {
 impl Ignore {
     pub fn new(code: &str) -> Self {
         // process line level comments
-        let mut ignores: SmallMap<LineNumber, Vec<SuppressionKind>> = SmallMap::new();
+        let mut ignores: SmallMap<LineNumber, Vec<Suppression>> = SmallMap::new();
         for (line, line_str) in code.lines().enumerate() {
             if let Some(kind) = Self::get_suppression_kind(line_str) {
                 ignores.insert(LineNumber::from_zero_indexed(line as u32), [kind].to_vec());
@@ -183,20 +181,26 @@ impl Ignore {
         res
     }
 
-    pub fn get_suppression_kind(line: &str) -> Option<SuppressionKind> {
-        fn match_pyrefly_ignore(line: &str) -> Option<SuppressionKind> {
+    pub fn get_suppression_kind(line: &str) -> Option<Suppression> {
+        fn match_pyrefly_ignore(line: &str) -> Option<Suppression> {
             let mut words = line.split_whitespace();
             if let Some("pyrefly:") = words.next() {
                 if let Some(word) = words.next() {
                     if word == "ignore" {
-                        return Some(SuppressionKind::Pyrefly);
+                        return Some(Suppression {
+                            tool: Tool::Pyrefly,
+                            kind: None,
+                        });
                     }
 
                     if let Some(word) = word.strip_prefix("ignore[")
                         && let Some(word) = word.strip_suffix(']')
                     {
                         if let Ok(kind) = ErrorKind::from_str(word) {
-                            return Some(SuppressionKind::TypedPyrefly(kind));
+                            return Some(Suppression {
+                                tool: Tool::Pyrefly,
+                                kind: Some(kind),
+                            });
                         }
                     }
                 }
@@ -209,11 +213,17 @@ impl Ignore {
             if let Some(l) = l.strip_prefix("type:")
                 && l.trim_start().starts_with("ignore")
             {
-                return Some(SuppressionKind::Ignore);
+                return Some(Suppression {
+                    tool: Tool::Any,
+                    kind: None,
+                });
             } else if let Some(value) = match_pyrefly_ignore(l) {
                 return Some(value);
             } else if l.starts_with("pyre-ignore") || l.starts_with("pyre-fixme") {
-                return Some(SuppressionKind::Pyre);
+                return Some(Suppression {
+                    tool: Tool::Pyre,
+                    kind: None,
+                });
             }
         }
         None
@@ -234,10 +244,9 @@ impl Ignore {
         // We convert to/from zero-indexed because LineNumber does not implement Step.
         for line in start_line.to_zero_indexed().saturating_sub(1)..=end_line.to_zero_indexed() {
             if let Some(suppressions) = self.ignores.get(&LineNumber::from_zero_indexed(line)) {
-                if suppressions.iter().any(|supp| match supp {
-                    SuppressionKind::Ignore | SuppressionKind::Pyrefly => true,
-                    SuppressionKind::TypedPyrefly(supp_kind) => supp_kind == &kind,
-                    _ => false,
+                if suppressions.iter().any(|supp| {
+                    matches!(supp.tool, Tool::Any | Tool::Pyrefly)
+                        && supp.kind.is_none_or(|x| x == kind)
                 }) {
                     return true;
                 }
@@ -251,7 +260,12 @@ impl Ignore {
     pub fn get_pyrefly_ignores(&self) -> SmallSet<LineNumber> {
         self.ignores
             .iter()
-            .filter(|ignore| ignore.1.contains(&SuppressionKind::Pyrefly))
+            .filter(|ignore| {
+                ignore
+                    .1
+                    .iter()
+                    .any(|s| s.tool == Tool::Pyrefly && s.kind.is_none())
+            })
             .map(|(line, _)| *line)
             .collect()
     }
@@ -271,11 +285,18 @@ mod tests {
         assert!(Ignore::get_suppression_kind(" pyrefly: ignore").is_none());
         assert!(Ignore::get_suppression_kind("normal line").is_none());
         assert!(
-            Ignore::get_suppression_kind("# pyrefly: ignore") == Some(SuppressionKind::Pyrefly)
+            Ignore::get_suppression_kind("# pyrefly: ignore")
+                == Some(Suppression {
+                    tool: Tool::Pyrefly,
+                    kind: None
+                })
         );
         assert!(
             Ignore::get_suppression_kind("# pyrefly: ignore[bad-return]")
-                == Some(SuppressionKind::TypedPyrefly(ErrorKind::BadReturn))
+                == Some(Suppression {
+                    tool: Tool::Pyrefly,
+                    kind: Some(ErrorKind::BadReturn)
+                })
         );
         assert!(Ignore::get_suppression_kind("# pyrefly: ignore[]").is_none());
         assert!(Ignore::get_suppression_kind("# pyrefly: ignore[bad-]").is_none());
