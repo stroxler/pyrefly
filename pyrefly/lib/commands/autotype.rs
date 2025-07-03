@@ -268,4 +268,26 @@ def foo() -> int:
         );
         Ok(())
     }
+
+    #[test]
+
+    fn test_default_parameters() -> anyhow::Result<()> {
+        assert_annotations(
+            r#"
+    def example(a, b, c = None):
+        return c
+    example(1, 2, 3)
+    x = 2
+    example("a", "b", x)
+    "#,
+            r#"
+    def example(a: int | str, b: int | str, c: int = None):
+        return c
+    example(1, 2, 3)
+    x = 2
+    example("a", "b", x)
+    "#,
+        );
+        Ok(())
+    }
 }

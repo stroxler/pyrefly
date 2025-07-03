@@ -1755,7 +1755,7 @@ impl<'a> Transaction<'a> {
                     return None;
                 }
                 Some(ParameterAnnotation {
-                    text_size: param_with_default.range().end(),
+                    text_size: param_with_default.parameter.range().end(),
                     ty: None,
                     has_annotation: param_with_default.annotation().is_some(),
                 })
