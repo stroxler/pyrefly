@@ -46,10 +46,6 @@ use crate::types::types::Type;
 pub struct VarianceMap(pub SmallMap<String, Variance>);
 
 impl VisitMut<Type> for VarianceMap {
-    fn visit_mut(&mut self, _visitor: &mut dyn FnMut(&mut Type)) {
-        // No-op: VarianceMap does not contain any Type
-    }
-
     fn recurse_mut(&mut self, _visitor: &mut dyn FnMut(&mut Type)) {
         // No-op: VarianceMap does not contain any Type
     }
