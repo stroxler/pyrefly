@@ -177,15 +177,33 @@ impl Ignore {
 
     fn parse_ignores(code: &str) -> SmallMap<LineNumber, Vec<Suppression>> {
         let mut ignores: SmallMap<LineNumber, Vec<Suppression>> = SmallMap::new();
-        for (line, line_str) in code.lines().enumerate() {
-            if let Some(kind) = Self::get_suppression_kind(line_str) {
-                ignores.insert(LineNumber::from_zero_indexed(line as u32), [kind].to_vec());
+        // If we see a comment on a non-code line, move it to the next non-comment line.
+        let mut pending = Vec::new();
+        let mut line = LineNumber::default();
+        for (idx, x) in code.lines().enumerate() {
+            line = LineNumber::from_zero_indexed(idx as u32);
+            let mut xs = x.split('#');
+            let first = xs.next().unwrap_or("");
+            if let Some(supp) = Self::get_suppression_kind(x) {
+                if first.trim_start().is_empty() {
+                    pending.push(supp);
+                } else {
+                    ignores.entry(line).or_default().push(supp);
+                }
+            } else if !pending.is_empty() && (x.is_empty() || !first.trim_start().is_empty()) {
+                ignores.entry(line).or_default().append(&mut pending);
             }
+        }
+        if !pending.is_empty() {
+            ignores
+                .entry(line.increment())
+                .or_default()
+                .append(&mut pending);
         }
         ignores
     }
 
-    pub fn get_suppression_kind(line: &str) -> Option<Suppression> {
+    fn get_suppression_kind(line: &str) -> Option<Suppression> {
         fn match_pyrefly_ignore(line: &str) -> Option<Suppression> {
             let mut words = line.split_whitespace();
             if let Some("pyrefly:") = words.next() {
@@ -244,9 +262,9 @@ impl Ignore {
             return true;
         }
 
-        // We allow an ignore the line before the range, or on any line within the range.
+        // We allow an ignore on any line within the range.
         // We convert to/from zero-indexed because LineNumber does not implement Step.
-        for line in start_line.to_zero_indexed().saturating_sub(1)..=end_line.to_zero_indexed() {
+        for line in start_line.to_zero_indexed()..=end_line.to_zero_indexed() {
             if let Some(suppressions) = self.ignores.get(&LineNumber::from_zero_indexed(line)) {
                 if suppressions.iter().any(|supp| match supp.tool {
                     // We only check the subkind if they do `# ignore: pyrefly`

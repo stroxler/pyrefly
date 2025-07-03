@@ -139,7 +139,7 @@ testcase!(
 def foo() -> str:
   # pyrefly: ignore[bad-return]
   # pyrefly: ignore[bad-argument-type]
-  return len(1) # E: Returned type `int` is not assignable to declared return type `str`
+  return len(1)
 "#,
 );
 
@@ -168,13 +168,12 @@ z: int = "3"  # E: `Literal['3']` is not assignable to `int`
 );
 
 testcase!(
-    bug = "An ignore comment should attach to either the current line or next line, but not both",
     test_ignore_attachment,
     r#"
 # type: ignore
 w: int = "0"
 
 x: int = "1"  # type: ignore
-y: int = "2"  # TODO: this error should not be suppressed
+y: int = "2"  # E: is not assignable
 "#,
 );
