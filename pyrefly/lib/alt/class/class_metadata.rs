@@ -38,6 +38,7 @@ use crate::types::callable::FunctionKind;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::keywords::BoolKeywords;
+use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::literal::Lit;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
@@ -45,7 +46,7 @@ use crate::types::types::Type;
 /// The data we need to apply a dataclass-like transformation specified by `typing.dataclass_transform` to a class.
 struct DataclassTransform {
     /// Defaults for dataclass behaviors - `eq_default`, `frozen_default`, etc.
-    defaults: BoolKeywords,
+    defaults: DataclassTransformKeywords,
     /// Keyword values customizing dataclass behaviors - `eq`, `frozen`, etc.
     kws: BoolKeywords,
 }
@@ -464,7 +465,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     && call.has_function_kind(FunctionKind::DataclassTransform) =>
                 {
                     dataclass_transform_metadata =
-                        Some(BoolKeywords::from_type_map(&call.keywords));
+                        Some(DataclassTransformKeywords::from_type_map(&call.keywords));
                 }
                 // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
                 _ if let Some(m) = decorator_ty.dataclass_transform_metadata() => {
@@ -488,11 +489,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(transform) = dataclass_from_dataclass_transform {
             let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
             let mut kws = transform.kws;
-            for (name, value) in transform.defaults.iter() {
+            for (name, value) in transform.defaults.defaults() {
                 if let Some(kw) = name.strip_suffix("_default") {
                     let kw = Name::new(kw);
                     if !kws.contains(&kw) {
-                        kws.set(kw, *value);
+                        kws.set(kw, value);
                     }
                 }
             }

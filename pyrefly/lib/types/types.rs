@@ -36,7 +36,7 @@ use crate::types::callable::Params;
 use crate::types::class::Class;
 use crate::types::class::ClassKind;
 use crate::types::class::ClassType;
-use crate::types::keywords::BoolKeywords;
+use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::keywords::KwCall;
 use crate::types::literal::Lit;
 use crate::types::module::Module;
@@ -1043,7 +1043,7 @@ impl Type {
         self.check_func_metadata(&|meta| meta.flags.has_final_decoration)
     }
 
-    pub fn dataclass_transform_metadata(&self) -> Option<BoolKeywords> {
+    pub fn dataclass_transform_metadata(&self) -> Option<DataclassTransformKeywords> {
         self.check_func_metadata(&|meta| meta.flags.dataclass_transform_metadata.clone())
     }
 

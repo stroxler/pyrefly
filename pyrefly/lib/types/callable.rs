@@ -20,7 +20,7 @@ use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
 
 use crate::types::class::ClassType;
-use crate::types::keywords::BoolKeywords;
+use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::types::Type;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -208,7 +208,7 @@ pub struct FuncFlags {
     /// `dataclasses.dataclass`-like decorator. Stores the keyword values passed to the
     /// `dataclass_transform` call. See
     /// https://typing.python.org/en/latest/spec/dataclasses.html#specification.
-    pub dataclass_transform_metadata: Option<BoolKeywords>,
+    pub dataclass_transform_metadata: Option<DataclassTransformKeywords>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -31,6 +31,7 @@ use crate::types::class::ClassType;
 use crate::types::display::ClassDisplayContext;
 use crate::types::keywords::BoolKeywords;
 use crate::types::keywords::DataclassKeywords;
+use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::Type;
 
@@ -53,7 +54,7 @@ pub struct ClassMetadata {
     total_ordering_metadata: Option<TotalOrderingMetadata>,
     /// If this class is decorated with `typing.dataclass_transform(...)`, the keyword arguments
     /// that were passed to the `dataclass_transform` call.
-    dataclass_transform_metadata: Option<BoolKeywords>,
+    dataclass_transform_metadata: Option<DataclassTransformKeywords>,
 }
 
 impl VisitMut<Type> for ClassMetadata {
@@ -85,7 +86,7 @@ impl ClassMetadata {
         is_final: bool,
         has_unknown_tparams: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
-        dataclass_transform_metadata: Option<BoolKeywords>,
+        dataclass_transform_metadata: Option<DataclassTransformKeywords>,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         Self::validate_frozen_dataclass_inheritance(
@@ -251,7 +252,7 @@ impl ClassMetadata {
         self.dataclass_metadata.as_ref()
     }
 
-    pub fn dataclass_transform_metadata(&self) -> Option<&BoolKeywords> {
+    pub fn dataclass_transform_metadata(&self) -> Option<&DataclassTransformKeywords> {
         self.dataclass_transform_metadata.as_ref()
     }
 }

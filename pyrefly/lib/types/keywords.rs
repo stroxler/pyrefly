@@ -25,6 +25,13 @@ impl TypeMap {
     pub fn new() -> Self {
         Self(OrderedMap::new())
     }
+
+    fn get_bool(&self, name: &Name, default: bool) -> bool {
+        self.0
+            .get(name)
+            .and_then(|t| t.as_bool())
+            .unwrap_or(default)
+    }
 }
 
 impl Visit<Type> for TypeMap {
@@ -58,6 +65,43 @@ pub struct KwCall {
 impl KwCall {
     pub fn has_function_kind(&self, kind: FunctionKind) -> bool {
         self.func_metadata.kind == kind
+    }
+}
+
+/// Parameters to `typing.dataclass_transform`.
+/// See https://typing.python.org/en/latest/spec/dataclasses.html#dataclass-transform-parameters.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
+pub struct DataclassTransformKeywords {
+    pub eq_default: bool,
+    pub order_default: bool,
+    pub kw_only_default: bool,
+    pub frozen_default: bool,
+    // TODO(rechen): add field_specifiers
+}
+
+impl DataclassTransformKeywords {
+    const EQ_DEFAULT: Name = Name::new_static("eq_default");
+    const ORDER_DEFAULT: Name = Name::new_static("order_default");
+    const KW_ONLY_DEFAULT: Name = Name::new_static("kw_only_default");
+    const FROZEN_DEFAULT: Name = Name::new_static("frozen_default");
+
+    pub fn from_type_map(map: &TypeMap) -> Self {
+        Self {
+            eq_default: map.get_bool(&Self::EQ_DEFAULT, true),
+            order_default: map.get_bool(&Self::ORDER_DEFAULT, false),
+            kw_only_default: map.get_bool(&Self::KW_ONLY_DEFAULT, false),
+            frozen_default: map.get_bool(&Self::FROZEN_DEFAULT, false),
+        }
+    }
+
+    pub fn defaults(&self) -> Vec<(Name, bool)> {
+        vec![
+            (Self::EQ_DEFAULT, self.eq_default),
+            (Self::ORDER_DEFAULT, self.order_default),
+            (Self::KW_ONLY_DEFAULT, self.kw_only_default),
+            (Self::FROZEN_DEFAULT, self.frozen_default),
+        ]
     }
 }
 
@@ -110,10 +154,6 @@ impl BoolKeywords {
 
     pub fn contains(&self, name: &Name) -> bool {
         self.0.contains_key(name)
-    }
-
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&Name, &bool)> {
-        self.0.iter()
     }
 }
 

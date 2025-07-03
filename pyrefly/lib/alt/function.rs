@@ -45,7 +45,7 @@ use crate::types::callable::ParamList;
 use crate::types::callable::Required;
 use crate::types::class::ClassKind;
 use crate::types::class::ClassType;
-use crate::types::keywords::BoolKeywords;
+use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::types::CalleeKind;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
@@ -248,7 +248,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         false
                     }
                     _ if let Type::KwCall(call) = decorator_ty && call.has_function_kind(FunctionKind::DataclassTransform) => {
-                        dataclass_transform_metadata = Some(BoolKeywords::from_type_map(&call.keywords));
+                        dataclass_transform_metadata = Some(DataclassTransformKeywords::from_type_map(&call.keywords));
                         false
                     }
                     _ => true,
