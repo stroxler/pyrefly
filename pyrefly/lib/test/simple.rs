@@ -1534,3 +1534,12 @@ testcase!(
 def # E: # E:
 "#,
 );
+
+testcase!(
+    test_surprising_builtins,
+    r#"
+# These are defined in builtins, but exposed through special rules
+print(__import__)
+print(__build_class__)
+"#,
+);

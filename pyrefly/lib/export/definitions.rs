@@ -168,6 +168,7 @@ impl Definitions {
         self.import_all.entry(ModuleName::builtins()).or_default();
     }
 
+    /// Ensure that `dunder_all` is populated, synthesising it if `__all__` isn't present.
     pub fn ensure_dunder_all(&mut self, style: ModuleStyle) {
         if self.definitions.contains_key(&dunder::ALL) {
             // Explicitly defined, so don't redefine it
@@ -188,6 +189,16 @@ impl Definitions {
             {
                 self.dunder_all
                     .push(DunderAllEntry::Name(def.range, name.clone()));
+            }
+        }
+    }
+
+    /// Add these names to `duner_all`, if they are defined in the module.
+    pub fn extend_dunder_all(&mut self, extra: &[Name]) {
+        for name in extra {
+            if let Some(def) = self.definitions.get(name) {
+                self.dunder_all
+                    .push(DunderAllEntry::Name(def.range, name.clone()))
             }
         }
     }
