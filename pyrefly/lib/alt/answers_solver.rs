@@ -243,7 +243,7 @@ impl Cycle {
     /// TODO(stroxler): This check currently only occurs for the most
     /// recently detected cycle, but this is actually a bug; cycles can
     /// overlap in arbitrary ways.
-    fn post_calculate_state(&mut self, current: &CalcId) -> CycleState {
+    fn on_calculation_finished(&mut self, current: &CalcId) -> CycleState {
         if let Some(c) = self.unwind_stack.last() {
             if current == c {
                 // This is part of the cycle; remove it from the unwind stack.
@@ -330,18 +330,6 @@ impl Cycles {
         res
     }
 
-    /// Handle the completion of a cycle, which happens when we are ready to produce the
-    /// final answer (not the cyclic placeholder) for the cycle-breaking Idx.
-    ///
-    /// Return `true` if we are no longer in a cycle (i.e. the cycle stack is now empty). because we can potentially enter
-    /// many cycles while analyzing a densely-connected graph of bindings, this is not
-    /// necessarily the case.
-    fn on_cycle_completed(&self) -> bool {
-        let mut cycle_stack = self.0.borrow_mut();
-        cycle_stack.pop();
-        cycle_stack.is_empty()
-    }
-
     fn pre_calculate_state(&self, current: &CalcId) -> CycleState {
         if let Some(active_cycle) = self.0.borrow_mut().last_mut() {
             active_cycle.pre_calculate_state(current)
@@ -350,11 +338,28 @@ impl Cycles {
         }
     }
 
-    fn post_calculate_state(&self, current: &CalcId) -> CycleState {
-        if let Some(active_cycle) = self.0.borrow_mut().last_mut() {
-            active_cycle.post_calculate_state(current)
+    /// Handle the completion of a calculation. This might involve progress on
+    /// the unwind stack of one or more cycles.
+    ///
+    /// TODO(stroxler): We currently only look at the most recently detected cycle,
+    /// which is incorrect; we may need to unwind multiple cycles.
+    ///
+    /// Return `true` if there are active cycles after finishing this calculation,
+    /// `false` if there are not.
+    fn on_calculation_finished(&self, current: &CalcId) -> bool {
+        let mut stack = self.0.borrow_mut();
+        let state = if let Some(active_cycle) = stack.last_mut() {
+            active_cycle.on_calculation_finished(current)
         } else {
             CycleState::NoDetectedCycle
+        };
+        match state {
+            CycleState::BreakAt => {
+                stack.pop();
+                !stack.is_empty()
+            }
+            CycleState::Participant => true,
+            CycleState::NoDetectedCycle => false,
         }
     }
 }
@@ -532,16 +537,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             K::record_recursive(self, k, &v, r, self.base_errors);
         }
         // Handle cycle unwinding, if applicable.
-        match self.cycles().post_calculate_state(&current) {
-            CycleState::NoDetectedCycle => {}
-            CycleState::Participant => {
-                // TODO: at some point we'll want refactor so that at least some results in a cycle
-                // are isolated until we finish (otherwise we can get data races pinning `Var`s).
-            }
-            CycleState::BreakAt => {
-                self.cycles().on_cycle_completed();
-            }
-        }
+        //
+        // TODO(stroxler): we eventually need to use is-a-cycle-active information to isolate
+        // placeholder values.
+        self.cycles().on_calculation_finished(&current);
         v
     }
 
