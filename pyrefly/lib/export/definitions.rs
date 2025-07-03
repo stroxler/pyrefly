@@ -389,8 +389,13 @@ impl<'a> DefinitionsBuilder<'a> {
                     self.inner
                         .dunder_all
                         .extend(DunderAllEntry::as_list(&x.value));
-                } else {
-                    self.expr_lvalue(&x.target);
+                } else if let Expr::Name(name) = &*x.target {
+                    self.add_name(
+                        &name.id,
+                        name.range,
+                        DefinitionStyle::Local(SymbolKind::Variable),
+                        None,
+                    )
                 }
             }
             Stmt::Expr(StmtExpr { value, .. })

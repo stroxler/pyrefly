@@ -1267,6 +1267,22 @@ assert_type(round(0.123456789), int)
 );
 
 testcase!(
+    test_aug_assign_star_no_panic,
+    r#"
+# This used to panic: see https://github.com/facebook/pyrefly/issues/454
+*a += 0  # E: Parse error: Invalid augmented assignment target  # E: Could not find name `a`
+    "#,
+);
+
+testcase!(
+    test_debug,
+    r#"
+from typing import assert_type
+assert_type(__debug__, bool)
+    "#,
+);
+
+testcase!(
     test_invalid_assignment_no_panic,
     r#"
 -a=a=  # E: Parse error: Invalid assignment target  # E: Parse error: Expected an expression
