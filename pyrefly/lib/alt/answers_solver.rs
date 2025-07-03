@@ -173,14 +173,16 @@ pub struct Cycle {
 impl Cycle {
     fn new(raw: Vec1<CalcId>) -> Self {
         let detected_at = raw.first().dupe();
-        let (split_at, break_at) = raw.iter().enumerate().min_by_key(|(_, c)| *c).unwrap();
-        if *break_at != detected_at {
-            let (before, at_and_after) = raw.split_at(split_at);
+        let (i_break_at, break_at) = raw.iter().enumerate().min_by_key(|(_, c)| *c).unwrap();
+        let cycle = if *break_at != detected_at {
+            // Split so that `break_at` is the final item in `before`, so that it will wind up at the
+            // bottom of the unwind stack.
+            let (before_and_at, after) = raw.split_at(i_break_at + 1);
             // The raw cycle is in order of recency (current key at the front, entrypoint at the top). This means:
             // - The recursion stack is already in the right order (older frames we will re-encounter at the top)
             // - The unwind stack has to be flipped so that newer frames are at the top
-            let unwind_stack = before.iter().rev().duped().collect();
-            let recursion_stack = at_and_after.iter().duped().collect();
+            let unwind_stack = before_and_at.iter().rev().duped().collect();
+            let recursion_stack = after.iter().duped().collect();
             Cycle {
                 break_at: break_at.dupe(),
                 recursion_stack,
@@ -188,15 +190,30 @@ impl Cycle {
                 detected_at,
             }
         } else {
-            // Short circuit the recursion if we're already at `break_at`
-            let unwind_stack = raw.iter().rev().duped().collect();
+            // Short circuit the recursion if we're already at `break_at`. Make sure that `break_at` is
+            // at the bottom rather than the top of the `unwind_stack` by 'rotating' the iterator one position.
+            let unwind_stack = raw
+                .iter()
+                .skip(1)
+                .chain(raw.iter().take(1))
+                .rev()
+                .duped()
+                .collect();
             Cycle {
                 break_at: break_at.dupe(),
                 recursion_stack: Vec::new(),
                 unwind_stack,
                 detected_at,
             }
-        }
+        };
+        assert!(
+            cycle
+                .unwind_stack
+                .first()
+                .is_some_and(|calc_id| *calc_id == cycle.break_at),
+            "The bottom of the unwind stack should always be `break_at`."
+        );
+        cycle
     }
 }
 
@@ -269,16 +286,17 @@ impl Cycles {
     }
 
     fn pre_calculate_state(&self, current: &CalcId) -> CycleState {
-        if let Some(active_cycle) = self.0.borrow_mut().last_mut()
-            && let Some(c) = active_cycle.recursion_stack.last()
-            && *current == *c
-        {
-            let c = active_cycle.recursion_stack.pop().unwrap();
-            if active_cycle.recursion_stack.is_empty() {
+        if let Some(active_cycle) = self.0.borrow_mut().last_mut() {
+            if *current == active_cycle.break_at {
                 CycleState::BreakAt
-            } else {
+            } else if let Some(c) = active_cycle.recursion_stack.last()
+                && *current == *c
+            {
+                let c = active_cycle.recursion_stack.pop().unwrap();
                 active_cycle.unwind_stack.push(c);
                 CycleState::Participant
+            } else {
+                CycleState::NoDetectedCycle
             }
         } else {
             CycleState::NoDetectedCycle
@@ -289,9 +307,16 @@ impl Cycles {
         if let Some(active_cycle) = self.0.borrow_mut().last_mut() {
             if let Some(c) = active_cycle.unwind_stack.last() {
                 if current == c {
-                    // This is a participant; remove it from the unwind stack.
+                    // This is part of the cycle; remove it from the unwind stack.
                     active_cycle.unwind_stack.pop();
-                    CycleState::Participant
+                    // Check whether this is the break point (we finished the cycle)
+                    // or this is an ordinary participant and we have more unwinding
+                    // to do.
+                    if *current == active_cycle.break_at {
+                        CycleState::BreakAt
+                    } else {
+                        CycleState::Participant
+                    }
                 } else {
                     // There is an active cycle, but the current idx is not participating.
                     //
@@ -299,9 +324,6 @@ impl Cycles {
                     // dependencies that aren't part of the active cycle.
                     CycleState::NoDetectedCycle
                 }
-            } else if *current == active_cycle.break_at {
-                // We just finished the cycle, time to wrap up
-                CycleState::BreakAt
             } else {
                 // There is an active cycle, but the current idx is not participating.
                 //
