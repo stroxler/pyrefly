@@ -31,7 +31,6 @@ use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::keywords::DataclassFieldKeywords;
-use crate::types::keywords::DataclassKeywords;
 use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
 use crate::types::types::AnyStyle;
@@ -66,7 +65,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let metadata = self.get_metadata_for_class(cls);
         let dataclass = metadata.dataclass_metadata()?;
         let mut fields = SmallMap::new();
-        if dataclass.kws.get(&DataclassKeywords::INIT) {
+        if dataclass.kws.init {
             fields.insert(
                 dunder::INIT,
                 self.get_dataclass_init(cls, dataclass, errors),
@@ -81,10 +80,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ClassSynthesizedField::new(dataclass_fields_type.to_type()),
         );
 
-        if dataclass.kws.get(&DataclassKeywords::ORDER) {
+        if dataclass.kws.order {
             fields.extend(self.get_dataclass_rich_comparison_methods(cls));
         }
-        if dataclass.kws.get(&DataclassKeywords::MATCH_ARGS) {
+        if dataclass.kws.match_args {
             fields.insert(
                 dunder::MATCH_ARGS,
                 self.get_dataclass_match_args(cls, dataclass),
@@ -92,12 +91,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         // See rules for `__hash__` creation under "unsafe_hash":
         // https://docs.python.org/3/library/dataclasses.html#module-contents
-        if dataclass.kws.get(&DataclassKeywords::UNSAFE_HASH)
-            || (dataclass.kws.get(&DataclassKeywords::EQ)
-                && dataclass.kws.get(&DataclassKeywords::FROZEN))
-        {
+        if dataclass.kws.unsafe_hash || (dataclass.kws.eq && dataclass.kws.frozen) {
             fields.insert(dunder::HASH, self.get_dataclass_hash(cls));
-        } else if dataclass.kws.get(&DataclassKeywords::EQ) {
+        } else if dataclass.kws.eq {
             fields.insert(dunder::HASH, ClassSynthesizedField::new(Type::None));
         }
         Some(ClassSynthesizedFields::new(fields))
@@ -112,7 +108,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut seen_kw_only_marker = false;
         let mut positional_fields = Vec::new();
         let mut kwonly_fields = Vec::new();
-        let cls_is_kw_only = dataclass.kws.get(&DataclassKeywords::KW_ONLY);
+        let cls_is_kw_only = dataclass.kws.kw_only;
         for name in dataclass.fields.iter() {
             match self.get_dataclass_member(cls, name, cls_is_kw_only, seen_kw_only_marker) {
                 DataclassMember::KwOnlyMarker => {
@@ -193,7 +189,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         dataclass: &DataclassMetadata,
     ) -> ClassSynthesizedField {
         // Keyword-only fields do not appear in __match_args__.
-        let kw_only = dataclass.kws.get(&DataclassKeywords::KW_ONLY);
+        let kw_only = dataclass.kws.kw_only;
         let ts = if kw_only {
             Vec::new()
         } else {

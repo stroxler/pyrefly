@@ -29,7 +29,6 @@ use crate::error::kind::ErrorKind;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::display::ClassDisplayContext;
-use crate::types::keywords::BoolKeywords;
 use crate::types::keywords::DataclassKeywords;
 use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::stdlib::Stdlib;
@@ -122,9 +121,8 @@ impl ClassMetadata {
         if let Some(dataclass_metadata) = dataclass_metadata {
             for (base_type, base_metadata) in bases_with_metadata {
                 if let Some(base_dataclass_metadata) = base_metadata.dataclass_metadata() {
-                    let is_base_frozen =
-                        base_dataclass_metadata.kws.get(&DataclassKeywords::FROZEN);
-                    let is_current_frozen = dataclass_metadata.kws.get(&DataclassKeywords::FROZEN);
+                    let is_base_frozen = base_dataclass_metadata.kws.frozen;
+                    let is_current_frozen = dataclass_metadata.kws.frozen;
 
                     if is_current_frozen != is_base_frozen {
                         let current_status = if is_current_frozen {
@@ -385,7 +383,7 @@ pub struct NamedTupleMetadata {
 pub struct DataclassMetadata {
     /// The dataclass fields, e.g., `{'x'}` for `@dataclass class C: x: int`.
     pub fields: SmallSet<Name>,
-    pub kws: BoolKeywords,
+    pub kws: DataclassKeywords,
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]

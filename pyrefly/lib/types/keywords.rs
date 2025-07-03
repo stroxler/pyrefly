@@ -15,7 +15,6 @@ use starlark_map::ordered_map::OrderedMap;
 
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::FunctionKind;
-use crate::types::literal::Lit;
 use crate::types::types::Type;
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
@@ -95,13 +94,8 @@ impl DataclassTransformKeywords {
         }
     }
 
-    pub fn defaults(&self) -> Vec<(Name, bool)> {
-        vec![
-            (Self::EQ_DEFAULT, self.eq_default),
-            (Self::ORDER_DEFAULT, self.order_default),
-            (Self::KW_ONLY_DEFAULT, self.kw_only_default),
-            (Self::FROZEN_DEFAULT, self.frozen_default),
-        ]
+    pub fn new() -> Self {
+        Self::from_type_map(&TypeMap::new())
     }
 }
 
@@ -146,67 +140,43 @@ impl DataclassFieldKeywords {
     }
 }
 
-/// A map from keywords to boolean values. Useful for storing sets of keyword arguments for various
-/// dataclass functions.
-#[derive(Debug, Clone, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct BoolKeywords(OrderedMap<Name, bool>);
-
-impl Visit<Type> for BoolKeywords {
-    const RECURSE_CONTAINS: bool = false;
-    fn recurse<'a>(&'a self, _: &mut dyn FnMut(&'a Type)) {}
+/// Dataclass parameters.
+/// See https://typing.python.org/en/latest/spec/dataclasses.html#decorator-function-and-class-metaclass-parameters.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
+pub struct DataclassKeywords {
+    pub init: bool,
+    pub order: bool,
+    pub frozen: bool,
+    pub match_args: bool,
+    pub kw_only: bool,
+    pub eq: bool,
+    pub unsafe_hash: bool,
+    // TODO(rechen): add `slots`
 }
-
-impl VisitMut<Type> for BoolKeywords {
-    const RECURSE_CONTAINS: bool = false;
-    fn recurse_mut(&mut self, _: &mut dyn FnMut(&mut Type)) {}
-}
-
-impl BoolKeywords {
-    pub fn new() -> Self {
-        Self(OrderedMap::new())
-    }
-
-    pub fn from_type_map(map: &TypeMap) -> Self {
-        let mut kws = Self::new();
-        for (name, ty) in map.0.iter() {
-            kws.set_keyword(name, ty);
-        }
-        kws
-    }
-
-    pub fn set_keyword(&mut self, name: &Name, ty: &Type) {
-        let value = match ty {
-            Type::Literal(Lit::Bool(b)) => *b,
-            _ => {
-                return;
-            }
-        };
-        self.0.insert(name.clone(), value);
-    }
-
-    pub fn get(&self, name_and_default: &(Name, bool)) -> bool {
-        let (name, default) = name_and_default;
-        *(self.0.get(name).unwrap_or(default))
-    }
-
-    pub fn set(&mut self, name: Name, value: bool) {
-        self.0.insert(name, value);
-    }
-
-    pub fn contains(&self, name: &Name) -> bool {
-        self.0.contains_key(name)
-    }
-}
-
-/// Namespace for keyword names and defaults.
-pub struct DataclassKeywords;
 
 impl DataclassKeywords {
-    pub const INIT: (Name, bool) = (Name::new_static("init"), true);
-    pub const ORDER: (Name, bool) = (Name::new_static("order"), false);
-    pub const FROZEN: (Name, bool) = (Name::new_static("frozen"), false);
-    pub const MATCH_ARGS: (Name, bool) = (Name::new_static("match_args"), true);
-    pub const KW_ONLY: (Name, bool) = (Name::new_static("kw_only"), false);
-    pub const EQ: (Name, bool) = (Name::new_static("eq"), true);
-    pub const UNSAFE_HASH: (Name, bool) = (Name::new_static("unsafe_hash"), false);
+    const INIT: Name = Name::new_static("init");
+    const ORDER: Name = Name::new_static("order");
+    const FROZEN: Name = Name::new_static("frozen");
+    const MATCH_ARGS: Name = Name::new_static("match_args");
+    const KW_ONLY: Name = Name::new_static("kw_only");
+    const EQ: Name = Name::new_static("eq");
+    const UNSAFE_HASH: Name = Name::new_static("unsafe_hash");
+
+    pub fn from_type_map(map: &TypeMap, defaults: &DataclassTransformKeywords) -> Self {
+        Self {
+            init: map.get_bool(&Self::INIT, true),
+            order: map.get_bool(&Self::ORDER, defaults.order_default),
+            frozen: map.get_bool(&Self::FROZEN, defaults.frozen_default),
+            match_args: map.get_bool(&Self::MATCH_ARGS, true),
+            kw_only: map.get_bool(&Self::KW_ONLY, defaults.kw_only_default),
+            eq: map.get_bool(&Self::EQ, defaults.eq_default),
+            unsafe_hash: map.get_bool(&Self::UNSAFE_HASH, false),
+        }
+    }
+
+    pub fn new() -> Self {
+        Self::from_type_map(&TypeMap::new(), &DataclassTransformKeywords::new())
+    }
 }

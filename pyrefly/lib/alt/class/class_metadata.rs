@@ -16,6 +16,7 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
@@ -37,19 +38,12 @@ use crate::graph::index::Idx;
 use crate::types::callable::FunctionKind;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
-use crate::types::keywords::BoolKeywords;
+use crate::types::keywords::DataclassKeywords;
 use crate::types::keywords::DataclassTransformKeywords;
+use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
-
-/// The data we need to apply a dataclass-like transformation specified by `typing.dataclass_transform` to a class.
-struct DataclassTransform {
-    /// Defaults for dataclass behaviors - `eq_default`, `frozen_default`, etc.
-    defaults: DataclassTransformKeywords,
-    /// Keyword values customizing dataclass behaviors - `eq`, `frozen`, etc.
-    kws: BoolKeywords,
-}
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn new_type_base(
@@ -152,12 +146,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let mut has_base_any = false;
         let mut has_generic_base_class = false;
-        // This is set when we should apply dataclass-like transformations to the class. The class
-        // should be transformed if:
-        // - it inherits from a base class decorated with `dataclass_transform(...)`, or
-        // - it inherits from a base class whose metaclass is decorated with `dataclass_transform(...)`, or
-        // - it is decorated with a decorator that is decorated with `dataclass_transform(...)`.
-        let mut dataclass_from_dataclass_transform = None;
+        // If this class inherits from a dataclass_transform-ed class, record the defaults that we
+        // should use for dataclass parameters.
+        let mut dataclass_defaults_from_base_class = None;
         // This is set when a class is decorated with `@typing.dataclass_transform(...)`. Note that
         // this does not turn the class into a dataclass! Instead, it becomes a special base class
         // (or metaclass) that turns child classes into dataclasses.
@@ -245,10 +236,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 dataclass_metadata = Some(base_dataclass.clone());
                             }
                             if let Some(m) = base_class_metadata.dataclass_transform_metadata() {
-                                dataclass_from_dataclass_transform = Some(DataclassTransform {
-                                    defaults: m.clone(),
-                                    kws: BoolKeywords::new(),
-                                });
+                                dataclass_defaults_from_base_class = Some(m.clone());
                                 // When a class C is transformed into a dataclass via inheriting from a class decorated
                                 // with `@dataclass_transform(...)`, then C in turn causes classes inheriting from it
                                 // to be transformed (and so on). Note that this differs from dataclass transformation
@@ -308,14 +296,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "metaclass" => Either::Left(x),
                 _ => Either::Right((n.clone(), self.expr_infer(x, errors))),
             });
-        if let Some(m) = &mut dataclass_from_dataclass_transform {
+        // This is set when we should apply dataclass-like transformations to the class. The class
+        // should be transformed if:
+        // - it inherits from a base class decorated with `dataclass_transform(...)`, or
+        // - it inherits from a base class whose metaclass is decorated with `dataclass_transform(...)`, or
+        // - it is decorated with a decorator that is decorated with `dataclass_transform(...)`.
+        let mut dataclass_from_dataclass_transform = None;
+        if let Some(defaults) = dataclass_defaults_from_base_class {
             // This class inherits from a dataclass_transform-ed base class, so its keywords are
             // interpreted as dataclass keywords.
-            for (name, ty) in keywords.iter() {
-                if let Type::Literal(Lit::Bool(b)) = ty {
-                    m.kws.set(name.clone(), *b);
-                }
-            }
+            let map = keywords.clone().into_iter().collect::<OrderedMap<_, _>>();
+            dataclass_from_dataclass_transform =
+                Some(DataclassKeywords::from_type_map(&TypeMap(map), &defaults));
         }
         let typed_dict_metadata = if is_typed_dict {
             // Validate that only 'total' keyword is allowed for TypedDict and determine is_total
@@ -447,7 +439,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
                     dataclass_metadata = Some(DataclassMetadata {
                         fields: dataclass_fields,
-                        kws: BoolKeywords::new(),
+                        kws: DataclassKeywords::new(),
                     });
                 }
                 // `@dataclass(...)`
@@ -457,7 +449,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
                     dataclass_metadata = Some(DataclassMetadata {
                         fields: dataclass_fields,
-                        kws: BoolKeywords::from_type_map(&call.keywords),
+                        kws: DataclassKeywords::from_type_map(
+                            &call.keywords,
+                            &DataclassTransformKeywords::new(),
+                        ),
                     });
                 }
                 // `@dataclass_transform(...)`
@@ -468,37 +463,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Some(DataclassTransformKeywords::from_type_map(&call.keywords));
                 }
                 // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
-                _ if let Some(m) = decorator_ty.dataclass_transform_metadata() => {
-                    dataclass_from_dataclass_transform = Some(DataclassTransform {
-                        defaults: m,
-                        kws: BoolKeywords::new(),
-                    });
+                _ if let Some(defaults) = decorator_ty.dataclass_transform_metadata() => {
+                    dataclass_from_dataclass_transform =
+                        Some(DataclassKeywords::from_type_map(&TypeMap::new(), &defaults));
                 }
                 // `@foo(...)` where `foo` is decorated with `@dataclass_transform(...)`
                 _ if let Type::KwCall(call) = decorator_ty
-                    && let Some(kws) = &call.func_metadata.flags.dataclass_transform_metadata =>
+                    && let Some(defaults) =
+                        &call.func_metadata.flags.dataclass_transform_metadata =>
                 {
-                    dataclass_from_dataclass_transform = Some(DataclassTransform {
-                        defaults: kws.clone(),
-                        kws: BoolKeywords::from_type_map(&call.keywords),
-                    });
+                    dataclass_from_dataclass_transform =
+                        Some(DataclassKeywords::from_type_map(&call.keywords, defaults));
                 }
                 _ => {}
             }
         }
-        if let Some(transform) = dataclass_from_dataclass_transform {
-            let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
-            let mut kws = transform.kws;
-            for (name, value) in transform.defaults.defaults() {
-                if let Some(kw) = name.strip_suffix("_default") {
-                    let kw = Name::new(kw);
-                    if !kws.contains(&kw) {
-                        kws.set(kw, value);
-                    }
-                }
-            }
+        if let Some(kws) = dataclass_from_dataclass_transform {
             dataclass_metadata = Some(DataclassMetadata {
-                fields: dataclass_fields,
+                fields: self.get_dataclass_fields(cls, &bases_with_metadata),
                 kws,
             });
         }

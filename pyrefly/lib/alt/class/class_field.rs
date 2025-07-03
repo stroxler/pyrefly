@@ -49,7 +49,6 @@ use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::keywords::DataclassFieldKeywords;
-use crate::types::keywords::DataclassKeywords;
 use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
 use crate::types::literal::LitEnum;
@@ -396,7 +395,7 @@ impl ClassField {
         }
         // Frozen dataclass fields (not methods) are read-only
         if let Some(dm) = metadata.dataclass_metadata() {
-            if dm.kws.get(&DataclassKeywords::FROZEN) && dm.fields.contains(name) {
+            if dm.kws.frozen && dm.fields.contains(name) {
                 return Some(ReadOnlyReason::FrozenDataclass);
             }
         }
