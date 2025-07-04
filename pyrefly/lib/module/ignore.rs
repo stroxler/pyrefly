@@ -104,6 +104,15 @@ impl<'a> Lexer<'a> {
         self.0.trim_start().is_empty()
     }
 
+    /// Return `true` if the string is at the start of a word boundary.
+    /// That means the next char is not something that continues an identifier.
+    fn word_boundary(&mut self) -> bool {
+        self.0
+            .chars()
+            .next()
+            .is_none_or(|c| !c.is_alphanumeric() && c != '-' && c != '_')
+    }
+
     /// Finish and return the rest of the string.
     fn rest(self) -> &'a str {
         self.0
@@ -236,7 +245,7 @@ impl Ignore {
                 tool,
                 kind: inside.split(',').map(|x| x.trim().to_owned()).collect(),
             });
-        } else if gap || lex.blank() {
+        } else if gap || lex.word_boundary() {
             return Some(Suppression {
                 tool,
                 kind: Vec::new(),
@@ -341,6 +350,9 @@ mod tests {
         // Check extras
         // Mypy rejects that, Pyright accepts it
         f("type: ignore because it is wrong", Some(Tool::Any), &[]);
+        f("type: ignore_none", None, &[]);
+        f("type: ignore1", None, &[]);
+        f("type: ignore?", Some(Tool::Any), &[]);
 
         f("mypy: ignore", Some(Tool::Mypy), &[]);
         f("mypy: ignore[something]", Some(Tool::Mypy), &["something"]);
@@ -353,7 +365,7 @@ mod tests {
             Some(Tool::Pyre),
             &["61"],
         );
-        f("pyre-fixme: core type error", None, &[]); // BUG
+        f("pyre-fixme: core type error", Some(Tool::Pyre), &[]);
 
         // For a malformed comment, at least do something with it (works well incrementally)
         f("type: ignore[hello", Some(Tool::Any), &["hello"]);
