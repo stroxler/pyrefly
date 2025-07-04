@@ -291,6 +291,8 @@ impl Ignore {
 
 #[cfg(test)]
 mod tests {
+    use pyrefly_util::prelude::SliceExt;
+
     use super::*;
 
     #[test]
@@ -310,42 +312,26 @@ mod tests {
 
     #[test]
     fn test_parse_ignore_comment() {
-        fn f(x: &str) -> Option<Suppression> {
-            Ignore::parse_ignores(x)
-                .into_values()
-                .next()
-                .map(|x| x[0].clone())
+        fn f(x: &str, tool: Option<Tool>, kind: &[&str]) {
+            assert_eq!(
+                Ignore::parse_ignore_comment(x),
+                tool.map(|tool| Suppression {
+                    tool,
+                    kind: kind.map(|x| (*x).to_owned()),
+                }),
+                "{x:?}"
+            );
         }
 
-        assert!(f("# ignore: pyrefly").is_none());
-        assert_eq!(
-            f("# pyrefly: ignore"),
-            Some(Suppression {
-                tool: Tool::Pyrefly,
-                kind: Vec::new()
-            })
+        f("ignore: pyrefly", None, &[]);
+        f("pyrefly: ignore", Some(Tool::Pyrefly), &[]);
+        f(
+            "pyrefly: ignore[bad-return]",
+            Some(Tool::Pyrefly),
+            &["bad-return"],
         );
-        assert_eq!(
-            f("# pyrefly: ignore[bad-return]"),
-            Some(Suppression {
-                tool: Tool::Pyrefly,
-                kind: vec!["bad-return".to_owned()]
-            })
-        );
-        assert_eq!(
-            f("# pyrefly: ignore[]"),
-            Some(Suppression {
-                tool: Tool::Pyrefly,
-                kind: vec!["".to_owned()]
-            })
-        );
-        assert_eq!(
-            f("# pyrefly: ignore[bad-]"),
-            Some(Suppression {
-                tool: Tool::Pyrefly,
-                kind: vec!["bad-".to_owned()]
-            })
-        );
+        f("pyrefly: ignore[]", Some(Tool::Pyrefly), &[""]);
+        f("pyrefly: ignore[bad-]", Some(Tool::Pyrefly), &["bad-"]);
     }
 
     #[test]
