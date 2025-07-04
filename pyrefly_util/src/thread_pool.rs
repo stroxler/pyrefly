@@ -13,7 +13,9 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use tracing::debug;
+use tracing::info;
 
+use crate::display::number_thousands;
 use crate::lock::Mutex;
 
 /// The stack size for all created threads.
@@ -60,9 +62,16 @@ pub struct ThreadPool(
 impl ThreadPool {
     fn stack_size() -> usize {
         match env::var("PYREFLY_STACK_SIZE") {
-            Ok(s) => s
-                .parse::<usize>()
-                .unwrap_or_else(|_| panic!("$PYREFLY_STACK_SIZE must be a number, got {s}")),
+            Ok(s) => {
+                let res = s
+                    .parse::<usize>()
+                    .unwrap_or_else(|_| panic!("$PYREFLY_STACK_SIZE must be a number, got {s}"));
+                info!(
+                    "Using stack size of {} bytes (due to `$PYREFLY_STACK_SIZE`)",
+                    number_thousands(res)
+                );
+                res
+            }
             Err(_) => STACK_SIZE_IN_MB * 1024 * 1024,
         }
     }
