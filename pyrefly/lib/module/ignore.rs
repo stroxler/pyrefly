@@ -332,6 +332,28 @@ mod tests {
         );
         f("pyrefly: ignore[]", Some(Tool::Pyrefly), &[""]);
         f("pyrefly: ignore[bad-]", Some(Tool::Pyrefly), &["bad-"]);
+
+        // Check spacing
+        f(" type: ignore ", Some(Tool::Any), &[]);
+        f("type:ignore", Some(Tool::Any), &[]);
+        f("type :ignore", None, &[]);
+
+        // Check extras
+        // Mypy rejects that, Pyright accepts it
+        f("type: ignore because it is wrong", Some(Tool::Any), &[]);
+
+        f("mypy: ignore", Some(Tool::Mypy), &[]);
+        f("mypy: ignore[something]", Some(Tool::Mypy), &["something"]);
+
+        f("pyre-ignore", Some(Tool::Pyre), &[]);
+        f("pyre-ignore[7]", Some(Tool::Pyre), &[]);
+        f("pyre-fixme[7]", Some(Tool::Pyre), &[]);
+        f(
+            "pyre-fixme[61]: `x` may not be initialized here.",
+            Some(Tool::Pyre),
+            &[],
+        );
+        f("pyre-fixme: core type error", None, &[]); // BUG
     }
 
     #[test]
@@ -368,5 +390,10 @@ mod tests {
             "# mypy: ignore-errors\n#pyrefly:ignore-errors",
             &[(Tool::Mypy, 1), (Tool::Pyrefly, 2)],
         );
+
+        // Anything else on the line (other than space) makes it invalid
+        f("# pyrefly: ignore-errors because I want to\nx = 5", &[]);
+        f("# pyrefly: ignore-errors # because I want to\nx = 5", &[]);
+        f("# pyrefly: ignore-errors \nx = 5", &[(Tool::Pyrefly, 1)]);
     }
 }
