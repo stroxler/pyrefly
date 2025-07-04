@@ -341,26 +341,22 @@ impl Cycles {
     /// Handle the completion of a calculation. This might involve progress on
     /// the unwind stack of one or more cycles.
     ///
-    /// TODO(stroxler): We currently only look at the most recently detected cycle,
-    /// which is incorrect; we may need to unwind multiple cycles.
-    ///
     /// Return `true` if there are active cycles after finishing this calculation,
     /// `false` if there are not.
     fn on_calculation_finished(&self, current: &CalcId) -> bool {
         let mut stack = self.0.borrow_mut();
-        let state = if let Some(active_cycle) = stack.last_mut() {
-            active_cycle.on_calculation_finished(current)
-        } else {
-            CycleState::NoDetectedCycle
-        };
-        match state {
-            CycleState::BreakAt => {
-                stack.pop();
-                !stack.is_empty()
-            }
-            CycleState::Participant => true,
-            CycleState::NoDetectedCycle => false,
+        for cycle in stack.iter_mut() {
+            cycle.on_calculation_finished(current);
         }
+        while let Some(cycle) = stack.last_mut() {
+            if cycle.unwind_stack.is_empty() {
+                stack.pop();
+            } else {
+                break;
+            }
+        }
+        // Do we still have active cycles?
+        !stack.is_empty()
     }
 }
 
