@@ -2753,12 +2753,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Type::any_implicit()
                         })
                     }
-                    Either::Right((var, function_idx)) => {
-                        // Force the function binding to be evaluated, if it hasn't already.
-                        // Solving the function will also force the Var type to some concrete type,
-                        // and this must happen first so the Var can not interact with other types.
-                        self.get_idx(*function_idx);
-                        var.to_type()
+                    Either::Right((var, _function_idx)) => {
+                        // If the context hasn't already been filled in, just assume it is Unknown.
+                        self.solver().force_var(*var)
                     }
                 }
             }
