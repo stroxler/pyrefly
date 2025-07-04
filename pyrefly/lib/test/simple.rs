@@ -1572,3 +1572,22 @@ def f(x = 1):
 reveal_type(f) # E: revealed type: (x: int | Unknown = ...) -> int | Unknown
 "#,
 );
+
+testcase!(
+    test_self_field_gets_lost,
+    r#"
+# From https://github.com/facebook/pyrefly/issues/621
+from typing import reveal_type
+
+class NameTable:
+    def __init__(self):
+        self.names: list[str] = []
+
+    def getName(self):
+        last = ""
+        for name in self.names:
+            reveal_type(name) # E: revealed type: str
+            last = name
+        return last
+"#,
+);
