@@ -265,9 +265,9 @@ impl Cycle {
         if let Some(c) = self.unwind_stack.last() {
             if current == c {
                 // This is part of the cycle; remove it from the unwind stack.
-                self.unwind_stack.pop();
+                let c = self.unwind_stack.pop().unwrap();
                 // Track what we unwound to make debugging easier.
-                self.unwound.push(current.dupe());
+                self.unwound.push(c);
             }
         }
     }
