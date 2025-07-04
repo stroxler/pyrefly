@@ -230,12 +230,12 @@ impl Ignore {
         // We have seen `type: ignore` or `pyre-ignore`. Now look for `[code]` or the end.
         let gap = lex.trim_start();
         if lex.starts_with("[") {
-            if let Some((before, _)) = lex.rest().split_once(']') {
-                return Some(Suppression {
-                    tool,
-                    kind: before.split(',').map(|x| x.trim().to_owned()).collect(),
-                });
-            }
+            let rest = lex.rest();
+            let inside = rest.split_once(']').map_or(rest, |x| x.0);
+            return Some(Suppression {
+                tool,
+                kind: inside.split(',').map(|x| x.trim().to_owned()).collect(),
+            });
         } else if gap || lex.blank() {
             return Some(Suppression {
                 tool,
@@ -354,6 +354,9 @@ mod tests {
             &["61"],
         );
         f("pyre-fixme: core type error", None, &[]); // BUG
+
+        // For a malformed comment, at least do something with it (works well incrementally)
+        f("type: ignore[hello", Some(Tool::Any), &["hello"]);
     }
 
     #[test]
