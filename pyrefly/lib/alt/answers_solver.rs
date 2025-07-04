@@ -162,6 +162,7 @@ impl CalcStack {
 }
 
 /// Represent a cycle we are currently solving.
+#[derive(Debug, Clone)]
 pub struct Cycle {
     /// Where do we want to break the cycle
     break_at: CalcId,
