@@ -216,29 +216,29 @@ impl Ignore {
         let mut lex = Lexer(l);
         lex.trim_start();
 
-        if let Some(tool) = lex.starts_with_tool() {
+        let mut tool = None;
+        if let Some(t) = lex.starts_with_tool() {
             lex.trim_start();
             if lex.starts_with("ignore") {
-                let gap = lex.trim_start();
-                if lex.starts_with("[") {
-                    if let Some((before, _)) = lex.rest().split_once(']') {
-                        return Some(Suppression {
-                            tool,
-                            kind: before.split(',').map(|x| x.trim().to_owned()).collect(),
-                        });
-                    }
-                } else if gap || lex.blank() {
-                    return Some(Suppression {
-                        tool,
-                        kind: Vec::new(),
-                    });
-                }
+                tool = Some(t);
             }
-        } else if (lex.starts_with("pyre-ignore") || lex.starts_with("pyre-fixme"))
-            && (lex.starts_with("[") || lex.trim_start() || lex.blank())
-        {
+        } else if lex.starts_with("pyre-ignore") || lex.starts_with("pyre-fixme") {
+            tool = Some(Tool::Pyre);
+        }
+        let tool = tool?;
+
+        // We have seen `type: ignore` or `pyre-ignore`. Now look for `[code]` or the end.
+        let gap = lex.trim_start();
+        if lex.starts_with("[") {
+            if let Some((before, _)) = lex.rest().split_once(']') {
+                return Some(Suppression {
+                    tool,
+                    kind: before.split(',').map(|x| x.trim().to_owned()).collect(),
+                });
+            }
+        } else if gap || lex.blank() {
             return Some(Suppression {
-                tool: Tool::Pyre,
+                tool,
                 kind: Vec::new(),
             });
         }
@@ -346,12 +346,12 @@ mod tests {
         f("mypy: ignore[something]", Some(Tool::Mypy), &["something"]);
 
         f("pyre-ignore", Some(Tool::Pyre), &[]);
-        f("pyre-ignore[7]", Some(Tool::Pyre), &[]);
-        f("pyre-fixme[7]", Some(Tool::Pyre), &[]);
+        f("pyre-ignore[7]", Some(Tool::Pyre), &["7"]);
+        f("pyre-fixme[7]", Some(Tool::Pyre), &["7"]);
         f(
             "pyre-fixme[61]: `x` may not be initialized here.",
             Some(Tool::Pyre),
-            &[],
+            &["61"],
         );
         f("pyre-fixme: core type error", None, &[]); // BUG
     }
