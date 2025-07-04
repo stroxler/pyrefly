@@ -306,17 +306,21 @@ mod tests {
 
     #[test]
     fn test_parse_ignores() {
-        fn f(x: &str) -> Option<Suppression> {
-            Ignore::parse_ignores(x)
-                .into_values()
-                .next()
-                .map(|x| x[0].clone())
+        fn f(x: &str, expect: &[(Tool, u32)]) {
+            assert_eq!(
+                &Ignore::parse_ignores(x)
+                    .into_iter()
+                    .flat_map(|(line, xs)| xs.map(|x| (x.tool, line.get())))
+                    .collect::<Vec<_>>(),
+                expect,
+                "{x:?}"
+            );
         }
 
-        assert!(f("stuff # type: ignore # and then stuff").is_some());
-        assert!(f("more # stuff # type: ignore[valid-type]").is_some());
-        assert!(f(" pyrefly: ignore").is_none());
-        assert!(f("normal line").is_none());
+        f("stuff # type: ignore # and then stuff", &[(Tool::Any, 1)]);
+        f("more # stuff # type: ignore", &[(Tool::Any, 1)]);
+        f(" pyrefly: ignore", &[]);
+        f("normal line", &[]);
     }
 
     #[test]
