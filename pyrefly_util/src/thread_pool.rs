@@ -21,7 +21,7 @@ use crate::lock::Mutex;
 /// The stack size for all created threads.
 ///
 /// Can be overridden by setting the `PYREFLY_STACK_SIZE` environment variable (in bytes).
-const STACK_SIZE_IN_MB: usize = 5;
+const DEFAULT_STACK_SIZE: usize = 5 * 1024 * 1024;
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ThreadCount {
@@ -72,7 +72,7 @@ impl ThreadPool {
                 );
                 res
             }
-            Err(_) => STACK_SIZE_IN_MB * 1024 * 1024,
+            Err(_) => DEFAULT_STACK_SIZE,
         }
     }
 
