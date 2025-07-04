@@ -7,6 +7,7 @@
 
 //! Utilities for creating the initial thread pool.
 
+use std::env;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 use std::sync::LazyLock;
@@ -16,6 +17,8 @@ use tracing::debug;
 use crate::lock::Mutex;
 
 /// The stack size for all created threads.
+///
+/// Can be overridden by setting the `PYREFLY_STACK_SIZE` environment variable (in bytes).
 const STACK_SIZE_IN_MB: usize = 5;
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
@@ -56,7 +59,12 @@ pub struct ThreadPool(
 
 impl ThreadPool {
     fn stack_size() -> usize {
-        STACK_SIZE_IN_MB * 1024 * 1024
+        match env::var("PYREFLY_STACK_SIZE") {
+            Ok(s) => s
+                .parse::<usize>()
+                .unwrap_or_else(|_| panic!("$PYREFLY_STACK_SIZE must be a number, got {s}")),
+            Err(_) => STACK_SIZE_IN_MB * 1024 * 1024,
+        }
     }
 
     pub fn with_thread_count(count: ThreadCount) -> Self {
