@@ -2753,7 +2753,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Type::any_implicit()
                         })
                     }
-                    Either::Right((var, _function_idx)) => {
+                    Either::Right(var) => {
                         // If the context hasn't already been filled in, just assume it is Unknown.
                         self.solver().force_var(*var)
                     }

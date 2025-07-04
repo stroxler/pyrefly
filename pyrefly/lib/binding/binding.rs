@@ -1092,9 +1092,8 @@ pub enum Binding {
     /// Binding for a lambda parameter.
     LambdaParameter(Var),
     /// Binding for a function parameter. We either have an annotation, or we will determine the
-    /// parameter type when solving the function type. To ensure the parameter is solved before it
-    /// can be observed as a Var, we include the function key and force it to be solved first.
-    FunctionParameter(Either<Idx<KeyAnnotation>, (Var, Idx<KeyFunction>)>),
+    /// parameter type when solving the function type.
+    FunctionParameter(Either<Idx<KeyAnnotation>, Var>),
     /// The result of a `super()` call.
     SuperInstance(SuperStyle, TextRange),
     /// The result of assigning to an attribute. This operation cannot change the *type* of the
@@ -1289,7 +1288,7 @@ impl DisplayWith<Bindings> for Binding {
                 "FunctionParameter({})",
                 match x {
                     Either::Left(k) => ctx.display(*k).to_string(),
-                    Either::Right((x, k)) => format!("{x}, {}", ctx.display(*k)),
+                    Either::Right(x) => x.to_string(),
                 }
             ),
             Self::SuperInstance(SuperStyle::ExplicitArgs(cls, obj), _range) => {

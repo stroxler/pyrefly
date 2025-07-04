@@ -255,7 +255,7 @@ impl Bindings {
         if let Binding::FunctionParameter(p) = b {
             match p {
                 Either::Left(idx) => Either::Left(*idx),
-                Either::Right((var, _)) => Either::Right(*var),
+                Either::Right(var) => Either::Right(*var),
             }
         } else {
             panic!(
@@ -1157,7 +1157,6 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         target: AnnotationTarget,
         x: AnyParameterRef,
-        function_idx: Idx<KeyFunction>,
         class_key: Option<Idx<KeyClass>>,
     ) {
         let name = x.name();
@@ -1175,7 +1174,7 @@ impl<'a> BindingsBuilder<'a> {
                     KeyAnnotation::Annotation(ShortIdentifier::new(name)),
                     BindingAnnotation::Type(target.clone(), var.to_type()),
                 );
-                (annot, Either::Right((var, function_idx)))
+                (annot, Either::Right(var))
             }
         };
         let key = self.insert_binding(
