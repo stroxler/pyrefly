@@ -281,6 +281,8 @@ pub enum Key {
     /// Used for `import foo.x` (the `foo` might not be literally present with `.` modules),
     /// and `from foo import *` (the names are injected from the exports)
     Import(Name, TextRange),
+    /// I am a module-level global variable like `__file__` or `__doc__`.
+    Global(Name),
     /// I am defined in this module at this location.
     Definition(ShortIdentifier),
     /// I am a name assignment that is also a first use of some other name assign.
@@ -335,6 +337,7 @@ impl Ranged for Key {
     fn range(&self) -> TextRange {
         match self {
             Self::Import(_, r) => *r,
+            Self::Global(_) => TextRange::default(),
             Self::Definition(x) => x.range(),
             Self::UpstreamPinnedDefinition(x) => x.range(),
             Self::PinnedDefinition(x) => x.range(),
@@ -362,6 +365,7 @@ impl DisplayWith<ModuleInfo> for Key {
 
         match self {
             Self::Import(n, r) => write!(f, "Key::Import({n} {})", ctx.display(r)),
+            Self::Global(n) => write!(f, "Key::Global({n})"),
             Self::Definition(x) => write!(f, "Key::Definition({})", short(x)),
             Self::UpstreamPinnedDefinition(x) => {
                 write!(f, "Key::UpstreamPinnedDefinition({})", short(x))

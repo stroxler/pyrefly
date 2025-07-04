@@ -82,6 +82,7 @@ use crate::state::loader::FindError;
 use crate::table;
 use crate::table_for_each;
 use crate::table_try_for_each;
+use crate::types::globals::Global;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::types::Var;
 
@@ -297,6 +298,7 @@ impl Bindings {
         if module_info.name() != ModuleName::builtins() {
             builder.inject_builtins();
         }
+        builder.inject_globals();
         builder.stmts(x.body);
         assert_eq!(builder.scopes.loop_depth(), 0);
         let scope_trace = builder.scopes.finish();
@@ -617,6 +619,14 @@ impl<'a> BindingsBuilder<'a> {
     pub fn stmts(&mut self, xs: Vec<Stmt>) {
         for x in xs {
             self.stmt(x);
+        }
+    }
+
+    fn inject_globals(&mut self) {
+        for global in Global::globals(self.has_docstring) {
+            let key = Key::Global(global.name().clone());
+            let idx = self.table.insert(key, Binding::Global(global.clone()));
+            self.bind_key(global.name(), idx, FlowStyle::Other);
         }
     }
 

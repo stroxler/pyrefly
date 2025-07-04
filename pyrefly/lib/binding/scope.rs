@@ -74,15 +74,17 @@ pub struct StaticInfo {
 impl StaticInfo {
     pub fn as_key(&self, name: &Name) -> Key {
         if self.count == 1 {
-            if matches!(self.style, DefinitionStyle::ImportModule(_)) {
-                Key::Import(name.clone(), self.loc)
-            } else {
-                // We are constructing an identifier, but it must have been one that we saw earlier
-                assert_ne!(self.loc, TextRange::default());
-                Key::Definition(ShortIdentifier::new(&Identifier {
-                    id: name.clone(),
-                    range: self.loc,
-                }))
+            match self.style {
+                DefinitionStyle::ImportModule(_) => Key::Import(name.clone(), self.loc),
+                DefinitionStyle::Global => Key::Global(name.clone()),
+                _ => {
+                    // We are constructing an identifier, but it must have been one that we saw earlier
+                    assert_ne!(self.loc, TextRange::default());
+                    Key::Definition(ShortIdentifier::new(&Identifier {
+                        id: name.clone(),
+                        range: self.loc,
+                    }))
+                }
             }
         } else {
             Key::Anywhere(name.clone(), self.loc)
@@ -135,8 +137,11 @@ impl Static {
             module_info.path().is_init(),
             sys_info,
         );
-        if top_level && module_info.name() != ModuleName::builtins() {
-            d.inject_builtins();
+        if top_level {
+            if module_info.name() != ModuleName::builtins() {
+                d.inject_builtins();
+            }
+            d.inject_globals();
         }
 
         let mut wildcards = Vec::with_capacity(d.import_all.len());

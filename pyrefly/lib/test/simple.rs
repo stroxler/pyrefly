@@ -228,6 +228,14 @@ assert_type(__doc__, None)
 );
 
 testcase!(
+    test_import_globals,
+    r#"
+import typing
+typing.assert_type(typing.__name__, str)
+"#,
+);
+
+testcase!(
     test_argument_shadows_type,
     r#"
 class C: ...

@@ -6,7 +6,6 @@
  */
 
 use pyrefly_python::ast::Ast;
-use pyrefly_python::dunder;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
@@ -51,7 +50,6 @@ use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::types::callable::unexpected_keyword;
-use crate::types::globals::Global;
 use crate::types::types::Type;
 
 /// Looking up names in an expression requires knowing the identity of the binding
@@ -241,12 +239,6 @@ impl<'a> BindingsBuilder<'a> {
                     }
                 }
                 self.insert_binding(key, value)
-            }
-            Err(_) if name.id == dunder::DOC => {
-                self.insert_binding(key, Binding::Global(Global::doc(self.has_docstring)))
-            }
-            Err(_) if let Some(global) = Global::from_name(&name.id) => {
-                self.insert_binding(key, Binding::Global(global))
             }
             Err(error) => {
                 // Record a type error and fall back to `Any`.

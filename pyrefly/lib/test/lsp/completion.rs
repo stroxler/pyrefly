@@ -238,6 +238,18 @@ from foo imp
                ^
 Completion Results:
 - (Variable) imperial_guard
+- (Variable) __annotations__
+- (Variable) __builtins__
+- (Variable) __cached__
+- (Variable) __debug__
+- (Variable) __dict__
+- (Variable) __file__
+- (Variable) __loader__
+- (Variable) __name__
+- (Variable) __package__
+- (Variable) __path__
+- (Variable) __spec__
+- (Variable) __doc__
 
 
 # foo.py
@@ -299,6 +311,18 @@ Completion Results:
                            ^
 Completion Results:
 - (Variable) imperial_guard
+- (Variable) __annotations__
+- (Variable) __builtins__
+- (Variable) __cached__
+- (Variable) __debug__
+- (Variable) __dict__
+- (Variable) __file__
+- (Variable) __loader__
+- (Variable) __name__
+- (Variable) __package__
+- (Variable) __path__
+- (Variable) __spec__
+- (Variable) __doc__
 
 
 # foo.py

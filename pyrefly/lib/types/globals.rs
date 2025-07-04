@@ -9,6 +9,8 @@
 //!
 //! We do not include `__doc__` as that has a type that changes based on other variables.
 
+use std::iter;
+
 use ruff_python_ast::name::Name;
 
 use super::stdlib::Stdlib;
@@ -53,6 +55,14 @@ impl Global {
         }
     }
 
+    pub fn globals(has_docstring: bool) -> impl Iterator<Item = Global> {
+        GLOBALS
+            .iter()
+            .cloned()
+            .chain(iter::once(Self::doc(has_docstring)))
+    }
+
+    #[expect(dead_code)]
     pub fn from_name(name: &Name) -> Option<Global> {
         if name.starts_with("__") && name.ends_with("__") {
             GLOBALS.iter().find(|x| &x.name == name).cloned()

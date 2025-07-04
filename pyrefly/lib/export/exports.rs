@@ -90,6 +90,7 @@ impl Exports {
             module_info.path().is_init(),
             sys_info,
         );
+        definitions.inject_globals();
         definitions.ensure_dunder_all(module_info.path().style());
         if module_info.name() == ModuleName::builtins() {
             // The `builtins` module is a bit weird. It has no `__all__` in TypeShed,
@@ -168,6 +169,11 @@ impl Exports {
                         location: definition.range,
                         symbol_kind: None,
                         docstring: definition.docstring.clone(),
+                    }),
+                    DefinitionStyle::Global => ExportLocation::ThisModule(Export {
+                        location: definition.range,
+                        symbol_kind: Some(SymbolKind::Constant),
+                        docstring: None,
                     }),
                     DefinitionStyle::ImportAs(from)
                     | DefinitionStyle::ImportAsEq(from)

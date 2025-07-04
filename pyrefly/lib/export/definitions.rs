@@ -32,6 +32,7 @@ use starlark_map::small_set::SmallSet;
 
 use crate::module::module_path::ModuleStyle;
 use crate::module::short_identifier::ShortIdentifier;
+use crate::types::globals::Global;
 
 /// How a name is defined. If a name is defined outside of this
 /// module, we additionally store the module we got it from
@@ -40,6 +41,8 @@ pub enum DefinitionStyle {
     /// Defined in this module, e.g. `x = 1` or `def x(): ...`
     /// We also store what kind of symbol it is
     Local(SymbolKind),
+    /// Defined as an implicit global like `__name__`.
+    Global,
     /// Imported with an alias, e.g. `from x import y as z`
     ImportAs(ModuleName),
     /// Imported with an alias, where the alias is identical, e.g. `from x import y as y`
@@ -166,6 +169,21 @@ impl Definitions {
     /// Add an implicit `from builtins import *` to the definitions.
     pub fn inject_builtins(&mut self) {
         self.import_all.entry(ModuleName::builtins()).or_default();
+    }
+
+    pub fn inject_globals(&mut self) {
+        for global in Global::globals(false) {
+            self.definitions.insert(
+                global.name().clone(),
+                Definition {
+                    range: TextRange::default(),
+                    style: DefinitionStyle::Global,
+                    annot: None,
+                    count: 1,
+                    docstring: None,
+                },
+            );
+        }
     }
 
     /// Ensure that `dunder_all` is populated, synthesising it if `__all__` isn't present.
