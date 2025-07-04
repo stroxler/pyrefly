@@ -120,24 +120,24 @@ pub enum AnyIdx {
     KeyYieldFrom(Idx<KeyYieldFrom>),
 }
 
-impl AnyIdx {
-    pub fn kind(&self) -> &'static str {
+impl DisplayWith<Bindings> for AnyIdx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         match self {
-            Self::Key(..) => "Key",
-            Self::KeyExpect(..) => "KeyExpect",
-            Self::KeyClass(..) => "KeyClass",
-            Self::KeyTParams(..) => "KeyTParams",
-            Self::KeyClassField(..) => "KeyClassField",
-            Self::KeyVariance(..) => "KeyVariance",
-            Self::KeyClassSynthesizedFields(..) => "KeyClassSynthesizedFields",
-            Self::KeyExport(..) => "KeyExport",
-            Self::KeyFunction(..) => "KeyFunction",
-            Self::KeyAnnotation(..) => "KeyAnnotation",
-            Self::KeyClassMetadata(..) => "KeyClassMetadata",
-            Self::KeyClassMro(..) => "KeyClassMro",
-            Self::KeyLegacyTypeParam(..) => "KeyLegacyTypeParam",
-            Self::KeyYield(..) => "KeyYield",
-            Self::KeyYieldFrom(..) => "KeyYieldFrom",
+            Self::Key(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyExpect(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyClass(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyTParams(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyClassField(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyVariance(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyClassSynthesizedFields(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyExport(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyFunction(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyAnnotation(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyClassMetadata(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyClassMro(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyLegacyTypeParam(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyYield(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyYieldFrom(idx) => write!(f, "{}", ctx.display(*idx)),
         }
     }
 }

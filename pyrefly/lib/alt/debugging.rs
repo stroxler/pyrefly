@@ -77,35 +77,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         format!("{}", self.module_info().name())
     }
 
-    fn show_any_idx_with(&self, bindings: &Bindings, idx: AnyIdx) -> String {
-        let kind = idx.kind();
-        let key = match idx {
-            AnyIdx::Key(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyExpect(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyClass(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyTParams(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyClassField(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyVariance(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyClassSynthesizedFields(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyExport(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyFunction(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyAnnotation(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyClassMetadata(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyClassMro(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyLegacyTypeParam(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyYield(idx) => self.show_idx_with(bindings, idx),
-            AnyIdx::KeyYieldFrom(idx) => self.show_idx_with(bindings, idx),
-        };
-        format!("{} :: {}", kind, key)
-    }
-
     pub fn show_calc_id(&self, c: CalcId) -> String {
         match c {
             CalcId(bindings, idx) => {
                 format!(
                     "{} . {}",
                     bindings.module_info().name(),
-                    self.show_any_idx_with(&bindings, idx)
+                    idx.display_with(&bindings)
                 )
             }
         }
@@ -157,7 +135,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!(
                     "{} . {}",
                     bindings.module_info().name(),
-                    self.show_any_idx_with(&bindings, idx)
+                    idx.display_with(&bindings)
                 )
             })
     }
@@ -174,7 +152,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!(
                     "{} . {}",
                     bindings.module_info().name(),
-                    self.show_any_idx_with(&bindings, idx)
+                    idx.display_with(&bindings)
                 )
             })
     }
