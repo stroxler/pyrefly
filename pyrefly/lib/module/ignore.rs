@@ -366,5 +366,9 @@ mod tests {
         );
         f("# type: ignore\nx = 5", &[]);
         f("# pyre-ignore-all-errors\nx = 5", &[(Tool::Pyre, 1)]);
+        f(
+            "# mypy: ignore-errors\n#pyrefly:ignore-errors",
+            &[(Tool::Mypy, 1), (Tool::Pyrefly, 2)],
+        );
     }
 }
