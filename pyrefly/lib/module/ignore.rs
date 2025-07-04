@@ -290,8 +290,6 @@ impl Ignore {
 
 #[cfg(test)]
 mod tests {
-    use starlark_map::smallmap;
-
     use super::*;
 
     #[test]
@@ -340,84 +338,33 @@ mod tests {
 
     #[test]
     fn test_parse_ignore_all() {
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# pyrefly: ignore-errors
-x = 5
-"#
-            ),
-            smallmap! {Tool::Pyrefly => LineNumber::from_zero_indexed(1)}
-        );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# comment
-# pyrefly: ignore-errors
-x = 5
-"#
-            ),
-            smallmap! {Tool::Pyrefly => LineNumber::from_zero_indexed(2)}
-        );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# comment
-  # indented comment
-# pyrefly: ignore-errors
-x = 5
-"#
-            ),
-            smallmap! {Tool::Pyrefly => LineNumber::from_zero_indexed(3)}
-        );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-x = 5
-# pyrefly: ignore-errors
-"#
-            ),
-            smallmap! {}
-        );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# type: ignore
+        fn f(x: &str, ignores: &[(Tool, u32)]) {
+            assert_eq!(
+                Ignore::parse_ignore_all(x),
+                ignores
+                    .iter()
+                    .map(|x| (x.0, LineNumber::new(x.1).unwrap()))
+                    .collect(),
+                "{x:?}"
+            );
+        }
 
-x = 5
-"#
-            ),
-            smallmap! {Tool::Any => LineNumber::from_zero_indexed(1)}
+        f("# pyrefly: ignore-errors\nx = 5", &[(Tool::Pyrefly, 1)]);
+        f(
+            "# comment\n# pyrefly: ignore-errors\nx = 5",
+            &[(Tool::Pyrefly, 2)],
         );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# comment
-# type: ignore
-# comment
-x = 5
-"#
-            ),
-            smallmap! {Tool::Any => LineNumber::from_zero_indexed(2)}
+        f(
+            "#comment\n  # indent\n# pyrefly: ignore-errors\nx = 5",
+            &[(Tool::Pyrefly, 3)],
         );
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# type: ignore
-x = 5
-"#
-            ),
-            smallmap! {}
+        f("x = 5\n# pyrefly: ignore-errors", &[]);
+        f("# type: ignore\n\nx = 5", &[(Tool::Any, 1)]);
+        f(
+            "# comment\n# type: ignore\n# comment\nx = 5",
+            &[(Tool::Any, 2)],
         );
-
-        assert_eq!(
-            Ignore::parse_ignore_all(
-                r#"
-# pyre-ignore-all-errors
-x = 5
-"#
-            ),
-            smallmap! {Tool::Pyre => LineNumber::from_zero_indexed(1)}
-        );
+        f("# type: ignore\nx = 5", &[]);
+        f("# pyre-ignore-all-errors\nx = 5", &[(Tool::Pyre, 1)]);
     }
 }
