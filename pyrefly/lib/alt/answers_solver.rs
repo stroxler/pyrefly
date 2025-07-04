@@ -122,6 +122,10 @@ impl CalcStack {
         self.0.borrow().clone()
     }
 
+    fn is_empty(&self) -> bool {
+        self.0.borrow().is_empty()
+    }
+
     /// Return the current cycle, if we are at a (module, idx) that we've already seen in this thread.
     ///
     /// The answer will have the form
@@ -293,6 +297,10 @@ impl Cycles {
         Self(RefCell::new(Vec::new()))
     }
 
+    fn is_empty(&self) -> bool {
+        self.0.borrow().is_empty()
+    }
+
     // Handle a cycle we just detected.
     ///
     /// Return whether or not to break immediately (which is relatively
@@ -430,6 +438,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn type_order(&self) -> TypeOrder<Ans> {
         TypeOrder::new(self)
+    }
+
+    pub fn validate_final_thread_state(&self) {
+        if !self.thread_state.stack.is_empty() {
+            unreachable!("The calculation stack should be empty in the final thread state");
+        }
+        if !self.thread_state.cycles.is_empty() {
+            unreachable!("The cycle stack should be empty in the final thread state");
+        }
     }
 
     pub fn get_idx<K: Solve<Ans>>(&self, idx: Idx<K>) -> Arc<K::Answer>

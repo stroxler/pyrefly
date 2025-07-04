@@ -478,6 +478,7 @@ impl Answers {
                 }
             }
         }
+        answers_solver.validate_final_thread_state();
 
         // Now force all types to be fully resolved.
         fn post_solve<K: Keyed>(items: &mut SolutionsEntry<K>, solver: &Solver) {
