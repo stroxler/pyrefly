@@ -7,6 +7,7 @@
 
 use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -16,6 +17,7 @@ use dupe::IterDupedExt;
 use itertools::Either;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::display::DisplayWithCtx;
+use pyrefly_util::display::commas_iter;
 use pyrefly_util::recurser::Recurser;
 use pyrefly_util::uniques::UniqueFactory;
 use ruff_text_size::TextRange;
@@ -62,13 +64,13 @@ use crate::types::types::Var;
 pub struct CalcId(pub Bindings, pub AnyIdx);
 
 impl Debug for CalcId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "CalcId({}, {:?})", self.0.module_info().name(), self.1)
     }
 }
 
 impl Display for CalcId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "CalcId({}, {})",
@@ -189,6 +191,20 @@ pub struct Cycle {
     /// The algorithm doesn't actually require knowing where we were when we detected the cycle, but it is
     /// essentially free and could be very useful for debugging.
     detected_at: CalcId,
+}
+
+impl Display for Cycle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Cycle{{break_at: {}, recursion_stack: [{}], unwind_stack: [{}], unwound: [{}], detected_at: {}}}",
+            self.break_at,
+            commas_iter(|| &self.recursion_stack),
+            commas_iter(|| &self.unwind_stack),
+            commas_iter(|| &self.unwound),
+            self.detected_at,
+        )
+    }
 }
 
 impl Cycle {
