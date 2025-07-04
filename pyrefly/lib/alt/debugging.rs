@@ -77,25 +77,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         format!("{}", self.module_info().name())
     }
 
-    pub fn show_calc_id(&self, c: CalcId) -> String {
-        match c {
-            CalcId(bindings, idx) => {
-                format!(
-                    "{} . {}",
-                    bindings.module_info().name(),
-                    idx.display_with(&bindings)
-                )
-            }
-        }
-    }
-
     pub fn show_current_idx(&self) -> String {
         match self.stack().peek() {
             None => {
                 // In practice we'll never hit this debugging, but there's no need to panic if we do.
                 "(None)".to_owned()
             }
-            Some(c) => self.show_calc_id(c),
+            Some(calc_id) => format!("{}", calc_id),
         }
     }
 
@@ -131,13 +119,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.stack()
             .into_vec()
             .into_iter()
-            .map(|CalcId(bindings, idx)| {
-                format!(
-                    "{} . {}",
-                    bindings.module_info().name(),
-                    idx.display_with(&bindings)
-                )
-            })
+            .map(|calc_id| format!("{}", calc_id))
     }
 
     // Get a printable representation of the current cycle.
@@ -148,12 +130,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .current_cycle()
             .unwrap()
             .into_iter()
-            .map(|CalcId(bindings, idx)| {
-                format!(
-                    "{} . {}",
-                    bindings.module_info().name(),
-                    idx.display_with(&bindings)
-                )
-            })
+            .map(|c| format!("{}", c))
     }
 }

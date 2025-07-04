@@ -8,12 +8,14 @@
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::sync::Arc;
 
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use itertools::Either;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::recurser::Recurser;
 use pyrefly_util::uniques::UniqueFactory;
 use ruff_text_size::TextRange;
@@ -62,6 +64,17 @@ pub struct CalcId(pub Bindings, pub AnyIdx);
 impl Debug for CalcId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "CalcId({}, {:?})", self.0.module_info().name(), self.1)
+    }
+}
+
+impl Display for CalcId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "CalcId({}, {})",
+            self.0.module_info().name(),
+            self.1.display_with(&self.0),
+        )
     }
 }
 
