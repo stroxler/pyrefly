@@ -1551,3 +1551,24 @@ print(__import__)
 print(__build_class__)
 "#,
 );
+
+testcase!(
+    test_parameter_default_bad,
+    r#"
+def f(x: int = "test"): # E: Default `Literal['test']` is not assignable to parameter `x` with type `int`
+    pass
+"#,
+);
+
+testcase!(
+    test_parameter_default_infer,
+    r#"
+from typing import reveal_type
+
+def f(x = 1):
+    reveal_type(x) # E: revealed type: int | Unknown
+    return x
+
+reveal_type(f) # E: revealed type: (x: int | Unknown = ...) -> int | Unknown
+"#,
+);
