@@ -193,7 +193,7 @@ impl Ignore {
                 ignores.entry(line).or_default().append(&mut pending);
             }
             for x in xs {
-                if let Some(supp) = Self::get_suppression_kind(x) {
+                if let Some(supp) = Self::parse_ignore_comment(x) {
                     if first.trim_start().is_empty() {
                         pending.push(supp);
                     } else {
@@ -211,7 +211,8 @@ impl Ignore {
         ignores
     }
 
-    fn get_suppression_kind(l: &str) -> Option<Suppression> {
+    /// Given the content of a comment, parse it as a suppression.
+    fn parse_ignore_comment(l: &str) -> Option<Suppression> {
         let mut lex = Lexer(l);
         lex.trim_start();
 
@@ -293,7 +294,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_suppression_kind() {
+    fn test_parse_ignore_comment() {
         fn f(x: &str) -> Option<Suppression> {
             Ignore::parse_ignores(x)
                 .into_values()
