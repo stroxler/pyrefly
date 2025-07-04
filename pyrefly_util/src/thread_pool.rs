@@ -15,6 +15,9 @@ use tracing::debug;
 
 use crate::lock::Mutex;
 
+/// The stack size for all created threads.
+const STACK_SIZE_IN_MB: usize = 5;
+
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ThreadCount {
     #[default]
@@ -52,13 +55,17 @@ pub struct ThreadPool(
 );
 
 impl ThreadPool {
+    fn stack_size() -> usize {
+        STACK_SIZE_IN_MB * 1024 * 1024
+    }
+
     pub fn with_thread_count(count: ThreadCount) -> Self {
         if cfg!(target_arch = "wasm32") {
             // ThreadPool doesn't work on WASM
             return Self(None);
         }
 
-        let mut builder = rayon::ThreadPoolBuilder::new().stack_size(5 * 1024 * 1024);
+        let mut builder = rayon::ThreadPoolBuilder::new().stack_size(Self::stack_size());
         if let ThreadCount::NumThreads(threads) = count {
             builder = builder.num_threads(threads.get());
         }
