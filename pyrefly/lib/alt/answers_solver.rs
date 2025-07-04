@@ -239,37 +239,12 @@ impl Cycle {
 
     /// Do a post-calculation check, to track progress unwinding the cycle
     /// back toward the `break_at` as we produce final results.
-    ///
-    /// TODO(stroxler): This check currently only occurs for the most
-    /// recently detected cycle, but this is actually a bug; cycles can
-    /// overlap in arbitrary ways.
-    fn on_calculation_finished(&mut self, current: &CalcId) -> CycleState {
+    fn on_calculation_finished(&mut self, current: &CalcId) {
         if let Some(c) = self.unwind_stack.last() {
             if current == c {
                 // This is part of the cycle; remove it from the unwind stack.
                 self.unwind_stack.pop();
-                // This is part of the cycle; remove it from the unwind stack.
-                // Check whether this is the break point (we finished the cycle)
-                // or this is an ordinary participant and we have more unwinding
-                // to do.
-                if *current == self.break_at {
-                    CycleState::BreakAt
-                } else {
-                    CycleState::Participant
-                }
-            } else {
-                // There is an active cycle, but the current idx is not participating.
-                //
-                // This case is hit when any cycle participant computes solving additional
-                // dependencies that aren't part of the active cycle.
-                CycleState::NoDetectedCycle
             }
-        } else {
-            // There is an active cycle, but the current idx is not participating.
-            //
-            // This case is hit if `break_at` computes additional dependencies that aren't
-            // part of the active cycle.
-            CycleState::NoDetectedCycle
         }
     }
 }
