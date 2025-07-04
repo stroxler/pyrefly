@@ -294,7 +294,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_ignore_comment() {
+    fn test_parse_ignores() {
         fn f(x: &str) -> Option<Suppression> {
             Ignore::parse_ignores(x)
                 .into_values()
@@ -304,9 +304,20 @@ mod tests {
 
         assert!(f("stuff # type: ignore # and then stuff").is_some());
         assert!(f("more # stuff # type: ignore[valid-type]").is_some());
-        assert!(f("# ignore: pyrefly").is_none());
         assert!(f(" pyrefly: ignore").is_none());
         assert!(f("normal line").is_none());
+    }
+
+    #[test]
+    fn test_parse_ignore_comment() {
+        fn f(x: &str) -> Option<Suppression> {
+            Ignore::parse_ignores(x)
+                .into_values()
+                .next()
+                .map(|x| x[0].clone())
+        }
+
+        assert!(f("# ignore: pyrefly").is_none());
         assert_eq!(
             f("# pyrefly: ignore"),
             Some(Suppression {
