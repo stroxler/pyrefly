@@ -253,14 +253,7 @@ impl Cycle {
     }
 }
 
-/// Represents the current cycle state for a given calculation. We check
-/// the state at two different points in time:
-/// - Before performing calculations, because we need to know when we are in an
-///   already-detected cycle and recursing out toward the `break_at`, and we
-///   need to know to stop and unwind when we reach `break_at`.
-/// - After performing calculations, because we may need to handle results
-///   differently and we need to know to clean up the cycle when we get back
-///   to `break_at`.
+/// Represents the current cycle state prior to attempting a particular calculation.
 enum CycleState {
     /// The current idx is not participating in any currently detected cycle (though it
     /// remains possible we will detect one here).
@@ -272,19 +265,10 @@ enum CycleState {
     NoDetectedCycle,
     /// This idx is part of the active cycle, and we are either (if this is a pre-calculation
     /// check) recursing out toward `break_at` or unwinding back toward `break_at`.
-    ///
-    /// If we are recursing, the current `Calculation` will need its per-thread recursion
-    /// limit bumped, since this will be a duplicate of some frame from before we first
-    /// reached `break_at`.
-    ///
-    /// If we are unwinding, we may need to handle the result with care to avoid data
-    /// races on `Var` pinning.
     Participant,
-    /// This idx is the `break_at` for the active cycle.
-    /// - If this was a pre-calculation check, it means we have reached the end of the
-    ///   recursion and should return a placeholder to our parent frame.
-    /// - If this was a post-calculation check, it means we have completed the cycle
-    ///   and should wrap up.
+    /// This idx is the `break_at` for the active cycle, which means we have
+    /// reached the end of the recursion and should return a placeholder to our
+    /// parent frame.
     BreakAt,
 }
 
@@ -493,8 +477,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     // Short circuit if another thread has already written an answer or recursive placeholder.
                     //
-                    // In either case, we needs to treat this as if we finished a calculation to preserve
-                    // the fidelity of the unwind stack.
+                    // In either case, we need to call `on_calculation_finished` to make sure that
+                    // we accurately reflect that this idx is no longer relevant to the unwind stack of
+                    // active cycles.
                     ProposalResult::Calculated(v) => {
                         self.cycles().on_calculation_finished(&current);
                         v
