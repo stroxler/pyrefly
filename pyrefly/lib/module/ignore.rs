@@ -321,6 +321,14 @@ mod tests {
         f("more # stuff # type: ignore", &[(Tool::Any, 1)]);
         f(" pyrefly: ignore", &[]);
         f("normal line", &[]);
+        f(
+            "code # mypy: ignore\n# pyre-fixme\nmore code",
+            &[(Tool::Mypy, 1), (Tool::Pyre, 3)],
+        );
+        f(
+            "# type: ignore\n# mypy: ignore\n# bad\n\ncode",
+            &[(Tool::Any, 4), (Tool::Mypy, 4)],
+        );
     }
 
     #[test]
