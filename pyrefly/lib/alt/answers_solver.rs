@@ -182,6 +182,9 @@ pub struct Cycle {
     ///
     /// We'll push to it as we recurs, and then pop as calculations complete.
     unwind_stack: Vec<CalcId>,
+    /// The unwound vec tracks things popped from the unwind stack. It is used for debugging only, because
+    /// without it we can lose track of what the cycle actually looked like.
+    unwound: Vec<CalcId>,
     /// The algorithm doesn't actually require knowing where we were when we detected the cycle, but it is
     /// essentially free and could be very useful for debugging.
     detected_at: CalcId,
@@ -204,6 +207,7 @@ impl Cycle {
                 break_at: break_at.dupe(),
                 recursion_stack,
                 unwind_stack,
+                unwound: Vec::new(),
                 detected_at,
             }
         } else {
@@ -220,6 +224,7 @@ impl Cycle {
                 break_at: break_at.dupe(),
                 recursion_stack: Vec::new(),
                 unwind_stack,
+                unwound: Vec::new(),
                 detected_at,
             }
         };
@@ -261,6 +266,8 @@ impl Cycle {
             if current == c {
                 // This is part of the cycle; remove it from the unwind stack.
                 self.unwind_stack.pop();
+                // Track what we unwound to make debugging easier.
+                self.unwound.push(current.dupe());
             }
         }
     }
