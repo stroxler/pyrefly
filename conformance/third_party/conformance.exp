@@ -3386,6 +3386,26 @@
     },
     {
       "code": -2,
+      "column": 17,
+      "concise_description": "Missing argument `id` in function `Customer1.__init__`",
+      "description": "Missing argument `id` in function `Customer1.__init__`",
+      "line": 66,
+      "name": "missing-argument",
+      "stop_column": 27,
+      "stop_line": 66
+    },
+    {
+      "code": -2,
+      "column": 17,
+      "concise_description": "Missing argument `name` in function `Customer1.__init__`",
+      "description": "Missing argument `name` in function `Customer1.__init__`",
+      "line": 66,
+      "name": "missing-argument",
+      "stop_column": 27,
+      "stop_line": 66
+    },
+    {
+      "code": -2,
       "column": 18,
       "concise_description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
       "description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
@@ -3780,6 +3800,46 @@
   "dataclasses_transform_field.py": [
     {
       "code": -2,
+      "column": 15,
+      "concise_description": "Missing argument `id` in function `CustomerModel1.__init__`",
+      "description": "Missing argument `id` in function `CustomerModel1.__init__`",
+      "line": 59,
+      "name": "missing-argument",
+      "stop_column": 17,
+      "stop_line": 59
+    },
+    {
+      "code": -2,
+      "column": 15,
+      "concise_description": "Missing argument `id` in function `CustomerModel1.__init__`",
+      "description": "Missing argument `id` in function `CustomerModel1.__init__`",
+      "line": 60,
+      "name": "missing-argument",
+      "stop_column": 26,
+      "stop_line": 60
+    },
+    {
+      "code": -2,
+      "column": 15,
+      "concise_description": "Missing argument `id` in function `CustomerModel2.__init__`",
+      "description": "Missing argument `id` in function `CustomerModel2.__init__`",
+      "line": 75,
+      "name": "missing-argument",
+      "stop_column": 18,
+      "stop_line": 75
+    },
+    {
+      "code": -2,
+      "column": 15,
+      "concise_description": "Missing argument `name` in function `CustomerModel2.__init__`",
+      "description": "Missing argument `name` in function `CustomerModel2.__init__`",
+      "line": 75,
+      "name": "missing-argument",
+      "stop_column": 18,
+      "stop_line": 75
+    },
+    {
+      "code": -2,
       "column": 16,
       "concise_description": "Expected 0 positional arguments, got 1 in function `CustomerModel2.__init__`",
       "description": "Expected 0 positional arguments, got 1 in function `CustomerModel2.__init__`",
@@ -3787,6 +3847,16 @@
       "name": "bad-argument-type",
       "stop_column": 17,
       "stop_line": 75
+    },
+    {
+      "code": -2,
+      "column": 15,
+      "concise_description": "Missing argument `id` in function `CustomerModel2.__init__`",
+      "description": "Missing argument `id` in function `CustomerModel2.__init__`",
+      "line": 77,
+      "name": "missing-argument",
+      "stop_column": 28,
+      "stop_line": 77
     }
   ],
   "dataclasses_transform_func.py": [
@@ -3901,6 +3971,26 @@
       "name": "read-only",
       "stop_column": 8,
       "stop_line": 63
+    },
+    {
+      "code": -2,
+      "column": 17,
+      "concise_description": "Missing argument `id` in function `Customer1.__init__`",
+      "description": "Missing argument `id` in function `Customer1.__init__`",
+      "line": 66,
+      "name": "missing-argument",
+      "stop_column": 27,
+      "stop_line": 66
+    },
+    {
+      "code": -2,
+      "column": 17,
+      "concise_description": "Missing argument `name` in function `Customer1.__init__`",
+      "description": "Missing argument `name` in function `Customer1.__init__`",
+      "line": 66,
+      "name": "missing-argument",
+      "stop_column": 27,
+      "stop_line": 66
     },
     {
       "code": -2,

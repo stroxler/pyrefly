@@ -171,7 +171,10 @@
     "Line 121: Unexpected errors [\"Argument `Literal['f0']` is not assignable to parameter `field0` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f1']` is not assignable to parameter `field1` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f2']` is not assignable to parameter `field2` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f6']` is not assignable to parameter `field3` with type `ConverterClass` in function `DC2.__init__`\", \"Argument `Literal['1']` is not assignable to parameter `field4` with type `int` in function `DC2.__init__`\", \"Argument `tuple[tuple[Literal['a'], Literal['1']], tuple[Literal['b'], Literal['2']]]` is not assignable to parameter `field5` with type `dict[str, str]` in function `DC2.__init__`\"]"
   ],
   "dataclasses_transform_field.py": [
-    "Line 64: Expected 1 errors"
+    "Line 64: Expected 1 errors",
+    "Line 59: Unexpected errors ['Missing argument `id` in function `CustomerModel1.__init__`']",
+    "Line 60: Unexpected errors ['Missing argument `id` in function `CustomerModel1.__init__`']",
+    "Line 77: Unexpected errors ['Missing argument `id` in function `CustomerModel2.__init__`']"
   ],
   "dataclasses_transform_func.py": [],
   "dataclasses_transform_meta.py": [

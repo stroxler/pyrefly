@@ -43,7 +43,6 @@ use crate::types::annotation::Annotation;
 use crate::types::annotation::Qualifier;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
-use crate::types::callable::FunctionKind;
 use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::Class;
@@ -58,7 +57,6 @@ use crate::types::typed_dict::TypedDict;
 use crate::types::typed_dict::TypedDictField;
 use crate::types::types::BoundMethod;
 use crate::types::types::BoundMethodType;
-use crate::types::types::CalleeKind;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
 use crate::types::types::Overload;
@@ -915,7 +913,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ClassFieldInitialValue::Class(None) => ClassFieldInitialization::Class(None),
             ClassFieldInitialValue::Class(Some(e)) => {
                 // If this field was created via a call to a dataclass field specifier, extract field flags from the call.
-                if metadata.dataclass_metadata().is_some()
+                if let Some(dm) = metadata.dataclass_metadata()
                     && let Expr::Call(ExprCall {
                         range: _,
                         func,
@@ -926,10 +924,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // so we can ignore any errors encountered here.
                     let ignore_errors = self.error_swallower();
                     let func_ty = self.expr_infer(func, &ignore_errors);
-                    if matches!(
-                        func_ty.callee_kind(),
-                        Some(CalleeKind::Function(FunctionKind::DataclassField))
-                    ) {
+                    let func_kind = func_ty.callee_kind();
+                    if let Some(func_kind) = func_kind
+                        && dm.field_specifiers.contains(&func_kind)
+                    {
                         let mut map = TypeMap::new();
                         for kw in keywords {
                             if let Some(name) = &kw.arg {

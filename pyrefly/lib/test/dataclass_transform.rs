@@ -130,7 +130,6 @@ data.x = 42  # E: frozen dataclass member
 );
 
 testcase!(
-    bug = "`field` should be treated as a field specifier rather than a default",
     test_field_specifier,
     r#"
 from typing import dataclass_transform, Any
@@ -141,6 +140,6 @@ def build(x): ...
 class C:
     x: int = field()
 C(x=0)
-C()  # Should be an error
+C()  # E: Missing argument `x`
     "#,
 );
