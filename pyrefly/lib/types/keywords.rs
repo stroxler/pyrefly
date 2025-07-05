@@ -176,7 +176,7 @@ pub struct DataclassKeywords {
     pub kw_only: bool,
     pub eq: bool,
     pub unsafe_hash: bool,
-    // TODO(rechen): add `slots`
+    pub slots: bool,
 }
 
 impl DataclassKeywords {
@@ -187,6 +187,7 @@ impl DataclassKeywords {
     const KW_ONLY: Name = Name::new_static("kw_only");
     const EQ: Name = Name::new_static("eq");
     const UNSAFE_HASH: Name = Name::new_static("unsafe_hash");
+    const SLOTS: Name = Name::new_static("slots");
 
     pub fn from_type_map(map: &TypeMap, defaults: &DataclassTransformKeywords) -> Self {
         Self {
@@ -197,6 +198,7 @@ impl DataclassKeywords {
             kw_only: map.get_bool(&Self::KW_ONLY, defaults.kw_only_default),
             eq: map.get_bool(&Self::EQ, defaults.eq_default),
             unsafe_hash: map.get_bool(&Self::UNSAFE_HASH, false),
+            slots: map.get_bool(&Self::SLOTS, false),
         }
     }
 

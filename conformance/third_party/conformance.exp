@@ -3314,23 +3314,13 @@
   "dataclasses_slots.py": [
     {
       "code": -2,
-      "column": 1,
-      "concise_description": "Class `DC5` has no class attribute `__slots__`",
-      "description": "Class `DC5` has no class attribute `__slots__`",
-      "line": 56,
-      "name": "missing-attribute",
-      "stop_column": 14,
-      "stop_line": 56
-    },
-    {
-      "code": -2,
-      "column": 1,
-      "concise_description": "Object of class `DC5` has no attribute `__slots__`",
-      "description": "Object of class `DC5` has no attribute `__slots__`",
-      "line": 57,
-      "name": "missing-attribute",
-      "stop_column": 17,
-      "stop_line": 57
+      "column": 7,
+      "concise_description": "Cannot specify both `slots=True` and `__slots__`",
+      "description": "Cannot specify both `slots=True` and `__slots__`",
+      "line": 11,
+      "name": "bad-class-definition",
+      "stop_column": 10,
+      "stop_line": 11
     },
     {
       "code": -2,

@@ -153,10 +153,7 @@
   ],
   "dataclasses_slots.py": [
     "Line 25: Expected 1 errors",
-    "Line 38: Expected 1 errors",
-    "Lines 10, 11: Expected error (tag 'DC1')",
-    "Line 56: Unexpected errors ['Class `DC5` has no class attribute `__slots__`']",
-    "Line 57: Unexpected errors ['Object of class `DC5` has no attribute `__slots__`']"
+    "Line 38: Expected 1 errors"
   ],
   "dataclasses_transform_class.py": [],
   "dataclasses_transform_converter.py": [

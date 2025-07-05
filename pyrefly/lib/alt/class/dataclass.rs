@@ -22,6 +22,7 @@ use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::error;
 use crate::error::collector::ErrorCollector;
+use crate::error::kind::ErrorKind;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
@@ -88,6 +89,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 dunder::MATCH_ARGS,
                 self.get_dataclass_match_args(cls, dataclass),
             );
+        }
+        if dataclass.kws.slots {
+            // It's a runtime error to set slots=True on a class that already defines __slots__.
+            // Note that inheriting __slots__ from a base class is fine.
+            if cls.contains(&dunder::SLOTS) {
+                self.error(
+                    errors,
+                    cls.range(),
+                    ErrorKind::BadClassDefinition,
+                    None,
+                    "Cannot specify both `slots=True` and `__slots__`".to_owned(),
+                );
+            } else {
+                fields.insert(dunder::SLOTS, self.get_dataclass_slots(cls, dataclass));
+            }
         }
         // See rules for `__hash__` creation under "unsafe_hash":
         // https://docs.python.org/3/library/dataclasses.html#module-contents
@@ -209,6 +225,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 })
                 .collect()
         };
+        let ty = Type::Tuple(Tuple::Concrete(ts));
+        ClassSynthesizedField::new(ty)
+    }
+
+    fn get_dataclass_slots(
+        &self,
+        cls: &Class,
+        dataclass: &DataclassMetadata,
+    ) -> ClassSynthesizedField {
+        let filtered_fields = self.iter_fields(cls, dataclass, false);
+        let ts = filtered_fields
+            .iter()
+            .map(|(name, _, _)| Type::Literal(Lit::Str(name.as_str().into())))
+            .collect();
         let ty = Type::Tuple(Tuple::Concrete(ts));
         ClassSynthesizedField::new(ty)
     }

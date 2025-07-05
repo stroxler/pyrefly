@@ -1101,3 +1101,21 @@ C(5, y=2) # E: Missing argument `z` in function `C.__init__`
 C(5, 1, y=2)
     "#,
 );
+
+testcase!(
+    test_slots,
+    r#"
+from dataclasses import dataclass
+from typing import assert_type, Literal
+@dataclass
+class NoSlots:
+    x: int
+@dataclass(slots=True)
+class Slots:
+    x: int
+no_slots = NoSlots(x=0)
+no_slots.__slots__ # E: no attribute `__slots__`
+slots = Slots(x=0)
+assert_type(slots.__slots__, tuple[Literal['x']])
+    "#,
+);

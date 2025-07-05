@@ -11,6 +11,7 @@ use ruff_python_ast::name::Name;
 pub const AENTER: Name = Name::new_static("__aenter__");
 pub const AEXIT: Name = Name::new_static("__aexit__");
 pub const ALL: Name = Name::new_static("__all__");
+pub const BOOL: Name = Name::new_static("__bool__");
 pub const CALL: Name = Name::new_static("__call__");
 pub const CONTAINS: Name = Name::new_static("__contains__");
 pub const DATACLASS_FIELDS: Name = Name::new_static("__dataclass_fields__");
@@ -41,7 +42,7 @@ pub const POS: Name = Name::new_static("__pos__");
 pub const SET: Name = Name::new_static("__set__");
 pub const SETATTR: Name = Name::new_static("__setattr__");
 pub const SETITEM: Name = Name::new_static("__setitem__");
-pub const BOOL: Name = Name::new_static("__bool__");
+pub const SLOTS: Name = Name::new_static("__slots__");
 
 pub const RICH_CMPS: &[Name] = &[LT, LE, EQ, NE, GT, GE];
 /// Rich comparison methods supplied by the `functools.total_ordering` decorator

@@ -3,7 +3,7 @@
   "pass": 65,
   "fail": 71,
   "pass_rate": 0.48,
-  "differences": 332,
+  "differences": 329,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -89,7 +89,7 @@
     "dataclasses_final.py": 3,
     "dataclasses_kwonly.py": 2,
     "dataclasses_postinit.py": 2,
-    "dataclasses_slots.py": 5,
+    "dataclasses_slots.py": 2,
     "dataclasses_transform_converter.py": 7,
     "dataclasses_transform_field.py": 4,
     "directives_deprecated.py": 10,
