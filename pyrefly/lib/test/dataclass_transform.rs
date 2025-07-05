@@ -173,3 +173,41 @@ c = C(not_my_x=0)
 assert_type(c.x, int)
     "#,
 );
+
+testcase!(
+    bug = "`x` should not be in the generated `__init__`",
+    test_set_init_through_overload,
+    r#"
+from typing import dataclass_transform, overload, Any, Literal
+
+@overload
+def field(name: None = None, init: Literal[False] = False) -> Any: ...
+@overload
+def field(name: str, init: Literal[True] = True) -> Any: ...
+def field(name: str | None = None, init: bool = False) -> Any: ...
+
+@dataclass_transform(field_specifiers=(field,))
+def build(x): ...
+@build
+class C:
+    x: int = field()
+    y: str = field(name='y')
+C(y='hello world')  # E: Missing argument `x`
+    "#,
+);
+
+testcase!(
+    bug = "`x` should be kw-only",
+    test_field_default,
+    r#"
+from typing import dataclass_transform, Any
+def field(kw_only: bool = True) -> Any: ...
+@dataclass_transform(field_specifiers=(field,))
+def build(x): ...
+@build
+class C:
+    x: int = field()
+C(x=0)
+C(0)  # Should be an error
+    "#,
+);
