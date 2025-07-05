@@ -158,3 +158,18 @@ C(x=0)
 C()  # OK because `factory` gives `x` a default
     "#,
 );
+
+testcase!(
+    test_alias,
+    r#"
+from typing import dataclass_transform, Any, assert_type
+def my_field(**kwargs) -> Any: ...
+@dataclass_transform(field_specifiers=(my_field,))
+def build(x): ...
+@build
+class C:
+    x: int = my_field(alias="not_my_x")
+c = C(not_my_x=0)
+assert_type(c.x, int)
+    "#,
+);

@@ -168,7 +168,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         has_seen_default = true;
                     }
                 }
-                params.push(field.as_param(&name, has_default, is_kw_only));
+                params.push(field.as_param(
+                    &field_flags.alias.unwrap_or(name),
+                    has_default,
+                    is_kw_only,
+                ));
             }
         }
 

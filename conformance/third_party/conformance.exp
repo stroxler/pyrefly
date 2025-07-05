@@ -3366,16 +3366,6 @@
     },
     {
       "code": -2,
-      "column": 36,
-      "concise_description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
-      "description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
-      "line": 60,
-      "name": "unexpected-keyword",
-      "stop_column": 46,
-      "stop_line": 60
-    },
-    {
-      "code": -2,
       "column": 1,
       "concise_description": "Cannot set field `id`",
       "description": "Cannot set field `id`\n  This field is a frozen dataclass member",
@@ -3951,16 +3941,6 @@
       "name": "invalid-inheritance",
       "stop_column": 24,
       "stop_line": 51
-    },
-    {
-      "code": -2,
-      "column": 36,
-      "concise_description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
-      "description": "Unexpected keyword argument `other_name` in function `Customer1.__init__`",
-      "line": 60,
-      "name": "unexpected-keyword",
-      "stop_column": 46,
-      "stop_line": 60
     },
     {
       "code": -2,

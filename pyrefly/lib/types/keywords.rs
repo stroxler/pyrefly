@@ -15,6 +15,7 @@ use starlark_map::ordered_map::OrderedMap;
 
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::FunctionKind;
+use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
@@ -32,6 +33,13 @@ impl TypeMap {
             .get(name)
             .and_then(|t| t.as_bool())
             .unwrap_or(default)
+    }
+
+    fn get_string(&self, name: &Name) -> Option<&str> {
+        self.0.get(name).and_then(|t| match t {
+            Type::Literal(Lit::Str(s)) => Some(&**s),
+            _ => None,
+        })
     }
 }
 
@@ -117,7 +125,9 @@ pub struct DataclassFieldKeywords {
     pub default: bool,
     /// None means that kw_only was not explicitly set
     pub kw_only: Option<bool>,
-    // TODO(rechen): add alias and converter
+    /// Alias that is used in `__init__` rather than the field name. None means no alias
+    pub alias: Option<Name>,
+    // TODO(rechen): add converter
 }
 
 impl DataclassFieldKeywords {
@@ -128,6 +138,7 @@ impl DataclassFieldKeywords {
     const DEFAULT_FACTORY: Name = Name::new_static("default_factory");
     const FACTORY: Name = Name::new_static("factory");
     const KW_ONLY: Name = Name::new_static("kw_only");
+    const ALIAS: Name = Name::new_static("alias");
 
     pub fn from_type_map(map: &TypeMap) -> Self {
         let init = map.get_bool(&Self::INIT, true);
@@ -135,10 +146,12 @@ impl DataclassFieldKeywords {
             .iter()
             .any(|k| map.0.contains_key(*k));
         let kw_only = map.0.get(&Self::KW_ONLY).and_then(|t| t.as_bool());
+        let alias = map.get_string(&Self::ALIAS).map(Name::new);
         Self {
             init,
             default,
             kw_only,
+            alias,
         }
     }
 

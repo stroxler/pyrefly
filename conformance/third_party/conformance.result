@@ -158,9 +158,7 @@
     "Line 56: Unexpected errors ['Class `DC5` has no class attribute `__slots__`']",
     "Line 57: Unexpected errors ['Object of class `DC5` has no attribute `__slots__`']"
   ],
-  "dataclasses_transform_class.py": [
-    "Line 60: Unexpected errors ['Unexpected keyword argument `other_name` in function `Customer1.__init__`']"
-  ],
+  "dataclasses_transform_class.py": [],
   "dataclasses_transform_converter.py": [
     "Line 118: Expected 1 errors",
     "Line 29: Unexpected errors ['Argument `tuple[[S, T](*, converter: (S) -> T, default: S | None, default_factory: (() -> S) | None) -> T]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`']",
@@ -177,9 +175,7 @@
     "Line 77: Unexpected errors ['Missing argument `id` in function `CustomerModel2.__init__`']"
   ],
   "dataclasses_transform_func.py": [],
-  "dataclasses_transform_meta.py": [
-    "Line 60: Unexpected errors ['Unexpected keyword argument `other_name` in function `Customer1.__init__`']"
-  ],
+  "dataclasses_transform_meta.py": [],
   "dataclasses_usage.py": [],
   "directives_assert_type.py": [],
   "directives_cast.py": [],
