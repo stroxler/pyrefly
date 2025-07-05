@@ -344,7 +344,8 @@ impl TypeAlias {
 
 assert_words!(Type, 4);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum CalleeKind {
     Callable,
     Function(FunctionKind),

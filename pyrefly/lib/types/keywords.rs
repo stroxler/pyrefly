@@ -15,6 +15,8 @@ use starlark_map::ordered_map::OrderedMap;
 
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::FunctionKind;
+use crate::types::tuple::Tuple;
+use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
@@ -76,7 +78,7 @@ pub struct DataclassTransformKeywords {
     pub order_default: bool,
     pub kw_only_default: bool,
     pub frozen_default: bool,
-    // TODO(rechen): add field_specifiers
+    pub field_specifiers: Vec<CalleeKind>,
 }
 
 impl DataclassTransformKeywords {
@@ -84,6 +86,7 @@ impl DataclassTransformKeywords {
     const ORDER_DEFAULT: Name = Name::new_static("order_default");
     const KW_ONLY_DEFAULT: Name = Name::new_static("kw_only_default");
     const FROZEN_DEFAULT: Name = Name::new_static("frozen_default");
+    const FIELD_SPECIFIERS: Name = Name::new_static("field_specifiers");
 
     pub fn from_type_map(map: &TypeMap) -> Self {
         Self {
@@ -91,6 +94,12 @@ impl DataclassTransformKeywords {
             order_default: map.get_bool(&Self::ORDER_DEFAULT, false),
             kw_only_default: map.get_bool(&Self::KW_ONLY_DEFAULT, false),
             frozen_default: map.get_bool(&Self::FROZEN_DEFAULT, false),
+            field_specifiers: match map.0.get(&Self::FIELD_SPECIFIERS) {
+                Some(Type::Tuple(Tuple::Concrete(elts))) => {
+                    elts.iter().filter_map(|e| e.callee_kind()).collect()
+                }
+                _ => Vec::new(),
+            },
         }
     }
 

@@ -137,7 +137,8 @@ impl Debug for ClassInner {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Visit, VisitMut, TypeEq)]
 pub enum ClassKind {
     StaticMethod,
     ClassMethod,
