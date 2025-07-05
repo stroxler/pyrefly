@@ -32,6 +32,7 @@ use crate::types::display::ClassDisplayContext;
 use crate::types::keywords::DataclassKeywords;
 use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::stdlib::Stdlib;
+use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
@@ -384,6 +385,7 @@ pub struct DataclassMetadata {
     /// The dataclass fields, e.g., `{'x'}` for `@dataclass class C: x: int`.
     pub fields: SmallSet<Name>,
     pub kws: DataclassKeywords,
+    pub field_specifiers: Vec<CalleeKind>,
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]

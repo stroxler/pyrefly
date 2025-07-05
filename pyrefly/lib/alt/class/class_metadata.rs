@@ -37,6 +37,7 @@ use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 use crate::types::callable::FunctionKind;
 use crate::types::class::Class;
+use crate::types::class::ClassKind;
 use crate::types::class::ClassType;
 use crate::types::keywords::DataclassKeywords;
 use crate::types::keywords::DataclassTransformKeywords;
@@ -306,8 +307,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // This class inherits from a dataclass_transform-ed base class, so its keywords are
             // interpreted as dataclass keywords.
             let map = keywords.clone().into_iter().collect::<OrderedMap<_, _>>();
-            dataclass_from_dataclass_transform =
-                Some(DataclassKeywords::from_type_map(&TypeMap(map), &defaults));
+            dataclass_from_dataclass_transform = Some((
+                DataclassKeywords::from_type_map(&TypeMap(map), &defaults),
+                defaults.field_specifiers,
+            ));
         }
         let typed_dict_metadata = if is_typed_dict {
             // Validate that only 'total' keyword is allowed for TypedDict and determine is_total
@@ -440,6 +443,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     dataclass_metadata = Some(DataclassMetadata {
                         fields: dataclass_fields,
                         kws: DataclassKeywords::new(),
+                        field_specifiers: vec![
+                            CalleeKind::Function(FunctionKind::DataclassField),
+                            CalleeKind::Class(ClassKind::DataclassField),
+                        ],
                     });
                 }
                 // `@dataclass(...)`
@@ -453,6 +460,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             &call.keywords,
                             &DataclassTransformKeywords::new(),
                         ),
+                        field_specifiers: vec![
+                            CalleeKind::Function(FunctionKind::DataclassField),
+                            CalleeKind::Class(ClassKind::DataclassField),
+                        ],
                     });
                 }
                 // `@dataclass_transform(...)`
@@ -464,24 +475,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
                 _ if let Some(defaults) = decorator_ty.dataclass_transform_metadata() => {
-                    dataclass_from_dataclass_transform =
-                        Some(DataclassKeywords::from_type_map(&TypeMap::new(), &defaults));
+                    dataclass_from_dataclass_transform = Some((
+                        DataclassKeywords::from_type_map(&TypeMap::new(), &defaults),
+                        defaults.field_specifiers,
+                    ));
                 }
                 // `@foo(...)` where `foo` is decorated with `@dataclass_transform(...)`
                 _ if let Type::KwCall(call) = decorator_ty
                     && let Some(defaults) =
                         &call.func_metadata.flags.dataclass_transform_metadata =>
                 {
-                    dataclass_from_dataclass_transform =
-                        Some(DataclassKeywords::from_type_map(&call.keywords, defaults));
+                    dataclass_from_dataclass_transform = Some((
+                        DataclassKeywords::from_type_map(&call.keywords, defaults),
+                        defaults.field_specifiers.clone(),
+                    ));
                 }
                 _ => {}
             }
         }
-        if let Some(kws) = dataclass_from_dataclass_transform {
+        if let Some((kws, field_specifiers)) = dataclass_from_dataclass_transform {
             dataclass_metadata = Some(DataclassMetadata {
                 fields: self.get_dataclass_fields(cls, &bases_with_metadata),
                 kws,
+                field_specifiers,
             });
         }
         if is_typed_dict
