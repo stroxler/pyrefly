@@ -25,19 +25,18 @@ jobs:
 
           # Messages for stale items
           stale-issue-message: |
-            This issue has been automatically marked as stale because it is assigned, but has not had recent activity for more than 2 weeks.
+            This issue has someone assigned, but has not had recent activity for more than 2 weeks.
 
-            If you are still working on this issue, please add a comment to keep it active. Otherwise, please unassign yourself and allow someone else to take over.
+            If you are still working on this issue, please add a comment so everyone knows. Otherwise, please unassign yourself and allow someone else to take over.
 
             Thank you for your contributions!
 
           stale-pr-message: |
-            This pull request has been automatically marked as stale because it is assigned, but has not had recent activity for more than 2 weeks.
+            This pull request has been automatically marked as stale because it has not had recent activity for more than 2 weeks.
 
             If you are still working on this this pull request, please add a comment or push new commits to keep it active. Otherwise, please unassign yourself and allow someone else to take over.
 
             Thank you for your contributions!
 
           # Labels to apply
-          stale-issue-label: 'stale'
           stale-pr-label: 'stale'
