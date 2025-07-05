@@ -143,3 +143,18 @@ C(x=0)
 C()  # E: Missing argument `x`
     "#,
 );
+
+testcase!(
+    test_factory,
+    r#"
+from typing import dataclass_transform, Any
+def field(**kwargs) -> Any: ...
+@dataclass_transform(field_specifiers=(field,))
+def build(x): ...
+@build
+class C:
+    x: int = field(factory=int)
+C(x=0)
+C()  # OK because `factory` gives `x` a default
+    "#,
+);
