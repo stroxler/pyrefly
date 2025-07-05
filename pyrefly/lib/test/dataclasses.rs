@@ -1119,3 +1119,27 @@ slots = Slots(x=0)
 assert_type(slots.__slots__, tuple[Literal['x']])
     "#,
 );
+
+testcase!(
+    test_match_args_no_init,
+    r#"
+from dataclasses import dataclass, field
+from typing import assert_type
+@dataclass
+class C:
+    x: int = field(init=False)
+assert_type(C.__match_args__, tuple[()])
+    "#,
+);
+
+testcase!(
+    test_match_args_initvar,
+    r#"
+from dataclasses import dataclass, InitVar
+from typing import assert_type, Literal
+@dataclass
+class C:
+    x: InitVar[int]
+assert_type(C.__match_args__, tuple[Literal['x']])
+    "#,
+);

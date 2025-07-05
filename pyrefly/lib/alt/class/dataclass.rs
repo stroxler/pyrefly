@@ -213,11 +213,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let ts = if kw_only {
             Vec::new()
         } else {
-            let filtered_fields = self.iter_fields(cls, dataclass, false);
+            let filtered_fields = self.iter_fields(cls, dataclass, true);
             filtered_fields
                 .iter()
                 .filter_map(|(name, _, field_flags)| {
-                    if field_flags.is_kw_only() {
+                    if field_flags.is_kw_only() || !field_flags.init {
                         None
                     } else {
                         Some(Type::Literal(Lit::Str(name.as_str().into())))
