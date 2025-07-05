@@ -360,7 +360,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             .and_then(|attr| self.type_order.resolve_as_instance_method(attr))
     }
 
-    fn constructor_to_callable(&mut self, cls: &ClassType) -> Option<Type> {
+    fn constructor_to_callable(&self, cls: &ClassType) -> Type {
         let class_type = cls.clone().to_type();
         if let Some(mut metaclass_call_attr_ty) = self.type_order.get_metaclass_dunder_call(cls) {
             // If the class has a custom metaclass and the return type of the metaclass's __call__
@@ -373,7 +373,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         .is_compatible_constructor_return(&ret, cls.class_object())
                 })
             {
-                return Some(metaclass_call_attr_ty);
+                return metaclass_call_attr_ty;
             }
         }
         // Default constructor that takes no args and returns Self.
@@ -395,7 +395,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     .is_compatible_constructor_return(&ret, cls.class_object())
             }) {
                 // If the return type of __new__ is not a subclass of the current class, use that and ignore __init__
-                return Some(t);
+                return t;
             }
             (t, true)
         } else {
@@ -412,15 +412,14 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             };
         if !overrides_new && overrides_init {
             // If `__init__` is overridden and `__new__` is inherited from object, use `__init__`
-            Some(init_attr_ty)
+            init_attr_ty
         } else if overrides_new && !overrides_init {
             // If `__new__` is overridden and `__init__` is inherited from object, use `__new__`
-            Some(new_attr_ty)
+            new_attr_ty
         } else {
-            let result = unions(vec![new_attr_ty, init_attr_ty]);
             // If both are overridden, take the union
             // Only if neither are overridden, use the `__new__` and `__init__` from object
-            Some(result)
+            unions(vec![new_attr_ty, init_attr_ty])
         }
     }
 
@@ -856,9 +855,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (
                 Type::Type(box Type::ClassType(got)),
                 Type::BoundMethod(_) | Type::Callable(_) | Type::Function(_),
-            ) if let Some(call_ty) = self.constructor_to_callable(got) => {
-                self.is_subset_eq(&call_ty, want)
-            }
+            ) => self.is_subset_eq(&self.constructor_to_callable(got), want),
             (Type::ClassDef(got), Type::BoundMethod(_) | Type::Callable(_) | Type::Function(_)) => {
                 self.is_subset_eq(
                     &Type::type_form(self.type_order.promote_silently(got)),
