@@ -36,7 +36,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         match_subject: Option<NarrowingSubject>,
         pattern: Pattern,
-        key: Idx<Key>,
+        subject_idx: Idx<Key>,
     ) -> NarrowOps {
         // In typical code, match patterns are more like static types than normal values, so
         // we ignore match patterns for first-usage tracking.
@@ -71,11 +71,11 @@ impl<'a> BindingsBuilder<'a> {
                 // If there is a new name, refine that instead
                 let mut subject = match_subject;
                 if let Some(name) = &p.name {
-                    self.bind_definition(name, Binding::Forward(key), FlowStyle::Other);
+                    self.bind_definition(name, Binding::Forward(subject_idx), FlowStyle::Other);
                     subject = Some(NarrowingSubject::Name(name.id.clone()));
                 };
                 if let Some(pattern) = p.pattern {
-                    self.bind_pattern(subject, *pattern, key)
+                    self.bind_pattern(subject, *pattern, subject_idx)
                 } else {
                     NarrowOps::new()
                 }
@@ -91,7 +91,7 @@ impl<'a> BindingsBuilder<'a> {
                                 let position = UnpackedPosition::Slice(idx, num_patterns - idx - 1);
                                 self.bind_definition(
                                     name,
-                                    Binding::UnpackedValue(None, key, p.range, position),
+                                    Binding::UnpackedValue(None, subject_idx, p.range, position),
                                     FlowStyle::Other,
                                 );
                             }
@@ -105,7 +105,7 @@ impl<'a> BindingsBuilder<'a> {
                             };
                             let key = self.insert_binding(
                                 Key::Anon(x.range()),
-                                Binding::UnpackedValue(None, key, x.range(), position),
+                                Binding::UnpackedValue(None, subject_idx, x.range(), position),
                             );
                             narrow_ops.and_all(self.bind_pattern(None, x, key));
                         }
@@ -118,7 +118,7 @@ impl<'a> BindingsBuilder<'a> {
                 };
                 self.insert_binding(
                     KeyExpect(x.range),
-                    BindingExpect::UnpackedLength(key, x.range, expect),
+                    BindingExpect::UnpackedLength(subject_idx, x.range, expect),
                 );
                 narrow_ops
             }
@@ -145,7 +145,7 @@ impl<'a> BindingsBuilder<'a> {
                         });
                         let binding_for_key = self.insert_binding_current(
                             key_user,
-                            Binding::PatternMatchMapping(key_expr, key),
+                            Binding::PatternMatchMapping(key_expr, subject_idx),
                         );
                         narrow_ops.and_all(self.bind_pattern(
                             subject_for_key,
@@ -154,7 +154,7 @@ impl<'a> BindingsBuilder<'a> {
                         ))
                     });
                 if let Some(rest) = x.rest {
-                    self.bind_definition(&rest, Binding::Forward(key), FlowStyle::Other);
+                    self.bind_definition(&rest, Binding::Forward(subject_idx), FlowStyle::Other);
                 }
                 narrow_ops
             }
@@ -180,7 +180,7 @@ impl<'a> BindingsBuilder<'a> {
                             Binding::PatternMatchClassPositional(
                                 x.cls.clone(),
                                 idx,
-                                key,
+                                subject_idx,
                                 pattern.range(),
                             ),
                         );
@@ -194,7 +194,7 @@ impl<'a> BindingsBuilder<'a> {
                      }| {
                         let attr_key = self.insert_binding(
                             Key::Anon(attr.range()),
-                            Binding::PatternMatchClassKeyword(x.cls.clone(), attr, key),
+                            Binding::PatternMatchClassKeyword(x.cls.clone(), attr, subject_idx),
                         );
                         narrow_ops.and_all(self.bind_pattern(None, pattern, attr_key))
                     },
@@ -216,7 +216,8 @@ impl<'a> BindingsBuilder<'a> {
                         )
                     }
                     let mut base = self.scopes.clone_current_flow();
-                    let new_narrow_ops = self.bind_pattern(match_subject.clone(), pattern, key);
+                    let new_narrow_ops =
+                        self.bind_pattern(match_subject.clone(), pattern, subject_idx);
                     if let Some(ref mut ops) = narrow_ops {
                         ops.or_all(new_narrow_ops)
                     } else {
@@ -235,7 +236,8 @@ impl<'a> BindingsBuilder<'a> {
     pub fn stmt_match(&mut self, mut x: StmtMatch) {
         let mut subject = self.declare_current_idx(Key::Anon(x.subject.range()));
         self.ensure_expr(&mut x.subject, subject.usage());
-        let key = self.insert_binding_current(subject, Binding::Expr(None, *x.subject.clone()));
+        let subject_idx =
+            self.insert_binding_current(subject, Binding::Expr(None, *x.subject.clone()));
         let match_narrowing_subject = expr_to_subjects(&x.subject).first().cloned();
         let mut exhaustive = false;
         let range = x.range;
@@ -255,7 +257,7 @@ impl<'a> BindingsBuilder<'a> {
                 exhaustive = true;
             }
             let new_narrow_ops =
-                self.bind_pattern(match_narrowing_subject.clone(), case.pattern, key);
+                self.bind_pattern(match_narrowing_subject.clone(), case.pattern, subject_idx);
             self.bind_narrow_ops(&negated_prev_ops, case.range);
             self.bind_narrow_ops(&new_narrow_ops, case.range);
             negated_prev_ops.and_all(new_narrow_ops.negate());
