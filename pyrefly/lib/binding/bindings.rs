@@ -519,7 +519,7 @@ impl<'a> BindingsBuilder<'a> {
 
     /// Declare a `Key` as a usage, which can be used for name lookups. Like `idx_for_promise`,
     /// this is a promise to later provide a `Binding` corresponding this key.
-    pub fn declare_user(&mut self, key: Key) -> CurrentIdx {
+    pub fn declare_current_idx(&mut self, key: Key) -> CurrentIdx {
         CurrentIdx::new(self.idx_for_promise(key))
     }
 
@@ -547,8 +547,8 @@ impl<'a> BindingsBuilder<'a> {
 
     /// Insert a binding into the bindings table, given a `Usage`. This will panic if the usage
     /// is `Usage::NoUsageTracking`.
-    pub fn insert_binding_user(&mut self, user: CurrentIdx, value: Binding) -> Idx<Key> {
-        self.insert_binding_idx(user.into_idx(), value)
+    pub fn insert_binding_current(&mut self, current: CurrentIdx, value: Binding) -> Idx<Key> {
+        self.insert_binding_idx(current.into_idx(), value)
     }
 
     /// Allow access to an `Idx<Key>` given a `LastStmt` coming from a scan of a function body.
@@ -1009,24 +1009,24 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_key(&name.id, idx, style).0
     }
 
-    pub fn bind_definition_user(
+    pub fn bind_definition_current(
         &mut self,
         name: &Identifier,
-        user: CurrentIdx,
+        current: CurrentIdx,
         binding: Binding,
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
-        let idx = self.insert_binding_user(user, binding);
+        let idx = self.insert_binding_current(current, binding);
         self.bind_key(&name.id, idx, style).0
     }
 
-    pub fn bind_user(
+    pub fn bind_current(
         &mut self,
         name: &Name,
-        user: &CurrentIdx,
+        current: &CurrentIdx,
         style: FlowStyle,
     ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
-        self.bind_key(name, user.idx(), style)
+        self.bind_key(name, current.idx(), style)
     }
 
     /// Return a pair of:

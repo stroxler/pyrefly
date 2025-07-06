@@ -372,23 +372,26 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn record_yield(&mut self, mut x: ExprYield) {
-        let mut user = self.declare_user(Key::UsageLink(x.range));
+        let mut yield_link = self.declare_current_idx(Key::UsageLink(x.range));
         let idx = self.idx_for_promise(KeyYield(x.range));
-        self.ensure_expr_opt(x.value.as_deref_mut(), user.usage());
+        self.ensure_expr_opt(x.value.as_deref_mut(), yield_link.usage());
         if let Err(oops_top_level) = self.scopes.record_or_reject_yield(idx, x) {
             self.insert_binding_idx(idx, BindingYield::Invalid(oops_top_level));
         }
-        self.insert_binding_user(user, Binding::UsageLink(LinkedKey::Yield(idx)));
+        self.insert_binding_current(yield_link, Binding::UsageLink(LinkedKey::Yield(idx)));
     }
 
     fn record_yield_from(&mut self, mut x: ExprYieldFrom) {
-        let mut user = self.declare_user(Key::UsageLink(x.range));
+        let mut yield_from_link = self.declare_current_idx(Key::UsageLink(x.range));
         let idx = self.idx_for_promise(KeyYieldFrom(x.range));
-        self.ensure_expr(&mut x.value, user.usage());
+        self.ensure_expr(&mut x.value, yield_from_link.usage());
         if let Err(oops_top_level) = self.scopes.record_or_reject_yield_from(idx, x) {
             self.insert_binding_idx(idx, BindingYieldFrom::Invalid(oops_top_level));
         }
-        self.insert_binding_user(user, Binding::UsageLink(LinkedKey::YieldFrom(idx)));
+        self.insert_binding_current(
+            yield_from_link,
+            Binding::UsageLink(LinkedKey::YieldFrom(idx)),
+        );
     }
 
     /// Execute through the expr, ensuring every name has a binding.

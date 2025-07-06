@@ -99,7 +99,8 @@ impl<'a> BindingsBuilder<'a> {
         };
         // The user - used for first-usage tracking of any expressions we analyze in a class definition -
         // is the `Idx<Key>` of the class object bound to the class name.
-        let class_object = self.declare_user(Key::Definition(ShortIdentifier::new(class_name)));
+        let class_object =
+            self.declare_current_idx(Key::Definition(ShortIdentifier::new(class_name)));
         (class_object, class_indices)
     }
 
@@ -309,7 +310,7 @@ impl<'a> BindingsBuilder<'a> {
         let decorator_keys = decorators_with_ranges
             .map(|(idx, _)| *idx)
             .into_boxed_slice();
-        self.bind_definition_user(
+        self.bind_definition_current(
             &x.name,
             class_object,
             Binding::ClassDef(class_indices.class_idx, decorator_keys),
@@ -563,7 +564,7 @@ impl<'a> BindingsBuilder<'a> {
                 },
             );
         }
-        self.bind_definition_user(
+        self.bind_definition_current(
             &class_name,
             class_object,
             Binding::ClassDef(class_indices.class_idx, Box::new([])),

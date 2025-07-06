@@ -128,7 +128,7 @@ impl<'a> BindingsBuilder<'a> {
                     .into_iter()
                     .zip(x.patterns)
                     .for_each(|(mut key_expr, pattern)| {
-                        let mut key_user = self.declare_user(Key::Anon(key_expr.range()));
+                        let mut key_user = self.declare_current_idx(Key::Anon(key_expr.range()));
                         let key_name = match &key_expr {
                             Expr::StringLiteral(ExprStringLiteral { value: key, .. }) => {
                                 Some(key.to_string())
@@ -143,7 +143,7 @@ impl<'a> BindingsBuilder<'a> {
                                 .clone()
                                 .map(|s| s.with_facet(FacetKind::Key(key)))
                         });
-                        let binding_for_key = self.insert_binding_user(
+                        let binding_for_key = self.insert_binding_current(
                             key_user,
                             Binding::PatternMatchMapping(key_expr, key),
                         );
@@ -233,10 +233,10 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn stmt_match(&mut self, mut x: StmtMatch) {
-        let mut subject_user = self.declare_user(Key::Anon(x.subject.range()));
-        self.ensure_expr(&mut x.subject, subject_user.usage());
+        let mut subject = self.declare_current_idx(Key::Anon(x.subject.range()));
+        self.ensure_expr(&mut x.subject, subject.usage());
         let match_subject = *x.subject.clone();
-        let key = self.insert_binding_user(subject_user, Binding::Expr(None, *x.subject.clone()));
+        let key = self.insert_binding_current(subject, Binding::Expr(None, *x.subject.clone()));
         let mut exhaustive = false;
         let range = x.range;
         let mut branches = Vec::new();
