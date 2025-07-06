@@ -237,6 +237,7 @@ impl<'a> BindingsBuilder<'a> {
         self.ensure_expr(&mut x.subject, subject.usage());
         let match_subject = *x.subject.clone();
         let key = self.insert_binding_current(subject, Binding::Expr(None, *x.subject.clone()));
+        let match_narrowing_subject = expr_to_subjects(&match_subject).first().cloned();
         let mut exhaustive = false;
         let range = x.range;
         let mut branches = Vec::new();
@@ -254,8 +255,8 @@ impl<'a> BindingsBuilder<'a> {
             if case.pattern.is_wildcard() || case.pattern.is_irrefutable() {
                 exhaustive = true;
             }
-            let match_narrowing_subject = expr_to_subjects(&match_subject).first().cloned();
-            let new_narrow_ops = self.bind_pattern(match_narrowing_subject, case.pattern, key);
+            let new_narrow_ops =
+                self.bind_pattern(match_narrowing_subject.clone(), case.pattern, key);
             self.bind_narrow_ops(&negated_prev_ops, case.range);
             self.bind_narrow_ops(&new_narrow_ops, case.range);
             negated_prev_ops.and_all(new_narrow_ops.negate());
