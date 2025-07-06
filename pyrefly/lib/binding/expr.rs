@@ -60,8 +60,8 @@ use crate::types::types::Type;
 /// tracking.
 #[derive(Debug)]
 pub enum Usage {
-    /// Usage to create a `Binding`.
-    User(Idx<Key>, SmallSet<Idx<Key>>),
+    /// I am a usage to create a `Binding`.
+    CurrentIdx(Idx<Key>, SmallSet<Idx<Key>>),
     /// I am a usage that will appear in a narrowing operation (including a
     /// match pattern). We don't allow pinning in this case:
     /// - It is generally not useful (narrowing operations don't usually pin types)

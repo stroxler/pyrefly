@@ -45,7 +45,7 @@ use crate::binding::binding::KeyVariance;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
 use crate::binding::bindings::BindingTable;
-use crate::binding::bindings::User;
+use crate::binding::bindings::CurrentIdx;
 use crate::binding::function::SelfAssignments;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
@@ -929,15 +929,15 @@ impl Scopes {
     /// Return `None` if this succeeded and Some(rejected_return) if we are at the top-level
     pub fn record_or_reject_return(
         &mut self,
-        user: User,
+        ret: CurrentIdx,
         x: StmtReturn,
-    ) -> Result<(), (User, StmtReturn)> {
+    ) -> Result<(), (CurrentIdx, StmtReturn)> {
         match self.current_yields_and_returns_mut() {
             Some(yields_and_returns) => {
-                yields_and_returns.returns.push((user.into_idx(), x));
+                yields_and_returns.returns.push((ret.into_idx(), x));
                 Ok(())
             }
-            None => Err((user, x)),
+            None => Err((ret, x)),
         }
     }
 

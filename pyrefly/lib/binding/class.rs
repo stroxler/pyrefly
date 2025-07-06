@@ -50,8 +50,8 @@ use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyTParams;
 use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingsBuilder;
+use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::LegacyTParamBuilder;
-use crate::binding::bindings::User;
 use crate::binding::scope::ClassIndices;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::InstanceAttribute;
@@ -87,7 +87,7 @@ impl<'a> BindingsBuilder<'a> {
         res
     }
 
-    fn class_object_and_indices(&mut self, class_name: &Identifier) -> (User, ClassIndices) {
+    fn class_object_and_indices(&mut self, class_name: &Identifier) -> (CurrentIdx, ClassIndices) {
         let def_index = self.def_index();
         let class_indices = ClassIndices {
             def_index,
@@ -419,7 +419,7 @@ impl<'a> BindingsBuilder<'a> {
     fn synthesize_class_def(
         &mut self,
         class_name: Identifier,
-        class_object: User,
+        class_object: CurrentIdx,
         class_indices: ClassIndices,
         base: Option<Expr>,
         keywords: Box<[(Name, Expr)]>,
