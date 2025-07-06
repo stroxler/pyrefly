@@ -235,9 +235,8 @@ impl<'a> BindingsBuilder<'a> {
     pub fn stmt_match(&mut self, mut x: StmtMatch) {
         let mut subject = self.declare_current_idx(Key::Anon(x.subject.range()));
         self.ensure_expr(&mut x.subject, subject.usage());
-        let match_subject = *x.subject.clone();
         let key = self.insert_binding_current(subject, Binding::Expr(None, *x.subject.clone()));
-        let match_narrowing_subject = expr_to_subjects(&match_subject).first().cloned();
+        let match_narrowing_subject = expr_to_subjects(&x.subject).first().cloned();
         let mut exhaustive = false;
         let range = x.range;
         let mut branches = Vec::new();
