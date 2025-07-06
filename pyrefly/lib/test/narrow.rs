@@ -585,6 +585,17 @@ def f(x: str | int | None):
 );
 
 testcase!(
+    test_isinstance_unbounded_tuple,
+    r#"
+from typing import assert_type
+
+def test(x, y: tuple[type[int], ...]):
+    if isinstance(x, y):
+        assert_type(x, int)
+"#,
+);
+
+testcase!(
     test_isinstance_type,
     r#"
 from typing import assert_type
