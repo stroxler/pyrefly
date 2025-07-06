@@ -84,11 +84,11 @@ impl<'a> BindingsBuilder<'a> {
                 let mut narrow_ops = NarrowOps::new();
                 let num_patterns = x.patterns.len();
                 let mut unbounded = false;
-                for (idx, x) in x.patterns.into_iter().enumerate() {
+                for (i, x) in x.patterns.into_iter().enumerate() {
                     match x {
                         Pattern::MatchStar(p) => {
                             if let Some(name) = &p.name {
-                                let position = UnpackedPosition::Slice(idx, num_patterns - idx - 1);
+                                let position = UnpackedPosition::Slice(i, num_patterns - i - 1);
                                 self.bind_definition(
                                     name,
                                     Binding::UnpackedValue(None, subject_idx, p.range, position),
@@ -99,9 +99,9 @@ impl<'a> BindingsBuilder<'a> {
                         }
                         _ => {
                             let position = if unbounded {
-                                UnpackedPosition::ReverseIndex(num_patterns - idx)
+                                UnpackedPosition::ReverseIndex(num_patterns - i)
                             } else {
-                                UnpackedPosition::Index(idx)
+                                UnpackedPosition::Index(i)
                             };
                             let key = self.insert_binding(
                                 Key::Anon(x.range()),
