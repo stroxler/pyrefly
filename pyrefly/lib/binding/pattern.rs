@@ -139,17 +139,17 @@ impl<'a> BindingsBuilder<'a> {
                                 None
                             }
                         };
-                        let subject_for_key = key_name.and_then(|key| {
-                            match_subject
-                                .clone()
-                                .map(|s| s.with_facet(FacetKind::Key(key)))
-                        });
                         let match_key_idx = self.insert_binding_current(
                             match_key,
                             Binding::PatternMatchMapping(match_key_expr, subject_idx),
                         );
+                        let subject_at_key = key_name.and_then(|key| {
+                            match_subject
+                                .clone()
+                                .map(|s| s.with_facet(FacetKind::Key(key)))
+                        });
                         narrow_ops.and_all(self.bind_pattern(
-                            subject_for_key,
+                            subject_at_key,
                             pattern,
                             match_key_idx,
                         ))
