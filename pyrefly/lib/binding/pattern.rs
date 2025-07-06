@@ -127,14 +127,15 @@ impl<'a> BindingsBuilder<'a> {
                 x.keys
                     .into_iter()
                     .zip(x.patterns)
-                    .for_each(|(mut key_expr, pattern)| {
-                        let mut key_user = self.declare_current_idx(Key::Anon(key_expr.range()));
-                        let key_name = match &key_expr {
+                    .for_each(|(mut match_key_expr, pattern)| {
+                        let mut match_key =
+                            self.declare_current_idx(Key::Anon(match_key_expr.range()));
+                        let key_name = match &match_key_expr {
                             Expr::StringLiteral(ExprStringLiteral { value: key, .. }) => {
                                 Some(key.to_string())
                             }
                             _ => {
-                                self.ensure_expr(&mut key_expr, key_user.usage());
+                                self.ensure_expr(&mut match_key_expr, match_key.usage());
                                 None
                             }
                         };
@@ -143,14 +144,14 @@ impl<'a> BindingsBuilder<'a> {
                                 .clone()
                                 .map(|s| s.with_facet(FacetKind::Key(key)))
                         });
-                        let binding_for_key = self.insert_binding_current(
-                            key_user,
-                            Binding::PatternMatchMapping(key_expr, subject_idx),
+                        let match_key_idx = self.insert_binding_current(
+                            match_key,
+                            Binding::PatternMatchMapping(match_key_expr, subject_idx),
                         );
                         narrow_ops.and_all(self.bind_pattern(
                             subject_for_key,
                             pattern,
-                            binding_for_key,
+                            match_key_idx,
                         ))
                     });
                 if let Some(rest) = x.rest {
