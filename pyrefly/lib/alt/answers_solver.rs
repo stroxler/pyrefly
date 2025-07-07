@@ -322,7 +322,7 @@ impl Cycles {
         self.0.borrow().is_empty()
     }
 
-    // Handle a cycle we just detected.
+    /// Handle a cycle we just detected.
     ///
     /// Return whether or not to break immediately (which is relatively
     /// common, since we break on the minimal idx which is often where we would
