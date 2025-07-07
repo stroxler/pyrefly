@@ -7,7 +7,10 @@
 
 use pyrefly_python::ast::Ast;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::ExprStringLiteral;
+use ruff_python_ast::Int;
+use ruff_python_ast::Number;
 use ruff_python_ast::Pattern;
 use ruff_python_ast::PatternKeyword;
 use ruff_python_ast::StmtMatch;
@@ -22,6 +25,7 @@ use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::AtomicNarrowOp;
+use crate::binding::narrow::NarrowOp;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::narrow::NarrowingSubject;
 use crate::binding::narrow::expr_to_subjects;
@@ -83,7 +87,35 @@ impl<'a> BindingsBuilder<'a> {
             Pattern::MatchSequence(x) => {
                 let mut narrow_ops = NarrowOps::new();
                 let num_patterns = x.patterns.len();
-                let mut unbounded = false;
+                let num_non_star_patterns = x
+                    .patterns
+                    .iter()
+                    .filter(|x| !matches!(x, Pattern::MatchStar(_)))
+                    .count();
+                let mut subject_idx = subject_idx;
+                if num_patterns == num_non_star_patterns
+                    && let Some(subject) = &match_subject
+                {
+                    let synthesized_len = Expr::NumberLiteral(ExprNumberLiteral {
+                        range: x.range,
+                        value: Number::Int(Int::from(num_patterns as u64)),
+                    });
+                    let narrow_op = AtomicNarrowOp::LenEq(synthesized_len);
+                    subject_idx = self.insert_binding(
+                        Key::PatternNarrow(x.range()),
+                        Binding::Narrow(
+                            subject_idx,
+                            Box::new(NarrowOp::Atomic(None, narrow_op.clone())),
+                            x.range(),
+                        ),
+                    );
+                    narrow_ops.and_all(NarrowOps::from_single_narrow_op_for_subject(
+                        subject.clone(),
+                        narrow_op,
+                        x.range,
+                    ));
+                }
+                let mut seen_star = false;
                 for (i, x) in x.patterns.into_iter().enumerate() {
                     match x {
                         Pattern::MatchStar(p) => {
@@ -95,24 +127,37 @@ impl<'a> BindingsBuilder<'a> {
                                     FlowStyle::Other,
                                 );
                             }
-                            unbounded = true;
+                            seen_star = true;
                         }
                         _ => {
-                            let position = if unbounded {
+                            // Process each item in the sequence pattern
+                            let position = if seen_star {
                                 UnpackedPosition::ReverseIndex(num_patterns - i)
                             } else {
                                 UnpackedPosition::Index(i)
                             };
-                            let key = self.insert_binding(
+                            let key_for_subpattern = self.insert_binding(
                                 Key::Anon(x.range()),
                                 Binding::UnpackedValue(None, subject_idx, x.range(), position),
                             );
-                            narrow_ops.and_all(self.bind_pattern(None, x, key));
+                            let subject_for_subpattern = match_subject.clone().and_then(|s| {
+                                if !seen_star {
+                                    Some(s.with_facet(FacetKind::Index(i)))
+                                } else {
+                                    None
+                                }
+                            });
+                            narrow_ops.and_all(self.bind_pattern(
+                                subject_for_subpattern,
+                                x,
+                                key_for_subpattern,
+                            ));
                         }
                     }
                 }
-                let expect = if unbounded {
-                    SizeExpectation::Ge(num_patterns - 1)
+                let expect = if num_patterns != num_non_star_patterns {
+                    // TODO: exclude tuples with fewer elements
+                    SizeExpectation::Ge(num_non_star_patterns)
                 } else {
                     SizeExpectation::Eq(num_patterns)
                 };

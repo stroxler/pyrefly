@@ -308,6 +308,8 @@ pub enum Key {
     BoundName(ShortIdentifier),
     /// I am an expression that does not have a simple name but needs its type inferred.
     Anon(TextRange),
+    /// I am a a narrowing operation created by a pattern in a match statement
+    PatternNarrow(TextRange),
     /// I am an expression that appears in a statement. The range for this key is the range of the expr itself, which is different than the range of the stmt expr.
     StmtExpr(TextRange),
     /// I am an expression that appears in a `with` context.
@@ -355,6 +357,7 @@ impl Ranged for Key {
             Self::SuperInstance(r) => *r,
             Self::Unpack(r) => *r,
             Self::UsageLink(r) => *r,
+            Self::PatternNarrow(r) => *r,
         }
     }
 }
@@ -392,6 +395,7 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::SuperInstance(r) => write!(f, "Key::SuperInstance({})", ctx.display(r)),
             Self::Unpack(r) => write!(f, "Key::Unpack({})", ctx.display(r)),
             Self::UsageLink(r) => write!(f, "Key::UsageLink({})", ctx.display(r)),
+            Self::PatternNarrow(r) => write!(f, "Key::PatternNarrow({})", ctx.display(r)),
         }
     }
 }
