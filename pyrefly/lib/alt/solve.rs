@@ -1132,9 +1132,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.expr_infer(x, errors);
             }
             BindingExpect::Bool(x, range) => {
-                // See test::attribute_narrow::test_invalid_narrows_on_bad_attribute_access for a
-                // test that fails if we do not discard the errors from expr_infer() here.
-                let ty = self.expr_infer(x, &self.error_swallower());
+                let ty = self.expr_infer(x, errors);
                 self.check_dunder_bool_is_callable(&ty, *range, errors);
             }
             BindingExpect::Delete(x) => match x {

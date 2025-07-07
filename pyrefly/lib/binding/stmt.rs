@@ -604,8 +604,6 @@ impl<'a> BindingsBuilder<'a> {
                 // narrowing and type checking are aware that the test might be impacted by changes
                 // made in the loop (e.g. if we reassign the test variable).
                 let range = x.test.range();
-                let test = self.declare_current_idx(Key::Anon(range));
-                self.insert_binding_current(test, Binding::Expr(None, *x.test.clone()));
                 // Typecheck the test condition during solving.
                 self.insert_binding(KeyExpect(range), BindingExpect::Bool(*x.test, range));
                 self.stmts(x.body);
@@ -634,10 +632,6 @@ impl<'a> BindingsBuilder<'a> {
                     self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing);
                     let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
                     if let Some(test_expr) = test {
-                        self.insert_binding(
-                            Key::Anon(test_expr.range()),
-                            Binding::Expr(None, test_expr.clone()),
-                        );
                         // Typecheck the test condition during solving.
                         self.insert_binding(
                             KeyExpect(test_expr.range()),
