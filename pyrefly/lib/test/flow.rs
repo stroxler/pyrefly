@@ -825,6 +825,18 @@ def test(x: tuple[object] | tuple[object, object] | list[object]) -> None:
 );
 
 testcase!(
+    test_match_sequence_len_starred,
+    r#"
+from typing import assert_type
+def test(x: tuple[int, ...] | tuple[int, *tuple[int, ...], int] | tuple[int, int, int]) -> None:
+    match x:
+        case [first, second, third, *middle, last]:
+            # tuple[int, int, int] is narrowed away because the case requires least 4 elements
+            assert_type(x, tuple[int, ...] | tuple[int, *tuple[int, ...], int])
+"#,
+);
+
+testcase!(
     test_match_sequence_concrete,
     r#"
 from typing import assert_type, Never

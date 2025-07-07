@@ -93,14 +93,17 @@ impl<'a> BindingsBuilder<'a> {
                     .filter(|x| !matches!(x, Pattern::MatchStar(_)))
                     .count();
                 let mut subject_idx = subject_idx;
-                if num_patterns == num_non_star_patterns
-                    && let Some(subject) = &match_subject
-                {
-                    let synthesized_len = Expr::NumberLiteral(ExprNumberLiteral {
-                        range: x.range,
-                        value: Number::Int(Int::from(num_patterns as u64)),
-                    });
-                    let narrow_op = AtomicNarrowOp::LenEq(synthesized_len);
+                let synthesized_len = Expr::NumberLiteral(ExprNumberLiteral {
+                    range: x.range,
+                    value: Number::Int(Int::from(num_non_star_patterns as u64)),
+                });
+                if let Some(subject) = &match_subject {
+                    // Narrow the match subject by length
+                    let narrow_op = if num_patterns == num_non_star_patterns {
+                        AtomicNarrowOp::LenEq(synthesized_len)
+                    } else {
+                        AtomicNarrowOp::LenGte(synthesized_len)
+                    };
                     subject_idx = self.insert_binding(
                         Key::PatternNarrow(x.range()),
                         Binding::Narrow(
@@ -117,6 +120,7 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 let mut seen_star = false;
                 for (i, x) in x.patterns.into_iter().enumerate() {
+                    // Process each sub-pattern in the sequence pattern
                     match x {
                         Pattern::MatchStar(p) => {
                             if let Some(name) = &p.name {
@@ -130,7 +134,6 @@ impl<'a> BindingsBuilder<'a> {
                             seen_star = true;
                         }
                         _ => {
-                            // Process each item in the sequence pattern
                             let position = if seen_star {
                                 UnpackedPosition::ReverseIndex(num_patterns - i)
                             } else {
@@ -156,7 +159,6 @@ impl<'a> BindingsBuilder<'a> {
                     }
                 }
                 let expect = if num_patterns != num_non_star_patterns {
-                    // TODO: exclude tuples with fewer elements
                     SizeExpectation::Ge(num_non_star_patterns)
                 } else {
                     SizeExpectation::Eq(num_patterns)

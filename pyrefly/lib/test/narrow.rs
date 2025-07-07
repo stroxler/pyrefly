@@ -1216,9 +1216,6 @@ def test(x: tuple[int, int], y: tuple[int, *tuple[int, ...], int], z: tuple[int,
         assert_type(x, Never)
     else:
         assert_type(x, tuple[int, int])
-    if len(x) < 1:
-        # we currently do not narrow lengths for anything besides == and !=
-        assert_type(x, tuple[int, int])
     if len(x) != 1:
         assert_type(x, tuple[int, int])
     if len(x) == x[0]:
@@ -1249,5 +1246,38 @@ def test(x: tuple[int, int], y: tuple[int, *tuple[int, ...], int], z: tuple[int,
         assert_type(nt, Never)
     else:
         assert_type(nt, NT)
+    u: tuple[int, int] | tuple[int, *tuple[int, ...], int] | tuple[int, ...] = tuple(x)
+    if len(u) > 1:
+        assert_type(u, tuple[int, int] | tuple[int, *tuple[int, ...], int] | tuple[int, ...])
+    else:
+        assert_type(u, tuple[int, ...])
+    if len(u) >= 1:
+        assert_type(u, tuple[int, int] | tuple[int, *tuple[int, ...], int] | tuple[int, ...])
+    else:
+        assert_type(u, tuple[int, ...])
+    if len(u) >= 0:
+        assert_type(u, tuple[int, int] | tuple[int, *tuple[int, ...], int] | tuple[int, ...])
+    else:
+        assert_type(u, Never)
+    if len(u) > 0:
+        assert_type(u, tuple[int, int] | tuple[int, *tuple[int, ...], int] | tuple[int, ...])
+    else:
+        assert_type(u, tuple[int, ...])
+    if len(u) < 1:
+        assert_type(u, tuple[int, ...])
+    else:
+        assert_type(u, tuple[int, int] | tuple[int, *tuple[int, ...], int] | tuple[int, ...])
+    if len(u) <= 1:
+        assert_type(u, tuple[int, ...])
+    else:
+        assert_type(u, tuple[int, int] | tuple[int, *tuple[int, ...], int] | tuple[int, ...])
+    if len(u) <= 0:
+        assert_type(u, tuple[int, ...])
+    else:
+        assert_type(u, tuple[int, int] | tuple[int, *tuple[int, ...], int] | tuple[int, ...])
+    if len(u) < 0:
+        assert_type(u, Never)
+    else:
+        assert_type(u, tuple[int, int] | tuple[int, *tuple[int, ...], int] | tuple[int, ...])
 "#,
 );

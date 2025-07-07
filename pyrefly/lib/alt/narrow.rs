@@ -198,6 +198,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn narrow_length_greater(&self, ty: &Type, len: usize) -> Type {
+        self.distribute_over_union(ty, |ty| match ty {
+            Type::Tuple(Tuple::Concrete(elts)) if elts.len() <= len => Type::never(),
+            Type::ClassType(class)
+                if let Some(elements) = self.named_tuple_element_types(class)
+                    && elements.len() <= len =>
+            {
+                Type::never()
+            }
+            _ => ty.clone(),
+        })
+    }
+
+    fn narrow_length_less_than(&self, ty: &Type, len: usize) -> Type {
+        // TODO: simplify some tuple forms
+        // - unbounded tuples can be narrowed to empty tuple if len==1
+        // - unpacked tuples can be narrowed to concrete prefix+suffix if len==prefix.len()+suffix.len()+1
+        // this needs to be done in conjunction with https://github.com/facebook/pyrefly/issues/273
+        // otherwise the narrowed forms make weird unions when used with control flow
+        self.distribute_over_union(ty, |ty| match ty {
+            Type::Tuple(Tuple::Concrete(elts)) if elts.len() >= len => Type::never(),
+            Type::Tuple(Tuple::Unpacked(box (prefix, _, suffix)))
+                if prefix.len() + suffix.len() >= len =>
+            {
+                Type::never()
+            }
+            Type::ClassType(class)
+                if let Some(elements) = self.named_tuple_element_types(class)
+                    && elements.len() >= len =>
+            {
+                Type::never()
+            }
+            _ => ty.clone(),
+        })
+    }
+
     pub fn atomic_narrow(
         &self,
         ty: &Type,
@@ -273,6 +309,52 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     _ => ty.clone(),
                 })
+            }
+            AtomicNarrowOp::LenGt(v) => {
+                let right = self.expr_infer(v, errors);
+                let Type::Literal(Lit::Int(lit)) = &right else {
+                    return ty.clone();
+                };
+                let Some(len) = lit.as_i64().and_then(|i| i.to_usize()) else {
+                    return ty.clone();
+                };
+                self.narrow_length_greater(ty, len)
+            }
+            AtomicNarrowOp::LenGte(v) => {
+                let right = self.expr_infer(v, errors);
+                let Type::Literal(Lit::Int(lit)) = &right else {
+                    return ty.clone();
+                };
+                let Some(len) = lit.as_i64().and_then(|i| i.to_usize()) else {
+                    return ty.clone();
+                };
+                if len == 0 {
+                    return ty.clone();
+                }
+                self.narrow_length_greater(ty, len - 1)
+            }
+            AtomicNarrowOp::LenLt(v) => {
+                let right = self.expr_infer(v, errors);
+                let Type::Literal(Lit::Int(lit)) = &right else {
+                    return ty.clone();
+                };
+                let Some(len) = lit.as_i64().and_then(|i| i.to_usize()) else {
+                    return Type::never();
+                };
+                if len == 0 {
+                    return Type::never();
+                }
+                self.narrow_length_less_than(ty, len)
+            }
+            AtomicNarrowOp::LenLte(v) => {
+                let right = self.expr_infer(v, errors);
+                let Type::Literal(Lit::Int(lit)) = &right else {
+                    return ty.clone();
+                };
+                let Some(len) = lit.as_i64().and_then(|i| i.to_usize()) else {
+                    return ty.clone();
+                };
+                self.narrow_length_less_than(ty, len + 1)
             }
             AtomicNarrowOp::In(v) => {
                 let exprs = match v {
