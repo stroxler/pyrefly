@@ -637,10 +637,17 @@ no.thing = 8
 n = True
 
 r[p] = 1
+
+match x():
+    case case0: pass
+    case moo.Moo(case1): pass
 "#,
         );
         assert_import_all(&defs, &["foo"]);
-        assert_definition_names(&defs, &["qux", "moo", "mod", "x", "z", "w", "n"]);
+        assert_definition_names(
+            &defs,
+            &["qux", "moo", "mod", "x", "z", "w", "n", "case0", "case1"],
+        );
     }
 
     #[test]
