@@ -241,13 +241,15 @@ impl<'a> Substitution<'a> {
     }
 }
 
+/// The types of Never. Prefer later ones where we have multiple.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub enum NeverStyle {
-    Never,
     NoReturn,
+    Never,
 }
 
+/// The types of Any. Prefer later ones where we have multiple.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub enum AnyStyle {
