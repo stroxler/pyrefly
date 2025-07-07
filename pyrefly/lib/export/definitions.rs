@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) Meta Platforms, Inc. an affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -482,6 +482,9 @@ impl<'a> DefinitionsBuilder<'a> {
                 }
             }
             Stmt::TypeAlias(x) if matches!(&*x.name, Expr::Name(_)) => self.expr_lvalue(&x.name),
+            Stmt::TypeAlias(..) => {
+                // TODO(stroxler): Clean this up - it looks like a bug, but isn't because this is a syntax error.
+            }
             Stmt::FunctionDef(x) => {
                 self.add_identifier_with_body(
                     &x.name,
@@ -532,7 +535,26 @@ impl<'a> DefinitionsBuilder<'a> {
             Stmt::While(x) => {
                 self.named_in_expr(&x.test);
             }
-            _ => {}
+            Stmt::Assert(x) => {
+                self.named_in_expr(&x.test);
+                if let Some(msg) = &x.msg {
+                    self.named_in_expr(msg);
+                }
+            }
+            Stmt::Raise(x) => {
+                if let Some(exc) = &x.exc {
+                    self.named_in_expr(exc);
+                }
+                if let Some(c) = &x.cause {
+                    self.named_in_expr(c);
+                }
+            }
+            Stmt::Return(..)
+            | Stmt::Delete(..)
+            | Stmt::Pass(..)
+            | Stmt::Break(..)
+            | Stmt::Continue(..)
+            | Stmt::IpyEscapeCommand(..) => {}
         }
         x.recurse(&mut |xs| self.stmt(xs))
     }
@@ -698,6 +720,7 @@ while (x6 := True): pass
 match (x7 := 42):
     case int(): pass
 (x8 := 42)[y] = 42
+assert (x9 := 42), (x10 := "oops")
 # Named expressions inside expression-level scopes should not appear in definitions.
 lambda x: (z := 42)
 [z for x in [1, 2, 3] if z := x > 2]
@@ -705,7 +728,9 @@ lambda x: (z := 42)
         );
         assert_definition_names(
             &defs,
-            &["x0", "y", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8"],
+            &[
+                "x0", "y", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10",
+            ],
         );
     }
 
