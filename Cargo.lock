@@ -1953,6 +1953,7 @@ dependencies = [
  "ruff_python_parser",
  "ruff_text_size",
  "serde",
+ "starlark_map",
  "static_interner",
  "thiserror 2.0.12",
  "toml",
