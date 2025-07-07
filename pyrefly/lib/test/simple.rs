@@ -1603,3 +1603,14 @@ def f(a, b: Any, x1: bool, x2: bool):
     reveal_type([x]) # E: revealed type: list[Unknown]
 "#,
 );
+
+testcase!(
+    test_call_type_any,
+    r#"
+from typing import Any, assert_type
+
+def f(x: type[Any]):
+    assert_type(x(), Any)
+    assert_type(x(7, arg=8), Any)
+"#,
+);
