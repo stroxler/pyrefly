@@ -5,8 +5,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::fmt;
+
 use pyrefly_python::ast::Ast;
 use pyrefly_util::assert_words;
+use pyrefly_util::display::DisplayWith;
+use pyrefly_util::display::DisplayWithCtx;
+use pyrefly_util::display::commas_iter;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
@@ -31,6 +36,7 @@ use vec1::Vec1;
 
 use crate::binding::bindings::BindingsBuilder;
 use crate::export::special::SpecialExport;
+use crate::module::module_info::ModuleInfo;
 use crate::types::facet::FacetChain;
 use crate::types::facet::FacetKind;
 use crate::types::types::Type;
@@ -76,6 +82,81 @@ pub enum NarrowOp {
     Atomic(Option<FacetChain>, AtomicNarrowOp),
     And(Vec<NarrowOp>),
     Or(Vec<NarrowOp>),
+}
+
+impl DisplayWith<ModuleInfo> for AtomicNarrowOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
+        match self {
+            AtomicNarrowOp::Is(expr) => write!(f, "Is({})", expr.display_with(ctx)),
+            AtomicNarrowOp::IsNot(expr) => write!(f, "IsNot({})", expr.display_with(ctx)),
+            AtomicNarrowOp::Eq(expr) => write!(f, "Eq({})", expr.display_with(ctx)),
+            AtomicNarrowOp::NotEq(expr) => write!(f, "NotEq({})", expr.display_with(ctx)),
+            AtomicNarrowOp::IsInstance(expr) => write!(f, "IsInstance({})", expr.display_with(ctx)),
+            AtomicNarrowOp::IsNotInstance(expr) => {
+                write!(f, "IsNotInstance({})", expr.display_with(ctx))
+            }
+            AtomicNarrowOp::IsSubclass(expr) => write!(f, "IsSubclass({})", expr.display_with(ctx)),
+            AtomicNarrowOp::IsNotSubclass(expr) => {
+                write!(f, "IsNotSubclass({})", expr.display_with(ctx))
+            }
+            AtomicNarrowOp::TypeGuard(t, arguments) => {
+                write!(f, "TypeGuard({t}, {})", arguments.display_with(ctx))
+            }
+            AtomicNarrowOp::NotTypeGuard(t, arguments) => {
+                write!(f, "NotTypeGuard({t}, {})", arguments.display_with(ctx))
+            }
+            AtomicNarrowOp::TypeIs(t, arguments) => {
+                write!(f, "TypeIs({t}, {})", arguments.display_with(ctx))
+            }
+            AtomicNarrowOp::NotTypeIs(t, arguments) => {
+                write!(f, "NotTypeIs({t}, {})", arguments.display_with(ctx))
+            }
+            AtomicNarrowOp::In(expr) => write!(f, "In({})", expr.display_with(ctx)),
+            AtomicNarrowOp::NotIn(expr) => write!(f, "NotIn({})", expr.display_with(ctx)),
+            AtomicNarrowOp::LenEq(expr) => write!(f, "LenEq({})", expr.display_with(ctx)),
+            AtomicNarrowOp::LenNotEq(expr) => write!(f, "LenNotEq({})", expr.display_with(ctx)),
+            AtomicNarrowOp::Call(expr, arguments) => write!(
+                f,
+                "Call({}, {})",
+                expr.display_with(ctx),
+                arguments.display_with(ctx)
+            ),
+            AtomicNarrowOp::NotCall(expr, arguments) => write!(
+                f,
+                "NotCall({}, {})",
+                expr.display_with(ctx),
+                arguments.display_with(ctx)
+            ),
+            AtomicNarrowOp::IsTruthy => write!(f, "IsTruthy"),
+            AtomicNarrowOp::IsFalsy => write!(f, "IsFalsy"),
+            AtomicNarrowOp::Placeholder => write!(f, "Placeholder"),
+        }
+    }
+}
+
+impl DisplayWith<ModuleInfo> for NarrowOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
+        match self {
+            Self::Atomic(prop, op) => match prop {
+                None => write!(f, "{}", op.display_with(ctx)),
+                Some(prop) => write!(f, "[{prop}] {}", op.display_with(ctx)),
+            },
+            Self::And(ops) => {
+                write!(
+                    f,
+                    "And({})",
+                    commas_iter(|| ops.iter().map(|op| op.display_with(ctx)))
+                )
+            }
+            Self::Or(ops) => {
+                write!(
+                    f,
+                    "Or({})",
+                    commas_iter(|| ops.iter().map(|op| op.display_with(ctx)))
+                )
+            }
+        }
+    }
 }
 
 impl AtomicNarrowOp {

@@ -1232,7 +1232,12 @@ impl DisplayWith<Bindings> for Binding {
                 write!(f, "Default({}, {})", ctx.display(*k), x.display_with(ctx))
             }
             Self::Narrow(k, op, _) => {
-                write!(f, "Narrow({}, {op:?})", ctx.display(*k))
+                write!(
+                    f,
+                    "Narrow({}, {})",
+                    ctx.display(*k),
+                    op.display_with(ctx.module_info())
+                )
             }
             Self::NameAssign(name, None, expr) => {
                 write!(f, "NameAssign({name}, None, {})", m.display(expr))
