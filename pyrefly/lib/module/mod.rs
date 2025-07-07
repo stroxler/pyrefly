@@ -9,7 +9,6 @@ pub mod bundled;
 pub mod display;
 pub mod finder;
 pub mod module_info;
-pub mod module_path;
 pub mod parse;
 pub mod short_identifier;
 pub mod source_db;
