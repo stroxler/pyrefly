@@ -571,6 +571,8 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_narrow_ops(&narrow_op, *range);
             }
             Expr::Named(x) => {
+                // For scopes defined in terms of Definitions, we should normally already have the name in Static, but
+                // we still need this for comprehensions, whose scope is defined on-the-fly.
                 self.scopes.add_lvalue_to_current_static(&x.target);
                 self.bind_target_with_expr(&mut x.target, &mut x.value, &|expr, ann| {
                     Binding::Expr(ann, expr.clone())

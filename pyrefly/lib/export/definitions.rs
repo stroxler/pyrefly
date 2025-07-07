@@ -308,7 +308,8 @@ impl<'a> DefinitionsBuilder<'a> {
                 None,
             )
         };
-        Ast::expr_lvalue(x, &mut add_name)
+        Ast::expr_lvalue(x, &mut add_name);
+        self.named_in_expr(x);
     }
 
     fn pattern(&mut self, x: &Pattern) {
@@ -406,6 +407,7 @@ impl<'a> DefinitionsBuilder<'a> {
                 }
             }
             Stmt::Assign(x) => {
+                self.named_in_expr(&x.value);
                 for t in &x.targets {
                     self.expr_lvalue(t);
                     if DunderAllEntry::is_all(t) {
@@ -414,6 +416,7 @@ impl<'a> DefinitionsBuilder<'a> {
                 }
             }
             Stmt::AugAssign(x) => {
+                self.named_in_expr(&x.value);
                 if DunderAllEntry::is_all(&x.target) && x.op == Operator::Add {
                     self.inner
                         .dunder_all
@@ -427,7 +430,8 @@ impl<'a> DefinitionsBuilder<'a> {
                     )
                 }
             }
-            Stmt::Expr(StmtExpr { value, .. })
+            Stmt::Expr(StmtExpr { value, .. }) => {
+                self.named_in_expr(value);
                 if let Expr::Call(
                     ExprCall {
                         func, arguments, ..
@@ -437,40 +441,46 @@ impl<'a> DefinitionsBuilder<'a> {
                     && let Expr::Attribute(ExprAttribute { value, attr, .. }) = &**func
                     && DunderAllEntry::is_all(value)
                     && arguments.len() == 1
-                    && arguments.keywords.is_empty() =>
-            {
-                match attr.as_str() {
-                    "extend" => self
-                        .inner
-                        .dunder_all
-                        .extend(DunderAllEntry::as_list(&arguments.args[0])),
-                    "append" => self
-                        .inner
-                        .dunder_all
-                        .extend(DunderAllEntry::as_item(&arguments.args[0])),
-                    "remove" => {
-                        if let Some(DunderAllEntry::Name(range, remove)) =
-                            DunderAllEntry::as_item(&arguments.args[0])
-                        {
-                            self.inner
-                                .dunder_all
-                                .push(DunderAllEntry::Remove(range, remove));
+                    && arguments.keywords.is_empty()
+                {
+                    match attr.as_str() {
+                        "extend" => self
+                            .inner
+                            .dunder_all
+                            .extend(DunderAllEntry::as_list(&arguments.args[0])),
+                        "append" => self
+                            .inner
+                            .dunder_all
+                            .extend(DunderAllEntry::as_item(&arguments.args[0])),
+                        "remove" => {
+                            if let Some(DunderAllEntry::Name(range, remove)) =
+                                DunderAllEntry::as_item(&arguments.args[0])
+                            {
+                                self.inner
+                                    .dunder_all
+                                    .push(DunderAllEntry::Remove(range, remove));
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
-            Stmt::AnnAssign(x) => match &*x.target {
-                Expr::Name(x) => {
-                    self.add_name(
-                        &x.id,
-                        x.range,
-                        DefinitionStyle::Local(SymbolKind::Variable),
-                        Some(ShortIdentifier::expr_name(x)),
-                    );
+            Stmt::AnnAssign(x) => {
+                if let Some(value) = &x.value {
+                    self.named_in_expr(value);
                 }
-                _ => self.expr_lvalue(&x.target),
-            },
+                match &*x.target {
+                    Expr::Name(x) => {
+                        self.add_name(
+                            &x.id,
+                            x.range,
+                            DefinitionStyle::Local(SymbolKind::Variable),
+                            Some(ShortIdentifier::expr_name(x)),
+                        );
+                    }
+                    _ => self.expr_lvalue(&x.target),
+                }
+            }
             Stmt::TypeAlias(x) if matches!(&*x.name, Expr::Name(_)) => self.expr_lvalue(&x.name),
             Stmt::FunctionDef(x) => {
                 self.add_identifier_with_body(
@@ -480,15 +490,20 @@ impl<'a> DefinitionsBuilder<'a> {
                 );
                 return; // don't recurse because a separate scope
             }
-            Stmt::For(x) => self.expr_lvalue(&x.target),
+            Stmt::For(x) => {
+                self.named_in_expr(&x.iter);
+                self.expr_lvalue(&x.target)
+            }
             Stmt::With(x) => {
                 for x in &x.items {
+                    self.named_in_expr(&x.context_expr);
                     if let Some(target) = &x.optional_vars {
                         self.expr_lvalue(target);
                     }
                 }
             }
             Stmt::Match(x) => {
+                self.named_in_expr(&x.subject);
                 for x in &x.cases {
                     self.pattern(&x.pattern);
                 }
@@ -508,14 +523,32 @@ impl<'a> DefinitionsBuilder<'a> {
                 }
             }
             Stmt::If(x) => {
+                self.named_in_expr(&x.test);
                 for (_, body) in self.sys_info.pruned_if_branches(x) {
                     self.stmts(body);
                 }
                 return; // We went through the relevant branches already
             }
+            Stmt::While(x) => {
+                self.named_in_expr(&x.test);
+            }
             _ => {}
         }
         x.recurse(&mut |xs| self.stmt(xs))
+    }
+
+    /// Accumulate names defined by walrus operators in an expression.
+    fn named_in_expr(&mut self, x: &Expr) {
+        match x {
+            Expr::Named(expr_named) => {
+                self.expr_lvalue(&expr_named.target);
+            }
+            Expr::Lambda(..) | Expr::SetComp(..) | Expr::DictComp(..) | Expr::ListComp(..) => {
+                // These expressions define a scope, so walrus operators only define a name
+                // within that scope, not in the surrounding statement's scope.
+            }
+            _ => x.recurse(&mut |x| self.named_in_expr(x)),
+        }
     }
 }
 
@@ -670,7 +703,10 @@ lambda x: (z := 42)
 [z for x in [1, 2, 3] if z := x > 2]
 "#,
         );
-        assert_definition_names(&defs, &["y"]);
+        assert_definition_names(
+            &defs,
+            &["x0", "y", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8"],
+        );
     }
 
     #[test]
