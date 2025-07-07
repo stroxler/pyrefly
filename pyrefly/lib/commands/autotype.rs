@@ -324,4 +324,19 @@ def foo() -> str:
         );
         Ok(())
     }
+
+    #[test]
+    fn test_return_none() -> anyhow::Result<()> {
+        assert_annotations(
+            r#"
+    def example(c):
+        c + 1
+    "#,
+            r#"
+    def example(c) -> None:
+        c + 1
+    "#,
+        );
+        Ok(())
+    }
 }
