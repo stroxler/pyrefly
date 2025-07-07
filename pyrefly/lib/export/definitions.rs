@@ -651,6 +651,25 @@ match x():
     }
 
     #[test]
+    fn test_walrus() {
+        let defs = calculate_unranged_definitions_with_defaults(
+            r#"
+y: int = (x0 := 42)
+y = (x1 := 42)
+y += (x2 := 42)
+(x3 := 42)
+with (x4 := 42) as y: pass
+for y in (x5 := 42): pass
+while (x6 := True): pass
+match (x7 := 42):
+    case int(): pass
+(x8 := 42)[y] = 42
+"#,
+        );
+        assert_definition_names(&defs, &["y"]);
+    }
+
+    #[test]
     fn test_overload() {
         let defs = calculate_unranged_definitions_with_defaults(
             r#"
