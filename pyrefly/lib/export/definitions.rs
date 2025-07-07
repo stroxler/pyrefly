@@ -654,6 +654,7 @@ match x():
     fn test_walrus() {
         let defs = calculate_unranged_definitions_with_defaults(
             r#"
+# Most named expressions should appear in definitions.
 y: int = (x0 := 42)
 y = (x1 := 42)
 y += (x2 := 42)
@@ -664,6 +665,9 @@ while (x6 := True): pass
 match (x7 := 42):
     case int(): pass
 (x8 := 42)[y] = 42
+# Named expressions inside expression-level scopes should not appear in definitions.
+lambda x: (z := 42)
+[z for x in [1, 2, 3] if z := x > 2]
 "#,
         );
         assert_definition_names(&defs, &["y"]);
