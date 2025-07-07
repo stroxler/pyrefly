@@ -451,7 +451,7 @@ pub enum BindingExpect {
     /// `del` statement
     Delete(Expr),
     /// Expression used in a boolean context (`bool()`, `if`, or `while`)
-    Bool(Expr, TextRange),
+    Bool(Expr),
 }
 
 impl DisplayWith<Bindings> for BindingExpect {
@@ -461,7 +461,7 @@ impl DisplayWith<Bindings> for BindingExpect {
             Self::TypeCheckExpr(x) => {
                 write!(f, "TypeCheckExpr({})", m.display(x))
             }
-            Self::Bool(x, ..) => {
+            Self::Bool(x) => {
                 write!(f, "Bool({})", m.display(x))
             }
             Self::Delete(x) => {
