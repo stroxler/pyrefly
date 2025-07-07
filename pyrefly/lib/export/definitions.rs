@@ -481,9 +481,11 @@ impl<'a> DefinitionsBuilder<'a> {
                     _ => self.expr_lvalue(&x.target),
                 }
             }
-            Stmt::TypeAlias(x) if matches!(&*x.name, Expr::Name(_)) => self.expr_lvalue(&x.name),
-            Stmt::TypeAlias(..) => {
-                // TODO(stroxler): Clean this up - it looks like a bug, but isn't because this is a syntax error.
+            Stmt::TypeAlias(x) => {
+                self.named_in_expr(&x.value);
+                if matches!(&*x.name, Expr::Name(_)) {
+                    self.expr_lvalue(&x.name)
+                }
             }
             Stmt::FunctionDef(x) => {
                 self.add_identifier_with_body(
@@ -693,6 +695,9 @@ n = True
 
 r[p] = 1
 
+type X = int
+type Y[T] = list[T]
+
 match x():
     case case0: pass
     case moo.Moo(case1): pass
@@ -701,7 +706,9 @@ match x():
         assert_import_all(&defs, &["foo"]);
         assert_definition_names(
             &defs,
-            &["qux", "moo", "mod", "x", "z", "w", "n", "case0", "case1"],
+            &[
+                "qux", "moo", "mod", "x", "z", "w", "n", "X", "Y", "case0", "case1",
+            ],
         );
     }
 
@@ -721,6 +728,7 @@ match (x7 := 42):
     case int(): pass
 (x8 := 42)[y] = 42
 assert (x9 := 42), (x10 := "oops")
+type y = (x11 := int)
 # Named expressions inside expression-level scopes should not appear in definitions.
 lambda x: (z := 42)
 [z for x in [1, 2, 3] if z := x > 2]
@@ -729,7 +737,7 @@ lambda x: (z := 42)
         assert_definition_names(
             &defs,
             &[
-                "x0", "y", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10",
+                "x0", "y", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11",
             ],
         );
     }
