@@ -73,16 +73,21 @@ pub enum ClassFieldInitialization {
     /// If this is a dataclass field, DataclassFieldKeywords stores the field's
     /// dataclass flags (which are options that control how fields behave).
     Class(Option<DataclassFieldKeywords>),
-    /// The boolean indicates whether we know the field may have been initialized
-    /// outside of the class body or not.
-    Instance(bool),
+    Instance,
+    /// The field is not initialized in the class body or any method in the class,
+    /// but we treat it as if it was initialized.
+    /// For example, any field defined in a stub file.
+    Magic,
 }
 
 impl Display for ClassFieldInitialization {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Class(_) => write!(f, "initialized in body"),
-            Self::Instance(_) => write!(f, "not initialized in body"),
+            Self::Class(_) => write!(f, "initialized on class body"),
+            Self::Instance => write!(f, "initialized on instances"),
+            Self::Magic => {
+                write!(f, "not initialized on class body/method")
+            }
         }
     }
 }
@@ -284,7 +289,7 @@ impl ClassField {
         match self.instantiate_for(instance).0 {
             ClassFieldInner::Simple { ty, .. } => match self.initialization() {
                 ClassFieldInitialization::Class(_) => Some(ty),
-                ClassFieldInitialization::Instance(_) => None,
+                ClassFieldInitialization::Instance | ClassFieldInitialization::Magic => None,
             },
         }
     }
@@ -307,7 +312,7 @@ impl ClassField {
                 ..
             } => Required::Optional,
             ClassFieldInner::Simple {
-                initialization: ClassFieldInitialization::Instance(_),
+                initialization: ClassFieldInitialization::Instance | ClassFieldInitialization::Magic,
                 ..
             } => Required::Required,
         }
@@ -454,7 +459,9 @@ impl ClassField {
                         kws.default = true;
                         kws
                     }
-                    ClassFieldInitialization::Instance(_) => DataclassFieldKeywords::new(),
+                    ClassFieldInitialization::Instance | ClassFieldInitialization::Magic => {
+                        DataclassFieldKeywords::new()
+                    }
                 };
                 // If kw_only hasn't been explicitly set to false on the field, set it to true
                 if kw_only && flags.kw_only.is_none() {
@@ -952,7 +959,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> ClassFieldInitialization {
         match initial_value {
             ClassFieldInitialValue::Instance(_) => {
-                ClassFieldInitialization::Instance(magically_initialized)
+                if magically_initialized {
+                    ClassFieldInitialization::Magic
+                } else {
+                    ClassFieldInitialization::Instance
+                }
             }
             ClassFieldInitialValue::Class(None) => ClassFieldInitialization::Class(None),
             ClassFieldInitialValue::Class(Some(e)) => {
@@ -1120,15 +1131,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.expand_type_mut(&mut ty); // bind_instance matches on the type, so resolve it if we can
                         bind_instance_attribute(instance, ty, is_class_var, read_only_reason)
                     }
-                    ClassFieldInitialization::Instance(_)
+                    ClassFieldInitialization::Instance | ClassFieldInitialization::Magic
                         if let Some(read_only_reason) = read_only_reason =>
                     {
                         Attribute::read_only(ty, read_only_reason)
                     }
-                    ClassFieldInitialization::Instance(_) if is_class_var => {
+                    ClassFieldInitialization::Instance | ClassFieldInitialization::Magic
+                        if is_class_var =>
+                    {
                         Attribute::read_only(ty, ReadOnlyReason::ClassVar)
                     }
-                    ClassFieldInitialization::Instance(_) => Attribute::read_write(ty),
+                    ClassFieldInitialization::Instance | ClassFieldInitialization::Magic => {
+                        Attribute::read_write(ty)
+                    }
                 }
             }
         }
@@ -1150,7 +1165,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 )
             }
             ClassFieldInner::Simple {
-                initialization: ClassFieldInitialization::Instance(false),
+                initialization: ClassFieldInitialization::Instance,
                 ..
             } => Attribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(cls.dupe())),
             ClassFieldInner::Simple { ty, .. } => {
