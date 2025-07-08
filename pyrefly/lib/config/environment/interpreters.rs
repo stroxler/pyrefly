@@ -52,14 +52,19 @@ impl Interpreters {
     /// and interpreter settings.
     ///
     /// The priorities are:
-    /// 2. Check for an active venv
-    /// 3. Check for an active Conda environment
+    /// 1. Check for an overridden `--python-interpreter` or `--conda-environment`
+    /// 2. Check for an active venv or Conda environment
+    /// 3. Check for a configured `python-interpreter`
+    /// 4. Check for a configured `conda-environment`
     /// 5. Check for a `venv` in the current project
     /// 6. Use an interpreter we can find on the `$PATH`
+    /// 7. Give up and return an error
     pub fn find_interpreter(&self, path: Option<&Path>) -> anyhow::Result<ConfigOrigin<PathBuf>> {
-        if let Some(interpreter) = self.python_interpreter.clone() {
-            return Ok(interpreter);
-        } else if let Some(conda_env) = &self.conda_environment {
+        if let Some(interpreter @ ConfigOrigin::CommandLine(_)) = &self.python_interpreter {
+            return Ok(interpreter.clone());
+        }
+
+        if let Some(conda_env @ ConfigOrigin::CommandLine(_)) = &self.conda_environment {
             return conda_env
                 .as_deref()
                 .map(conda::find_interpreter_from_env)
@@ -70,19 +75,31 @@ impl Interpreters {
             return Ok(ConfigOrigin::auto(active_env));
         }
 
+        if let Some(interpreter) = &self.python_interpreter {
+            return Ok(interpreter.clone());
+        }
+
+        if let Some(conda_env) = &self.conda_environment {
+            return conda_env
+                .as_deref()
+                .map(conda::find_interpreter_from_env)
+                .transpose_err();
+        }
+
         if let Some(start_path) = path
             && let Some(venv) = venv::find(start_path)
         {
             return Ok(ConfigOrigin::auto(venv));
         }
-        if let Some(interpreter) = Self::get_default_interpreter().map(|p| p.to_path_buf()) {
-            return Ok(ConfigOrigin::auto(interpreter));
+
+        if let Some(interpreter) = Self::get_default_interpreter() {
+            return Ok(ConfigOrigin::auto(interpreter.to_path_buf()));
         }
 
         Err(anyhow::anyhow!(
             "Python environment (version, platform, or site-package-path) has value unset, \
-                             but no Python interpreter could be found to query for values. Falling back to \
-                             Pyrefly defaults for missing values."
+                but no Python interpreter could be found to query for values. Falling back to \
+                Pyrefly defaults for missing values."
         ))
     }
 
@@ -109,5 +126,86 @@ impl Interpreters {
             None
         });
         SYSTEM_INTERP.as_deref()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use pyrefly_util::test_path::TestPath;
+    use tempfile::TempDir;
+    use tempfile::tempdir;
+
+    use super::*;
+
+    fn setup_test_dir() -> TempDir {
+        let tempdir = tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::dir(
+                "venv",
+                vec![TestPath::file("python3"), TestPath::file("pyvenv.cfg")],
+            )],
+        );
+        tempdir
+    }
+
+    #[test]
+    fn test_find_interpreter_precedence_python_interpreter_cli_highest_priority() {
+        let tempdir = setup_test_dir();
+
+        let python_interpreter = ConfigOrigin::cli(PathBuf::from("asdf"));
+
+        let interpreters = Interpreters {
+            python_interpreter: Some(python_interpreter.clone()),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            interpreters.find_interpreter(Some(tempdir.path())).unwrap(),
+            python_interpreter
+        );
+    }
+
+    #[test]
+    fn test_find_interpreter_precedence_conda_cli_highest_priority() {
+        let tempdir = setup_test_dir();
+
+        // this conda environment really shouldn't be able to exist
+        let conda_environment = ConfigOrigin::cli("../././".to_owned());
+
+        let interpreters = Interpreters {
+            conda_environment: Some(conda_environment),
+            ..Default::default()
+        };
+
+        assert!(interpreters.find_interpreter(Some(tempdir.path())).is_err());
+    }
+
+    #[test]
+    fn test_find_interpreter_precedence_conda_config() {
+        let tempdir = setup_test_dir();
+
+        // this conda environment really shouldn't be able to exist
+        let conda_environment = ConfigOrigin::config("../././".to_owned());
+
+        let interpreters = Interpreters {
+            conda_environment: Some(conda_environment),
+            ..Default::default()
+        };
+
+        assert!(interpreters.find_interpreter(Some(tempdir.path())).is_err());
+    }
+
+    #[test]
+    fn test_find_interpreter_precedence_venv() {
+        let tempdir = setup_test_dir();
+
+        let interpreters = Interpreters::default();
+
+        assert_eq!(
+            interpreters.find_interpreter(Some(tempdir.path())).unwrap(),
+            ConfigOrigin::auto(tempdir.path().join("venv/python3"))
+        );
     }
 }
