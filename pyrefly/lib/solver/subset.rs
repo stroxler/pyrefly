@@ -687,6 +687,26 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (_, Type::ClassType(want)) if want.is_builtin("object") => {
                 true // everything is an instance of `object`
             }
+            (Type::Quantified(q), Type::Ellipsis) | (Type::Ellipsis, Type::Quantified(q))
+                if q.kind() == QuantifiedKind::ParamSpec =>
+            {
+                true
+            }
+            (Type::Quantified(q), t2) => match q.restriction() {
+                Restriction::Bound(bound) => self.is_subset_eq(bound, t2),
+                Restriction::Constraints(constraints) => constraints
+                    .iter()
+                    .all(|constraint| self.is_subset_eq(constraint, t2)),
+                Restriction::Unrestricted => self
+                    .is_subset_eq_impl(&self.type_order.stdlib().object().clone().to_type(), want),
+            },
+            (t1, Type::Quantified(q)) => match q.restriction() {
+                // This only works for constraints and not bounds, because a TypeVar must resolve to exactly one of its constraints.
+                Restriction::Constraints(constraints) => constraints
+                    .iter()
+                    .all(|constraint| self.is_subset_eq(t1, constraint)),
+                _ => false,
+            },
             (Type::Union(ls), u) => ls.iter().all(|l| self.is_subset_eq(l, u)),
             (l, Type::Intersect(us)) => us.iter().all(|u| self.is_subset_eq(l, u)),
             (l, Type::Overload(overload)) => overload
@@ -1007,11 +1027,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::TypeGuard(_) | Type::TypeIs(_), _) => {
                 self.is_subset_eq(&self.type_order.stdlib().bool().clone().to_type(), want)
             }
-            (Type::Quantified(q), Type::Ellipsis) | (Type::Ellipsis, Type::Quantified(q))
-                if q.kind() == QuantifiedKind::ParamSpec =>
-            {
-                true
-            }
             (Type::Ellipsis, Type::ParamSpecValue(_) | Type::Concatenate(_, _))
             | (Type::ParamSpecValue(_) | Type::Concatenate(_, _), Type::Ellipsis) => true,
             (Type::ParamSpecValue(ls), Type::ParamSpecValue(us)) => {
@@ -1047,21 +1062,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::TypeAlias(ta), _) => {
                 self.is_subset_eq_impl(&ta.as_value(self.type_order.stdlib()), want)
             }
-            (Type::Quantified(q), t2) => match q.restriction() {
-                Restriction::Bound(bound) => self.is_subset_eq(bound, t2),
-                Restriction::Constraints(constraints) => constraints
-                    .iter()
-                    .all(|constraint| self.is_subset_eq(constraint, t2)),
-                Restriction::Unrestricted => self
-                    .is_subset_eq_impl(&self.type_order.stdlib().object().clone().to_type(), want),
-            },
-            (t1, Type::Quantified(q)) => match q.restriction() {
-                // This only works for constraints and not bounds, because a TypeVar must resolve to exactly one of its constraints.
-                Restriction::Constraints(constraints) => constraints
-                    .iter()
-                    .all(|constraint| self.is_subset_eq(t1, constraint)),
-                _ => false,
-            },
             _ => false,
         }
     }
