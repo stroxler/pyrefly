@@ -30,7 +30,6 @@ use crate::types::callable::FunctionKind;
 use crate::types::callable::unexpected_keyword;
 use crate::types::class::Class;
 use crate::types::special_form::SpecialForm;
-use crate::types::stdlib::Stdlib;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 
@@ -430,25 +429,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Returns the list of types passed as the second argument to `isinstance` or `issubclass`.
     pub fn as_class_info(&self, ty: Type) -> Vec<Type> {
-        fn f(t: Type, stdlib: &Stdlib, res: &mut Vec<Type>) {
+        fn f<'a, Ans: LookupAnswer>(me: &AnswersSolver<'a, Ans>, t: Type, res: &mut Vec<Type>) {
             match t {
-                Type::Tuple(Tuple::Concrete(ts)) => {
+                Type::Var(v) if let Some(_guard) = me.recurser.recurse(v) => {
+                    f(me, me.solver().force_var(v), res)
+                }
+                Type::Tuple(Tuple::Concrete(ts)) | Type::Union(ts) => {
                     for t in ts {
-                        f(t, stdlib, res)
+                        f(me, t, res)
                     }
                 }
-                Type::Tuple(Tuple::Unbounded(box t)) => f(t, stdlib, res),
+                Type::Tuple(Tuple::Unbounded(box t)) => f(me, t, res),
                 Type::Type(box Type::Union(ts)) => {
                     for t in ts {
-                        f(Type::type_form(t), stdlib, res)
+                        f(me, Type::type_form(t), res)
                     }
                 }
-                Type::TypeAlias(ta) => f(ta.as_value(stdlib), stdlib, res),
+                Type::TypeAlias(ta) => f(me, ta.as_value(me.stdlib), res),
                 _ => res.push(t),
             }
         }
         let mut res = Vec::new();
-        f(ty, self.stdlib, &mut res);
+        f(self, ty, &mut res);
         res
     }
 }

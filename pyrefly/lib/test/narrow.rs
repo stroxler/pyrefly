@@ -1281,3 +1281,15 @@ def test(x: tuple[int, int], y: tuple[int, *tuple[int, ...], int], z: tuple[int,
         assert_type(u, tuple[int, int] | tuple[int, *tuple[int, ...], int] | tuple[int, ...])
 "#,
 );
+
+testcase!(
+    test_isinstance_loop,
+    r#"
+from typing import assert_type, Any
+
+def f(x: Any, ty: type[str], xs: Any):
+    for _ in xs:
+        if isinstance(x, ty):
+            assert_type(x, str)
+"#,
+);
