@@ -107,6 +107,7 @@ enum Command {
     /// Start an LSP server
     Lsp(LspArgs),
 
+    // Automatically add type annotations to a file or directory
     Autotype(FullCheckArgs),
 }
 
