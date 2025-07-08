@@ -251,7 +251,9 @@ where
         [first, rest @ ..] => {
             let start_result = find_one_part(first, include.clone());
             let result = start_result
-                .and_then(|start_result| continue_find_module(start_result, rest).unwrap());
+                .map(|start_result| continue_find_module(start_result, rest))
+                .transpose()?
+                .flatten();
             if result.is_some() {
                 return Ok(result);
             }
@@ -291,7 +293,7 @@ where
         let stub_module_py_typed = stub_module_import.py_typed();
         any_has_partial_py_typed |= stub_module_py_typed == PyTyped::Partial;
         checked_one_stub = true;
-        if let Some(stub_result) = continue_find_module(stub_module_import, rest).unwrap() {
+        if let Some(stub_result) = continue_find_module(stub_module_import, rest)? {
             found_stubs = Some(stub_result);
             break;
         }
@@ -325,7 +327,7 @@ where
             && module.py_typed() == PyTyped::Missing
         {
             any_has_none_py_typed = true;
-        } else if let Some(module_result) = continue_find_module(module, rest).unwrap() {
+        } else if let Some(module_result) = continue_find_module(module, rest)? {
             return Ok(Some(module_result));
         }
     }
