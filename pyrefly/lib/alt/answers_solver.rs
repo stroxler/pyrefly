@@ -555,7 +555,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // we need to record the placeholder => final answer correspondance.
         if let Some(r) = rec {
             let k = self.bindings().idx_to_key(idx).range();
+            // Always force recursive Vars as soon as we produce the final answer. This limits
+            // nondeterminism by ensuring that nothing downstream of the cycle can pin the type
+            // once the cycle has finished (although there can still be data races where the
+            // Var excapes the cycle in another thread before it has finished computing).
+            //
+            // `Var::ZERO` is just a dummy value used by a few of the `K: Solve`
+            // implementations that doen't actually use the Var, so we have to skip it.
             K::record_recursive(self, k, &v, r, self.base_errors);
+            if r != Var::ZERO {
+                self.solver().force_var(r);
+            }
         }
         // Handle cycle unwinding, if applicable.
         //
