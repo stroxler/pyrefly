@@ -452,6 +452,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Type::Var(v) if let Some(_guard) = me.recurser.recurse(v) => {
                     f(me, me.solver().force_var(v), res)
                 }
+                Type::ClassType(ref c)
+                    if let [arg] = c.targs().as_slice()
+                        && c.class_object() == me.stdlib.tuple_object() =>
+                {
+                    f(me, arg.clone(), res)
+                }
                 Type::Tuple(Tuple::Concrete(ts)) | Type::Union(ts) => {
                     for t in ts {
                         f(me, t, res)

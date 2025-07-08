@@ -1298,3 +1298,15 @@ def f(x: Any, ty: type[str], xs: Any):
             assert_type(x, str)
 "#,
 );
+
+testcase!(
+    test_isinstance_tuple_object,
+    r#"
+from typing import assert_type
+
+def f(expr):
+    tys = {str: "test", int: 1}
+    if isinstance(expr, tuple(tys.keys())):
+        assert_type(expr, int | str)
+"#,
+);
