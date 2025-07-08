@@ -816,6 +816,7 @@ mod tests {
     use std::fs;
     use std::path;
 
+    use pretty_assertions::assert_eq;
     use tempfile::TempDir;
     use toml::Table;
     use toml::Value;
