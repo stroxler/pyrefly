@@ -896,7 +896,7 @@ pub enum ReturnTypeKind {
         /// The returns from the function.
         returns: Box<[Idx<Key>]>,
         implicit_return: Idx<Key>,
-        /// The yeilds and yield froms. If either of these are nonempty, this is a generator function.
+        /// The `yield`s and `yield from`s. If either of these are nonempty, this is a generator function.
         /// We don't need to store `is_generator` flag in this case, as we can deduce that info by checking
         /// whether these two fields are empty or not.
         yields: Box<[Idx<KeyYield>]>,
