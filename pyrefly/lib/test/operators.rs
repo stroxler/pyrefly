@@ -351,7 +351,6 @@ def f(x: Any):
 );
 
 testcase!(
-    bug = "PyTorch TODO: First assert_type should be Any as well",
     test_binop_on_any,
     r#"
 from typing import Any, assert_type
