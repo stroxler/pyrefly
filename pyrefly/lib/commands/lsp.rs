@@ -501,19 +501,15 @@ impl Workspaces {
                     if let Some(search_path) = w.search_path.clone() {
                         config.search_path_from_args = search_path;
                     }
-                    if let Some(PythonInfo { interpreter, env }) = w.python_info.clone() {
+                    if let Some(PythonInfo {
+                        interpreter,
+                        mut env,
+                    }) = w.python_info.clone()
+                    {
                         let site_package_path = config.python_environment.site_package_path.take();
+                        env.site_package_path = site_package_path;
                         config.python_interpreter = Some(interpreter);
                         config.python_environment = env;
-                        if let Some(new) = site_package_path {
-                            let mut workspace = config
-                                .python_environment
-                                .site_package_path
-                                .take()
-                                .unwrap_or_default();
-                            workspace.extend(new);
-                            config.python_environment.site_package_path = Some(workspace);
-                        }
                     }
                 })
             };

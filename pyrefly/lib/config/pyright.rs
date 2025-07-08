@@ -245,6 +245,10 @@ mod tests {
                     python_version: Some(PythonVersion::new(3, 10, 0)),
                     site_package_path: None,
                     site_package_path_source: SitePackagePathSource::ConfigFile,
+                    interpreter_site_package_path: config
+                        .python_environment
+                        .interpreter_site_package_path
+                        .clone(),
                 },
                 ..Default::default()
             }
@@ -277,6 +281,10 @@ mod tests {
                     python_platform: None,
                     site_package_path: None,
                     site_package_path_source: SitePackagePathSource::ConfigFile,
+                    interpreter_site_package_path: config
+                        .python_environment
+                        .interpreter_site_package_path
+                        .clone(),
                 },
                 ..Default::default()
             }

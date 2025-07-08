@@ -93,6 +93,9 @@ pub struct PythonEnvironment {
     )]
     pub site_package_path: Option<Vec<PathBuf>>,
 
+    #[serde(skip, default)]
+    pub interpreter_site_package_path: Vec<PathBuf>,
+
     /// Is the `site_package_path` here one we got from
     /// querying an interpreter?
     #[serde(skip, default)]
@@ -136,6 +139,7 @@ impl PythonEnvironment {
             self.site_package_path = other.site_package_path;
             self.site_package_path_source = other.site_package_path_source;
         }
+        self.interpreter_site_package_path = other.interpreter_site_package_path.clone();
     }
 
     /// Given a path to a Python interpreter executable, query that interpreter for its
@@ -189,12 +193,17 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         deserialized.python_version.as_ref().ok_or_else(|| {
             anyhow!("Expected `python_version` from Python interpreter query to be non-empty")
         })?;
-        deserialized.site_package_path.as_ref().ok_or_else(|| {
-            anyhow!("Expected `site_package_path` from Python interpreter query to be non-empty")
-        })?;
-
         deserialized.site_package_path_source =
             SitePackagePathSource::Interpreter(interpreter.to_path_buf());
+        let site_package_path = deserialized
+            .site_package_path
+            .replace(Vec::new())
+            .ok_or_else(|| {
+                anyhow!(
+                    "Expected `site_package_path` from Python interpreter query to be non-empty"
+                )
+            })?;
+        deserialized.interpreter_site_package_path = site_package_path;
 
         Ok(deserialized)
     }
@@ -276,7 +285,7 @@ impl Display for PythonEnvironment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{{python_platform: {}, python_version: {}, site_package_path: [{}], site_package_path_source: {:?}}}",
+            "{{python_platform: {}, python_version: {}, site_package_path: [{}], site_package_path_source: {:?}, interpreter_site_package_path: [{}]}}",
             self.python_platform
                 .as_ref()
                 .map_or_else(|| "None".to_owned(), |platform| platform.to_string()),
@@ -287,6 +296,10 @@ impl Display for PythonEnvironment {
                 |path| path.iter().map(|p| p.display()).join(", ")
             ),
             self.site_package_path_source,
+            self.interpreter_site_package_path
+                .iter()
+                .map(|p| p.display())
+                .join(", "),
         )
     }
 }

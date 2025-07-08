@@ -122,6 +122,7 @@ pub enum ImportLookupPathPart<'a> {
     ImportRoot(Option<&'a PathBuf>),
     FallbackSearchPath(&'a [PathBuf]),
     SitePackagePath(&'a SitePackagePathSource, &'a [PathBuf]),
+    InterpreterSitePackagePath(&'a [PathBuf]),
 }
 
 impl Display for ImportLookupPathPart<'_> {
@@ -144,6 +145,9 @@ impl Display for ImportLookupPathPart<'_> {
             Self::SitePackagePath(source, paths) => {
                 write!(f, "Site package path ({source}): {paths:?}")
             }
+            Self::InterpreterSitePackagePath(paths) => {
+                write!(f, "Site package path queried from interpreter: {paths:?}")
+            }
         }
     }
 }
@@ -154,7 +158,8 @@ impl ImportLookupPathPart<'_> {
             Self::SearchPathFromArgs(paths)
             | Self::SearchPathFromFile(paths)
             | Self::FallbackSearchPath(paths)
-            | Self::SitePackagePath(_, paths) => paths.is_empty(),
+            | Self::SitePackagePath(_, paths)
+            | Self::InterpreterSitePackagePath(paths) => paths.is_empty(),
             Self::ImportRoot(root) => root.is_none(),
         }
     }
@@ -462,6 +467,7 @@ impl ConfigFile {
             .as_ref()
             .unwrap()
             .iter()
+            .chain(self.python_environment.interpreter_site_package_path.iter())
     }
 
     /// Gets the full, ordered path used for import lookup. Used for pretty-printing.
@@ -474,6 +480,9 @@ impl ConfigFile {
             ImportLookupPathPart::SitePackagePath(
                 &self.python_environment.site_package_path_source,
                 self.python_environment.site_package_path.as_ref().unwrap(),
+            ),
+            ImportLookupPathPart::InterpreterSitePackagePath(
+                &self.python_environment.interpreter_site_package_path,
             ),
         ]
     }
@@ -866,6 +875,10 @@ mod tests {
                         "venv/lib/python1.2.3/site-packages"
                     )]),
                     site_package_path_source: SitePackagePathSource::ConfigFile,
+                    interpreter_site_package_path: config
+                        .python_environment
+                        .interpreter_site_package_path
+                        .clone(),
                 },
                 python_interpreter: Some(PathBuf::from("venv/my/python")),
                 skip_interpreter_query: false,
@@ -1003,6 +1016,10 @@ mod tests {
                     python_version: Some(PythonVersion::new(1, 2, 3)),
                     site_package_path: None,
                     site_package_path_source: SitePackagePathSource::ConfigFile,
+                    interpreter_site_package_path: config
+                        .python_environment
+                        .interpreter_site_package_path
+                        .clone(),
                 },
                 ..Default::default()
             }
@@ -1041,6 +1058,10 @@ mod tests {
                     site_package_path: None,
                     // this won't be set until after `configure()`
                     site_package_path_source: SitePackagePathSource::ConfigFile,
+                    interpreter_site_package_path: config
+                        .python_environment
+                        .interpreter_site_package_path
+                        .clone(),
                 },
                 ..Default::default()
             }
