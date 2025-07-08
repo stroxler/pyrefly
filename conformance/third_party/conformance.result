@@ -22,10 +22,10 @@
     "Line 75: Expected 1 errors",
     "Line 30: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveTuple']`\"]",
     "Line 42: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveMapping']`\"]",
-    "Line 58: Unexpected errors [\"`|` is not supported between `Literal['GenericTypeAlias1[T1]']` and `type[TypeVar[T1]]`\\n  TODO: Expr::binop_infer attribute base undefined for type: type[TypeVar[T1]] (trying to access __ror__)\"]",
+    "Line 58: Unexpected errors ['Expected a type form, got instance of `_SpecialForm`']",
     "Line 59: Unexpected errors [\"Can't apply arguments to non-class, got type[list[Unknown]]\"]",
     "Line 62: Unexpected errors [\"Can't apply arguments to non-class, got type[list[Unknown]]\"]",
-    "Line 65: Unexpected errors [\"`|` is not supported between `Literal['GenericTypeAlias2[T1, T2]']` and `type[TypeVar[T1]]`\\n  TODO: Expr::binop_infer attribute base undefined for type: type[TypeVar[T1]] (trying to access __ror__)\"]",
+    "Line 65: Unexpected errors ['Expected a type form, got instance of `_SpecialForm`']",
     "Line 67: Unexpected errors [\"Can't apply arguments to non-class, got type[list[Unknown]]\"]",
     "Line 68: Unexpected errors [\"Can't apply arguments to non-class, got type[list[Unknown]]\"]"
   ],

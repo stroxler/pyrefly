@@ -550,10 +550,10 @@
     {
       "code": -2,
       "column": 26,
-      "concise_description": "`|` is not supported between `Literal['GenericTypeAlias1[T1]']` and `type[TypeVar[T1]]`",
-      "description": "`|` is not supported between `Literal['GenericTypeAlias1[T1]']` and `type[TypeVar[T1]]`\n  TODO: Expr::binop_infer attribute base undefined for type: type[TypeVar[T1]] (trying to access __ror__)",
+      "concise_description": "Expected a type form, got instance of `_SpecialForm`",
+      "description": "Expected a type form, got instance of `_SpecialForm`",
       "line": 58,
-      "name": "internal-error",
+      "name": "not-a-type",
       "stop_column": 54,
       "stop_line": 58
     },
@@ -590,11 +590,11 @@
     {
       "code": -2,
       "column": 26,
-      "concise_description": "`|` is not supported between `Literal['GenericTypeAlias2[T1, T2]']` and `type[TypeVar[T1]]`",
-      "description": "`|` is not supported between `Literal['GenericTypeAlias2[T1, T2]']` and `type[TypeVar[T1]]`\n  TODO: Expr::binop_infer attribute base undefined for type: type[TypeVar[T1]] (trying to access __ror__)",
+      "concise_description": "Expected a type form, got instance of `_SpecialForm`",
+      "description": "Expected a type form, got instance of `_SpecialForm`",
       "line": 65,
-      "name": "internal-error",
-      "stop_column": 58,
+      "name": "not-a-type",
+      "stop_column": 63,
       "stop_line": 65
     },
     {
