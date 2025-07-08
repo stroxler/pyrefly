@@ -22,8 +22,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 use tracing::warn;
-#[cfg(not(target_arch = "wasm32"))]
-use which::which;
 
 static INTERPRETER_ENV_REGISTRY: LazyLock<
     Mutex<SmallMap<PathBuf, Result<PythonEnvironment, String>>>,
@@ -75,8 +73,6 @@ pub struct PythonEnvironment {
 }
 
 impl PythonEnvironment {
-    const DEFAULT_INTERPRETERS: &[&str] = &["python3", "python"];
-
     fn pyrefly_default() -> Self {
         let mut env = Self::default();
         env.set_empty_to_default();
@@ -176,29 +172,6 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         Ok(deserialized)
     }
 
-    /// Get the first interpreter available on the path by using `which`
-    /// and querying for [`Self::DEFAULT_INTERPRETERS`] in order.
-    pub fn get_default_interpreter() -> Option<&'static Path> {
-        static SYSTEM_INTERP: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
-            // disable query with `which` on wasm
-            #[cfg(not(target_arch = "wasm32"))]
-            for binary_name in PythonEnvironment::DEFAULT_INTERPRETERS {
-                let Ok(binary_path) = which(binary_name) else {
-                    continue;
-                };
-                let mut check = Command::new(&binary_path);
-                check.arg("--version");
-                if let Ok(output) = check.output()
-                    && output.status.success()
-                {
-                    return Some(binary_path);
-                }
-            }
-            None
-        });
-        SYSTEM_INTERP.as_deref()
-    }
-
     /// Given a path to an interpreter, query the interpreter with
     /// [`Self::get_env_from_interpreter()`] and cache the result. If a cached
     /// result already exists, return that.
@@ -222,7 +195,9 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
     /// or return [`PythonEnvironment::default()`] if `None`.
     #[cfg(test)]
     pub fn get_default_interpreter_env() -> PythonEnvironment {
-        Self::get_default_interpreter().map_or_else(Self::pyrefly_default, |path| {
+        use crate::config::environment::interpreters::Interpreters;
+
+        Interpreters::get_default_interpreter().map_or_else(Self::pyrefly_default, |path| {
             Self::get_interpreter_env(path).0
         })
     }

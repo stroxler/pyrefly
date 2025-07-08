@@ -7,12 +7,14 @@
 
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use serde::Deserialize;
 use serde::Serialize;
+#[cfg(not(target_arch = "wasm32"))]
+use which::which;
 
 use crate::config::environment::active_environment::ActiveEnvironment;
-use crate::config::environment::environment::PythonEnvironment;
 use crate::config::environment::venv;
 use crate::config::util::ConfigOrigin;
 
@@ -43,6 +45,8 @@ pub struct Interpreters {
 }
 
 impl Interpreters {
+    const DEFAULT_INTERPRETERS: &[&str] = &["python3", "python"];
+
     /// Finds interpreters by searching in prioritized locations for the given project
     /// and interpreter settings.
     ///
@@ -62,6 +66,31 @@ impl Interpreters {
                 return venv;
             }
         }
-        PythonEnvironment::get_default_interpreter().map(|p| p.to_path_buf())
+        Self::get_default_interpreter().map(|p| p.to_path_buf())
+    }
+
+    /// Get the first interpreter available on the path by using `which`
+    /// and querying for [`Self::DEFAULT_INTERPRETERS`] in order.
+    pub fn get_default_interpreter() -> Option<&'static Path> {
+        static SYSTEM_INTERP: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
+            // disable query with `which` on wasm
+            #[cfg(not(target_arch = "wasm32"))]
+            for binary_name in Interpreters::DEFAULT_INTERPRETERS {
+                use std::process::Command;
+
+                let Ok(binary_path) = which(binary_name) else {
+                    continue;
+                };
+                let mut check = Command::new(&binary_path);
+                check.arg("--version");
+                if let Ok(output) = check.output()
+                    && output.status.success()
+                {
+                    return Some(binary_path);
+                }
+            }
+            None
+        });
+        SYSTEM_INTERP.as_deref()
     }
 }
