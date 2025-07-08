@@ -949,12 +949,11 @@ def f(x: int | str, y: Any):
 );
 
 testcase!(
-    bug = "Should error if the second argument is literally Any",
     test_isinstance_any_literally,
     r#"
 from typing import Any
 def f(x: int | str):
-    if isinstance(x, Any): # Would like: Expected class object, got `Any`
+    if isinstance(x, Any): # E: Expected class object, got `Any`
         pass
     "#,
 );

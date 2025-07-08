@@ -31,6 +31,7 @@ use crate::types::callable::unexpected_keyword;
 use crate::types::class::Class;
 use crate::types::special_form::SpecialForm;
 use crate::types::tuple::Tuple;
+use crate::types::types::AnyStyle;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -278,6 +279,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         ty: Type,
         contains_subscript: bool,
+        contains_any: bool,
         range: TextRange,
         func_kind: &FunctionKind,
         errors: &ErrorCollector,
@@ -352,6 +354,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.for_display(ty)
                     ),
                 );
+            } else if contains_any && matches!(&ty, Type::Type(box Type::Any(AnyStyle::Explicit))) {
+                // If the raw expression contains something that structurally looks like `A[T]` and
+                // part of the expression resolves to a parameterized class type, then we likely have a
+                // literal parameterized type, which is a runtime exception.
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::InvalidArgument,
+                    None,
+                    "Expected class object, got `Any`".to_owned(),
+                );
             } else if self.unwrap_class_object_silently(&ty).is_none() {
                 self.error(
                     errors,
@@ -412,15 +425,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) {
         let arg_class_type = self.expr_infer(arg_expr, errors);
         let mut contains_subscript = false;
+        let mut contains_any = false;
         arg_expr.visit(&mut |e| {
             if matches!(e, Expr::Subscript(_)) {
                 contains_subscript = true;
+            }
+            if matches!(e, Expr::Name(x) if x.id.as_str() == "Any") {
+                contains_any = true;
             }
         });
 
         self.check_type_is_class_object(
             arg_class_type,
             contains_subscript,
+            contains_any,
             arg_expr.range(),
             func_kind,
             errors,
