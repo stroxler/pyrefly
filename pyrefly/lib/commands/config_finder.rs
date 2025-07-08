@@ -159,7 +159,7 @@ mod tests {
         let env = PythonEnvironment::get_default_interpreter_env();
         if let Some(paths) = env.site_package_path {
             for p in paths {
-                assert!(config.site_package_path().contains(&p));
+                assert!(config.site_package_path().collect::<Vec<_>>().contains(&&p));
             }
         }
     }

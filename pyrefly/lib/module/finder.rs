@@ -266,19 +266,22 @@ where
     }
 }
 
-pub fn find_module_in_site_package_path(
+pub fn find_module_in_site_package_path<'a, I>(
     module: ModuleName,
-    include: &[PathBuf],
+    include: I,
     use_untyped_imports: bool,
     ignore_missing_source: bool,
-) -> Result<Option<ModulePath>, FindError> {
+) -> Result<Option<ModulePath>, FindError>
+where
+    I: Iterator<Item = &'a PathBuf> + Clone,
+{
     let components = module.components();
     let first = &components[0];
     let rest = &components[1..];
     let stub_first = Name::new(format!("{first}-stubs"));
 
     let stub_module_imports = include
-        .iter()
+        .clone()
         .filter_map(|root| find_one_part(&stub_first, iter::once(root)));
 
     let mut any_has_partial_py_typed = false;
@@ -304,7 +307,7 @@ pub fn find_module_in_site_package_path(
     }
 
     let mut fallback_modules = include
-        .iter()
+        .clone()
         .filter_map(|root| find_one_part(first, iter::once(root)))
         .peekable();
 
@@ -630,7 +633,7 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -641,7 +644,7 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -651,7 +654,7 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 true,
                 false,
             )
@@ -662,7 +665,7 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.qux"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -689,7 +692,7 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -698,7 +701,7 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 true,
                 false
             )
@@ -709,7 +712,7 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -718,7 +721,7 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 true,
                 false,
             )
@@ -729,7 +732,7 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.qux"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -761,7 +764,7 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -772,7 +775,7 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -783,7 +786,7 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.qux"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -811,7 +814,7 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -822,7 +825,7 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.baz"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -833,7 +836,7 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.qux"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -869,7 +872,7 @@ mod tests {
         assert!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )
@@ -878,7 +881,7 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("foo.bar"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 true,
             )
@@ -889,7 +892,7 @@ mod tests {
         assert_eq!(
             find_module_in_site_package_path(
                 ModuleName::from_str("baz.qux"),
-                &[root.to_path_buf()],
+                [root.to_path_buf()].iter(),
                 false,
                 false,
             )

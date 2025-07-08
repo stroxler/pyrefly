@@ -346,7 +346,6 @@ impl ConfigFile {
         project_excludes.append(
             &self
                 .site_package_path()
-                .iter()
                 // filter out project directory when editable installs add project path to PYTHONPATH
                 .filter(|p| self.source.root().is_none_or(|r| r != *p))
                 .map(|pattern| Glob::new(pattern.to_string_lossy().to_string()))
@@ -455,13 +454,14 @@ impl ConfigFile {
             .chain(self.import_root.iter())
     }
 
-    pub fn site_package_path(&self) -> &[PathBuf] {
+    pub fn site_package_path<'a>(&'a self) -> impl Iterator<Item = &'a PathBuf> + Clone {
         // we can use unwrap here, because the value in the root config must
         // be set in `ConfigFile::configure()`.
         self.python_environment
             .site_package_path
-            .as_deref()
+            .as_ref()
             .unwrap()
+            .iter()
     }
 
     /// Gets the full, ordered path used for import lookup. Used for pretty-printing.
@@ -473,7 +473,7 @@ impl ConfigFile {
             ImportLookupPathPart::FallbackSearchPath(&self.fallback_search_path),
             ImportLookupPathPart::SitePackagePath(
                 &self.python_environment.site_package_path_source,
-                self.site_package_path(),
+                self.python_environment.site_package_path.as_ref().unwrap(),
             ),
         ]
     }
