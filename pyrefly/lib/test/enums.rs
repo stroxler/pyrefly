@@ -354,19 +354,15 @@ assert_type(A.B, Literal[A.B])
     "#,
 );
 
-// See https://github.com/facebook/pyrefly/issues/622
-//
-// This issue is worse than it looks, because any error analyzing a base class produces
-// `Any`, which then turns into a type error complaining about enums.
+// This used to trigger a false positive where we thought the metaclass inheriting
+// Any meant it was an enum metaclass, see https://github.com/facebook/pyrefly/issues/622
 testcase!(
-    bug =
-        "Relying on is_subset_eq for enum metaclass can cause false positives due to gradual types",
-    test_metaclass_subtype_of_any_false_positive,
+    test_metaclass_subtype_of_any_is_not_enum_metaclass,
     r#"
 from typing import Any
 class CustomMetaclass(Any):
     pass
-class C[T](metaclass=CustomMetaclass): # E: Enums may not be generic
+class C[T](metaclass=CustomMetaclass):  # Ok - was a false positive
     x: T
     "#,
 );
