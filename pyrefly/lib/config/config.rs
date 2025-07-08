@@ -1234,30 +1234,6 @@ mod tests {
     }
 
     #[test]
-    fn test_site_package_path_default_after_configure() {
-        let mut config = ConfigFile::parse_config("").unwrap();
-
-        if config.python_interpreter.is_none() {
-            // we don't really need to test anything else here if the interpreter isn't
-            // available, since the rest of the test only makes sense with it present
-            return;
-        }
-
-        config.configure();
-        assert!(matches!(
-            config.python_environment.site_package_path_source,
-            SitePackagePathSource::Interpreter(_)
-        ));
-
-        config = ConfigFile::parse_config("site_package_path = []").unwrap();
-        config.configure();
-        assert_eq!(
-            config.python_environment.site_package_path_source,
-            SitePackagePathSource::ConfigFile
-        );
-    }
-
-    #[test]
     fn test_get_from_sub_configs() {
         let config = ConfigFile {
             root: ConfigBase {

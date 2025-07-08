@@ -37,7 +37,6 @@ pub enum SitePackagePathSource {
     #[default]
     ConfigFile,
     CommandLine,
-    Interpreter(PathBuf),
 }
 
 impl Display for SitePackagePathSource {
@@ -45,9 +44,6 @@ impl Display for SitePackagePathSource {
         match self {
             Self::ConfigFile => write!(f, "from config file"),
             Self::CommandLine => write!(f, "from command line"),
-            Self::Interpreter(path) => {
-                write!(f, "queried from interpreter at `{}`", path.display())
-            }
         }
     }
 }
@@ -193,8 +189,6 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         deserialized.python_version.as_ref().ok_or_else(|| {
             anyhow!("Expected `python_version` from Python interpreter query to be non-empty")
         })?;
-        deserialized.site_package_path_source =
-            SitePackagePathSource::Interpreter(interpreter.to_path_buf());
         let site_package_path = deserialized
             .site_package_path
             .replace(Vec::new())
