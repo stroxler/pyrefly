@@ -2933,8 +2933,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn untype_opt(&self, ty: Type, range: TextRange) -> Option<Type> {
-        let mut ty = ty;
+    pub fn untype_opt(&self, mut ty: Type, range: TextRange) -> Option<Type> {
         if let Type::Forall(forall) = ty {
             ty = self.promote_forall(*forall, range);
         };
