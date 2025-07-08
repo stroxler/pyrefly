@@ -219,6 +219,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
                         println!("Configuration at `{}`", path.display());
                     }
                 }
+                println!("  Using interpreter: {}", config.interpreters);
                 println!("  Covered files:");
                 for (i, fi) in files.iter().enumerate() {
                     if i < 10 {

@@ -17,6 +17,7 @@ $ mkdir $TMPDIR/test && echo "" > $TMPDIR/test/empty.py && echo -e "project_incl
 $ touch $TMPDIR/foo.py && mkdir $TMPDIR/bar && touch $TMPDIR/bar/baz.py && touch $TMPDIR/bar/qux.py && mkdir $TMPDIR/spp && touch $TMPDIR/spp/mylib.py \
 > && $PYREFLY dump-config --site-package-path $TMPDIR/spp/ $TMPDIR/foo.py $TMPDIR/bar/*.py
 Default configuration
+  Using interpreter: * (glob)
   Covered files:
     */bar/baz.py (glob)
     */bar/qux.py (glob)
@@ -24,6 +25,7 @@ Default configuration
   Site package path from user: * (glob)
   Site package path queried from interpreter: * (glob)
 Default configuration
+  Using interpreter: * (glob)
   Covered files:
     */foo.py (glob)
   Fallback search path (guessed from project_includes): * (glob)

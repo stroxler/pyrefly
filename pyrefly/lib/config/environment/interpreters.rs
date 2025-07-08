@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -43,6 +44,34 @@ pub struct Interpreters {
         skip_serializing_if = "crate::config::util::skip_default_false"
     )]
     pub skip_interpreter_query: bool,
+}
+
+impl Display for Interpreters {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self {
+                skip_interpreter_query: true,
+                ..
+            } => write!(f, "<interpreter query skipped>"),
+            Self {
+                python_interpreter: None,
+                ..
+            } => write!(f, "<none found successfully>"),
+            Self {
+                conda_environment: Some(conda),
+                python_interpreter: Some(path),
+                ..
+            } => write!(
+                f,
+                "conda environment {conda} with interpreter at {}",
+                path.display()
+            ),
+            Self {
+                python_interpreter: Some(path),
+                ..
+            } => write!(f, "{}", path.display()),
+        }
+    }
 }
 
 impl Interpreters {
