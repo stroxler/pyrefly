@@ -15,6 +15,7 @@ use serde::Serialize;
 use which::which;
 
 use crate::config::environment::active_environment::ActiveEnvironment;
+use crate::config::environment::conda;
 use crate::config::environment::venv;
 use crate::config::util::ConfigOrigin;
 
@@ -55,18 +56,34 @@ impl Interpreters {
     /// 3. Check for an active Conda environment
     /// 5. Check for a `venv` in the current project
     /// 6. Use an interpreter we can find on the `$PATH`
-    pub fn find_interpreter(path: Option<&Path>) -> Option<PathBuf> {
-        if let Some(active_env) = ActiveEnvironment::find() {
-            return Some(active_env);
+    pub fn find_interpreter(&self, path: Option<&Path>) -> anyhow::Result<ConfigOrigin<PathBuf>> {
+        if let Some(interpreter) = self.python_interpreter.clone() {
+            return Ok(interpreter);
+        } else if let Some(conda_env) = &self.conda_environment {
+            return conda_env
+                .as_deref()
+                .map(conda::find_interpreter_from_env)
+                .transpose_err();
         }
 
-        if let Some(start_path) = path {
-            let venv = venv::find(start_path);
-            if venv.is_some() {
-                return venv;
-            }
+        if let Some(active_env) = ActiveEnvironment::find() {
+            return Ok(ConfigOrigin::auto(active_env));
         }
-        Self::get_default_interpreter().map(|p| p.to_path_buf())
+
+        if let Some(start_path) = path
+            && let Some(venv) = venv::find(start_path)
+        {
+            return Ok(ConfigOrigin::auto(venv));
+        }
+        if let Some(interpreter) = Self::get_default_interpreter().map(|p| p.to_path_buf()) {
+            return Ok(ConfigOrigin::auto(interpreter));
+        }
+
+        Err(anyhow::anyhow!(
+            "Python environment (version, platform, or site-package-path) has value unset, \
+                             but no Python interpreter could be found to query for values. Falling back to \
+                             Pyrefly defaults for missing values."
+        ))
     }
 
     /// Get the first interpreter available on the path by using `which`

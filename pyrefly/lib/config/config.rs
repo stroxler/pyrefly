@@ -32,13 +32,11 @@ use tracing::debug;
 
 use crate::config::base::ConfigBase;
 use crate::config::base::UntypedDefBehavior;
-use crate::config::environment::conda;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::environment::interpreters::Interpreters;
 use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::finder::ConfigError;
-use crate::config::util::ConfigOrigin;
 use crate::module::bundled::typeshed;
 use crate::module::finder::find_module_in_search_path;
 use crate::module::finder::find_module_in_site_package_path;
@@ -547,27 +545,7 @@ impl ConfigFile {
         let mut configure_errors = Vec::new();
 
         if !self.interpreters.skip_interpreter_query {
-            let find_interpreter = || -> anyhow::Result<ConfigOrigin<PathBuf>> {
-                if let Some(interpreter) = self.interpreters.python_interpreter.clone() {
-                    Ok(interpreter)
-                } else if let Some(conda_env) = &self.interpreters.conda_environment {
-                    conda_env
-                        .as_deref()
-                        .map(conda::find_interpreter_from_env)
-                        .transpose_err()
-                } else if let Some(interpreter) =
-                    Interpreters::find_interpreter(self.source.root()).map(ConfigOrigin::auto)
-                {
-                    Ok(interpreter)
-                } else {
-                    Err(anyhow::anyhow!(
-                        "Python environment (version, platform, or site-package-path) has value unset, \
-                             but no Python interpreter could be found to query for values. Falling back to \
-                             Pyrefly defaults for missing values."
-                    ))
-                }
-            };
-            match find_interpreter() {
+            match self.interpreters.find_interpreter(self.source.root()) {
                 Ok(interpreter) => {
                     let (env, error) = PythonEnvironment::get_interpreter_env(&interpreter);
                     self.python_environment.override_empty(env);
@@ -810,6 +788,7 @@ mod tests {
     use toml::Value;
 
     use super::*;
+    use crate::config::util::ConfigOrigin;
     use crate::error::kind::ErrorKind;
 
     #[test]
