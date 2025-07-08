@@ -32,22 +32,6 @@ static INTERPRETER_ENV_REGISTRY: LazyLock<
     Mutex<SmallMap<PathBuf, Result<PythonEnvironment, String>>>,
 > = LazyLock::new(|| Mutex::new(SmallMap::new()));
 
-#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
-pub enum SitePackagePathSource {
-    #[default]
-    ConfigFile,
-    CommandLine,
-}
-
-impl Display for SitePackagePathSource {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ConfigFile => write!(f, "from config file"),
-            Self::CommandLine => write!(f, "from command line"),
-        }
-    }
-}
-
 /// Values representing the environment of the Python interpreter.
 /// These values are `None` by default, so we can tell if a config
 /// overrode them, or if we should query a Python interpreter for
@@ -91,11 +75,6 @@ pub struct PythonEnvironment {
 
     #[serde(skip, default)]
     pub interpreter_site_package_path: Vec<PathBuf>,
-
-    /// Is the `site_package_path` here one we got from
-    /// querying an interpreter?
-    #[serde(skip, default)]
-    pub site_package_path_source: SitePackagePathSource,
 }
 
 impl PythonEnvironment {
@@ -118,7 +97,6 @@ impl PythonEnvironment {
         }
         if self.site_package_path.is_none() {
             self.site_package_path = Some(Vec::new());
-            self.site_package_path_source = SitePackagePathSource::ConfigFile;
         }
     }
 
@@ -133,7 +111,6 @@ impl PythonEnvironment {
         }
         if self.site_package_path.is_none() {
             self.site_package_path = other.site_package_path;
-            self.site_package_path_source = other.site_package_path_source;
         }
         self.interpreter_site_package_path = other.interpreter_site_package_path.clone();
     }
@@ -279,7 +256,7 @@ impl Display for PythonEnvironment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{{python_platform: {}, python_version: {}, site_package_path: [{}], site_package_path_source: {:?}, interpreter_site_package_path: [{}]}}",
+            "{{python_platform: {}, python_version: {}, site_package_path: [{}], interpreter_site_package_path: [{}]}}",
             self.python_platform
                 .as_ref()
                 .map_or_else(|| "None".to_owned(), |platform| platform.to_string()),
@@ -287,9 +264,8 @@ impl Display for PythonEnvironment {
                 .map_or_else(|| "None".to_owned(), |version| version.to_string()),
             self.site_package_path.as_ref().map_or_else(
                 || "".to_owned(),
-                |path| path.iter().map(|p| p.display()).join(", ")
+                |packages| packages.iter().map(|p| p.display()).join(", ")
             ),
-            self.site_package_path_source,
             self.interpreter_site_package_path
                 .iter()
                 .map(|p| p.display())

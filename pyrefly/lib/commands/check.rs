@@ -51,7 +51,6 @@ use crate::commands::util::module_from_path;
 use crate::config::base::UntypedDefBehavior;
 use crate::config::config::ConfigFile;
 use crate::config::config::validate_path;
-use crate::config::environment::environment::SitePackagePathSource;
 use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::config::util::ConfigOrigin;
@@ -585,7 +584,6 @@ impl Args {
         }
         if let Some(x) = &self.config_override.site_package_path {
             config.python_environment.site_package_path = Some(x.clone());
-            config.python_environment.site_package_path_source = SitePackagePathSource::CommandLine;
         }
 
         if self.config_override.skip_interpreter_query || config.skip_interpreter_query {

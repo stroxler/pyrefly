@@ -34,7 +34,6 @@ use crate::config::base::ConfigBase;
 use crate::config::base::UntypedDefBehavior;
 use crate::config::environment::conda;
 use crate::config::environment::environment::PythonEnvironment;
-use crate::config::environment::environment::SitePackagePathSource;
 use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::finder::ConfigError;
@@ -122,7 +121,7 @@ pub enum ImportLookupPathPart<'a> {
     SearchPathFromFile(&'a [PathBuf]),
     ImportRoot(Option<&'a PathBuf>),
     FallbackSearchPath(&'a [PathBuf]),
-    SitePackagePath(&'a SitePackagePathSource, &'a [PathBuf]),
+    SitePackagePath(&'a [PathBuf]),
     InterpreterSitePackagePath(&'a [PathBuf]),
 }
 
@@ -143,8 +142,8 @@ impl Display for ImportLookupPathPart<'_> {
                 f,
                 "Fallback search path (guessed from project_includes): {paths:?}"
             ),
-            Self::SitePackagePath(source, paths) => {
-                write!(f, "Site package path ({source}): {paths:?}")
+            Self::SitePackagePath(paths) => {
+                write!(f, "Site package path from user: {paths:?}")
             }
             Self::InterpreterSitePackagePath(paths) => {
                 write!(f, "Site package path queried from interpreter: {paths:?}")
@@ -159,7 +158,7 @@ impl ImportLookupPathPart<'_> {
             Self::SearchPathFromArgs(paths)
             | Self::SearchPathFromFile(paths)
             | Self::FallbackSearchPath(paths)
-            | Self::SitePackagePath(_, paths)
+            | Self::SitePackagePath(paths)
             | Self::InterpreterSitePackagePath(paths) => paths.is_empty(),
             Self::ImportRoot(root) => root.is_none(),
         }
@@ -479,7 +478,6 @@ impl ConfigFile {
             ImportLookupPathPart::ImportRoot(self.import_root.as_ref()),
             ImportLookupPathPart::FallbackSearchPath(&self.fallback_search_path),
             ImportLookupPathPart::SitePackagePath(
-                &self.python_environment.site_package_path_source,
                 self.python_environment.site_package_path.as_ref().unwrap(),
             ),
             ImportLookupPathPart::InterpreterSitePackagePath(
@@ -630,10 +628,8 @@ impl ConfigFile {
                     .map(|err| err.context(format!("Invalid {field}")))
             })
         }
-        if self.python_environment.site_package_path_source == SitePackagePathSource::ConfigFile {
-            if let Some(p) = self.python_environment.site_package_path.as_ref() {
-                configure_errors.extend(validate(p, "site_package_path"));
-            }
+        if let Some(site_package_path) = &self.python_environment.site_package_path {
+            configure_errors.extend(validate(site_package_path.as_ref(), "site_package_path"));
         }
         configure_errors.extend(validate(&self.search_path_from_file, "search_path"));
 
@@ -826,7 +822,6 @@ mod tests {
     use toml::Value;
 
     use super::*;
-    use crate::config::environment::environment::SitePackagePathSource;
     use crate::error::kind::ErrorKind;
 
     #[test]
@@ -879,7 +874,6 @@ mod tests {
                     site_package_path: Some(vec![PathBuf::from(
                         "venv/lib/python1.2.3/site-packages"
                     )]),
-                    site_package_path_source: SitePackagePathSource::ConfigFile,
                     interpreter_site_package_path: config
                         .python_environment
                         .interpreter_site_package_path
@@ -1020,7 +1014,6 @@ mod tests {
                     python_platform: Some(PythonPlatform::mac()),
                     python_version: Some(PythonVersion::new(1, 2, 3)),
                     site_package_path: None,
-                    site_package_path_source: SitePackagePathSource::ConfigFile,
                     interpreter_site_package_path: config
                         .python_environment
                         .interpreter_site_package_path
@@ -1041,14 +1034,14 @@ mod tests {
     #[test]
     fn deserialize_pyproject_toml_with_unknown() {
         let config_str = r#"
-             top_level = 1
-             [table1]
-             table1_value = 2
-                 [tool.pysa]
-                 pysa_value = 2
-                     [tool.pyrefly]
-                     python_version = "1.2.3"
-                         "#;
+            top_level = 1
+            [table1]
+            table1_value = 2
+            [tool.pysa]
+            pysa_value = 2
+            [tool.pyrefly]
+            python_version = "1.2.3"
+        "#;
         let config = ConfigFile::parse_pyproject_toml(config_str)
             .unwrap()
             .unwrap();
@@ -1061,8 +1054,6 @@ mod tests {
                     python_version: Some(PythonVersion::new(1, 2, 3)),
                     python_platform: None,
                     site_package_path: None,
-                    // this won't be set until after `configure()`
-                    site_package_path_source: SitePackagePathSource::ConfigFile,
                     interpreter_site_package_path: config
                         .python_environment
                         .interpreter_site_package_path
