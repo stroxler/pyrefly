@@ -63,6 +63,9 @@ fn format_hints(
         if formatted_hint.contains("Never") {
             continue;
         }
+        if formatted_hint == "None" && kind == AnnotationKind::Parameter {
+            continue;
+        }
         match kind {
             AnnotationKind::Parameter => {
                 qualified_hints.push((position, format!(": {}", formatted_hint)));
@@ -335,6 +338,23 @@ def foo() -> str:
             r#"
     def example(c) -> None:
         c + 1
+    "#,
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_none_parameter() -> anyhow::Result<()> {
+        assert_annotations(
+            r#"
+    def example(c = None):
+        pass
+    example(None)
+    "#,
+            r#"
+    def example(c = None) -> None:
+        pass
+    example(None)
     "#,
         );
         Ok(())

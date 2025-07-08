@@ -197,6 +197,7 @@ struct IdentifierWithContext {
     context: IdentifierContext,
 }
 
+#[derive(PartialEq, Eq)]
 pub enum AnnotationKind {
     #[allow(dead_code)]
     Parameter,
