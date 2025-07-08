@@ -224,6 +224,10 @@ pub struct ConfigFile {
          )]
     pub fallback_search_path: Vec<PathBuf>,
 
+    /// Override the bundled typeshed with a custom path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub typeshed_path: Option<PathBuf>,
+
     // TODO(connernilsen): make this mutually exclusive with venv/conda env
     /// The python executable that will be queried for `python_version`,
     /// `python_platform`, or `site_package_path` if any of the values are missing.
@@ -307,6 +311,7 @@ impl Default for ConfigFile {
             custom_module_paths: Default::default(),
             use_untyped_imports: true,
             ignore_missing_source: true,
+            typeshed_path: None,
         }
     }
 }
@@ -360,6 +365,13 @@ impl ConfigFile {
         {
             Err(FindError::Ignored)
         } else if let Some(path) = find_module_in_search_path(module, self.search_path())? {
+            Ok(path)
+        } else if let Some(custom_typeshed_path) = &self.typeshed_path
+            && let Some(path) = find_module_in_search_path(
+                module,
+                std::iter::once(&custom_typeshed_path.join("stdlib")),
+            )?
+        {
             Ok(path)
         } else if let Some(path) = typeshed()
             .map_err(|err| FindError::not_found(err, module))?
@@ -877,6 +889,7 @@ mod tests {
                 }],
                 use_untyped_imports: true,
                 ignore_missing_source: true,
+                typeshed_path: None,
             }
         );
     }
@@ -1088,6 +1101,7 @@ mod tests {
             }],
             use_untyped_imports: false,
             ignore_missing_source: false,
+            typeshed_path: None,
         };
 
         let path_str = with_sep("path/to/my/config");
@@ -1125,6 +1139,7 @@ mod tests {
             }],
             use_untyped_imports: false,
             ignore_missing_source: false,
+            typeshed_path: None,
         };
         assert_eq!(config, expected_config);
     }
