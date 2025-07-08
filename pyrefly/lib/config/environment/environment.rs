@@ -25,9 +25,6 @@ use tracing::warn;
 #[cfg(not(target_arch = "wasm32"))]
 use which::which;
 
-use crate::config::environment::active_environment::ActiveEnvironment;
-use crate::config::environment::venv;
-
 static INTERPRETER_ENV_REGISTRY: LazyLock<
     Mutex<SmallMap<PathBuf, Result<PythonEnvironment, String>>>,
 > = LazyLock::new(|| Mutex::new(SmallMap::new()));
@@ -228,27 +225,6 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         Self::get_default_interpreter().map_or_else(Self::pyrefly_default, |path| {
             Self::get_interpreter_env(path).0
         })
-    }
-
-    /// Uses the same logic as [vscode-python] to [find interpreters] that should be used for the given
-    /// project. This function will use the same [non-workspace] logic as vscode-python, and
-    /// workspace-specific logic will be handled directly by VSCode and provided to our extension.
-    ///
-    /// [vscode-python]: https://github.com/microsoft/vscode-python
-    /// [find interpreters]: https://github.com/microsoft/vscode-python/blob/main/src/client/interpreter/autoselection/index.ts#l240-l242
-    /// [non-workspace]: https://github.com/microsoft/vscode-python/blob/main/src/client/pythonEnvironments/index.ts#L173
-    pub fn find_interpreter(path: Option<&Path>) -> Option<PathBuf> {
-        if let Some(active_env) = ActiveEnvironment::find() {
-            return Some(active_env);
-        }
-
-        if let Some(start_path) = path {
-            let venv = venv::find(start_path);
-            if venv.is_some() {
-                return venv;
-            }
-        }
-        Self::get_default_interpreter().map(|p| p.to_path_buf())
     }
 }
 

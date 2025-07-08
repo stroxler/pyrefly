@@ -556,7 +556,7 @@ impl ConfigFile {
                         .map(conda::find_interpreter_from_env)
                         .transpose_err()
                 } else if let Some(interpreter) =
-                    PythonEnvironment::find_interpreter(self.source.root()).map(ConfigOrigin::auto)
+                    Interpreters::find_interpreter(self.source.root()).map(ConfigOrigin::auto)
                 {
                     Ok(interpreter)
                 } else {
