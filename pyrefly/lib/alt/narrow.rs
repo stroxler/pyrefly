@@ -151,7 +151,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn narrow_isinstance(&self, left: &Type, right: &Type) -> Type {
-        if let Some(ts) = right.as_decomposed_tuple_or_union(self.stdlib) {
+        if let Some(ts) = self.as_class_info(right) {
             self.unions(ts.iter().map(|t| self.narrow_isinstance(left, t)).collect())
         } else if let Some(right) = self.unwrap_class_object_silently(right) {
             self.intersect_with_fallback(left, &right, || right.clone())
@@ -161,7 +161,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn narrow_is_not_instance(&self, left: &Type, right: &Type) -> Type {
-        if let Some(ts) = right.as_decomposed_tuple_or_union(self.stdlib) {
+        if let Some(ts) = self.as_class_info(right) {
             self.intersects(&ts.map(|t| self.narrow_is_not_instance(left, t)))
         } else if let Some(right) = self.unwrap_class_object_silently(right) {
             self.subtract(left, &right)
@@ -171,7 +171,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn narrow_issubclass(&self, left: &Type, right: &Type, range: TextRange) -> Type {
-        if let Some(ts) = right.as_decomposed_tuple_or_union(self.stdlib) {
+        if let Some(ts) = self.as_class_info(right) {
             self.unions(
                 ts.iter()
                     .map(|t| self.narrow_issubclass(left, t, range))
@@ -187,7 +187,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn narrow_is_not_subclass(&self, left: &Type, right: &Type, range: TextRange) -> Type {
-        if let Some(ts) = right.as_decomposed_tuple_or_union(self.stdlib) {
+        if let Some(ts) = self.as_class_info(right) {
             self.intersects(&ts.map(|t| self.narrow_is_not_subclass(left, t, range)))
         } else if let Some(left) = self.untype_opt(left.clone(), range)
             && let Some(right) = self.unwrap_class_object_silently(right)

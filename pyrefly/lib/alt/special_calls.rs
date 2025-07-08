@@ -281,7 +281,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         func_kind: &FunctionKind,
         errors: &ErrorCollector,
     ) {
-        if let Some(ts) = ty.as_decomposed_tuple_or_union(self.stdlib) {
+        if let Some(ts) = self.as_class_info(&ty) {
             for t in ts {
                 self.check_type_is_class_object(t, contains_subscript, range, func_kind, errors);
             }
@@ -426,5 +426,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             func_kind,
             errors,
         );
+    }
+
+    /// Returns the list of types passed as the second argument to `isinstance` or `issubclass`.
+    pub fn as_class_info(&self, ty: &Type) -> Option<Vec<Type>> {
+        ty.as_decomposed_tuple_or_union(self.stdlib)
     }
 }
