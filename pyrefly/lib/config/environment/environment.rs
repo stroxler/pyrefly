@@ -108,13 +108,6 @@ impl PythonEnvironment {
         env
     }
 
-    /// Are any Python environment values `None`?
-    pub fn any_empty(&self) -> bool {
-        self.python_platform.is_none()
-            || self.python_version.is_none()
-            || self.site_package_path.is_none()
-    }
-
     /// If any Python environment values are `None`, set them to
     /// Pyrefly's default value.
     pub fn set_empty_to_default(&mut self) {

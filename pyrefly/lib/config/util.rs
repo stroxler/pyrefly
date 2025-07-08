@@ -56,6 +56,12 @@ impl PyProject {
 pub fn skip_default_true(v: &bool) -> bool {
     *v
 }
+///
+/// Used in serde's skip_serializing_if attribute to skip serializing a boolean field that defaults to true.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+pub fn skip_default_false(v: &bool) -> bool {
+    !*v
+}
 
 pub fn none_or_empty<T>(v: &Option<Vec<T>>) -> bool {
     v.as_ref().is_none_or(|v| v.is_empty())

@@ -243,6 +243,13 @@ pub struct ConfigFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conda_environment: Option<String>,
 
+    /// Should we do any querying of an interpreter?
+    #[serde(
+        default,
+        skip_serializing_if = "crate::config::util::skip_default_false"
+    )]
+    pub skip_interpreter_query: bool,
+
     /// Values representing the environment of the Python interpreter
     /// (which platform, Python version, ...). When we parse, these values
     /// are default to false so we know to query the `python_interpreter` before falling
@@ -301,6 +308,7 @@ impl Default for ConfigFile {
             project_excludes: Default::default(),
             python_interpreter: None,
             conda_environment: None,
+            skip_interpreter_query: false,
             search_path_from_args: Vec::new(),
             search_path_from_file: Vec::new(),
             import_root: None,
@@ -545,7 +553,7 @@ impl ConfigFile {
     pub fn configure(&mut self) -> Vec<ConfigError> {
         let mut configure_errors = Vec::new();
 
-        if self.python_environment.any_empty() {
+        if !self.skip_interpreter_query {
             let find_interpreter = || -> anyhow::Result<PathBuf> {
                 if let Some(interpreter) = self.python_interpreter.clone() {
                     Ok(interpreter)
@@ -860,6 +868,7 @@ mod tests {
                     site_package_path_source: SitePackagePathSource::ConfigFile,
                 },
                 python_interpreter: Some(PathBuf::from("venv/my/python")),
+                skip_interpreter_query: false,
                 conda_environment: None,
                 root: ConfigBase {
                     extras: Default::default(),
@@ -1093,6 +1102,7 @@ mod tests {
             python_environment: python_environment.clone(),
             python_interpreter: Some(PathBuf::from(interpreter.clone())),
             conda_environment: None,
+            skip_interpreter_query: false,
             root: Default::default(),
             custom_module_paths: Default::default(),
             sub_configs: vec![SubConfig {
@@ -1126,6 +1136,7 @@ mod tests {
             project_excludes: Globs::new(project_excludes_vec),
             python_interpreter: Some(test_path.join(interpreter)),
             conda_environment: None,
+            skip_interpreter_query: false,
             search_path_from_args: Vec::new(),
             search_path_from_file: search_path,
             import_root: None,
@@ -1458,5 +1469,17 @@ mod tests {
                  e.get_message() == "Cannot use both `python-interpreter` and `conda-environment`. Finding environment info using `python-interpreter`."
              })
          );
+    }
+
+    #[test]
+    fn test_interpreter_not_queried_with_skip_interpreter_query() {
+        let mut config = ConfigFile {
+            skip_interpreter_query: true,
+            ..Default::default()
+        };
+
+        config.configure();
+        assert!(config.python_interpreter.is_none());
+        assert!(config.conda_environment.is_none());
     }
 }
