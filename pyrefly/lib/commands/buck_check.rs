@@ -33,12 +33,14 @@ use crate::state::handle::Handle;
 use crate::state::require::Require;
 use crate::state::state::State;
 
+/// Arguments for Buck-powered type checking.
+#[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Parser)]
 pub struct Args {
-    /// Path to input JSON file
+    /// Path to input JSON manifest.
     input_path: PathBuf,
 
-    /// Path to output JSON file
+    /// Path to output JSON file containing Pyrefly Pyrefly type check results.
     #[arg(long = "output", short = 'o', env = clap_env("OUTPUT_PATH"), value_name = "FILE")]
     output_path: Option<PathBuf>,
 }

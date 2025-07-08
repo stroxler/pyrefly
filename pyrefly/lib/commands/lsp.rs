@@ -192,6 +192,9 @@ use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionData;
 
+/// Pyrefly's indexing strategy for open projects when performing go-to-definition
+/// requests.
+#[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]
 pub(crate) enum IndexingMode {
     /// Do not index anything. Features that depend on indexing (e.g. find-refs) will be disabled.
@@ -206,8 +209,11 @@ pub(crate) enum IndexingMode {
     LazyBlocking,
 }
 
+/// Arguments for LSP server
+#[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
+    /// Find the struct that contains this field and add the indexing mode used by the language server
     #[arg(long, value_enum, default_value_t, env = clap_env("INDEXING_MODE"))]
     pub(crate) indexing_mode: IndexingMode,
 }
