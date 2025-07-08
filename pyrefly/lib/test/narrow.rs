@@ -598,11 +598,16 @@ def test(x, y: tuple[type[int], ...]):
 testcase!(
     test_isinstance_type,
     r#"
-from typing import assert_type
+from typing import assert_type, Any
+
 def f(x: object, y: type[str]) -> None:
     if isinstance(x, y):
         assert_type(x, str)
-    "#,
+
+def g(x: object, y: type[Any]) -> None:
+    if isinstance(x, y):
+        assert_type(x, Any)
+"#,
 );
 
 testcase!(
@@ -944,11 +949,12 @@ def f(x: int | str, y: Any):
 );
 
 testcase!(
+    bug = "Should error if the second argument is literally Any",
     test_isinstance_any_literally,
     r#"
 from typing import Any
 def f(x: int | str):
-    if isinstance(x, Any): # E: Expected class object, got `type[Any]`
+    if isinstance(x, Any): # Would like: Expected class object, got `Any`
         pass
     "#,
 );
