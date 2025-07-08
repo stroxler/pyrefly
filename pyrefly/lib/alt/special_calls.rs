@@ -11,6 +11,7 @@
  * file contains the implementations of a few special calls that need to be hard-coded.
  */
 
+use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
@@ -30,6 +31,7 @@ use crate::types::callable::FunctionKind;
 use crate::types::callable::unexpected_keyword;
 use crate::types::class::Class;
 use crate::types::special_form::SpecialForm;
+use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -430,6 +432,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Returns the list of types passed as the second argument to `isinstance` or `issubclass`.
     pub fn as_class_info(&self, ty: &Type) -> Option<Vec<Type>> {
-        ty.as_decomposed_tuple_or_union(self.stdlib)
+        match ty {
+            Type::Tuple(Tuple::Concrete(ts)) => Some(ts.clone()),
+            Type::Tuple(Tuple::Unbounded(box t)) => Some(vec![t.clone()]),
+            Type::Type(box Type::Union(ts)) => Some(ts.map(|t| Type::type_form(t.clone()))),
+            Type::TypeAlias(ta) => self.as_class_info(&ta.as_value(self.stdlib)),
+            _ => None,
+        }
     }
 }
