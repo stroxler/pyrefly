@@ -366,6 +366,16 @@ def f2(x: int | Any):
 );
 
 testcase!(
+    bug = "PyTorch todo: support binop for typevar",
+    test_binop_type_var,
+    r#"
+from typing import TypeVar
+T_co = TypeVar("T_co", covariant=True)
+T_co == int # E: `==` is not supported between `type[TypeVar[T_co]]` and `type[int]` 
+    "#,
+);
+
+testcase!(
     test_comparison_return_type,
     r#"
 from typing import Literal, assert_type
