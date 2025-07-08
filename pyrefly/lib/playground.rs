@@ -133,7 +133,7 @@ impl Playground {
     pub fn new() -> Self {
         let mut config = ConfigFile::default();
         config.python_environment.set_empty_to_default();
-        config.skip_interpreter_query = true;
+        config.interpreters.skip_interpreter_query = true;
         config.configure();
         let config = ArcId::new(config);
 

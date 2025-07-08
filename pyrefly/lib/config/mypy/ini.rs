@@ -173,7 +173,7 @@ impl MypyConfig {
         if let Some(python_interpreter) = python_executable {
             // TODO: Add handling for when these are virtual environments
             // Is this something we can auto detect instead of hardcoding here.
-            cfg.python_interpreter = PathBuf::from_str(&python_interpreter)
+            cfg.interpreters.python_interpreter = PathBuf::from_str(&python_interpreter)
                 .ok()
                 .map(ConfigOrigin::config);
         }

@@ -165,7 +165,7 @@ pub fn parse_pyproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {
         cfg.python_environment.python_version = mypy.python_version;
     }
     if mypy.python_interpreter.is_some() {
-        cfg.python_interpreter = mypy.python_interpreter.map(ConfigOrigin::config);
+        cfg.interpreters.python_interpreter = mypy.python_interpreter.map(ConfigOrigin::config);
     }
 
     let disable_error_code = mypy

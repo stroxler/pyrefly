@@ -181,7 +181,7 @@ impl TestEnv {
         for (name, (path, _)) in self.modules.iter() {
             config.custom_module_paths.insert(*name, path.clone());
         }
-        config.skip_interpreter_query = true;
+        config.interpreters.skip_interpreter_query = true;
         config.configure();
         ArcId::new(config)
     }

@@ -495,8 +495,8 @@ impl Workspaces {
         let workspaces = workspaces.dupe();
         standard_config_finder(Arc::new(move |dir, mut config| {
             if let Some(dir) = dir
-                && config.python_interpreter.is_none()
-                && config.conda_environment.is_none()
+                && config.interpreters.python_interpreter.is_none()
+                && config.interpreters.conda_environment.is_none()
             {
                 workspaces.get_with(dir.to_owned(), |w| {
                     if let Some(search_path) = w.search_path.clone() {
@@ -509,7 +509,8 @@ impl Workspaces {
                     {
                         let site_package_path = config.python_environment.site_package_path.take();
                         env.site_package_path = site_package_path;
-                        config.python_interpreter = Some(ConfigOrigin::auto(interpreter));
+                        config.interpreters.python_interpreter =
+                            Some(ConfigOrigin::auto(interpreter));
                         config.python_environment = env;
                     }
                 })

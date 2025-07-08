@@ -34,6 +34,7 @@ use crate::config::base::ConfigBase;
 use crate::config::base::UntypedDefBehavior;
 use crate::config::environment::conda;
 use crate::config::environment::environment::PythonEnvironment;
+use crate::config::environment::interpreters::Interpreters;
 use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::finder::ConfigError;
@@ -233,27 +234,9 @@ pub struct ConfigFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub typeshed_path: Option<PathBuf>,
 
-    // TODO(connernilsen): make this mutually exclusive with venv/conda env
-    /// The python executable that will be queried for `python_version`,
-    /// `python_platform`, or `site_package_path` if any of the values are missing.
-    #[serde(
-                 default,
-                 skip_serializing_if = "ConfigOrigin::should_skip_serializing_option",
-                 // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
-                 // alias while we migrate existing fields from snake case to kebab case.
-                 alias = "python_interpreter"
-             )]
-    pub python_interpreter: Option<ConfigOrigin<PathBuf>>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub conda_environment: Option<ConfigOrigin<String>>,
-
-    /// Should we do any querying of an interpreter?
-    #[serde(
-        default,
-        skip_serializing_if = "crate::config::util::skip_default_false"
-    )]
-    pub skip_interpreter_query: bool,
+    /// Pyrefly's configurations around interpreter querying/finding.
+    #[serde(flatten)]
+    pub interpreters: Interpreters,
 
     /// Values representing the environment of the Python interpreter
     /// (which platform, Python version, ...). When we parse, these values
@@ -311,9 +294,11 @@ impl Default for ConfigFile {
             source: ConfigSource::Synthetic,
             project_includes: Default::default(),
             project_excludes: Default::default(),
-            python_interpreter: None,
-            conda_environment: None,
-            skip_interpreter_query: false,
+            interpreters: Interpreters {
+                python_interpreter: None,
+                conda_environment: None,
+                skip_interpreter_query: false,
+            },
             search_path_from_args: Vec::new(),
             search_path_from_file: Vec::new(),
             import_root: None,
@@ -561,11 +546,11 @@ impl ConfigFile {
     pub fn configure(&mut self) -> Vec<ConfigError> {
         let mut configure_errors = Vec::new();
 
-        if !self.skip_interpreter_query {
+        if !self.interpreters.skip_interpreter_query {
             let find_interpreter = || -> anyhow::Result<ConfigOrigin<PathBuf>> {
-                if let Some(interpreter) = self.python_interpreter.clone() {
+                if let Some(interpreter) = self.interpreters.python_interpreter.clone() {
                     Ok(interpreter)
-                } else if let Some(conda_env) = &self.conda_environment {
+                } else if let Some(conda_env) = &self.interpreters.conda_environment {
                     conda_env
                         .as_deref()
                         .map(conda::find_interpreter_from_env)
@@ -586,7 +571,7 @@ impl ConfigFile {
                 Ok(interpreter) => {
                     let (env, error) = PythonEnvironment::get_interpreter_env(&interpreter);
                     self.python_environment.override_empty(env);
-                    self.python_interpreter = Some(interpreter);
+                    self.interpreters.python_interpreter = Some(interpreter);
                     if let Some(error) = error {
                         configure_errors.push(error);
                     }
@@ -633,7 +618,9 @@ impl ConfigFile {
         }
         configure_errors.extend(validate(&self.search_path_from_file, "search_path"));
 
-        if self.python_interpreter.is_some() && self.conda_environment.is_some() {
+        if self.interpreters.python_interpreter.is_some()
+            && self.interpreters.conda_environment.is_some()
+        {
             configure_errors.push(anyhow::anyhow!(
                      "Cannot use both `python-interpreter` and `conda-environment`. Finding environment info using `python-interpreter`.",
              ));
@@ -677,7 +664,8 @@ impl ConfigFile {
                 });
             });
         self.project_excludes = self.project_excludes.clone().from_root(config_root);
-        self.python_interpreter = self
+        self.interpreters.python_interpreter = self
+            .interpreters
             .python_interpreter
             .take()
             .map(|s| s.map(|i| config_root.join(i)));
@@ -783,7 +771,7 @@ impl Display for ConfigFile {
             self.project_includes,
             self.project_excludes,
             self.search_path().map(|p| p.display()).join(", "),
-            self.python_interpreter,
+            self.interpreters.python_interpreter,
             self.python_environment,
             self.root
                 .replace_imports_with_any
@@ -879,9 +867,11 @@ mod tests {
                         .interpreter_site_package_path
                         .clone(),
                 },
-                python_interpreter: Some(ConfigOrigin::config(PathBuf::from("venv/my/python"))),
-                skip_interpreter_query: false,
-                conda_environment: None,
+                interpreters: Interpreters {
+                    python_interpreter: Some(ConfigOrigin::config(PathBuf::from("venv/my/python"))),
+                    conda_environment: None,
+                    skip_interpreter_query: false,
+                },
                 root: ConfigBase {
                     extras: Default::default(),
                     errors: Some(ErrorDisplayConfig::new(HashMap::from_iter([
@@ -1117,9 +1107,11 @@ mod tests {
             import_root: None,
             fallback_search_path: Vec::new(),
             python_environment: python_environment.clone(),
-            python_interpreter: Some(ConfigOrigin::config(PathBuf::from(interpreter.clone()))),
-            conda_environment: None,
-            skip_interpreter_query: false,
+            interpreters: Interpreters {
+                python_interpreter: Some(ConfigOrigin::config(PathBuf::from(interpreter.clone()))),
+                conda_environment: None,
+                skip_interpreter_query: false,
+            },
             root: Default::default(),
             custom_module_paths: Default::default(),
             sub_configs: vec![SubConfig {
@@ -1151,9 +1143,11 @@ mod tests {
             source: ConfigSource::Synthetic,
             project_includes: Globs::new(project_includes_vec),
             project_excludes: Globs::new(project_excludes_vec),
-            python_interpreter: Some(ConfigOrigin::config(test_path.join(interpreter))),
-            conda_environment: None,
-            skip_interpreter_query: false,
+            interpreters: Interpreters {
+                python_interpreter: Some(ConfigOrigin::config(test_path.join(interpreter))),
+                conda_environment: None,
+                skip_interpreter_query: false,
+            },
             search_path_from_args: Vec::new(),
             search_path_from_file: search_path,
             import_root: None,
@@ -1450,8 +1444,11 @@ mod tests {
     #[test]
     fn test_python_interpreter_conda_environment() {
         let mut config = ConfigFile {
-            python_interpreter: Some(ConfigOrigin::config(PathBuf::new())),
-            conda_environment: Some(ConfigOrigin::config("".to_owned())),
+            interpreters: Interpreters {
+                python_interpreter: Some(ConfigOrigin::config(PathBuf::new())),
+                conda_environment: Some(ConfigOrigin::config("".to_owned())),
+                skip_interpreter_query: false,
+            },
             ..Default::default()
         };
 
@@ -1467,19 +1464,26 @@ mod tests {
     #[test]
     fn test_interpreter_not_queried_with_skip_interpreter_query() {
         let mut config = ConfigFile {
-            skip_interpreter_query: true,
+            interpreters: Interpreters {
+                skip_interpreter_query: true,
+                ..Default::default()
+            },
             ..Default::default()
         };
 
         config.configure();
-        assert!(config.python_interpreter.is_none());
-        assert!(config.conda_environment.is_none());
+        assert!(config.interpreters.python_interpreter.is_none());
+        assert!(config.interpreters.conda_environment.is_none());
     }
 
     #[test]
     fn test_serializing_config_origins() {
         let mut config = ConfigFile {
-            python_interpreter: Some(ConfigOrigin::config(PathBuf::from("abcd"))),
+            interpreters: Interpreters {
+                python_interpreter: Some(ConfigOrigin::config(PathBuf::from("abcd"))),
+                conda_environment: None,
+                skip_interpreter_query: false,
+            },
             project_includes: ConfigFile::default_project_includes(),
             project_excludes: ConfigFile::default_project_excludes(),
             ..Default::default()
@@ -1487,12 +1491,12 @@ mod tests {
         let reparsed = ConfigFile::parse_config(&toml::to_string(&config).unwrap()).unwrap();
         assert_eq!(reparsed, config);
 
-        config.python_interpreter = Some(ConfigOrigin::auto(PathBuf::from("abcd")));
+        config.interpreters.python_interpreter = Some(ConfigOrigin::auto(PathBuf::from("abcd")));
         let reparsed = ConfigFile::parse_config(&toml::to_string(&config).unwrap()).unwrap();
-        assert_eq!(reparsed.python_interpreter, None);
+        assert_eq!(reparsed.interpreters.python_interpreter, None);
 
-        config.python_interpreter = Some(ConfigOrigin::cli(PathBuf::from("abcd")));
+        config.interpreters.python_interpreter = Some(ConfigOrigin::cli(PathBuf::from("abcd")));
         let reparsed = ConfigFile::parse_config(&toml::to_string(&config).unwrap()).unwrap();
-        assert_eq!(reparsed.python_interpreter, None);
+        assert_eq!(reparsed.interpreters.python_interpreter, None);
     }
 }

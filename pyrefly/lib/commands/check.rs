@@ -586,21 +586,23 @@ impl Args {
             config.python_environment.site_package_path = Some(x.clone());
         }
 
-        if self.config_override.skip_interpreter_query || config.skip_interpreter_query {
-            config.skip_interpreter_query = true;
-            config.python_interpreter = None;
-            config.conda_environment = None;
+        if self.config_override.skip_interpreter_query || config.interpreters.skip_interpreter_query
+        {
+            config.interpreters.skip_interpreter_query = true;
+            config.interpreters.python_interpreter = None;
+            config.interpreters.conda_environment = None;
         }
         if let Some(conda_environment) = &self.config_override.conda_environment {
-            config.conda_environment = Some(ConfigOrigin::cli(conda_environment.clone()));
-            config.python_interpreter = None;
+            config.interpreters.conda_environment =
+                Some(ConfigOrigin::cli(conda_environment.clone()));
+            config.interpreters.python_interpreter = None;
         }
         if let Some(x) = &self.config_override.typeshed_path {
             config.typeshed_path = Some(x.clone());
         }
         if let Some(x) = &self.config_override.python_interpreter {
-            config.python_interpreter = Some(ConfigOrigin::cli(x.clone()));
-            config.conda_environment = None;
+            config.interpreters.python_interpreter = Some(ConfigOrigin::cli(x.clone()));
+            config.interpreters.conda_environment = None;
         }
         if let Some(x) = &self.config_override.use_untyped_imports {
             config.use_untyped_imports = *x;
