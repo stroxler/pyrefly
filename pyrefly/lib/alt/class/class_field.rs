@@ -93,6 +93,27 @@ impl ClassFieldInitialization {
     }
 }
 
+#[derive(Clone, Debug, TypeEq, VisitMut, PartialEq, Eq)]
+pub enum ClassFieldDefinedBy {
+    ClassBody,
+    Method,
+}
+
+impl Display for ClassFieldDefinedBy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ClassBody => write!(f, "defined by class body"),
+            Self::Method => write!(f, "defined by method"),
+        }
+    }
+}
+
+impl ClassFieldDefinedBy {
+    fn recursive() -> Self {
+        ClassFieldDefinedBy::ClassBody
+    }
+}
+
 /// Raw information about an attribute declared somewhere in a class. We need to
 /// know whether it is initialized in the class body in order to determine
 /// both visibility rules and whether method binding should be performed.
@@ -108,6 +129,7 @@ enum ClassFieldInner {
         ty: Type,
         annotation: Option<Annotation>,
         initialization: ClassFieldInitialization,
+        defined_by: ClassFieldDefinedBy,
         /// The reason this field is read-only. `None` indicates it is read-write.
         read_only_reason: Option<ReadOnlyReason>,
         // Descriptor getter method, if there is one. `None` indicates no getter.
@@ -133,6 +155,7 @@ impl ClassField {
         ty: Type,
         annotation: Option<Annotation>,
         initialization: ClassFieldInitialization,
+        defined_by: ClassFieldDefinedBy,
         read_only_reason: Option<ReadOnlyReason>,
         descriptor_getter: Option<Type>,
         descriptor_setter: Option<Type>,
@@ -142,6 +165,7 @@ impl ClassField {
             ty,
             annotation,
             initialization,
+            defined_by,
             read_only_reason,
             descriptor_getter,
             descriptor_setter,
@@ -188,6 +212,7 @@ impl ClassField {
             ty,
             annotation: None,
             initialization: ClassFieldInitialization::Class(None),
+            defined_by: ClassFieldDefinedBy::ClassBody,
             read_only_reason: None,
             descriptor_getter: None,
             descriptor_setter: None,
@@ -200,6 +225,7 @@ impl ClassField {
             ty: Type::any_implicit(),
             annotation: None,
             initialization: ClassFieldInitialization::recursive(),
+            defined_by: ClassFieldDefinedBy::recursive(),
             read_only_reason: None,
             descriptor_getter: None,
             descriptor_setter: None,
@@ -219,6 +245,7 @@ impl ClassField {
                 ty,
                 annotation,
                 initialization,
+                defined_by,
                 read_only_reason,
                 descriptor_getter,
                 descriptor_setter,
@@ -227,6 +254,7 @@ impl ClassField {
                 ty: instance.instantiate_member(ty.clone()),
                 annotation: annotation.clone(),
                 initialization: initialization.clone(),
+                defined_by: defined_by.clone(),
                 read_only_reason: read_only_reason.clone(),
                 descriptor_getter: descriptor_getter
                     .as_ref()
@@ -434,6 +462,15 @@ impl ClassField {
                 }
                 flags
             }
+        }
+    }
+
+    pub fn is_defined_on_class_body(&self) -> bool {
+        match &self.0 {
+            ClassFieldInner::Simple { defined_by, .. } => match defined_by {
+                ClassFieldDefinedBy::ClassBody => true,
+                ClassFieldDefinedBy::Method => false,
+            },
         }
     }
 }
@@ -772,6 +809,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     errors,
                 ),
         };
+        let defined_by = match initial_value {
+            ClassFieldInitialValue::Class(_) | ClassFieldInitialValue::Instance(None) => {
+                ClassFieldDefinedBy::ClassBody
+            }
+            ClassFieldInitialValue::Instance(Some(_)) => ClassFieldDefinedBy::Method,
+        };
 
         // Enum handling:
         // - Check whether the field is a member (which depends only on its type and name)
@@ -846,6 +889,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ty,
             direct_annotation.cloned(),
             initialization,
+            defined_by,
             read_only_reason,
             descriptor_getter,
             descriptor_setter,
@@ -970,6 +1014,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if field.is_dataclass_kwonly_marker() {
             DataclassMember::KwOnlyMarker
         } else if field.is_class_var()
+            || !field.is_defined_on_class_body()
             || (!field.has_explicit_annotation()
                 && self
                     .get_inherited_annotation(cls, name)
