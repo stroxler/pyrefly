@@ -169,11 +169,15 @@ mod test {
     fn setup_test_dir() -> TempDir {
         let tempdir = tempdir().unwrap();
         let root = tempdir.path();
+        let interpreter_suffix = if cfg!(windows) { ".exe" } else { "" };
         TestPath::setup_test_directory(
             root,
             vec![TestPath::dir(
                 "venv",
-                vec![TestPath::file("python3"), TestPath::file("pyvenv.cfg")],
+                vec![
+                    TestPath::file(&format!("python3{}", interpreter_suffix)),
+                    TestPath::file("pyvenv.cfg"),
+                ],
             )],
         );
         tempdir
@@ -231,10 +235,15 @@ mod test {
         let tempdir = setup_test_dir();
 
         let interpreters = Interpreters::default();
+        let interpreter_suffix = if cfg!(windows) { ".exe" } else { "" };
 
         assert_eq!(
             interpreters.find_interpreter(Some(tempdir.path())).unwrap(),
-            ConfigOrigin::auto(tempdir.path().join("venv/python3"))
+            ConfigOrigin::auto(
+                tempdir
+                    .path()
+                    .join(format!("venv/python3{}", interpreter_suffix))
+            )
         );
     }
 }
