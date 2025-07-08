@@ -38,6 +38,7 @@ use crate::config::environment::environment::SitePackagePathSource;
 use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::finder::ConfigError;
+use crate::config::util::ConfigOrigin;
 use crate::module::bundled::typeshed;
 use crate::module::finder::find_module_in_search_path;
 use crate::module::finder::find_module_in_site_package_path;
@@ -238,15 +239,15 @@ pub struct ConfigFile {
     /// `python_platform`, or `site_package_path` if any of the values are missing.
     #[serde(
                  default,
-                 skip_serializing_if = "Option::is_none",
+                 skip_serializing_if = "ConfigOrigin::should_skip_serializing_option",
                  // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
                  // alias while we migrate existing fields from snake case to kebab case.
                  alias = "python_interpreter"
              )]
-    pub python_interpreter: Option<PathBuf>,
+    pub python_interpreter: Option<ConfigOrigin<PathBuf>>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub conda_environment: Option<String>,
+    pub conda_environment: Option<ConfigOrigin<String>>,
 
     /// Should we do any querying of an interpreter?
     #[serde(
@@ -563,13 +564,16 @@ impl ConfigFile {
         let mut configure_errors = Vec::new();
 
         if !self.skip_interpreter_query {
-            let find_interpreter = || -> anyhow::Result<PathBuf> {
+            let find_interpreter = || -> anyhow::Result<ConfigOrigin<PathBuf>> {
                 if let Some(interpreter) = self.python_interpreter.clone() {
                     Ok(interpreter)
                 } else if let Some(conda_env) = &self.conda_environment {
-                    conda::find_interpreter_from_env(conda_env)
+                    conda_env
+                        .as_deref()
+                        .map(conda::find_interpreter_from_env)
+                        .transpose_err()
                 } else if let Some(interpreter) =
-                    PythonEnvironment::find_interpreter(self.source.root())
+                    PythonEnvironment::find_interpreter(self.source.root()).map(ConfigOrigin::auto)
                 {
                     Ok(interpreter)
                 } else {
@@ -679,8 +683,8 @@ impl ConfigFile {
         self.project_excludes = self.project_excludes.clone().from_root(config_root);
         self.python_interpreter = self
             .python_interpreter
-            .as_ref()
-            .map(|i| config_root.join(i));
+            .take()
+            .map(|s| s.map(|i| config_root.join(i)));
         self.sub_configs
             .iter_mut()
             .for_each(|c| c.rewrite_with_path_to_config(config_root));
@@ -881,7 +885,7 @@ mod tests {
                         .interpreter_site_package_path
                         .clone(),
                 },
-                python_interpreter: Some(PathBuf::from("venv/my/python")),
+                python_interpreter: Some(ConfigOrigin::config(PathBuf::from("venv/my/python"))),
                 skip_interpreter_query: false,
                 conda_environment: None,
                 root: ConfigBase {
@@ -1122,7 +1126,7 @@ mod tests {
             import_root: None,
             fallback_search_path: Vec::new(),
             python_environment: python_environment.clone(),
-            python_interpreter: Some(PathBuf::from(interpreter.clone())),
+            python_interpreter: Some(ConfigOrigin::config(PathBuf::from(interpreter.clone()))),
             conda_environment: None,
             skip_interpreter_query: false,
             root: Default::default(),
@@ -1156,7 +1160,7 @@ mod tests {
             source: ConfigSource::Synthetic,
             project_includes: Globs::new(project_includes_vec),
             project_excludes: Globs::new(project_excludes_vec),
-            python_interpreter: Some(test_path.join(interpreter)),
+            python_interpreter: Some(ConfigOrigin::config(test_path.join(interpreter))),
             conda_environment: None,
             skip_interpreter_query: false,
             search_path_from_args: Vec::new(),
@@ -1455,8 +1459,8 @@ mod tests {
     #[test]
     fn test_python_interpreter_conda_environment() {
         let mut config = ConfigFile {
-            python_interpreter: Some(PathBuf::new()),
-            conda_environment: Some("".to_owned()),
+            python_interpreter: Some(ConfigOrigin::config(PathBuf::new())),
+            conda_environment: Some(ConfigOrigin::config("".to_owned())),
             ..Default::default()
         };
 
@@ -1479,5 +1483,25 @@ mod tests {
         config.configure();
         assert!(config.python_interpreter.is_none());
         assert!(config.conda_environment.is_none());
+    }
+
+    #[test]
+    fn test_serializing_config_origins() {
+        let mut config = ConfigFile {
+            python_interpreter: Some(ConfigOrigin::config(PathBuf::from("abcd"))),
+            project_includes: ConfigFile::default_project_includes(),
+            project_excludes: ConfigFile::default_project_excludes(),
+            ..Default::default()
+        };
+        let reparsed = ConfigFile::parse_config(&toml::to_string(&config).unwrap()).unwrap();
+        assert_eq!(reparsed, config);
+
+        config.python_interpreter = Some(ConfigOrigin::auto(PathBuf::from("abcd")));
+        let reparsed = ConfigFile::parse_config(&toml::to_string(&config).unwrap()).unwrap();
+        assert_eq!(reparsed.python_interpreter, None);
+
+        config.python_interpreter = Some(ConfigOrigin::cli(PathBuf::from("abcd")));
+        let reparsed = ConfigFile::parse_config(&toml::to_string(&config).unwrap()).unwrap();
+        assert_eq!(reparsed.python_interpreter, None);
     }
 }

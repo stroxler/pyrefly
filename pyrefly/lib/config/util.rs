@@ -130,7 +130,6 @@ impl<T> Deref for ConfigOrigin<T> {
 }
 
 impl<T> DerefMut for ConfigOrigin<T> {
-    #[allow(unused)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             Self::CommandLine(value) | Self::ConfigFile(value) | Self::Auto(value) => value,
@@ -139,7 +138,6 @@ impl<T> DerefMut for ConfigOrigin<T> {
 }
 
 impl<T: Deref> ConfigOrigin<T> {
-    #[allow(unused)]
     pub fn as_deref(&self) -> ConfigOrigin<&<T as Deref>::Target> {
         self.as_ref().map(|t| t.deref())
     }
@@ -147,25 +145,21 @@ impl<T: Deref> ConfigOrigin<T> {
 
 impl<T> ConfigOrigin<T> {
     /// Construct a new [`ConfigOrigin::CommandLine`] with the given value.
-    #[allow(unused)]
     pub fn cli(value: T) -> Self {
         Self::CommandLine(value)
     }
 
     /// Construct a new [`ConfigOrigin::ConfigFile`] with the given value.
-    #[allow(unused)]
     pub fn config(value: T) -> Self {
         Self::ConfigFile(value)
     }
 
     /// Construct a new [`ConfigOrigin::Auto`] with the given value.
-    #[allow(unused)]
     pub fn auto(value: T) -> Self {
         Self::Auto(value)
     }
 
     /// Consume the [`ConfigOrigin`], returning the contained value.
-    #[allow(unused)]
     pub fn get(self) -> T {
         match self {
             Self::CommandLine(value) | Self::ConfigFile(value) | Self::Auto(value) => value,
@@ -175,7 +169,6 @@ impl<T> ConfigOrigin<T> {
     /// Consume the [`ConfigOrigin`], mapping the internal value with the
     /// given function, and inserting it into a new [`ConfigOrigin`] of the same
     /// variant.
-    #[allow(unused)]
     pub fn map<U, F>(self, f: F) -> ConfigOrigin<U>
     where
         F: FnOnce(T) -> U,
@@ -187,7 +180,6 @@ impl<T> ConfigOrigin<T> {
         }
     }
 
-    #[allow(unused)]
     fn as_ref(&self) -> ConfigOrigin<&T> {
         match *self {
             ConfigOrigin::ConfigFile(ref value) => ConfigOrigin::ConfigFile(value),
@@ -199,7 +191,6 @@ impl<T> ConfigOrigin<T> {
     /// Determine if this [`Option<ConfigOrigin>`] should bee output when serializing.
     /// We only serialize if the value is `Some(ConfigFile)`. All other
     /// [`Option`] and [`ConfigOrigin`] variants are not serialized.
-    #[allow(unused)]
     pub fn should_skip_serializing_option(origin: &Option<Self>) -> bool {
         match origin {
             Some(Self::ConfigFile(_)) => false,
@@ -211,7 +202,6 @@ impl<T> ConfigOrigin<T> {
 impl<T, E> ConfigOrigin<Result<T, E>> {
     /// Swap a ConfigOrigin<Result<T, E>>'s [`ConfigOrigin`] and [`Result`] types,
     /// turning it into a `Result<ConfigOrigin<T>, E>`.
-    #[allow(unused)]
     pub fn transpose_err(self) -> Result<ConfigOrigin<T>, E> {
         match self {
             ConfigOrigin::ConfigFile(Ok(value)) => Ok(ConfigOrigin::ConfigFile(value)),

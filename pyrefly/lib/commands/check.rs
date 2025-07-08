@@ -54,6 +54,7 @@ use crate::config::config::validate_path;
 use crate::config::environment::environment::SitePackagePathSource;
 use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
+use crate::config::util::ConfigOrigin;
 use crate::error::error::Error;
 use crate::error::error::print_error_counts;
 use crate::error::kind::Severity;
@@ -593,14 +594,14 @@ impl Args {
             config.conda_environment = None;
         }
         if let Some(conda_environment) = &self.config_override.conda_environment {
-            config.conda_environment = Some(conda_environment.clone());
+            config.conda_environment = Some(ConfigOrigin::cli(conda_environment.clone()));
             config.python_interpreter = None;
         }
         if let Some(x) = &self.config_override.typeshed_path {
             config.typeshed_path = Some(x.clone());
         }
         if let Some(x) = &self.config_override.python_interpreter {
-            config.python_interpreter = Some(x.clone());
+            config.python_interpreter = Some(ConfigOrigin::cli(x.clone()));
             config.conda_environment = None;
         }
         if let Some(x) = &self.config_override.use_untyped_imports {

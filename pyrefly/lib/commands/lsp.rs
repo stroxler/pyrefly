@@ -178,6 +178,7 @@ use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
+use crate::config::util::ConfigOrigin;
 use crate::error::error::Error;
 use crate::error::kind::Severity;
 use crate::module::module_info::ModuleInfo;
@@ -508,7 +509,7 @@ impl Workspaces {
                     {
                         let site_package_path = config.python_environment.site_package_path.take();
                         env.site_package_path = site_package_path;
-                        config.python_interpreter = Some(interpreter);
+                        config.python_interpreter = Some(ConfigOrigin::auto(interpreter));
                         config.python_environment = env;
                     }
                 })
