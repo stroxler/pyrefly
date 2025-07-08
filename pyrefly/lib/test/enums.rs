@@ -353,3 +353,20 @@ class A(enum.IntEnum):
 assert_type(A.B, Literal[A.B])
     "#,
 );
+
+// See https://github.com/facebook/pyrefly/issues/622
+//
+// This issue is worse than it looks, because any error analyzing a base class produces
+// `Any`, which then turns into a type error complaining about enums.
+testcase!(
+    bug =
+        "Relying on is_subset_eq for enum metaclass can cause false positives due to gradual types",
+    test_metaclass_subtype_of_any_false_positive,
+    r#"
+from typing import Any
+class CustomMetaclass(Any):
+    pass
+class C[T](metaclass=CustomMetaclass): # E: Enums may not be generic
+    x: T
+    "#,
+);
