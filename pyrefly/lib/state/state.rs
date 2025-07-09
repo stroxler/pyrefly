@@ -136,6 +136,9 @@ struct ModuleDataMut {
     handle: Handle,
     config: RwLock<ArcId<ConfigFile>>,
     state: UpgradeLock<Step, ModuleDataInner>,
+    /// Invariant: If `h1` depends on `h2` then we must have both of:
+    /// data[h1].deps[h2.module].contains(h2)
+    /// data[h2].rdeps.contains(h1)
     deps: RwLock<HashMap<ModuleName, SmallSet1<Handle>, BuildNoHash>>,
     /// The reverse dependencies of this module. This is used to invalidate on change.
     /// Note that if we are only running once, e.g. on the command line, this isn't valuable.
@@ -1483,7 +1486,8 @@ impl<'a> TransactionHandle<'a> {
         };
         drop(write);
         if did_insert {
-            res.rdeps.lock().insert(self.module_data.handle.dupe());
+            let inserted = res.rdeps.lock().insert(self.module_data.handle.dupe());
+            assert!(inserted);
         }
         Ok(res)
     }
