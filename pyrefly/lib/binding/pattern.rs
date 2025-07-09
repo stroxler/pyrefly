@@ -6,6 +6,7 @@
  */
 
 use pyrefly_python::ast::Ast;
+use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::ExprStringLiteral;
@@ -94,6 +95,7 @@ impl<'a> BindingsBuilder<'a> {
                     .count();
                 let mut subject_idx = subject_idx;
                 let synthesized_len = Expr::NumberLiteral(ExprNumberLiteral {
+                    node_index: AtomicNodeIndex::dummy(),
                     range: x.range,
                     value: Number::Int(Int::from(num_non_star_patterns as u64)),
                 });
@@ -236,6 +238,7 @@ impl<'a> BindingsBuilder<'a> {
                     });
                 x.arguments.keywords.into_iter().for_each(
                     |PatternKeyword {
+                         node_index: _,
                          range: _,
                          attr,
                          pattern,

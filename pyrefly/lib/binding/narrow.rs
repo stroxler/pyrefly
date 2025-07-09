@@ -41,8 +41,8 @@ use crate::types::facet::FacetChain;
 use crate::types::facet::FacetKind;
 use crate::types::types::Type;
 
-assert_words!(AtomicNarrowOp, 10);
-assert_words!(NarrowOp, 11);
+assert_words!(AtomicNarrowOp, 11);
+assert_words!(NarrowOp, 12);
 
 #[derive(Clone, Debug)]
 pub enum AtomicNarrowOp {
@@ -329,6 +329,7 @@ impl NarrowOps {
     pub fn from_expr(builder: &BindingsBuilder, test: Option<&Expr>) -> Self {
         match test {
             Some(Expr::Compare(ExprCompare {
+                node_index: _,
                 range: _,
                 left,
                 ops: cmp_ops,
@@ -383,6 +384,7 @@ impl NarrowOps {
                 }
             }
             Some(Expr::BoolOp(ExprBoolOp {
+                node_index: _,
                 range: _,
                 op,
                 values,
@@ -399,19 +401,16 @@ impl NarrowOps {
                 narrow_ops
             }
             Some(Expr::UnaryOp(ExprUnaryOp {
+                node_index: _,
                 range: _,
                 op: UnaryOp::Not,
                 operand: e,
             })) => Self::from_expr(builder, Some(e)).negate(),
             Some(Expr::Call(ExprCall {
+                node_index: _,
                 range,
                 func,
-                arguments:
-                    args @ Arguments {
-                        range: _,
-                        args: posargs,
-                        keywords: _,
-                    },
+                arguments: args @ Arguments { args: posargs, .. },
             })) if !posargs.is_empty() => {
                 // This may be a function call that narrows the type of its first argument. Record
                 // it as a possible narrowing operation that we'll resolve in the answers phase.

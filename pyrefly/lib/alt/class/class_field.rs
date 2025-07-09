@@ -970,6 +970,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // If this field was created via a call to a dataclass field specifier, extract field flags from the call.
                 if let Some(dm) = metadata.dataclass_metadata()
                     && let Expr::Call(ExprCall {
+                        node_index: _,
                         range: _,
                         func,
                         arguments: Arguments { keywords, .. },

@@ -87,19 +87,19 @@ assert_words!(KeyYield, 1);
 assert_words!(KeyYieldFrom, 1);
 assert_words!(KeyFunction, 1);
 
-assert_words!(Binding, 9);
-assert_words!(BindingExpect, 9);
-assert_words!(BindingAnnotation, 13);
-assert_words!(BindingClass, 18);
-assert_words!(BindingTParams, 9);
+assert_words!(Binding, 11);
+assert_words!(BindingExpect, 11);
+assert_words!(BindingAnnotation, 15);
+assert_words!(BindingClass, 20);
+assert_words!(BindingTParams, 10);
 assert_words!(BindingClassMetadata, 8);
 assert_bytes!(BindingClassMro, 4);
-assert_words!(BindingClassField, 26);
+assert_words!(BindingClassField, 30);
 assert_bytes!(BindingClassSynthesizedFields, 4);
 assert_bytes!(BindingLegacyTypeParam, 4);
-assert_words!(BindingYield, 3);
-assert_words!(BindingYieldFrom, 3);
-assert_words!(BindingFunction, 21);
+assert_words!(BindingYield, 4);
+assert_words!(BindingYieldFrom, 4);
+assert_words!(BindingFunction, 22);
 
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AnyIdx {

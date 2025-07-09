@@ -14,6 +14,7 @@ use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
+use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
@@ -81,6 +82,7 @@ impl StaticInfo {
                     // We are constructing an identifier, but it must have been one that we saw earlier
                     assert_ne!(self.loc, TextRange::default());
                     Key::Definition(ShortIdentifier::new(&Identifier {
+                        node_index: AtomicNodeIndex::dummy(),
                         id: name.clone(),
                         range: self.loc,
                     }))

@@ -8,6 +8,7 @@
 use num_traits::ToPrimitive;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
+use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::ExprStringLiteral;
@@ -615,6 +616,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // We synthesize a slice expression for the subscript here
                 // The range doesn't matter, since narrowing logic swallows type errors
                 let synthesized_slice = Expr::NumberLiteral(ExprNumberLiteral {
+                    node_index: AtomicNodeIndex::dummy(),
                     range,
                     value: Number::Int(Int::from(*idx as u64)),
                 });
@@ -644,8 +646,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // We synthesize a slice expression for the subscript here
                 // The range doesn't matter, since narrowing logic swallows type errors
                 let synthesized_slice = Expr::StringLiteral(ExprStringLiteral {
+                    node_index: AtomicNodeIndex::dummy(),
                     range,
                     value: StringLiteralValue::single(StringLiteral {
+                        node_index: AtomicNodeIndex::dummy(),
                         range,
                         value: key.clone().into_boxed_str(),
                         flags: StringLiteralFlags::empty(),

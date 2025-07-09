@@ -7,6 +7,7 @@
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
+use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprName;
@@ -549,6 +550,7 @@ impl<'a> BindingsBuilder<'a> {
                     // Try and continue as much as we can, by throwing away the type or just binding to error
                     match x.value {
                         Some(value) => self.stmt(Stmt::Assign(StmtAssign {
+                            node_index: AtomicNodeIndex::dummy(),
                             range: x.range,
                             targets: vec![target],
                             value,

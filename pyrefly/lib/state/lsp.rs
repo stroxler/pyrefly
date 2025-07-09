@@ -564,6 +564,7 @@ impl<'a> Transaction<'a> {
                 let key = Key::BoundName(ShortIdentifier::new(&id));
                 if self.get_bindings(handle)?.is_valid_key(&key) {
                     if let Some(ExprCall {
+                        node_index: _,
                         range: _,
                         func,
                         arguments,
@@ -655,6 +656,7 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::Attribute { range, .. },
             }) => {
                 if let Some(ExprCall {
+                    node_index: _,
                     range: _,
                     func,
                     arguments,
@@ -1688,9 +1690,7 @@ impl<'a> Transaction<'a> {
                 let callee = callee_at(mod_module, range.start());
                 match callee {
                     Some(ExprCall {
-                        range: _,
-                        func: _,
-                        arguments: args,
+                        arguments: args, ..
                     }) => args
                         .args
                         .iter()
