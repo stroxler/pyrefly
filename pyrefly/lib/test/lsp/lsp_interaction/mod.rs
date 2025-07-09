@@ -12,5 +12,6 @@ mod completion;
 mod definition;
 mod hover;
 mod lsp_interaction;
+mod references;
 mod rename;
 mod util;
