@@ -7,5 +7,6 @@
 
 #![cfg(test)]
 
+mod basic;
 mod lsp_interaction;
 mod util;
