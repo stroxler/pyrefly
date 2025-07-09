@@ -187,22 +187,24 @@ impl Bindings {
         self.key_to_idx_hashed(Hashed::new(k))
     }
 
+    pub fn key_to_idx_hashed_opt<K: Keyed>(&self, k: Hashed<&K>) -> Option<Idx<K>>
+    where
+        BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
+    {
+        self.0.table.get::<K>().0.key_to_idx_hashed(k)
+    }
+
     pub fn key_to_idx_hashed<K: Keyed>(&self, k: Hashed<&K>) -> Idx<K>
     where
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
-        self.0
-            .table
-            .get::<K>()
-            .0
-            .key_to_idx_hashed(k)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Internal error: key not found, module `{}`, path `{}`, key {k:?}",
-                    self.0.module_info.name(),
-                    self.0.module_info.path(),
-                )
-            })
+        self.key_to_idx_hashed_opt(k).unwrap_or_else(|| {
+            panic!(
+                "Internal error: key not found, module `{}`, path `{}`, key {k:?}",
+                self.0.module_info.name(),
+                self.0.module_info.path(),
+            )
+        })
     }
 
     pub fn get<K: Keyed>(&self, idx: Idx<K>) -> &K::Value

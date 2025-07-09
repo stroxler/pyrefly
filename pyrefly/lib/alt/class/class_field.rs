@@ -1397,13 +1397,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         include_initvar: bool,
     ) -> Option<Arc<ClassField>> {
-        if cls.contains(name) {
-            let field = self.get_from_class(cls, &KeyClassField(cls.index(), name.clone()));
-            if !include_initvar && field.is_init_var() {
-                None
-            } else {
-                Some(field)
-            }
+        if cls.contains(name)
+            && let Some(field) = self.get_from_class(cls, &KeyClassField(cls.index(), name.clone()))
+            && (include_initvar || !field.is_init_var())
+        {
+            Some(field)
         } else {
             None
         }
@@ -1421,10 +1419,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             Some(field)
         } else {
-            let synthesized_fields =
-                self.get_from_class(cls, &KeyClassSynthesizedFields(cls.index()));
-            let synth = synthesized_fields.get(name);
-            synth.map(|f| f.inner.dupe())
+            Some(
+                self.get_from_class(cls, &KeyClassSynthesizedFields(cls.index()))?
+                    .get(name)?
+                    .inner
+                    .dupe(),
+            )
         }
     }
 

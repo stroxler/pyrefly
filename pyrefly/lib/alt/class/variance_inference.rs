@@ -43,7 +43,7 @@ use crate::types::types::Type;
 // We need to visit the types that we know are required to be visited for variance inference, and appear in the context of a class with type variables.
 // For example, SelfType is intentionally skipped and should not be visited because it should not be included in the variance calculation.
 
-#[derive(Debug, Clone, PartialEq, Eq, TypeEq)]
+#[derive(Debug, Clone, PartialEq, Eq, TypeEq, Default)]
 pub struct VarianceMap(pub SmallMap<Name, Variance>);
 
 impl VisitMut<Type> for VarianceMap {

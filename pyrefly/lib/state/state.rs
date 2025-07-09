@@ -28,6 +28,7 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use enum_iterator::Sequence;
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -941,14 +942,15 @@ impl<'a> Transaction<'a> {
         }
 
         let t = self.lookup_answer(module_data.dupe(), &KeyExport(name.clone()), thread_state);
-        let class = match t.arc_clone() {
-            Type::ClassDef(cls) => Some(cls),
+        let class = match t.as_deref() {
+            Some(Type::ClassDef(cls)) => Some(cls.dupe()),
             ty => {
                 self.add_error(
                     &module_data,
                     TextRange::default(),
                     format!(
-                        "Did not expect non-class type `{ty}` for stdlib import `{}.{name}`",
+                        "Did not expect non-class type `{}` for stdlib import `{}.{name}`",
+                        ty.map_or_else(|| "<KeyError>".to_owned(), |t| t.to_string()),
                         module_data.handle.module()
                     ),
                     ErrorKind::MissingModuleAttribute,
@@ -959,9 +961,9 @@ impl<'a> Transaction<'a> {
         class.map(|class| {
             let tparams = match class.precomputed_tparams() {
                 Some(tparams) => tparams.dupe(),
-                None => {
-                    self.lookup_answer(module_data.dupe(), &KeyTParams(class.index()), thread_state)
-                }
+                None => self
+                    .lookup_answer(module_data.dupe(), &KeyTParams(class.index()), thread_state)
+                    .unwrap_or_default(),
             };
             (class, tparams)
         })
@@ -978,7 +980,7 @@ impl<'a> Transaction<'a> {
         module_data: ArcId<ModuleDataMut>,
         key: &K,
         thread_state: &ThreadState,
-    ) -> Arc<<K as Keyed>::Answer>
+    ) -> Option<Arc<<K as Keyed>::Answer>>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
@@ -991,7 +993,7 @@ impl<'a> Transaction<'a> {
         for _ in 0..2 {
             let lock = module_data.state.read();
             if let Some(solutions) = &lock.steps.solutions {
-                return solutions.get_hashed(key).dupe();
+                return solutions.get_hashed_opt(key).duped();
             } else if let Some(answers) = &lock.steps.answers {
                 let load = lock.steps.load.dupe().unwrap();
                 let answers = answers.dupe();
@@ -1517,7 +1519,7 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
         path: Option<&ModulePath>,
         k: &K,
         thread_state: &ThreadState,
-    ) -> Arc<K::Answer>
+    ) -> Option<Arc<K::Answer>>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
@@ -1526,7 +1528,11 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
         // The unwrap is safe because we must have said there were no exports,
         // so no one can be trying to get at them
         let module_data = self.get_module(module, path).unwrap();
-        self.transaction.lookup_answer(module_data, k, thread_state)
+        let res = self.transaction.lookup_answer(module_data, k, thread_state);
+        if res.is_none() {
+            debug!("LookupAnswer::get failed to find key, {module} {k:?} (concurrent changes?)");
+        }
+        res
     }
 }
 

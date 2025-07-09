@@ -614,7 +614,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         module: ModuleName,
         path: Option<&ModulePath>,
         k: &K,
-    ) -> Arc<K::Answer>
+    ) -> Option<Arc<K::Answer>>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
@@ -623,7 +623,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if module == self.module_info().name()
             && path.is_none_or(|path| path == self.module_info().path())
         {
-            self.get(k)
+            Some(self.get(k))
         } else {
             self.answers.get(module, path, k, self.thread_state)
         }
@@ -635,10 +635,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         path: Option<&ModulePath>,
         k: &KeyExport,
     ) -> Arc<Type> {
-        self.get_from_module(module, path, k)
+        self.get_from_module(module, path, k).unwrap_or_else(|| {
+            panic!("We should have checked Exports before calling this, {module} {k:?}")
+        })
     }
 
-    pub fn get_from_class<K: Solve<Ans> + Exported>(&self, cls: &Class, k: &K) -> Arc<K::Answer>
+    /// Might return None if the class is no longer present on the underlying module.
+    pub fn get_from_class<K: Solve<Ans> + Exported>(
+        &self,
+        cls: &Class,
+        k: &K,
+    ) -> Option<Arc<K::Answer>>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
@@ -661,6 +668,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
         self.get_idx(self.bindings().key_to_idx_hashed(k))
+    }
+
+    pub fn get_hashed_opt<K: Solve<Ans>>(&self, k: Hashed<&K>) -> Option<Arc<K::Answer>>
+    where
+        AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
+        BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
+    {
+        Some(self.get_idx(self.bindings().key_to_idx_hashed_opt(k)?))
     }
 
     pub fn create_recursive(&self, binding: &Binding) -> Var {

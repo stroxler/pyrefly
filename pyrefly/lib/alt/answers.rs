@@ -233,11 +233,18 @@ impl Solutions {
         self.get_hashed(Hashed::new(key))
     }
 
+    pub fn get_hashed_opt<K: Exported>(&self, key: Hashed<&K>) -> Option<&Arc<<K as Keyed>::Answer>>
+    where
+        SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
+    {
+        self.table.get().get_hashed(key)
+    }
+
     pub fn get_hashed<K: Exported>(&self, key: Hashed<&K>) -> &Arc<<K as Keyed>::Answer>
     where
         SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
     {
-        self.table.get().get_hashed(key).unwrap_or_else(|| {
+        self.get_hashed_opt(key).unwrap_or_else(|| {
             panic!(
                 "Internal error: solution not found, module {}, path {}, key {:?}",
                 self.module_info.name(),
@@ -319,13 +326,16 @@ impl Solutions {
 }
 
 pub trait LookupAnswer: Sized {
+    /// Look up the value. If present, the `path` is a hint which can optimise certain cases.
+    ///
+    /// Return None if the file is undergoing concurrent modification.
     fn get<K: Solve<Self> + Exported>(
         &self,
         module: ModuleName,
         path: Option<&ModulePath>,
         k: &K,
         stack: &ThreadState,
-    ) -> Arc<K::Answer>
+    ) -> Option<Arc<K::Answer>>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
@@ -506,7 +516,7 @@ impl Answers {
         uniques: &UniqueFactory,
         key: Hashed<&K>,
         thread_state: &ThreadState,
-    ) -> Arc<K::Answer>
+    ) -> Option<Arc<K::Answer>>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
@@ -523,10 +533,10 @@ impl Answers {
             stdlib,
             thread_state,
         );
-        let v = solver.get_hashed(key);
+        let v = solver.get_hashed_opt(key)?;
         let mut vv = (*v).clone();
         vv.visit_mut(&mut |x| self.solver.deep_force_mut(x));
-        Arc::new(vv)
+        Some(Arc::new(vv))
     }
 
     pub fn get_idx<K: Keyed>(&self, k: Idx<K>) -> Option<Arc<K::Answer>>

@@ -158,7 +158,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_class_tparams(&self, class: &Class) -> Arc<TParams> {
         match class.precomputed_tparams() {
             Some(tparams) => tparams.dupe(),
-            None => self.get_from_class(class, &KeyTParams(class.index())),
+            None => self
+                .get_from_class(class, &KeyTParams(class.index()))
+                .unwrap_or_default(),
         }
     }
 }

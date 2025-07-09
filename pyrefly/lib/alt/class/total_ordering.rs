@@ -34,9 +34,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // The first field in the conversion order is the one that we will use to synthesize the method.
         for other_cmp in conversion_order {
             let other_cmp_field = cls.fields().find(|f| **f == *other_cmp);
-            if other_cmp_field.is_some() {
-                let other_cmp_field =
-                    self.get_from_class(cls, &KeyClassField(cls.index(), other_cmp.clone()));
+            if other_cmp_field.is_some()
+                && let Some(other_cmp_field) =
+                    self.get_from_class(cls, &KeyClassField(cls.index(), other_cmp.clone()))
+            {
                 let ty = other_cmp_field.as_named_tuple_type();
                 return ClassSynthesizedField::new(ty);
             }

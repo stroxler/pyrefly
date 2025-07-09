@@ -150,6 +150,8 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
     }
 
     pub fn get_variance_from_class(self, cls: &Class) -> Arc<VarianceMap> {
-        self.0.get_from_class(cls, &KeyVariance(cls.index()))
+        self.0
+            .get_from_class(cls, &KeyVariance(cls.index()))
+            .unwrap_or_default()
     }
 }
