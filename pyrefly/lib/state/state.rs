@@ -24,6 +24,7 @@ use std::sync::Arc;
 use std::sync::MutexGuard;
 use std::sync::RwLockReadGuard;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
@@ -1167,6 +1168,8 @@ impl<'a> Transaction<'a> {
         handles: &[(Handle, Require)],
         old_require: RequireDefault,
     ) -> Result<(), Cancelled> {
+        let run_number = self.data.state.run_count.fetch_add(1, Ordering::SeqCst);
+
         // We first compute all the modules that are either new or have changed.
         // Then we repeatedly compute all the modules who depend on modules that changed.
         // To ensure we guarantee termination, and don't endure more than a linear overhead,
@@ -1175,7 +1178,7 @@ impl<'a> Transaction<'a> {
         let mut changed_twice = SmallSet::new();
 
         for i in 1.. {
-            debug!("Running epoch {i}");
+            debug!("Running epoch {i} of run {run_number}");
             // The first version we use the old require. We use this to trigger require changes,
             // but only once, as after we've done it once, the "old" value will no longer be accessible.
             self.run_step(handles, if i == 1 { Some(old_require) } else { None })?;
@@ -1530,7 +1533,16 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
         let module_data = self.get_module(module, path).unwrap();
         let res = self.transaction.lookup_answer(module_data, k, thread_state);
         if res.is_none() {
-            debug!("LookupAnswer::get failed to find key, {module} {k:?} (concurrent changes?)");
+            let msg = format!(
+                "LookupAnswer::get failed to find key, {module} {k:?} (concurrent changes?)"
+            );
+            if self.transaction.data.state.run_count.load(Ordering::SeqCst) <= 1 {
+                // We failed to find the key, but we are the only one running, and have never had any invalidation.
+                // We should panic.
+                panic!("{msg}");
+            } else {
+                debug!("{msg}");
+            }
         }
         res
     }
@@ -1590,6 +1602,7 @@ pub struct State {
     uniques: UniqueFactory,
     config_finder: ConfigFinder,
     state: RwLock<StateInner>,
+    run_count: AtomicUsize,
     committing_transaction_lock: Mutex<()>,
 }
 
@@ -1600,6 +1613,7 @@ impl State {
             uniques: UniqueFactory::new(),
             config_finder,
             state: RwLock::new(StateInner::new()),
+            run_count: AtomicUsize::new(0),
             committing_transaction_lock: Mutex::new(()),
         }
     }
