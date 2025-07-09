@@ -2137,7 +2137,7 @@ impl Server {
                 self.update_disable_language_services(scope_uri, disable_language_services);
             }
             if let Some(disable_type_errors) = pyrefly.disable_type_errors {
-                self.update_disable_type_errors(scope_uri, disable_type_errors);
+                self.update_disable_type_errors(modified, scope_uri, disable_type_errors);
             }
         }
     }
@@ -2163,15 +2163,24 @@ impl Server {
     }
 
     /// Update typeCheckingMode setting for scope_uri, None if default workspace
-    fn update_disable_type_errors(&self, scope_uri: &Option<Url>, disable_type_errors: bool) {
+    fn update_disable_type_errors(
+        &self,
+        modified: &mut bool,
+        scope_uri: &Option<Url>,
+        disable_type_errors: bool,
+    ) {
         let mut workspaces = self.workspaces.workspaces.write();
         match scope_uri {
             Some(scope_uri) => {
                 if let Some(workspace) = workspaces.get_mut(&scope_uri.to_file_path().unwrap()) {
+                    *modified = true;
                     workspace.disable_type_errors = disable_type_errors;
                 }
             }
-            None => self.workspaces.default.write().disable_type_errors = disable_type_errors,
+            None => {
+                *modified = true;
+                self.workspaces.default.write().disable_type_errors = disable_type_errors
+            }
         }
     }
 
