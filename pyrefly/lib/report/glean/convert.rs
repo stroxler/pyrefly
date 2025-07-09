@@ -6,9 +6,11 @@
  */
 
 use pyrefly_util::visit::Visit;
+use ruff_python_ast::Expr;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtClassDef;
+use ruff_python_ast::StmtFunctionDef;
 use ruff_text_size::TextRange;
 
 use crate::alt::answers::Answers;
@@ -109,19 +111,63 @@ impl Facts {
             .push(self.def_location_fact(python::Definition::cls(cls_definition), cls.range));
     }
 
+    fn function_facts(&mut self, func: &StmtFunctionDef) {
+        let fqname = python::Name::new(self.make_fq_name(func.name.to_string()));
+        let func_declaration = python::FunctionDeclaration::new(fqname);
+
+        let func_definition = python::FunctionDefinition::new(
+            func_declaration.clone(),
+            func.is_async,
+            // TODO(@rubmary) generate additional fields
+            None,
+            vec![],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        self.decl_locations
+            .push(self.decl_location_fact(python::Declaration::func(func_declaration), func.range));
+
+        self.def_locations
+            .push(self.def_location_fact(python::Definition::func(func_definition), func.range));
+    }
+
+    fn variable_facts(&mut self, expr: &Expr, _type_info: Option<&Expr>) {
+        // TODO(@rubmary) add type_info
+        if let Some(name) = expr.as_name_expr() {
+            let fqname = python::Name::new(self.make_fq_name(name.id.to_string()));
+            let variable_declaration = python::VariableDeclaration::new(fqname);
+            let variable_definition =
+                python::VariableDefinition::new(variable_declaration.clone(), None, None);
+            self.decl_locations.push(self.decl_location_fact(
+                python::Declaration::variable(variable_declaration),
+                name.range,
+            ));
+            self.def_locations.push(self.def_location_fact(
+                python::Definition::variable(variable_definition),
+                name.range,
+            ))
+        }
+        expr.recurse(&mut |expr| self.variable_facts(expr, _type_info));
+    }
+
     fn generate_facts(&mut self, stmt: &Stmt) {
         match stmt {
             Stmt::ClassDef(cls) => self.class_facts(cls),
-            Stmt::FunctionDef(func) => {
-                let fqname = python::Name::new(self.make_fq_name(func.name.to_string()));
-                let func_declaration = python::FunctionDeclaration::new(fqname);
-                self.decl_locations.push(
-                    self.decl_location_fact(
-                        python::Declaration::func(func_declaration),
-                        func.range,
-                    ),
-                );
+            Stmt::FunctionDef(func) => self.function_facts(func),
+            Stmt::Assign(assign) => {
+                assign
+                    .targets
+                    .visit(&mut |target| self.variable_facts(target, None));
             }
+            Stmt::AnnAssign(assign) => {
+                self.variable_facts(&assign.target, Some(&assign.annotation))
+            }
+            Stmt::AugAssign(assign) => self.variable_facts(&assign.target, None),
             _ => {}
         }
         stmt.recurse(&mut |x| self.generate_facts(x));
