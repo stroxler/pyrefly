@@ -2106,31 +2106,40 @@ impl Server {
                 } else {
                     continue;
                 };
-
-                if let Some(python_path) = config.python_path {
-                    self.update_pythonpath(&mut modified, &id.scope_uri, &python_path);
-                }
-
-                if let Some(pyrefly) = config.pyrefly {
-                    if let Some(extra_paths) = pyrefly.extra_paths {
-                        self.update_search_paths(&mut modified, &id.scope_uri, extra_paths);
-                    }
-                    if let Some(disable_language_services) = pyrefly.disable_language_services {
-                        self.update_disable_language_services(
-                            &id.scope_uri,
-                            disable_language_services,
-                        );
-                    }
-                    if let Some(disable_type_errors) = pyrefly.disable_type_errors {
-                        self.update_disable_type_errors(&id.scope_uri, disable_type_errors);
-                    }
-                }
+                self.apply_client_configuration(&mut modified, &id.scope_uri, config);
             }
             if modified {
                 return self.validate_in_memory(ide_transaction_manager);
             }
         }
         Ok(())
+    }
+
+    /// Applies the LSP client configuration to the `scope_uri` (workspace) given.
+    ///
+    /// The `modified` flag is changed to `true` when the configuration gets applied to the
+    /// `scope_uri` matching a valid workspace
+    fn apply_client_configuration(
+        &self,
+        modified: &mut bool,
+        scope_uri: &Option<Url>,
+        config: LspConfig,
+    ) {
+        if let Some(python_path) = config.python_path {
+            self.update_pythonpath(modified, scope_uri, &python_path);
+        }
+
+        if let Some(pyrefly) = config.pyrefly {
+            if let Some(extra_paths) = pyrefly.extra_paths {
+                self.update_search_paths(modified, scope_uri, extra_paths);
+            }
+            if let Some(disable_language_services) = pyrefly.disable_language_services {
+                self.update_disable_language_services(scope_uri, disable_language_services);
+            }
+            if let Some(disable_type_errors) = pyrefly.disable_type_errors {
+                self.update_disable_type_errors(scope_uri, disable_type_errors);
+            }
+        }
     }
 
     /// Update disableLanguageServices setting for scope_uri, None if default workspace
