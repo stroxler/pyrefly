@@ -640,25 +640,37 @@ pub enum DataclassMember {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    fn matches_enum_value_annotation(&self, value: &Type, annotation: &Type) -> bool {
+    fn check_enum_value_annotation(
+        &self,
+        mut value: &Type,
+        annotation: &Type,
+        member: &Name,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
         if matches!(value, Type::Tuple(_)) {
             // TODO: check tuple values against constructor signature
             // see https://typing.python.org/en/latest/spec/enums.html#member-values
-            return true;
+            return;
         }
         if matches!(value, Type::ClassType(cls) if cls.has_qname("enum", "auto")) {
-            return true;
+            return;
         }
         if let Type::ClassType(cls) = value
             && cls.has_qname("enum", "member")
             && let [member_targ] = cls.targs().as_slice()
         {
-            return self
-                .solver()
-                .is_subset_eq(member_targ, annotation, self.type_order());
+            value = member_targ;
         }
-        self.solver()
+        if !self
+            .solver()
             .is_subset_eq(value, annotation, self.type_order())
+        {
+            self.error(
+                errors, range, ErrorKind::BadAssignment, None,
+                format!("The value for enum member `{member}` must match the annotation of the `_value_` attribute"), 
+            );
+        }
     }
 
     pub fn calculate_class_field(
@@ -845,12 +857,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if enum_.has_value
                 && let Some(enum_value_ty) = self.type_of_enum_value(enum_)
                 && !class.fields().contains(&dunder::NEW)
-                && !self.matches_enum_value_annotation(&ty, &enum_value_ty)
             {
-                self.error(
-                        errors, range, ErrorKind::BadAssignment, None,
-                        format!("The value for enum member `{}` must match the annotation of the `_value_` attribute", name), 
-                    );
+                self.check_enum_value_annotation(&ty, &enum_value_ty, name, range, errors);
             }
             Type::Literal(Lit::Enum(Box::new(LitEnum {
                 class: enum_.cls.clone(),
