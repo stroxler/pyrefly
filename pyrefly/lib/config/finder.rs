@@ -6,7 +6,6 @@
  */
 
 use std::ffi::OsString;
-use std::fmt::Debug;
 use std::mem;
 use std::path::Path;
 use std::sync::Arc;
@@ -90,26 +89,28 @@ pub fn debug_log(errors: Vec<ConfigError>) {
 
 /// A way to find a config file given a directory or Python file.
 /// Uses a lot of caching.
-pub struct ConfigFinder<T = ArcId<ConfigFile>> {
+pub struct ConfigFinder {
     /// The cached state, with previously found entries.
-    search: UpwardSearch<T>,
+    search: UpwardSearch<ArcId<ConfigFile>>,
     /// The errors that have occurred when loading.
     errors: Arc<Mutex<Vec<ConfigError>>>,
 
     /// Function to run before checking the state. If this returns a value, it is _not_ cached.
     /// If this returns anything other than `Ok`, the rest of the functions are used.
-    before: Box<dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<T>> + Send + Sync>,
+    before: Box<
+        dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<ArcId<ConfigFile>>> + Send + Sync,
+    >,
     /// If there is no config file, or loading it fails, use this fallback.
-    fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
+    fallback: Box<dyn Fn(ModuleName, &ModulePath) -> ArcId<ConfigFile> + Send + Sync>,
 
     clear_extra_caches: Box<dyn Fn() + Send + Sync>,
 }
 
-impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
+impl ConfigFinder {
     /// Create a new ConfigFinder a way to load a config file, and a default if that errors or there is no file.
     pub fn new(
-        load: Box<dyn Fn(&Path) -> (T, Vec<ConfigError>) + Send + Sync>,
-        fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
+        load: Box<dyn Fn(&Path) -> (ArcId<ConfigFile>, Vec<ConfigError>) + Send + Sync>,
+        fallback: Box<dyn Fn(ModuleName, &ModulePath) -> ArcId<ConfigFile> + Send + Sync>,
         clear_extra_caches: Box<dyn Fn() + Send + Sync>,
     ) -> Self {
         Self::new_custom(
@@ -121,7 +122,7 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     }
 
     /// Create a new ConfigFinder that always returns the same constant.
-    pub fn new_constant(constant: T) -> Self {
+    pub fn new_constant(constant: ArcId<ConfigFile>) -> Self {
         let c1 = constant.dupe();
         let c2 = constant.dupe();
         let c3 = constant;
@@ -138,9 +139,13 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     /// If the `before` function fails to produce a config, then the other methods will be used.
     /// The `before` function is not cached in any way.
     fn new_custom(
-        before: Box<dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<T>> + Send + Sync>,
-        load: Box<dyn Fn(&Path) -> (T, Vec<ConfigError>) + Send + Sync>,
-        fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
+        before: Box<
+            dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<ArcId<ConfigFile>>>
+                + Send
+                + Sync,
+        >,
+        load: Box<dyn Fn(&Path) -> (ArcId<ConfigFile>, Vec<ConfigError>) + Send + Sync>,
+        fallback: Box<dyn Fn(ModuleName, &ModulePath) -> ArcId<ConfigFile> + Send + Sync>,
         clear_extra_caches: Box<dyn Fn() + Send + Sync>,
     ) -> Self {
         let errors = Arc::new(Mutex::new(Vec::new()));
@@ -183,12 +188,12 @@ impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
     }
 
     /// Get the config file associated with a directory.
-    pub fn directory(&self, dir: &Path) -> Option<T> {
+    pub fn directory(&self, dir: &Path) -> Option<ArcId<ConfigFile>> {
         self.search.directory(dir)
     }
 
     /// Get the config file given a Python file.
-    pub fn python_file(&self, name: ModuleName, path: &ModulePath) -> T {
+    pub fn python_file(&self, name: ModuleName, path: &ModulePath) -> ArcId<ConfigFile> {
         match (self.before)(name, path) {
             Ok(Some(x)) => return x,
             Ok(None) => {}
