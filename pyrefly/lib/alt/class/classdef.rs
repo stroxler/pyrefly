@@ -98,14 +98,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn get_class_field_map(&self, cls: &Class) -> SmallMap<Name, Arc<ClassField>> {
-        let mut map = SmallMap::new();
+        let fields = cls.fields();
+        let mut map = SmallMap::with_capacity(fields.len());
 
-        for name in cls.fields() {
+        for name in fields {
             let key = KeyClassField(cls.index(), name.clone());
             let field = self.get_from_class(cls, &key);
             map.insert(name.clone(), field);
         }
-
         map
     }
 
