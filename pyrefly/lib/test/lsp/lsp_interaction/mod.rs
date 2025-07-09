@@ -9,5 +9,6 @@
 
 mod basic;
 mod definition;
+mod hover;
 mod lsp_interaction;
 mod util;
