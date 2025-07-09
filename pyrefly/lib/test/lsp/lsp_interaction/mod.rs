@@ -9,6 +9,7 @@
 
 mod basic;
 mod completion;
+mod configuration;
 mod definition;
 mod hover;
 mod lsp_interaction;
