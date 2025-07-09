@@ -8,6 +8,7 @@
 #![cfg(test)]
 
 mod basic;
+mod completion;
 mod definition;
 mod hover;
 mod lsp_interaction;
