@@ -26,7 +26,7 @@ configparser = { version = "3.0.3", features = ["indexmap"] }
 convert_case = "0.6"
 crossbeam-channel = "0.5.15"
 dupe = "0.9.1"
-enum-iterator = "1.4.1"
+enum-iterator = "2.1"
 fuzzy-matcher = "0.3.7"
 indicatif = { version = "0.17.6", features = ["futures", "improved_unicode", "rayon", "tokio"] }
 itertools = "0.14.0"
