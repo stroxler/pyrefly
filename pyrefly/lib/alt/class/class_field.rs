@@ -839,7 +839,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if direct_annotation.is_some() {
                 self.error(
                     errors, range,ErrorKind::InvalidAnnotation, None,
-                    format!("Enum member `{}` may not be annotated directly. Instead, annotate the _value_ attribute.", name),
+                    format!("Enum member `{}` may not be annotated directly. Instead, annotate the `_value_` attribute.", name),
                 );
             }
             if enum_.has_value
@@ -849,7 +849,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 self.error(
                         errors, range, ErrorKind::BadAssignment, None,
-                        format!("The value for enum member `{}` must match the annotation of the _value_ attribute", name), 
+                        format!("The value for enum member `{}` must match the annotation of the `_value_` attribute", name), 
                     );
             }
             Type::Literal(Lit::Enum(Box::new(LitEnum {

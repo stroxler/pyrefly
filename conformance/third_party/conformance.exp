@@ -4523,8 +4523,8 @@
     {
       "code": -2,
       "column": 5,
-      "concise_description": "The value for enum member `GREEN` must match the annotation of the _value_ attribute",
-      "description": "The value for enum member `GREEN` must match the annotation of the _value_ attribute",
+      "concise_description": "The value for enum member `GREEN` must match the annotation of the `_value_` attribute",
+      "description": "The value for enum member `GREEN` must match the annotation of the `_value_` attribute",
       "line": 78,
       "name": "bad-assignment",
       "stop_column": 10,
@@ -4595,8 +4595,8 @@
     {
       "code": -2,
       "column": 5,
-      "concise_description": "Enum member `DOG` may not be annotated directly. Instead, annotate the _value_ attribute.",
-      "description": "Enum member `DOG` may not be annotated directly. Instead, annotate the _value_ attribute.",
+      "concise_description": "Enum member `DOG` may not be annotated directly. Instead, annotate the `_value_` attribute.",
+      "description": "Enum member `DOG` may not be annotated directly. Instead, annotate the `_value_` attribute.",
       "line": 50,
       "name": "invalid-annotation",
       "stop_column": 8,
