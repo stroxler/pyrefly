@@ -29,6 +29,7 @@ mod flow;
 mod generic_basic;
 mod generic_restrictions;
 mod imports;
+mod incremental;
 mod literal;
 mod lsp;
 mod mro;
