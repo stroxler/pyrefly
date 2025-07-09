@@ -23,6 +23,7 @@ use crate::state::lsp::AnnotationKind;
 use crate::state::lsp::ParameterAnnotation;
 use crate::state::require::Require;
 use crate::state::state::State;
+use crate::types::class::Class;
 use crate::types::simplify::unions_with_literals;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::Type;
@@ -48,10 +49,11 @@ impl ParameterAnnotation {
 fn format_hints(
     inlay_hints: Vec<(ruff_text_size::TextSize, Type, AnnotationKind)>,
     stdlib: &Stdlib,
+    enum_members: &dyn Fn(&Class) -> Option<usize>,
 ) -> Vec<(ruff_text_size::TextSize, String)> {
     let mut qualified_hints = Vec::new();
     for (position, hint, kind) in inlay_hints {
-        let formatted_hint = hint_to_string(hint, stdlib);
+        let formatted_hint = hint_to_string(hint, stdlib, enum_members);
         // TODO: Put these behind a flag
         if formatted_hint.contains("Any") {
             continue;
@@ -89,11 +91,15 @@ fn sort_inlay_hints(
     sorted_inlay_hints
 }
 
-fn hint_to_string(hint: Type, stdlib: &Stdlib) -> String {
+fn hint_to_string(
+    hint: Type,
+    stdlib: &Stdlib,
+    enum_members: &dyn Fn(&Class) -> Option<usize>,
+) -> String {
     let hint = hint.promote_literals(stdlib);
     let hint = hint.explicit_any().clean_var();
     let hint = match hint {
-        Type::Union(types) => unions_with_literals(types, stdlib),
+        Type::Union(types) => unions_with_literals(types, stdlib, enum_members),
         _ => hint,
     };
     hint.to_string()
@@ -140,7 +146,18 @@ impl Args {
                 .collect();
             if let Some(inferred_types) = inferred_types {
                 parameter_types.extend(inferred_types);
-                let formatted = format_hints(parameter_types, &stdlib);
+                let formatted = format_hints(parameter_types, &stdlib, &|cls| {
+                    transaction
+                        .ad_hoc_solve(&handle, |solver| {
+                            let meta = solver.get_metadata_for_class(cls);
+                            if meta.is_enum() {
+                                Some(solver.get_enum_members(cls).len())
+                            } else {
+                                None
+                            }
+                        })
+                        .flatten()
+                });
                 let sorted = sort_inlay_hints(formatted);
                 let file_path = handle.path().as_path();
                 self.add_annotations_to_file(file_path, sorted)?;

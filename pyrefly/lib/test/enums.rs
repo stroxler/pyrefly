@@ -208,6 +208,48 @@ def f(e: Literal[E.X, E.Y]) -> int:
 );
 
 testcase!(
+    test_enum_union_simplification,
+    r#"
+from typing import assert_type, Literal
+from enum import Enum
+class E1(Enum):
+    X = 1
+    Y = 2
+class E2(Enum):
+    X = 1
+    Y = 2
+    Z = 3
+def f(test: bool):
+    # union of all possible enum members simplifies to the enum class
+    e1 = E1.X if test else E1.Y
+    assert_type(e1, E1)
+
+    # this doesn't simplify because not all members are included
+    e2 = E2.X if test else E2.Y
+    assert_type(e2, Literal[E2.X, E2.Y])
+    "#,
+);
+
+testcase!(
+    test_enum_subset_of_union,
+    r#"
+from typing import assert_type, Literal
+from enum import Enum
+class E1(Enum):
+    X = 1
+    Y = 2
+class E2(Enum):
+    X = 1
+    Y = 2
+    Z = 3
+def f(test: bool, e1: E1, e2: E2):
+    x: Literal[E1.X, E1.Y] = e1
+    y: Literal[E1.X, E1.Y, 1] = e1
+    z: Literal[E2.X, E2.Y] = e2  # E: `E2` is not assignable to `Literal[E2.X, E2.Y]`
+    "#,
+);
+
+testcase!(
     test_flag,
     r#"
 from enum import Flag

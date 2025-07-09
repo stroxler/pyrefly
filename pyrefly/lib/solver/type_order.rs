@@ -87,6 +87,15 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         }
     }
 
+    pub fn get_enum_member_count(self, cls: &Class) -> Option<usize> {
+        let meta = self.0.get_metadata_for_class(cls);
+        if meta.is_enum() {
+            Some(self.0.get_enum_members(cls).len())
+        } else {
+            None
+        }
+    }
+
     pub fn try_lookup_attr_from_class_type(
         self,
         cls: ClassType,

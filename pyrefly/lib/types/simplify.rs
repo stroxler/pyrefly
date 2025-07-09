@@ -6,7 +6,10 @@
  */
 
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
+use crate::types::class::Class;
+use crate::types::class::ClassType;
 use crate::types::literal::Lit;
 use crate::types::stdlib::Stdlib;
 use crate::types::tuple::Tuple;
@@ -45,11 +48,15 @@ fn try_collapse(mut xs: Vec<Type>) -> Result<Type, Vec<Type>> {
     }
 }
 
-fn unions_internal(xs: Vec<Type>, stdlib: Option<&Stdlib>) -> Type {
+fn unions_internal(
+    xs: Vec<Type>,
+    stdlib: Option<&Stdlib>,
+    enum_members: Option<&dyn Fn(&Class) -> Option<usize>>,
+) -> Type {
     try_collapse(xs).unwrap_or_else(|xs| {
         let mut res = flatten_and_dedup(xs);
         if let Some(stdlib) = stdlib {
-            collapse_literals(&mut res, stdlib);
+            collapse_literals(&mut res, stdlib, enum_members.unwrap_or(&|_| None));
         }
         // `res` is collapsible again if `flatten_and_dedup` drops `xs` to 0 or 1 elements
         try_collapse(res).unwrap_or_else(Type::Union)
@@ -58,13 +65,17 @@ fn unions_internal(xs: Vec<Type>, stdlib: Option<&Stdlib>) -> Type {
 
 /// Union a set of types together, simplifying as much as you can.
 pub fn unions(xs: Vec<Type>) -> Type {
-    unions_internal(xs, None)
+    unions_internal(xs, None, None)
 }
 
 /// Like `unions`, but also simplify away things regarding literals if you can,
 /// e.g. `Literal[True, False] ==> bool`.
-pub fn unions_with_literals(xs: Vec<Type>, stdlib: &Stdlib) -> Type {
-    unions_internal(xs, Some(stdlib))
+pub fn unions_with_literals(
+    xs: Vec<Type>,
+    stdlib: &Stdlib,
+    enum_members: &dyn Fn(&Class) -> Option<usize>,
+) -> Type {
+    unions_internal(xs, Some(stdlib), Some(enum_members))
 }
 
 fn remove_maximum<T: Ord>(xs: &mut Vec<T>) {
@@ -87,7 +98,11 @@ fn remove_maximum<T: Ord>(xs: &mut Vec<T>) {
 /// 4. LiteralString | Literal["x"] => LiteralString
 /// 5. Any | Any => Any (if the Any are different variants)
 /// 6. Never | Never => Never (if the Never are different variants)
-fn collapse_literals(types: &mut Vec<Type>, stdlib: &Stdlib) {
+fn collapse_literals(
+    types: &mut Vec<Type>,
+    stdlib: &Stdlib,
+    enum_members: &dyn Fn(&Class) -> Option<usize>,
+) {
     // All literal types we see, plus `true` to indicate they are found
     let mut literal_types = SmallMap::new();
     // Specific flags to watch out for
@@ -98,6 +113,9 @@ fn collapse_literals(types: &mut Vec<Type>, stdlib: &Stdlib) {
 
     let mut any_styles = Vec::new();
     let mut never_styles = Vec::new();
+
+    // Mapping of enum classes to the number of members contained in the union
+    let mut enums: SmallMap<ClassType, usize> = SmallMap::new();
 
     // Invariant (from the sorting order) is that all Literal/Lit values occur
     // before any instances of the types.
@@ -114,6 +132,10 @@ fn collapse_literals(types: &mut Vec<Type>, stdlib: &Stdlib) {
                     Lit::Bool(true) => has_true = true,
                     Lit::Bool(false) => has_false = true,
                     Lit::Str(_) => has_specific_str = true,
+                    Lit::Enum(x) => {
+                        let v = enums.entry(x.class.clone()).or_insert(0);
+                        *v += 1;
+                    }
                     _ => {}
                 }
                 literal_types.insert(x.general_class_type(stdlib).clone(), false);
@@ -131,6 +153,19 @@ fn collapse_literals(types: &mut Vec<Type>, stdlib: &Stdlib) {
         }
     }
 
+    let enums_to_delete: SmallSet<ClassType> = enums
+        .into_iter()
+        .filter(|(k, n)| {
+            if let Some(num_members) = enum_members(k.class_object()) {
+                return *n >= num_members;
+            }
+            false
+        })
+        .map(|x| x.0)
+        .collect();
+    for e in &enums_to_delete {
+        types.push(Type::ClassType(e.clone()));
+    }
     remove_maximum(&mut any_styles);
     remove_maximum(&mut never_styles);
 
@@ -139,6 +174,7 @@ fn collapse_literals(types: &mut Vec<Type>, stdlib: &Stdlib) {
         || (has_literal_string && has_specific_str)
         || !any_styles.is_empty()
         || !never_styles.is_empty()
+        || !enums_to_delete.is_empty()
     {
         // We actually have some things to delete
         types.retain(|x| match x {
@@ -147,6 +183,11 @@ fn collapse_literals(types: &mut Vec<Type>, stdlib: &Stdlib) {
                 match x {
                     Lit::Bool(_) if has_true && has_false => return false,
                     Lit::Str(_) if has_literal_string => return false,
+                    Lit::Enum(lit_enum) if enums_to_delete.contains(&lit_enum.class) => {
+                        if enums_to_delete.contains(&lit_enum.class) {
+                            return false;
+                        }
+                    }
                     _ => {}
                 }
                 literal_types.get(x.general_class_type(stdlib)) == Some(&false)
