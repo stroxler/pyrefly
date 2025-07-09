@@ -301,3 +301,17 @@ fn test_error_clearing_on_dependency() {
         "Expected errors after fixing the dependency"
     );
 }
+
+#[test]
+fn test_stale_class() {
+    let mut i = Incremental::new();
+    i.set("foo", "class C: x: int = 1");
+    i.set("bar", "from foo import C; c = C");
+    i.set("main", "from bar import c; v = c.x");
+    i.check(&["main"], &["main", "foo", "bar"]);
+
+    i.set("foo", "");
+    i.set("main", "from bar import c; v = c.x # hello");
+    // This panics
+    // i.check(&["main", "foo"], &["main", "foo", "bar"]);
+}
