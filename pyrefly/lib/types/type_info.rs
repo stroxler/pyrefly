@@ -102,11 +102,9 @@ impl TypeInfo {
             0 => Self::of_ty(Type::never()),
             1 => branches.pop().unwrap(),
             n => {
-                let (tys, facets_branches): (Vec<Type>, Vec<Option<&NarrowedFacets>>) = branches
-                    .iter()
-                    .map(|TypeInfo { ty, facets }| {
-                        (ty.clone(), facets.as_ref().map(|a| a.as_ref()))
-                    })
+                let (tys, facets_branches): (Vec<Type>, Vec<Option<NarrowedFacets>>) = branches
+                    .into_iter()
+                    .map(|TypeInfo { ty, facets }| (ty, facets.map(|x| *x)))
                     .unzip();
                 let ty = union_types(tys);
                 let branches = facets_branches.into_iter().flatten().collect::<Vec<_>>();
@@ -296,7 +294,7 @@ impl NarrowedFacets {
         Self(smallmap! {facet => NarrowedFacet::new(more_facets, ty)})
     }
 
-    fn join(mut branches: Vec<&Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Option<Self> {
+    fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Option<Self> {
         match branches.len() {
             0 => None,
             1 => Some(branches.pop().unwrap().clone()),
@@ -502,9 +500,8 @@ impl NarrowedFacet {
             }
         }
         let ty = ty_branches.map(union_types);
-        let facets = facets_branches.and_then(|facets_branches| {
-            NarrowedFacets::join(facets_branches.iter().collect(), union_types)
-        });
+        let facets = facets_branches
+            .and_then(|facets_branches| NarrowedFacets::join(facets_branches, union_types));
         match (ty, facets) {
             (None, None) => None,
             (Some(ty), None) => Some(Self::Leaf(ty)),
