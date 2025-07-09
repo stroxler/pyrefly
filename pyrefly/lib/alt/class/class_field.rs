@@ -434,7 +434,7 @@ impl ClassField {
         None
     }
 
-    pub fn has_explicit_annotation(&self) -> bool {
+    fn has_explicit_annotation(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { annotation, .. } => annotation.is_some(),
         }
