@@ -210,12 +210,32 @@ impl<'a> BindingsBuilder<'a> {
             }
             Pattern::MatchClass(mut x) => {
                 self.ensure_expr(&mut x.cls, narrowing_usage);
-                let mut narrow_ops = if let Some(subject) = match_subject {
-                    NarrowOps::from_single_narrow_op_for_subject(
-                        subject,
-                        AtomicNarrowOp::IsInstance((*x.cls).clone()),
+                let narrow_op = AtomicNarrowOp::IsInstance((*x.cls).clone());
+                // Redefining subject_idx to apply the class level narrowing,
+                // which is used for additional narrowing for attributes below.
+                let subject_idx = self.insert_binding(
+                    Key::PatternNarrow(x.range()),
+                    Binding::Narrow(
+                        subject_idx,
+                        Box::new(NarrowOp::Atomic(None, narrow_op.clone())),
                         x.cls.range(),
-                    )
+                    ),
+                );
+                let mut narrow_ops = if let Some(ref subject) = match_subject {
+                    let mut narrow_for_subject = NarrowOps::from_single_narrow_op_for_subject(
+                        subject.clone(),
+                        narrow_op,
+                        x.cls.range(),
+                    );
+                    // We're not sure whether the pattern matches all possible instances of a class, and
+                    // the placeholder prevents negative narrowing from removing the class in later branches.
+                    let placeholder = NarrowOps::from_single_narrow_op_for_subject(
+                        subject.clone(),
+                        AtomicNarrowOp::Placeholder,
+                        x.cls.range(),
+                    );
+                    narrow_for_subject.and_all(placeholder);
+                    narrow_for_subject
                 } else {
                     NarrowOps::new()
                 };
@@ -234,6 +254,7 @@ impl<'a> BindingsBuilder<'a> {
                                 pattern.range(),
                             ),
                         );
+                        // TODO: narrow attributes in positional patterns
                         narrow_ops.and_all(self.bind_pattern(None, pattern.clone(), attr_key))
                     });
                 x.arguments.keywords.into_iter().for_each(
@@ -243,11 +264,14 @@ impl<'a> BindingsBuilder<'a> {
                          attr,
                          pattern,
                      }| {
+                        let subject_for_attr = match_subject
+                            .clone()
+                            .map(|s| s.with_facet(FacetKind::Attribute(attr.id.clone())));
                         let attr_key = self.insert_binding(
                             Key::Anon(attr.range()),
                             Binding::PatternMatchClassKeyword(x.cls.clone(), attr, subject_idx),
                         );
-                        narrow_ops.and_all(self.bind_pattern(None, pattern, attr_key))
+                        narrow_ops.and_all(self.bind_pattern(subject_for_attr, pattern, attr_key))
                     },
                 );
                 narrow_ops
