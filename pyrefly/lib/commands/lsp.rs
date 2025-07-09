@@ -47,6 +47,7 @@ use lsp_types::CompletionResponse;
 use lsp_types::ConfigurationItem;
 use lsp_types::ConfigurationParams;
 use lsp_types::Diagnostic;
+use lsp_types::DidChangeConfigurationParams;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidChangeWatchedFilesClientCapabilities;
 use lsp_types::DidChangeWatchedFilesParams;
@@ -288,7 +289,7 @@ enum ServerEvent {
     DidSaveTextDocument(DidSaveTextDocumentParams),
     DidChangeWatchedFiles(DidChangeWatchedFilesParams),
     DidChangeWorkspaceFolders(DidChangeWorkspaceFoldersParams),
-    DidChangeConfiguration,
+    DidChangeConfiguration(DidChangeConfigurationParams),
     LspResponse(Response),
     LspRequest(Request),
     Exit,
@@ -586,14 +587,14 @@ fn dispatch_lsp_events(
                     queued_events_sender.send(ServerEvent::DidChangeWatchedFiles(params))
                 } else if let Some(params) = as_notification::<DidChangeWorkspaceFolders>(&x) {
                     queued_events_sender.send(ServerEvent::DidChangeWorkspaceFolders(params))
+                } else if let Some(params) = as_notification::<DidChangeConfiguration>(&x) {
+                    queued_events_sender.send(ServerEvent::DidChangeConfiguration(params))
                 } else if let Some(params) = as_notification::<Cancel>(&x) {
                     let id = match params.id {
                         NumberOrString::Number(i) => RequestId::from(i),
                         NumberOrString::String(s) => RequestId::from(s),
                     };
                     priority_events_sender.send(ServerEvent::CancelRequest(id))
-                } else if as_notification::<DidChangeConfiguration>(&x).is_some() {
-                    queued_events_sender.send(ServerEvent::DidChangeConfiguration)
                 } else if as_notification::<Exit>(&x).is_some() {
                     queued_events_sender.send(ServerEvent::Exit)
                 } else {
@@ -831,6 +832,8 @@ enum ProcessEvent {
     Exit,
 }
 
+const PYTHON_SECTION: &str = "python";
+
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PyreflyClientConfig {
@@ -888,8 +891,8 @@ impl Server {
             ServerEvent::DidChangeWorkspaceFolders(params) => {
                 self.workspace_folders_changed(params);
             }
-            ServerEvent::DidChangeConfiguration => {
-                self.change_workspace();
+            ServerEvent::DidChangeConfiguration(params) => {
+                self.did_change_configuration(ide_transaction_manager, params)?;
             }
             ServerEvent::LspResponse(x) => {
                 if let Some(request) = self.outgoing_requests.lock().remove(&x.id) {
@@ -1481,6 +1484,30 @@ impl Server {
         self.configure(&added, &removed);
     }
 
+    fn did_change_configuration<'a>(
+        &'a self,
+        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        params: DidChangeConfigurationParams,
+    ) -> anyhow::Result<()> {
+        if let Some(workspace) = &self.initialize_params.capabilities.workspace
+            && workspace.configuration == Some(true)
+        {
+            self.request_settings_for_all_workspaces();
+            return Ok(());
+        }
+
+        let mut modified = false;
+        if let Some(python) = params.settings.get(PYTHON_SECTION) {
+            let config: LspConfig = serde_json::from_value(python.clone())?;
+            self.apply_client_configuration(&mut modified, &None, config);
+        }
+
+        if modified {
+            self.validate_in_memory(ide_transaction_manager)?;
+        }
+        Ok(())
+    }
+
     /// Configure the server with a new set of workspace folders
     fn configure(&self, workspace_paths_added: &[PathBuf], workspace_paths_removed: &[PathBuf]) {
         let mut all_workspaces = Vec::new();
@@ -1974,10 +2001,6 @@ impl Server {
         })
     }
 
-    fn change_workspace(&self) {
-        self.request_settings_for_all_workspaces();
-    }
-
     fn get_pattern_to_watch(
         root: &Path,
         pattern: String,
@@ -2083,7 +2106,7 @@ impl Server {
                     .chain(once(None))
                     .map(|url| ConfigurationItem {
                         scope_uri: url,
-                        section: Some("python".to_owned()),
+                        section: Some(PYTHON_SECTION.to_owned()),
                     })
                     .collect::<Vec<_>>(),
             });
