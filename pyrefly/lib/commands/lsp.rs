@@ -335,6 +335,8 @@ struct Server {
     indexing_mode: IndexingMode,
     state: Arc<State>,
     open_files: Arc<RwLock<HashMap<PathBuf, Arc<String>>>>,
+    /// A set of configs where we have already indexed all the files within the config.
+    indexed_configs: Mutex<HashSet<ArcId<ConfigFile>>>,
     cancellation_handles: Arc<Mutex<HashMap<RequestId, CancellationHandle>>>,
     workspaces: Arc<Workspaces>,
     outgoing_request_id: Arc<AtomicI32>,
@@ -1072,6 +1074,7 @@ impl Server {
             indexing_mode,
             state: Arc::new(State::new(config_finder)),
             open_files: Arc::new(RwLock::new(HashMap::new())),
+            indexed_configs: Mutex::new(HashSet::new()),
             cancellation_handles: Arc::new(Mutex::new(HashMap::new())),
             workspaces,
             outgoing_request_id: Arc::new(AtomicI32::new(1)),
@@ -1223,22 +1226,26 @@ impl Server {
             match self.indexing_mode {
                 IndexingMode::None => {}
                 IndexingMode::LazyNonBlockingBackground => {
-                    let state = self.state.dupe();
-                    let priority_events_sender = self.priority_events_sender.dupe();
-                    std::thread::spawn(move || {
-                        Self::populate_all_project_files_in_config(
-                            config,
-                            state,
-                            priority_events_sender,
-                        );
-                    });
+                    if self.indexed_configs.lock().insert(config.dupe()) {
+                        let state = self.state.dupe();
+                        let priority_events_sender = self.priority_events_sender.dupe();
+                        std::thread::spawn(move || {
+                            Self::populate_all_project_files_in_config(
+                                config,
+                                state,
+                                priority_events_sender,
+                            );
+                        });
+                    }
                 }
                 IndexingMode::LazyBlocking => {
-                    Self::populate_all_project_files_in_config(
-                        config,
-                        self.state.dupe(),
-                        self.priority_events_sender.dupe(),
-                    );
+                    if self.indexed_configs.lock().insert(config.dupe()) {
+                        Self::populate_all_project_files_in_config(
+                            config,
+                            self.state.dupe(),
+                            self.priority_events_sender.dupe(),
+                        );
+                    }
                 }
             }
         }
