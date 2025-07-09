@@ -837,6 +837,50 @@ def test(x: tuple[int, ...] | tuple[int, *tuple[int, ...], int] | tuple[int, int
 );
 
 testcase!(
+    bug = "we don't narrow attributes of the match subject, and we can't handle when the match subject is a union",
+    test_match_class_union,
+    r#"
+from typing import assert_type, Literal
+
+class Foo:
+    x: int
+    y: str
+    __match_args__ = ("x", "y")
+
+class Bar:
+    x: str
+    __match_args__ = ("x",)
+
+def test(x: Foo | Bar) -> None:
+    match x:
+        case Foo(1, "a"):  # E: Cannot match positional sub-patterns in `Bar | Foo`  # E: Cannot match positional sub-patterns in `Bar | Foo`
+            # we should narrow x.x and x.y to literals
+            assert_type(x, Foo)
+            assert_type(x.x, int)
+            assert_type(x.y, str)
+        case Foo(a, b):  # E: Cannot match positional sub-patterns in `Bar | Foo`  # E: Cannot match positional sub-patterns in `Bar | Foo`
+            assert_type(x, Foo)
+            assert_type(a, int)  # E: assert_type(Any, int) failed
+            assert_type(b, str)  # E: assert_type(Any, str) failed
+        case Foo(x = b, y = a):  # E: Object of class `Bar` has no attribute `y`
+            assert_type(x, Foo)
+            assert_type(a, str)  # E: assert_type(str | Any, str) failed
+            assert_type(b, int)  # E: assert_type(int | str, int) failed
+        case Foo(x = 1, y = ""):  # E: Object of class `Bar` has no attribute `y`
+            assert_type(x, Foo)
+            assert_type(x.x, Literal[1])  # E: assert_type(int, Literal[1]) failed
+            assert_type(x.y, Literal[""])  # E: assert_type(str, Literal['']) failed
+        case Bar("bar"):  # E: Cannot match positional sub-patterns in `Bar | Foo`
+            assert_type(x, Bar)
+            assert_type(x.x, str)  # we want to narrow this to Literal["bar"]
+        case Bar(a) as b:  # E: Cannot match positional sub-patterns in `Bar | Foo`
+            assert_type(x, Foo | Bar)  # E: assert_type(Never, Bar | Foo)
+            assert_type(b, Bar)
+            assert_type(a, str)  # E: assert_type(Any, str) failed
+"#,
+);
+
+testcase!(
     test_match_sequence_concrete,
     r#"
 from typing import assert_type, Never
