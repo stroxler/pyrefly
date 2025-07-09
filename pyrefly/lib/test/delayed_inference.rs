@@ -172,7 +172,7 @@ fn env_two_exported_pins() -> TestEnv {
         r#"
 x = []
 y = x.append(1)
-z = x.append("1")
+z = x.append("1") # E: `Literal['1']` is not assignable to parameter `object` with type `int`
 "#,
     )
 }

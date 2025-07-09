@@ -454,9 +454,19 @@ pub fn testcase_for_macro(
             errors.check_against_expectations()?;
         } else {
             let (state, handle) = env.clone().to_state();
+            let t = state.transaction();
+            // First check against main, so we can capture any import order errors.
+            t.get_errors([&handle("main")])
+                .check_against_expectations()?;
+            // THen check all handles, so we make sure the rest of the TestEnv is valid.
+            let handles = env
+                .modules
+                .keys()
+                .map(|x| handle(x.as_str()))
+                .collect::<Vec<_>>();
             state
                 .transaction()
-                .get_errors([&handle("main")])
+                .get_errors(handles.iter())
                 .check_against_expectations()?;
         }
         if start.elapsed().as_secs() <= limit {
