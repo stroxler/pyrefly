@@ -366,3 +366,38 @@ class C[T](metaclass=CustomMetaclass):  # Ok - was a false positive
     x: T
     "#,
 );
+
+fn env_enum_dots() -> TestEnv {
+    let mut env = TestEnv::new();
+    env.add_with_path("py", "py.py", r#"
+from enum import IntEnum
+
+class Color(IntEnum):
+    RED = ... # E: Enum member `RED` has type `Ellipsis`, must match the `_value_` attribute annotation of `int`
+    GREEN = "wrong" # E: Enum member `GREEN` has type `str`, must match the `_value_` attribute annotation of `int`
+"#
+    );
+    env.add_with_path("pyi", "pyi.pyi", r#"
+from enum import IntEnum
+
+class Color(IntEnum):
+    RED = ... # E: Enum member `RED` has type `Ellipsis`, must match the `_value_` attribute annotation of `int`
+    GREEN = "wrong" # E: Enum member `GREEN` has type `str`, must match the `_value_` attribute annotation of `int`
+"#
+    );
+    env
+}
+
+testcase!(
+    bug = "The RED = ... in pyi should be fine",
+    test_enum_value_dots_pyi,
+    env_enum_dots(),
+    r#"
+import py
+import pyi
+
+from typing import assert_type, Literal
+assert_type(py.Color.RED, Literal[py.Color.RED])
+assert_type(pyi.Color.RED, Literal[pyi.Color.RED])
+"#,
+);
