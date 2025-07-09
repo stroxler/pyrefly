@@ -8,21 +8,12 @@
 use std::iter::once;
 
 use lsp_server::Message;
-use lsp_server::Notification;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
-use lsp_types::ConfigurationItem;
-use lsp_types::ConfigurationParams;
 use lsp_types::Url;
-use lsp_types::notification::DidChangeConfiguration;
-use lsp_types::notification::DidChangeWorkspaceFolders;
-use lsp_types::notification::Notification as _;
-use lsp_types::request::Request as _;
-use lsp_types::request::WorkspaceConfiguration;
 use tempfile::TempDir;
 
-use crate::commands::lsp::IndexingMode;
 use crate::test::lsp::lsp_interaction::util::TestCase;
 use crate::test::lsp::lsp_interaction::util::build_did_open_notification;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
