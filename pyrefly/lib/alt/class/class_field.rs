@@ -668,7 +668,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             self.error(
                 errors, range, ErrorKind::BadAssignment, None,
-                format!("The value for enum member `{member}` must match the annotation of the `_value_` attribute"), 
+                format!(
+                    "Enum member `{member}` has type `{}`, must match the `_value_` attribute annotation of `{}`",
+                    self.for_display(value.clone()),
+                    self.for_display(annotation.clone()),
+                ),
             );
         }
     }

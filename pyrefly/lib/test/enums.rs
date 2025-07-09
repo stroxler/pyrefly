@@ -135,8 +135,8 @@ class MyEnum(Enum):
     V = member(1)
     W = auto()
     X = 1
-    Y = "FOO"  # E: The value for enum member `Y` must match the annotation of the `_value_` attribute
-    Z = member("FOO")  # E: The value for enum member `Z` must match the annotation of the `_value_` attribute
+    Y = "FOO"  # E: Enum member `Y` has type `str`, must match the `_value_` attribute annotation of `int`
+    Z = member("FOO")  # E: Enum member `Z` has type `str`, must match the `_value_` attribute annotation of `int`
 
     def get_value(self) -> int:
         if self.value > 0:

@@ -4523,8 +4523,8 @@
     {
       "code": -2,
       "column": 5,
-      "concise_description": "The value for enum member `GREEN` must match the annotation of the `_value_` attribute",
-      "description": "The value for enum member `GREEN` must match the annotation of the `_value_` attribute",
+      "concise_description": "Enum member `GREEN` has type `str`, must match the `_value_` attribute annotation of `int`",
+      "description": "Enum member `GREEN` has type `str`, must match the `_value_` attribute annotation of `int`",
       "line": 78,
       "name": "bad-assignment",
       "stop_column": 10,
