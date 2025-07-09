@@ -297,7 +297,7 @@ impl NarrowedFacets {
     fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Option<Self> {
         match branches.len() {
             0 => None,
-            1 => Some(branches.pop().unwrap().clone()),
+            1 => Some(branches.pop().unwrap()),
             n => {
                 let first = branches[0].clone();
                 let tail = &branches[1..];
@@ -306,7 +306,7 @@ impl NarrowedFacets {
                     .into_iter()
                     .filter_map(|(facet, narrowed_facet)| {
                         let mut facet_branches = Vec::with_capacity(n);
-                        facet_branches.push(narrowed_facet.clone());
+                        facet_branches.push(narrowed_facet);
                         facet_branches
                             .extend(tail.iter().filter_map(|facets| facets.get(&facet).cloned()));
                         // If any map lacked this facet, we just drop it. Only join if all maps have it.
