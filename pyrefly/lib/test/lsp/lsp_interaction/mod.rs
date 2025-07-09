@@ -8,5 +8,6 @@
 #![cfg(test)]
 
 mod basic;
+mod definition;
 mod lsp_interaction;
 mod util;
