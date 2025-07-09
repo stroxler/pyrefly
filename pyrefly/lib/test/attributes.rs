@@ -1061,3 +1061,19 @@ def f(c: Config):
     c["name"] = "new"  # E: Key `name` in TypedDict `Config` is read-only
     "#,
 );
+
+testcase!(
+    bug = "other.output type is too general. Also, there should be no errors.",
+    test_attr_cast,
+    r#"
+from typing import Self, cast, Any, assert_type
+
+class C:
+    outputs: list[Any]
+    def f(self, other):
+        other = cast(Self, other)  
+        assert_type(other, Self)
+        assert_type(other.outputs, Any) # E: TODO: Expr::attr_infer_for_type
+        len(self.outputs) == len(other.outputs) # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: Self 
+    "#,
+);
