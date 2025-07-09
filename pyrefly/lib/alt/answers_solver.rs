@@ -37,6 +37,7 @@ use crate::alt::traits::Solve;
 use crate::binding::binding::AnyIdx;
 use crate::binding::binding::Binding;
 use crate::binding::binding::Exported;
+use crate::binding::binding::KeyExport;
 use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
@@ -608,7 +609,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn get_from_module<K: Solve<Ans> + Exported>(
+    fn get_from_module<K: Solve<Ans> + Exported>(
         &self,
         module: ModuleName,
         path: Option<&ModulePath>,
@@ -626,6 +627,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             self.answers.get(module, path, k, self.thread_state)
         }
+    }
+
+    pub fn get_from_export(
+        &self,
+        module: ModuleName,
+        path: Option<&ModulePath>,
+        k: &KeyExport,
+    ) -> Arc<Type> {
+        self.get_from_module(module, path, k)
     }
 
     pub fn get_from_class<K: Solve<Ans> + Exported>(&self, cls: &Class, k: &K) -> Arc<K::Answer>

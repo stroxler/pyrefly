@@ -1522,7 +1522,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn get_exported_type(&self, exports: &Exports, from: ModuleName, name: &Name) -> Option<Type> {
         if exports.exports(self.exports).contains_key(name) {
             Some(
-                self.get_from_module(from, None, &KeyExport(name.clone()))
+                self.get_from_export(from, None, &KeyExport(name.clone()))
                     .arc_clone(),
             )
         } else {

@@ -435,7 +435,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
 
-                    let ty = solver.get_from_module(
+                    let ty = solver.get_from_export(
                         class_name.module_name(),
                         Some(class_name.module_path()),
                         &KeyExport(class_name.id().clone()),
