@@ -472,7 +472,7 @@ impl ClassField {
         }
     }
 
-    pub fn is_defined_on_class_body(&self) -> bool {
+    fn is_defined_on_class_body(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { defined_by, .. } => match defined_by {
                 ClassFieldDefinedBy::ClassBody => true,
