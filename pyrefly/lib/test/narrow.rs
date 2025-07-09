@@ -1310,3 +1310,13 @@ def f(expr):
         assert_type(expr, int | str)
 "#,
 );
+
+testcase!(
+    test_issubclass_unknown_type,
+    r#"
+def f(a_type, handlers, type2):
+    for _ in handlers:
+        if issubclass(a_type, type2):
+            pass
+    "#,
+);
