@@ -36,7 +36,7 @@ use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     /// Can a function with l_args be called as a function with u_args?
-    pub fn is_subset_param_list(&mut self, l_args: &[Param], u_args: &[Param]) -> bool {
+    fn is_subset_param_list(&mut self, l_args: &[Param], u_args: &[Param]) -> bool {
         let mut l_args = l_args.iter();
         let mut u_args = u_args.iter();
         let mut l_arg = l_args.next();
@@ -423,7 +423,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
     }
 
-    pub fn is_subset_protocol(&mut self, got: Type, protocol: ClassType) -> bool {
+    fn is_subset_protocol(&mut self, got: Type, protocol: ClassType) -> bool {
         let recursive_check = (got.clone(), Type::ClassType(protocol.clone()));
         if !self.recursive_assumptions.insert(recursive_check) {
             // Assume recursive checks are true
@@ -469,7 +469,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         true
     }
 
-    pub fn is_subset_tuple(&mut self, got: &Tuple, want: &Tuple) -> bool {
+    fn is_subset_tuple(&mut self, got: &Tuple, want: &Tuple) -> bool {
         match (got, want) {
             (Tuple::Concrete(lelts), Tuple::Concrete(uelts)) => {
                 if lelts.len() == uelts.len() {
@@ -589,7 +589,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
     }
 
-    pub fn is_paramlist_subset_of_paramspec(
+    fn is_paramlist_subset_of_paramspec(
         &mut self,
         got: &ParamList,
         want_ts: &[Type],
@@ -609,7 +609,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         )
     }
 
-    pub fn is_paramspec_subset_of_paramlist(
+    fn is_paramspec_subset_of_paramlist(
         &mut self,
         got_ts: &[Type],
         got_pspec: &Type,
@@ -629,7 +629,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         )
     }
 
-    pub fn is_paramspec_subset_of_paramspec(
+    fn is_paramspec_subset_of_paramspec(
         &mut self,
         got_ts: &[Type],
         got_pspec: &Type,
