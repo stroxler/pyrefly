@@ -553,6 +553,31 @@ def f(x: str | int):
 );
 
 testcase!(
+    test_type_eq,
+    r#"
+from typing import assert_type
+def f(x: str | int):
+    if type(x) == str:
+        assert_type(x, str)
+    else:
+        # x can still be a subclass of str
+        assert_type(x, str | int)
+    if type(x) is str:
+        assert_type(x, str)
+    else:
+        # x can still be a subclass of str
+        assert_type(x, str | int)
+
+def verify_type(input: int):
+    pass
+
+def foo(x: int | None) -> None:
+    assert type(x) is int
+    verify_type(x)
+    "#,
+);
+
+testcase!(
     test_isinstance_union,
     r#"
 from typing import assert_type

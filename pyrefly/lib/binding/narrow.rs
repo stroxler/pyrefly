@@ -58,6 +58,9 @@ pub enum AtomicNarrowOp {
     NotTypeGuard(Type, Arguments),
     TypeIs(Type, Arguments),
     NotTypeIs(Type, Arguments),
+    // type(x) == y or type(x) is y
+    TypeEq(Expr),
+    TypeNotEq(Expr),
     In(Expr),
     NotIn(Expr),
     /// Used to narrow tuple types based on length
@@ -115,6 +118,8 @@ impl DisplayWith<ModuleInfo> for AtomicNarrowOp {
             AtomicNarrowOp::NotTypeIs(t, arguments) => {
                 write!(f, "NotTypeIs({t}, {})", arguments.display_with(ctx))
             }
+            AtomicNarrowOp::TypeEq(expr) => write!(f, "TypeEq({})", expr.display_with(ctx)),
+            AtomicNarrowOp::TypeNotEq(expr) => write!(f, "TypeNotEq({})", expr.display_with(ctx)),
             AtomicNarrowOp::In(expr) => write!(f, "In({})", expr.display_with(ctx)),
             AtomicNarrowOp::NotIn(expr) => write!(f, "NotIn({})", expr.display_with(ctx)),
             AtomicNarrowOp::LenEq(expr) => write!(f, "LenEq({})", expr.display_with(ctx)),
@@ -190,6 +195,8 @@ impl AtomicNarrowOp {
             Self::NotTypeGuard(ty, args) => Self::TypeGuard(ty.clone(), args.clone()),
             Self::TypeIs(ty, args) => Self::NotTypeIs(ty.clone(), args.clone()),
             Self::NotTypeIs(ty, args) => Self::TypeIs(ty.clone(), args.clone()),
+            Self::TypeEq(v) => Self::TypeNotEq(v.clone()),
+            Self::TypeNotEq(v) => Self::TypeEq(v.clone()),
             Self::Call(f, args) => Self::NotCall(f.clone(), args.clone()),
             Self::NotCall(f, args) => Self::Call(f.clone(), args.clone()),
             Self::IsTruthy => Self::IsFalsy,
@@ -337,35 +344,57 @@ impl NarrowOps {
             })) => {
                 // If the left expression is a call to len(), we're narrowing the argument
                 let mut left = &**left;
-                let mut lhs_is_len = false;
+                let mut special_export = None;
                 if let Expr::Call(ExprCall {
                     func, arguments, ..
                 }) = left
-                    && builder.as_special_export(func) == Some(SpecialExport::Len)
                     && arguments.args.len() == 1
                     && arguments.keywords.is_empty()
                 {
-                    lhs_is_len = true;
-                    left = arguments.args.first().unwrap();
-                };
+                    special_export = builder.as_special_export(func);
+                    if matches!(
+                        special_export,
+                        Some(SpecialExport::Len | SpecialExport::Type)
+                    ) {
+                        left = &arguments.args[0];
+                    }
+                }
                 let mut ops = cmp_ops
                     .iter()
                     .zip(comparators)
                     .filter_map(|(cmp_op, right)| {
                         let range = right.range();
-                        let op = match cmp_op {
-                            CmpOp::Is if !lhs_is_len => AtomicNarrowOp::Is(right.clone()),
-                            CmpOp::IsNot if !lhs_is_len => AtomicNarrowOp::IsNot(right.clone()),
-                            CmpOp::Eq if lhs_is_len => AtomicNarrowOp::LenEq(right.clone()),
-                            CmpOp::NotEq if lhs_is_len => AtomicNarrowOp::LenNotEq(right.clone()),
-                            CmpOp::Gt if lhs_is_len => AtomicNarrowOp::LenGt(right.clone()),
-                            CmpOp::GtE if lhs_is_len => AtomicNarrowOp::LenGte(right.clone()),
-                            CmpOp::Lt if lhs_is_len => AtomicNarrowOp::LenLt(right.clone()),
-                            CmpOp::LtE if lhs_is_len => AtomicNarrowOp::LenLte(right.clone()),
-                            CmpOp::Eq => AtomicNarrowOp::Eq(right.clone()),
-                            CmpOp::NotEq => AtomicNarrowOp::NotEq(right.clone()),
-                            CmpOp::In if !lhs_is_len => AtomicNarrowOp::In(right.clone()),
-                            CmpOp::NotIn if !lhs_is_len => AtomicNarrowOp::NotIn(right.clone()),
+                        let op = match (cmp_op, special_export) {
+                            (CmpOp::Is | CmpOp::Eq, Some(SpecialExport::Type)) => {
+                                AtomicNarrowOp::TypeEq(right.clone())
+                            }
+                            (CmpOp::IsNot | CmpOp::NotEq, Some(SpecialExport::Type)) => {
+                                AtomicNarrowOp::TypeNotEq(right.clone())
+                            }
+                            (CmpOp::Is, None) => AtomicNarrowOp::Is(right.clone()),
+                            (CmpOp::IsNot, None) => AtomicNarrowOp::IsNot(right.clone()),
+                            (CmpOp::Eq, Some(SpecialExport::Len)) => {
+                                AtomicNarrowOp::LenEq(right.clone())
+                            }
+                            (CmpOp::NotEq, Some(SpecialExport::Len)) => {
+                                AtomicNarrowOp::LenNotEq(right.clone())
+                            }
+                            (CmpOp::Gt, Some(SpecialExport::Len)) => {
+                                AtomicNarrowOp::LenGt(right.clone())
+                            }
+                            (CmpOp::GtE, Some(SpecialExport::Len)) => {
+                                AtomicNarrowOp::LenGte(right.clone())
+                            }
+                            (CmpOp::Lt, Some(SpecialExport::Len)) => {
+                                AtomicNarrowOp::LenLt(right.clone())
+                            }
+                            (CmpOp::LtE, Some(SpecialExport::Len)) => {
+                                AtomicNarrowOp::LenLte(right.clone())
+                            }
+                            (CmpOp::Eq, _) => AtomicNarrowOp::Eq(right.clone()),
+                            (CmpOp::NotEq, _) => AtomicNarrowOp::NotEq(right.clone()),
+                            (CmpOp::In, None) => AtomicNarrowOp::In(right.clone()),
+                            (CmpOp::NotIn, None) => AtomicNarrowOp::NotIn(right.clone()),
                             _ => {
                                 return None;
                             }

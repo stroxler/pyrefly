@@ -461,6 +461,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let right = self.expr_infer(v, errors);
                 self.narrow_is_not_instance(ty, &right)
             }
+            AtomicNarrowOp::TypeEq(v) => {
+                // If type(X) == Y then X can't be a subclass of Y
+                // We can't model that, so we narrow it exactly like isinstance(X, Y)
+                let right = self.expr_infer(v, errors);
+                self.narrow_isinstance(ty, &right)
+            }
+            // Even if type(X) != Y, X can still be a subclass of Y so we can't do any negative refinement
+            AtomicNarrowOp::TypeNotEq(_) => ty.clone(),
             AtomicNarrowOp::IsSubclass(v) => {
                 let right = self.expr_infer(v, errors);
                 self.narrow_issubclass(ty, &right, v.range())
