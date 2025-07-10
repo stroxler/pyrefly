@@ -176,7 +176,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut params = Vec::new();
         for (name, field, _) in self.iter_fields(cls, dataclass_metadata, true) {
             if field.is_init_var() {
-                params.push(field.as_param(&name, false, false));
+                params.push(field.as_param(&name, false, false, None));
             }
         }
         let want = Type::Callable(Box::new(Callable::list(
@@ -260,6 +260,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &field_flags.alias.unwrap_or(name),
                     has_default,
                     is_kw_only,
+                    field_flags.converter_param,
                 ));
             }
         }

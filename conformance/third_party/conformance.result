@@ -154,13 +154,14 @@
   ],
   "dataclasses_transform_class.py": [],
   "dataclasses_transform_converter.py": [
+    "Line 107: Expected 1 errors",
+    "Line 108: Expected 1 errors",
+    "Line 109: Expected 1 errors",
     "Line 118: Expected 1 errors",
     "Line 29: Unexpected errors ['Argument `tuple[[S, T](*, converter: (S) -> T, default: S | None, default_factory: (() -> S) | None) -> T]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`']",
-    "Line 112: Unexpected errors [\"Argument `Literal['f0']` is not assignable to parameter `field0` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f1']` is not assignable to parameter `field1` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f2']` is not assignable to parameter `field2` with type `int` in function `DC2.__init__`\", \"Argument `Literal[b'f6']` is not assignable to parameter `field3` with type `ConverterClass` in function `DC2.__init__`\", 'Argument `list[@_]` is not assignable to parameter `field4` with type `int` in function `DC2.__init__`']",
     "Line 114: Unexpected errors [\"`Literal['f1']` is not assignable to attribute `field0` with type `int`\"]",
     "Line 115: Unexpected errors [\"`Literal['f6']` is not assignable to attribute `field3` with type `ConverterClass`\"]",
-    "Line 116: Unexpected errors [\"`Literal[b'f6']` is not assignable to attribute `field3` with type `ConverterClass`\"]",
-    "Line 121: Unexpected errors [\"Argument `Literal['f0']` is not assignable to parameter `field0` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f1']` is not assignable to parameter `field1` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f2']` is not assignable to parameter `field2` with type `int` in function `DC2.__init__`\", \"Argument `Literal['f6']` is not assignable to parameter `field3` with type `ConverterClass` in function `DC2.__init__`\", \"Argument `Literal['1']` is not assignable to parameter `field4` with type `int` in function `DC2.__init__`\", \"Argument `tuple[tuple[Literal['a'], Literal['1']], tuple[Literal['b'], Literal['2']]]` is not assignable to parameter `field5` with type `dict[str, str]` in function `DC2.__init__`\"]"
+    "Line 116: Unexpected errors [\"`Literal[b'f6']` is not assignable to attribute `field3` with type `ConverterClass`\"]"
   ],
   "dataclasses_transform_field.py": [
     "Line 64: Expected 1 errors",

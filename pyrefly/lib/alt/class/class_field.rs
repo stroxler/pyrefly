@@ -250,16 +250,23 @@ impl ClassField {
         }
     }
 
-    pub fn as_param(self, name: &Name, default: bool, kw_only: bool) -> Param {
+    pub fn as_param(
+        self,
+        name: &Name,
+        default: bool,
+        kw_only: bool,
+        converter_param: Option<Type>,
+    ) -> Param {
         let ClassField(ClassFieldInner::Simple { ty, .. }) = self;
+        let param_ty = converter_param.unwrap_or(ty);
         let required = match default {
             true => Required::Optional,
             false => Required::Required,
         };
         if kw_only {
-            Param::KwOnly(name.clone(), ty, required)
+            Param::KwOnly(name.clone(), param_ty, required)
         } else {
-            Param::Pos(name.clone(), ty, required)
+            Param::Pos(name.clone(), param_ty, required)
         }
     }
 

@@ -129,7 +129,8 @@ pub struct DataclassFieldKeywords {
     pub kw_only: Option<bool>,
     /// Alias that is used in `__init__` rather than the field name. None means no alias
     pub alias: Option<Name>,
-    // TODO(rechen): add converter
+    /// If a converter callable is passed in, its first positional parameter
+    pub converter_param: Option<Type>,
 }
 
 impl DataclassFieldKeywords {
@@ -141,6 +142,8 @@ impl DataclassFieldKeywords {
     const FACTORY: Name = Name::new_static("factory");
     const KW_ONLY: Name = Name::new_static("kw_only");
     const ALIAS: Name = Name::new_static("alias");
+    /// We extract and store only the first positional parameter to the converter callable.
+    const CONVERTER: Name = Name::new_static("converter");
 
     pub fn from_type_map(map: &TypeMap) -> Self {
         let init = map.get_bool(&Self::INIT, true);
@@ -149,11 +152,17 @@ impl DataclassFieldKeywords {
             .any(|k| map.0.contains_key(*k));
         let kw_only = map.0.get(&Self::KW_ONLY).and_then(|t| t.as_bool());
         let alias = map.get_string(&Self::ALIAS).map(Name::new);
+        let converter_param = if map.0.contains_key(&Self::CONVERTER) {
+            Some(Type::any_implicit())
+        } else {
+            None
+        };
         Self {
             init,
             default,
             kw_only,
             alias,
+            converter_param,
         }
     }
 

@@ -213,7 +213,6 @@ C(0)  # Should be an error
 );
 
 testcase!(
-    bug = "TODO: support converters",
     test_converter,
     r#"
 from typing import dataclass_transform, Any
@@ -225,6 +224,6 @@ def int_to_str(x: int) -> str:
 @build
 class C:
     x: str = my_field(converter=int_to_str)
-C(x=0)  # Should be ok  # E: `Literal[0]` is not assignable to parameter `x`
+C(x=0)
     "#,
 );
