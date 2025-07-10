@@ -869,3 +869,13 @@ def g[T2](x: type[T2]) -> T2:
     return x()
     "#,
 );
+
+testcase!(
+    test_generic_return_union,
+    r#"
+from typing import *
+
+def hello[T](x: T) -> None | T:
+    return x
+"#,
+);

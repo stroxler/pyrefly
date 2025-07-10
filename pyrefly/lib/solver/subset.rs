@@ -628,14 +628,24 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             {
                 true
             }
-            (Type::Quantified(q), t2) => match q.restriction() {
-                Restriction::Bound(bound) => self.is_subset_eq(bound, t2),
-                Restriction::Constraints(constraints) => constraints
-                    .iter()
-                    .all(|constraint| self.is_subset_eq(constraint, t2)),
-                Restriction::Unrestricted => self
-                    .is_subset_eq_impl(&self.type_order.stdlib().object().clone().to_type(), want),
-            },
+            // Given `A | B <: C | D` we must always split the LHS first, but a quantified might be hiding a LHS union in its bounds.
+            // Given (Quantified(bounds = A | B), A | B), we need to examine the bound _before_ splitting up the RHS union.
+            // But given (T@Quantified(bounds = ...), T | Something), we need to split the union.
+            // Therefore try these quantified cases, but only pick them if they work.
+            (Type::Quantified(q), u)
+                if let Restriction::Bound(bound) = q.restriction()
+                    && self.is_subset_eq(bound, u) =>
+            {
+                true
+            }
+            (Type::Quantified(q), u)
+                if let Restriction::Constraints(constraints) = q.restriction()
+                    && constraints
+                        .iter()
+                        .all(|constraint| self.is_subset_eq(constraint, u)) =>
+            {
+                true
+            }
             (t1, Type::Quantified(q)) => match q.restriction() {
                 // This only works for constraints and not bounds, because a TypeVar must resolve to exactly one of its constraints.
                 Restriction::Constraints(constraints) => constraints
@@ -651,6 +661,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 .all(|u| self.is_subset_eq(l, &u.as_type())),
             (l, Type::Union(us)) => us.iter().any(|u| self.is_subset_eq(l, u)),
             (Type::Intersect(ls), u) => ls.iter().any(|l| self.is_subset_eq(l, u)),
+            (Type::Quantified(q), u) if let Restriction::Unrestricted = q.restriction() => {
+                self.is_subset_eq_impl(&self.type_order.stdlib().object().clone().to_type(), u)
+            }
             (Type::Module(_), Type::ClassType(cls)) if cls.has_qname("types", "ModuleType") => true,
             (
                 Type::Function(_)
