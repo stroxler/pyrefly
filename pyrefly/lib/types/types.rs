@@ -1069,6 +1069,40 @@ impl Type {
         }
     }
 
+    /// Apply `f` to this type if it is a callable. Note that we do *not* recurse into the type to
+    /// find nested callable types.
+    fn visit_toplevel_callable(&self, mut f: impl FnMut(&Callable)) {
+        match self {
+            Type::Callable(callable) => f(callable),
+            Type::Function(box func)
+            | Type::Forall(box Forall {
+                body: Forallable::Function(func),
+                ..
+            })
+            | Type::BoundMethod(box BoundMethod {
+                func: BoundMethodType::Function(func),
+                ..
+            })
+            | Type::BoundMethod(box BoundMethod {
+                func: BoundMethodType::Forall(Forall { body: func, .. }),
+                ..
+            }) => f(&func.signature),
+            Type::Overload(overload)
+            | Type::BoundMethod(box BoundMethod {
+                func: BoundMethodType::Overload(overload),
+                ..
+            }) => {
+                for x in overload.signatures.iter() {
+                    match x {
+                        OverloadType::Callable(callable) => f(callable),
+                        OverloadType::Forall(forall) => f(&forall.body.signature),
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
     /// Transform this type if it is a callable. Note that we do *not* recurse into the type to
     /// find nested callable types.
     fn transform_toplevel_callable(&mut self, mut f: impl FnMut(&mut Callable)) {
@@ -1104,12 +1138,12 @@ impl Type {
     }
 
     // This doesn't handle generics currently
-    pub fn callable_return_type(&mut self) -> Option<Type> {
+    pub fn callable_return_type(&self) -> Option<Type> {
         let mut rets = Vec::new();
-        let mut get_ret = |callable: &mut Callable| {
+        let mut get_ret = |callable: &Callable| {
             rets.push(callable.ret.clone());
         };
-        self.transform_toplevel_callable(&mut get_ret);
+        self.visit_toplevel_callable(&mut get_ret);
         if rets.is_empty() {
             None
         } else {
