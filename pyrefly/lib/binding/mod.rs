@@ -9,6 +9,7 @@ pub mod binding;
 pub mod bindings;
 pub mod class;
 pub mod expr;
+pub mod flow_ops;
 pub mod function;
 pub mod narrow;
 pub mod pattern;
