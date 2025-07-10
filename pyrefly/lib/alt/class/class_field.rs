@@ -598,7 +598,7 @@ fn bind_instance_attribute(
 /// For example, given `class A: x: int; class B(A): pass`, the defining class
 /// for attribute `x` is `A` even when `x` is looked up on `B`.
 #[derive(Debug)]
-pub(in crate::alt::class) struct WithDefiningClass<T> {
+pub struct WithDefiningClass<T> {
     pub value: T,
     pub defining_class: Class,
 }
@@ -612,9 +612,9 @@ impl<T> WithDefiningClass<T> {
 /// The result of processing a raw dataclass member (any annotated assignment in its body).
 pub enum DataclassMember {
     /// A dataclass field
-    Field(ClassField, DataclassFieldKeywords),
+    Field(WithDefiningClass<Arc<ClassField>>, DataclassFieldKeywords),
     /// A pseudo-field that only appears as a constructor argument
-    InitVar(ClassField, DataclassFieldKeywords),
+    InitVar(WithDefiningClass<Arc<ClassField>>, DataclassFieldKeywords),
     /// A pseudo-field annotated with KW_ONLY
     KwOnlyMarker,
     /// Anything else
@@ -1036,9 +1036,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             let flags = field.dataclass_flags_of(seen_kw_only_marker || default_to_kw_only);
             if field.is_init_var() {
-                DataclassMember::InitVar(field.clone(), flags)
+                DataclassMember::InitVar(member, flags)
             } else {
-                DataclassMember::Field(field.clone(), flags)
+                DataclassMember::Field(member, flags)
             }
         }
     }

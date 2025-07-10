@@ -206,17 +206,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 DataclassMember::NotAField => {}
                 DataclassMember::Field(field, keywords) => {
                     if keywords.is_kw_only() {
-                        kwonly_fields.push((name.clone(), field, keywords))
+                        kwonly_fields.push((name.clone(), (*field.value).clone(), keywords))
                     } else {
-                        positional_fields.push((name.clone(), field, keywords))
+                        positional_fields.push((name.clone(), (*field.value).clone(), keywords))
                     }
                 }
                 DataclassMember::InitVar(field, keywords) => {
                     if include_initvar {
                         if keywords.is_kw_only() {
-                            kwonly_fields.push((name.clone(), field, keywords))
+                            kwonly_fields.push((name.clone(), (*field.value).clone(), keywords))
                         } else {
-                            positional_fields.push((name.clone(), field, keywords))
+                            positional_fields.push((name.clone(), (*field.value).clone(), keywords))
                         }
                     }
                 }
