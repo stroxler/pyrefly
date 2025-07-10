@@ -1330,3 +1330,16 @@ def f(x, y: types.UnionType):
     isinstance(x, y)
 "#,
 );
+
+testcase!(
+    test_isinstance_selftype,
+    r#"
+from typing import reveal_type
+
+class Foo:
+    @classmethod
+    def foo(cls, x):
+        if isinstance(x, cls):
+            reveal_type(x) # E: revealed type: Self@Foo
+"#,
+);

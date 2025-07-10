@@ -128,7 +128,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Note that for the purposes of type narrowing, we always unwrap Type::Type(Type::ClassType),
             // but it's not always a valid argument to isinstance/issubclass. expr_infer separately checks
             // whether the argument is valid.
-            Type::Type(box ty @ (Type::ClassType(_) | Type::Quantified(_))) => Some(ty.clone()),
+            Type::Type(box ty @ (Type::ClassType(_) | Type::Quantified(_) | Type::SelfType(_))) => {
+                Some(ty.clone())
+            }
             Type::Type(box Type::Tuple(_)) => Some(Type::any_tuple()),
             Type::Type(box Type::Any(a)) => Some(a.propagate()),
             Type::None | Type::Type(box Type::None) => Some(Type::None),
