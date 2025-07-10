@@ -1160,3 +1160,30 @@ class C:
 assert_type(C.__match_args__, tuple[Literal['x']])
     "#,
 );
+
+// InitVars are passed positionally to `__post_init__`, in the order in which they're defined.
+testcase!(
+    bug = "We should error on the __post_init__ definition in Bad1 and Bad2",
+    test_post_init_validation,
+    r#"
+from dataclasses import dataclass, InitVar
+@dataclass
+class Good:
+    x: int
+    y: InitVar[str]
+    z: InitVar[bytes]
+    def __post_init__(self, y: str, z: bytes): ...
+@dataclass
+class Bad1:
+    x: int
+    y: InitVar[str]
+    z: InitVar[bytes]
+    def __post_init__(self, y: bytes, z: str): ...
+@dataclass
+class Bad2:
+    x: int
+    y: InitVar[str]
+    z: InitVar[bytes]
+    def __post_init__(self, *, y: str, z: bytes): ...
+    "#,
+);
