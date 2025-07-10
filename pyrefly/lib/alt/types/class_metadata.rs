@@ -72,7 +72,6 @@ impl Display for ClassMetadata {
 
 impl ClassMetadata {
     pub fn new(
-        cls: &Class,
         bases_with_metadata: Vec<(ClassType, Arc<ClassMetadata>)>,
         metaclass: Option<ClassType>,
         keywords: Vec<(Name, Type)>,
@@ -87,14 +86,7 @@ impl ClassMetadata {
         has_unknown_tparams: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
         dataclass_transform_metadata: Option<DataclassTransformKeywords>,
-        errors: &ErrorCollector,
     ) -> ClassMetadata {
-        Self::validate_frozen_dataclass_inheritance(
-            cls,
-            &dataclass_metadata,
-            &bases_with_metadata,
-            errors,
-        );
         ClassMetadata {
             metaclass: Metaclass(metaclass),
             keywords: Keywords(keywords),
@@ -110,50 +102,6 @@ impl ClassMetadata {
             has_unknown_tparams,
             total_ordering_metadata,
             dataclass_transform_metadata,
-        }
-    }
-
-    fn validate_frozen_dataclass_inheritance(
-        cls: &Class,
-        dataclass_metadata: &Option<DataclassMetadata>,
-        bases_with_metadata: &[(ClassType, Arc<ClassMetadata>)],
-        errors: &ErrorCollector,
-    ) {
-        if let Some(dataclass_metadata) = dataclass_metadata {
-            for (base_type, base_metadata) in bases_with_metadata {
-                if let Some(base_dataclass_metadata) = base_metadata.dataclass_metadata() {
-                    let is_base_frozen = base_dataclass_metadata.kws.frozen;
-                    let is_current_frozen = dataclass_metadata.kws.frozen;
-
-                    if is_current_frozen != is_base_frozen {
-                        let current_status = if is_current_frozen {
-                            "frozen"
-                        } else {
-                            "non-frozen"
-                        };
-                        let base_status = if is_base_frozen {
-                            "frozen"
-                        } else {
-                            "non-frozen"
-                        };
-
-                        let base = base_type.class_object();
-                        let ctx = ClassDisplayContext::new(&[cls, base]);
-                        errors.add(
-                            cls.range(),
-                            ErrorKind::InvalidInheritance,
-                            None,
-                            vec1![format!(
-                                "Cannot inherit {} dataclass `{}` from {} dataclass `{}`",
-                                current_status,
-                                ctx.display(cls),
-                                base_status,
-                                ctx.display(base),
-                            )],
-                        );
-                    }
-                }
-            }
         }
     }
 

@@ -528,8 +528,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // - the class inherits from Generic[...] or Protocol [...]. We probably dropped the type
         //   arguments because we found an error in them.
         let has_unknown_tparams = empty_tparams && (has_base_any || has_generic_base_class);
-        ClassMetadata::new(
+        self.validate_frozen_dataclass_inheritance(
             cls,
+            &dataclass_metadata,
+            &bases_with_metadata,
+            errors,
+        );
+        ClassMetadata::new(
             bases_with_metadata,
             metaclass,
             keywords,
@@ -544,7 +549,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             has_unknown_tparams,
             total_ordering_metadata,
             dataclass_transform_metadata,
-            errors,
         )
     }
 
