@@ -1343,3 +1343,17 @@ class Foo:
             reveal_type(x) # E: revealed type: Self@Foo
 "#,
 );
+
+testcase!(
+    test_isinstance_unpacked_tuple,
+    r#"
+from typing import assert_type
+
+def f(x, y):
+    isinstance(x, (str, *y))
+
+def g(x, y: tuple[type[int], type[str]]):
+    if isinstance(x, (bool, *y)):
+        assert_type(x, bool | int | str)
+"#,
+);

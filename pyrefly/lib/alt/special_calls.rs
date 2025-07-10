@@ -468,6 +468,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 Type::Tuple(Tuple::Unbounded(box t)) => f(me, t, res),
+                Type::Tuple(Tuple::Unpacked(box (pre, mid, post))) => {
+                    for t in pre {
+                        f(me, t, res)
+                    }
+                    f(me, mid, res);
+                    for t in post {
+                        f(me, t, res)
+                    }
+                }
                 Type::Type(box Type::Union(ts)) => {
                     for t in ts {
                         f(me, Type::type_form(t), res)
