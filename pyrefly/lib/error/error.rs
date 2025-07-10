@@ -228,3 +228,54 @@ impl Error {
         self.error_kind
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use pyrefly_python::module_name::ModuleName;
+    use ruff_text_size::TextSize;
+    use vec1::vec1;
+
+    use super::*;
+
+    #[test]
+    fn test_error_render() {
+        let module_info = ModuleInfo::new(
+            ModuleName::from_str("test"),
+            ModulePath::filesystem(PathBuf::from("test.py")),
+            Arc::new("def f(x: int) -> str:\n    return x".to_owned()),
+        );
+        let error = Error::new(
+            module_info,
+            TextRange::new(TextSize::new(26), TextSize::new(34)),
+            vec1!["bad return".to_owned()],
+            ErrorKind::BadReturn,
+        );
+        let mut normal = Vec::new();
+        error
+            .write_line(&mut Cursor::new(&mut normal), false)
+            .unwrap();
+        let mut verbose = Vec::new();
+        error
+            .write_line(&mut Cursor::new(&mut verbose), true)
+            .unwrap();
+
+        assert_eq!(
+            str::from_utf8(&normal).unwrap(),
+            "ERROR test.py:2:5-13: bad return [bad-return]\n"
+        );
+        assert_eq!(
+            str::from_utf8(&verbose).unwrap(),
+            r#"ERROR bad return [bad-return]
+ --> test.py:2:5
+  |
+2 |     return x
+  |     ^^^^^^^^
+  |
+"#,
+        );
+    }
+}
