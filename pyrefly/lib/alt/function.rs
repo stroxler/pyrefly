@@ -518,7 +518,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     });
                     if let Some(mut call_attr) = call_attr {
-                        call_attr.transform_func_metadata(|m| {
+                        call_attr.transform_toplevel_func_metadata(|m| {
                             *m = FuncMetadata {
                                 kind: FunctionKind::CallbackProtocol(Box::new(cls.clone())),
                                 flags: metadata.flags.clone(),

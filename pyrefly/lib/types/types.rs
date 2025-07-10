@@ -997,7 +997,9 @@ impl Type {
         seen
     }
 
-    fn check_func_metadata<T: Default>(&self, check: &dyn Fn(&FuncMetadata) -> T) -> T {
+    /// Calls a `check` function on this type's function metadata if it is a function. Note that we
+    /// do *not* recurse into the type to find nested function types.
+    fn check_toplevel_func_metadata<T: Default>(&self, check: &dyn Fn(&FuncMetadata) -> T) -> T {
         match self {
             Type::Function(box func)
             | Type::Forall(box Forall {
@@ -1014,42 +1016,44 @@ impl Type {
     }
 
     pub fn is_override(&self) -> bool {
-        self.check_func_metadata(&|meta| meta.flags.is_override)
+        self.check_toplevel_func_metadata(&|meta| meta.flags.is_override)
     }
 
     pub fn has_enum_member_decoration(&self) -> bool {
-        self.check_func_metadata(&|meta| meta.flags.has_enum_member_decoration)
+        self.check_toplevel_func_metadata(&|meta| meta.flags.has_enum_member_decoration)
     }
 
     pub fn is_property_getter(&self) -> bool {
-        self.check_func_metadata(&|meta| meta.flags.is_property_getter)
+        self.check_toplevel_func_metadata(&|meta| meta.flags.is_property_getter)
     }
 
     pub fn is_property_setter_decorator(&self) -> bool {
-        self.check_func_metadata(&|meta| meta.flags.is_property_setter_decorator)
+        self.check_toplevel_func_metadata(&|meta| meta.flags.is_property_setter_decorator)
     }
 
     pub fn is_property_setter_with_getter(&self) -> Option<Type> {
-        self.check_func_metadata(&|meta| meta.flags.is_property_setter_with_getter.clone())
+        self.check_toplevel_func_metadata(&|meta| meta.flags.is_property_setter_with_getter.clone())
     }
 
     pub fn is_overload(&self) -> bool {
-        self.check_func_metadata(&|meta| meta.flags.is_overload)
+        self.check_toplevel_func_metadata(&|meta| meta.flags.is_overload)
     }
 
     pub fn is_deprecated(&self) -> bool {
-        self.check_func_metadata(&|meta| meta.flags.is_deprecated)
+        self.check_toplevel_func_metadata(&|meta| meta.flags.is_deprecated)
     }
 
     pub fn has_final_decoration(&self) -> bool {
-        self.check_func_metadata(&|meta| meta.flags.has_final_decoration)
+        self.check_toplevel_func_metadata(&|meta| meta.flags.has_final_decoration)
     }
 
     pub fn dataclass_transform_metadata(&self) -> Option<DataclassTransformKeywords> {
-        self.check_func_metadata(&|meta| meta.flags.dataclass_transform_metadata.clone())
+        self.check_toplevel_func_metadata(&|meta| meta.flags.dataclass_transform_metadata.clone())
     }
 
-    pub fn transform_func_metadata(&mut self, mut f: impl FnMut(&mut FuncMetadata)) {
+    /// Transforms this type's function metadata, if it is a function. Note that we do *not*
+    /// recurse into the type to find nested function types.
+    pub fn transform_toplevel_func_metadata(&mut self, mut f: impl FnMut(&mut FuncMetadata)) {
         match self {
             Type::Function(box func)
             | Type::Forall(box Forall {
@@ -1065,7 +1069,9 @@ impl Type {
         }
     }
 
-    fn transform_callable(&mut self, mut f: impl FnMut(&mut Callable)) {
+    /// Transform this type if it is a callable. Note that we do *not* recurse into the type to
+    /// find nested callable types.
+    fn transform_toplevel_callable(&mut self, mut f: impl FnMut(&mut Callable)) {
         match self {
             Type::Callable(callable) => f(callable),
             Type::Function(box func)
@@ -1103,7 +1109,7 @@ impl Type {
         let mut get_ret = |callable: &mut Callable| {
             rets.push(callable.ret.clone());
         };
-        self.transform_callable(&mut get_ret);
+        self.transform_toplevel_callable(&mut get_ret);
         if rets.is_empty() {
             None
         } else {
@@ -1116,7 +1122,7 @@ impl Type {
         let mut set_ret = |callable: &mut Callable| {
             callable.ret = ret.clone();
         };
-        self.transform_callable(&mut set_ret);
+        self.transform_toplevel_callable(&mut set_ret);
     }
 
     pub fn promote_literals(self, stdlib: &Stdlib) -> Type {
@@ -1175,12 +1181,14 @@ impl Type {
                     }
                 }
             }
-            ty.transform_callable(&mut |callable: &mut Callable| match &mut callable.params {
-                Params::List(params) => {
-                    transform_params(params);
-                }
-                _ => {}
-            });
+            ty.transform_toplevel_callable(
+                &mut |callable: &mut Callable| match &mut callable.params {
+                    Params::List(params) => {
+                        transform_params(params);
+                    }
+                    _ => {}
+                },
+            );
             if let Type::ParamSpecValue(params) = &mut ty {
                 transform_params(params);
             }
