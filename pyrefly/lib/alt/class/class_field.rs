@@ -1024,25 +1024,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // fields should be keyword-only params in the generated `__init__`.
         if field.is_dataclass_kwonly_marker() {
             DataclassMember::KwOnlyMarker
-        } else if field.is_class_var()
-            || field.is_initialized_in_method()
+        } else if field.is_initialized_in_method() // This member is defined in a method without being declared on the class
+            || field.is_class_var() // Class variables are not dataclass fields
             || (!field.has_explicit_annotation()
                 && self
                     .get_inherited_annotation(cls, name)
                     .1
                     .is_some_and(|annot| annot.has_qualifier(&Qualifier::ClassVar)))
         {
-            DataclassMember::NotAField // Class variables are not dataclass fields
-        } else if field.is_init_var() {
-            DataclassMember::InitVar(
-                field.clone(),
-                field.dataclass_flags_of(seen_kw_only_marker || default_to_kw_only),
-            )
+            DataclassMember::NotAField
         } else {
-            DataclassMember::Field(
-                field.clone(),
-                field.dataclass_flags_of(seen_kw_only_marker || default_to_kw_only),
-            )
+            let flags = field.dataclass_flags_of(seen_kw_only_marker || default_to_kw_only);
+            if field.is_init_var() {
+                DataclassMember::InitVar(field.clone(), flags)
+            } else {
+                DataclassMember::Field(field.clone(), flags)
+            }
         }
     }
 
