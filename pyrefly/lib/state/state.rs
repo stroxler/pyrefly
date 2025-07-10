@@ -1358,7 +1358,7 @@ impl<'a> Transaction<'a> {
         );
     }
 
-    pub fn report_timings(&self, path: &Path) -> anyhow::Result<()> {
+    pub fn report_timings(&mut self, path: &Path) -> anyhow::Result<()> {
         let mut file = BufWriter::new(File::create(path)?);
         writeln!(file, "Module,Step,Seconds")?;
         file.flush()?;
@@ -1437,6 +1437,7 @@ impl<'a> Transaction<'a> {
                 subscriber.finish_work(m.handle.dupe(), alt.load.unwrap().dupe());
             }
         }
+        self.data.subscriber = None; // Finalise the progress bar before printing to stderr
         for (step, duration) in timings {
             info!("Step {step} took {duration:.3} seconds");
         }
