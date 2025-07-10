@@ -1089,3 +1089,18 @@ def g(ann) -> None:
     ann.__module__ # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: type[Tuple] | Unknown (trying to access __module__)
     "#,
 );
+
+testcase!(
+    bug = "First error is correct but obj.__name__ should not be an error",
+    test_attr,
+    r#"
+def f(obj, g, field_type, my_type,):
+    assert issubclass(obj, tuple) and hasattr(obj, "_fields")
+    for f in obj._fields: # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: type[tuple[Unknown, ...]] 
+        if isinstance(field_type, my_type) and g is not None:
+            if g is None:
+                raise ValueError(
+                    f"{obj.__name__}." # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: @_ (trying to access __name__)
+                )
+    "#,
+);
