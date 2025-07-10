@@ -268,6 +268,35 @@ pub struct FlowInfo {
 }
 
 impl FlowInfo {
+    fn new(key: Idx<Key>, style: Option<FlowStyle>) -> Self {
+        Self {
+            key,
+            default: key,
+            style: style.unwrap_or(FlowStyle::Other),
+        }
+    }
+
+    /// Create a new FlowInfo after an update.
+    ///
+    /// Also return the `Idx<Key>` of the default binding, if we are updating inside a loop
+    /// (and `None` if we are not in a loop).
+    fn updated(
+        &self,
+        key: Idx<Key>,
+        style: Option<FlowStyle>,
+        in_loop: bool,
+    ) -> (Self, Option<Idx<Key>>) {
+        let default = if in_loop { Some(self.default) } else { None };
+        (
+            Self {
+                key,
+                default: default.unwrap_or(key),
+                style: style.unwrap_or_else(|| self.style.clone()),
+            },
+            default,
+        )
+    }
+
     pub fn as_initial_value(&self) -> RawClassFieldInitialization {
         match &self.style {
             FlowStyle::ClassField {
@@ -757,22 +786,12 @@ impl Scopes {
         let in_loop = self.loop_depth() != 0;
         match self.current_mut().flow.info.entry_hashed(name.cloned()) {
             Entry::Vacant(e) => {
-                let style = style.unwrap_or(FlowStyle::Other);
-                e.insert(FlowInfo {
-                    key,
-                    default: key,
-                    style,
-                });
+                e.insert(FlowInfo::new(key, style));
                 None
             }
             Entry::Occupied(mut e) => {
-                let default = if in_loop { Some(e.get().default) } else { None };
-                let style = style.unwrap_or_else(|| e.get().style.clone());
-                *e.get_mut() = FlowInfo {
-                    key,
-                    default: default.unwrap_or(key),
-                    style,
-                };
+                let (updated, default) = e.get().updated(key, style, in_loop);
+                *e.get_mut() = updated;
                 default
             }
         }
