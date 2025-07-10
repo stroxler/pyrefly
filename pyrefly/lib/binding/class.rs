@@ -219,15 +219,15 @@ impl<'a> BindingsBuilder<'a> {
         self.scopes.pop(); // annotation scope
         let mut fields = SmallMap::with_capacity(last_scope.stat.0.len());
         for (name, info) in last_scope.flow.info.iter_hashed() {
-            let is_function_without_return_annotation =
-                if let FlowStyle::FunctionDef(_, has_return_annotation) = info.style {
-                    !has_return_annotation
-                } else {
-                    false
-                };
-            // A name with flow in the last_scope, but whose static is in a parent scope, is a reference to something that isn't a class field.
-            // Can occur when we narrow a parent scopes variable, thus producing a fresh flow for it, but no static.
+            // Ignore a name not in the current flow's static. This can happen because operations
+            // like narrows can change the local flow info for a name defined in some parent scope.
             if let Some(stat_info) = last_scope.stat.0.get_hashed(name) {
+                let is_function_without_return_annotation =
+                    if let FlowStyle::FunctionDef(_, has_return_annotation) = info.style {
+                        !has_return_annotation
+                    } else {
+                        false
+                    };
                 let initial_value = info.as_initial_value();
                 let value = match &initial_value {
                     ClassFieldInitialValue::Class(Some(e)) => ExprOrBinding::Expr(e.clone()),
