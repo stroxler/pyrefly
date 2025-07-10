@@ -32,6 +32,7 @@ use crate::types::types::TArgs;
 use crate::types::types::TParam;
 use crate::types::types::TParams;
 use crate::types::types::Type;
+use crate::types::types::Var;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Silently promotes a Class to a ClassType, using default type arguments. It is up to the
@@ -162,6 +163,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.uniques,
             )
             .1
+    }
+
+    pub fn instantiate_forall(&self, forall: Forall<Forallable>) -> (Vec<Var>, Type) {
+        self.solver()
+            .fresh_quantified(&forall.tparams, forall.body.as_type(), self.uniques)
     }
 
     /// Creates default type arguments for a class, falling back to Any for type parameters without defaults.

@@ -201,11 +201,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::Type(box Type::Any(style)) => Some(CallTarget::new(Target::Any(style))),
             Type::Forall(forall) => {
-                let (qs, t) = self.solver().fresh_quantified(
-                    &forall.tparams,
-                    forall.body.as_type(),
-                    self.uniques,
-                );
+                let (qs, t) = self.instantiate_forall(*forall);
                 self.as_call_target(t)
                     .map(|x| CallTarget::forall(qs.into_iter().chain(x.qs).collect(), x.target))
             }
