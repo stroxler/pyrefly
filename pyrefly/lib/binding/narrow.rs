@@ -410,6 +410,17 @@ impl NarrowOps {
                 node_index: _,
                 range,
                 func,
+                arguments,
+            })) if builder.as_special_export(func) == Some(SpecialExport::Bool)
+                && arguments.args.len() == 1
+                && arguments.keywords.is_empty() =>
+            {
+                Self::from_single_narrow_op(&arguments.args[0], AtomicNarrowOp::IsTruthy, *range)
+            }
+            Some(Expr::Call(ExprCall {
+                node_index: _,
+                range,
+                func,
                 arguments: args @ Arguments { args: posargs, .. },
             })) if !posargs.is_empty() => {
                 // This may be a function call that narrows the type of its first argument. Record

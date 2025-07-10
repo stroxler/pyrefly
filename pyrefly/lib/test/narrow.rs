@@ -33,6 +33,29 @@ def f(x: str | None, y: bool):
 );
 
 testcase!(
+    test_bool_simple,
+    r#"
+from typing import assert_type
+def f(x: str | None):
+    if bool(x):
+        assert_type(x, str)
+    "#,
+);
+
+testcase!(
+    bug = "We don't identify bool() as builtins.bool if it's used elsewhere as a type annotation, instead the special exports system thinks it's defined by the current file (main.bool)",
+    test_bool_special_exports_bug,
+    r#"
+from typing import assert_type
+def f(x: bool):
+    if bool(x):
+        assert_type(x, bool)  # should be Literal[True]
+    else:
+        assert_type(x, bool)  # should be Literal[False]
+    "#,
+);
+
+testcase!(
     test_eq,
     r#"
 from typing import assert_type
