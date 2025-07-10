@@ -56,10 +56,6 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0.as_class_type_unchecked(class)
     }
 
-    pub fn is_compatible_constructor_return(self, ty: &Type, class: &Class) -> bool {
-        self.0.is_compatible_constructor_return(ty, class)
-    }
-
     pub fn has_metaclass(self, cls: &Class, metaclass: &ClassType) -> bool {
         let metadata = self.0.get_metadata_for_class(cls);
         match metadata.metaclass() {
@@ -68,10 +64,6 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
             }
             None => metaclass == self.stdlib().builtins_type(),
         }
-    }
-
-    pub fn get_metaclass_dunder_call(self, cls: &ClassType) -> Option<Type> {
-        self.0.get_metaclass_dunder_call(cls)
     }
 
     pub fn is_protocol(self, cls: &Class) -> bool {
@@ -133,14 +125,6 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0.promote_silently(cls)
     }
 
-    pub fn get_dunder_new(self, cls: &ClassType) -> Option<Type> {
-        self.0.get_dunder_new(cls)
-    }
-
-    pub fn get_dunder_init(self, cls: &ClassType, get_object_init: bool) -> Option<Type> {
-        self.0.get_dunder_init(cls, get_object_init)
-    }
-
     pub fn typed_dict_fields(self, typed_dict: &TypedDict) -> SmallMap<Name, TypedDictField> {
         self.0.typed_dict_fields(typed_dict)
     }
@@ -153,5 +137,9 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0
             .get_from_class(cls, &KeyVariance(cls.index()))
             .unwrap_or_default()
+    }
+
+    pub fn constructor_to_callable(self, cls: &ClassType) -> Type {
+        self.0.constructor_to_callable(cls)
     }
 }
