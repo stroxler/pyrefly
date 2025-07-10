@@ -3488,46 +3488,6 @@
     },
     {
       "code": -2,
-      "column": 14,
-      "concise_description": "`Literal['f1']` is not assignable to attribute `field0` with type `int`",
-      "description": "`Literal['f1']` is not assignable to attribute `field0` with type `int`",
-      "line": 114,
-      "name": "bad-assignment",
-      "stop_column": 18,
-      "stop_line": 114
-    },
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "`Literal['f6']` is not assignable to attribute `field3` with type `ConverterClass`",
-      "description": "`Literal['f6']` is not assignable to attribute `field3` with type `ConverterClass`",
-      "line": 115,
-      "name": "bad-assignment",
-      "stop_column": 18,
-      "stop_line": 115
-    },
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "`Literal[b'f6']` is not assignable to attribute `field3` with type `ConverterClass`",
-      "description": "`Literal[b'f6']` is not assignable to attribute `field3` with type `ConverterClass`",
-      "line": 116,
-      "name": "bad-assignment",
-      "stop_column": 19,
-      "stop_line": 116
-    },
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "`Literal[1]` is not assignable to attribute `field3` with type `ConverterClass`",
-      "description": "`Literal[1]` is not assignable to attribute `field3` with type `ConverterClass`",
-      "line": 119,
-      "name": "bad-assignment",
-      "stop_column": 15,
-      "stop_line": 119
-    },
-    {
-      "code": -2,
       "column": 67,
       "concise_description": "Argument `Literal[1]` is not assignable to parameter `default` with type `str | None` in function `model_field`",
       "description": "Argument `Literal[1]` is not assignable to parameter `default` with type `str | None` in function `model_field`",

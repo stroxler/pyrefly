@@ -227,3 +227,20 @@ class C:
 C(x=0)
     "#,
 );
+
+testcase!(
+    test_set_attr_with_converter,
+    r#"
+from typing import dataclass_transform, Any
+def my_field(**kwargs) -> Any: ...
+@dataclass_transform(field_specifiers=(my_field,))
+def build(x): ...
+def int_to_str(x: int) -> str:
+    return str(x)
+@build
+class C:
+    x: str = my_field(converter=int_to_str)
+c = C(x=0)
+c.x = 42
+    "#,
+);

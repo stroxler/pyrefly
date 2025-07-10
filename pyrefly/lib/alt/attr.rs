@@ -18,6 +18,7 @@ use vec1::vec1;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::callable::CallArg;
+use crate::alt::class::class_field::DataclassMember;
 use crate::alt::expr::TypeOrExpr;
 use crate::alt::types::class_metadata::EnumMetadata;
 use crate::binding::binding::ExprOrBinding;
@@ -780,6 +781,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 LookupResult::Found(Attribute {
                     inner: AttributeInner::Simple(want, Visibility::ReadWrite),
                 }) => {
+                    // If the attribute has a converter, then `want` should be the type expected by the converter.
+                    let want = match attr_base {
+                        AttributeBase::ClassInstance(cls) => match self
+                            .get_dataclass_member(cls.class_object(), attr_name)
+                        {
+                            DataclassMember::Field(_, kws) => kws.converter_param.unwrap_or(want),
+                            _ => want,
+                        },
+                        _ => want,
+                    };
                     let ty = match &got {
                         TypeOrExpr::Expr(got) => self.expr(
                             got,
