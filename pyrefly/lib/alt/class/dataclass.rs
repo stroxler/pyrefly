@@ -199,16 +199,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut kwonly_fields = Vec::new();
         let cls_is_kw_only = dataclass.kws.kw_only;
         for name in dataclass.fields.iter() {
-            match (
-                self.get_dataclass_member(cls, name, cls_is_kw_only, seen_kw_only_marker),
-                include_initvar,
-            ) {
+            match (self.get_dataclass_member(cls, name), include_initvar) {
                 (DataclassMember::KwOnlyMarker, _) => {
                     seen_kw_only_marker = true;
                 }
                 (DataclassMember::NotAField, _) => {}
-                (DataclassMember::Field(field, keywords), _)
-                | (DataclassMember::InitVar(field, keywords), true) => {
+                (DataclassMember::Field(field, mut keywords), _)
+                | (DataclassMember::InitVar(field, mut keywords), true) => {
+                    if keywords.kw_only.is_none() {
+                        // kw_only hasn't been explicitly set on the field
+                        keywords.kw_only = Some(
+                            seen_kw_only_marker || (cls_is_kw_only && field.defining_class == *cls),
+                        );
+                    };
                     if keywords.is_kw_only() {
                         kwonly_fields.push((name.clone(), (*field.value).clone(), keywords))
                     } else {
