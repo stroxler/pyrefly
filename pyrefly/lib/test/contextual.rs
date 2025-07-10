@@ -351,6 +351,20 @@ x = y = [B()]  # E: Wrong type for assignment, expected `list[A]` and got `list[
 );
 
 testcase!(
+    bug = "We should error on the assignment to `xs`, since `ys` is inferred as `list[B]`",
+    test_context_assign_expr,
+    r#"
+from typing import assert_type
+
+class A: ...
+class B(A): ...
+
+xs: list[A] = (ys := [B()]) # TODO: should error
+assert_type(ys, list[B])
+    "#,
+);
+
+testcase!(
     bug = "We do not currently propagate context through unpacked assignment",
     test_context_assign_unpacked_tuple,
     r#"
