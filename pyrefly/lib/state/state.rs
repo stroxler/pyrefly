@@ -40,6 +40,7 @@ use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::events::CategorizedEvents;
+use pyrefly_util::fs_anyhow;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
 use pyrefly_util::locked_map::LockedMap;
@@ -1438,6 +1439,17 @@ impl<'a> Transaction<'a> {
             }
         }
         self.data.subscriber = None; // Finalise the progress bar before printing to stderr
+
+        // Often what the person wants is what is taking most time, so sort that way.
+        // But sometimes they abort, so we can't just buffer the results in memory.
+        file.flush()?;
+        drop(file);
+        let contents = fs_anyhow::read_to_string(path)?;
+        let mut lines = contents.lines().collect::<Vec<_>>();
+        lines.sort_by_cached_key(|x| x.rsplit_once(',').map(|x| x.1));
+        lines.reverse();
+        fs_anyhow::write(path, lines.join("\n").as_bytes())?;
+
         for (step, duration) in timings {
             info!("Step {step} took {duration:.3} seconds");
         }
