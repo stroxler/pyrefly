@@ -600,7 +600,7 @@ assert_type(y1, B)
 
 y2: A = (x2 := B())
 
-y3: list[A] = (x3 := [B()])
+y3: list[A] = (x3 := [B()]) # E: `list[B]` is not assignable to `list[A]`
 
 y4: B = (x4 := A())  # E: `A` is not assignable to `B`
     "#,

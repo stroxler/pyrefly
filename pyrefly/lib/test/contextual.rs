@@ -351,7 +351,6 @@ x = y = [B()]  # E: Wrong type for assignment, expected `list[A]` and got `list[
 );
 
 testcase!(
-    bug = "We should error on the assignment to `xs`, since `ys` is inferred as `list[B]`",
     test_context_assign_expr,
     r#"
 from typing import assert_type
@@ -359,7 +358,7 @@ from typing import assert_type
 class A: ...
 class B(A): ...
 
-xs: list[A] = (ys := [B()]) # TODO: should error
+xs: list[A] = (ys := [B()]) # E: `list[B]` is not assignable to `list[A]`
 assert_type(ys, list[B])
     "#,
 );

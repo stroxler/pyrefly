@@ -771,7 +771,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let base = self.expr_infer_type_info(&x.value, errors);
                 self.subscript_infer(&base, &x.slice, x.range(), errors)
             }
-            Expr::Named(x) => self.expr_infer_type_info_with_hint(&x.value, hint, errors),
+            Expr::Named(x) => match &*x.target {
+                Expr::Name(name) => self
+                    .get(&Key::Definition(ShortIdentifier::expr_name(name)))
+                    .arc_clone(),
+                _ => TypeInfo::of_ty(Type::any_error()), // syntax error
+            },
             // All other expressions operate at the `Type` level only, so we avoid the overhead of
             // wrapping and unwrapping `TypeInfo` by computing the result as a `Type` and only wrapping
             // at the end.
