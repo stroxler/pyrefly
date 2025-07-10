@@ -72,8 +72,13 @@ use crate::types::types::Type;
 pub enum ClassFieldInitialization {
     /// If this is a dataclass field, DataclassFieldKeywords stores the field's
     /// dataclass flags (which are options that control how fields behave).
-    Class(Option<DataclassFieldKeywords>),
-    Instance,
+    ClassBody(Option<DataclassFieldKeywords>),
+    /// This field is initialized in a method. Note that this applies only if the field is not
+    /// declared anywhere else.
+    Method,
+    /// The field is not initialized at the point where it is declared. This usually means that the
+    /// field is instance-only and is declared but not initialized in the class body.
+    Uninitialized,
     /// The field is not initialized in the class body or any method in the class,
     /// but we treat it as if it was initialized.
     /// For example, any field defined in a stub file.
@@ -83,8 +88,9 @@ pub enum ClassFieldInitialization {
 impl Display for ClassFieldInitialization {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Class(_) => write!(f, "initialized on class body"),
-            Self::Instance => write!(f, "initialized on instances"),
+            Self::ClassBody(_) => write!(f, "initialized on class body"),
+            Self::Method => write!(f, "initialized in method"),
+            Self::Uninitialized => write!(f, "initialized on instances"),
             Self::Magic => {
                 write!(f, "not initialized on class body/method")
             }
@@ -94,7 +100,7 @@ impl Display for ClassFieldInitialization {
 
 impl ClassFieldInitialization {
     fn recursive() -> Self {
-        ClassFieldInitialization::Class(None)
+        ClassFieldInitialization::ClassBody(None)
     }
 }
 
@@ -216,7 +222,7 @@ impl ClassField {
         ClassField(ClassFieldInner::Simple {
             ty,
             annotation: None,
-            initialization: ClassFieldInitialization::Class(None),
+            initialization: ClassFieldInitialization::ClassBody(None),
             declared_by: ClassFieldDeclaredBy::ClassBody,
             read_only_reason: None,
             descriptor_getter: None,
@@ -288,8 +294,10 @@ impl ClassField {
     fn as_raw_special_method_type(self, instance: &Instance) -> Option<Type> {
         match self.instantiate_for(instance).0 {
             ClassFieldInner::Simple { ty, .. } => match self.initialization() {
-                ClassFieldInitialization::Class(_) => Some(ty),
-                ClassFieldInitialization::Instance | ClassFieldInitialization::Magic => None,
+                ClassFieldInitialization::ClassBody(_) => Some(ty),
+                ClassFieldInitialization::Method
+                | ClassFieldInitialization::Uninitialized
+                | ClassFieldInitialization::Magic => None,
             },
         }
     }
@@ -308,11 +316,14 @@ impl ClassField {
     pub fn as_named_tuple_requiredness(&self) -> Required {
         match &self.0 {
             ClassFieldInner::Simple {
-                initialization: ClassFieldInitialization::Class(_),
+                initialization: ClassFieldInitialization::ClassBody(_),
                 ..
             } => Required::Optional,
             ClassFieldInner::Simple {
-                initialization: ClassFieldInitialization::Instance | ClassFieldInitialization::Magic,
+                initialization:
+                    ClassFieldInitialization::Method
+                    | ClassFieldInitialization::Uninitialized
+                    | ClassFieldInitialization::Magic,
                 ..
             } => Required::Required,
         }
@@ -409,7 +420,7 @@ impl ClassField {
     ) -> Option<ReadOnlyReason> {
         if let Some(ann) = annotation {
             // TODO: enable this for Final attrs that aren't initialized on the class
-            if ann.is_final() && matches!(initialization, ClassFieldInitialization::Class(_)) {
+            if ann.is_final() && matches!(initialization, ClassFieldInitialization::ClassBody(_)) {
                 return Some(ReadOnlyReason::Final);
             }
             if ann.has_qualifier(&Qualifier::ReadOnly) {
@@ -453,15 +464,15 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple { initialization, .. } => {
                 let mut flags = match initialization {
-                    ClassFieldInitialization::Class(Some(field_flags)) => field_flags.clone(),
-                    ClassFieldInitialization::Class(None) => {
+                    ClassFieldInitialization::ClassBody(Some(field_flags)) => field_flags.clone(),
+                    ClassFieldInitialization::ClassBody(None) => {
                         let mut kws = DataclassFieldKeywords::new();
                         kws.default = true;
                         kws
                     }
-                    ClassFieldInitialization::Instance | ClassFieldInitialization::Magic => {
-                        DataclassFieldKeywords::new()
-                    }
+                    ClassFieldInitialization::Method
+                    | ClassFieldInitialization::Uninitialized
+                    | ClassFieldInitialization::Magic => DataclassFieldKeywords::new(),
                 };
                 // If kw_only hasn't been explicitly set to false on the field, set it to true
                 if kw_only && flags.kw_only.is_none() {
@@ -737,7 +748,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Ban typed dict from containing values; fields should be annotation-only.
         // TODO(stroxler): we ought to look into this more: class-level attributes make sense on a `TypedDict` class;
         // the typing spec does not explicitly define whether this is permitted.
-        if metadata.is_typed_dict() && matches!(initialization, ClassFieldInitialization::Class(_))
+        if metadata.is_typed_dict()
+            && matches!(initialization, ClassFieldInitialization::ClassBody(_))
         {
             self.error(
                 errors,
@@ -971,14 +983,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         magically_initialized: bool,
     ) -> ClassFieldInitialization {
         match initial_value {
-            RawClassFieldInitialization::Uninitialized | RawClassFieldInitialization::Method(_) => {
-                if magically_initialized {
-                    ClassFieldInitialization::Magic
-                } else {
-                    ClassFieldInitialization::Instance
-                }
+            RawClassFieldInitialization::ClassBody(None) => {
+                ClassFieldInitialization::ClassBody(None)
             }
-            RawClassFieldInitialization::ClassBody(None) => ClassFieldInitialization::Class(None),
             RawClassFieldInitialization::ClassBody(Some(e)) => {
                 // If this field was created via a call to a dataclass field specifier, extract field flags from the call.
                 if let Some(dm) = metadata.dataclass_metadata()
@@ -1007,14 +1014,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             }
                         }
                         let flags = DataclassFieldKeywords::from_type_map(&map);
-                        ClassFieldInitialization::Class(Some(flags))
+                        ClassFieldInitialization::ClassBody(Some(flags))
                     } else {
-                        ClassFieldInitialization::Class(None)
+                        ClassFieldInitialization::ClassBody(None)
                     }
                 } else {
-                    ClassFieldInitialization::Class(None)
+                    ClassFieldInitialization::ClassBody(None)
                 }
             }
+            RawClassFieldInitialization::Method(_) | RawClassFieldInitialization::Uninitialized
+                if magically_initialized =>
+            {
+                ClassFieldInitialization::Magic
+            }
+            RawClassFieldInitialization::Method(_) => ClassFieldInitialization::Method,
+            RawClassFieldInitialization::Uninitialized => ClassFieldInitialization::Uninitialized,
         }
     }
 
@@ -1141,23 +1155,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } => {
                 let is_class_var = annotation.is_some_and(|ann| ann.is_class_var());
                 match field.initialization() {
-                    ClassFieldInitialization::Class(_) => {
+                    ClassFieldInitialization::ClassBody(_) => {
                         self.expand_type_mut(&mut ty); // bind_instance matches on the type, so resolve it if we can
                         bind_instance_attribute(instance, ty, is_class_var, read_only_reason)
                     }
-                    ClassFieldInitialization::Instance | ClassFieldInitialization::Magic
+                    ClassFieldInitialization::Method
+                    | ClassFieldInitialization::Uninitialized
+                    | ClassFieldInitialization::Magic
                         if let Some(read_only_reason) = read_only_reason =>
                     {
                         Attribute::read_only(ty, read_only_reason)
                     }
-                    ClassFieldInitialization::Instance | ClassFieldInitialization::Magic
+                    ClassFieldInitialization::Method
+                    | ClassFieldInitialization::Uninitialized
+                    | ClassFieldInitialization::Magic
                         if is_class_var =>
                     {
                         Attribute::read_only(ty, ReadOnlyReason::ClassVar)
                     }
-                    ClassFieldInitialization::Instance | ClassFieldInitialization::Magic => {
-                        Attribute::read_write(ty)
-                    }
+                    ClassFieldInitialization::Method
+                    | ClassFieldInitialization::Uninitialized
+                    | ClassFieldInitialization::Magic => Attribute::read_write(ty),
                 }
             }
         }
@@ -1179,7 +1197,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 )
             }
             ClassFieldInner::Simple {
-                initialization: ClassFieldInitialization::Instance,
+                initialization:
+                    ClassFieldInitialization::Method | ClassFieldInitialization::Uninitialized,
                 ..
             } => Attribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(cls.dupe())),
             ClassFieldInner::Simple { ty, .. } => {
