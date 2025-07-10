@@ -259,9 +259,9 @@ impl FlowStyle {
 pub struct FlowInfo {
     /// The key to use if you need the value of this name.
     pub key: Idx<Key>,
-    /// The default value to use if you are inside a loop and need to default a Var.
-    /// Only set if you are outside a loop, OR it has never been set before.
-    /// Only used if you are inside a loop.
+    /// The default value - used to create Default bindings inside loops.
+    /// - Always set to `key` when a flow is first created.
+    /// - Set to `key` whenever a flow is updated outside of loops, but not inside.
     pub default: Idx<Key>,
     /// The style of this binding.
     pub style: FlowStyle,
@@ -737,8 +737,12 @@ impl Scopes {
 
     /// Update the flow info to bind `name` to `key`, maybe with `FlowStyle` `style`
     ///
-    /// - Return the `Idx<Key>` of the default binding, if inside a loop
-    /// - If `style` is `None` and a previous entry exists, preserve the old style
+    /// - If `style` is `None`, then:
+    ///   - Preserve the existing style, when updating an existing name.
+    ///   - Use `FlowStyle::Other`, when inserting a new name.
+    /// - Maybe return the `Idx<Key>` of the default binding:
+    ///   - Return it if this is an update of an existing name, inside a loop.
+    ///   - For insert of a new name or if we are not in a loop, return `None`.
     ///
     /// A caller of this function promises to create a binding for `key`; the
     /// binding may not exist yet (it might depend on the returned default).
