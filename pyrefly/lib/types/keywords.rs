@@ -122,6 +122,8 @@ impl DataclassTransformKeywords {
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct DataclassFieldKeywords {
     pub init: bool,
+    /// Whether this field has a default. Note that this is derived from the various
+    /// default-related parameters but does not correspond directly to any of them
     pub default: bool,
     /// None means that kw_only was not explicitly set
     pub kw_only: Option<bool>,
