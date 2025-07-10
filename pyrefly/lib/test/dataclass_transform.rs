@@ -246,3 +246,77 @@ c.x = 42
 c.x = "oops"  # E: `Literal['oops']` is not assignable to attribute `x` with type `int`
     "#,
 );
+
+testcase!(
+    test_class_converter,
+    r#"
+from typing import dataclass_transform, Any
+def my_field(**kwargs) -> Any: ...
+@dataclass_transform(field_specifiers=(my_field,))
+def build(x): ...
+
+class Converter:
+    def __init__(self, x: int) -> None: ...
+
+@build
+class Data:
+    x: Converter = my_field(converter=Converter)
+Data(x=0)
+Data(x=Converter(0))  # E: `Converter` is not assignable to parameter `x` with type `int`
+    "#,
+);
+
+testcase!(
+    test_overloaded_converter,
+    r#"
+from typing import dataclass_transform, overload, Any
+def my_field(**kwargs) -> Any: ...
+@dataclass_transform(field_specifiers=(my_field,))
+def build(x): ...
+
+class Converter1:
+    @overload
+    def __init__(self, x: int) -> None: ...
+    @overload
+    def __init__(self, x: str) -> None: ...
+    def __init__(self, x): ...
+
+@build
+class Data1:
+    x: Converter1 = my_field(converter=Converter1)
+Data1(x=0)
+Data1(x="")
+Data1(x=Converter1(0))  # E: `Converter1` is not assignable to parameter `x` with type `int | str`
+
+@overload
+def converter2(x: bytes) -> int: ...
+@overload
+def converter2(x: str) -> int: ...
+def converter2(x): return int(x)
+
+@build
+class Data2:
+    x: int = my_field(converter=converter2)
+Data2(x=b"")
+Data2(x="")
+Data2(x=0)  # E: `Literal[0]` is not assignable to parameter `x` with type `bytes | str`
+    "#,
+);
+
+testcase!(
+    test_builtin_class_converter,
+    r#"
+from typing import dataclass_transform, Any
+def my_field(**kwargs) -> Any: ...
+@dataclass_transform(field_specifiers=(my_field,))
+def build(x): ...
+@build
+class Data:
+    x: int = my_field(converter=int)
+
+class NotConvertibleToInt: ...
+
+Data(x="42")
+Data(x=NotConvertibleToInt())  # E: `NotConvertibleToInt` is not assignable to parameter `x`
+    "#,
+);

@@ -154,8 +154,6 @@
   ],
   "dataclasses_transform_class.py": [],
   "dataclasses_transform_converter.py": [
-    "Line 108: Expected 1 errors",
-    "Line 119: Expected 1 errors",
     "Line 29: Unexpected errors ['Argument `tuple[[S, T](*, converter: (S) -> T, default: S | None, default_factory: (() -> S) | None) -> T]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`']"
   ],
   "dataclasses_transform_field.py": [

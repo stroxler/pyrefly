@@ -216,12 +216,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn get_converter_param(&self, map: &TypeMap) -> Option<Type> {
-        let converter = map.0.get(&DataclassFieldKeywords::CONVERTER)?;
-        Some(
-            converter
-                .callable_first_param()
-                .unwrap_or_else(Type::any_implicit),
-        )
+        let converter = {
+            let converter = map.0.get(&DataclassFieldKeywords::CONVERTER)?;
+            if let Type::ClassDef(cls) = converter
+                && let Type::ClassType(instance) = self.instantiate_fresh(cls)
+            {
+                let callable = self.constructor_to_callable(&instance);
+                &self.distribute_over_union(&callable, |ty| {
+                    if let Type::BoundMethod(m) = ty {
+                        m.to_callable().unwrap_or_else(|| ty.clone())
+                    } else {
+                        ty.clone()
+                    }
+                })
+            } else {
+                converter
+            }
+        };
+        Some(self.distribute_over_union(converter, |ty| {
+            ty.callable_first_param().unwrap_or_else(Type::any_implicit)
+        }))
     }
 
     fn iter_fields(

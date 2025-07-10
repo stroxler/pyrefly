@@ -3498,6 +3498,16 @@
     },
     {
       "code": -2,
+      "column": 23,
+      "concise_description": "Argument `Literal[1]` is not assignable to parameter `field3` with type `bytes | str` in function `DC2.__init__`",
+      "description": "Argument `Literal[1]` is not assignable to parameter `field3` with type `bytes | str` in function `DC2.__init__`",
+      "line": 108,
+      "name": "bad-argument-type",
+      "stop_column": 24,
+      "stop_line": 108
+    },
+    {
+      "code": -2,
       "column": 29,
       "concise_description": "Argument `complex` is not assignable to parameter `field4` with type `list[str] | str` in function `DC2.__init__`",
       "description": "Argument `complex` is not assignable to parameter `field4` with type `list[str] | str` in function `DC2.__init__`",
@@ -3515,6 +3525,16 @@
       "name": "bad-assignment",
       "stop_column": 15,
       "stop_line": 118
+    },
+    {
+      "code": -2,
+      "column": 14,
+      "concise_description": "`Literal[1]` is not assignable to attribute `field3` with type `bytes | str`",
+      "description": "`Literal[1]` is not assignable to attribute `field3` with type `bytes | str`",
+      "line": 119,
+      "name": "bad-assignment",
+      "stop_column": 15,
+      "stop_line": 119
     },
     {
       "code": -2,
