@@ -6,11 +6,15 @@
  */
 
 use pyrefly_util::visit::Visit;
+use ruff_python_ast::Alias;
 use ruff_python_ast::Expr;
+use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::StmtFunctionDef;
+use ruff_python_ast::name::Name;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
 use crate::alt::answers::Answers;
@@ -26,8 +30,11 @@ fn hash(x: &[u8]) -> String {
 
 struct Facts {
     file: src::File,
+    module: python::Module,
+    module_name: String,
     decl_locations: Vec<python::DeclarationLocation>,
     def_locations: Vec<python::DefinitionLocation>,
+    import_star_locations: Vec<python::ImportStarLocation>,
 }
 
 fn to_span(range: TextRange) -> src::ByteSpan {
@@ -38,11 +45,14 @@ fn to_span(range: TextRange) -> src::ByteSpan {
 }
 
 impl Facts {
-    fn new(file: src::File) -> Facts {
+    fn new(file: src::File, module: python::Module, module_name: String) -> Facts {
         Facts {
             file,
+            module,
+            module_name,
             decl_locations: vec![],
             def_locations: vec![],
+            import_star_locations: vec![],
         }
     }
 
@@ -62,8 +72,13 @@ impl Facts {
         python::DefinitionLocation::new(definition.to_owned(), self.file.clone(), to_span(range))
     }
 
-    fn make_fq_name(&self, name: String) -> String {
-        name // TODO(@rubmary) create fully qualified name
+    fn make_fq_name(&self, name: &Name, module_name: Option<&str>) -> String {
+        // TODO(@rubmary) create fully qualified name
+        if let Some(module) = module_name {
+            module.to_owned() + "." + name
+        } else {
+            name.to_string()
+        }
     }
 
     fn module_facts(&mut self, module: &python::Module, range: TextRange) {
@@ -77,7 +92,7 @@ impl Facts {
     }
 
     fn class_facts(&mut self, cls: &StmtClassDef) {
-        let fqname = python::Name::new(cls.name.to_string());
+        let fqname = python::Name::new(self.make_fq_name(&cls.name.id, None));
         let cls_declaration = python::ClassDeclaration::new(fqname, None);
 
         let bases = if let Some(arguments) = &cls.arguments {
@@ -87,7 +102,7 @@ impl Facts {
                 .filter_map(|expr| expr.as_name_expr())
                 .map(|expr_name| {
                     python::ClassDeclaration::new(
-                        python::Name::new(self.make_fq_name(expr_name.id.to_string())),
+                        python::Name::new(self.make_fq_name(&expr_name.id, None)),
                         None,
                     )
                 })
@@ -112,7 +127,7 @@ impl Facts {
     }
 
     fn function_facts(&mut self, func: &StmtFunctionDef) {
-        let fqname = python::Name::new(self.make_fq_name(func.name.to_string()));
+        let fqname = python::Name::new(self.make_fq_name(&func.name.id, None));
         let func_declaration = python::FunctionDeclaration::new(fqname);
 
         let func_definition = python::FunctionDefinition::new(
@@ -139,7 +154,7 @@ impl Facts {
     fn variable_facts(&mut self, expr: &Expr, _type_info: Option<&Expr>) {
         // TODO(@rubmary) add type_info
         if let Some(name) = expr.as_name_expr() {
-            let fqname = python::Name::new(self.make_fq_name(name.id.to_string()));
+            let fqname = python::Name::new(self.make_fq_name(&name.id, None));
             let variable_declaration = python::VariableDeclaration::new(fqname);
             let variable_definition =
                 python::VariableDefinition::new(variable_declaration.clone(), None, None);
@@ -155,6 +170,38 @@ impl Facts {
         expr.recurse(&mut |expr| self.variable_facts(expr, _type_info));
     }
 
+    fn import_facts(&mut self, imports: &Vec<Alias>, from_module_id: &Option<Identifier>) {
+        //TODO(@rubmary) Handle level for imports. Ex from ..a import A
+        for import in imports {
+            let from_module = from_module_id.as_ref().map(|module| module.as_str());
+            let from_name = &import.name.id;
+            let star_import = "*";
+
+            if *from_name.as_str() == *star_import {
+                let import_star = python::ImportStarStatement::new(
+                    python::Name::new(from_module.unwrap_or_default().to_owned()),
+                    self.module.clone(),
+                );
+                self.import_star_locations
+                    .push(python::ImportStarLocation::new(
+                        import_star,
+                        self.file.clone(),
+                        to_span(import.range()),
+                    ));
+            } else {
+                let as_name = import.asname.as_ref().map_or(from_name, |x| &x.id);
+
+                let import_fact = python::ImportStatement::new(
+                    python::Name::new(self.make_fq_name(from_name, from_module)),
+                    python::Name::new(self.make_fq_name(as_name, Some(&self.module_name))),
+                );
+                self.decl_locations.push(
+                    self.decl_location_fact(python::Declaration::imp(import_fact), import.range()),
+                );
+            }
+        }
+    }
+
     fn generate_facts(&mut self, stmt: &Stmt) {
         match stmt {
             Stmt::ClassDef(cls) => self.class_facts(cls),
@@ -168,6 +215,8 @@ impl Facts {
                 self.variable_facts(&assign.target, Some(&assign.annotation))
             }
             Stmt::AugAssign(assign) => self.variable_facts(&assign.target, None),
+            Stmt::Import(import) => self.import_facts(&import.names, &None),
+            Stmt::ImportFrom(import) => self.import_facts(&import.names, &import.module),
             _ => {}
         }
         stmt.recurse(&mut |x| self.generate_facts(x));
@@ -186,7 +235,11 @@ impl Glean {
         let module_fact = python::Module::new(module_name);
         let file_fact = src::File::new(module_info.path().to_string());
 
-        let mut facts = Facts::new(file_fact.clone());
+        let mut facts = Facts::new(
+            file_fact.clone(),
+            module_fact.clone(),
+            module_info.name().to_string(),
+        );
 
         facts.module_facts(&module_fact, ast.range);
 
@@ -222,6 +275,10 @@ impl Glean {
             GleanEntry::Predicate {
                 predicate: python::DefinitionLocation::GLEAN_name(),
                 facts: facts.def_locations.into_iter().map(json).collect(),
+            },
+            GleanEntry::Predicate {
+                predicate: python::ImportStarLocation::GLEAN_name(),
+                facts: facts.import_star_locations.into_iter().map(json).collect(),
             },
         ];
 
