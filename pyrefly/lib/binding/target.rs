@@ -153,7 +153,7 @@ impl<'a> BindingsBuilder<'a> {
         if let Some(identifier) = narrowing_identifier {
             let name = Hashed::new(&identifier.id);
             if self.lookup_name(name, LookupKind::Regular).is_ok() {
-                self.scopes.update_flow_info(name, idx, None);
+                self.scopes.upsert_flow_info(name, idx, None);
             }
         }
         value
@@ -201,7 +201,7 @@ impl<'a> BindingsBuilder<'a> {
         if let Some(identifier) = narrowing_identifier {
             let name = Hashed::new(&identifier.id);
             if self.lookup_name(name, LookupKind::Regular).is_ok() {
-                self.scopes.update_flow_info(name, idx, None);
+                self.scopes.upsert_flow_info(name, idx, None);
             }
         }
     }

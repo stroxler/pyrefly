@@ -764,7 +764,7 @@ impl Scopes {
             .fold(0, |depth, node| depth + node.scope.loops.len() as u32)
     }
 
-    /// Update the flow info to bind `name` to `key`, maybe with `FlowStyle` `style`
+    /// Set the flow info to bind `name` to `key`, maybe with `FlowStyle` `style`
     ///
     /// - If `style` is `None`, then:
     ///   - Preserve the existing style, when updating an existing name.
@@ -777,7 +777,7 @@ impl Scopes {
     /// binding may not exist yet (it might depend on the returned default).
     ///
     /// TODO(grievejia): Properly separate out `FlowStyle` from the indices
-    pub fn update_flow_info(
+    pub fn upsert_flow_info(
         &mut self,
         name: Hashed<&Name>,
         key: Idx<Key>,

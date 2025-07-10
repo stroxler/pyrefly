@@ -1037,7 +1037,7 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
         let name = Hashed::new(name);
-        let default = self.scopes.update_flow_info(name, idx, Some(style));
+        let default = self.scopes.upsert_flow_info(name, idx, Some(style));
         let info = self
             .scopes
             .current()
@@ -1125,7 +1125,7 @@ impl<'a> BindingsBuilder<'a> {
                     Key::Narrow(name.into_key().clone(), *op_range, use_range),
                     Binding::Narrow(name_key, Box::new(op.clone()), use_range),
                 );
-                self.scopes.update_flow_info(name, binding_key, None);
+                self.scopes.upsert_flow_info(name, binding_key, None);
             }
         }
     }

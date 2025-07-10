@@ -263,7 +263,7 @@ impl<'a> BindingsBuilder<'a> {
                     let mut delete_link = self.declare_current_idx(Key::UsageLink(target.range()));
                     if let Expr::Name(name) = target {
                         let idx = self.ensure_mutable_name(name);
-                        self.scopes.update_flow_info(
+                        self.scopes.upsert_flow_info(
                             Hashed::new(&name.id),
                             idx,
                             Some(FlowStyle::Uninitialized),
