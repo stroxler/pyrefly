@@ -1,9 +1,9 @@
 {
   "total": 136,
-  "pass": 66,
-  "fail": 70,
+  "pass": 67,
+  "fail": 69,
   "pass_rate": 0.49,
-  "differences": 315,
+  "differences": 314,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -22,6 +22,7 @@
     "dataclasses_order.py",
     "dataclasses_postinit.py",
     "dataclasses_transform_class.py",
+    "dataclasses_transform_converter.py",
     "dataclasses_transform_func.py",
     "dataclasses_transform_meta.py",
     "dataclasses_usage.py",
@@ -90,7 +91,6 @@
     "dataclasses_final.py": 3,
     "dataclasses_kwonly.py": 2,
     "dataclasses_slots.py": 2,
-    "dataclasses_transform_converter.py": 1,
     "dataclasses_transform_field.py": 4,
     "directives_deprecated.py": 10,
     "enums_behaviors.py": 4,

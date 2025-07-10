@@ -839,3 +839,15 @@ isinstance(1, "not a class object")  # E: Expected class object
 issubclass(str, "not a class object")  # E: Expected class object
     "#,
 );
+
+testcase!(
+    test_generic_function_is_callable,
+    r#"
+from typing import Any, Callable
+def f[T](*, x: T) -> T:
+    return x
+def g(f: Callable[..., Any]):
+    pass
+g(f)
+    "#,
+);

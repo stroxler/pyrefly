@@ -24,7 +24,10 @@ use crate::types::class::ClassType;
 use crate::types::stdlib::Stdlib;
 use crate::types::typed_dict::TypedDict;
 use crate::types::typed_dict::TypedDictField;
+use crate::types::types::Forall;
+use crate::types::types::Forallable;
 use crate::types::types::Type;
+use crate::types::types::Var;
 
 /// `TypeOrder` provides a minimal API allowing `Subset` to request additional
 /// information about types that may be required for solving bindings
@@ -141,5 +144,9 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
 
     pub fn constructor_to_callable(self, cls: &ClassType) -> Type {
         self.0.constructor_to_callable(cls)
+    }
+
+    pub fn instantiate_forall(self, forall: Forall<Forallable>) -> (Vec<Var>, Type) {
+        self.0.instantiate_forall(forall)
     }
 }

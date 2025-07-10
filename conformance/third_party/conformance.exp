@@ -3458,16 +3458,6 @@
   "dataclasses_transform_converter.py": [
     {
       "code": -2,
-      "column": 39,
-      "concise_description": "Argument `tuple[[S, T](*, converter: (S) -> T, default: S | None, default_factory: (() -> S) | None) -> T]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`",
-      "description": "Argument `tuple[[S, T](*, converter: (S) -> T, default: S | None, default_factory: (() -> S) | None) -> T]` is not assignable to parameter `field_specifiers` with type `tuple[((...) -> Any) | type[Any], ...]` in function `typing.dataclass_transform`",
-      "line": 29,
-      "name": "bad-argument-type",
-      "stop_column": 53,
-      "stop_line": 29
-    },
-    {
-      "code": -2,
       "column": 41,
       "concise_description": "Argument `() -> int` is not assignable to parameter `converter` with type `(@_) -> @_` in function `model_field`",
       "description": "Argument `() -> int` is not assignable to parameter `converter` with type `(@_) -> @_` in function `model_field`",

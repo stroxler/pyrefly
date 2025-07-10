@@ -46,7 +46,6 @@ def test(x1: Callable[[int, str], int], x2: Callable[..., int]):
 );
 
 testcase!(
-    bug = "Generic functions don't work with ParamSpec",
     test_param_spec_generic_function,
     r#"
 from typing import Callable, reveal_type
@@ -54,8 +53,8 @@ def identity[**P, R](x: Callable[P, R]) -> Callable[P, R]:
     return x
 def foo[T](x: T, y: T) -> T:
     return x
-foo2 = identity(foo)  # E: Argument `[T](x: T, y: T) -> T` is not assignable to parameter `x` with type `(ParamSpec(@_)) -> @_` in function `identity`
-reveal_type(foo2)  # E: revealed type: (ParamSpec(@_)) -> @_
+foo2 = identity(foo)
+reveal_type(foo2)  # E: revealed type: (x: @_, y: @_) -> @_
 "#,
 );
 

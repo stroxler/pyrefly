@@ -991,9 +991,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (_, Type::None) => {
                 self.is_subset_eq(got, &self.type_order.stdlib().none_type().clone().to_type())
             }
-            (Type::Forall(_), _) => {
-                // TODO: Probably need to do some kind of substitution here
-                false
+            (Type::Forall(forall), _) => {
+                let (_, got) = self.type_order.instantiate_forall((**forall).clone());
+                self.is_subset_eq(&got, want)
             }
             (Type::TypeAlias(ta), _) => {
                 self.is_subset_eq_impl(&ta.as_value(self.type_order.stdlib()), want)
