@@ -853,6 +853,15 @@ impl DisplayWith<Bindings> for BindingFunction {
 pub struct ClassBinding {
     pub def: StmtClassDef,
     pub def_index: ClassDefIndex,
+    /// The fields are all the names declared on the class that we were able to detect
+    /// from an AST traversal, which includes:
+    /// - any name defined in the class body (e.g. by assignment or a def statement)
+    /// - attributes annotated in the class body (but not necessarily defined)
+    /// - anything assigned to something we think is a `self` or `cls` argument
+    ///
+    /// The last case may include names that are actually declared in a parent class,
+    /// because at binding time we cannot know that so we have to treat assignment
+    /// as potentially defining a field that would not otherwise exist.
     pub fields: SmallMap<Name, ClassFieldProperties>,
     /// Were we able to determine, using only syntactic analysis at bindings time,
     /// that there can be no legacy tparams? If no, we need a `BindingTParams`, if yes
