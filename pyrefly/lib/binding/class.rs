@@ -230,11 +230,13 @@ impl<'a> BindingsBuilder<'a> {
                     };
                 let initial_value = info.as_initial_value();
                 let value = match &initial_value {
-                    RawClassFieldInitialization::Class(Some(e)) => ExprOrBinding::Expr(e.clone()),
+                    RawClassFieldInitialization::ClassBody(Some(e)) => {
+                        ExprOrBinding::Expr(e.clone())
+                    }
                     _ => ExprOrBinding::Binding(Binding::Forward(info.key)),
                 };
                 let is_initialized_on_class =
-                    matches!(initial_value, RawClassFieldInitialization::Class(_));
+                    matches!(initial_value, RawClassFieldInitialization::ClassBody(_));
                 let binding = BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: name.into_key().clone(),
@@ -291,9 +293,7 @@ impl<'a> BindingsBuilder<'a> {
                             value,
                             annotation,
                             range,
-                            initial_value: RawClassFieldInitialization::Instance(Some(
-                                method_name.clone(),
-                            )),
+                            initial_value: RawClassFieldInitialization::Method(method_name.clone()),
                             is_function_without_return_annotation: false,
                             implicit_def_method,
                         },
@@ -516,9 +516,9 @@ impl<'a> BindingsBuilder<'a> {
                 ),
             );
             let initial_value = if force_class_initialization || member_value.is_some() {
-                RawClassFieldInitialization::Class(member_value.clone())
+                RawClassFieldInitialization::ClassBody(member_value.clone())
             } else {
-                RawClassFieldInitialization::Instance(None)
+                RawClassFieldInitialization::Uninitialized
             };
             let value = match member_value {
                 Some(value) => ExprOrBinding::Expr(value),

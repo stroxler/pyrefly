@@ -1626,16 +1626,24 @@ impl DisplayWith<Bindings> for BindingClassField {
 /// Information about the value, if any, that a field is initialized to when it is declared.
 #[derive(Clone, Debug)]
 pub enum RawClassFieldInitialization {
-    /// The field does not have an initial value. If a name is provided, it is the name of the
-    /// method where the field was inferred (which will be None for fields declared but not
-    /// initialized in the class body, or for instance-only fields of synthesized classes)
-    Instance(Option<Name>),
-    /// The field has an initial value.
+    /// At the point where the field is declared, it does not have an initial value. This includes
+    /// fields declared but not initialized in the class body, and instance-only fields of
+    /// synthesized classes.
+    Uninitialized,
+    /// The field is set in a method *and declared nowhere else*. Consider:
+    ///   class A:
+    ///     x: int
+    ///     def __init__(self):
+    ///         self.x = 42
+    ///         self.y = 42
+    /// `x`'s initialization type is `Uninitialized`, whereas y's is `Method('__init__')`.
+    Method(Name),
+    /// The field is declared and initialized to a value in the class body.
     ///
     /// If the value is from an assignment, stores the expression that the field is assigned to,
     /// which is needed for some cases like dataclass fields. The `None` case is for fields that
     /// have values which don't come from assignment (e.g. function defs, imports in a class body)
-    Class(Option<Expr>),
+    ClassBody(Option<Expr>),
 }
 
 /// Bindings for fields synthesized by a class, such as a dataclass's `__init__` method. This

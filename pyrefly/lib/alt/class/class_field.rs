@@ -821,10 +821,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
 
         let ty = match initial_value {
-            RawClassFieldInitialization::Class(_) | RawClassFieldInitialization::Instance(None) => {
-                ty
-            }
-            RawClassFieldInitialization::Instance(Some(method_name)) => self
+            RawClassFieldInitialization::ClassBody(_)
+            | RawClassFieldInitialization::Uninitialized => ty,
+            RawClassFieldInitialization::Method(method_name) => self
                 .check_and_sanitize_method_scope_type_parameters(
                     class,
                     method_name,
@@ -835,10 +834,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
         };
         let declared_by = match initial_value {
-            RawClassFieldInitialization::Class(_) | RawClassFieldInitialization::Instance(None) => {
-                ClassFieldDeclaredBy::ClassBody
-            }
-            RawClassFieldInitialization::Instance(Some(_)) => ClassFieldDeclaredBy::Method,
+            RawClassFieldInitialization::ClassBody(_)
+            | RawClassFieldInitialization::Uninitialized => ClassFieldDeclaredBy::ClassBody,
+            RawClassFieldInitialization::Method(_) => ClassFieldDeclaredBy::Method,
         };
 
         // Enum handling:
@@ -973,15 +971,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         magically_initialized: bool,
     ) -> ClassFieldInitialization {
         match initial_value {
-            RawClassFieldInitialization::Instance(_) => {
+            RawClassFieldInitialization::Uninitialized | RawClassFieldInitialization::Method(_) => {
                 if magically_initialized {
                     ClassFieldInitialization::Magic
                 } else {
                     ClassFieldInitialization::Instance
                 }
             }
-            RawClassFieldInitialization::Class(None) => ClassFieldInitialization::Class(None),
-            RawClassFieldInitialization::Class(Some(e)) => {
+            RawClassFieldInitialization::ClassBody(None) => ClassFieldInitialization::Class(None),
+            RawClassFieldInitialization::ClassBody(Some(e)) => {
                 // If this field was created via a call to a dataclass field specifier, extract field flags from the call.
                 if let Some(dm) = metadata.dataclass_metadata()
                     && let Expr::Call(ExprCall {

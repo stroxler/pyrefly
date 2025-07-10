@@ -272,13 +272,13 @@ impl FlowInfo {
         match &self.style {
             FlowStyle::ClassField {
                 initial_value: Some(e),
-            } => RawClassFieldInitialization::Class(Some(e.clone())),
+            } => RawClassFieldInitialization::ClassBody(Some(e.clone())),
             FlowStyle::ClassField {
                 initial_value: None,
-            } => RawClassFieldInitialization::Instance(None),
+            } => RawClassFieldInitialization::Uninitialized,
             // All other styles (e.g. function def, import) indicate we do have
             // a value, but it is not coming from a simple style.
-            _ => RawClassFieldInitialization::Class(None),
+            _ => RawClassFieldInitialization::ClassBody(None),
         }
     }
 }
