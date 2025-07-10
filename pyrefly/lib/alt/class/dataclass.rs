@@ -199,27 +199,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut kwonly_fields = Vec::new();
         let cls_is_kw_only = dataclass.kws.kw_only;
         for name in dataclass.fields.iter() {
-            match self.get_dataclass_member(cls, name, cls_is_kw_only, seen_kw_only_marker) {
-                DataclassMember::KwOnlyMarker => {
+            match (
+                self.get_dataclass_member(cls, name, cls_is_kw_only, seen_kw_only_marker),
+                include_initvar,
+            ) {
+                (DataclassMember::KwOnlyMarker, _) => {
                     seen_kw_only_marker = true;
                 }
-                DataclassMember::NotAField => {}
-                DataclassMember::Field(field, keywords) => {
+                (DataclassMember::NotAField, _) => {}
+                (DataclassMember::Field(field, keywords), _)
+                | (DataclassMember::InitVar(field, keywords), true) => {
                     if keywords.is_kw_only() {
                         kwonly_fields.push((name.clone(), (*field.value).clone(), keywords))
                     } else {
                         positional_fields.push((name.clone(), (*field.value).clone(), keywords))
                     }
                 }
-                DataclassMember::InitVar(field, keywords) => {
-                    if include_initvar {
-                        if keywords.is_kw_only() {
-                            kwonly_fields.push((name.clone(), (*field.value).clone(), keywords))
-                        } else {
-                            positional_fields.push((name.clone(), (*field.value).clone(), keywords))
-                        }
-                    }
-                }
+                (DataclassMember::InitVar(..), false) => {}
             }
         }
         positional_fields.extend(kwonly_fields);
