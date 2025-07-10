@@ -36,6 +36,7 @@ use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::display::ClassDisplayContext;
 use crate::types::keywords::DataclassFieldKeywords;
+use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
 use crate::types::types::AnyStyle;
@@ -186,6 +187,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.check_type(&want, &post_init, range, errors, &|| {
             TypeCheckContext::of_kind(TypeCheckKind::PostInit)
         });
+    }
+
+    pub fn dataclass_field_keywords(&self, map: &TypeMap) -> DataclassFieldKeywords {
+        let init = map.get_bool(&DataclassFieldKeywords::INIT, true);
+        let default = [
+            &DataclassFieldKeywords::DEFAULT,
+            &DataclassFieldKeywords::DEFAULT_FACTORY,
+            &DataclassFieldKeywords::FACTORY,
+        ]
+        .iter()
+        .any(|k| map.0.contains_key(*k));
+        let kw_only = map
+            .0
+            .get(&DataclassFieldKeywords::KW_ONLY)
+            .and_then(|t| t.as_bool());
+        let alias = map
+            .get_string(&DataclassFieldKeywords::ALIAS)
+            .map(Name::new);
+        let converter_param = if map.0.contains_key(&DataclassFieldKeywords::CONVERTER) {
+            Some(Type::any_implicit())
+        } else {
+            None
+        };
+        DataclassFieldKeywords {
+            init,
+            default,
+            kw_only,
+            alias,
+            converter_param,
+        }
     }
 
     fn iter_fields(

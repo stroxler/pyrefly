@@ -985,7 +985,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 );
                             }
                         }
-                        let flags = DataclassFieldKeywords::from_type_map(&map);
+                        let flags = self.dataclass_field_keywords(&map);
                         ClassFieldInitialization::ClassBody(Some(flags))
                     } else {
                         ClassFieldInitialization::ClassBody(None)

@@ -28,14 +28,14 @@ impl TypeMap {
         Self(OrderedMap::new())
     }
 
-    fn get_bool(&self, name: &Name, default: bool) -> bool {
+    pub fn get_bool(&self, name: &Name, default: bool) -> bool {
         self.0
             .get(name)
             .and_then(|t| t.as_bool())
             .unwrap_or(default)
     }
 
-    fn get_string(&self, name: &Name) -> Option<&str> {
+    pub fn get_string(&self, name: &Name) -> Option<&str> {
         self.0.get(name).and_then(|t| match t {
             Type::Literal(Lit::Str(s)) => Some(&**s),
             _ => None,
@@ -134,40 +134,25 @@ pub struct DataclassFieldKeywords {
 }
 
 impl DataclassFieldKeywords {
-    const INIT: Name = Name::new_static("init");
+    pub const INIT: Name = Name::new_static("init");
     /// We combine default, default_factory, and factory into a single "default" keyword indicating
     /// whether the field has a default. The default value isn't stored.
-    const DEFAULT: Name = Name::new_static("default");
-    const DEFAULT_FACTORY: Name = Name::new_static("default_factory");
-    const FACTORY: Name = Name::new_static("factory");
-    const KW_ONLY: Name = Name::new_static("kw_only");
-    const ALIAS: Name = Name::new_static("alias");
+    pub const DEFAULT: Name = Name::new_static("default");
+    pub const DEFAULT_FACTORY: Name = Name::new_static("default_factory");
+    pub const FACTORY: Name = Name::new_static("factory");
+    pub const KW_ONLY: Name = Name::new_static("kw_only");
+    pub const ALIAS: Name = Name::new_static("alias");
     /// We extract and store only the first positional parameter to the converter callable.
-    const CONVERTER: Name = Name::new_static("converter");
-
-    pub fn from_type_map(map: &TypeMap) -> Self {
-        let init = map.get_bool(&Self::INIT, true);
-        let default = [&Self::DEFAULT, &Self::DEFAULT_FACTORY, &Self::FACTORY]
-            .iter()
-            .any(|k| map.0.contains_key(*k));
-        let kw_only = map.0.get(&Self::KW_ONLY).and_then(|t| t.as_bool());
-        let alias = map.get_string(&Self::ALIAS).map(Name::new);
-        let converter_param = if map.0.contains_key(&Self::CONVERTER) {
-            Some(Type::any_implicit())
-        } else {
-            None
-        };
-        Self {
-            init,
-            default,
-            kw_only,
-            alias,
-            converter_param,
-        }
-    }
+    pub const CONVERTER: Name = Name::new_static("converter");
 
     pub fn new() -> Self {
-        Self::from_type_map(&TypeMap::new())
+        Self {
+            init: true,
+            default: false,
+            kw_only: None,
+            alias: None,
+            converter_param: None,
+        }
     }
 
     pub fn is_kw_only(&self) -> bool {
