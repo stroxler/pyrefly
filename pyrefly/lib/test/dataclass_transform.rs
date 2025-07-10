@@ -225,6 +225,7 @@ def int_to_str(x: int) -> str:
 class C:
     x: str = my_field(converter=int_to_str)
 C(x=0)
+C(x="oops")  # E: `Literal['oops']` is not assignable to parameter `x` with type `int`
     "#,
 );
 
@@ -242,5 +243,6 @@ class C:
     x: str = my_field(converter=int_to_str)
 c = C(x=0)
 c.x = 42
+c.x = "oops"  # E: `Literal['oops']` is not assignable to attribute `x` with type `int`
     "#,
 );

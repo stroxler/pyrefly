@@ -349,6 +349,25 @@ impl Callable {
         }
     }
 
+    pub fn get_first_param(&self) -> Option<Type> {
+        match self {
+            Self {
+                params: Params::List(params),
+                ret: _,
+            } if let Some(param) = params.items().first() => match param {
+                Param::PosOnly(_, ty, _) | Param::Pos(_, ty, _) | Param::VarArg(_, ty) => {
+                    Some(ty.clone())
+                }
+                _ => None,
+            },
+            Self {
+                params: Params::ParamSpec(ts, _),
+                ret: _,
+            } => ts.first().cloned(),
+            _ => None,
+        }
+    }
+
     pub fn is_typeguard(&self) -> bool {
         matches!(
             self,

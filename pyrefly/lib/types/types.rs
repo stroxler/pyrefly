@@ -1159,6 +1159,21 @@ impl Type {
         self.transform_toplevel_callable(&mut set_ret);
     }
 
+    pub fn callable_first_param(&self) -> Option<Type> {
+        let mut params = Vec::new();
+        let mut get_param = |callable: &Callable| {
+            if let Some(p) = callable.get_first_param() {
+                params.push(p);
+            }
+        };
+        self.visit_toplevel_callable(&mut get_param);
+        if params.is_empty() {
+            None
+        } else {
+            Some(unions(params))
+        }
+    }
+
     pub fn promote_literals(self, stdlib: &Stdlib) -> Type {
         self.transform(&mut |ty| match &ty {
             Type::Literal(lit) => *ty = lit.general_class_type(stdlib).clone().to_type(),
