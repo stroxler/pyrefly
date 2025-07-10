@@ -118,7 +118,6 @@ impl Error {
 
         // Warning: The SourceRange is char indexed, while the snippet is byte indexed.
         //          Be careful in the conversion.
-        // Question: Should we just keep the original TextRange around?
         let source = self.module_info.lined_buffer().content_in_line_range(
             self.display_range.start.line,
             cmp::min(
