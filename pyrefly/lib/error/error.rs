@@ -6,6 +6,7 @@
  */
 
 use std::borrow::Cow;
+use std::cmp;
 use std::fmt::Debug;
 use std::io;
 use std::io::Write;
@@ -14,6 +15,7 @@ use itertools::Itertools;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::display::number_thousands;
 use pyrefly_util::lined_buffer::DisplayRange;
+use pyrefly_util::lined_buffer::LineNumber;
 use pyrefly_util::lined_buffer::LinedBuffer;
 use ruff_annotate_snippets::Level;
 use ruff_annotate_snippets::Message;
@@ -111,13 +113,21 @@ impl Error {
     }
 
     fn get_source_snippet<'a>(&'a self, origin: &'a str) -> Message<'a> {
+        // Maximum number of lines to print in the snippet.
+        const MAX_LINES: u32 = 5;
+
         // Warning: The SourceRange is char indexed, while the snippet is byte indexed.
         //          Be careful in the conversion.
         // Question: Should we just keep the original TextRange around?
-        let source = self
-            .module_info
-            .lined_buffer()
-            .content_in_line_range(self.display_range.start.line, self.display_range.end.line);
+        let source = self.module_info.lined_buffer().content_in_line_range(
+            self.display_range.start.line,
+            cmp::min(
+                LineNumber::from_zero_indexed(
+                    self.display_range.start.line.to_zero_indexed() + MAX_LINES,
+                ),
+                self.display_range.end.line,
+            ),
+        );
         let line_start = self
             .module_info
             .lined_buffer()
@@ -129,7 +139,7 @@ impl Error {
             Severity::Info => Level::Info,
         };
         let span_start = (self.range.start() - line_start).to_usize();
-        let span_end = span_start + self.range.len().to_usize();
+        let span_end = cmp::min(span_start + self.range.len().to_usize(), source.len());
         Level::None.title("").snippet(
             Snippet::source(source)
                 .line_start(self.display_range.start.line.get() as usize)
@@ -274,6 +284,43 @@ mod tests {
   |
 2 |     return x
   |     ^^^^^^^^
+  |
+"#,
+        );
+    }
+
+    #[test]
+    fn test_error_too_long() {
+        let contents = format!("Start\n{}\nEnd", "X\n".repeat(1000));
+
+        let module_info = ModuleInfo::new(
+            ModuleName::from_str("test"),
+            ModulePath::filesystem(PathBuf::from("test.py")),
+            Arc::new(contents.clone()),
+        );
+        let error = Error::new(
+            module_info,
+            TextRange::new(TextSize::new(0), TextSize::new(contents.len() as u32)),
+            vec1!["oops".to_owned()],
+            ErrorKind::BadReturn,
+        );
+        let mut output = Vec::new();
+        error
+            .write_line(&mut Cursor::new(&mut output), true)
+            .unwrap();
+
+        assert_eq!(
+            str::from_utf8(&output).unwrap(),
+            r#"ERROR oops [bad-return]
+ --> test.py:1:1
+  |
+1 | / Start
+2 | | X
+3 | | X
+4 | | X
+5 | | X
+6 | | X
+  | |__^
   |
 "#,
         );
