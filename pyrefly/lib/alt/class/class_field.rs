@@ -31,10 +31,10 @@ use crate::alt::attr::Attribute;
 use crate::alt::attr::DescriptorBase;
 use crate::alt::attr::NoAccessReason;
 use crate::alt::types::class_metadata::ClassMetadata;
-use crate::binding::binding::ClassFieldInitialValue;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassSynthesizedFields;
+use crate::binding::binding::RawClassFieldInitialization;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
@@ -683,7 +683,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         value: &ExprOrBinding,
         // Type annotation that appears directly on the field declaration (vs. one inherited from a parent)
         direct_annotation: Option<&Annotation>,
-        initial_value: &ClassFieldInitialValue,
+        initial_value: &RawClassFieldInitialization,
         class: &Class,
         is_function_without_return_annotation: bool,
         implicit_def_method: Option<&Name>,
@@ -821,8 +821,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
 
         let ty = match initial_value {
-            ClassFieldInitialValue::Class(_) | ClassFieldInitialValue::Instance(None) => ty,
-            ClassFieldInitialValue::Instance(Some(method_name)) => self
+            RawClassFieldInitialization::Class(_) | RawClassFieldInitialization::Instance(None) => {
+                ty
+            }
+            RawClassFieldInitialization::Instance(Some(method_name)) => self
                 .check_and_sanitize_method_scope_type_parameters(
                     class,
                     method_name,
@@ -833,10 +835,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
         };
         let declared_by = match initial_value {
-            ClassFieldInitialValue::Class(_) | ClassFieldInitialValue::Instance(None) => {
+            RawClassFieldInitialization::Class(_) | RawClassFieldInitialization::Instance(None) => {
                 ClassFieldDeclaredBy::ClassBody
             }
-            ClassFieldInitialValue::Instance(Some(_)) => ClassFieldDeclaredBy::Method,
+            RawClassFieldInitialization::Instance(Some(_)) => ClassFieldDeclaredBy::Method,
         };
 
         // Enum handling:
@@ -967,19 +969,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn get_class_field_initialization(
         &self,
         metadata: &ClassMetadata,
-        initial_value: &ClassFieldInitialValue,
+        initial_value: &RawClassFieldInitialization,
         magically_initialized: bool,
     ) -> ClassFieldInitialization {
         match initial_value {
-            ClassFieldInitialValue::Instance(_) => {
+            RawClassFieldInitialization::Instance(_) => {
                 if magically_initialized {
                     ClassFieldInitialization::Magic
                 } else {
                     ClassFieldInitialization::Instance
                 }
             }
-            ClassFieldInitialValue::Class(None) => ClassFieldInitialization::Class(None),
-            ClassFieldInitialValue::Class(Some(e)) => {
+            RawClassFieldInitialization::Class(None) => ClassFieldInitialization::Class(None),
+            RawClassFieldInitialization::Class(Some(e)) => {
                 // If this field was created via a call to a dataclass field specifier, extract field flags from the call.
                 if let Some(dm) = metadata.dataclass_metadata()
                     && let Expr::Call(ExprCall {

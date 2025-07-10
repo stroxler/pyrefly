@@ -38,7 +38,6 @@ use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::BindingTParams;
 use crate::binding::binding::BindingVariance;
 use crate::binding::binding::ClassBinding;
-use crate::binding::binding::ClassFieldInitialValue;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
@@ -49,6 +48,7 @@ use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyTParams;
 use crate::binding::binding::KeyVariance;
+use crate::binding::binding::RawClassFieldInitialization;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::LegacyTParamBuilder;
@@ -230,11 +230,11 @@ impl<'a> BindingsBuilder<'a> {
                     };
                 let initial_value = info.as_initial_value();
                 let value = match &initial_value {
-                    ClassFieldInitialValue::Class(Some(e)) => ExprOrBinding::Expr(e.clone()),
+                    RawClassFieldInitialization::Class(Some(e)) => ExprOrBinding::Expr(e.clone()),
                     _ => ExprOrBinding::Binding(Binding::Forward(info.key)),
                 };
                 let is_initialized_on_class =
-                    matches!(initial_value, ClassFieldInitialValue::Class(_));
+                    matches!(initial_value, RawClassFieldInitialization::Class(_));
                 let binding = BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: name.into_key().clone(),
@@ -291,7 +291,7 @@ impl<'a> BindingsBuilder<'a> {
                             value,
                             annotation,
                             range,
-                            initial_value: ClassFieldInitialValue::Instance(Some(
+                            initial_value: RawClassFieldInitialization::Instance(Some(
                                 method_name.clone(),
                             )),
                             is_function_without_return_annotation: false,
@@ -516,9 +516,9 @@ impl<'a> BindingsBuilder<'a> {
                 ),
             );
             let initial_value = if force_class_initialization || member_value.is_some() {
-                ClassFieldInitialValue::Class(member_value.clone())
+                RawClassFieldInitialization::Class(member_value.clone())
             } else {
-                ClassFieldInitialValue::Instance(None)
+                RawClassFieldInitialization::Instance(None)
             };
             let value = match member_value {
                 Some(value) => ExprOrBinding::Expr(value),

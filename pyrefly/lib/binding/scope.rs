@@ -33,7 +33,6 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
-use crate::binding::binding::ClassFieldInitialValue;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
@@ -45,6 +44,7 @@ use crate::binding::binding::KeyFunction;
 use crate::binding::binding::KeyVariance;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
+use crate::binding::binding::RawClassFieldInitialization;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::CurrentIdx;
 use crate::binding::function::SelfAssignments;
@@ -268,17 +268,17 @@ pub struct FlowInfo {
 }
 
 impl FlowInfo {
-    pub fn as_initial_value(&self) -> ClassFieldInitialValue {
+    pub fn as_initial_value(&self) -> RawClassFieldInitialization {
         match &self.style {
             FlowStyle::ClassField {
                 initial_value: Some(e),
-            } => ClassFieldInitialValue::Class(Some(e.clone())),
+            } => RawClassFieldInitialization::Class(Some(e.clone())),
             FlowStyle::ClassField {
                 initial_value: None,
-            } => ClassFieldInitialValue::Instance(None),
+            } => RawClassFieldInitialization::Instance(None),
             // All other styles (e.g. function def, import) indicate we do have
             // a value, but it is not coming from a simple style.
-            _ => ClassFieldInitialValue::Class(None),
+            _ => RawClassFieldInitialization::Class(None),
         }
     }
 }

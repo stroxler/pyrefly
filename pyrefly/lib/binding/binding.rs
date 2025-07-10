@@ -1606,7 +1606,7 @@ pub struct BindingClassField {
     pub value: ExprOrBinding,
     pub annotation: Option<Idx<KeyAnnotation>>,
     pub range: TextRange,
-    pub initial_value: ClassFieldInitialValue,
+    pub initial_value: RawClassFieldInitialization,
     pub is_function_without_return_annotation: bool,
     pub implicit_def_method: Option<Name>,
 }
@@ -1623,9 +1623,9 @@ impl DisplayWith<Bindings> for BindingClassField {
     }
 }
 
-/// The value that the class field is initialized to.
+/// Information about the value, if any, that a field is initialized to when it is declared.
 #[derive(Clone, Debug)]
-pub enum ClassFieldInitialValue {
+pub enum RawClassFieldInitialization {
     /// The field does not have an initial value. If a name is provided, it is the name of the
     /// method where the field was inferred (which will be None for fields declared but not
     /// initialized in the class body, or for instance-only fields of synthesized classes)
