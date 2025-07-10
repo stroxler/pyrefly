@@ -1760,7 +1760,6 @@ impl<'a> Transaction<'a> {
                 }
                 let max_len = v.iter().map(|row| row.len()).max().unwrap();
                 let mut result = vec![Vec::new(); max_len];
-
                 for row in v {
                     for (i, elem) in row.into_iter().enumerate() {
                         result[i].push(elem);
@@ -1768,15 +1767,29 @@ impl<'a> Transaction<'a> {
                 }
                 result
             }
-
             fn zip_types(
                 inferred_types: Vec<Vec<Type>>,
                 function_arguments: Vec<ParameterAnnotation>,
             ) -> Vec<ParameterAnnotation> {
                 let zipped_inferred_types: Vec<Vec<Type>> = transpose(inferred_types);
-                function_arguments
+                let types: Vec<(ParameterAnnotation, Vec<Type>)> =
+                    match zipped_inferred_types.is_empty() {
+                        true => function_arguments
+                            .into_iter()
+                            .map(
+                                |arg: ParameterAnnotation| -> (ParameterAnnotation, Vec<Type>) {
+                                    (arg, vec![])
+                                },
+                            )
+                            .collect(),
+                        false => function_arguments
+                            .into_iter()
+                            .zip(zipped_inferred_types)
+                            .collect(),
+                    };
+
+                types
                     .into_iter()
-                    .zip(zipped_inferred_types)
                     .map(|(arg, mut ty)| {
                         let mut arg = arg;
                         if let Some(default_type) = arg.ty {

@@ -378,4 +378,19 @@ def foo() -> str:
         );
         Ok(())
     }
+
+    #[test]
+    fn test_default_parameter_no_call_site() -> anyhow::Result<()> {
+        assert_annotations(
+            r#"
+    def foo(a=2) -> None:
+        pass
+    "#,
+            r#"
+    def foo(a: int=2) -> None:
+        pass
+    "#,
+        );
+        Ok(())
+    }
 }
