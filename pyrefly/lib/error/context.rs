@@ -124,6 +124,8 @@ pub enum TypeCheckKind {
     YieldFrom,
     /// Bare yield when the return annotation expects an actual value.
     UnexpectedBareYield,
+    /// Check on the type of the dataclass `__post_init__` method.
+    PostInit,
 }
 
 impl TypeCheckKind {
@@ -162,6 +164,7 @@ impl TypeCheckKind {
             Self::YieldValue => ErrorKind::InvalidYield,
             Self::YieldFrom => ErrorKind::InvalidYield,
             Self::UnexpectedBareYield => ErrorKind::InvalidYield,
+            Self::PostInit => ErrorKind::BadFunctionDefinition,
         }
     }
 }

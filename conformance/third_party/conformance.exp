@@ -3292,6 +3292,16 @@
   "dataclasses_postinit.py": [
     {
       "code": -2,
+      "column": 9,
+      "concise_description": "`__post_init__` type `BoundMethod[DC1, (self: Self@DC1, x: int, y: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
+      "description": "`__post_init__` type `BoundMethod[DC1, (self: Self@DC1, x: int, y: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
+      "line": 19,
+      "name": "bad-function-definition",
+      "stop_column": 22,
+      "stop_line": 19
+    },
+    {
+      "code": -2,
       "column": 7,
       "concise_description": "Object of class `DC1` has no attribute `x`",
       "description": "Object of class `DC1` has no attribute `x`",
@@ -3309,6 +3319,16 @@
       "name": "missing-attribute",
       "stop_column": 12,
       "stop_line": 29
+    },
+    {
+      "code": -2,
+      "column": 9,
+      "concise_description": "`__post_init__` type `BoundMethod[DC2, (self: Self@DC2, x: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
+      "description": "`__post_init__` type `BoundMethod[DC2, (self: Self@DC2, x: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
+      "line": 36,
+      "name": "bad-function-definition",
+      "stop_column": 22,
+      "stop_line": 36
     }
   ],
   "dataclasses_slots.py": [

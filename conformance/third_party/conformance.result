@@ -147,10 +147,7 @@
     "Line 61: Unexpected errors ['Missing argument `c` in function `DC4.__init__`', 'Argument `float` is not assignable to parameter `b` with type `int` in function `DC4.__init__`', 'Multiple values for argument `b` in function `DC4.__init__`']"
   ],
   "dataclasses_order.py": [],
-  "dataclasses_postinit.py": [
-    "Line 19: Expected 1 errors",
-    "Line 36: Expected 1 errors"
-  ],
+  "dataclasses_postinit.py": [],
   "dataclasses_slots.py": [
     "Line 25: Expected 1 errors",
     "Line 38: Expected 1 errors"

@@ -263,7 +263,7 @@ impl ClassField {
         }
     }
 
-    fn as_raw_special_method_type(self, instance: &Instance) -> Option<Type> {
+    fn as_raw_special_method_type(&self, instance: &Instance) -> Option<Type> {
         match self.instantiate_for(instance).0 {
             ClassFieldInner::Simple { ty, .. } => match self.initialization() {
                 ClassFieldInitialization::ClassBody(_) => Some(ty),
@@ -274,7 +274,7 @@ impl ClassField {
         }
     }
 
-    fn as_special_method_type(self, instance: &Instance) -> Option<Type> {
+    fn as_special_method_type(&self, instance: &Instance) -> Option<Type> {
         self.as_raw_special_method_type(instance)
             .and_then(|ty| make_bound_method(instance, ty).ok())
     }
@@ -921,6 +921,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("Attribute `{}` is implicitly defined by assignment in method `{method_name}`, which is not a constructor", &name),
             );
             }
+        }
+        if let Some(dm) = metadata.dataclass_metadata()
+            && name == &dunder::POST_INIT
+            && let Some(post_init) = class_field
+                .as_special_method_type(&Instance::of_class(&self.as_class_type_unchecked(class)))
+        {
+            self.validate_post_init(class, dm, post_init, range, errors);
         }
         class_field
     }

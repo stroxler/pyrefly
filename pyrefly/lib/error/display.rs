@@ -227,6 +227,9 @@ impl TypeCheckKind {
                 "Expected to yield a value of type `{}`, but a bare `yield` gives `None` instead",
                 ctx.display(want),
             ),
+            Self::PostInit => format!(
+                "`__post_init__` type `{got}` is not assignable to expected type `{want}` generated from the dataclass's `InitVar` fields"
+            ),
         }
     }
 }

@@ -1163,7 +1163,6 @@ assert_type(C.__match_args__, tuple[Literal['x']])
 
 // InitVars are passed positionally to `__post_init__`, in the order in which they're defined.
 testcase!(
-    bug = "We should error on the __post_init__ definition in Bad1 and Bad2",
     test_post_init_validation,
     r#"
 from dataclasses import dataclass, InitVar
@@ -1178,12 +1177,12 @@ class Bad1:
     x: int
     y: InitVar[str]
     z: InitVar[bytes]
-    def __post_init__(self, y: bytes, z: str): ...
+    def __post_init__(self, y: bytes, z: str): ...  # E: `__post_init__` type `BoundMethod[Bad1, (self: Self@Bad1, y: bytes, z: str) -> None]` is not assignable to expected type `(y: str, z: bytes) -> object` generated from the dataclass's `InitVar` fields
 @dataclass
 class Bad2:
     x: int
     y: InitVar[str]
     z: InitVar[bytes]
-    def __post_init__(self, *, y: str, z: bytes): ...
+    def __post_init__(self, *, y: str, z: bytes): ...  # E: `__post_init__` type
     "#,
 );

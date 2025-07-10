@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use pyrefly_python::dunder;
 use ruff_python_ast::name::Name;
+use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
@@ -22,6 +23,8 @@ use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::error;
 use crate::error::collector::ErrorCollector;
+use crate::error::context::TypeCheckContext;
+use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncMetadata;
@@ -158,6 +161,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
         }
+    }
+
+    pub fn validate_post_init(
+        &self,
+        cls: &Class,
+        dataclass_metadata: &DataclassMetadata,
+        post_init: Type,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        // `__post_init__` is called with a dataclass's `InitVar`s, so we use the `InitVar` types
+        // to generate a callable signature to check `__post_init__` against.
+        let mut params = Vec::new();
+        for (name, field, _) in self.iter_fields(cls, dataclass_metadata, true) {
+            if field.is_init_var() {
+                params.push(field.as_param(&name, false, false));
+            }
+        }
+        let want = Type::Callable(Box::new(Callable::list(
+            ParamList::new(params),
+            self.stdlib.object().clone().to_type(),
+        )));
+        self.check_type(&want, &post_init, range, errors, &|| {
+            TypeCheckContext::of_kind(TypeCheckKind::PostInit)
+        });
     }
 
     fn iter_fields(
