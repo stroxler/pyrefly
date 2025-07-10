@@ -211,3 +211,20 @@ C(x=0)
 C(0)  # Should be an error
     "#,
 );
+
+testcase!(
+    bug = "TODO: support converters",
+    test_converter,
+    r#"
+from typing import dataclass_transform, Any
+def my_field(**kwargs) -> Any: ...
+@dataclass_transform(field_specifiers=(my_field,))
+def build(x): ...
+def int_to_str(x: int) -> str:
+    return str(x)
+@build
+class C:
+    x: str = my_field(converter=int_to_str)
+C(x=0)  # Should be ok  # E: `Literal[0]` is not assignable to parameter `x`
+    "#,
+);
