@@ -1320,3 +1320,13 @@ def f(a_type, handlers, type2):
             pass
     "#,
 );
+
+testcase!(
+    test_isinstance_uniontype,
+    r#"
+import types
+
+def f(x, y: types.UnionType):
+    isinstance(x, y)
+"#,
+);

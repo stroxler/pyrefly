@@ -458,6 +458,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 {
                     f(me, arg.clone(), res)
                 }
+                Type::ClassType(ref c) if Some(c) == me.stdlib.union_type() => {
+                    // Could be anything inside here, so add in Any.
+                    res.push(Type::Any(AnyStyle::Implicit));
+                }
                 Type::Tuple(Tuple::Concrete(ts)) | Type::Union(ts) => {
                     for t in ts {
                         f(me, t, res)

@@ -87,6 +87,8 @@ pub struct Stdlib {
     typed_dict_fallback: StdlibResult<ClassType>,
     property: StdlibResult<ClassType>,
     object: StdlibResult<ClassType>,
+    /// Introduced in Python 3.10.
+    union_type: Option<StdlibResult<ClassType>>,
 }
 
 impl Stdlib {
@@ -187,6 +189,9 @@ impl Stdlib {
             typed_dict_fallback: lookup_concrete(type_checker_internals, "TypedDictFallback"),
             property: lookup_concrete(builtins, "property"),
             object: lookup_concrete(builtins, "object"),
+            union_type: version
+                .at_least(3, 10)
+                .then(|| lookup_concrete(types, "UnionType")),
         }
     }
 
@@ -302,6 +307,10 @@ impl Stdlib {
 
     pub fn exception_group(&self, x: Type) -> Option<ClassType> {
         Some(Self::apply(self.exception_group.as_ref()?, vec![x]))
+    }
+
+    pub fn union_type(&self) -> Option<&ClassType> {
+        Some(Self::primitive(self.union_type.as_ref()?))
     }
 
     pub fn tuple_object(&self) -> &Class {
