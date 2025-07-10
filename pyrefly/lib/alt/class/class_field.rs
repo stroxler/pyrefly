@@ -928,7 +928,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         if let Some(method_name) = implicit_def_method {
             let mut defined_in_parent = false;
-            let metadata = self.get_metadata_for_class(class);
             let parents = metadata.bases_with_metadata();
             for (parent, _) in parents {
                 if self.get_class_member(parent.class_object(), name).is_some() {
