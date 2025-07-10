@@ -1077,3 +1077,15 @@ class C:
         len(self.outputs) == len(other.outputs) # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: Self 
     "#,
 );
+
+testcase!(
+    bug = "There should be no errors here.",
+    test_attr_tuple,
+    r#"
+from typing import Any, Tuple
+
+def g(ann) -> None:
+    if ann is Tuple: ...
+    ann.__module__ # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: type[Tuple] | Unknown (trying to access __module__)
+    "#,
+);
