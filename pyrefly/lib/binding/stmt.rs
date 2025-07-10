@@ -808,7 +808,7 @@ impl<'a> BindingsBuilder<'a> {
                                 Key::Import(first.clone(), x.name.range),
                                 Binding::Module(m, vec![first.clone()], module_key),
                             );
-                            self.bind_key(&first, key, FlowStyle::MergeableImport(m));
+                            self.bind_name(&first, key, FlowStyle::MergeableImport(m));
                         }
                     }
                 }
@@ -838,7 +838,7 @@ impl<'a> BindingsBuilder<'a> {
                                             Binding::Type(Type::any_error())
                                         };
                                         let key = self.insert_binding(key, val);
-                                        self.bind_key(
+                                        self.bind_name(
                                             name.key(),
                                             key,
                                             FlowStyle::Import(m, name.into_key().clone()),

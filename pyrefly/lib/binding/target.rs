@@ -448,7 +448,7 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             FlowStyle::Other
         };
-        let (canonical_ann, default) = self.bind_key(&name.id, pinned_idx, style);
+        let (canonical_ann, default) = self.bind_name(&name.id, pinned_idx, style);
         let ann = match direct_ann {
             Some((_, idx)) => Some((AnnotationStyle::Direct, idx)),
             None => canonical_ann.map(|idx| (AnnotationStyle::Forwarded, idx)),

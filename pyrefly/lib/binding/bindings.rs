@@ -631,7 +631,7 @@ impl<'a> BindingsBuilder<'a> {
         for global in Global::globals(self.has_docstring) {
             let key = Key::Global(global.name().clone());
             let idx = self.table.insert(key, Binding::Global(global.clone()));
-            self.bind_key(global.name(), idx, FlowStyle::Other);
+            self.bind_name(global.name(), idx, FlowStyle::Other);
         }
     }
 
@@ -644,7 +644,7 @@ impl<'a> BindingsBuilder<'a> {
                     let idx = self
                         .table
                         .insert(key, Binding::Import(builtins_module, name.clone(), None));
-                    self.bind_key(name, idx, FlowStyle::Import(builtins_module, name.clone()));
+                    self.bind_name(name, idx, FlowStyle::Import(builtins_module, name.clone()));
                 }
             }
             Err(err @ FindError::NotFound(..)) => {
@@ -1008,7 +1008,7 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let idx = self.insert_binding(Key::Definition(ShortIdentifier::new(name)), binding);
-        self.bind_key(&name.id, idx, style).0
+        self.bind_name(&name.id, idx, style).0
     }
 
     pub fn bind_definition_current(
@@ -1019,7 +1019,7 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let idx = self.insert_binding_current(current, binding);
-        self.bind_key(&name.id, idx, style).0
+        self.bind_name(&name.id, idx, style).0
     }
 
     pub fn bind_current(
@@ -1028,13 +1028,15 @@ impl<'a> BindingsBuilder<'a> {
         current: &CurrentIdx,
         style: FlowStyle,
     ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
-        self.bind_key(name, current.idx(), style)
+        self.bind_name(name, current.idx(), style)
     }
 
+    /// Bind a name in the current flow. Panics if the name is not in the current static scope.
+    ///
     /// Return a pair of:
     /// 1. The annotation that should be used at the moment, if one was provided.
     /// 2. The default that should be used if you are in a loop.
-    pub fn bind_key(
+    pub fn bind_name(
         &mut self,
         name: &Name,
         idx: Idx<Key>,
@@ -1155,7 +1157,7 @@ impl<'a> BindingsBuilder<'a> {
         );
         self.scopes
             .add_to_current_static(name.id.clone(), name.range, SymbolKind::Parameter, None);
-        self.bind_key(&name.id, idx, FlowStyle::Other);
+        self.bind_name(&name.id, idx, FlowStyle::Other);
     }
 
     pub fn bind_function_param(
@@ -1192,7 +1194,7 @@ impl<'a> BindingsBuilder<'a> {
             SymbolKind::Parameter,
             Some(annot),
         );
-        self.bind_key(&name.id, key, FlowStyle::Other);
+        self.bind_name(&name.id, key, FlowStyle::Other);
     }
 
     /// Helper for loops, inserts a phi key for every name in the given flow.
