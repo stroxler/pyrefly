@@ -879,3 +879,27 @@ def hello[T](x: T) -> None | T:
     return x
 "#,
 );
+
+testcase!(
+    bug = "Shouldn't grow without bound",
+    test_quantified_accumulation,
+    TestEnv::one("foo", "import typing\nT = typing.TypeVar('T')"),
+    r#"
+from typing import reveal_type, TypeVar
+from foo import T as TT
+
+T = TypeVar("T")
+
+def cond() -> bool:
+    return True
+
+def union[A, B](a: A, b: B) -> A | B:
+    return a if cond() else b
+
+def f(x: T, y: TT):
+    a = union(x, y)
+    a = union(a, a)
+    a = union(a, a)
+    reveal_type([a]) # E: revealed type: list[T | T | T | T | T | T | T | T]
+"#,
+);
