@@ -17,6 +17,7 @@ use pyrefly_util::display;
 use pyrefly_util::fs_anyhow;
 use tracing::error;
 use tracing::info;
+use tracing::warn;
 
 use crate::commands::check;
 use crate::commands::config_migration;
@@ -117,10 +118,7 @@ impl Args {
             // decline confirmation, mocking user input
             return false;
         }
-        print!("{prompt}");
-        std::io::stdout().flush().ok();
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input).ok();
+        let input = Self::read_from_stdin(prompt);
         let input = input.trim();
         input == "y" || input == "Y"
     }
@@ -243,10 +241,47 @@ impl Args {
             }
         } else {
             error!("  No directories found with <= 100 errors.");
+            return Ok(CommandExitStatus::Success);
         }
 
+        // Prompt user to select directories to suppress errors in
+        let prompt = "Enter directory numbers to suppress errors (comma-separated, e.g. 1,3,5), or press Enter to skip: ";
+        let selected_indices = Self::read_input_comma_separated_values(prompt, 1, 10);
+
+        // If no valid directories were selected, return success
+        if selected_indices.is_empty() {
+            error!("No valid directory numbers provided. Skipping error suppression.");
+            return Ok(CommandExitStatus::Success);
+        }
+
+        // Get the selected directories
+        let selected_dirs: Vec<PathBuf> = selected_indices
+            .iter()
+            .filter_map(|&idx| {
+                if idx < dirs_to_show.len() {
+                    Some(dirs_to_show[idx - 1].0.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Print selected directories
+        let dirs_str = if selected_dirs.len() == 1 {
+            format!("directory {}", selected_dirs[0].display())
+        } else {
+            format!(
+                "directories {}",
+                selected_dirs
+                    .iter()
+                    .map(|d| d.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        };
+
+        eprintln!("Suppressing errors in {}", dirs_str);
         Ok(CommandExitStatus::Success)
-        // TODO: Implement UI to allow user to select directories for error suppression
     }
 
     fn create_config(&self) -> anyhow::Result<(CommandExitStatus, Option<PathBuf>)> {
@@ -325,6 +360,60 @@ impl Args {
         fs_anyhow::write(&config_path, serialized.as_bytes())?;
         info!("New config written to `{}`", config_path.display());
         Ok((CommandExitStatus::Success, Some(config_path)))
+    }
+
+    fn read_from_stdin(prompt: &str) -> String {
+        info!("{prompt}");
+        std::io::stdout().flush().ok();
+
+        // Read user input
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).ok();
+        input
+    }
+
+    fn read_input_comma_separated_values(prompt: &str, min: usize, max: usize) -> Vec<usize> {
+        let input = Self::read_from_stdin(prompt);
+        Self::parse_comma_separated_values(&input, min, max)
+    }
+
+    /// Parses comma-separated values from a string and returns a vector of parsed values
+    /// within the specified range.
+    ///
+    /// # Arguments
+    /// * `input` - The input string containing comma-separated values
+    /// * `min` - The minimum valid value (inclusive)
+    /// * `max` - The maximum valid value (inclusive)
+    ///
+    /// # Returns
+    /// A vector of parsed values within the specified range
+    fn parse_comma_separated_values(input: &str, min: usize, max: usize) -> Vec<usize> {
+        let input = input.trim();
+
+        // If input is empty, return empty vector
+        if input.is_empty() {
+            return Vec::new();
+        }
+
+        // Parse comma-separated values
+        let selected_indices: Vec<usize> = input
+            .split(',')
+            .filter_map(|s| {
+                let trimmed = s.trim();
+                match trimmed.parse::<usize>() {
+                    Ok(num) if (min..=max).contains(&num) => Some(num),
+                    _ => {
+                        warn!(
+                            "'{}' is not a valid number ({}-{}), skipping.",
+                            trimmed, min, max
+                        );
+                        None
+                    }
+                }
+            })
+            .collect();
+
+        selected_indices
     }
 }
 
@@ -684,5 +773,41 @@ k = [\"v\"]
         let status = run_init_on_file(&tmp, "pyproject.toml")?;
         assert_user_error(status);
         Ok(())
+    }
+
+    // Test for parse_comma_separated_values with multiple test cases
+    #[test]
+    fn test_parse_comma_separated_values() {
+        // Define test cases as (input, min, max, expected_result)
+        let test_cases = [
+            // Empty input
+            ("", 1, 10, vec![]),
+            // Single valid number
+            ("5", 1, 10, vec![5]),
+            // Multiple valid numbers
+            ("1,3,5,10", 1, 10, vec![1, 3, 5, 10]),
+            // Input with spaces
+            (" 1, 3 , 5,  10 ", 1, 10, vec![1, 3, 5, 10]),
+            // Out of range values
+            ("0,11,15", 1, 10, vec![]),
+            // Mixed valid and invalid values
+            ("0,3,11,5", 1, 10, vec![3, 5]),
+            // Non-numeric values
+            ("a,b,c", 1, 10, vec![]),
+            // Mixed numeric and non-numeric values
+            ("1,a,3,b,5", 1, 10, vec![1, 3, 5]),
+            // Custom range
+            ("4,5,10,15,16", 5, 15, vec![5, 10, 15]),
+        ];
+
+        // Run each test case
+        for (i, (input, min, max, expected)) in test_cases.iter().enumerate() {
+            let result = Args::parse_comma_separated_values(input, *min, *max);
+            assert_eq!(
+                result, *expected,
+                "Test case {} failed: input='{}', min={}, max={}",
+                i, input, min, max
+            );
+        }
     }
 }
