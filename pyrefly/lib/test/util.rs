@@ -491,3 +491,8 @@ pub fn get_class(name: &str, handle: &Handle, state: &State) -> Class {
         _ => unreachable!(),
     }
 }
+
+#[test]
+fn test_inception() {
+    assert!(testcase_for_macro(TestEnv::new(), "i: int = 'test'", file!(), line!()).is_err());
+}

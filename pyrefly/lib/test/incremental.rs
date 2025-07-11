@@ -130,6 +130,22 @@ impl Incremental {
 }
 
 #[test]
+#[should_panic]
+fn test_incremental_inception_errors() {
+    let mut i = Incremental::new();
+    i.set("main", "i: int = 'test'");
+    i.check(&["main"], &["main"]);
+}
+
+#[test]
+#[should_panic]
+fn test_incremental_inception_recompute() {
+    let mut i = Incremental::new();
+    i.set("main", "i: int = 1");
+    i.check(&["main"], &["main", "foo"]);
+}
+
+#[test]
 fn test_in_memory_updated_content_recheck() {
     let mut i = Incremental::new();
     i.set("main", "unbound_name # E:");
