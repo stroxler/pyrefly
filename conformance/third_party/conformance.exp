@@ -6117,8 +6117,8 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "Object of class `type` has no attribute `label`",
-      "description": "Object of class `type` has no attribute `label`",
+      "concise_description": "Instance-only attribute `label` of class `Node` is not visible on the class",
+      "description": "Instance-only attribute `label` of class `Node` is not visible on the class",
       "line": 46,
       "name": "missing-attribute",
       "stop_column": 15,

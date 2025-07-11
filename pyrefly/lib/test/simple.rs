@@ -792,6 +792,21 @@ def foo(x: int):
 );
 
 testcase!(
+    test_builtins_type_constructor,
+    r#"
+from typing import assert_type
+class Foo:
+    @classmethod
+    def method(cls, x: str) -> int:
+        return 1
+    def g(self):
+        assert_type(type(self).method("tst"), int)
+x = Foo()
+assert_type(type(x), type[Foo])
+"#,
+);
+
+testcase!(
     test_anywhere_binding,
     r#"
 from typing import assert_type, Literal

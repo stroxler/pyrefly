@@ -2965,6 +2965,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    // Approximate the result of calling `type()` on something of type T
+    // In many cases the result is just type[T] with generics erased, but sometimes
+    // we'll fall back to builtins.type. We can add more cases here as-needed.
+    pub fn type_of(&self, ty: Type) -> Type {
+        match ty {
+            Type::ClassType(cls) | Type::SelfType(cls) => {
+                Type::ClassDef(cls.class_object().clone())
+            }
+            Type::Union(xs) if !xs.is_empty() => {
+                let mut ts = Vec::new();
+                for x in xs {
+                    let t = self.type_of(x);
+                    ts.push(t);
+                }
+                self.unions(ts)
+            }
+            Type::TypeAlias(ta) => self.type_of(ta.as_type()),
+            Type::Any(style) => Type::type_form(style.propagate()),
+            _ => self.stdlib.builtins_type().clone().to_type(),
+        }
+    }
+
     pub fn validate_type_form(
         &self,
         ty: Type,

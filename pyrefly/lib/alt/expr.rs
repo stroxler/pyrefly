@@ -1406,6 +1406,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         {
                             self.call_issubclass(&x.arguments.args[0], &x.arguments.args[1], errors)
                         }
+                        _ if matches!(&ty_fun, Type::ClassDef(cls) if cls == self.stdlib.builtins_type().class_object())
+                            && x.arguments.args.len() == 1 && x.arguments.keywords.is_empty() =>
+                        {
+                            // We may be able to provide a more precise type when the constructor for `builtins.type`
+                            // is called with a single argument.
+                            let typ = self.expr_infer(&x.arguments.args[0], errors);
+                            self.type_of(typ)
+                        }
                         _ => {
                             let callable = self.as_call_target_or_error(
                                 ty.clone(),
