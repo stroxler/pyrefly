@@ -566,6 +566,7 @@ fn function_last_expressions<'a>(
         match x.last()? {
             Stmt::Expr(x) => res.push((LastStmt::Expr, &x.value)),
             Stmt::Return(_) | Stmt::Raise(_) => {}
+            Stmt::Assert(x) if sys_info.evaluate_bool(&x.test) == Some(false) => {}
             Stmt::With(x) => {
                 let kind = IsAsync::new(x.is_async);
                 for y in &x.items {

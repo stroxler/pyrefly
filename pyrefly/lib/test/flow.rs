@@ -1231,6 +1231,16 @@ assert_type(vari, Literal["test"])
 );
 
 testcase!(
+    test_assert_false_terminates_flow,
+    r#"
+def test1() -> int:
+    assert False
+def test2() -> int:  # E: Function declared to return `int` but is missing an explicit `return`
+    assert True
+    "#,
+);
+
+testcase!(
     bug = "Merge flow is lax about possibly-undefined locals, so we don't catch that `z` may be uninitialized.",
     test_named_inside_boolean_op,
     r#"
