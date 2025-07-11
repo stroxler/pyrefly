@@ -38,7 +38,7 @@ where
 
 /// Groups the errors by the path_index'th component of the path by error_kind,
 /// and then collects and sorts the errors as in collect_and_sort.
-fn get_top_error_dirs_by_error_kind(
+pub fn get_top_error_dirs_by_error_kind(
     path_errors: &SmallMap<ModulePath, ErrorCounts>,
     path_index: usize,
 ) -> Vec<(PathBuf, Vec<(ErrorKind, usize)>)> {
@@ -48,6 +48,7 @@ fn get_top_error_dirs_by_error_kind(
             .components()
             .take(path_index + 1)
             .collect::<PathBuf>();
+
         let error_counts = dirs.entry(dir).or_default();
         for (kind, count) in errors {
             *error_counts.entry(*kind).or_default() += count;
@@ -56,20 +57,45 @@ fn get_top_error_dirs_by_error_kind(
     collect_and_sort(dirs)
 }
 
-/// Groups the errors by the path_index'th component of the path,
+/// Groups the errors by the path_index'th component of the path, using config_path if provided,
 /// and returns a vector of (PathBuf, usize) pairs sorted by error count in descending order.
+///
+/// If config_path is provided, only files that belong to the config path's parent directory
+/// will be included in the results.
 fn get_top_error_dirs(
     path_errors: &SmallMap<ModulePath, ErrorCounts>,
     path_index: usize,
+    config_path: Option<&PathBuf>,
 ) -> Vec<(PathBuf, usize)> {
     let mut dirs: SmallMap<PathBuf, usize> = SmallMap::new();
+
+    // If config_path is provided, get its parent directory
+    let config_dir = config_path.and_then(|p| p.parent());
+
     for (path, errors) in path_errors {
-        let dir = PathBuf::from(path.to_string())
-            .components()
-            .take(path_index + 1)
-            .collect::<PathBuf>();
-        let total_count: usize = errors.values().sum();
-        *dirs.entry(dir).or_default() += total_count;
+        let file_path = PathBuf::from(path.to_string());
+
+        // If config_dir is provided, only include files that are relative to it
+        if let Some(config_dir) = config_dir {
+            if let Ok(rel_path) = file_path.strip_prefix(config_dir) {
+                // Calculate the directory based on config_path and path_index
+                let mut dir = config_dir.to_path_buf();
+                for component in rel_path.components().take(path_index + 1) {
+                    dir.push(component);
+                }
+
+                let total_count: usize = errors.values().sum();
+                *dirs.entry(dir).or_default() += total_count;
+            }
+        } else {
+            // If no config_path is provided, use the original behavior
+            let dir = file_path
+                .components()
+                .take(path_index + 1)
+                .collect::<PathBuf>();
+            let total_count: usize = errors.values().sum();
+            *dirs.entry(dir).or_default() += total_count;
+        }
     }
 
     let mut result: Vec<(PathBuf, usize)> = dirs.into_iter().collect();
@@ -86,6 +112,32 @@ fn get_errors_per_file(errors: &[Error]) -> SmallMap<ModulePath, SmallMap<ErrorK
             .or_default() += 1;
     }
     map
+}
+
+/// Prints the top 10 directories by error count, specifically formatted for the init command.
+/// path_index controls how directories are grouped. For example, for the directory /alpha/beta/gamma/...,
+/// path_index = 0 groups by /alpha, path_index = 1 groups by /alpha/beta,
+/// and path_index = 2 groups by alpha/beta/gamma.
+/// If the path_index is larger than the number of components in the path, then the entire path is used.
+///
+/// If config_path is provided, path_index will be relative to the directory containing the config file.
+/// This makes the grouping more meaningful when working with projects that have a configuration file.
+pub fn print_top_error_dirs_for_init(
+    errors: &[Error],
+    path_index: usize,
+    config_path: Option<&PathBuf>,
+) {
+    eprintln!("Top 10 Directories by Error Count:");
+    let path_errors = get_errors_per_file(errors);
+    let top_dirs = get_top_error_dirs(&path_errors, path_index, config_path);
+    for (i, (dir, error_count)) in top_dirs.into_iter().take(10).enumerate() {
+        eprintln!(
+            "  {}) {}: {}",
+            i + 1,
+            dir.display(),
+            display::count(error_count, "error")
+        );
+    }
 }
 
 /// Prints a summary of errors found in the input.
@@ -292,11 +344,11 @@ mod tests {
 
         // Test with path_index = 0 (group by first component)
         let want = vec![(pb("base"), 19)];
-        assert_eq!(want, get_top_error_dirs(&errors, 0));
+        assert_eq!(want, get_top_error_dirs(&errors, 0, None));
 
         // Test with path_index = 1 (group by first two components)
         let want = vec![(pb("base/short.py"), 10), (pb("base/proj"), 9)];
-        assert_eq!(want, get_top_error_dirs(&errors, 1));
+        assert_eq!(want, get_top_error_dirs(&errors, 1, None));
 
         // Test with path_index = 2 (group by first three components)
         let want = vec![
@@ -304,7 +356,7 @@ mod tests {
             (pb("base/proj/sub"), 5),
             (pb("base/proj/dub"), 4),
         ];
-        assert_eq!(want, get_top_error_dirs(&errors, 2));
+        assert_eq!(want, get_top_error_dirs(&errors, 2, None));
 
         // Test with path_index = 3 and beyond (group by full path)
         let want = vec![
@@ -313,7 +365,29 @@ mod tests {
             (pb("base/proj/sub/b.py"), 3),
             (pb("base/proj/sub/a.py"), 2),
         ];
-        assert_eq!(want, get_top_error_dirs(&errors, 3));
-        assert_eq!(want, get_top_error_dirs(&errors, 30000));
+        assert_eq!(want, get_top_error_dirs(&errors, 3, None));
+        assert_eq!(want, get_top_error_dirs(&errors, 30000, None));
+
+        // Test with config_path
+        let config_path = pb("base/proj/pyrefly.toml");
+
+        // Test with path_index = 0 and config_path (group by first component relative to config_path)
+        let want = vec![(pb("base/proj/sub"), 5), (pb("base/proj/dub"), 4)];
+        assert_eq!(want, get_top_error_dirs(&errors, 0, Some(&config_path)));
+
+        // Test with path_index = 1 and config_path (group by first two components relative to config_path)
+        let want = vec![
+            (pb("base/proj/dub/z.py"), 4),
+            (pb("base/proj/sub/b.py"), 3),
+            (pb("base/proj/sub/a.py"), 2),
+        ];
+        assert_eq!(want, get_top_error_dirs(&errors, 1, Some(&config_path)));
+
+        // Test with files not relative to config_path
+        let want: Vec<(PathBuf, usize)> = vec![];
+        assert_eq!(
+            want,
+            get_top_error_dirs(&errors, 0, Some(&pb("other/path/pyrefly.toml")))
+        );
     }
 }

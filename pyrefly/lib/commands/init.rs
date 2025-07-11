@@ -23,6 +23,7 @@ use crate::commands::config_migration::write_pyproject;
 use crate::commands::globs_and_config_getter;
 use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
+use crate::error::summarise;
 
 const MAX_ERRORS_TO_PROMPT_SUPPRESSION: usize = 100;
 
@@ -144,6 +145,10 @@ impl Args {
                     else if error_count <= MAX_ERRORS_TO_PROMPT_SUPPRESSION {
                         return self.prompt_error_suppression(config_path, error_count);
                     }
+                    // 3b. Prompt error suppression in specific subdirectories if there are more than the maximum number of errors
+                    else {
+                        return self.prompt_init_on_subdirectory(config_path, errors);
+                    }
                 }
                 Ok(CommandExitStatus::Success)
             }
@@ -210,6 +215,17 @@ impl Args {
         }
 
         Ok(CommandExitStatus::Success)
+    }
+
+    fn prompt_init_on_subdirectory(
+        &self,
+        config_path: Option<PathBuf>,
+        errors: Vec<crate::error::error::Error>,
+    ) -> anyhow::Result<CommandExitStatus> {
+        summarise::print_top_error_dirs_for_init(&errors, 0, config_path.as_ref());
+
+        Ok(CommandExitStatus::Success)
+        // TODO: Implement UI to allow user to select directories for error suppression
     }
 
     fn create_config(&self) -> anyhow::Result<(CommandExitStatus, Option<PathBuf>)> {
