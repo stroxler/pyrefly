@@ -62,6 +62,10 @@ impl Severity {
             Severity::Ignore => Paint::conceal,
         })(self.label())
     }
+
+    pub fn is_enabled(self) -> bool {
+        self != Severity::Ignore
+    }
 }
 
 /// ErrorKind categorizes an error by the part of the spec the error is related to.

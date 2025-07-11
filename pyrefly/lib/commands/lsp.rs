@@ -1162,7 +1162,7 @@ impl Server {
                     path.to_path_buf(),
                     Diagnostic {
                         range: e.lined_buffer().to_lsp_range(e.range()),
-                        severity: Some(match e.error_kind().default_severity() {
+                        severity: Some(match e.severity() {
                             Severity::Error => lsp_types::DiagnosticSeverity::ERROR,
                             Severity::Warn => lsp_types::DiagnosticSeverity::WARNING,
                             Severity::Info => lsp_types::DiagnosticSeverity::INFORMATION,

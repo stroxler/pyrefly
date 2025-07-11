@@ -37,6 +37,7 @@ pub struct Error {
     range: TextRange,
     display_range: DisplayRange,
     error_kind: ErrorKind,
+    severity: Severity,
     /// First line of the error message
     msg_header: Box<str>,
     /// The rest of the error message after the first line.
@@ -52,11 +53,11 @@ impl Ranged for Error {
 
 impl Error {
     pub fn write_line(&self, mut f: impl Write, verbose: bool) -> io::Result<()> {
-        if verbose {
+        if verbose && self.severity.is_enabled() {
             writeln!(
                 f,
                 "{} {} [{}]",
-                self.error_kind().default_severity().label(),
+                self.severity.label(),
                 self.msg_header,
                 self.error_kind.to_name(),
             )?;
@@ -67,11 +68,11 @@ impl Error {
             if let Some(details) = &self.msg_details {
                 writeln!(f, "{details}")?;
             }
-        } else {
+        } else if self.severity.is_enabled() {
             writeln!(
                 f,
                 "{} {}:{}: {} [{}]",
-                self.error_kind().default_severity().label(),
+                self.severity.label(),
                 self.path(),
                 self.display_range,
                 self.msg_header,
@@ -82,10 +83,10 @@ impl Error {
     }
 
     pub fn print_colors(&self, verbose: bool) {
-        if verbose {
+        if verbose && self.severity.is_enabled() {
             anstream::println!(
                 "{} {} {}",
-                self.error_kind().default_severity().painted(),
+                self.severity.painted(),
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
             );
@@ -96,10 +97,10 @@ impl Error {
             if let Some(details) = &self.msg_details {
                 anstream::println!("{details}");
             }
-        } else {
+        } else if self.severity.is_enabled() {
             anstream::println!(
                 "{} {}:{}: {} {}",
-                self.error_kind().default_severity().painted(),
+                self.severity.painted(),
                 Paint::blue(&self.path().as_path().display()),
                 Paint::dim(self.display_range()),
                 Paint::new(&*self.msg_header),
@@ -132,7 +133,7 @@ impl Error {
             .lined_buffer()
             .line_start(self.display_range.start.line);
 
-        let level = match self.error_kind().default_severity() {
+        let level = match self.severity {
             Severity::Error => Level::Error,
             Severity::Warn => Level::Warning,
             Severity::Info => Level::Info,
@@ -146,6 +147,16 @@ impl Error {
                 .origin(origin)
                 .annotation(level.span(span_start..span_end)),
         )
+    }
+
+    pub fn with_severity(&self, severity: Severity) -> Self {
+        let mut res = self.clone();
+        res.severity = severity;
+        res
+    }
+
+    pub fn severity(&self) -> Severity {
+        self.severity
     }
 }
 
@@ -200,6 +211,7 @@ impl Error {
             range,
             display_range,
             error_kind,
+            severity: error_kind.default_severity(),
             msg_header,
             msg_details,
         }
