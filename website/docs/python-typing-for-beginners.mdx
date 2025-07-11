@@ -193,12 +193,12 @@ from collections.abc import Callable
 Logger = Callable[[str], None]
 
 def debug(*msgs: str, log: Logger | None) -> None:
-  for m in msgs:
-    if log is not None:
-      log(m)
-    else:
-      print(m)
-    `}
+    for m in msgs:
+      if log is not None:
+        log(m)
+      else:
+        print(m)
+  `}
 />
 
 In this variable-length arguments example:
