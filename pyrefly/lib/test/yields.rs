@@ -378,3 +378,20 @@ def generator_with_only_yield_from() -> Iterator[int]:
     yield from [1, 2, 3]
     "#,
 );
+
+testcase!(
+    bug = "PyTorch TODO: There should not be an error here",
+    test_yield_iterator,
+    r#"
+from typing import Iterable, TypeVar, Iterator
+_T = TypeVar("_T")
+
+def f(start, iterable: Iterable[_T], step) ->  Iterator[_T]:
+    next_i = start
+    for i, element in enumerate(iterable):
+        if i == next_i:
+            yield element # E: Type of yielded value `_T` is not assignable to declared return type `_T`
+            next_i += step
+
+    "#,
+);
