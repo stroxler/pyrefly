@@ -26,6 +26,7 @@ use crate::config::environment::environment::PythonEnvironment;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::mypy::regex_converter;
 use crate::config::util::ConfigOrigin;
+use crate::error::kind::Severity;
 use crate::module::wildcard::ModuleWildcard;
 #[derive(Clone, Debug, Deserialize)]
 pub struct MypyConfig {
@@ -82,11 +83,11 @@ impl MypyConfig {
         ) -> Option<ErrorDisplayConfig> {
             let mut errors = HashMap::new();
             for error_code in disables {
-                errors.insert(error_code, false);
+                errors.insert(error_code, Severity::Ignore);
             }
             // enable_error_code overrides disable_error_code
             for error_code in enables {
-                errors.insert(error_code, true);
+                errors.insert(error_code, Severity::Error);
             }
             crate::config::mypy::code_to_kind(errors)
         }

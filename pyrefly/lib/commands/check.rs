@@ -663,10 +663,10 @@ impl Args {
         }
         let apply_error_settings = |error_config: &mut ErrorDisplayConfig| {
             for error_kind in &self.config_override.enable_error {
-                error_config.with_error_setting(*error_kind, true);
+                error_config.with_error_setting(*error_kind, Severity::Error);
             }
             for error_kind in &self.config_override.disable_error {
-                error_config.with_error_setting(*error_kind, false);
+                error_config.with_error_setting(*error_kind, Severity::Ignore);
             }
         };
         let root_errors = config.root.errors.get_or_insert_default();

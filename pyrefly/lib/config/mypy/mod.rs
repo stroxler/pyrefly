@@ -16,6 +16,7 @@ pub use pyproject::parse_pyproject_config;
 
 use crate::config::error::ErrorDisplayConfig;
 use crate::error::kind::ErrorKind;
+use crate::error::kind::Severity;
 
 /// Convert mypy error codes to pyrefly ErrorKinds. This consumes the input map.
 // One or more error codes can map to the same ErrorKind, and this must be taken into consideration when adding a new error code.
@@ -34,12 +35,12 @@ use crate::error::kind::ErrorKind;
 //     {
 //         map.insert(ErrorKind::Unkown, import_error);
 //     }
-fn code_to_kind(mut errors: HashMap<String, bool>) -> Option<ErrorDisplayConfig> {
+fn code_to_kind(mut errors: HashMap<String, Severity>) -> Option<ErrorDisplayConfig> {
     let mut map = HashMap::new();
     if let Some(value) = [errors.remove("union-attr"), errors.remove("attr-defined")]
         .into_iter()
         .flatten()
-        .reduce(|acc, x| acc | x)
+        .max()
     {
         map.insert(ErrorKind::MissingAttribute, value);
     }

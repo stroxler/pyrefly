@@ -22,7 +22,19 @@ use yansi::Painted;
 use crate::types::quantified::QuantifiedKind;
 
 // IMPORTANT: these cases should be listed in order of severity
-#[derive(Debug, Clone, Dupe, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(
+    Debug,
+    Clone,
+    Dupe,
+    Copy,
+    PartialOrd,
+    Ord,
+    PartialEq,
+    Eq,
+    Hash,
+    Deserialize,
+    Serialize
+)]
 pub enum Severity {
     Ignore,
     Info,

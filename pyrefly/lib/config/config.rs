@@ -790,6 +790,7 @@ mod tests {
     use super::*;
     use crate::config::util::ConfigOrigin;
     use crate::error::kind::ErrorKind;
+    use crate::error::kind::Severity;
 
     #[test]
     fn deserialize_pyrefly_config() {
@@ -854,8 +855,8 @@ mod tests {
                 root: ConfigBase {
                     extras: Default::default(),
                     errors: Some(ErrorDisplayConfig::new(HashMap::from_iter([
-                        (ErrorKind::AssertType, true),
-                        (ErrorKind::BadReturn, false)
+                        (ErrorKind::AssertType, Severity::Error),
+                        (ErrorKind::BadReturn, Severity::Ignore)
                     ]))),
                     ignore_errors_in_generated_code: Some(true),
                     replace_imports_with_any: Some(vec![ModuleWildcard::new("fibonacci").unwrap()]),
@@ -868,8 +869,8 @@ mod tests {
                     settings: ConfigBase {
                         extras: Default::default(),
                         errors: Some(ErrorDisplayConfig::new(HashMap::from_iter([
-                            (ErrorKind::AssertType, false),
-                            (ErrorKind::InvalidYield, false)
+                            (ErrorKind::AssertType, Severity::Ignore),
+                            (ErrorKind::InvalidYield, Severity::Ignore)
                         ]))),
                         ignore_errors_in_generated_code: Some(false),
                         replace_imports_with_any: Some(Vec::new()),

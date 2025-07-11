@@ -23,6 +23,7 @@ use crate::config::config::SubConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::mypy::regex_converter;
 use crate::config::util::ConfigOrigin;
+use crate::error::kind::Severity;
 use crate::module::wildcard::ModuleWildcard;
 
 // A pyproject.toml Mypy config differs a bit from the INI format:
@@ -113,11 +114,11 @@ fn split_comma(strs: &[String]) -> Vec<String> {
 fn make_error_config(disable: Vec<String>, enable: Vec<String>) -> Option<ErrorDisplayConfig> {
     let mut errors = HashMap::new();
     for error_code in disable {
-        errors.insert(error_code, false);
+        errors.insert(error_code, Severity::Ignore);
     }
     // enable_error_code overrides disable_error_code
     for error_code in enable {
-        errors.insert(error_code, true);
+        errors.insert(error_code, Severity::Error);
     }
     crate::config::mypy::code_to_kind(errors)
 }

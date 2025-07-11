@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::error::kind::ErrorKind;
+use crate::error::kind::Severity;
 
 /// Represents overrides for errors to emit when collecting/printing errors.
 /// The boolean in the map represents whether the error is enabled or disabled
@@ -19,21 +20,29 @@ use crate::error::kind::ErrorKind;
 /// will be treated as `<error-kind> = true`.
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
 #[serde(transparent)]
-pub struct ErrorDisplayConfig(HashMap<ErrorKind, bool>);
+pub struct ErrorDisplayConfig(HashMap<ErrorKind, Severity>);
 
 impl ErrorDisplayConfig {
-    pub fn new(config: HashMap<ErrorKind, bool>) -> Self {
+    pub fn new(config: HashMap<ErrorKind, Severity>) -> Self {
         Self(config)
     }
 
-    /// Gets whether the given `ErrorKind` is enabled. If the value isn't
-    /// found, then assume it should be enabled.
-    pub fn is_enabled(&self, kind: ErrorKind) -> bool {
-        self.0.get(&kind) != Some(&false)
+    /// Gets the severity for the given `ErrorKind`. If the value isn't
+    /// found, then assume it should be the default for that error kind.
+    pub fn severity(&self, kind: ErrorKind) -> Severity {
+        self.0
+            .get(&kind)
+            .copied()
+            .unwrap_or_else(|| kind.default_severity())
     }
 
-    pub fn with_error_setting(&mut self, kind: ErrorKind, enabled: bool) {
-        self.0.insert(kind, enabled);
+    pub fn is_enabled(&self, kind: ErrorKind) -> bool {
+        !matches!(self.0.get(&kind), Some(Severity::Ignore))
+            && kind.default_severity() != Severity::Ignore
+    }
+
+    pub fn with_error_setting(&mut self, kind: ErrorKind, severity: Severity) {
+        self.0.insert(kind, severity);
     }
 }
 

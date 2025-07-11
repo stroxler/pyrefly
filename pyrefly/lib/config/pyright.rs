@@ -21,6 +21,7 @@ use crate::config::config::ConfigFile;
 use crate::config::config::SubConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::error::kind::ErrorKind;
+use crate::error::kind::Severity;
 
 /// Represents a pyright executionEnvironment.
 /// pyright's ExecutionEnvironments allow you to specify a different Python environment for a subdirectory,
@@ -170,7 +171,14 @@ impl RuleOverrides {
         .flatten()
         .reduce(|acc, x| acc | x)
         {
-            map.insert(ErrorKind::ImportError, import_error);
+            map.insert(
+                ErrorKind::ImportError,
+                if import_error {
+                    Severity::Error
+                } else {
+                    Severity::Ignore
+                },
+            );
         }
 
         if map.is_empty() {

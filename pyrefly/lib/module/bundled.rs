@@ -27,6 +27,7 @@ use zstd::stream::read::Decoder;
 use crate::config::config::ConfigFile;
 use crate::config::error::ErrorDisplayConfig;
 use crate::error::kind::ErrorKind;
+use crate::error::kind::Severity;
 
 const BUNDLED_TYPESHED_BYTES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/typeshed.tar.zst"));
 
@@ -110,7 +111,7 @@ impl BundledTypeshed {
             };
             config_file.root.errors = Some(ErrorDisplayConfig::new(HashMap::from([
                 // The stdlib is full of deliberately incorrect overrides, so ignore them
-                (ErrorKind::BadOverride, false),
+                (ErrorKind::BadOverride, Severity::Ignore),
             ])));
             config_file.configure();
             ArcId::new(config_file)

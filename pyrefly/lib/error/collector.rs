@@ -189,6 +189,7 @@ mod tests {
 
     use super::*;
     use crate::config::error::ErrorDisplayConfig;
+    use crate::error::kind::Severity;
 
     fn add(errors: &ErrorCollector, range: TextRange, kind: ErrorKind, msg: String) {
         errors.add(range, kind, None, vec1![msg]);
@@ -285,9 +286,9 @@ mod tests {
         );
 
         let display_config = ErrorDisplayConfig::new(HashMap::from([
-            (ErrorKind::AsyncError, true),
-            (ErrorKind::BadAssignment, false),
-            (ErrorKind::NotIterable, false),
+            (ErrorKind::AsyncError, Severity::Error),
+            (ErrorKind::BadAssignment, Severity::Ignore),
+            (ErrorKind::NotIterable, Severity::Ignore),
         ]));
         let config = ErrorConfig::new(&display_config, false, false);
 
