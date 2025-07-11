@@ -36,9 +36,9 @@ where
     errors
 }
 
-/// Groups the errors by the path_index'th component of the path,
+/// Groups the errors by the path_index'th component of the path by error_kind,
 /// and then collects and sorts the errors as in collect_and_sort.
-fn get_top_error_dirs(
+fn get_top_error_dirs_by_error_kind(
     path_errors: &SmallMap<ModulePath, ErrorCounts>,
     path_index: usize,
 ) -> Vec<(PathBuf, Vec<(ErrorKind, usize)>)> {
@@ -54,6 +54,27 @@ fn get_top_error_dirs(
         }
     }
     collect_and_sort(dirs)
+}
+
+/// Groups the errors by the path_index'th component of the path,
+/// and returns a vector of (PathBuf, usize) pairs sorted by error count in descending order.
+fn get_top_error_dirs(
+    path_errors: &SmallMap<ModulePath, ErrorCounts>,
+    path_index: usize,
+) -> Vec<(PathBuf, usize)> {
+    let mut dirs: SmallMap<PathBuf, usize> = SmallMap::new();
+    for (path, errors) in path_errors {
+        let dir = PathBuf::from(path.to_string())
+            .components()
+            .take(path_index + 1)
+            .collect::<PathBuf>();
+        let total_count: usize = errors.values().sum();
+        *dirs.entry(dir).or_default() += total_count;
+    }
+
+    let mut result: Vec<(PathBuf, usize)> = dirs.into_iter().collect();
+    result.sort_by_key(|(_, count)| -(*count as isize));
+    result
 }
 
 fn get_errors_per_file(errors: &[Error]) -> SmallMap<ModulePath, SmallMap<ErrorKind, usize>> {
@@ -84,7 +105,7 @@ pub fn print_error_summary(errors: &[Error], path_index: usize) {
         return;
     }
     eprintln!("Top 30 Directories by Error Count:");
-    let top_dirs = get_top_error_dirs(&path_errors, path_index);
+    let top_dirs = get_top_error_dirs_by_error_kind(&path_errors, path_index);
     for (dir, error_kind_counts) in top_dirs.into_iter().take(30) {
         let total_error_count = error_kind_counts.iter().fold(0, |count, (_, c)| count + *c);
         eprintln!(
@@ -168,7 +189,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_top_error_dirs() {
+    fn test_get_top_error_dirs_by_error_kind() {
         fn mpfs(s: &str) -> ModulePath {
             ModulePath::filesystem(PathBuf::from(s))
         }
@@ -202,7 +223,7 @@ mod tests {
                 (ErrorKind::AsyncError, 3),
             ],
         )];
-        assert_eq!(want, get_top_error_dirs(&errors, 0));
+        assert_eq!(want, get_top_error_dirs_by_error_kind(&errors, 0));
 
         let want = vec![
             (
@@ -214,7 +235,7 @@ mod tests {
                 vec![(ErrorKind::ReadOnly, 6), (ErrorKind::AsyncError, 3)],
             ),
         ];
-        assert_eq!(want, get_top_error_dirs(&errors, 1));
+        assert_eq!(want, get_top_error_dirs_by_error_kind(&errors, 1));
 
         let want = vec![
             (
@@ -227,7 +248,7 @@ mod tests {
             ),
             (pb("base/proj/dub"), vec![(ErrorKind::ReadOnly, 4)]),
         ];
-        assert_eq!(want, get_top_error_dirs(&errors, 2));
+        assert_eq!(want, get_top_error_dirs_by_error_kind(&errors, 2));
 
         let want = vec![
             (
@@ -237,6 +258,60 @@ mod tests {
             (pb("base/proj/dub/z.py"), vec![(ErrorKind::ReadOnly, 4)]),
             (pb("base/proj/sub/b.py"), vec![(ErrorKind::AsyncError, 3)]),
             (pb("base/proj/sub/a.py"), vec![(ErrorKind::ReadOnly, 2)]),
+        ];
+        assert_eq!(want, get_top_error_dirs_by_error_kind(&errors, 3));
+        assert_eq!(want, get_top_error_dirs_by_error_kind(&errors, 30000));
+    }
+
+    #[test]
+    fn test_get_top_error_dirs() {
+        fn mpfs(s: &str) -> ModulePath {
+            ModulePath::filesystem(PathBuf::from(s))
+        }
+        fn pb(s: &str) -> PathBuf {
+            PathBuf::from(s)
+        }
+        let errors = SmallMap::from_iter(vec![
+            (
+                mpfs("base/proj/sub/a.py"),
+                SmallMap::from_iter([(ErrorKind::ReadOnly, 2)]),
+            ),
+            (
+                mpfs("base/proj/sub/b.py"),
+                SmallMap::from_iter([(ErrorKind::AsyncError, 3)]),
+            ),
+            (
+                mpfs("base/proj/dub/z.py"),
+                SmallMap::from_iter([(ErrorKind::ReadOnly, 4)]),
+            ),
+            (
+                mpfs("base/short.py"),
+                SmallMap::from_iter([(ErrorKind::AnnotationMismatch, 10)]),
+            ),
+        ]);
+
+        // Test with path_index = 0 (group by first component)
+        let want = vec![(pb("base"), 19)];
+        assert_eq!(want, get_top_error_dirs(&errors, 0));
+
+        // Test with path_index = 1 (group by first two components)
+        let want = vec![(pb("base/short.py"), 10), (pb("base/proj"), 9)];
+        assert_eq!(want, get_top_error_dirs(&errors, 1));
+
+        // Test with path_index = 2 (group by first three components)
+        let want = vec![
+            (pb("base/short.py"), 10),
+            (pb("base/proj/sub"), 5),
+            (pb("base/proj/dub"), 4),
+        ];
+        assert_eq!(want, get_top_error_dirs(&errors, 2));
+
+        // Test with path_index = 3 and beyond (group by full path)
+        let want = vec![
+            (pb("base/short.py"), 10),
+            (pb("base/proj/dub/z.py"), 4),
+            (pb("base/proj/sub/b.py"), 3),
+            (pb("base/proj/sub/a.py"), 2),
         ];
         assert_eq!(want, get_top_error_dirs(&errors, 3));
         assert_eq!(want, get_top_error_dirs(&errors, 30000));
