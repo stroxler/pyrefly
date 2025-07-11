@@ -881,7 +881,6 @@ def hello[T](x: T) -> None | T:
 );
 
 testcase!(
-    bug = "Shouldn't grow without bound",
     test_quantified_accumulation,
     TestEnv::one("foo", "import typing\nT = typing.TypeVar('T')"),
     r#"
@@ -900,6 +899,6 @@ def f(x: T, y: TT):
     a = union(x, y)
     a = union(a, a)
     a = union(a, a)
-    reveal_type([a]) # E: revealed type: list[T | T | T | T | T | T | T | T]
+    reveal_type([a]) # E: revealed type: list[T | T]
 "#,
 );
