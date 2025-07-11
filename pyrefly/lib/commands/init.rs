@@ -13,6 +13,7 @@ use anyhow::Context as _;
 use clap::Parser;
 use parse_display::Display;
 use path_absolutize::Absolutize;
+use pyrefly_util::display;
 use pyrefly_util::fs_anyhow;
 use tracing::error;
 use tracing::info;
@@ -222,7 +223,27 @@ impl Args {
         config_path: Option<PathBuf>,
         errors: Vec<crate::error::error::Error>,
     ) -> anyhow::Result<CommandExitStatus> {
-        summarise::print_top_error_dirs_for_init(&errors, config_path.as_ref());
+        // Get the top directories by error count
+        let (best_path_index, dirs_to_show) =
+            summarise::get_top_error_dirs_for_init(&errors, config_path.as_ref());
+
+        // Print the top directories
+        info!("Top 10 Directories by Error Count:");
+        if !dirs_to_show.is_empty() {
+            info!("  (Using path_index = {} for grouping)", best_path_index);
+
+            // Take the top 10 directories with <= 100 errors
+            for (i, (dir, error_count)) in dirs_to_show.iter().enumerate() {
+                info!(
+                    "  {}) {}: {}",
+                    i + 1,
+                    dir.display(),
+                    display::count(*error_count, "error")
+                );
+            }
+        } else {
+            error!("  No directories found with <= 100 errors.");
+        }
 
         Ok(CommandExitStatus::Success)
         // TODO: Implement UI to allow user to select directories for error suppression

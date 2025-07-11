@@ -114,7 +114,7 @@ fn get_errors_per_file(errors: &[Error]) -> SmallMap<ModulePath, SmallMap<ErrorK
     map
 }
 
-/// Prints the top 10 directories by error count, specifically formatted for the init command.
+/// Returns the top 10 directories by error count, specifically formatted for the init command.
 /// This function automatically determines the optimal path_index by trying multiple values,
 /// starting with path_index = 0 and incrementally increasing it until it finds 10 directories
 /// with error counts between 10-100, or until it reaches a maximum number of attempts.
@@ -124,8 +124,14 @@ fn get_errors_per_file(errors: &[Error]) -> SmallMap<ModulePath, SmallMap<ErrorK
 ///
 /// In cases where multiple path_index values produce directories with 10-100 errors but none reach 10 directories,
 /// the function will use results from the path_index that produced the most such directories.
-pub fn print_top_error_dirs_for_init(errors: &[Error], config_path: Option<&PathBuf>) {
-    eprintln!("Top 10 Directories by Error Count:");
+///
+/// Returns a tuple containing:
+/// - The best path_index used for grouping
+/// - A vector of (PathBuf, usize) pairs representing directories and their error counts
+pub fn get_top_error_dirs_for_init(
+    errors: &[Error],
+    config_path: Option<&PathBuf>,
+) -> (usize, Vec<(PathBuf, usize)>) {
     let path_errors = get_errors_per_file(errors);
 
     // Maximum number of path_index increments to try
@@ -170,21 +176,7 @@ pub fn print_top_error_dirs_for_init(errors: &[Error], config_path: Option<&Path
         .take(10)
         .collect();
 
-    if !dirs_to_show.is_empty() {
-        eprintln!("  (Using path_index = {} for grouping)", best_path_index);
-
-        // Take the top 10 directories with <= 100 errors
-        for (i, (dir, error_count)) in dirs_to_show.into_iter().enumerate() {
-            eprintln!(
-                "  {}) {}: {}",
-                i + 1,
-                dir.display(),
-                display::count(error_count, "error")
-            );
-        }
-    } else {
-        eprintln!("  No directories found with <= 100 errors.");
-    }
+    (best_path_index, dirs_to_show)
 }
 
 /// Prints a summary of errors found in the input.
