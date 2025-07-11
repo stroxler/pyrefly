@@ -1440,13 +1440,19 @@ impl<'a> Transaction<'a> {
         }
         self.data.subscriber = None; // Finalise the progress bar before printing to stderr
 
+        fn line_key(x: &str) -> Option<(u64, &str)> {
+            let (_, x) = x.rsplit_once(',')?;
+            let (whole, frac) = x.split_once('.').unwrap_or((x, ""));
+            Some((whole.parse::<u64>().ok()?, frac))
+        }
+
         // Often what the person wants is what is taking most time, so sort that way.
         // But sometimes they abort, so we can't just buffer the results in memory.
         file.flush()?;
         drop(file);
         let contents = fs_anyhow::read_to_string(path)?;
         let mut lines = contents.lines().collect::<Vec<_>>();
-        lines.sort_by_cached_key(|x| x.rsplit_once(',').map(|x| x.1));
+        lines.sort_by_cached_key(|x| line_key(x));
         lines.reverse();
         fs_anyhow::write(path, lines.join("\n").as_bytes())?;
 
