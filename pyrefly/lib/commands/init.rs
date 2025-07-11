@@ -160,7 +160,7 @@ impl Args {
     ) -> anyhow::Result<(CommandExitStatus, Vec<crate::error::error::Error>)> {
         info!("Running pyrefly check...");
 
-        // Create check args by parsing arguments with output-format set to errors-omitted
+        // Create check args by parsing arguments with output-format set to omit-errors
         let mut check_args = check::Args::parse_from(["check", "--output-format", "omit-errors"]);
 
         // Use get to get the filtered globs and config finder
@@ -195,7 +195,7 @@ impl Args {
                 "check",
                 "--suppress-errors",
                 "--output-format",
-                "errors-omitted",
+                "omit-errors",
                 "--no-summary",
             ]);
 
