@@ -40,8 +40,8 @@ fn test_unexpected_keyword_range() {
                     "code": "unexpected-keyword",
                     "message": "Unexpected keyword argument `foo` in function `test`",
                     "range": {
-                        "end": {"character": 8, "line": 4},
-                        "start": {"character": 5, "line": 4}
+                        "end": {"character": 8, "line": 10},
+                        "start": {"character": 5, "line": 10}
                     },
                     "severity": 1,
                     "source": "Pyrefly"
