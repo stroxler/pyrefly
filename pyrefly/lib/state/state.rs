@@ -140,6 +140,8 @@ struct ModuleDataMut {
     /// Invariant: If `h1` depends on `h2` then we must have both of:
     /// data[h1].deps[h2.module].contains(h2)
     /// data[h2].rdeps.contains(h1)
+    ///
+    /// To ensure that is atomic, we always modify the rdeps while holding the deps write lock.
     deps: RwLock<HashMap<ModuleName, SmallSet1<Handle>, BuildNoHash>>,
     /// The reverse dependencies of this module. This is used to invalidate on change.
     /// Note that if we are only running once, e.g. on the command line, this isn't valuable.
@@ -615,7 +617,8 @@ impl<'a> Transaction<'a> {
             if let Some(subscriber) = &self.data.subscriber {
                 subscriber.start_work(module_data.handle.dupe());
             }
-            let deps = mem::take(&mut *module_data.deps.write());
+            let mut deps_lock = module_data.deps.write();
+            let deps = mem::take(&mut *deps_lock);
             finish(&mut w);
             if !deps.is_empty() {
                 // Downgrade to exclusive, so other people can read from us, or we lock up.
@@ -630,6 +633,8 @@ impl<'a> Transaction<'a> {
                     assert!(removed);
                 }
             }
+            // Make sure we hold deps write lock while mutating rdeps
+            drop(deps_lock);
         };
 
         if exclusive.dirty.require {
@@ -1503,11 +1508,12 @@ impl<'a> TransactionHandle<'a> {
             }
             Entry::Occupied(mut e) => e.get_mut().insert(handle),
         };
-        drop(write);
         if did_insert {
             let inserted = res.rdeps.lock().insert(self.module_data.handle.dupe());
             assert!(inserted);
         }
+        // Make sure we hold the deps write lock until after we insert into rdeps.
+        drop(write);
         Ok(res)
     }
 }
