@@ -6,6 +6,7 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Display;
 use std::fs::File;
@@ -51,11 +52,13 @@ use crate::commands::util::module_from_path;
 use crate::config::base::UntypedDefBehavior;
 use crate::config::config::ConfigFile;
 use crate::config::config::validate_path;
+use crate::config::error::ErrorDisplayConfig;
 use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::config::util::ConfigOrigin;
 use crate::error::error::Error;
 use crate::error::error::print_error_counts;
+use crate::error::kind::ErrorKind;
 use crate::error::kind::Severity;
 use crate::error::legacy::LegacyErrors;
 use crate::error::summarise::print_error_summary;
@@ -224,6 +227,12 @@ struct ConfigOverrideArgs {
     /// Whether Pyrefly will respect ignore statements for other tools, e.g. `# mypy: ignore`.
     #[arg(long, env = clap_env("PERMISSIVE_IGNORES"))]
     permissive_ignores: Option<bool>,
+    /// Enable specific error kinds. Can specify multiple error kinds.
+    #[arg(long, env = clap_env("ENABLE_ERROR"))]
+    enable_error: Vec<ErrorKind>,
+    /// Disable specific error kinds. Can specify multiple error kinds.
+    #[arg(long, env = clap_env("DISABLE_ERROR"))]
+    disable_error: Vec<ErrorKind>,
 }
 
 impl OutputFormat {
@@ -577,6 +586,23 @@ impl Args {
             self.config_override.site_package_path.as_deref(),
         )?;
         validate_arg("--search-path", self.config_override.search_path.as_deref())?;
+        let disabled_errors = &self
+            .config_override
+            .disable_error
+            .iter()
+            .collect::<HashSet<_>>();
+        let enabled_errors = self
+            .config_override
+            .enable_error
+            .iter()
+            .collect::<HashSet<_>>();
+        let conflicts: Vec<_> = enabled_errors.intersection(disabled_errors).collect();
+        if !conflicts.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Error types cannot be both enabled and disabled: [{}]",
+                display::commas_iter(|| conflicts.iter().map(|&&s| s))
+            ));
+        }
         Ok(())
     }
 
@@ -634,6 +660,20 @@ impl Args {
         }
         if let Some(x) = &self.config_override.ignore_errors_in_generated_code {
             config.root.ignore_errors_in_generated_code = Some(*x);
+        }
+        let apply_error_settings = |error_config: &mut ErrorDisplayConfig| {
+            for error_kind in &self.config_override.enable_error {
+                error_config.with_error_setting(*error_kind, true);
+            }
+            for error_kind in &self.config_override.disable_error {
+                error_config.with_error_setting(*error_kind, false);
+            }
+        };
+        let root_errors = config.root.errors.get_or_insert_default();
+        apply_error_settings(root_errors);
+        for sub_config in config.sub_configs.iter_mut() {
+            let sub_config_errors = sub_config.settings.errors.get_or_insert_default();
+            apply_error_settings(sub_config_errors);
         }
         let errors = config.configure();
         (ArcId::new(config), errors)
