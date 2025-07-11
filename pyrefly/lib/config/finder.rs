@@ -59,6 +59,7 @@ impl ConfigError {
             Severity::Info => {
                 info!("{:#}", self.msg);
             }
+            Severity::Ignore => {}
         }
     }
 

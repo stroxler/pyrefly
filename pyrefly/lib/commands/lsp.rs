@@ -1162,10 +1162,12 @@ impl Server {
                     path.to_path_buf(),
                     Diagnostic {
                         range: e.lined_buffer().to_lsp_range(e.range()),
-                        severity: Some(match e.error_kind().severity() {
+                        severity: Some(match e.error_kind().default_severity() {
                             Severity::Error => lsp_types::DiagnosticSeverity::ERROR,
                             Severity::Warn => lsp_types::DiagnosticSeverity::WARNING,
                             Severity::Info => lsp_types::DiagnosticSeverity::INFORMATION,
+                            // Ignored errors shouldn't be here
+                            Severity::Ignore => lsp_types::DiagnosticSeverity::INFORMATION,
                         }),
                         source: Some("Pyrefly".to_owned()),
                         message: e.msg().to_owned(),

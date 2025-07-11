@@ -178,10 +178,11 @@ impl Playground {
                     message: e.msg().to_owned(),
                     kind: e.error_kind().to_name().to_owned(),
                     // Severity values defined here: https://microsoft.github.io/monaco-editor/typedoc/enums/MarkerSeverity.html
-                    severity: match e.error_kind().severity() {
+                    severity: match e.error_kind().default_severity() {
                         Severity::Error => 8,
                         Severity::Warn => 4,
                         Severity::Info => 2,
+                        Severity::Ignore => 1, // Ignored errors shouldn't be in `CollectedErrors.shown`
                     },
                 }
             })

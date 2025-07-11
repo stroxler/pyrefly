@@ -56,7 +56,7 @@ impl Error {
             writeln!(
                 f,
                 "{} {} [{}]",
-                self.error_kind().severity().label(),
+                self.error_kind().default_severity().label(),
                 self.msg_header,
                 self.error_kind.to_name(),
             )?;
@@ -71,7 +71,7 @@ impl Error {
             writeln!(
                 f,
                 "{} {}:{}: {} [{}]",
-                self.error_kind().severity().label(),
+                self.error_kind().default_severity().label(),
                 self.path(),
                 self.display_range,
                 self.msg_header,
@@ -85,7 +85,7 @@ impl Error {
         if verbose {
             anstream::println!(
                 "{} {} {}",
-                self.error_kind().severity().painted(),
+                self.error_kind().default_severity().painted(),
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
             );
@@ -99,7 +99,7 @@ impl Error {
         } else {
             anstream::println!(
                 "{} {}:{}: {} {}",
-                self.error_kind().severity().painted(),
+                self.error_kind().default_severity().painted(),
                 Paint::blue(&self.path().as_path().display()),
                 Paint::dim(self.display_range()),
                 Paint::new(&*self.msg_header),
@@ -132,10 +132,11 @@ impl Error {
             .lined_buffer()
             .line_start(self.display_range.start.line);
 
-        let level = match self.error_kind().severity() {
+        let level = match self.error_kind().default_severity() {
             Severity::Error => Level::Error,
             Severity::Warn => Level::Warning,
             Severity::Info => Level::Info,
+            Severity::Ignore => Level::None,
         };
         let span_start = (self.range.start() - line_start).to_usize();
         let span_end = cmp::min(span_start + self.range.len().to_usize(), source.len());

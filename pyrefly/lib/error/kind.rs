@@ -24,6 +24,7 @@ use crate::types::quantified::QuantifiedKind;
 // IMPORTANT: these cases should be listed in order of severity
 #[derive(Debug, Clone, Dupe, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum Severity {
+    Ignore,
     Info,
     Warn,
     Error,
@@ -36,6 +37,7 @@ impl Severity {
             Severity::Info => " INFO",
             Severity::Warn => " WARN",
             Severity::Error => "ERROR",
+            Severity::Ignore => "",
         }
     }
 
@@ -44,6 +46,7 @@ impl Severity {
             Severity::Info => Paint::blue,
             Severity::Warn => Paint::yellow,
             Severity::Error => Paint::red,
+            Severity::Ignore => Paint::conceal,
         })(self.label())
     }
 }
@@ -223,7 +226,7 @@ impl ErrorKind {
             .as_str()
     }
 
-    pub fn severity(self) -> Severity {
+    pub fn default_severity(self) -> Severity {
         match self {
             ErrorKind::RevealType => Severity::Info,
             ErrorKind::Deprecated => Severity::Warn,

@@ -746,7 +746,7 @@ impl Args {
         }
         let mut shown_errors_count = config_errors_count;
         for error in &errors.shown {
-            if error.error_kind().severity() >= Severity::Warn {
+            if error.error_kind().default_severity() >= Severity::Warn {
                 shown_errors_count += 1;
             }
         }
@@ -803,7 +803,7 @@ impl Args {
         if self.behavior.suppress_errors {
             let mut errors_to_suppress: SmallMap<PathBuf, Vec<Error>> = SmallMap::new();
             for e in errors.shown {
-                if e.error_kind().severity() >= Severity::Warn
+                if e.error_kind().default_severity() >= Severity::Warn
                     && let ModulePathDetails::FileSystem(path) = e.path().details()
                 {
                     errors_to_suppress.entry(path.clone()).or_default().push(e);
