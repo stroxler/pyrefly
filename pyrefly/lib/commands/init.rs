@@ -135,7 +135,8 @@ impl Args {
                 let check_result = self.run_check(config_path.clone());
 
                 // Check if there are errors and if there are fewer than 100
-                if let Ok((_, error_count)) = check_result {
+                if let Ok((_, errors)) = check_result {
+                    let error_count = errors.len();
                     if error_count == 0 {
                         return Ok(CommandExitStatus::Success);
                     }
@@ -152,7 +153,7 @@ impl Args {
     fn run_check(
         &self,
         config_path: Option<PathBuf>,
-    ) -> anyhow::Result<(CommandExitStatus, usize)> {
+    ) -> anyhow::Result<(CommandExitStatus, Vec<crate::error::error::Error>)> {
         info!("Running pyrefly check...");
 
         // Create check args by parsing arguments with output-format set to errors-omitted
@@ -164,10 +165,10 @@ impl Args {
 
         // Run the check directly
         match check_args.run_once(filtered_globs, config_finder, true) {
-            Ok((status, error_count)) => Ok((status, error_count)),
+            Ok((status, errors)) => Ok((status, errors)),
             Err(e) => {
                 error!("Failed to run pyrefly check: {}", e);
-                Ok((CommandExitStatus::Success, 0)) // Still return success to match original behavior
+                Ok((CommandExitStatus::Success, Vec::new())) // Still return success to match original behavior
             }
         }
     }

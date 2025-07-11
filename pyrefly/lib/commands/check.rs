@@ -486,7 +486,7 @@ impl Args {
         files_to_check: FilteredGlobs,
         config_finder: ConfigFinder,
         allow_forget: bool,
-    ) -> anyhow::Result<(CommandExitStatus, usize)> {
+    ) -> anyhow::Result<(CommandExitStatus, Vec<Error>)> {
         let mut timings = Timings::new();
         let list_files_start = Instant::now();
         let expanded_file_list = checkpoint(files_to_check.files(), &config_finder)?;
@@ -497,7 +497,7 @@ impl Args {
             Timings::show(timings.list_files),
         );
         if expanded_file_list.is_empty() {
-            return Ok((CommandExitStatus::Success, 0));
+            return Ok((CommandExitStatus::Success, Vec::new()));
         }
 
         let holder = Forgetter::new(State::new(config_finder), allow_forget);
@@ -718,7 +718,7 @@ impl Args {
         mut timings: Timings,
         transaction: &mut Transaction,
         handles: &[(Handle, Require)],
-    ) -> anyhow::Result<(CommandExitStatus, usize)> {
+    ) -> anyhow::Result<(CommandExitStatus, Vec<Error>)> {
         let mut memory_trace = MemoryUsageTrace::start(Duration::from_secs_f32(0.1));
 
         let type_check_start = Instant::now();
@@ -815,7 +815,8 @@ impl Args {
         }
         if self.behavior.suppress_errors {
             let mut errors_to_suppress: SmallMap<PathBuf, Vec<Error>> = SmallMap::new();
-            for e in errors.shown {
+            let shown_errors = errors.shown.clone();
+            for e in shown_errors {
                 if e.severity() >= Severity::Warn
                     && let ModulePathDetails::FileSystem(path) = e.path().details()
                 {
@@ -849,11 +850,11 @@ impl Args {
         }
         if self.behavior.expectations {
             loads.check_against_expectations()?;
-            Ok((CommandExitStatus::Success, shown_errors_count))
+            Ok((CommandExitStatus::Success, errors.shown))
         } else if shown_errors_count > 0 {
-            Ok((CommandExitStatus::UserError, shown_errors_count))
+            Ok((CommandExitStatus::UserError, errors.shown))
         } else {
-            Ok((CommandExitStatus::Success, shown_errors_count))
+            Ok((CommandExitStatus::Success, errors.shown))
         }
     }
 }
