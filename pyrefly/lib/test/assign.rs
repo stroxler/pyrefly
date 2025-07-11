@@ -760,3 +760,15 @@ def f(x):
     x = "None" 
     "#,
 );
+
+testcase!(
+    bug = "PyTorch TODO: Should not be an error. The annotations are consistent.",
+    test_ann_assign,
+    r#"
+class A:
+    _x: int
+
+    def __init__(self, x:int):
+        self._x: int = x # E: Cannot annotate attribute `_x`, which is already annotated in the class body
+    "#,
+);
