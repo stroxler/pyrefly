@@ -35,6 +35,7 @@ use crate::types::quantified::QuantifiedKind;
     Deserialize,
     Serialize
 )]
+#[serde(rename_all = "lowercase")]
 pub enum Severity {
     Ignore,
     Info,

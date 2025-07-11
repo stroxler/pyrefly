@@ -227,12 +227,15 @@ struct ConfigOverrideArgs {
     /// Whether Pyrefly will respect ignore statements for other tools, e.g. `# mypy: ignore`.
     #[arg(long, env = clap_env("PERMISSIVE_IGNORES"))]
     permissive_ignores: Option<bool>,
-    /// Enable specific error kinds. Can specify multiple error kinds.
-    #[arg(long, env = clap_env("ENABLE_ERROR"))]
-    enable_error: Vec<ErrorKind>,
-    /// Disable specific error kinds. Can specify multiple error kinds.
-    #[arg(long, env = clap_env("DISABLE_ERROR"))]
-    disable_error: Vec<ErrorKind>,
+    /// Force this rule to emit an error. Can be used multiple times.
+    #[arg(long, env = clap_env("ERROR"))]
+    error: Vec<ErrorKind>,
+    /// Force this rule to emit a warning. Can be used multiple times.
+    #[arg(long, env = clap_env("WARN"))]
+    warn: Vec<ErrorKind>,
+    /// Do not emit diagnostics for this rule. Can be used multiple times.
+    #[arg(long, env = clap_env("IGNORE"))]
+    ignore: Vec<ErrorKind>,
 }
 
 impl OutputFormat {
@@ -586,21 +589,28 @@ impl Args {
             self.config_override.site_package_path.as_deref(),
         )?;
         validate_arg("--search-path", self.config_override.search_path.as_deref())?;
-        let disabled_errors = &self
-            .config_override
-            .disable_error
-            .iter()
-            .collect::<HashSet<_>>();
-        let enabled_errors = self
-            .config_override
-            .enable_error
-            .iter()
-            .collect::<HashSet<_>>();
-        let conflicts: Vec<_> = enabled_errors.intersection(disabled_errors).collect();
-        if !conflicts.is_empty() {
+        let ignored_errors = &self.config_override.ignore.iter().collect::<HashSet<_>>();
+        let warn_errors = &self.config_override.warn.iter().collect::<HashSet<_>>();
+        let error_errors = self.config_override.error.iter().collect::<HashSet<_>>();
+        let error_ignore_conflicts: Vec<_> = error_errors.intersection(ignored_errors).collect();
+        if !error_ignore_conflicts.is_empty() {
             return Err(anyhow::anyhow!(
-                "Error types cannot be both enabled and disabled: [{}]",
-                display::commas_iter(|| conflicts.iter().map(|&&s| s))
+                "Error types are specified for both --ignore and --error: [{}]",
+                display::commas_iter(|| error_ignore_conflicts.iter().map(|&&s| s))
+            ));
+        }
+        let error_warn_conflicts: Vec<_> = error_errors.intersection(warn_errors).collect();
+        if !error_warn_conflicts.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Error types are specified for both --warn and --error: [{}]",
+                display::commas_iter(|| error_warn_conflicts.iter().map(|&&s| s))
+            ));
+        }
+        let ignore_warn_conflicts: Vec<_> = ignored_errors.intersection(warn_errors).collect();
+        if !ignore_warn_conflicts.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Error types are specified for both --warn and --ignore: [{}]",
+                display::commas_iter(|| ignore_warn_conflicts.iter().map(|&&s| s))
             ));
         }
         Ok(())
@@ -662,10 +672,13 @@ impl Args {
             config.root.ignore_errors_in_generated_code = Some(*x);
         }
         let apply_error_settings = |error_config: &mut ErrorDisplayConfig| {
-            for error_kind in &self.config_override.enable_error {
+            for error_kind in &self.config_override.error {
                 error_config.with_error_setting(*error_kind, Severity::Error);
             }
-            for error_kind in &self.config_override.disable_error {
+            for error_kind in &self.config_override.warn {
+                error_config.with_error_setting(*error_kind, Severity::Warn);
+            }
+            for error_kind in &self.config_override.ignore {
                 error_config.with_error_setting(*error_kind, Severity::Ignore);
             }
         };
