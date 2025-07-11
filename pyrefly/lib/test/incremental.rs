@@ -19,6 +19,7 @@ use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::prelude::SliceExt;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
@@ -79,7 +80,7 @@ impl Incremental {
         let subscriber = TestSubscriber::new();
         let mut transaction = self
             .state
-            .new_committable_transaction(Require::Exports, Some(Box::new(subscriber.dupe())));
+            .new_committable_transaction(Require::Errors, Some(Box::new(subscriber.dupe())));
         for (file, contents) in mem::take(&mut self.to_set) {
             let contents = Arc::new(contents.to_owned());
             self.data
@@ -96,7 +97,12 @@ impl Incremental {
             transaction,
             &handles.map(|x| (x.dupe(), Require::Everything)),
         );
-        let loads = self.state.transaction().get_errors(handles.iter());
+        let loaded = want
+            .iter()
+            .chain(recompute)
+            .map(|x| self.handle(x))
+            .collect::<SmallSet<_>>();
+        let loads = self.state.transaction().get_errors(&loaded);
         print_errors(&loads.collect_errors().shown);
         if !ignore_expectations {
             loads.check_against_expectations().unwrap();
