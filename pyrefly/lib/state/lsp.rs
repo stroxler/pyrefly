@@ -2012,6 +2012,29 @@ impl<'a> Transaction<'a> {
             .visit(&mut |stmt| recurse_stmt_adding_symbols(stmt, &mut result, &module_info));
         Some(result)
     }
+
+    pub fn workspace_symbols(
+        &self,
+        query: &str,
+    ) -> Option<Vec<(String, lsp_types::SymbolKind, TextRangeWithModuleInfo)>> {
+        if query.len() < MIN_CHARACTERS_TYPED_AUTOIMPORT {
+            return None;
+        }
+        let mut result = Vec::new();
+        for (handle, name, export) in self.search_exports_fuzzy(query) {
+            if let Some(module_info) = self.get_module_info(&handle) {
+                let kind = export
+                    .symbol_kind
+                    .map_or(lsp_types::SymbolKind::VARIABLE, |k| k.to_lsp_symbol_kind());
+                let location = TextRangeWithModuleInfo {
+                    module_info,
+                    range: export.location,
+                };
+                result.push((name, kind, location));
+            }
+        }
+        Some(result)
+    }
 }
 
 impl<'a> CancellableTransaction<'a> {

@@ -105,6 +105,7 @@ use lsp_types::ServerCapabilities;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureHelpOptions;
 use lsp_types::SignatureHelpParams;
+use lsp_types::SymbolInformation;
 use lsp_types::TextDocumentContentChangeEvent;
 use lsp_types::TextDocumentPositionParams;
 use lsp_types::TextDocumentSyncCapability;
@@ -119,6 +120,7 @@ use lsp_types::WorkspaceClientCapabilities;
 use lsp_types::WorkspaceEdit;
 use lsp_types::WorkspaceFoldersServerCapabilities;
 use lsp_types::WorkspaceServerCapabilities;
+use lsp_types::WorkspaceSymbolResponse;
 use lsp_types::notification::Cancel;
 use lsp_types::notification::DidChangeConfiguration;
 use lsp_types::notification::DidChangeTextDocument;
@@ -147,6 +149,7 @@ use lsp_types::request::SemanticTokensRangeRequest;
 use lsp_types::request::SignatureHelpRequest;
 use lsp_types::request::UnregisterCapability;
 use lsp_types::request::WorkspaceConfiguration;
+use lsp_types::request::WorkspaceSymbolRequest;
 use path_absolutize::Absolutize;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -664,6 +667,7 @@ fn initialize_connection(
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
         document_symbol_provider: Some(OneOf::Left(true)),
+        workspace_symbol_provider: Some(OneOf::Left(true)),
         semantic_tokens_provider: if augments_syntax_tokens {
             // We currently only return partial tokens (e.g. no tokens for keywords right now).
             // If the client doesn't support `augments_syntax_tokens` to fallback baseline
@@ -1023,6 +1027,16 @@ impl Server {
                         Ok(DocumentSymbolResponse::Nested(
                             self.hierarchical_document_symbols(&transaction, params)
                                 .unwrap_or_default(),
+                        )),
+                    ));
+                    ide_transaction_manager.save(transaction);
+                } else if let Some(params) = as_request::<WorkspaceSymbolRequest>(&x) {
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(WorkspaceSymbolResponse::Flat(
+                            self.workspace_symbols(&transaction, &params.query),
                         )),
                     ));
                     ide_transaction_manager.save(transaction);
@@ -1981,6 +1995,30 @@ impl Server {
         }
         let handle = self.make_handle_if_enabled(uri)?;
         transaction.symbols(&handle)
+    }
+
+    #[allow(deprecated)] // The `deprecated` field
+    fn workspace_symbols(
+        &self,
+        transaction: &Transaction<'_>,
+        query: &str,
+    ) -> Vec<SymbolInformation> {
+        transaction
+            .workspace_symbols(query)
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|(name, kind, location)| {
+                self.to_lsp_location(&location)
+                    .map(|location| SymbolInformation {
+                        name,
+                        kind,
+                        location,
+                        tags: None,
+                        deprecated: None,
+                        container_name: None,
+                    })
+            })
+            .collect()
     }
 
     fn document_diagnostics(

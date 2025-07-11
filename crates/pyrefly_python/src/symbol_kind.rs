@@ -28,6 +28,20 @@ pub enum SymbolKind {
 }
 
 impl SymbolKind {
+    pub fn to_lsp_symbol_kind(self) -> lsp_types::SymbolKind {
+        match self {
+            SymbolKind::Module => lsp_types::SymbolKind::MODULE,
+            SymbolKind::Attribute => lsp_types::SymbolKind::FIELD,
+            SymbolKind::Variable => lsp_types::SymbolKind::VARIABLE,
+            SymbolKind::Constant => lsp_types::SymbolKind::CONSTANT,
+            SymbolKind::Parameter => lsp_types::SymbolKind::VARIABLE,
+            SymbolKind::TypeParameter => lsp_types::SymbolKind::TYPE_PARAMETER,
+            SymbolKind::TypeAlias => lsp_types::SymbolKind::INTERFACE,
+            SymbolKind::Function => lsp_types::SymbolKind::FUNCTION,
+            SymbolKind::Class => lsp_types::SymbolKind::CLASS,
+        }
+    }
+
     pub fn to_lsp_completion_item_kind(self) -> CompletionItemKind {
         match self {
             SymbolKind::Module => CompletionItemKind::MODULE,

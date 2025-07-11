@@ -18,3 +18,4 @@ mod io;
 mod references;
 mod rename;
 mod util;
+mod workspace_symbol;

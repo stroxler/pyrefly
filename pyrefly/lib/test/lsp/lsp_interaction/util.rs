@@ -319,6 +319,7 @@ fn get_initialize_responses(find_refs: bool) -> Vec<Message> {
             hover_provider: Some(HoverProviderCapability::Simple(true)),
             inlay_hint_provider: Some(OneOf::Left(true)),
             document_symbol_provider: Some(OneOf::Left(true)),
+            workspace_symbol_provider: Some(OneOf::Left(true)),
             workspace: Some(WorkspaceServerCapabilities {
                 workspace_folders: Some(WorkspaceFoldersServerCapabilities {
                     supported: Some(true),
