@@ -215,7 +215,7 @@ impl Display for TypeInfo {
 ///
 /// Note that we don't cap the overall size of a [TypeInfo], merely the fanout at
 /// each level. We may need to cap the overall size, if that becomes a problem.
-const NARROWED_FACETS_LIMIT: usize = 100;
+const NARROWED_FACETS_LIMIT: usize = 50;
 
 /// The facets one level down, bounded by [NARROWED_FACETS_LIMIT].
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq)]
