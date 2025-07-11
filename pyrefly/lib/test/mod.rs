@@ -24,6 +24,7 @@ mod dataclasses;
 mod decorators;
 mod delayed_inference;
 mod descriptors;
+mod dict;
 mod enums;
 mod flow;
 mod generic_basic;
