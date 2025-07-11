@@ -222,7 +222,7 @@ impl Args {
         config_path: Option<PathBuf>,
         errors: Vec<crate::error::error::Error>,
     ) -> anyhow::Result<CommandExitStatus> {
-        summarise::print_top_error_dirs_for_init(&errors, 0, config_path.as_ref());
+        summarise::print_top_error_dirs_for_init(&errors, config_path.as_ref());
 
         Ok(CommandExitStatus::Success)
         // TODO: Implement UI to allow user to select directories for error suppression

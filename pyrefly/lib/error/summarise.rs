@@ -115,28 +115,75 @@ fn get_errors_per_file(errors: &[Error]) -> SmallMap<ModulePath, SmallMap<ErrorK
 }
 
 /// Prints the top 10 directories by error count, specifically formatted for the init command.
-/// path_index controls how directories are grouped. For example, for the directory /alpha/beta/gamma/...,
-/// path_index = 0 groups by /alpha, path_index = 1 groups by /alpha/beta,
-/// and path_index = 2 groups by alpha/beta/gamma.
-/// If the path_index is larger than the number of components in the path, then the entire path is used.
+/// This function automatically determines the optimal path_index by trying multiple values,
+/// starting with path_index = 0 and incrementally increasing it until it finds 10 directories
+/// with error counts between 10-100, or until it reaches a maximum number of attempts.
 ///
-/// If config_path is provided, path_index will be relative to the directory containing the config file.
-/// This makes the grouping more meaningful when working with projects that have a configuration file.
-pub fn print_top_error_dirs_for_init(
-    errors: &[Error],
-    path_index: usize,
-    config_path: Option<&PathBuf>,
-) {
+/// If config_path is provided, only files that belong to the config path's parent directory
+/// will be included in the results.
+///
+/// In cases where multiple path_index values produce directories with 10-100 errors but none reach 10 directories,
+/// the function will use results from the path_index that produced the most such directories.
+pub fn print_top_error_dirs_for_init(errors: &[Error], config_path: Option<&PathBuf>) {
     eprintln!("Top 10 Directories by Error Count:");
     let path_errors = get_errors_per_file(errors);
-    let top_dirs = get_top_error_dirs(&path_errors, path_index, config_path);
-    for (i, (dir, error_count)) in top_dirs.into_iter().take(10).enumerate() {
-        eprintln!(
-            "  {}) {}: {}",
-            i + 1,
-            dir.display(),
-            display::count(error_count, "error")
-        );
+
+    // Maximum number of path_index increments to try
+    const MAX_ATTEMPTS: usize = 10;
+
+    // Store filtered directories for each path_index
+    let mut filtered_dirs_by_index: Vec<(usize, Vec<(PathBuf, usize)>)> = Vec::new();
+
+    // Try increasing path_index until we find 10 directories with 10-100 errors
+    // or until we reach the maximum number of attempts
+    for current_path_index in 0..MAX_ATTEMPTS {
+        let top_dirs = get_top_error_dirs(&path_errors, current_path_index, config_path);
+
+        // Filter directories with 10-100 errors (for optimization)
+        let dirs_with_desired_errors: Vec<_> = top_dirs
+            .into_iter()
+            .filter(|(_, error_count)| *error_count >= 10 && *error_count <= 100)
+            .collect();
+
+        // Store the filtered directories for this path_index
+        filtered_dirs_by_index.push((current_path_index, dirs_with_desired_errors));
+
+        // If we have at least 10 directories for this path_index, we can stop and use these results
+        if filtered_dirs_by_index.last().unwrap().1.len() >= 10 {
+            break;
+        }
+    }
+
+    // Find the path_index that produced the most directories with 10-100 errors
+    let best_result = filtered_dirs_by_index
+        .into_iter()
+        .max_by_key(|(_, dirs)| dirs.len());
+
+    // Use the best path_index if found, otherwise default to path_index = 0
+    let best_path_index = best_result.map_or(0, |(idx, _)| idx);
+
+    // Get all directories for the best path_index, but filter to only show those with <= 100 errors
+    let all_dirs = get_top_error_dirs(&path_errors, best_path_index, config_path);
+    let dirs_to_show: Vec<_> = all_dirs
+        .into_iter()
+        .filter(|(_, error_count)| *error_count <= 100)
+        .take(10)
+        .collect();
+
+    if !dirs_to_show.is_empty() {
+        eprintln!("  (Using path_index = {} for grouping)", best_path_index);
+
+        // Take the top 10 directories with <= 100 errors
+        for (i, (dir, error_count)) in dirs_to_show.into_iter().enumerate() {
+            eprintln!(
+                "  {}) {}: {}",
+                i + 1,
+                dir.display(),
+                display::count(error_count, "error")
+            );
+        }
+    } else {
+        eprintln!("  No directories found with <= 100 errors.");
     }
 }
 
