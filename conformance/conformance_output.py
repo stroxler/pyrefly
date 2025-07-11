@@ -184,7 +184,7 @@ def compare_conformance_output(
             if file.endswith(".py") and not is_excluded(file):
                 file_path = os.path.join(root, file)
                 messages_for_file = diff_expected_errors(directory, file_path)
-                messages[file_path].append(messages_for_file)
+                messages[file_path] = messages_for_file
     return messages
 
 
@@ -320,26 +320,33 @@ def main() -> None:
         "--separate", action="store_true", help="run Pyrefly separately for each case"
     )
     args = parser.parse_args()
-    if args.separate:
-        conformance_output = get_conformance_output_separate(
-            directory=args.directory,
-            executable=args.executable,
-        )
-    else:
-        conformance_output = get_conformance_output(
-            directory=args.directory,
-            executable=args.executable,
-        )
-    if len(conformance_output) == 0:
-        logger.error(f"Failed to get conformance output for directory {args.directory}")
-        sys.exit(1)
     if not os.path.exists(args.directory):
         logger.error(f"Directory {args.directory} does not exist")
         sys.exit(1)
+    expected_output_path = os.path.join(args.directory, EXPECTED_OUTPUT)
+    if args.mode != "compare":
+        if args.separate:
+            conformance_output = get_conformance_output_separate(
+                directory=args.directory,
+                executable=args.executable,
+            )
+        else:
+            conformance_output = get_conformance_output(
+                directory=args.directory,
+                executable=args.executable,
+            )
+        if len(conformance_output) == 0:
+            logger.error(
+                f"Failed to get conformance output for directory {args.directory}"
+            )
+            sys.exit(1)
+    else:
+        # in compare mode, we just read the existing output without running Pyrefly
+        with open(expected_output_path, "r") as f:
+            conformance_output = json.loads(f.read().replace(AT_GENERATED, ""))
     if args.mode == "check":
         messages = []
         test_cases = collect_test_cases(args.directory)
-        expected_output_path = os.path.join(args.directory, EXPECTED_OUTPUT)
         current_output = (
             AT_GENERATED
             + "\n"
@@ -419,7 +426,34 @@ def main() -> None:
         )
     elif args.mode == "compare":
         messages = compare_conformance_output(args.directory, conformance_output)
-        print(json.dumps(messages, indent=2, sort_keys=True))
+        n_pass = 0
+        n_fail = 0
+        n_differences = 0
+        passing = []
+        failing = {}
+        for path, diff in messages.items():
+            if len(diff) == 0:
+                passing.append(path.split("/")[-1])
+                n_pass += 1
+            else:
+                n_differences += len(diff)
+                failing[path.split("/")[-1]] = len(diff)
+                n_fail += 1
+        print(
+            json.dumps(
+                {
+                    "total": n_pass + n_fail,
+                    "pass": n_pass,
+                    "fail": n_fail,
+                    "pass_rate": round(n_pass / (n_pass + n_fail), 2),
+                    "differences": n_differences,
+                    "passing": sorted(passing),
+                    "failing": failing,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
 
 
 if __name__ == "__main__":
