@@ -161,9 +161,10 @@ pub fn get_top_error_dirs_for_init(
     }
 
     // Find the path_index that produced the most directories with 10-100 errors
+    // If there's a tie, use the lower path_index as a tie breaker
     let best_result = filtered_dirs_by_index
         .into_iter()
-        .max_by_key(|(_, dirs)| dirs.len());
+        .max_by_key(|(idx, dirs)| (dirs.len(), -((*idx) as isize)));
 
     // Use the best path_index if found, otherwise default to path_index = 0
     let best_path_index = best_result.map_or(0, |(idx, _)| idx);
@@ -241,7 +242,106 @@ pub fn print_error_summary(errors: &[Error], path_index: usize) {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use pyrefly_python::module_name::ModuleName;
+    use ruff_python_ast::name::Name;
+
     use super::*;
+    use crate::module::module_info::ModuleInfo;
+
+    fn mpfs(s: &str) -> ModulePath {
+        ModulePath::filesystem(PathBuf::from(s))
+    }
+
+    #[test]
+    fn test_get_top_error_dirs_for_init() {
+        // Helper function to create PathBuf from string
+        fn pb(s: &str) -> PathBuf {
+            PathBuf::from(s)
+        }
+
+        // Helper function to create multiple test errors for a file
+        fn create_test_errors(path: &str, count: usize) -> Vec<Error> {
+            let mut errors = Vec::with_capacity(count);
+            for _ in 0..count {
+                // Create the ModuleInfo in a single line with non-empty content
+                let module_info = ModuleInfo::new(
+                    ModuleName::from_name(&Name::new_static("test")),
+                    mpfs(path),
+                    Arc::new("dummy content".to_owned()),
+                );
+
+                // Use a default error kind - the specific kind doesn't matter for this test
+                let error = Error::new(
+                    module_info,
+                    ruff_text_size::TextRange::new(
+                        ruff_text_size::TextSize::from(0),
+                        ruff_text_size::TextSize::from(1),
+                    ),
+                    vec1::vec1!["Test error".to_owned()],
+                    ErrorKind::BadArgumentType,
+                );
+                errors.push(error);
+            }
+            errors
+        }
+
+        // Create all test errors at once using a more declarative approach
+        let errors: Vec<Error> = vec![
+            create_test_errors("base/proj/sub/a.py", 5),
+            create_test_errors("base/proj/sub/b.py", 20),
+            create_test_errors("base/proj/dub/z.py", 40),
+            create_test_errors("base/other/x.py", 90),
+            // 5 errors - too few to be included in optimal results
+            create_test_errors("base/other/y.py", 15),
+            // 150 errors - too many to be included in optimal results
+            create_test_errors("another/dir/file.py", 150),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+
+        // Test without config_path
+        let (path_index, dirs) = get_top_error_dirs_for_init(&errors, None);
+
+        // The function should choose path_index = 3 as optimal
+        assert_eq!(path_index, 2);
+
+        // Verify the top directories
+        assert_eq!(dirs.len(), 4); // Should have 4 directories with <= 100 errors
+
+        // Check the order and error counts
+        assert_eq!(dirs[0].0, pb("base/other/x.py"));
+        assert_eq!(dirs[0].1, 90);
+
+        assert_eq!(dirs[1].0, pb("base/proj/dub"));
+        assert_eq!(dirs[1].1, 40);
+
+        assert_eq!(dirs[2].0, pb("base/proj/sub"));
+        assert_eq!(dirs[2].1, 25); // 5 + 20 errors
+
+        assert_eq!(dirs[3].0, pb("base/other/y.py"));
+        assert_eq!(dirs[3].1, 15);
+
+        // Test with config_path
+        let config_path = pb("base/proj/pyrefly.toml");
+        let (path_index_with_config, dirs_with_config) =
+            get_top_error_dirs_for_init(&errors, Some(&config_path));
+
+        // With config_path, it should only include files under base/proj
+        assert_eq!(path_index_with_config, 0);
+
+        // Verify the directories
+        assert!(dirs_with_config.len() >= 2); // Should have at least 2 directories
+
+        // Check the order and error counts
+        assert_eq!(dirs_with_config[0].0, pb("base/proj/dub"));
+        assert_eq!(dirs_with_config[0].1, 40);
+
+        assert_eq!(dirs_with_config[1].0, pb("base/proj/sub"));
+        assert_eq!(dirs_with_config[1].1, 25); // 5 + 20 errors
+    }
 
     #[test]
     fn test_collect_and_sort() {
@@ -281,9 +381,6 @@ mod tests {
 
     #[test]
     fn test_get_top_error_dirs_by_error_kind() {
-        fn mpfs(s: &str) -> ModulePath {
-            ModulePath::filesystem(PathBuf::from(s))
-        }
         fn pb(s: &str) -> PathBuf {
             PathBuf::from(s)
         }
@@ -356,9 +453,6 @@ mod tests {
 
     #[test]
     fn test_get_top_error_dirs() {
-        fn mpfs(s: &str) -> ModulePath {
-            ModulePath::filesystem(PathBuf::from(s))
-        }
         fn pb(s: &str) -> PathBuf {
             PathBuf::from(s)
         }
