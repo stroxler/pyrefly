@@ -1448,7 +1448,7 @@ impl<'a> Transaction<'a> {
         fn line_key(x: &str) -> Option<(u64, &str)> {
             let (_, x) = x.rsplit_once(',')?;
             let (whole, frac) = x.split_once('.').unwrap_or((x, ""));
-            Some((whole.parse::<u64>().ok()?, frac))
+            Some((whole.parse::<u64>().unwrap_or(u64::MAX), frac))
         }
 
         // Often what the person wants is what is taking most time, so sort that way.
@@ -1459,7 +1459,7 @@ impl<'a> Transaction<'a> {
         let mut lines = contents.lines().collect::<Vec<_>>();
         lines.sort_by_cached_key(|x| line_key(x));
         lines.reverse();
-        fs_anyhow::write(path, lines.join("\n").as_bytes())?;
+        fs_anyhow::write(path, (lines.join("\n") + "\n").as_bytes())?;
 
         for (step, duration) in timings {
             info!("Step {step} took {duration:.3} seconds");
