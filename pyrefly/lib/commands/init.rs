@@ -280,8 +280,49 @@ impl Args {
             )
         };
 
-        eprintln!("Suppressing errors in {}", dirs_str);
-        Ok(CommandExitStatus::Success)
+        // Run check with suppress-errors for the selected directories
+        info!(
+            "Running pyrefly check with suppress-errors flag for selected directories: {}",
+            dirs_str
+        );
+
+        // Create check args with suppress-errors flag
+        let mut suppress_args = check::Args::parse_from([
+            "check",
+            "--suppress-errors",
+            "--output-format",
+            "omit-errors",
+            "--no-summary",
+        ]);
+
+        // Collect file paths from errors in selected directories
+        let mut files_to_check: Vec<String> = Vec::new();
+        for error in &errors {
+            let error_path = PathBuf::from(error.path().to_string());
+            if selected_dirs.iter().any(|dir| error_path.starts_with(dir)) {
+                // Convert PathBuf to String
+                files_to_check.push(error_path.to_string_lossy().into_owned());
+            }
+        }
+
+        // If there are no files to check in the selected directories, return success
+        if files_to_check.is_empty() {
+            error!("No errors found in the selected directories.");
+            return Ok(CommandExitStatus::Success);
+        }
+
+        // Use get to get the filtered globs and config finder, passing the files to check
+        let (suppress_globs, suppress_config_finder) =
+            globs_and_config_getter::get(files_to_check, None, config_path, &mut suppress_args)?;
+
+        // Run the check with suppress-errors flag
+        match suppress_args.run_once(suppress_globs, suppress_config_finder, true) {
+            Ok(_) => Ok(CommandExitStatus::Success),
+            Err(e) => {
+                error!("Failed to suppress errors: {}", e);
+                Ok(CommandExitStatus::Success) // Still return success to match original behavior
+            }
+        }
     }
 
     fn create_config(&self) -> anyhow::Result<(CommandExitStatus, Option<PathBuf>)> {
@@ -363,7 +404,7 @@ impl Args {
     }
 
     fn read_from_stdin(prompt: &str) -> String {
-        info!("{prompt}");
+        print!("{prompt}");
         std::io::stdout().flush().ok();
 
         // Read user input
