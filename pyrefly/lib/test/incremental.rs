@@ -341,7 +341,7 @@ fn test_stale_class() {
 #[test]
 fn test_dueling_typevar() {
     // TypeVar (and ParamSpec, TypeVarTuple) are implemented in a way that means
-    // grabbing the same value from different modules in conjunctin with incremental
+    // grabbing the same value from different modules in conjunction with incremental
     // updates can lead to equal TypeVar's being considered non-equal.
     //
     // Is that a problem? Yes. Is it a real problem? Perhaps no? If you write code
