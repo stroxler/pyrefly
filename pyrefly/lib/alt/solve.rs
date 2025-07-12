@@ -2682,7 +2682,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .as_ref()
                     .and_then(|x| self.get_idx(*x).ty().as_module().cloned());
                 match prev {
-                    Some(prev) if prev.path() == path => prev.add_module(*m).to_type(),
+                    Some(prev) if prev.parts() == path => prev.add_module(*m).to_type(),
                     _ => {
                         if path.len() == 1 {
                             Type::Module(Module::new(

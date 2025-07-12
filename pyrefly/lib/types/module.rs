@@ -28,7 +28,7 @@ use crate::types::types::Type;
 /// the `SmallMap` on each access.
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Module {
-    path: Box<[Name]>,
+    parts: Box<[Name]>,
     /// Use an OrderedMap so we have a table Hash/Ord instance.
     modules: Arc<OrderedSet<ModuleName>>,
 }
@@ -45,7 +45,7 @@ impl VisitMut<Type> for Module {
 
 impl Display for Module {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.path.join("."))
+        write!(f, "{}", self.parts.join("."))
     }
 }
 
@@ -57,7 +57,7 @@ impl Module {
             "{name} {modules:?}"
         );
         Self {
-            path: Box::new([name]),
+            parts: Box::new([name]),
             modules: Arc::new(modules),
         }
     }
@@ -65,7 +65,7 @@ impl Module {
     /// Created from an alias, e.g. `import foo.bar.baz as bar`
     pub fn new_as(name: ModuleName) -> Module {
         Self {
-            path: name.as_str().split('.').map(Name::new).collect(),
+            parts: name.as_str().split('.').map(Name::new).collect(),
             modules: Arc::new(OrderedSet::from_iter([name])),
         }
     }
@@ -74,38 +74,38 @@ impl Module {
         Type::Module(self)
     }
 
-    pub fn push_path(&self, component: Name) -> Self {
-        let mut path = Vec::with_capacity(self.path.len() + 1);
-        path.extend(self.path.iter().cloned());
+    pub fn push_part(&self, component: Name) -> Self {
+        let mut path = Vec::with_capacity(self.parts.len() + 1);
+        path.extend(self.parts.iter().cloned());
         path.push(component);
         Module {
-            path: path.into_boxed_slice(),
+            parts: path.into_boxed_slice(),
             modules: self.modules.dupe(),
         }
     }
 
-    pub fn path(&self) -> &[Name] {
-        &self.path
+    pub fn parts(&self) -> &[Name] {
+        &self.parts
     }
 
     pub fn add_module(&self, m: ModuleName) -> Self {
         let mut modules = (*self.modules).clone();
         modules.insert(m);
         Self {
-            path: self.path.clone(),
+            parts: self.parts.clone(),
             modules: Arc::new(modules),
         }
     }
 
     pub fn merge(&mut self, m: &Module) {
-        assert_eq!(self.path, m.path);
+        assert_eq!(self.parts, m.parts);
         let mut modules = (*self.modules).clone();
         modules.extend(m.modules.iter().copied());
         self.modules = Arc::new(modules);
     }
 
     pub fn is_submodules_imported_directly(&self) -> bool {
-        let prefix = self.path();
+        let prefix = self.parts();
         self.modules
             .iter()
             .any(|name| name.components().starts_with(prefix))

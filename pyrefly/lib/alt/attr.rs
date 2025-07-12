@@ -1542,7 +1542,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn get_module_attr(&self, module: &Module, attr_name: &Name) -> Option<Type> {
-        let module_name = ModuleName::from_parts(module.path());
+        let module_name = ModuleName::from_parts(module.parts());
         let module_exports = self.get_module_exports(module_name);
 
         // `module_name` could refer to a package, in which case we need to check if
@@ -1557,7 +1557,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // This check always takes precedence over the result of the module export lookup, because the import system
         // would always bind the submodule name `attr_name` to the namespace of `module_name` *after* the module
         // toplevel of `module_name` has been executed.
-        let submodule = module.push_path(attr_name.clone());
+        let submodule = module.push_part(attr_name.clone());
         let submodule_name = module_name.append(attr_name);
         let is_imported = submodule.is_submodules_imported_directly()
             || module_exports
@@ -1840,7 +1840,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         expected_attribute_name: Option<&Name>,
         res: &mut Vec<AttrInfo>,
     ) {
-        let module_name = ModuleName::from_parts(module.path());
+        let module_name = ModuleName::from_parts(module.parts());
         if let Some(exports) = self.get_module_exports(module_name) {
             match expected_attribute_name {
                 None => {

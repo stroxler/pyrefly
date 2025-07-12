@@ -441,7 +441,7 @@ impl Solver {
                 // recursive variables that we can't examine.
                 // In practice unlikely anyone has a recursive variable which evaluates to a module.
                 Type::Module(m) => {
-                    match modules.entry(m.path().to_owned()) {
+                    match modules.entry(m.parts().to_owned()) {
                         Entry::Occupied(mut e) => {
                             e.get_mut().merge(&m);
                         }
