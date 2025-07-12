@@ -487,9 +487,7 @@ impl<'a> BindingsBuilder<'a> {
                     // This assignment gets checked with the provided annotation. But if there exists a prior
                     // annotation, we might be invalidating it unless the annotations are the same. Insert a
                     // check that in that case the annotations match.
-                    if let Some(ann) = cannonical_ann_idx
-                        && ann != ann_idx
-                    {
+                    if let Some(ann) = cannonical_ann_idx {
                         self.insert_binding(
                             KeyExpect(name.range),
                             BindingExpect::Redefinition {

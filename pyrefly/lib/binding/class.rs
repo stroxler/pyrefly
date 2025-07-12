@@ -298,8 +298,6 @@ impl<'a> BindingsBuilder<'a> {
                             implicit_def_method,
                         },
                     );
-                } else if annotation.is_some() {
-                    self.error(range, ErrorKind::InvalidAnnotation, None, format!("Cannot annotate attribute `{}`, which is already annotated in the class body", &name), );
                 }
             }
         } else {

@@ -762,13 +762,43 @@ def f(x):
 );
 
 testcase!(
-    bug = "PyTorch TODO: Should not be an error. The annotations are consistent.",
-    test_ann_assign,
+    test_ann_assign_valid1,
     r#"
 class A:
     _x: int
-
     def __init__(self, x:int):
-        self._x: int = x # E: Cannot annotate attribute `_x`, which is already annotated in the class body
+        self._x: int = x
+    "#,
+);
+
+testcase!(
+    test_ann_assign_invalid,
+    r#"
+class A:
+    _x: bool 
+    def __init__(self, x:int):
+        self._x: int = x # E: `int` is not assignable to attribute `_x` with type `bool`
+    "#,
+);
+
+testcase!(
+    test_ann_assign_valid2,
+    r#"
+int2 = int
+class A:
+    _x: int2
+    def __init__(self, x:int):
+        self._x: int = x 
+    "#,
+);
+
+testcase!(
+    test_ann_assign_twice,
+    r#"
+class A:
+    _x: bool 
+    def __init__(self, x:int):
+        self._x: int = x # E: `int` is not assignable to attribute `_x` with type `bool`
+        self._x: bool = x # E: `int` is not assignable to attribute `_x` with type `bool`
     "#,
 );

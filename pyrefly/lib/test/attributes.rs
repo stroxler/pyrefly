@@ -245,8 +245,8 @@ class A:
     x: int
     y: str
     def __init__(self):
-        self.x: Literal[1] = 1  # E: Cannot annotate attribute `x`, which is already annotated in the class body
-        self.y: Final = "y"  # E: Cannot annotate attribute `y`, which is already annotated in the class body
+        self.x: Literal[1] = 1  
+        self.y: Final = "y"  
 def f(a: A):
     assert_type(a.x, int)
     "#,
