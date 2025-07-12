@@ -544,7 +544,9 @@ impl ConfigFile {
     pub fn configure(&mut self) -> Vec<ConfigError> {
         let mut configure_errors = Vec::new();
 
-        if !self.interpreters.skip_interpreter_query {
+        if self.interpreters.skip_interpreter_query {
+            self.python_environment.set_empty_to_default();
+        } else {
             match self.interpreters.find_interpreter(self.source.root()) {
                 Ok(interpreter) => {
                     let (env, error) = PythonEnvironment::get_interpreter_env(&interpreter);
