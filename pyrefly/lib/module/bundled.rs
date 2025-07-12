@@ -7,7 +7,10 @@
 
 use std::collections::HashMap;
 use std::env;
+use std::fs;
+use std::fs::File;
 use std::io::Read;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -20,6 +23,7 @@ use dupe::OptionDupedExt;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::lock::Mutex;
 use starlark_map::small_map::SmallMap;
 use tar::Archive;
 use zstd::stream::read::Decoder;
@@ -117,6 +121,39 @@ impl BundledTypeshed {
             ArcId::new(config_file)
         });
         CONFIG.dupe()
+    }
+
+    /// Obtain a materialized path for bundled typeshed, writing it all to disk the first time.
+    /// Note: this path is not the source of truth, it simply exists to display typeshed contents
+    /// for informative purposes.
+    pub fn materialized_path_on_disk(&self) -> anyhow::Result<PathBuf> {
+        static WRITTEN_TO_DISK: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
+
+        let temp_dir = env::temp_dir().join("pyrefly_bundled_typeshed");
+
+        let mut written = WRITTEN_TO_DISK.lock();
+        if *written {
+            return Ok(temp_dir);
+        }
+
+        fs::create_dir_all(&temp_dir).context("Failed to create temporary directory")?;
+
+        for (relative_path, contents) in &self.load {
+            let mut file_path = temp_dir.clone();
+            file_path.push(relative_path);
+
+            if let Some(parent) = file_path.parent() {
+                fs::create_dir_all(parent).context("Failed to create parent directories")?;
+            }
+
+            let mut file = File::create(&file_path).context("Failed to create file")?;
+            file.write_all(contents.as_bytes())
+                .context("Failed to write file contents")?;
+        }
+
+        *written = true;
+
+        Ok(temp_dir)
     }
 }
 

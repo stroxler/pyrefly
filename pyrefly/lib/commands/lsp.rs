@@ -15,8 +15,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
 
-use base64::Engine;
-use base64::engine::general_purpose;
 use clap::Parser;
 use clap::ValueEnum;
 use crossbeam_channel::Select;
@@ -185,6 +183,7 @@ use crate::config::finder::ConfigFinder;
 use crate::config::util::ConfigOrigin;
 use crate::error::error::Error;
 use crate::error::kind::Severity;
+use crate::module::bundled::typeshed;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::state::handle::Handle;
@@ -791,46 +790,24 @@ impl Args {
 
 /// Convert to a path we can show to the user. The contents may not match the disk, but it has
 /// to be basically right.
-fn to_real_path(path: &ModulePath) -> Option<&Path> {
+fn to_real_path(path: &ModulePath) -> Option<PathBuf> {
     match path.details() {
         ModulePathDetails::FileSystem(path)
         | ModulePathDetails::Memory(path)
-        | ModulePathDetails::Namespace(path) => Some(path),
-        ModulePathDetails::BundledTypeshed(_) => None,
+        | ModulePathDetails::Namespace(path) => Some(path.to_path_buf()),
+        ModulePathDetails::BundledTypeshed(path) => {
+            let typeshed = typeshed().ok()?;
+            let typeshed_path = typeshed.materialized_path_on_disk().ok()?;
+            Some(typeshed_path.join(path))
+        }
     }
 }
 
 fn module_info_to_uri(module_info: &ModuleInfo) -> Option<Url> {
     let path = to_real_path(module_info.path())?;
     let abs_path = path.absolutize();
-    let abs_path = abs_path.as_deref().unwrap_or(path);
+    let abs_path = abs_path.as_deref().unwrap_or(&path);
     Some(Url::from_file_path(abs_path).unwrap())
-}
-
-/// VSCode exposes a textDocumentContentProvider API where language clients can define schemes
-/// for rendering read only content. We have defined a scheme `contentsAsUri` which encodes the
-/// entire file contents into the uri of the URL. Since a definition response only contains a URL,
-/// this is an easy way to send file contents to the language client to be displayed.
-fn module_info_to_uri_with_document_content_provider(module_info: &ModuleInfo) -> Option<Url> {
-    match module_info.path().details() {
-        ModulePathDetails::FileSystem(path)
-        | ModulePathDetails::Memory(path)
-        | ModulePathDetails::Namespace(path) => {
-            let abs_path = path.absolutize();
-            let abs_path = abs_path.as_deref().unwrap_or(path);
-            Some(Url::from_file_path(abs_path).unwrap())
-        }
-        ModulePathDetails::BundledTypeshed(path) => {
-            Url::parse(&format!(
-                // This is the URI displayed in the opened file - note the extra `/` to make it absolute,
-                // otherwise VSCode will not display it
-                "contentsAsUri:///{}?{}",
-                path.to_string_lossy().into_owned(),
-                general_purpose::STANDARD.encode(module_info.contents().as_str())
-            ))
-            .ok()
-        }
-    }
 }
 
 enum ProcessEvent {
@@ -1152,8 +1129,8 @@ impl Server {
                 .state
                 .config_finder()
                 .python_file(ModuleName::unknown(), e.path());
-            if open_files.contains_key(path)
-                && !config.project_excludes.covers(path)
+            if open_files.contains_key(&path)
+                && !config.project_excludes.covers(&path)
                 && !self
                     .workspaces
                     .get_with(path.to_path_buf(), |w| w.disable_type_errors)
@@ -1554,7 +1531,7 @@ impl Server {
         let unknown = ModuleName::unknown();
         let config = state.config_finder().python_file(unknown, &path);
         let module_name = to_real_path(&path)
-            .and_then(|path| module_from_path(path, config.search_path()))
+            .and_then(|path| module_from_path(&path, config.search_path()))
             .unwrap_or(unknown);
         Handle::new(module_name, path, config.get_sys_info())
     }
@@ -1587,14 +1564,7 @@ impl Server {
             module_info: definition_module_info,
             range,
         } = location;
-        let uri = match &self.initialize_params.initialization_options {
-            Some(serde_json::Value::Object(map))
-                if (map.get("supportContentsAsUri") == Some(&serde_json::Value::Bool(true))) =>
-            {
-                module_info_to_uri_with_document_content_provider(definition_module_info)?
-            }
-            Some(_) | None => module_info_to_uri(definition_module_info)?,
-        };
+        let uri = module_info_to_uri(definition_module_info)?;
         Some(Location {
             uri,
             range: definition_module_info.lined_buffer().to_lsp_range(*range),

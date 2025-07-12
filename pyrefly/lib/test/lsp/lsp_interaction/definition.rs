@@ -144,7 +144,7 @@ fn test_go_to_def_relative_path() {
 }
 
 #[test]
-fn definition_in_builtins_enabled() {
+fn definition_in_builtins() {
     let root = get_test_files_root();
     run_test_lsp(TestCase {
         messages_from_language_client: vec![
@@ -168,42 +168,9 @@ fn definition_in_builtins_enabled() {
         expected_messages_from_language_server: vec![Message::Response(Response {
             id: RequestId::from(2),
             result: Some(serde_json::json!({
-                "range":{"end":{"character":4,"line":425},"start":{"character":0,"line":425}},"uri":format!("contentsasuri://$$MATCH_EVERYTHING$$")})),
+                "range":{"end":{"character":4,"line":425},"start":{"character":0,"line":425}},"uri":format!("$$MATCH_EVERYTHING$$")})),
             error: None,
         })],
-        contents_as_uri: true,
-        ..Default::default()
-    });
-}
-
-#[test]
-fn definition_in_builtins_disabled() {
-    let root = get_test_files_root();
-    run_test_lsp(TestCase {
-        messages_from_language_client: vec![
-            Message::from(build_did_open_notification(
-                root.path().join("imports_builtins.py"),
-            )),
-            Message::from(Request {
-                id: RequestId::from(2),
-                method: "textDocument/definition".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root.path().join("imports_builtins.py")).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 7,
-                        "character": 7
-                    }
-                }),
-            }),
-        ],
-        expected_messages_from_language_server: vec![Message::Response(Response {
-            id: RequestId::from(2),
-            result: Some(serde_json::json!([])),
-            error: None,
-        })],
-        contents_as_uri: false,
         ..Default::default()
     });
 }
