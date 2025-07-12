@@ -87,11 +87,7 @@ export async function activate(context: ExtensionContext) {
 
     // Otherwise to spawn the server
     let serverOptions: ServerOptions = { command: path === '' ? bundledPyreflyPath.fsPath : path, args: args };
-    let rawInitialisationOptions = {
-      ...vscode.workspace.getConfiguration("pyrefly"),
-      // allows us to open a text document that does not exist on disk using the `contentsasuri` scheme from Pyrefly
-      supportContentsAsUri: true
-    };
+    let rawInitialisationOptions = vscode.workspace.getConfiguration("pyrefly");
 
     // Options to control the language client
     let clientOptions: LanguageClientOptions = {
@@ -150,8 +146,6 @@ export async function activate(context: ExtensionContext) {
         }),
     );
 
-    registerTextDocumentContentProviders();
-
     // When our extension is activated, make sure ms-python knows
     // TODO(kylei): remove this hack once ms-python has this behavior
     await triggerMsPythonRefreshLanguageServers();
@@ -165,21 +159,6 @@ export async function activate(context: ExtensionContext) {
 
     // Start the client. This will also launch the server
     await client.start();
-}
-
-/**
- * VSCode allows registering a content provider for a URI scheme. This allows us to
- * open a text document that does not necessarily exist on disk using a specific schema.
- */
-function registerTextDocumentContentProviders() {
-  // This document provider encodes the entire text document contents as the query section of the URI.
-  const provider = new (class implements vscode.TextDocumentContentProvider {
-    provideTextDocumentContent(uri: vscode.Uri): string {
-      return Buffer.from(uri.query, 'base64').toString();
-    }
-  })();
-
-  vscode.workspace.registerTextDocumentContentProvider("contentsasuri", provider);
 }
 
 /**
