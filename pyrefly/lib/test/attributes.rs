@@ -361,7 +361,7 @@ C().f(0)    # E: Argument `Literal[0]` is not assignable to parameter `x` with t
     "#,
 );
 
-// Make sure we treat `callable_attr` as plain instance data, not a bound method.
+// Make sure we treat `callable_attr` as a bare instance attribute, not a bound method.
 testcase!(
     test_callable_instance_only_attribute,
     r#"
@@ -374,6 +374,49 @@ c = C()
 x = c.callable_attr(42)
 assert_type(x, int)
     "#,
+);
+
+// We currently treat `Callable` as not having method binding behavior. This is
+// not compatible with Pyright and mypy, both of which assume in the face of
+// ambiguity that the callable is probably a function or lambda.
+//
+// See https://discuss.python.org/t/when-should-we-assume-callable-types-are-method-descriptors/92938
+testcase!(
+    bug = "We probably need to treat `f` as a method here.",
+    test_callable_as_class_var,
+    r#"
+from typing import assert_type, Callable, ClassVar
+def get_callback() -> Callable[[object, int], int]: ...
+class C:
+    f: ClassVar[Callable[[object, int], int]] = get_callback()
+assert_type(C.f(None, 1), int)
+# We probably should to be treating f as a bound method here.
+assert_type(C().f(None, 1), int)
+"#,
+);
+
+// Mypy and Pyright treat `f` as not a method here; its actual behavior
+// is ambiguous even if we assume the values are always functions or lambdas
+// because the default value can be overridden by instance assignment.
+//
+// Our behavior is compatible, but the underlying implementation is not, we are
+// behaving this way based on how we treate the Callable type rather than based
+// on the absence of `ClassVar`.
+//
+// See https://discuss.python.org/t/when-should-we-assume-callable-types-are-method-descriptors/92938
+testcase!(
+    test_callable_with_ambiguous_binding,
+    r#"
+from typing import assert_type, Callable
+def get_callback() -> Callable[[object, int], int]: ...
+class C:
+    f = get_callback()
+assert_type(C.f(None, 1), int)
+assert_type(C().f(None, 1), int)
+# This is why the behavior is ambiguous - at runtime, the default `C.f` is a
+# method but the instance-level shadow is not.
+C().f = lambda _, x: x
+"#,
 );
 
 testcase!(
