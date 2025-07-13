@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use pyrefly_derive::TypeEq;
+use pyrefly_python::dunder;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
@@ -231,7 +232,7 @@ fn on_class(
     // todo zeina: check if we need to check for things like __init_subclass__
     // in pyre 1, we didn't need to.
     for (name, field) in fields.iter() {
-        if name == "__init__" {
+        if name == &dunder::INIT {
             continue;
         }
 
