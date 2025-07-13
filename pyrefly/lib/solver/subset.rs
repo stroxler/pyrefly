@@ -1041,14 +1041,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             let result = if param.quantified.kind() == QuantifiedKind::TypeVarTuple {
                 self.is_equal(got_arg, want_arg)
             } else {
-                let param_name = param.name().as_str();
-
-                let param_variance = match variances.0.get(param_name) {
-                    Some(variance) => *variance,
-                    None => Variance::Invariant,
-                };
-
-                match param_variance {
+                match variances.get(param.name()) {
                     Variance::Covariant => self.is_subset_eq(got_arg, want_arg),
                     Variance::Contravariant => self.is_subset_eq(want_arg, got_arg),
                     Variance::Invariant => self.is_equal(got_arg, want_arg),

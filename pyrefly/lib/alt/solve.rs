@@ -1388,7 +1388,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(class) = &class.0 {
             self.variance_map(class)
         } else {
-            Arc::new(VarianceMap(SmallMap::new()))
+            Arc::new(VarianceMap::default())
         }
     }
 

@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
-use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
@@ -252,7 +251,7 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyVariance {
     }
 
     fn promote_recursive(_: Var) -> Self::Answer {
-        VarianceMap(SmallMap::new())
+        VarianceMap::default()
     }
 }
 

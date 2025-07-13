@@ -50,7 +50,7 @@ use crate::types::types::Type;
 // For example, SelfType is intentionally skipped and should not be visited because it should not be included in the variance calculation.
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq, Default)]
-pub struct VarianceMap(pub SmallMap<Name, Variance>);
+pub struct VarianceMap(SmallMap<Name, Variance>);
 
 impl VisitMut<Type> for VarianceMap {
     fn recurse_mut(&mut self, _visitor: &mut dyn FnMut(&mut Type)) {
@@ -65,6 +65,15 @@ impl Display for VarianceMap {
             write!(f, "{}: {}, ", key, value)?;
         }
         write!(f, "}}")
+    }
+}
+
+impl VarianceMap {
+    pub fn get(&self, parameter: &Name) -> Variance {
+        self.0
+            .get(parameter)
+            .copied()
+            .unwrap_or(Variance::Invariant)
     }
 }
 
