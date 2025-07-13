@@ -21,7 +21,6 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::types::class_metadata::ClassMetadata;
-use crate::binding::binding::KeyExport;
 use crate::types::callable::Params;
 use crate::types::class::Class;
 use crate::types::tuple::Tuple;
@@ -397,53 +396,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         fn fixpoint<'a, Ans: LookupAnswer>(
             solver: &AnswersSolver<'a, Ans>,
-            class: &Class,
             env: &VarianceEnv,
         ) -> VarianceEnv {
             let mut environment_prime: VarianceEnv = SmallMap::new();
             let mut changed = false;
 
-            for (class_name, params) in env.iter() {
+            for (my_class, params) in env.iter() {
                 let mut params_prime = params.clone();
-
-                let mro = solver.get_mro_for_class(class);
-                let ancestor_class = mro
-                    .ancestors(solver.stdlib)
-                    .find(|ancestor| ancestor.class_object() == class_name);
-
-                // TODO zeina: If our invariants are right, "continue" should be replace with a panic
-                // after we stop visiting monomorphic types
-                let my_class = if let Some(ancestor) = ancestor_class {
-                    ancestor.class_object()
-                } else if class == class_name {
-                    class
-                } else {
-                    let class_name_module = class_name.qname().module_name();
-                    let curr_module = solver.module_info().name();
-
-                    if class_name_module != curr_module {
-                        let exports = solver.exports.get(class_name_module).ok();
-
-                        if exports.is_none_or(|export| {
-                            !export
-                                .exports(solver.exports)
-                                .contains_key(class_name.qname().id())
-                        }) {
-                            continue;
-                        }
-                    }
-
-                    let ty = solver.get_from_export(
-                        class_name.qname().module_name(),
-                        Some(class_name.qname().module_path()),
-                        &KeyExport(class_name.qname().id().clone()),
-                    );
-                    if let Type::ClassDef(cls) = &*ty {
-                        &cls.dupe()
-                    } else {
-                        continue;
-                    }
-                };
 
                 let mut on_var = |name: &Name, variance: Variance, inj: Injectivity| {
                     for (n, variance_prime, inj_prime) in params_prime.iter_mut() {
@@ -468,11 +427,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     changed = true;
                 }
 
-                environment_prime.insert(class_name.clone(), params_prime);
+                environment_prime.insert(my_class.dupe(), params_prime);
             }
 
             if changed {
-                fixpoint(solver, class, &environment_prime)
+                fixpoint(solver, &environment_prime)
             } else {
                 environment_prime
             }
@@ -492,7 +451,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &|c| self.get_class_tparams(c),
             );
 
-            let environment = fixpoint(self, class, &environment);
+            let environment = fixpoint(self, &environment);
 
             let params = environment
                 .get(class)
