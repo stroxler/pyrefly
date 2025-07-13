@@ -1106,6 +1106,19 @@ def f(c: Config):
 );
 
 testcase!(
+    bug = "We should allow subtyping in nested class types",
+    test_nested_class_inheritance,
+    r#"
+class Backend:
+    class Options:
+        pass
+class ProcessGroupGloo(Backend):
+    class Options(Backend.Options): # E: `ProcessGroupGloo.Options` has type `type[Options]`, which is not consistent with `type[Options]` in `Backend.Options` (the type of read-write attributes cannot be changed)
+        pass
+    "#,
+);
+
+testcase!(
     bug = "other.output type is too general. Also, there should be no errors.",
     test_attr_cast,
     r#"
