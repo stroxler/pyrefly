@@ -68,15 +68,15 @@ impl Display for VarianceMap {
     }
 }
 
-pub type Injectivity = bool;
-pub type TypeParam = (Name, Variance, Injectivity);
-pub type TParamArray = Vec<TypeParam>;
+type Injectivity = bool;
+type TypeParam = (Name, Variance, Injectivity);
+type TParamArray = Vec<TypeParam>;
 
 // A map from class name to tparam environment
 // Why is this not Class or ClassObject
-pub type VarianceEnv = SmallMap<Class, TParamArray>;
+type VarianceEnv = SmallMap<Class, TParamArray>;
 
-pub fn on_class(
+fn on_class(
     class: &Class,
     on_edge: &mut impl FnMut(&Class) -> TParamArray,
     on_var: &mut impl FnMut(&Name, Variance, Injectivity),
@@ -276,7 +276,7 @@ fn from_gp_to_decl(gp: &TParam, contains_bivariant: &mut bool) -> (Name, Varianc
     (gp.name().clone(), variance, inj)
 }
 
-pub fn params_from_gp(tparams: &[TParam], contains_bivariant: &mut bool) -> TParamArray {
+fn params_from_gp(tparams: &[TParam], contains_bivariant: &mut bool) -> TParamArray {
     let mut params: Vec<(Name, Variance, Injectivity)> = tparams
         .iter()
         .map(|param| (param.name().clone(), Variance::Bivariant, false))
@@ -289,10 +289,7 @@ pub fn params_from_gp(tparams: &[TParam], contains_bivariant: &mut bool) -> TPar
     params
 }
 
-pub fn convert_gp_to_map(
-    tparams: &TParams,
-    contains_bivariant: &mut bool,
-) -> SmallMap<Name, Variance> {
+fn convert_gp_to_map(tparams: &TParams, contains_bivariant: &mut bool) -> SmallMap<Name, Variance> {
     let mut lookup = SmallMap::new();
 
     for param in tparams.iter() {
