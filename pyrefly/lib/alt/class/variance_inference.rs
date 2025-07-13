@@ -79,7 +79,6 @@ pub mod variance_visitor {
     use crate::alt::types::class_metadata::ClassMetadata;
     use crate::types::callable::Params;
     use crate::types::class::Class;
-    use crate::types::qname::QName;
     use crate::types::tuple::Tuple;
     use crate::types::type_var::Variance;
     use crate::types::types::Type;
@@ -88,7 +87,8 @@ pub mod variance_visitor {
     pub type TParamArray = Vec<TypeParam>;
 
     // A map from class name to tparam environment
-    pub type VarianceEnv = SmallMap<QName, TParamArray>;
+    // Why is this not Class or ClassObject
+    pub type VarianceEnv = SmallMap<Class, TParamArray>;
 
     pub fn on_class(
         class: &Class,
@@ -343,16 +343,14 @@ fn loop_fn<'a>(
     get_fields: &impl Fn(&Class) -> SmallMap<Name, Arc<ClassField>>,
     get_tparams: &impl Fn(&Class) -> Arc<TParams>,
 ) -> TParamArray {
-    let class_name = class.qname();
-
-    if let Some(params) = environment.get(class_name) {
+    if let Some(params) = environment.get(class) {
         return params.clone();
     }
 
     let params: Vec<(Name, Variance, bool)> =
         params_from_gp(get_tparams(class).as_vec(), contains_bivariant);
 
-    environment.insert(class_name.clone(), params.clone());
+    environment.insert(class.dupe(), params.clone());
     let mut on_var = |_name: &Name, _variance: Variance, _inj: Injectivity| {};
 
     // get the variance results of a given class c
@@ -417,35 +415,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let mut params_prime = params.clone();
 
                 let mro = solver.get_mro_for_class(class);
-                let ancestor_class = mro.ancestors(solver.stdlib).find(|ancestor| {
-                    let class_obj = ancestor.class_object();
-                    class_obj.qname() == class_name
-                });
+                let ancestor_class = mro
+                    .ancestors(solver.stdlib)
+                    .find(|ancestor| ancestor.class_object() == class_name);
 
                 // TODO zeina: If our invariants are right, "continue" should be replace with a panic
                 // after we stop visiting monomorphic types
                 let my_class = if let Some(ancestor) = ancestor_class {
                     ancestor.class_object()
-                } else if class.qname() == class_name {
+                } else if class == class_name {
                     class
                 } else {
-                    let class_name_module = class_name.module_name();
+                    let class_name_module = class_name.qname().module_name();
                     let curr_module = solver.module_info().name();
 
                     if class_name_module != curr_module {
                         let exports = solver.exports.get(class_name_module).ok();
 
                         if exports.is_none_or(|export| {
-                            !export.exports(solver.exports).contains_key(class_name.id())
+                            !export
+                                .exports(solver.exports)
+                                .contains_key(class_name.qname().id())
                         }) {
                             continue;
                         }
                     }
 
                     let ty = solver.get_from_export(
-                        class_name.module_name(),
-                        Some(class_name.module_path()),
-                        &KeyExport(class_name.id().clone()),
+                        class_name.qname().module_name(),
+                        Some(class_name.qname().module_path()),
+                        &KeyExport(class_name.qname().id().clone()),
                     );
                     if let Type::ClassDef(cls) = &*ty {
                         &cls.dupe()
@@ -463,7 +462,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 };
 
-                let mut on_edge = |c: &Class| env.get(c.qname()).cloned().unwrap_or_else(Vec::new);
+                let mut on_edge = |c: &Class| env.get(c).cloned().unwrap_or_else(Vec::new);
 
                 variance_visitor::on_class(
                     my_class,
@@ -503,10 +502,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
             let environment = fixpoint(self, class, &environment);
 
-            let class_name = class.qname();
-
             let params = environment
-                .get(class_name)
+                .get(class)
                 .expect("class name must be present in environment");
 
             let class_variances = to_map(params, &post_inference_initial);
