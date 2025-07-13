@@ -19,12 +19,11 @@ use starlark_map::small_map::SmallMap;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
-use crate::alt::class::variance_inference::variance_visitor::Injectivity;
-use crate::alt::class::variance_inference::variance_visitor::TParamArray;
-use crate::alt::class::variance_inference::variance_visitor::VarianceEnv;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::binding::binding::KeyExport;
+use crate::types::callable::Params;
 use crate::types::class::Class;
+use crate::types::tuple::Tuple;
 use crate::types::type_var::PreInferenceVariance;
 use crate::types::type_var::Variance;
 use crate::types::types::TParam;
@@ -69,208 +68,194 @@ impl Display for VarianceMap {
     }
 }
 
-pub mod variance_visitor {
-    use std::sync::Arc;
+pub type Injectivity = bool;
+pub type TypeParam = (Name, Variance, Injectivity);
+pub type TParamArray = Vec<TypeParam>;
 
-    use ruff_python_ast::name::Name;
-    use starlark_map::small_map::SmallMap;
+// A map from class name to tparam environment
+// Why is this not Class or ClassObject
+pub type VarianceEnv = SmallMap<Class, TParamArray>;
 
-    use crate::alt::class::class_field::ClassField;
-    use crate::alt::types::class_metadata::ClassMetadata;
-    use crate::types::callable::Params;
-    use crate::types::class::Class;
-    use crate::types::tuple::Tuple;
-    use crate::types::type_var::Variance;
-    use crate::types::types::Type;
-    pub type Injectivity = bool;
-    pub type TypeParam = (Name, Variance, Injectivity);
-    pub type TParamArray = Vec<TypeParam>;
+pub fn on_class(
+    class: &Class,
+    on_edge: &mut impl FnMut(&Class) -> TParamArray,
+    on_var: &mut impl FnMut(&Name, Variance, Injectivity),
+    get_metadata: &impl Fn(&Class) -> Arc<ClassMetadata>,
+    get_fields: &impl Fn(&Class) -> SmallMap<Name, Arc<ClassField>>,
+) {
+    fn is_private_field(name: &Name) -> bool {
+        let starts_with_underscore = name.starts_with('_');
+        let ends_with_double_underscore = name.ends_with("__");
 
-    // A map from class name to tparam environment
-    // Why is this not Class or ClassObject
-    pub type VarianceEnv = SmallMap<Class, TParamArray>;
+        starts_with_underscore && !ends_with_double_underscore
+    }
 
-    pub fn on_class(
-        class: &Class,
+    fn handle_tuple_type(
+        tuple: &Tuple,
+        variance: Variance,
+        inj: Injectivity,
         on_edge: &mut impl FnMut(&Class) -> TParamArray,
         on_var: &mut impl FnMut(&Name, Variance, Injectivity),
-        get_metadata: &impl Fn(&Class) -> Arc<ClassMetadata>,
-        get_fields: &impl Fn(&Class) -> SmallMap<Name, Arc<ClassField>>,
     ) {
-        fn is_private_field(name: &Name) -> bool {
-            let starts_with_underscore = name.starts_with('_');
-            let ends_with_double_underscore = name.ends_with("__");
-
-            starts_with_underscore && !ends_with_double_underscore
-        }
-
-        fn handle_tuple_type(
-            tuple: &Tuple,
-            variance: Variance,
-            inj: Injectivity,
-            on_edge: &mut impl FnMut(&Class) -> TParamArray,
-            on_var: &mut impl FnMut(&Name, Variance, Injectivity),
-        ) {
-            match tuple {
-                Tuple::Concrete(concrete_types) => {
-                    for ty in concrete_types {
-                        on_type(variance, inj, ty, on_edge, on_var);
-                    }
+        match tuple {
+            Tuple::Concrete(concrete_types) => {
+                for ty in concrete_types {
+                    on_type(variance, inj, ty, on_edge, on_var);
                 }
-                Tuple::Unbounded(unbounded_ty) => {
-                    on_type(variance, inj, unbounded_ty, on_edge, on_var);
+            }
+            Tuple::Unbounded(unbounded_ty) => {
+                on_type(variance, inj, unbounded_ty, on_edge, on_var);
+            }
+            Tuple::Unpacked(boxed_parts) => {
+                let (before, middle, after) = &**boxed_parts;
+                for ty in before {
+                    on_type(variance, inj, ty, on_edge, on_var);
                 }
-                Tuple::Unpacked(boxed_parts) => {
-                    let (before, middle, after) = &**boxed_parts;
-                    for ty in before {
-                        on_type(variance, inj, ty, on_edge, on_var);
-                    }
-                    on_type(variance, inj, middle, on_edge, on_var);
-                    for ty in after {
-                        on_type(variance, inj, ty, on_edge, on_var);
-                    }
+                on_type(variance, inj, middle, on_edge, on_var);
+                for ty in after {
+                    on_type(variance, inj, ty, on_edge, on_var);
                 }
             }
         }
+    }
 
-        fn on_type(
-            variance: Variance,
-            inj: Injectivity,
-            typ: &Type,
-            on_edge: &mut impl FnMut(&Class) -> TParamArray,
-            on_var: &mut impl FnMut(&Name, Variance, Injectivity),
-        ) {
-            match typ {
-                Type::Type(t) => {
-                    on_type(variance, inj, t, on_edge, on_var);
-                }
-
-                Type::Function(t) => {
-                    on_type(
-                        variance,
-                        inj,
-                        &Type::Callable(Box::new(t.signature.clone())),
-                        on_edge,
-                        on_var,
-                    );
-                }
-
-                Type::ClassType(class) if !class.tparams().is_empty() => {
-                    let params = on_edge(class.class_object());
-
-                    let targs = class.targs().as_slice();
-
-                    for (i, param) in params.iter().enumerate() {
-                        if let Some(ty) = targs.get(i) {
-                            let (_, variance_param, inj_param) = param;
-                            on_type(
-                                variance.compose(*variance_param),
-                                *inj_param,
-                                ty,
-                                on_edge,
-                                on_var,
-                            );
-                        }
-                    }
-                }
-                Type::Quantified(q) => {
-                    on_var(q.name(), variance, inj);
-                }
-                Type::Union(t) => {
-                    for ty in t {
-                        on_type(variance, inj, ty, on_edge, on_var);
-                    }
-                }
-                Type::Overload(t) => {
-                    let sigs = &t.signatures;
-                    for sig in sigs {
-                        on_type(variance, inj, &sig.as_type(), on_edge, on_var);
-                    }
-                }
-                Type::Callable(t) => {
-                    // Walk return type covariantly
-                    on_type(variance, inj, &t.ret, on_edge, on_var);
-
-                    // Walk parameters contravariantly
-                    match &t.params {
-                        Params::List(param_list) => {
-                            for param in param_list.items().iter() {
-                                let ty = param.param_to_type();
-                                on_type(variance.inv(), inj, ty, on_edge, on_var);
-                            }
-                        }
-                        Params::Ellipsis => {
-                            // Unknown params
-                        }
-                        Params::ParamSpec(prefix, param_spec) => {
-                            for ty in prefix.iter() {
-                                on_type(variance.inv(), inj, ty, on_edge, on_var);
-                            }
-                            on_type(variance.inv(), inj, param_spec, on_edge, on_var);
-                        }
-                    }
-                }
-                Type::Tuple(t) => {
-                    handle_tuple_type(t, variance, inj, on_edge, on_var);
-                }
-
-                _ => {}
-            }
-        }
-
-        let metadata = get_metadata(class);
-        let base_types = metadata.bases_with_metadata();
-
-        for base_type in base_types {
-            on_type(
-                Variance::Covariant,
-                true,
-                &base_type.0.clone().to_type(),
-                on_edge,
-                on_var,
-            );
-        }
-
-        let fields = get_fields(class);
-
-        // todo zeina: check if we need to check for things like __init_subclass__
-        // in pyre 1, we didn't need to.
-        for (name, field) in fields.iter() {
-            if name == "__init__" {
-                continue;
+    fn on_type(
+        variance: Variance,
+        inj: Injectivity,
+        typ: &Type,
+        on_edge: &mut impl FnMut(&Class) -> TParamArray,
+        on_var: &mut impl FnMut(&Name, Variance, Injectivity),
+    ) {
+        match typ {
+            Type::Type(t) => {
+                on_type(variance, inj, t, on_edge, on_var);
             }
 
-            if let Some((ty, _, read_only, descriptor_getter, descriptor_setter)) =
-                field.for_variance_inference()
-            {
-                // Case 1: Regular attribute
+            Type::Function(t) => {
+                on_type(
+                    variance,
+                    inj,
+                    &Type::Callable(Box::new(t.signature.clone())),
+                    on_edge,
+                    on_var,
+                );
+            }
 
-                // TODO: We need a much better way to distinguish between fields and methods than this
-                // currently, class field representation isn't good enough but we need to fix that soon
-                if descriptor_getter.is_none() && descriptor_setter.is_none() {
-                    let variance = if ty.is_function_type()
-                        || is_private_field(name)
-                        || read_only
-                        || field.is_final()
-                    {
-                        Variance::Covariant
-                    } else {
-                        Variance::Invariant
-                    };
-                    on_type(variance, true, ty, on_edge, on_var);
+            Type::ClassType(class) if !class.tparams().is_empty() => {
+                let params = on_edge(class.class_object());
+
+                let targs = class.targs().as_slice();
+
+                for (i, param) in params.iter().enumerate() {
+                    if let Some(ty) = targs.get(i) {
+                        let (_, variance_param, inj_param) = param;
+                        on_type(
+                            variance.compose(*variance_param),
+                            *inj_param,
+                            ty,
+                            on_edge,
+                            on_var,
+                        );
+                    }
+                }
+            }
+            Type::Quantified(q) => {
+                on_var(q.name(), variance, inj);
+            }
+            Type::Union(t) => {
+                for ty in t {
+                    on_type(variance, inj, ty, on_edge, on_var);
+                }
+            }
+            Type::Overload(t) => {
+                let sigs = &t.signatures;
+                for sig in sigs {
+                    on_type(variance, inj, &sig.as_type(), on_edge, on_var);
+                }
+            }
+            Type::Callable(t) => {
+                // Walk return type covariantly
+                on_type(variance, inj, &t.ret, on_edge, on_var);
+
+                // Walk parameters contravariantly
+                match &t.params {
+                    Params::List(param_list) => {
+                        for param in param_list.items().iter() {
+                            let ty = param.param_to_type();
+                            on_type(variance.inv(), inj, ty, on_edge, on_var);
+                        }
+                    }
+                    Params::Ellipsis => {
+                        // Unknown params
+                    }
+                    Params::ParamSpec(prefix, param_spec) => {
+                        for ty in prefix.iter() {
+                            on_type(variance.inv(), inj, ty, on_edge, on_var);
+                        }
+                        on_type(variance.inv(), inj, param_spec, on_edge, on_var);
+                    }
+                }
+            }
+            Type::Tuple(t) => {
+                handle_tuple_type(t, variance, inj, on_edge, on_var);
+            }
+
+            _ => {}
+        }
+    }
+
+    let metadata = get_metadata(class);
+    let base_types = metadata.bases_with_metadata();
+
+    for base_type in base_types {
+        on_type(
+            Variance::Covariant,
+            true,
+            &base_type.0.clone().to_type(),
+            on_edge,
+            on_var,
+        );
+    }
+
+    let fields = get_fields(class);
+
+    // todo zeina: check if we need to check for things like __init_subclass__
+    // in pyre 1, we didn't need to.
+    for (name, field) in fields.iter() {
+        if name == "__init__" {
+            continue;
+        }
+
+        if let Some((ty, _, read_only, descriptor_getter, descriptor_setter)) =
+            field.for_variance_inference()
+        {
+            // Case 1: Regular attribute
+
+            // TODO: We need a much better way to distinguish between fields and methods than this
+            // currently, class field representation isn't good enough but we need to fix that soon
+            if descriptor_getter.is_none() && descriptor_setter.is_none() {
+                let variance = if ty.is_function_type()
+                    || is_private_field(name)
+                    || read_only
+                    || field.is_final()
+                {
+                    Variance::Covariant
                 } else {
-                    // Case 2: Descriptor or property (has getter and/or setter)
-                    // Not too sure about this yet, will need to investigate further.
+                    Variance::Invariant
+                };
+                on_type(variance, true, ty, on_edge, on_var);
+            } else {
+                // Case 2: Descriptor or property (has getter and/or setter)
+                // Not too sure about this yet, will need to investigate further.
 
-                    // Getter: covariant on return type
-                    if let Some(typ) = descriptor_getter {
-                        on_type(Variance::Covariant, true, typ, on_edge, on_var);
-                    }
+                // Getter: covariant on return type
+                if let Some(typ) = descriptor_getter {
+                    on_type(Variance::Covariant, true, typ, on_edge, on_var);
+                }
 
-                    // Setter: contravariant on value being written
-                    if let Some(typ) = descriptor_setter {
-                        on_type(Variance::Contravariant, true, typ, on_edge, on_var);
-                    }
+                // Setter: contravariant on value being written
+                if let Some(typ) = descriptor_setter {
+                    on_type(Variance::Contravariant, true, typ, on_edge, on_var);
                 }
             }
         }
@@ -365,7 +350,7 @@ fn loop_fn<'a>(
         )
     };
 
-    variance_visitor::on_class(class, &mut on_edge, &mut on_var, get_metadata, get_fields);
+    on_class(class, &mut on_edge, &mut on_var, get_metadata, get_fields);
 
     params
 }
@@ -464,7 +449,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
                 let mut on_edge = |c: &Class| env.get(c).cloned().unwrap_or_else(Vec::new);
 
-                variance_visitor::on_class(
+                on_class(
                     my_class,
                     &mut on_edge,
                     &mut on_var,
