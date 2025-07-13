@@ -389,41 +389,6 @@ impl ClassField {
         }
     }
 
-    /// Determine the read_only reason from annotation and other factors
-    fn determine_read_only_reason<Ans: LookupAnswer>(
-        cls: &Class,
-        name: &Name,
-        annotation: &Option<Annotation>,
-        initialization: &ClassFieldInitialization,
-        solver: &AnswersSolver<'_, Ans>,
-    ) -> Option<ReadOnlyReason> {
-        if let Some(ann) = annotation {
-            // TODO: enable this for Final attrs that aren't initialized on the class
-            if ann.is_final() && matches!(initialization, ClassFieldInitialization::ClassBody(_)) {
-                return Some(ReadOnlyReason::Final);
-            }
-            if ann.has_qualifier(&Qualifier::ReadOnly) {
-                return Some(ReadOnlyReason::ReadOnlyQualifier);
-            }
-        }
-        let metadata = solver.get_metadata_for_class(cls);
-        // NamedTuple members are read-only
-        if metadata
-            .named_tuple_metadata()
-            .is_some_and(|nt| nt.elements.contains(name))
-        {
-            return Some(ReadOnlyReason::NamedTuple);
-        }
-        // Frozen dataclass fields (not methods) are read-only
-        if let Some(dm) = metadata.dataclass_metadata() {
-            if dm.kws.frozen && dm.fields.contains(name) {
-                return Some(ReadOnlyReason::FrozenDataclass);
-            }
-        }
-        // Default: the field is read-write
-        None
-    }
-
     fn has_explicit_annotation(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { annotation, .. } => annotation.is_some(),
@@ -772,13 +737,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let is_override = value_ty.is_override();
 
         let annotation = direct_annotation.or(inherited_annotation.as_ref());
-        let read_only_reason = ClassField::determine_read_only_reason(
-            class,
-            name,
-            &annotation.cloned(),
-            &initialization,
-            self,
-        );
+        let read_only_reason =
+            self.determine_read_only_reason(class, name, &annotation.cloned(), &initialization);
         let is_namedtuple_member = metadata
             .named_tuple_metadata()
             .is_some_and(|nt| nt.elements.contains(name));
@@ -930,6 +890,40 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.validate_post_init(class, dm, post_init, range, errors);
         }
         class_field
+    }
+
+    fn determine_read_only_reason(
+        &self,
+        cls: &Class,
+        name: &Name,
+        annotation: &Option<Annotation>,
+        initialization: &ClassFieldInitialization,
+    ) -> Option<ReadOnlyReason> {
+        if let Some(ann) = annotation {
+            // TODO: enable this for Final attrs that aren't initialized on the class
+            if ann.is_final() && matches!(initialization, ClassFieldInitialization::ClassBody(_)) {
+                return Some(ReadOnlyReason::Final);
+            }
+            if ann.has_qualifier(&Qualifier::ReadOnly) {
+                return Some(ReadOnlyReason::ReadOnlyQualifier);
+            }
+        }
+        let metadata = self.get_metadata_for_class(cls);
+        // NamedTuple members are read-only
+        if metadata
+            .named_tuple_metadata()
+            .is_some_and(|nt| nt.elements.contains(name))
+        {
+            return Some(ReadOnlyReason::NamedTuple);
+        }
+        // Frozen dataclass fields (not methods) are read-only
+        if let Some(dm) = metadata.dataclass_metadata() {
+            if dm.kws.frozen && dm.fields.contains(name) {
+                return Some(ReadOnlyReason::FrozenDataclass);
+            }
+        }
+        // Default: the field is read-write
+        None
     }
 
     /// Return (did you find any fields, first one with an annotation)
