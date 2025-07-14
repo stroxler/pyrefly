@@ -152,6 +152,16 @@ pub enum TypeFormContext {
     VarAnnotation(Initialized),
 }
 
+impl TypeFormContext {
+    pub fn quantified_kind_default(x: QuantifiedKind) -> Self {
+        match x {
+            QuantifiedKind::TypeVar => TypeFormContext::TypeVarDefault,
+            QuantifiedKind::ParamSpec => TypeFormContext::ParamSpecDefault,
+            QuantifiedKind::TypeVarTuple => TypeFormContext::TypeVarTupleDefault,
+        }
+    }
+}
+
 pub enum Iterable {
     OfType(Type),
     FixedLen(Vec<Type>),
@@ -2652,7 +2662,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if let Some(default_expr) = default {
                     let default = self.expr_untype(
                         default_expr,
-                        kind.type_form_context_for_default(),
+                        TypeFormContext::quantified_kind_default(*kind),
                         errors,
                     );
                     default_ty = Some(self.validate_type_var_default(

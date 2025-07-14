@@ -17,7 +17,6 @@ use pyrefly_util::uniques::Unique;
 use pyrefly_util::uniques::UniqueFactory;
 use ruff_python_ast::name::Name;
 
-use crate::alt::solve::TypeFormContext;
 use crate::types::class::ClassType;
 use crate::types::stdlib::Stdlib;
 use crate::types::type_var::Restriction;
@@ -143,14 +142,6 @@ impl QuantifiedKind {
             QuantifiedKind::TypeVar => Type::any_implicit(),
             QuantifiedKind::ParamSpec => Type::Ellipsis,
             QuantifiedKind::TypeVarTuple => Type::any_tuple(),
-        }
-    }
-
-    pub fn type_form_context_for_default(self) -> TypeFormContext {
-        match self {
-            QuantifiedKind::TypeVar => TypeFormContext::TypeVarDefault,
-            QuantifiedKind::ParamSpec => TypeFormContext::ParamSpecDefault,
-            QuantifiedKind::TypeVarTuple => TypeFormContext::TypeVarTupleDefault,
         }
     }
 }
