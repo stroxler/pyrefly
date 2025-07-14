@@ -27,31 +27,31 @@ use crate::types::types::Type;
 /// but we keep them around (under an `Arc`) since it's more efficient not to recreate
 /// the `SmallMap` on each access.
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Module {
+pub struct ModuleType {
     parts: Box<[Name]>,
     /// Use an OrderedMap so we have a table Hash/Ord instance.
     modules: Arc<OrderedSet<ModuleName>>,
 }
 
-impl Visit<Type> for Module {
+impl Visit<Type> for ModuleType {
     const RECURSE_CONTAINS: bool = false;
     fn recurse<'a>(&'a self, _: &mut dyn FnMut(&'a Type)) {}
 }
 
-impl VisitMut<Type> for Module {
+impl VisitMut<Type> for ModuleType {
     const RECURSE_CONTAINS: bool = false;
     fn recurse_mut(&mut self, _: &mut dyn FnMut(&mut Type)) {}
 }
 
-impl Display for Module {
+impl Display for ModuleType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.parts.join("."))
     }
 }
 
-impl Module {
+impl ModuleType {
     /// Created from an import, e.g. `import foo.bar.baz`
-    pub fn new(name: Name, modules: OrderedSet<ModuleName>) -> Module {
+    pub fn new(name: Name, modules: OrderedSet<ModuleName>) -> ModuleType {
         assert!(
             modules.iter().all(|x| x.first_component() == name),
             "{name} {modules:?}"
@@ -63,7 +63,7 @@ impl Module {
     }
 
     /// Created from an alias, e.g. `import foo.bar.baz as bar`
-    pub fn new_as(name: ModuleName) -> Module {
+    pub fn new_as(name: ModuleName) -> ModuleType {
         Self {
             parts: name.as_str().split('.').map(Name::new).collect(),
             modules: Arc::new(OrderedSet::from_iter([name])),
@@ -78,7 +78,7 @@ impl Module {
         let mut path = Vec::with_capacity(self.parts.len() + 1);
         path.extend(self.parts.iter().cloned());
         path.push(component);
-        Module {
+        ModuleType {
             parts: path.into_boxed_slice(),
             modules: self.modules.dupe(),
         }
@@ -97,7 +97,7 @@ impl Module {
         }
     }
 
-    pub fn merge(&mut self, m: &Module) {
+    pub fn merge(&mut self, m: &ModuleType) {
         assert_eq!(self.parts, m.parts);
         let mut modules = (*self.modules).clone();
         modules.extend(m.modules.iter().copied());

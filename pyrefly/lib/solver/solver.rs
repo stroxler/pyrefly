@@ -30,7 +30,7 @@ use crate::solver::type_order::TypeOrder;
 use crate::types::callable::Callable;
 use crate::types::callable::Function;
 use crate::types::callable::Params;
-use crate::types::module::Module;
+use crate::types::module::ModuleType;
 use crate::types::quantified::QuantifiedInfo;
 use crate::types::simplify::simplify_tuples;
 use crate::types::simplify::unions;
@@ -433,7 +433,7 @@ impl Solver {
         }
 
         // We want to union modules differently, by merging their module sets
-        let mut modules: SmallMap<Vec<Name>, Module> = SmallMap::new();
+        let mut modules: SmallMap<Vec<Name>, ModuleType> = SmallMap::new();
         let mut branches = branches
             .into_iter()
             .flat_map(|x| match x {

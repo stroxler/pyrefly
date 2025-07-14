@@ -94,7 +94,7 @@ use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::display::TypeDisplayContext;
 use crate::types::literal::Lit;
-use crate::types::module::Module;
+use crate::types::module::ModuleType;
 use crate::types::param_spec::ParamSpec;
 use crate::types::quantified::Quantified;
 use crate::types::quantified::QuantifiedInfo;
@@ -2685,13 +2685,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Some(prev) if prev.parts() == path => prev.add_module(*m).to_type(),
                     _ => {
                         if path.len() == 1 {
-                            Type::Module(Module::new(
+                            Type::Module(ModuleType::new(
                                 path[0].clone(),
                                 OrderedSet::from_iter([(*m)]),
                             ))
                         } else {
                             assert_eq!(&m.components(), path);
-                            Type::Module(Module::new_as(*m))
+                            Type::Module(ModuleType::new_as(*m))
                         }
                     }
                 }

@@ -72,7 +72,7 @@ use crate::state::state::CancellableTransaction;
 use crate::state::state::Transaction;
 use crate::types::callable::Param;
 use crate::types::callable::Params;
-use crate::types::module::Module;
+use crate::types::module::ModuleType;
 use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
 
@@ -590,7 +590,7 @@ impl<'a> Transaction<'a> {
                     },
             }) => {
                 // TODO: Handle relative import (via ModuleName::new_maybe_relative)
-                Some(Type::Module(Module::new(
+                Some(Type::Module(ModuleType::new(
                     module_name.first_component(),
                     OrderedSet::from_iter([module_name]),
                 )))

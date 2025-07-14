@@ -38,7 +38,7 @@ use crate::types::class::ClassType;
 use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::keywords::KwCall;
 use crate::types::literal::Lit;
-use crate::types::module::Module;
+use crate::types::module::ModuleType;
 use crate::types::param_spec::ParamSpec;
 use crate::types::quantified::Quantified;
 use crate::types::quantified::QuantifiedKind;
@@ -610,7 +610,7 @@ pub enum Type {
     /// where each present key has the same value type as in `C`.
     PartialTypedDict(TypedDict),
     Tuple(Tuple),
-    Module(Module),
+    Module(ModuleType),
     Forall(Box<Forall<Forallable>>),
     Var(Var),
     Quantified(Quantified),
@@ -761,7 +761,7 @@ impl Type {
         )
     }
 
-    pub fn as_module(&self) -> Option<&Module> {
+    pub fn as_module(&self) -> Option<&ModuleType> {
         match self {
             Type::Module(m) => Some(m),
             _ => None,

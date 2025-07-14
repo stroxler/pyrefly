@@ -38,7 +38,7 @@ use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
-use crate::types::module::Module;
+use crate::types::module::ModuleType;
 use crate::types::quantified::Quantified;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::read_only::ReadOnlyReason;
@@ -248,7 +248,7 @@ pub enum DescriptorBase {
 pub enum NotFound {
     Attribute(Class),
     ClassAttribute(Class),
-    ModuleExport(Module),
+    ModuleExport(ModuleType),
 }
 
 #[derive(Clone, Debug)]
@@ -413,7 +413,7 @@ enum AttributeBase {
     EnumLiteral(ClassType, Name, Type),
     ClassInstance(ClassType),
     ClassObject(Class),
-    Module(Module),
+    Module(ModuleType),
     /// The attribute access is on a quantified type form (as in `args: P.args` - this
     /// is only used when the base *is* a quantified type, not when the base is
     /// a term that *has* a quantified type.
@@ -1541,7 +1541,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn get_module_attr(&self, module: &Module, attr_name: &Name) -> Option<Type> {
+    fn get_module_attr(&self, module: &ModuleType, attr_name: &Name) -> Option<Type> {
         let module_name = ModuleName::from_parts(module.parts());
         let module_exports = self.get_module_exports(module_name);
 
@@ -1836,7 +1836,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn completions_module(
         &self,
-        module: &Module,
+        module: &ModuleType,
         expected_attribute_name: Option<&Name>,
         res: &mut Vec<AttrInfo>,
     ) {
