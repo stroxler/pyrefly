@@ -203,7 +203,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .insert(name.id.clone(), self.expr_infer(&kw.value, errors));
             }
         }
-        let init = map.get_bool(&DataclassFieldKeywords::INIT, true);
+        let init = map.get_bool(&DataclassFieldKeywords::INIT).unwrap_or(true);
         let default = [
             &DataclassFieldKeywords::DEFAULT,
             &DataclassFieldKeywords::DEFAULT_FACTORY,
@@ -211,10 +211,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ]
         .iter()
         .any(|k| map.0.contains_key(*k));
-        let kw_only = map
-            .0
-            .get(&DataclassFieldKeywords::KW_ONLY)
-            .and_then(|t| t.as_bool());
+        let kw_only = map.get_bool(&DataclassFieldKeywords::KW_ONLY);
         let alias = map
             .get_string(&DataclassFieldKeywords::ALIAS)
             .map(Name::new);

@@ -28,11 +28,8 @@ impl TypeMap {
         Self(OrderedMap::new())
     }
 
-    pub fn get_bool(&self, name: &Name, default: bool) -> bool {
-        self.0
-            .get(name)
-            .and_then(|t| t.as_bool())
-            .unwrap_or(default)
+    pub fn get_bool(&self, name: &Name) -> Option<bool> {
+        self.0.get(name).and_then(|t| t.as_bool())
     }
 
     pub fn get_string(&self, name: &Name) -> Option<&str> {
@@ -98,10 +95,10 @@ impl DataclassTransformKeywords {
 
     pub fn from_type_map(map: &TypeMap) -> Self {
         Self {
-            eq_default: map.get_bool(&Self::EQ_DEFAULT, true),
-            order_default: map.get_bool(&Self::ORDER_DEFAULT, false),
-            kw_only_default: map.get_bool(&Self::KW_ONLY_DEFAULT, false),
-            frozen_default: map.get_bool(&Self::FROZEN_DEFAULT, false),
+            eq_default: map.get_bool(&Self::EQ_DEFAULT).unwrap_or(true),
+            order_default: map.get_bool(&Self::ORDER_DEFAULT).unwrap_or(false),
+            kw_only_default: map.get_bool(&Self::KW_ONLY_DEFAULT).unwrap_or(false),
+            frozen_default: map.get_bool(&Self::FROZEN_DEFAULT).unwrap_or(false),
             field_specifiers: match map.0.get(&Self::FIELD_SPECIFIERS) {
                 Some(Type::Tuple(Tuple::Concrete(elts))) => {
                     elts.iter().filter_map(|e| e.callee_kind()).collect()
@@ -187,14 +184,18 @@ impl DataclassKeywords {
 
     pub fn from_type_map(map: &TypeMap, defaults: &DataclassTransformKeywords) -> Self {
         Self {
-            init: map.get_bool(&Self::INIT, true),
-            order: map.get_bool(&Self::ORDER, defaults.order_default),
-            frozen: map.get_bool(&Self::FROZEN, defaults.frozen_default),
-            match_args: map.get_bool(&Self::MATCH_ARGS, true),
-            kw_only: map.get_bool(&Self::KW_ONLY, defaults.kw_only_default),
-            eq: map.get_bool(&Self::EQ, defaults.eq_default),
-            unsafe_hash: map.get_bool(&Self::UNSAFE_HASH, false),
-            slots: map.get_bool(&Self::SLOTS, false),
+            init: map.get_bool(&Self::INIT).unwrap_or(true),
+            order: map.get_bool(&Self::ORDER).unwrap_or(defaults.order_default),
+            frozen: map
+                .get_bool(&Self::FROZEN)
+                .unwrap_or(defaults.frozen_default),
+            match_args: map.get_bool(&Self::MATCH_ARGS).unwrap_or(true),
+            kw_only: map
+                .get_bool(&Self::KW_ONLY)
+                .unwrap_or(defaults.kw_only_default),
+            eq: map.get_bool(&Self::EQ).unwrap_or(defaults.eq_default),
+            unsafe_hash: map.get_bool(&Self::UNSAFE_HASH).unwrap_or(false),
+            slots: map.get_bool(&Self::SLOTS).unwrap_or(false),
         }
     }
 
