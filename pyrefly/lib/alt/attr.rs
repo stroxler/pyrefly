@@ -1542,9 +1542,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn get_module_attr(&self, module: &ModuleType, attr_name: &Name) -> Option<Type> {
-        let module_name = ModuleName::from_parts(module.parts());
-        let module_exports = self.get_module_exports(module_name);
-
         // `module_name` could refer to a package, in which case we need to check if
         // `module_name.attr_name`:
         // - Has been imported. This can happen in two ways:
@@ -1558,12 +1555,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // would always bind the submodule name `attr_name` to the namespace of `module_name` *after* the module
         // toplevel of `module_name` has been executed.
         let submodule = module.push_part(attr_name.clone());
-        let submodule_name = module_name.append(attr_name);
-        let is_imported = submodule.is_submodules_imported_directly()
-            || module_exports
-                .as_ref()
-                .is_some_and(|exports| exports.is_submodule_imported_implicitly(attr_name));
-        if is_imported && self.get_module_exports(submodule_name).is_some() {
+        if submodule.is_submodules_imported_directly() {
+            return Some(submodule.to_type());
+        }
+
+        let module_name = ModuleName::from_parts(module.parts());
+        let module_exports = self.get_module_exports(module_name);
+
+        let is_imported = module_exports
+            .as_ref()
+            .is_some_and(|exports| exports.is_submodule_imported_implicitly(attr_name));
+        if is_imported
+            && self
+                .get_module_exports(module_name.append(attr_name))
+                .is_some()
+        {
             Some(submodule.to_type())
         } else {
             module_exports.map_or(Some(Type::any_error()), |exports| {
