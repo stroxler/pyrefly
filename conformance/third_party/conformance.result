@@ -154,11 +154,7 @@
   ],
   "dataclasses_transform_class.py": [],
   "dataclasses_transform_converter.py": [],
-  "dataclasses_transform_field.py": [
-    "Line 64: Expected 1 errors",
-    "Line 59: Unexpected errors ['Missing argument `id` in function `CustomerModel1.__init__`']",
-    "Line 60: Unexpected errors ['Missing argument `id` in function `CustomerModel1.__init__`']"
-  ],
+  "dataclasses_transform_field.py": [],
   "dataclasses_transform_func.py": [],
   "dataclasses_transform_meta.py": [],
   "dataclasses_usage.py": [],

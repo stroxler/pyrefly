@@ -175,7 +175,6 @@ assert_type(c.x, int)
 );
 
 testcase!(
-    bug = "`x` should not be in the generated `__init__`",
     test_set_init_through_overload,
     r#"
 from typing import dataclass_transform, overload, Any, Literal
@@ -192,7 +191,7 @@ def build(x): ...
 class C:
     x: int = field()
     y: str = field(name='y')
-C(y='hello world')  # E: Missing argument `x`
+C(y='hello world')
     "#,
 );
 

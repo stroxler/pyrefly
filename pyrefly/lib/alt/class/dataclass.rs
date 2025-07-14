@@ -8,14 +8,18 @@
 use std::sync::Arc;
 
 use pyrefly_python::dunder;
+use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use vec1::Vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::alt::callable::CallArg;
+use crate::alt::callable::CallKeyword;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::class_field::DataclassMember;
 use crate::alt::types::class_metadata::ClassMetadata;
@@ -225,6 +229,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if init.is_none() || kw_only.is_none() || alias.is_none() || converter_param.is_none() {
             self.fill_in_field_keywords_from_function_signature(
                 func,
+                args,
+                errors,
                 &mut init,
                 &mut kw_only,
                 &mut alias,
@@ -244,16 +250,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn fill_in_field_keywords_from_function_signature(
         &self,
         func: &Type,
+        args: &Arguments,
+        errors: &ErrorCollector,
         init: &mut Option<bool>,
         kw_only: &mut Option<bool>,
         alias: &mut Option<Name>,
         converter_param: &mut Option<Type>,
     ) {
         let sigs = func.callable_signatures();
-        if sigs.len() != 1 {
+        let sig = if sigs.len() == 1 {
+            sigs[0].clone()
+        } else if sigs.len() > 1
+            && let Type::Overload(overload) = func
+        {
+            // Overloaded function. Call it to see which signature is actually used.
+            self.call_overloads(
+                Vec1::try_from_vec(sigs).unwrap(),
+                (*overload.metadata).clone(),
+                None,
+                &args.args.map(CallArg::expr_maybe_starred),
+                &args.keywords.map(CallKeyword::new),
+                args.range,
+                errors,
+                None,
+            )
+            .1
+        } else {
             return;
-        }
-        let sig = &sigs[0];
+        };
         if let Params::List(params) = &sig.params {
             for param in params.items() {
                 // Look for a parameter that can be called by name, to attempt to read a default value for a keyword argument.

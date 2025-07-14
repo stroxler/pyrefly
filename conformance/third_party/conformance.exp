@@ -3550,23 +3550,13 @@
   "dataclasses_transform_field.py": [
     {
       "code": -2,
-      "column": 15,
-      "concise_description": "Missing argument `id` in function `CustomerModel1.__init__`",
-      "description": "Missing argument `id` in function `CustomerModel1.__init__`",
-      "line": 59,
-      "name": "missing-argument",
-      "stop_column": 17,
-      "stop_line": 59
-    },
-    {
-      "code": -2,
-      "column": 15,
-      "concise_description": "Missing argument `id` in function `CustomerModel1.__init__`",
-      "description": "Missing argument `id` in function `CustomerModel1.__init__`",
-      "line": 60,
-      "name": "missing-argument",
-      "stop_column": 26,
-      "stop_line": 60
+      "column": 16,
+      "concise_description": "Unexpected keyword argument `id` in function `CustomerModel1.__init__`",
+      "description": "Unexpected keyword argument `id` in function `CustomerModel1.__init__`",
+      "line": 64,
+      "name": "unexpected-keyword",
+      "stop_column": 18,
+      "stop_line": 64
     },
     {
       "code": -2,
