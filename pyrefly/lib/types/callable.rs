@@ -598,7 +598,7 @@ impl FunctionKind {
 
 pub fn unexpected_keyword(error: &dyn Fn(String), func: &str, keyword: &Keyword) {
     let desc = if let Some(id) = &keyword.arg {
-        format!(" `{}`", id)
+        format!(" `{id}`")
     } else {
         "".to_owned()
     };

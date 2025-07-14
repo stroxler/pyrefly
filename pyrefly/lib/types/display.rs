@@ -243,7 +243,7 @@ impl<'a> TypeDisplayContext<'a> {
             }
 
             // Other things
-            Type::Literal(lit) => write!(f, "Literal[{}]", lit),
+            Type::Literal(lit) => write!(f, "Literal[{lit}]"),
             Type::LiteralString => write!(f, "LiteralString"),
             Type::Callable(box c)
             | Type::Function(box Function {
