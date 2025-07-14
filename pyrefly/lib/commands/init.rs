@@ -182,10 +182,8 @@ impl Args {
         config_path: Option<PathBuf>,
         error_count: usize,
     ) -> anyhow::Result<CommandExitStatus> {
-        let prompt = format!(
-            "Found {} errors. Would you like to suppress them? (y/N): ",
-            error_count
-        );
+        let prompt =
+            format!("Found {error_count} errors. Would you like to suppress them? (y/N): ");
 
         if Self::prompt_user_confirmation(&prompt) {
             info!("Running pyrefly check with suppress-errors flag...");
@@ -846,8 +844,7 @@ k = [\"v\"]
             let result = Args::parse_comma_separated_values(input, *min, *max);
             assert_eq!(
                 result, *expected,
-                "Test case {} failed: input='{}', min={}, max={}",
-                i, input, min, max
+                "Test case {i} failed: input='{input}', min={min}, max={max}",
             );
         }
     }

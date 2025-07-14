@@ -579,7 +579,7 @@ impl Args {
         fn validate_arg(arg_name: &str, paths: Option<&[PathBuf]>) -> anyhow::Result<()> {
             if let Some(paths) = paths {
                 for path in paths {
-                    validate_path(path).with_context(|| format!("Invalid {}", arg_name))?;
+                    validate_path(path).with_context(|| format!("Invalid {arg_name}"))?;
                 }
             }
             Ok(())
