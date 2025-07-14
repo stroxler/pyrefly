@@ -215,7 +215,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let alias = map
             .get_string(&DataclassFieldKeywords::ALIAS)
             .map(Name::new);
-        let converter_param = self.get_converter_param(&map);
+        let converter_param = map
+            .0
+            .get(&DataclassFieldKeywords::CONVERTER)
+            .map(|converter| self.get_converter_param(converter));
         DataclassFieldKeywords {
             init,
             default,
@@ -225,9 +228,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn get_converter_param(&self, map: &TypeMap) -> Option<Type> {
+    fn get_converter_param(&self, converter: &Type) -> Type {
         let converter = {
-            let converter = map.0.get(&DataclassFieldKeywords::CONVERTER)?;
             if let Type::ClassDef(cls) = converter
                 && let Type::ClassType(instance) = self.instantiate_fresh(cls)
             {
@@ -243,9 +245,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 converter
             }
         };
-        Some(self.distribute_over_union(converter, |ty| {
+        self.distribute_over_union(converter, |ty| {
             ty.callable_first_param().unwrap_or_else(Type::any_implicit)
-        }))
+        })
     }
 
     fn iter_fields(
