@@ -1560,21 +1560,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         let module_name = ModuleName::from_parts(module.parts());
-        let module_exports = self.get_module_exports(module_name);
+        let module_exports = match self.get_module_exports(module_name) {
+            Some(x) => x,
+            None => return Some(Type::any_error()), // This module doesn't exist, we must have already errored
+        };
 
-        let is_imported = module_exports
-            .as_ref()
-            .is_some_and(|exports| exports.is_submodule_imported_implicitly(attr_name));
-        if is_imported
+        if module_exports.is_submodule_imported_implicitly(attr_name)
             && self
                 .get_module_exports(module_name.append(attr_name))
                 .is_some()
         {
             Some(submodule.to_type())
         } else {
-            module_exports.map_or(Some(Type::any_error()), |exports| {
-                self.get_exported_type(&exports, module_name, attr_name)
-            })
+            self.get_exported_type(&module_exports, module_name, attr_name)
         }
     }
 
