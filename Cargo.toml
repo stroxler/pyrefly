@@ -12,8 +12,8 @@ codegen-units = 1
 members = [
   "crates/pyrefly_derive",
   "crates/pyrefly_python",
+  "crates/pyrefly_util",
   "pyrefly",
-  "pyrefly_util",
   "pyrefly_wasm",
 ]
 resolver = "2"

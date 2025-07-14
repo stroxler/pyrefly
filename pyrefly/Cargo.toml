@@ -38,7 +38,7 @@ paste = "1.0.14"
 path-absolutize = { version = "3.0", features = ["use_unix_paths_on_wasm"] }
 pyrefly_derive = { path = "../crates/pyrefly_derive" }
 pyrefly_python = { path = "../crates/pyrefly_python" }
-pyrefly_util = { path = "../pyrefly_util" }
+pyrefly_util = { path = "../crates/pyrefly_util" }
 regex = "1.11.1"
 regex-syntax = "0.7.5"
 ruff_annotate_snippets = { git = "https://github.com/astral-sh/ruff/", rev = "9bee8376a17401f9736b45fdefffb62edc2f1668" }
