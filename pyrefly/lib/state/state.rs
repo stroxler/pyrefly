@@ -359,10 +359,10 @@ impl<'a> Transaction<'a> {
             })
             .collect::<Vec<_>>();
         for (k, v) in self.readable.modules.iter() {
-            if self.data.updated_modules.get(k).is_none() {
-                if let Some(load) = v.state.steps.load.dupe() {
-                    res.push((load, v.config.dupe()));
-                }
+            if self.data.updated_modules.get(k).is_none()
+                && let Some(load) = v.state.steps.load.dupe()
+            {
+                res.push((load, v.config.dupe()));
             }
         }
         Errors::new(res)
