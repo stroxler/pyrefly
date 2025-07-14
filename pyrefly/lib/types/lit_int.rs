@@ -29,8 +29,8 @@ pub struct LitInt(LitIntInner);
 impl Display for LitInt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.0 {
-            LitIntInner::Small(x) => write!(f, "{}", x),
-            LitIntInner::Big(x) => write!(f, "{}", x),
+            LitIntInner::Small(x) => write!(f, "{x}"),
+            LitIntInner::Big(x) => write!(f, "{x}"),
         }
     }
 }

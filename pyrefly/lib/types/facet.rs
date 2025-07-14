@@ -33,9 +33,9 @@ pub enum FacetKind {
 impl Display for FacetKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Attribute(name) => write!(f, ".{}", name),
-            Self::Index(idx) => write!(f, "[{}]", idx),
-            Self::Key(key) => write!(f, "[\"{}\"]", key),
+            Self::Attribute(name) => write!(f, ".{name}"),
+            Self::Index(idx) => write!(f, "[{idx}]"),
+            Self::Key(key) => write!(f, "[\"{key}\"]"),
         }
     }
 }
@@ -67,7 +67,7 @@ impl FacetChain {
 impl Display for FacetChain {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for facet in self.0.iter() {
-            write!(f, "{}", facet)?;
+            write!(f, "{facet}")?;
         }
         Ok(())
     }
