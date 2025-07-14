@@ -28,7 +28,6 @@
 #![feature(closure_lifetime_binder)]
 #![feature(if_let_guard)]
 #![feature(let_chains)]
-#![feature(hash_extract_if)]
 
 mod alt;
 mod binding;
