@@ -26,4 +26,4 @@ static_interner = "0.1.1"
 thiserror = "2.0.12"
 
 [dev-dependencies]
-toml = "0.8.22"
+toml = { version = "0.8.22", features = ["preserve_order"] }
