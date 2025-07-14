@@ -21,7 +21,7 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
-use crate::module::module_info::ModuleInfo;
+use crate::module_info::ModuleInfo;
 
 // Special module-specific types
 

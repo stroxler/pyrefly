@@ -13,7 +13,7 @@ use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
-use crate::module::module_info::ModuleInfo;
+use crate::module_info::ModuleInfo;
 
 /// An identifier, where we can drop the `Name` part because it came from a `ModuleInfo`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -47,12 +47,12 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
 
-    use pyrefly_python::ast::Ast;
-    use pyrefly_python::module_name::ModuleName;
-    use pyrefly_python::module_path::ModulePath;
     use ruff_python_ast::Expr;
 
     use super::*;
+    use crate::ast::Ast;
+    use crate::module_name::ModuleName;
+    use crate::module_path::ModulePath;
 
     fn from_expr(x: &Expr) -> ShortIdentifier {
         match x {
