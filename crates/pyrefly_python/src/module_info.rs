@@ -21,12 +21,15 @@ use crate::module_path::ModulePath;
 
 pub static GENERATED_TOKEN: &str = concat!("@", "generated");
 
+/// Legacy alias, to be deleted in due course.
+pub type ModuleInfo = Module;
+
 /// Information about a module, notably its name, path, and contents.
 #[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash)]
-pub struct ModuleInfo(ArcId<ModuleInfoInner>);
+pub struct Module(ArcId<ModuleInner>);
 
 #[derive(Debug, Clone)]
-struct ModuleInfoInner {
+struct ModuleInner {
     name: ModuleName,
     path: ModulePath,
     ignore: Ignore,
@@ -40,7 +43,7 @@ impl ModuleInfo {
         let ignore = Ignore::new(&contents);
         let is_generated = contents.contains(GENERATED_TOKEN);
         let contents = LinedBuffer::new(contents);
-        Self(ArcId::new(ModuleInfoInner {
+        Self(ArcId::new(ModuleInner {
             name,
             path,
             ignore,
