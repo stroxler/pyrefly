@@ -656,10 +656,10 @@ impl Scopes {
         &self,
         name: &Name,
     ) -> Option<(Idx<Key>, Idx<KeyFunction>)> {
-        if let Some(flow) = self.current().flow.info.get(name) {
-            if let FlowStyle::FunctionDef(fidx, _) = flow.style {
-                return Some((flow.key, fidx));
-            }
+        if let Some(flow) = self.current().flow.info.get(name)
+            && let FlowStyle::FunctionDef(fidx, _) = flow.style
+        {
+            return Some((flow.key, fidx));
         }
         None
     }
