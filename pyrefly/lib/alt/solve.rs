@@ -310,7 +310,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         x.range(),
                         ErrorKind::InvalidAnnotation,
                         None,
-                        format!("`{}` is only allowed inside a class body", special),
+                        format!("`{special}` is only allowed inside a class body"),
                     );
                     None
                 }
@@ -326,8 +326,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorKind::InvalidAnnotation,
                         None,
                         format!(
-                            "`{}` is only allowed on a class or local variable annotation",
-                            special
+                            "`{special}` is only allowed on a class or local variable annotation"
                         ),
                     );
                     None
@@ -442,7 +441,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             x.range(),
                             ErrorKind::InvalidAnnotation,
                             None,
-                            format!("Expected a type argument for `{}`", qualifier,),
+                            format!("Expected a type argument for `{qualifier}`"),
                         );
                     }
                 }
@@ -529,7 +528,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             x.range(),
                             ErrorKind::InvalidAnnotation,
                             None,
-                            format!("Expected a type argument for `{}`", special_form),
+                            format!("Expected a type argument for `{special_form}`"),
                         );
                     } else {
                         self.error(
@@ -537,7 +536,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             x.range(),
                             ErrorKind::InvalidAnnotation,
                             None,
-                            format!("`{}` is not allowed in this context", special_form),
+                            format!("`{special_form}` is not allowed in this context"),
                         );
                     }
                 }
@@ -1549,10 +1548,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorKind::from_quantified(kind),
                         None,
                         format!(
-                            "Expected default `{}` of `{}` to be assignable to the upper bound of `{}`",
-                            default,
-                            name,
-                            bound_ty,
+                            "Expected default `{default}` of `{name}` to be assignable to the upper bound of `{bound_ty}`",
                         ),
                     );
                     return Type::any_error();
@@ -1566,7 +1562,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 {
                     let formatted_constraints = constraints
                         .iter()
-                        .map(|x| format!("`{}`", x))
+                        .map(|x| format!("`{x}`"))
                         .collect::<Vec<_>>()
                         .join(", ");
                     self.error(
@@ -1575,10 +1571,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorKind::from_quantified(kind),
                         None,
                         format!(
-                            "Expected default `{}` of `{}` to be one of the following constraints: {}",
-                            default,
-                            name,
-                            formatted_constraints,
+                            "Expected default `{default}` of `{name}` to be one of the following constraints: {formatted_constraints}"
                         ),
                     );
                     return Type::any_error();
@@ -1596,7 +1589,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         ErrorKind::InvalidParamSpec,
                         None,
-                        format!("Default for `ParamSpec` must be a parameter list, `...`, or another `ParamSpec`, got `{}`", default),
+                        format!("Default for `ParamSpec` must be a parameter list, `...`, or another `ParamSpec`, got `{default}`"),
                     );
                     Type::any_error()
                 }
@@ -1612,7 +1605,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         ErrorKind::InvalidTypeVarTuple,
                         None,
-                        format!("Default for `TypeVarTuple` must be an unpacked tuple form or another `TypeVarTuple`, got `{}`", default),
+                        format!("Default for `TypeVarTuple` must be an unpacked tuple form or another `TypeVarTuple`, got `{default}`"),
                     );
                     Type::any_error()
                 }
@@ -1624,10 +1617,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         ErrorKind::InvalidTypeVar,
                         None,
-                        format!(
-                            "Default for `TypeVar` may not be a `TypeVarTuple` or `ParamSpec`, got `{}`",
-                            default
-                        ),
+                        format!( "Default for `TypeVar` may not be a `TypeVarTuple` or `ParamSpec`, got `{default}`"),
                     );
                     Type::any_error()
                 } else {
@@ -2094,16 +2084,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                     Type::Any(AnyStyle::Error) => match_args,
-                    _ => self.error(
-                        errors,
-                        *range,
-                        ErrorKind::MatchError,
-                        Some(&context),
-                        format!(
-                            "Expected concrete tuple for `__match_args__`, got `{}`",
-                            match_args
-                        ),
-                    ),
+                    _ => {
+                        self.error(
+                            errors,
+                            *range,
+                            ErrorKind::MatchError,
+                            Some(&context),
+                            format!(
+                                "Expected concrete tuple for `__match_args__`, got `{match_args}`",
+                            ),
+                        )
+                    }
                 }
             }
             Binding::PatternMatchClassKeyword(_, attr, key) => {
@@ -2132,7 +2123,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 expr.range(),
                                 ErrorKind::BadAssignment,
                                 None,
-                                format!("`{}` is marked final", name),
+                                format!("`{name}` is marked final"),
                             );
                         }
                         let annot_ty = annot.ty(self.stdlib);
@@ -3076,7 +3067,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                format!("`{}` is not allowed in this context", ty),
+                format!("`{ty}` is not allowed in this context"),
             );
         }
         if !matches!(
@@ -3119,7 +3110,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorKind::InvalidAnnotation,
                     None,
-                    format!("Expected a type argument for `{}`", special_form),
+                    format!("Expected a type argument for `{special_form}`"),
                 );
             } else {
                 self.error(
@@ -3127,7 +3118,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorKind::InvalidAnnotation,
                     None,
-                    format!("`{}` is not allowed in this context", special_form),
+                    format!("`{special_form}` is not allowed in this context"),
                 );
             }
         }
