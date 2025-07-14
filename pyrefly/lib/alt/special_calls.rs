@@ -42,7 +42,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        if args.len() == 2 {
+        let ret = if args.len() == 2 {
             let expr_a = &args[0];
             let expr_b = &args[1];
             let a = self.expr_infer(expr_a, errors);
@@ -69,11 +69,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None,
                     format!(
                         "assert_type({}, {}) failed",
-                        self.for_display(a),
+                        self.for_display(a.clone()),
                         self.for_display(b)
                     ),
                 );
             }
+            a
         } else {
             self.error(
                 errors,
@@ -85,7 +86,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     args.len()
                 ),
             );
-        }
+            Type::any_error()
+        };
         for keyword in keywords {
             unexpected_keyword(
                 &|msg| {
@@ -95,7 +97,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 keyword,
             );
         }
-        Type::None
+        ret
     }
 
     pub fn call_reveal_type(
@@ -105,8 +107,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        if args.len() == 1 {
+        let ret = if args.len() == 1 {
             let mut type_info = self.expr_infer_type_info(&args[0], errors);
+            let ret = type_info.ty().clone();
             type_info.visit_mut(&mut |ty| {
                 *ty = self.for_display(ty.clone());
             });
@@ -117,6 +120,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None,
                 format!("revealed type: {type_info}"),
             );
+            ret
         } else {
             self.error(
                 errors,
@@ -128,7 +132,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     args.len()
                 ),
             );
-        }
+            Type::any_error()
+        };
         for keyword in keywords {
             unexpected_keyword(
                 &|msg| {
@@ -138,7 +143,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 keyword,
             );
         }
-        Type::None
+        ret
     }
 
     /// Simulates a call to `typing.cast`, whose signature is

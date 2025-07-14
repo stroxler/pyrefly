@@ -1054,6 +1054,19 @@ reveal_type(1, 2, 3)
     "#,
 );
 
+testcase!(
+    test_special_calls_return,
+    r#"
+from typing import Literal, assert_type, reveal_type
+
+a = assert_type(0, str) # E: assert_type(Literal[0], str) failed
+assert_type(a, Literal[0]) 
+
+b = reveal_type(0) # E: revealed type: Literal[0]
+assert_type(b, Literal[0])
+    "#,
+);
+
 // Regression test for a bug where special exports were no longer recognized
 // after a loop, due to flow styles being dropped.
 testcase!(
