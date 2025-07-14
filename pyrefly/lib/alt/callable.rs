@@ -605,7 +605,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } else if num_positional_params < 1 {
                 (
                     "0 positional arguments".to_owned(),
-                    format!("{} (including implicit `self`)", num_positional_args),
+                    format!("{num_positional_args} (including implicit `self`)"),
                 )
             } else {
                 (
@@ -674,14 +674,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     call_errors,
                     range,
                     ErrorKind::UnexpectedKeyword,
-                    format!("Expected argument `{}` to be positional", name),
+                    format!("Expected argument `{name}` to be positional"),
                 );
             } else {
                 error(
                     call_errors,
                     range,
                     ErrorKind::UnexpectedKeyword,
-                    format!("Unexpected keyword argument `{}`", name),
+                    format!("Unexpected keyword argument `{name}`"),
                 );
             }
         };
@@ -698,7 +698,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     call_errors,
                                     kw.range,
                                     ErrorKind::BadKeywordArgument,
-                                    format!("Multiple values for argument `{}`", name),
+                                    format!("Multiple values for argument `{name}`"),
                                 );
                                 hint = Some(ty.clone());
                             } else if let Some((ty, required)) = kwparams.get(name) {
@@ -708,7 +708,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         call_errors,
                                         kw.range,
                                         ErrorKind::MissingArgument,
-                                        format!("Expected key `{}` to be required", name),
+                                        format!("Expected key `{name}` to be required"),
                                     );
                                 }
                                 hint = Some(ty.clone())
@@ -857,7 +857,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         call_errors,
                         range,
                         ErrorKind::MissingArgument,
-                        format!("Missing argument `{}`", name),
+                        format!("Missing argument `{name}`"),
                     );
                 }
                 for (ty, range) in &splat_kwargs {

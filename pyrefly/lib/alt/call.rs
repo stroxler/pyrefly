@@ -255,7 +255,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             None => {
                 let expect_message = match call_style {
                     CallStyle::Method(method) => {
-                        format!("Expected `{}` to be a callable", method)
+                        format!("Expected `{method}` to be a callable")
                     }
                     CallStyle::FreeForm => "Expected a callable".to_owned(),
                 };
