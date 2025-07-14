@@ -50,8 +50,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     error::kind::ErrorKind::BadClassDefinition,
                     None,
                     format!(
-                        "NamedTuple field '{}' without a default may not follow NamedTuple field with a default",
-                        name
+                        "NamedTuple field '{name}' without a default may not follow NamedTuple field with a default"
                     ),
                 );
             }
