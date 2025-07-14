@@ -814,14 +814,14 @@ impl<'a> BindingsBuilder<'a> {
         let mut barrier = false;
         let ok_no_usage = |idx| Ok((idx, None));
         for scope in self.scopes.iter_rev() {
-            if let Some(flow) = scope.flow.info.get_hashed(name) {
-                if !barrier {
-                    let (idx, maybe_pinned_idx) = self.detect_possible_first_use(flow.key, usage);
-                    if let Some(pinned_idx) = maybe_pinned_idx {
-                        return Ok((idx, Some(pinned_idx)));
-                    } else {
-                        return ok_no_usage(idx);
-                    }
+            if let Some(flow) = scope.flow.info.get_hashed(name)
+                && !barrier
+            {
+                let (idx, maybe_pinned_idx) = self.detect_possible_first_use(flow.key, usage);
+                if let Some(pinned_idx) = maybe_pinned_idx {
+                    return Ok((idx, Some(pinned_idx)));
+                } else {
+                    return ok_no_usage(idx);
                 }
             }
             if !matches!(scope.kind, ScopeKind::Class(_))
