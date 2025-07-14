@@ -1174,7 +1174,7 @@ def g(ann) -> None:
 );
 
 testcase!(
-    bug = "First error is correct but obj.__name__ should not be an error",
+    bug = "PyTorch TODO: First error message can be improved and there should be  no error on obj.__name__",
     test_attr,
     r#"
 def f(obj, g, field_type, my_type,):
