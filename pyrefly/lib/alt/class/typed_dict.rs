@@ -215,7 +215,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if field.required {
                     Required::Required
                 } else {
-                    Required::Optional
+                    Required::Optional(None)
                 },
             ));
         }
@@ -286,7 +286,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let keyword_params: Vec<_> = self
             .names_to_fields(cls, fields)
             .filter(|(_, field)| !field.is_read_only()) // filter read-only fields
-            .map(|(name, field)| Param::KwOnly(name.clone(), field.ty.clone(), Required::Optional))
+            .map(|(name, field)| {
+                Param::KwOnly(name.clone(), field.ty.clone(), Required::Optional(None))
+            })
             .collect();
 
         let overload_kwargs = OverloadType::Callable(Callable::list(
@@ -331,7 +333,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Param::PosOnly(
                             Some(DEFAULT_PARAM.clone()),
                             object_ty.clone(),
-                            Required::Optional,
+                            Required::Optional(None),
                         ),
                     ]),
                     field.ty.clone(),
@@ -388,7 +390,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Param::PosOnly(
                         Some(DEFAULT_PARAM.clone()),
                         object_ty.clone(),
-                        Required::Optional,
+                        Required::Optional(None),
                     ),
                 ]),
                 object_ty.clone(),
@@ -587,7 +589,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if field.required {
                         Required::Required
                     } else {
-                        Required::Optional
+                        Required::Optional(None)
                     },
                 )
             })

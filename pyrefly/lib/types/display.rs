@@ -682,17 +682,22 @@ pub mod tests {
         let param1 = Param::PosOnly(
             Some(Name::new_static("x")),
             Type::any_explicit(),
-            Required::Optional,
+            Required::Optional(None),
         );
         let param2 = Param::Pos(
             Name::new_static("y"),
             Type::any_explicit(),
-            Required::Optional,
+            Required::Optional(Some(Type::Literal(Lit::Bool(true)))),
         );
-        let callable = Callable::list(ParamList::new(vec![param1, param2]), Type::None);
+        let param3 = Param::Pos(
+            Name::new_static("z"),
+            Type::any_explicit(),
+            Required::Optional(Some(Type::None)),
+        );
+        let callable = Callable::list(ParamList::new(vec![param1, param2, param3]), Type::None);
         assert_eq!(
             Type::Callable(Box::new(callable)).to_string(),
-            "(x: Any = ..., /, y: Any = ...) -> None"
+            "(x: Any = ..., /, y: Any = True, z: Any = None) -> None"
         );
     }
 
@@ -713,7 +718,7 @@ pub mod tests {
     #[test]
     fn test_anon_posonly_parameters() {
         let param1 = Param::PosOnly(None, Type::any_explicit(), Required::Required);
-        let param2 = Param::PosOnly(None, Type::any_explicit(), Required::Optional);
+        let param2 = Param::PosOnly(None, Type::any_explicit(), Required::Optional(None));
         let callable = Callable::list(ParamList::new(vec![param1, param2]), Type::None);
         assert_eq!(
             Type::Callable(Box::new(callable)).to_string(),

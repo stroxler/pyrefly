@@ -1226,7 +1226,7 @@ impl Type {
             fn transform_params(params: &mut ParamList) {
                 for param in params.items_mut() {
                     if let Param::PosOnly(Some(_), ty, req) = param {
-                        *param = Param::PosOnly(None, ty.clone(), *req);
+                        *param = Param::PosOnly(None, ty.clone(), req.clone());
                     }
                 }
             }

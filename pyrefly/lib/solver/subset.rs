@@ -58,7 +58,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 (
                     Some(Param::PosOnly(_, l, l_req) | Param::Pos(_, l, l_req)),
                     Some(Param::PosOnly(_, u, u_req)),
-                ) if (*u_req == Required::Required || *l_req == Required::Optional) => {
+                ) if (*u_req == Required::Required || matches!(l_req, Required::Optional(_))) => {
                     if self.is_subset_eq(u, l) {
                         l_arg = l_args.next();
                         u_arg = u_args.next();
@@ -68,7 +68,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 }
                 (Some(Param::Pos(l_name, l, l_req)), Some(Param::Pos(u_name, u, u_req)))
                     if l_name == u_name
-                        && (*u_req == Required::Required || *l_req == Required::Optional) =>
+                        && (*u_req == Required::Required
+                            || matches!(l_req, Required::Optional(_))) =>
                 {
                     if self.is_subset_eq(u, l) {
                         l_arg = l_args.next();
@@ -86,15 +87,15 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 }
                 (
                     Some(
-                        Param::PosOnly(_, _, Required::Optional)
-                        | Param::Pos(_, _, Required::Optional)
+                        Param::PosOnly(_, _, Required::Optional(_))
+                        | Param::Pos(_, _, Required::Optional(_))
                         | Param::VarArg(_, _),
                     ),
                     None,
                 ) => {
                     l_arg = l_args.next();
                 }
-                (Some(Param::KwOnly(_, _, Required::Optional) | Param::Kwargs(_, _)), None) => {
+                (Some(Param::KwOnly(_, _, Required::Optional(_)) | Param::Kwargs(_, _)), None) => {
                     if u_param_matched_with_l_varargs.is_empty() {
                         l_arg = l_args.next();
                     } else {
@@ -253,7 +254,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         for arg in Option::into_iter(l_arg).chain(l_args) {
             match arg {
                 Param::KwOnly(name, ty, required) | Param::Pos(name, ty, required) => {
-                    l_keywords.insert(name.clone(), (ty.clone(), *required));
+                    l_keywords.insert(name.clone(), (ty.clone(), *required == Required::Required));
                 }
                 Param::Kwargs(_, ty) => l_kwargs = Some(ty.clone()),
                 _ => (),
@@ -264,7 +265,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         for arg in Option::into_iter(u_arg).chain(u_args) {
             match arg {
                 Param::KwOnly(name, ty, required) => {
-                    u_keywords.insert(name.clone(), (ty.clone(), *required));
+                    u_keywords.insert(name.clone(), (ty.clone(), *required == Required::Required));
                 }
                 Param::Kwargs(_, ty) => u_kwargs = Some(ty.clone()),
                 _ => (),
@@ -279,25 +280,25 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             ) => {
                 for (name, ty, required) in self.type_order.typed_dict_kw_param_info(&l_typed_dict)
                 {
-                    l_keywords.insert(name, (ty, required));
+                    l_keywords.insert(name, (ty, required == Required::Required));
                 }
                 for (name, ty, required) in self.type_order.typed_dict_kw_param_info(&u_typed_dict)
                 {
-                    u_keywords.insert(name, (ty, required));
+                    u_keywords.insert(name, (ty, required == Required::Required));
                 }
                 Some(object_type)
             }
             (Some(Type::Unpack(box Type::TypedDict(l_typed_dict))), _) => {
                 for (name, ty, required) in self.type_order.typed_dict_kw_param_info(&l_typed_dict)
                 {
-                    l_keywords.insert(name, (ty, required));
+                    l_keywords.insert(name, (ty, required == Required::Required));
                 }
                 Some(object_type)
             }
             (l_kwargs @ Some(_), Some(Type::Unpack(box Type::TypedDict(u_typed_dict)))) => {
                 for (name, ty, required) in self.type_order.typed_dict_kw_param_info(&u_typed_dict)
                 {
-                    u_keywords.insert(name, (ty, required));
+                    u_keywords.insert(name, (ty, required == Required::Required));
                 }
                 l_kwargs
             }
@@ -318,7 +319,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             if let Some((l_ty, l_req)) = l_keywords.remove(name) {
                 // Matched kw-only param from `l` must be optional, since the argument will not be
                 // present if passed positionally.
-                if l_req != Required::Optional || !self.is_subset_eq(u_ty, &l_ty) {
+                if l_req || !self.is_subset_eq(u_ty, &l_ty) {
                     return false;
                 }
             } else if let Some(l_ty) = &l_kwargs {
@@ -332,9 +333,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         // Handle keyword-only args
         for (name, (u_ty, u_req)) in u_keywords.iter() {
             if let Some((l_ty, l_req)) = l_keywords.remove(name) {
-                if !(*u_req == Required::Required || l_req == Required::Optional)
-                    || !self.is_subset_eq(u_ty, &l_ty)
-                {
+                if (!*u_req && l_req) || !self.is_subset_eq(u_ty, &l_ty) {
                     return false;
                 }
             } else if let Some(l_ty) = &l_kwargs {
@@ -346,7 +345,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
         }
         for (_, l_req) in l_keywords.values() {
-            if *l_req == Required::Required {
+            if *l_req {
                 return false;
             }
         }

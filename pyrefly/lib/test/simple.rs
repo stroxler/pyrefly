@@ -1584,7 +1584,7 @@ def f(x = 1):
     reveal_type(x) # E: revealed type: int | Unknown
     return x
 
-reveal_type(f) # E: revealed type: (x: int | Unknown = ...) -> int | Unknown
+reveal_type(f) # E: revealed type: (x: int | Unknown = 1) -> int | Unknown
 "#,
 );
 

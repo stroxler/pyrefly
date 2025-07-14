@@ -260,7 +260,7 @@ impl ClassField {
         let ClassField(ClassFieldInner::Simple { ty, .. }) = self;
         let param_ty = converter_param.unwrap_or(ty);
         let required = match default {
-            true => Required::Optional,
+            true => Required::Optional(None),
             false => Required::Required,
         };
         if kw_only {
@@ -297,7 +297,7 @@ impl ClassField {
             ClassFieldInner::Simple {
                 initialization: ClassFieldInitialization::ClassBody(_),
                 ..
-            } => Required::Optional,
+            } => Required::Optional(None),
             ClassFieldInner::Simple {
                 initialization:
                     ClassFieldInitialization::Method
