@@ -192,13 +192,44 @@ def f(b: B):
     "#,
 );
 
-// See https://github.com/facebook/pyrefly/issues/622
+// See https://github.com/facebook/pyrefly/issues/622 for an example
+// of when it matters to have reasonable analysis of `type(...)` in
+// base classes; sometimes the runtime semantics require this, particularly
+// dealing with C extensions.
+
 testcase!(
-    bug = "We probably need to be able to handle `type(...)` as a base class.",
-    test_bad_gradual_is_subset_eq,
+    test_type_function_in_base_class_list_v0,
     r#"
-from typing import Generic
-class CustomMetaclass(type(Generic)):  # E: Expected a type form, got instance of `type`
+class A:
     pass
+a = A()
+class B(type(a)):
+    pass
+    "#,
+);
+
+testcase!(
+    bug = "We probably need to be able to handle `type(...)` as a base class better than we do.",
+    test_type_function_in_base_class_list_v1,
+    r#"
+class A:
+    pass
+class B(type(A)):  # E: Expected a type form, got instance of `type`
+    pass
+    "#,
+);
+
+testcase!(
+    bug = "We probably need to be able to handle `type(...)` as a base class better than we do.",
+    test_type_function_in_base_class_list_v2,
+    r#"
+from typing import assert_type, ClassVar
+class M(type):
+    x: ClassVar[int] = 42
+class A(metaclass=M):
+    pass
+class B(type(A)):  # E: Expected a type form, got instance of `type`
+    pass
+assert_type(B.x, int)  # E: assert_type(Any, int)
     "#,
 );
