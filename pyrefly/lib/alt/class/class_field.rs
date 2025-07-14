@@ -692,7 +692,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::BadClassDefinition,
                 None,
-                format!("TypedDict item `{}` may not be initialized", name),
+                format!("TypedDict item `{name}` may not be initialized"),
             );
         }
         if metadata.is_typed_dict()
@@ -707,10 +707,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         ErrorKind::InvalidAnnotation,
                         None,
-                        format!(
-                            "`{}` may not be used for TypedDict or NamedTuple members",
-                            q
-                        ),
+                        format!("`{q}` may not be used for TypedDict or NamedTuple members",),
                     );
                 }
             }
@@ -727,7 +724,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         ErrorKind::InvalidAnnotation,
                         None,
-                        format!("`{}` may only be used for TypedDict members", q),
+                        format!("`{q}` may only be used for TypedDict members"),
                     );
                 }
             }
@@ -793,7 +790,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if direct_annotation.is_some() {
                 self.error(
                     errors, range,ErrorKind::InvalidAnnotation, None,
-                    format!("Enum member `{}` may not be annotated directly. Instead, annotate the `_value_` attribute.", name),
+                    format!("Enum member `{name}` may not be annotated directly. Instead, annotate the `_value_` attribute."),
                 );
             }
             if enum_.has_value
@@ -917,10 +914,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return Some(ReadOnlyReason::NamedTuple);
         }
         // Frozen dataclass fields (not methods) are read-only
-        if let Some(dm) = metadata.dataclass_metadata() {
-            if dm.kws.frozen && dm.fields.contains(name) {
-                return Some(ReadOnlyReason::FrozenDataclass);
-            }
+        if let Some(dm) = metadata.dataclass_metadata()
+            && dm.kws.frozen
+            && dm.fields.contains(name)
+        {
+            return Some(ReadOnlyReason::FrozenDataclass);
         }
         // Default: the field is read-write
         None
@@ -1261,16 +1259,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         for (parent, parent_metadata) in parents {
             parent_has_any = parent_has_any || parent_metadata.has_base_any();
             // Don't allow overriding a namedtuple element
-            if let Some(named_tuple_metadata) = parent_metadata.named_tuple_metadata() {
-                if named_tuple_metadata.elements.contains(name) {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorKind::BadOverride,
-                        None,
-                        format!("Cannot override named tuple element `{}`", name),
-                    );
-                }
+            if let Some(named_tuple_metadata) = parent_metadata.named_tuple_metadata()
+                && named_tuple_metadata.elements.contains(name)
+            {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::BadOverride,
+                    None,
+                    format!("Cannot override named tuple element `{name}`"),
+                );
             }
             let Some(want_member) = self.get_class_member(parent.class_object(), name) else {
                 continue;
