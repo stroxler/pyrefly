@@ -280,13 +280,13 @@ impl Cycle {
     /// Do a post-calculation check, to track progress unwinding the cycle
     /// back toward the `break_at` as we produce final results.
     fn on_calculation_finished(&mut self, current: &CalcId) {
-        if let Some(c) = self.unwind_stack.last() {
-            if current == c {
-                // This is part of the cycle; remove it from the unwind stack.
-                let c = self.unwind_stack.pop().unwrap();
-                // Track what we unwound to make debugging easier.
-                self.unwound.push(c);
-            }
+        if let Some(c) = self.unwind_stack.last()
+            && current == c
+        {
+            // This is part of the cycle; remove it from the unwind stack.
+            let c = self.unwind_stack.pop().unwrap();
+            // Track what we unwound to make debugging easier.
+            self.unwound.push(c);
         }
     }
 }
