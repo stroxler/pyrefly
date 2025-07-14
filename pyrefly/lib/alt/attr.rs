@@ -211,11 +211,11 @@ enum AttributeInner {
     /// for the get and set actions.
     Descriptor(Descriptor),
     /// The attribute being looked up is not defined explicitly, but it may be defined via a
-    /// __getattr__ fallback.
+    /// `__getattr__` or `__getattribute__` fallback.
     /// The `NotFound` field stores the (failed) lookup result on the original attribute for
     /// better error reporting downstream. The `AttributeInner` field stores the (successful)
-    /// lookup result of the `__getattr__` function or method. The `Name` field stores the name
-    /// of the original attribute being looked up.
+    /// lookup result of the `__getattr__`/`__getattribute__` function or method.
+    /// The `Name` field stores the name of the original attribute being looked up.
     GetAttr(NotFound, Box<AttributeInner>, Name),
 }
 
@@ -1438,6 +1438,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase::ClassObject(class) => {
                 let metadata = self.get_metadata_for_class(class);
                 let metaclass = metadata.metaclass().unwrap_or(self.stdlib.builtins_type());
+                if *dunder_name == dunder::GETATTRIBUTE
+                    && self.method_is_inherited_from_object(metaclass, dunder_name)
+                {
+                    return LookupResult::NotFound(NotFound::Attribute(
+                        metaclass.class_object().clone(),
+                    ));
+                }
                 match self.get_instance_attribute(metaclass, dunder_name) {
                     Some(attr) => LookupResult::Found(attr),
                     None => LookupResult::NotFound(NotFound::Attribute(
@@ -1448,12 +1455,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase::ClassInstance(cls)
             | AttributeBase::EnumLiteral(cls, _, _)
             | AttributeBase::TypeVar(_, Some(cls))
-                if (*dunder_name == dunder::SETATTR || *dunder_name == dunder::DELATTR)
+            | AttributeBase::SuperInstance(cls, _)
+                if (*dunder_name == dunder::SETATTR
+                    || *dunder_name == dunder::DELATTR
+                    || *dunder_name == dunder::GETATTRIBUTE)
                     && self.method_is_inherited_from_object(cls, dunder_name) =>
             {
                 LookupResult::NotFound(NotFound::Attribute(cls.class_object().clone()))
             }
-
+            AttributeBase::TypedDict(typed_dict) if *dunder_name == dunder::GETATTRIBUTE => {
+                LookupResult::NotFound(NotFound::Attribute(typed_dict.class_object().clone()))
+            }
             _ => self.lookup_attr_from_attribute_base(base, dunder_name),
         }
     }
@@ -1467,10 +1479,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match direct_lookup_result {
             LookupResult::Found(_) | LookupResult::InternalError(_) => direct_lookup_result,
             LookupResult::NotFound(not_found) => {
-                let getattr_lookup_result = self.lookup_magic_dunder_attr(base, &dunder::GETATTR);
+                let getattr_lookup_result =
+                    self.lookup_magic_dunder_attr(base.clone(), &dunder::GETATTR);
                 match getattr_lookup_result {
                     LookupResult::NotFound(_) | LookupResult::InternalError(_) => {
-                        LookupResult::NotFound(not_found)
+                        // If the `__getattr__` lookup fails, we fall back to `__getattribute__`
+                        // Note: at runtime, `__getattribute__` is checked BEFORE looking up the attribute by name,
+                        // but because the declaration is on `object` and returns `Any`, all attribute accesses
+                        // would return `Any`.
+                        let getattribute_lookup_result =
+                            self.lookup_magic_dunder_attr(base, &dunder::GETATTRIBUTE);
+                        match getattribute_lookup_result {
+                            LookupResult::NotFound(_) | LookupResult::InternalError(_) => {
+                                LookupResult::NotFound(not_found)
+                            }
+                            LookupResult::Found(attr) => LookupResult::Found(Attribute::getattr(
+                                not_found,
+                                attr,
+                                attr_name.clone(),
+                            )),
+                        }
                     }
                     LookupResult::Found(attr) => {
                         LookupResult::Found(Attribute::getattr(not_found, attr, attr_name.clone()))

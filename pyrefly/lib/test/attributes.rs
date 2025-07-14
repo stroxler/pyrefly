@@ -648,6 +648,27 @@ assert_type(A.y, int)
 );
 
 testcase!(
+    test_object_getattribute,
+    r#"
+from typing import *
+class A:
+    def __getattribute__(self, name: str, /) -> int: ...
+    def __setattr__(self, name: str, value: Any, /) -> None: ...
+    def __delattr__(self, name: str, /) -> None: ...
+class B:
+    def __getattribute__(self, name: str, /) -> str: ...
+a = A()
+b = B()
+assert_type(a.x, int)
+assert_type(b.x, str)
+a.x = 1
+del a.x
+b.x = 1  # E: Object of class `B` has no attribute `x`
+del b.x  # E: Object of class `B` has no attribute `x`
+    "#,
+);
+
+testcase!(
     test_object_getattr,
     r#"
 from typing import assert_type
