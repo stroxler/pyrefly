@@ -71,13 +71,12 @@ impl<'de> Deserialize<'de> for ErrorDisplayConfig {
                         serde_json::Value::Bool(false) => Severity::Ignore,
                         serde_json::Value::Bool(true) => key.default_severity(),
                         serde_json::Value::String(s) => {
-                            serde_json::from_str::<Severity>(&format!("\"{}\"", s))
+                            serde_json::from_str::<Severity>(&format!("\"{s}\""))
                                 .map_err(serde::de::Error::custom)?
                         }
                         other => {
                             return Err(serde::de::Error::custom(format!(
-                                "expected string or boolean, found {}",
-                                other
+                                "expected string or boolean, found {other}"
                             )));
                         }
                     };

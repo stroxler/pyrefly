@@ -175,7 +175,7 @@ mod test {
             vec![TestPath::dir(
                 "venv",
                 vec![
-                    TestPath::file(&format!("python3{}", interpreter_suffix)),
+                    TestPath::file(&format!("python3{interpreter_suffix}")),
                     TestPath::file("pyvenv.cfg"),
                 ],
             )],
@@ -242,7 +242,7 @@ mod test {
             ConfigOrigin::auto(
                 tempdir
                     .path()
-                    .join(format!("venv/python3{}", interpreter_suffix))
+                    .join(format!("venv/python3{interpreter_suffix}"))
             )
         );
     }
