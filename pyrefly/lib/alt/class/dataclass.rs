@@ -289,9 +289,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let has_default = field_flags.default;
                 let is_kw_only = field_flags.is_kw_only();
                 if !is_kw_only {
-                    if !has_default && has_seen_default {
-                        if let Some(range) = cls.field_decl_range(&name) {
-                            self.error(
+                    if !has_default
+                        && has_seen_default
+                        && let Some(range) = cls.field_decl_range(&name)
+                    {
+                        self.error(
                                 errors,
                                 range,
                                 error::kind::ErrorKind::BadClassDefinition,
@@ -300,7 +302,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     "Dataclass field `{name}` without a default may not follow dataclass field with a default"
                                 ),
                             );
-                        }
                     }
                     if has_default {
                         has_seen_default = true;
