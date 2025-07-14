@@ -115,7 +115,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::RevealType,
                 None,
-                format!("revealed type: {}", type_info),
+                format!("revealed type: {type_info}"),
             );
         } else {
             self.error(

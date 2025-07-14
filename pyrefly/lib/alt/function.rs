@@ -452,21 +452,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } else {
                 params.first()
             };
-            if let Some(ty_arg) = ty_arg {
-                if !self.is_subset_eq(ty_narrow, ty_arg.param_to_type()) {
-                    // If the narrowed type is not a subtype of the argument type, we report an error.
-                    self.error(
-                        errors,
-                        def.name.range,
-                        ErrorKind::BadFunctionDefinition,
-                        None,
-                        format!(
-                            "Return type `{}` must be assignable to the first argument type `{}`",
-                            self.for_display(*ty_narrow.clone()),
-                            self.for_display(ty_arg.param_to_type().clone())
-                        ),
-                    );
-                }
+            if let Some(ty_arg) = ty_arg
+                && !self.is_subset_eq(ty_narrow, ty_arg.param_to_type())
+            {
+                // If the narrowed type is not a subtype of the argument type, we report an error.
+                self.error(
+                    errors,
+                    def.name.range,
+                    ErrorKind::BadFunctionDefinition,
+                    None,
+                    format!(
+                        "Return type `{}` must be assignable to the first argument type `{}`",
+                        self.for_display(*ty_narrow.clone()),
+                        self.for_display(ty_arg.param_to_type().clone())
+                    ),
+                );
             }
         }
 
