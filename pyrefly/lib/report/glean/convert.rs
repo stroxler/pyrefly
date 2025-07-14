@@ -9,6 +9,7 @@ use pyrefly_util::visit::Visit;
 use ruff_python_ast::Alias;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprCall;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -36,6 +37,7 @@ struct Facts {
     decl_locations: Vec<python::DeclarationLocation>,
     def_locations: Vec<python::DefinitionLocation>,
     import_star_locations: Vec<python::ImportStarLocation>,
+    callee_to_callers: Vec<python::CalleeToCaller>,
 }
 
 fn to_span(range: TextRange) -> src::ByteSpan {
@@ -54,6 +56,7 @@ impl Facts {
             decl_locations: vec![],
             def_locations: vec![],
             import_star_locations: vec![],
+            callee_to_callers: vec![],
         }
     }
 
@@ -203,12 +206,24 @@ impl Facts {
         }
     }
 
+    fn callee_to_caller_facts(&mut self, call: &ExprCall, caller: &StmtFunctionDef) {
+        let caller_fact = python::Name::new(self.make_fq_name(&caller.name.id, None));
+        let callee_name = match call.func.as_ref() {
+            Expr::Attribute(attr) => Some(attr.attr.id()),
+            Expr::Name(expr_name) => Some(expr_name.id()),
+            _ => None,
+        };
+        if let Some(name) = callee_name {
+            let callee_fact = python::Name::new(self.make_fq_name(name, None));
+            self.callee_to_callers
+                .push(python::CalleeToCaller::new(callee_fact, caller_fact));
+        }
+    }
+
     fn generate_facts_from_exprs(&mut self, expr: &Expr, container: Option<&Stmt>) {
-        #[allow(unused_variables)]
         if let Some(call) = expr.as_call_expr() {
             if let Some(caller) = container.and_then(|p| p.as_function_def_stmt()) {
-                //TODO(@rubmary) Add CalleeToCaller predicate
-                let _file = self.file.clone();
+                self.callee_to_caller_facts(call, caller);
             }
         }
         expr.recurse(&mut |s| self.generate_facts_from_exprs(s, container));
@@ -347,6 +362,10 @@ impl Glean {
             GleanEntry::Predicate {
                 predicate: python::ImportStarLocation::GLEAN_name(),
                 facts: facts.import_star_locations.into_iter().map(json).collect(),
+            },
+            GleanEntry::Predicate {
+                predicate: python::CalleeToCaller::GLEAN_name(),
+                facts: facts.callee_to_callers.into_iter().map(json).collect(),
             },
         ];
 
