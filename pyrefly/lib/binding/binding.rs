@@ -1190,7 +1190,7 @@ impl DisplayWith<Bindings> for Binding {
                             0 => "".to_owned(),
                             _ => format!("-{j}"),
                         };
-                        format!("{}:{}", i, end)
+                        format!("{i}:{end}")
                     }
                 };
                 write!(
@@ -1203,7 +1203,7 @@ impl DisplayWith<Bindings> for Binding {
                 )
             }
             Self::Function(x, _pred, _class) => write!(f, "Function({})", ctx.display(*x)),
-            Self::Import(m, n, original_name) => write!(f, "Import({m}, {n}, {:?})", original_name),
+            Self::Import(m, n, original_name) => write!(f, "Import({m}, {n}, {original_name:?})"),
             Self::ClassDef(x, _) => write!(f, "ClassDef({})", ctx.display(*x)),
             Self::Forward(k) => write!(f, "Forward({})", ctx.display(*k)),
             Self::AugAssign(a, s) => write!(f, "AugAssign({}, {})", ann(a), m.display(s)),
@@ -1576,7 +1576,7 @@ impl DisplayWith<Bindings> for BindingClass {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &Bindings) -> fmt::Result {
         match self {
             Self::ClassDef(c) => write!(f, "ClassDef({})", c.def.name),
-            Self::FunctionalClassDef(_, id, _) => write!(f, "FunctionalClassDef({})", id),
+            Self::FunctionalClassDef(_, id, _) => write!(f, "FunctionalClassDef({id})"),
         }
     }
 }
