@@ -102,7 +102,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             let dunders = calls
                 .iter()
-                .map(|(dunder, _, _)| format!("`{}`", dunder))
+                .map(|(dunder, _, _)| format!("`{dunder}`"))
                 .collect::<Vec<_>>()
                 .join(" or ");
             self.error(
