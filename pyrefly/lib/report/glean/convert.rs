@@ -37,6 +37,7 @@ struct Facts {
     decl_locations: Vec<python::DeclarationLocation>,
     def_locations: Vec<python::DefinitionLocation>,
     import_star_locations: Vec<python::ImportStarLocation>,
+    file_calls: Vec<python::FileCall>,
     callee_to_callers: Vec<python::CalleeToCaller>,
 }
 
@@ -56,6 +57,7 @@ impl Facts {
             decl_locations: vec![],
             def_locations: vec![],
             import_star_locations: vec![],
+            file_calls: vec![],
             callee_to_callers: vec![],
         }
     }
@@ -206,6 +208,42 @@ impl Facts {
         }
     }
 
+    fn file_call_facts(&mut self, call: &ExprCall) {
+        let callee_span = to_span(call.func.range());
+        // TODO(@rubmary) Generate `argument` value for CallArgument predicate
+        let mut call_args: Vec<python::CallArgument> = call
+            .arguments
+            .args
+            .iter()
+            .map(|arg| python::CallArgument {
+                label: None,
+                span: to_span(arg.range()),
+                argument: None,
+            })
+            .collect();
+
+        let keyword_args = call
+            .arguments
+            .keywords
+            .iter()
+            .map(|keyword| python::CallArgument {
+                label: keyword
+                    .arg
+                    .as_ref()
+                    .map(|id| python::Name::new(self.make_fq_name(id.id(), None))),
+                span: to_span(keyword.range()),
+                argument: None,
+            });
+
+        call_args.extend(keyword_args);
+
+        self.file_calls.push(python::FileCall::new(
+            self.file.clone(),
+            callee_span,
+            call_args,
+        ));
+    }
+
     fn callee_to_caller_facts(&mut self, call: &ExprCall, caller: &StmtFunctionDef) {
         let caller_fact = python::Name::new(self.make_fq_name(&caller.name.id, None));
         let callee_name = match call.func.as_ref() {
@@ -222,6 +260,7 @@ impl Facts {
 
     fn generate_facts_from_exprs(&mut self, expr: &Expr, container: Option<&Stmt>) {
         if let Some(call) = expr.as_call_expr() {
+            self.file_call_facts(call);
             if let Some(caller) = container.and_then(|p| p.as_function_def_stmt()) {
                 self.callee_to_caller_facts(call, caller);
             }
@@ -362,6 +401,10 @@ impl Glean {
             GleanEntry::Predicate {
                 predicate: python::ImportStarLocation::GLEAN_name(),
                 facts: facts.import_star_locations.into_iter().map(json).collect(),
+            },
+            GleanEntry::Predicate {
+                predicate: python::FileCall::GLEAN_name(),
+                facts: facts.file_calls.into_iter().map(json).collect(),
             },
             GleanEntry::Predicate {
                 predicate: python::CalleeToCaller::GLEAN_name(),
