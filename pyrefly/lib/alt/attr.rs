@@ -1530,17 +1530,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.exports.get(module_name).ok()
     }
 
-    fn get_exported_type(&self, exports: &Exports, from: ModuleName, name: &Name) -> Option<Type> {
-        if exports.exports(self.exports).contains_key(name) {
-            Some(
-                self.get_from_export(from, None, &KeyExport(name.clone()))
-                    .arc_clone(),
-            )
-        } else {
-            None
-        }
-    }
-
     fn get_module_attr(&self, module: &ModuleType, attr_name: &Name) -> Option<Type> {
         // `module_name` could refer to a package, in which case we need to check if
         // `module_name.attr_name`:
@@ -1571,8 +1560,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .is_some()
         {
             Some(submodule.to_type())
+        } else if module_exports.exports(self.exports).contains_key(attr_name) {
+            Some(
+                self.get_from_export(module_name, None, &KeyExport(attr_name.clone()))
+                    .arc_clone(),
+            )
         } else {
-            self.get_exported_type(&module_exports, module_name, attr_name)
+            None
         }
     }
 
