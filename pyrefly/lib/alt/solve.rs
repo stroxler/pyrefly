@@ -99,6 +99,7 @@ use crate::types::param_spec::ParamSpec;
 use crate::types::quantified::Quantified;
 use crate::types::quantified::QuantifiedInfo;
 use crate::types::quantified::QuantifiedKind;
+use crate::types::special_form::SpecialForm;
 use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
 use crate::types::type_var::PreInferenceVariance;
@@ -158,6 +159,30 @@ impl TypeFormContext {
             QuantifiedKind::TypeVar => TypeFormContext::TypeVarDefault,
             QuantifiedKind::ParamSpec => TypeFormContext::ParamSpecDefault,
             QuantifiedKind::TypeVarTuple => TypeFormContext::TypeVarTupleDefault,
+        }
+    }
+
+    /// Is this special form valid as an un-parameterized annotation anywhere?
+    pub fn is_valid_unparameterized_annotation(self, x: SpecialForm) -> bool {
+        match x {
+            SpecialForm::Protocol | SpecialForm::TypedDict => {
+                matches!(self, TypeFormContext::BaseClassList)
+            }
+            SpecialForm::TypeAlias => matches!(
+                self,
+                TypeFormContext::TypeAlias | TypeFormContext::VarAnnotation(Initialized::Yes)
+            ),
+            SpecialForm::Final => matches!(
+                self,
+                TypeFormContext::VarAnnotation(Initialized::Yes)
+                    | TypeFormContext::ClassVarAnnotation
+            ),
+            SpecialForm::LiteralString
+            | SpecialForm::Never
+            | SpecialForm::NoReturn
+            | SpecialForm::Type
+            | SpecialForm::SelfType => true,
+            _ => false,
         }
     }
 }
@@ -520,7 +545,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             _ => {
                 let ann_ty = self.expr_untype(x, type_form_context, errors);
                 if let Type::SpecialForm(special_form) = ann_ty
-                    && !special_form.is_valid_unparameterized_annotation(type_form_context)
+                    && !type_form_context.is_valid_unparameterized_annotation(special_form)
                 {
                     if special_form.can_be_subscripted() {
                         self.error(
@@ -3102,7 +3127,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         if let Type::SpecialForm(special_form) = ty
-            && !special_form.is_valid_unparameterized_annotation(type_form_context)
+            && !type_form_context.is_valid_unparameterized_annotation(special_form)
         {
             if special_form.can_be_subscripted() {
                 self.error(
