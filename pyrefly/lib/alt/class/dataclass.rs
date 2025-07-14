@@ -8,6 +8,7 @@
 use std::sync::Arc;
 
 use pyrefly_python::dunder;
+use ruff_python_ast::Arguments;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
@@ -189,7 +190,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         });
     }
 
-    pub fn dataclass_field_keywords(&self, map: &TypeMap) -> DataclassFieldKeywords {
+    pub fn dataclass_field_keywords(
+        &self,
+        _func: &Type,
+        args: &Arguments,
+        errors: &ErrorCollector,
+    ) -> DataclassFieldKeywords {
+        let mut map = TypeMap::new();
+        for kw in args.keywords.iter() {
+            if let Some(name) = &kw.arg {
+                map.0
+                    .insert(name.id.clone(), self.expr_infer(&kw.value, errors));
+            }
+        }
         let init = map.get_bool(&DataclassFieldKeywords::INIT, true);
         let default = [
             &DataclassFieldKeywords::DEFAULT,
@@ -205,7 +218,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let alias = map
             .get_string(&DataclassFieldKeywords::ALIAS)
             .map(Name::new);
-        let converter_param = self.get_converter_param(map);
+        let converter_param = self.get_converter_param(&map);
         DataclassFieldKeywords {
             init,
             default,

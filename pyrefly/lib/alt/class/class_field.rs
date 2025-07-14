@@ -16,7 +16,6 @@ use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::ResultExt;
-use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::name::Name;
@@ -48,7 +47,6 @@ use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::keywords::DataclassFieldKeywords;
-use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
 use crate::types::literal::LitEnum;
 use crate::types::quantified::Quantified;
@@ -957,7 +955,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         node_index: _,
                         range: _,
                         func,
-                        arguments: Arguments { keywords, .. },
+                        arguments,
                     }) = e
                 {
                     // We already type-checked this expression as part of computing the type for the ClassField,
@@ -968,16 +966,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if let Some(func_kind) = func_kind
                         && dm.field_specifiers.contains(&func_kind)
                     {
-                        let mut map = TypeMap::new();
-                        for kw in keywords {
-                            if let Some(name) = &kw.arg {
-                                map.0.insert(
-                                    name.id.clone(),
-                                    self.expr_infer(&kw.value, &ignore_errors),
-                                );
-                            }
-                        }
-                        let flags = self.dataclass_field_keywords(&map);
+                        let flags =
+                            self.dataclass_field_keywords(&func_ty, arguments, &ignore_errors);
                         ClassFieldInitialization::ClassBody(Some(flags))
                     } else {
                         ClassFieldInitialization::ClassBody(None)
