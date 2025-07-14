@@ -1015,7 +1015,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .into_ty()
             }
             Expr::If(x) => {
-                // TODO: Support type narrowing
                 let condition_type = self.expr_infer(&x.test, errors);
                 let body_type = self.expr_infer_type_no_trace(&x.body, hint, errors);
                 let orelse_type = self.expr_infer_type_no_trace(&x.orelse, hint, errors);
