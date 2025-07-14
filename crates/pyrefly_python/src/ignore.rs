@@ -268,15 +268,15 @@ impl Ignore {
         // We allow an ignore on any line within the range.
         // We convert to/from zero-indexed because LineNumber does not implement Step.
         for line in start_line.to_zero_indexed()..=end_line.to_zero_indexed() {
-            if let Some(suppressions) = self.ignores.get(&LineNumber::from_zero_indexed(line)) {
-                if suppressions.iter().any(|supp| match supp.tool {
+            if let Some(suppressions) = self.ignores.get(&LineNumber::from_zero_indexed(line))
+                && suppressions.iter().any(|supp| match supp.tool {
                     // We only check the subkind if they do `# ignore: pyrefly`
                     Tool::Pyrefly => supp.kind.is_empty() || supp.kind.iter().any(|x| x == kind),
                     Tool::Any => true,
                     _ => permissive_ignores,
-                }) {
-                    return true;
-                }
+                })
+            {
+                return true;
             }
         }
 
