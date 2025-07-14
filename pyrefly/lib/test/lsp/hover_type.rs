@@ -15,7 +15,7 @@ use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
 fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String {
     if let Some(t) = state.transaction().get_type_at(handle, position) {
-        format!("Hover Result: `{}`", t)
+        format!("Hover Result: `{t}`")
     } else {
         "Hover Result: None".to_owned()
     }

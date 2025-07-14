@@ -289,7 +289,7 @@ pub fn extract_cursors_for_test(source: &str) -> Vec<TextSize> {
     for (line_index, line_str) in source.lines().enumerate() {
         for (row_index, _) in line_str.match_indices('^') {
             if prev_line.len() < row_index {
-                panic!("Invalid cursor at {}:{}", line_index, row_index);
+                panic!("Invalid cursor at {line_index}:{row_index}");
             }
             let position = index.offset(
                 SourceLocation {

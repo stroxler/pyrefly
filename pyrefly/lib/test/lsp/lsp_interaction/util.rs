@@ -179,7 +179,7 @@ pub fn run_test_lsp(test_case: TestCase) {
                                 server_response_received_sender.send(id.clone()).unwrap();
                             }
                             Message::Notification(notification) => {
-                                eprintln!("Received notification: {:?}", notification);
+                                eprintln!("Received notification: {notification:?}");
                             }
                             Message::Request(Request {
                                 id,

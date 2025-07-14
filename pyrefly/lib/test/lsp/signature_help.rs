@@ -24,7 +24,7 @@ fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String
     }) = state.transaction().get_signature_help_at(handle, position)
     {
         let active_signature_result = if let Some(active) = active_signature {
-            format!(" active={}", active)
+            format!(" active={active}")
         } else {
             "".to_owned()
         };
@@ -55,7 +55,7 @@ fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String
                             "".to_owned()
                         },
                         if let Some(active) = active_parameter {
-                            format!(", active parameter = {}", active)
+                            format!(", active parameter = {active}")
                         } else {
                             "".to_owned()
                         }
@@ -63,10 +63,7 @@ fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String
                 },
             )
             .join("\n");
-        format!(
-            "Signature Help Result:{}\n{}",
-            active_signature_result, signatures_result
-        )
+        format!("Signature Help Result:{active_signature_result}\n{signatures_result}")
     } else {
         "Signature Help: None".to_owned()
     }
