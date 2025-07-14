@@ -86,7 +86,7 @@ impl Tuple {
                     format!(", {}", commas_iter(|| suffix.iter().map(&wrap)))
                 };
                 let unpacked = format!("*{}", wrap(unpacked));
-                format!("{}{}{}", prefix, unpacked, suffix)
+                format!("{prefix}{unpacked}{suffix}")
             }
         };
         write!(f, "tuple[{contents}]")

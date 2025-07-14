@@ -202,7 +202,7 @@ impl Display for TypeInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.ty().fmt(f)?;
         if let Some(facets) = &self.facets {
-            write!(f, " ({})", facets)?;
+            write!(f, " ({facets})")?;
         }
         Ok(())
     }
