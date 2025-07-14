@@ -229,6 +229,6 @@ class A(metaclass=M):
     pass
 class B(type(A)):
     pass
-assert_type(B.x, int)  # E: Class `B` has no class attribute `x`  # E: assert_type(Any, int)
+assert_type(B.x, int)
     "#,
 );
