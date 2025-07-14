@@ -132,7 +132,7 @@ async fn run_autotype(
     files_to_check: FilteredGlobs,
     config_finder: ConfigFinder,
 ) -> anyhow::Result<CommandExitStatus> {
-    args.run(files_to_check, config_finder, None)
+    args.run(files_to_check, config_finder)
 }
 
 async fn run_check(

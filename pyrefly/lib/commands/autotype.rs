@@ -6,7 +6,6 @@
  */
 
 use std::path::Path;
-use std::path::PathBuf;
 
 use clap::Parser;
 use dupe::Dupe;
@@ -114,7 +113,6 @@ impl Args {
         self,
         files_to_check: FilteredGlobs,
         config_finder: ConfigFinder,
-        search_path: Option<Vec<PathBuf>>,
     ) -> anyhow::Result<CommandExitStatus> {
         let expanded_file_list = checkpoint(files_to_check.files(), &config_finder)?;
         let state = State::new(config_finder);
@@ -200,7 +198,7 @@ mod test {
         let f_globs = FilteredGlobs::new(includes, Globs::new(vec![]));
         let config_finder = t.config_finder();
         let arg = Args::new();
-        let result = arg.run(f_globs, config_finder, None);
+        let result = arg.run(f_globs, config_finder);
         assert!(
             result.is_ok(),
             "autotype command failed: {:?}",
