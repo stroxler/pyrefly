@@ -850,7 +850,7 @@ impl Server {
                 self.validate_in_memory(ide_transaction_manager)?;
             }
             ServerEvent::CancelRequest(id) => {
-                eprintln!("We should cancel request {:?}", id);
+                eprintln!("We should cancel request {id:?}");
                 if let Some(cancellation_handle) = self.cancellation_handles.lock().remove(&id) {
                     cancellation_handle.cancel();
                 }
@@ -1745,7 +1745,7 @@ impl Server {
                     )));
                 }
                 Err(Cancelled) => {
-                    let message = format!("Find reference request {} is canceled", request_id);
+                    let message = format!("Find reference request {request_id} is canceled");
                     eprintln!("{message}");
                     connection.send(Message::Response(Response::new_err(
                         request_id,
@@ -1875,10 +1875,7 @@ impl Server {
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: format!(
-                    "```python\n{}{}\n```{}",
-                    kind_formatted, t, docstring_formatted
-                ),
+                value: format!("```python\n{kind_formatted}{t}\n```{docstring_formatted}",),
             }),
             range: None,
         })
@@ -2358,7 +2355,7 @@ where
             result: None,
             error: Some(ResponseError {
                 code: 0,
-                message: format!("{:#?}", e),
+                message: format!("{e:#?}"),
                 data: None,
             }),
         },

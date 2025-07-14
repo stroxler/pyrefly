@@ -404,12 +404,11 @@ def foo() -> None:
     fn test_no_suppress_generated_files() {
         let file_contents = format!(
             r#"
-{}
+{GENERATED_TOKEN}
 
 def bar() -> None: 
 pass 
     "#,
-            GENERATED_TOKEN
         );
         assert_no_error_suppression(
             vec![(1, 10, ErrorKind::BadAssignment)],
@@ -489,14 +488,13 @@ def f() -> int:
         let lines = SmallSet::from_iter([LineNumber::new(3).unwrap(), LineNumber::new(5).unwrap()]);
         let input = format!(
             r#"
-{}
+{GENERATED_TOKEN}
 def g() -> str:
     return "hello" # pyrefly: ignore # bad-return
 def f() -> int:
     # pyrefly: ignore
     return 1
 "#,
-            GENERATED_TOKEN
         );
         test_remove_suppressions(lines, &input, &input);
     }
