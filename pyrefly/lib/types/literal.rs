@@ -59,12 +59,12 @@ impl Display for Lit {
                 let s = if *x { "True" } else { "False" };
                 write!(f, "{s}")
             }
-            Lit::Bytes(xs) => {
+            Lit::Bytes(bytes) => {
                 write!(f, "b'")?;
-                for x in xs {
-                    match char::from_u32(*x as u32) {
-                        Some(x) => write!(f, "{x}")?,
-                        None => write!(f, "\\x{:02x}", x)?,
+                for byte in bytes {
+                    match char::from_u32(*byte as u32) {
+                        Some(ch) => write!(f, "{ch}")?,
+                        None => write!(f, "\\x{byte:02x}")?,
                     }
                 }
                 write!(f, "'")
