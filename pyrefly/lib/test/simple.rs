@@ -1629,3 +1629,12 @@ def f(x: type[Any]):
     assert_type(x(7, arg=8), Any)
 "#,
 );
+
+testcase!(
+    bug = "PyTorch TODO: should support bool * float",
+    test_bin_op_bool_num,
+    r#"
+def f(x:float, y:bool):
+    return x * y # E:  Argument `bool` is not assignable to parameter `value` with type `float` in function `float.__mul__` 
+"#,
+);
