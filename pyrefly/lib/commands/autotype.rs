@@ -119,11 +119,7 @@ impl Args {
         let expanded_file_list = checkpoint(files_to_check.files(), &config_finder)?;
         let state = State::new(config_finder);
         let holder = Forgetter::new(state, false);
-        let handles = Handles::new(
-            expanded_file_list,
-            search_path.as_deref().unwrap_or_default(),
-            holder.as_ref().config_finder(),
-        );
+        let handles = Handles::new(expanded_file_list, holder.as_ref().config_finder());
         let mut forgetter = Forgetter::new(
             holder.as_ref().new_transaction(Require::Everything, None),
             true,
