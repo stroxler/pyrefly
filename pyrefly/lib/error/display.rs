@@ -20,7 +20,7 @@ impl ErrorContext {
                 format!("Cannot use `{cm}` as a context manager")
             }
             Self::UnaryOp(op, target) => {
-                format!("Unary `{}` is not supported on `{}`", op, target,)
+                format!("Unary `{op}` is not supported on `{target}`")
             }
             Self::BinaryOp(op, left, right) => {
                 let ctx = TypeDisplayContext::new(&[left, right]);
