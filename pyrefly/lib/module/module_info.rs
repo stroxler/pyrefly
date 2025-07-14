@@ -18,8 +18,6 @@ use pyrefly_util::lined_buffer::LinedBuffer;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
-use crate::error::kind::ErrorKind;
-
 pub static GENERATED_TOKEN: &str = concat!("@", "generated");
 
 /// Information about a module, notably its name, path, and contents.
@@ -103,13 +101,13 @@ impl ModuleInfo {
     pub fn is_ignored(
         &self,
         source_range: &DisplayRange,
-        error_kind: ErrorKind,
+        error_kind: &str,
         permissive_ignores: bool,
     ) -> bool {
         self.0.ignore.is_ignored(
             source_range.start.line,
             source_range.end.line,
-            error_kind.to_name(),
+            error_kind,
             permissive_ignores,
         )
     }

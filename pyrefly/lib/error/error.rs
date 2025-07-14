@@ -242,8 +242,11 @@ impl Error {
     }
 
     pub fn is_ignored(&self, permissive_ignores: bool) -> bool {
-        self.module_info
-            .is_ignored(&self.display_range, self.error_kind, permissive_ignores)
+        self.module_info.is_ignored(
+            &self.display_range,
+            self.error_kind.to_name(),
+            permissive_ignores,
+        )
     }
 
     pub fn error_kind(&self) -> ErrorKind {
