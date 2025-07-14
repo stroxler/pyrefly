@@ -553,7 +553,7 @@ impl<'a> BindingsBuilder<'a> {
                             *range,
                             ErrorKind::InvalidSuperCall,
                             None,
-                            format!("`super` takes at most 2 arguments, got {}", nargs),
+                            format!("`super` takes at most 2 arguments, got {nargs}"),
                         );
                     }
                     for arg in posargs {
