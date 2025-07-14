@@ -616,7 +616,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             error(
                 call_errors,
                 arg_range,
-                ErrorKind::BadArgumentType,
+                ErrorKind::BadArgumentCount,
                 format!("Expected {expected}, got {actual}"),
             );
         }

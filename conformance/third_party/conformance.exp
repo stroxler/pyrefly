@@ -511,7 +511,7 @@
       "concise_description": "Expected 2 positional arguments, got 3 in function `typing.NewType.__init__`",
       "description": "Expected 2 positional arguments, got 3 in function `typing.NewType.__init__`",
       "line": 60,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 46,
       "stop_line": 60
     },
@@ -1499,7 +1499,7 @@
       "concise_description": "Expected 2 positional arguments, got 3",
       "description": "Expected 2 positional arguments, got 3",
       "line": 27,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 16,
       "stop_line": 27
     },
@@ -1539,7 +1539,7 @@
       "concise_description": "Expected 0 positional arguments, got 1",
       "description": "Expected 0 positional arguments, got 1",
       "line": 35,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 9,
       "stop_line": 35
     },
@@ -1731,7 +1731,7 @@
       "concise_description": "Expected 0 positional arguments, got 3 in function `func1`",
       "description": "Expected 0 positional arguments, got 3 in function `func1`",
       "line": 52,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 12,
       "stop_line": 52
     },
@@ -2691,7 +2691,7 @@
       "concise_description": "Expected 0 positional arguments, got 1 in function `object.__init__`",
       "description": "Expected 0 positional arguments, got 1 in function `object.__init__`",
       "line": 130,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 10,
       "stop_line": 130
     }
@@ -2807,7 +2807,7 @@
       "concise_description": "Expected 0 positional arguments, got 1 in function `object.__init__`",
       "description": "Expected 0 positional arguments, got 1 in function `object.__init__`",
       "line": 59,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 10,
       "stop_line": 59
     }
@@ -2869,7 +2869,7 @@
       "concise_description": "Expected 0 positional arguments, got 1",
       "description": "Expected 0 positional arguments, got 1",
       "line": 51,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 5,
       "stop_line": 51
     },
@@ -2969,7 +2969,7 @@
       "concise_description": "Expected 0 positional arguments, got 1",
       "description": "Expected 0 positional arguments, got 1",
       "line": 127,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 5,
       "stop_line": 127
     },
@@ -2989,7 +2989,7 @@
       "concise_description": "Expected 0 positional arguments, got 1",
       "description": "Expected 0 positional arguments, got 1",
       "line": 144,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 9,
       "stop_line": 144
     },
@@ -3212,7 +3212,7 @@
       "concise_description": "Expected 1 positional argument, got 2 in function `DC1.__init__`",
       "description": "Expected 1 positional argument, got 2 in function `DC1.__init__`",
       "line": 23,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 12,
       "stop_line": 23
     },
@@ -3222,7 +3222,7 @@
       "concise_description": "Expected 1 positional argument, got 2 in function `DC2.__init__`",
       "description": "Expected 1 positional argument, got 2 in function `DC2.__init__`",
       "line": 38,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 12,
       "stop_line": 38
     },
@@ -3232,7 +3232,7 @@
       "concise_description": "Expected 1 positional argument, got 2 in function `DC3.__init__`",
       "description": "Expected 1 positional argument, got 2 in function `DC3.__init__`",
       "line": 53,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 12,
       "stop_line": 53
     },
@@ -3410,7 +3410,7 @@
       "concise_description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
       "description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
       "line": 66,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 19,
       "stop_line": 66
     },
@@ -3440,7 +3440,7 @@
       "concise_description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
       "description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
       "line": 82,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 19,
       "stop_line": 82
     },
@@ -3594,7 +3594,7 @@
       "concise_description": "Expected 0 positional arguments, got 1 in function `CustomerModel2.__init__`",
       "description": "Expected 0 positional arguments, got 1 in function `CustomerModel2.__init__`",
       "line": 75,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 17,
       "stop_line": 75
     },
@@ -3666,7 +3666,7 @@
       "concise_description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
       "description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
       "line": 71,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 19,
       "stop_line": 71
     },
@@ -3738,7 +3738,7 @@
       "concise_description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
       "description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
       "line": 66,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 19,
       "stop_line": 66
     },
@@ -3768,7 +3768,7 @@
       "concise_description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
       "description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
       "line": 83,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 19,
       "stop_line": 83
     },
@@ -3810,7 +3810,7 @@
       "concise_description": "Expected 3 positional arguments, got 4 in function `InventoryItem.__init__`",
       "description": "Expected 3 positional arguments, got 4 in function `InventoryItem.__init__`",
       "line": 52,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 37,
       "stop_line": 52
     },
@@ -3850,7 +3850,7 @@
       "concise_description": "Expected 1 positional argument, got 2 in function `DC4.__init__`",
       "description": "Expected 1 positional argument, got 2 in function `DC4.__init__`",
       "line": 83,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 14,
       "stop_line": 83
     },
@@ -3870,7 +3870,7 @@
       "concise_description": "Expected 1 positional argument, got 2 in function `DC7.__init__`",
       "description": "Expected 1 positional argument, got 2 in function `DC7.__init__`",
       "line": 127,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 9,
       "stop_line": 127
     },
@@ -3890,7 +3890,7 @@
       "concise_description": "Expected 0 positional arguments, got 1 in function `object.__init__`",
       "description": "Expected 0 positional arguments, got 1 in function `object.__init__`",
       "line": 179,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 7,
       "stop_line": 179
     }
@@ -5214,7 +5214,7 @@
       "concise_description": "Expected 0 positional arguments, got 1",
       "description": "Expected 0 positional arguments, got 1",
       "line": 51,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 12,
       "stop_line": 51
     },
@@ -7291,7 +7291,7 @@
       "concise_description": "Expected 4 positional arguments, got 5 in function `Point.__new__`",
       "description": "Expected 4 positional arguments, got 5 in function `Point.__new__`",
       "line": 48,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 24,
       "stop_line": 48
     },
@@ -7383,7 +7383,7 @@
       "concise_description": "Expected 3 positional arguments, got 4 in function `Point3.__new__`",
       "description": "Expected 3 positional arguments, got 4 in function `Point3.__new__`",
       "line": 26,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 22,
       "stop_line": 26
     },
@@ -7423,7 +7423,7 @@
       "concise_description": "Expected 3 positional arguments, got 4 in function `Point5.__new__`",
       "description": "Expected 3 positional arguments, got 4 in function `Point5.__new__`",
       "line": 37,
-      "name": "bad-argument-type",
+      "name": "bad-argument-count",
       "stop_column": 22,
       "stop_line": 37
     },
