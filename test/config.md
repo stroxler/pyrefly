@@ -51,7 +51,7 @@ ERROR */pyrefly.toml: TOML parse error* (glob)
   |
 1 | oops oops
   |      ^
-expected * (glob)
+key with no value* (glob)
 
 Fatal configuration error
 [1]
@@ -67,7 +67,7 @@ ERROR */pyrefly.toml: TOML parse error* (glob)
   |
 1 | oops oops
   |      ^
-expected * (glob)
+key with no value* (glob)
 
 Fatal configuration error
 [1]
@@ -84,7 +84,7 @@ ERROR */pyrefly.toml: TOML parse error* (glob)
   |
 1 | oops oops
   |      ^
-expected * (glob)
+key with no value* (glob)
 
 Fatal configuration error
 [1]
@@ -100,7 +100,7 @@ ERROR */pyrefly.toml: TOML parse error* (glob)
   |
 1 | oops oops
   |      ^
-expected * (glob)
+key with no value* (glob)
 
 Fatal configuration error
 [1]
