@@ -211,10 +211,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         elements: self.get_named_tuple_elements(cls, errors)
                                     })
                                 }
-                            } else if let Some(base_named_tuple) = base_class_metadata.named_tuple_metadata() {
-                                if named_tuple_metadata.is_none() {
+                            } else if let Some(base_named_tuple) = base_class_metadata.named_tuple_metadata() &&
+                                named_tuple_metadata.is_none() {
                                     named_tuple_metadata = Some(base_named_tuple.clone());
-                                }
                             }
                             if let Some(proto) = &mut protocol_metadata {
                                 if let Some(base_proto) = base_class_metadata.protocol_metadata() {
