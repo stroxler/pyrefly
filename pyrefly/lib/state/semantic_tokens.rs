@@ -98,20 +98,21 @@ impl SemanticTokensLegends {
         for token in tokens {
             let source_range = module_info.display_range(token.range);
             let length = token.range.len().to_u32();
+            if length == 0 {
+                continue;
+            }
             let current_line = source_range.start.line.to_zero_indexed();
             let current_col = source_range.start.column.get() - 1;
-            let (delta_line, delta_start) = if previous_line == current_line {
-                let delta_start = current_col - previous_col;
-                if delta_start == 0 {
-                    continue;
-                }
-                previous_col = current_col;
-                (0, delta_start)
-            } else {
+            let (delta_line, delta_start) = {
                 let delta_line = current_line - previous_line;
+                let delta_start = if previous_line == current_line {
+                    current_col - previous_col
+                } else {
+                    current_col
+                };
                 previous_line = current_line;
                 previous_col = current_col;
-                (delta_line, current_col)
+                (delta_line, delta_start)
             };
             let token_type = *self.token_types_index.get(&token.token_type).unwrap();
             let mut token_modifiers_bitset = 0;
@@ -127,6 +128,9 @@ impl SemanticTokensLegends {
                 token_modifiers_bitset,
             });
         }
+        lsp_semantic_tokens.dedup_by(|current, previous| {
+            current.delta_line == 0 && current.delta_start == 0 && current.length == previous.length
+        });
         lsp_semantic_tokens
     }
 

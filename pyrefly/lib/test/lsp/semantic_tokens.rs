@@ -429,12 +429,14 @@ token-type: parameter"#,
 }
 
 #[test]
-fn binding_first_line() {
+fn assignment_first_line() {
     let code = r#"foo = 3"#;
     assert_full_semantic_tokens(
         &[("main", code)],
         r#"
 # main.py
+line: 0, column: 0, length: 3, text: foo
+token-type: variable
 "#,
     );
 }
