@@ -767,8 +767,7 @@ impl<'a> BindingsBuilder<'a> {
                         ErrorKind::InvalidArgument,
                         None,
                         format!(
-                            "Too many defaults values: expected up to {}, got {}",
-                            n_members, n_defaults
+                            "Too many defaults values: expected up to {n_members}, got {n_defaults}",
                         ),
                     );
                     let n_to_drop = n_defaults - n_members;
@@ -987,7 +986,7 @@ impl<'a> BindingsBuilder<'a> {
                     arg.range(),
                     ErrorKind::InvalidArgument,
                     None,
-                    format!("Expected string literal \"{}\"", name),
+                    format!("Expected string literal \"{name}\""),
                 );
             }
         } else {
@@ -995,7 +994,7 @@ impl<'a> BindingsBuilder<'a> {
                 arg.range(),
                 ErrorKind::InvalidArgument,
                 None,
-                format!("Expected string literal \"{}\"", name),
+                format!("Expected string literal \"{name}\""),
             );
         }
     }
