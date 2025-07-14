@@ -72,10 +72,10 @@ fn format_hints(
         }
         match kind {
             AnnotationKind::Parameter => {
-                qualified_hints.push((position, format!(": {}", formatted_hint)));
+                qualified_hints.push((position, format!(": {formatted_hint}")));
             }
             AnnotationKind::Return => {
-                qualified_hints.push((position, format!(" -> {}", formatted_hint)));
+                qualified_hints.push((position, format!(" -> {formatted_hint}")));
             }
         }
     }

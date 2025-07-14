@@ -94,7 +94,7 @@ fn write_output_to_file(path: &Path, legacy_errors: &LegacyErrors) -> anyhow::Re
 
 fn write_output_to_stdout(legacy_errors: &LegacyErrors) -> anyhow::Result<()> {
     let contents = serde_json::to_string_pretty(legacy_errors)?;
-    println!("{}", contents);
+    println!("{contents}");
     Ok(())
 }
 
