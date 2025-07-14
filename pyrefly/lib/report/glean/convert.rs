@@ -7,6 +7,7 @@
 
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Alias;
+use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
@@ -202,24 +203,91 @@ impl Facts {
         }
     }
 
-    fn generate_facts(&mut self, stmt: &Stmt) {
+    fn generate_facts_from_exprs(&mut self, expr: &Expr, container: Option<&Stmt>) {
+        #[allow(unused_variables)]
+        if let Some(call) = expr.as_call_expr() {
+            if let Some(caller) = container.and_then(|p| p.as_function_def_stmt()) {
+                //TODO(@rubmary) Add CalleeToCaller predicate
+                let _file = self.file.clone();
+            }
+        }
+        expr.recurse(&mut |s| self.generate_facts_from_exprs(s, container));
+    }
+
+    fn visit_exprs(&mut self, node: &impl Visit<Expr>, container: Option<&Stmt>) {
+        node.visit(&mut |expr| self.generate_facts_from_exprs(expr, container));
+    }
+
+    fn generate_facts(&mut self, stmt: &Stmt, container: Option<&Stmt>) {
+        let mut new_container = container;
         match stmt {
-            Stmt::ClassDef(cls) => self.class_facts(cls),
-            Stmt::FunctionDef(func) => self.function_facts(func),
+            Stmt::ClassDef(cls) => {
+                self.class_facts(cls);
+                self.visit_exprs(&cls.decorator_list, container);
+                self.visit_exprs(&cls.type_params, container);
+                self.visit_exprs(&cls.arguments, container);
+                new_container = Some(stmt);
+            }
+            Stmt::FunctionDef(func) => {
+                self.function_facts(func);
+                self.visit_exprs(&func.decorator_list, container);
+                self.visit_exprs(&func.type_params, container);
+                self.visit_exprs(&func.parameters, container);
+                self.visit_exprs(&func.returns, container);
+                new_container = Some(stmt);
+            }
             Stmt::Assign(assign) => {
                 assign
                     .targets
                     .visit(&mut |target| self.variable_facts(target, None));
+                self.visit_exprs(&assign.value, container);
             }
             Stmt::AnnAssign(assign) => {
-                self.variable_facts(&assign.target, Some(&assign.annotation))
+                self.variable_facts(&assign.target, Some(&assign.annotation));
+                self.visit_exprs(&assign.annotation, container);
+                self.visit_exprs(&assign.value, container);
             }
-            Stmt::AugAssign(assign) => self.variable_facts(&assign.target, None),
+            Stmt::AugAssign(assign) => {
+                self.variable_facts(&assign.target, None);
+                self.visit_exprs(&assign.value, container);
+            }
             Stmt::Import(import) => self.import_facts(&import.names, &None),
             Stmt::ImportFrom(import) => self.import_facts(&import.names, &import.module),
-            _ => {}
+            Stmt::For(stmt_for) => {
+                stmt_for
+                    .target
+                    .visit(&mut |target| self.variable_facts(target, None));
+                self.visit_exprs(&stmt_for.iter, container);
+            }
+            Stmt::While(stmt_while) => self.visit_exprs(&stmt_while.test, container),
+            Stmt::If(stmt_if) => {
+                self.visit_exprs(&stmt_if.test, container);
+                for x in &stmt_if.elif_else_clauses {
+                    self.visit_exprs(&x.test, container);
+                }
+            }
+            Stmt::With(stmt_with) => {
+                for item in &stmt_with.items {
+                    self.visit_exprs(&item.context_expr, container);
+                    item.optional_vars
+                        .visit(&mut |target| self.variable_facts(target, None));
+                }
+            }
+            Stmt::Match(stmt_match) => {
+                self.visit_exprs(&stmt_match.subject, container);
+                for x in &stmt_match.cases {
+                    self.visit_exprs(&x.guard, container);
+                    self.visit_exprs(&x.pattern, container);
+                }
+            }
+            Stmt::Try(stmt_try) => {
+                stmt_try.handlers.iter().for_each(|x| match x {
+                    ExceptHandler::ExceptHandler(x) => self.visit_exprs(&x.type_, container),
+                });
+            }
+            _ => self.visit_exprs(stmt, container),
         }
-        stmt.recurse(&mut |x| self.generate_facts(x));
+        stmt.recurse(&mut |x| self.generate_facts(x, new_container));
     }
 }
 
@@ -244,7 +312,7 @@ impl Glean {
         facts.module_facts(&module_fact, ast.range);
 
         ast.body
-            .visit(&mut |stmt: &Stmt| facts.generate_facts(stmt));
+            .visit(&mut |stmt: &Stmt| facts.generate_facts(stmt, None));
 
         let digest = digest::Digest {
             hash: hash(module_info.contents().as_bytes()),

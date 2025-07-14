@@ -5,17 +5,25 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use ruff_python_ast::Arguments;
+use ruff_python_ast::Decorator;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprFString;
 use ruff_python_ast::FStringPart;
 use ruff_python_ast::InterpolatedStringElement;
 use ruff_python_ast::ModModule;
+use ruff_python_ast::Parameters;
 use ruff_python_ast::Pattern;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::TStringPart;
+use ruff_python_ast::TypeParams;
 use ruff_python_ast::visitor::source_order::SourceOrderVisitor;
+use ruff_python_ast::visitor::source_order::walk_arguments;
+use ruff_python_ast::visitor::source_order::walk_parameters;
+use ruff_python_ast::visitor::source_order::walk_pattern;
 use ruff_python_ast::visitor::source_order::walk_stmt;
+use ruff_python_ast::visitor::source_order::walk_type_params;
 
 use crate::visit::Visit;
 use crate::visit::VisitMut;
@@ -360,5 +368,59 @@ impl Visit for Pattern {
                 x.patterns.iter().for_each(f);
             }
         }
+    }
+}
+
+impl Visit<Expr> for Decorator {
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Expr)) {
+        self.expression.recurse(f);
+    }
+}
+
+impl Visit<Expr> for Arguments {
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Expr)) {
+        struct X<T>(T);
+        impl<'a, T: FnMut(&'a Expr)> SourceOrderVisitor<'a> for X<T> {
+            fn visit_expr(&mut self, x: &'a Expr) {
+                self.0(x);
+            }
+        }
+        walk_arguments(&mut X(f), self);
+    }
+}
+
+impl Visit<Expr> for Parameters {
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Expr)) {
+        struct X<T>(T);
+        impl<'a, T: FnMut(&'a Expr)> SourceOrderVisitor<'a> for X<T> {
+            fn visit_expr(&mut self, x: &'a Expr) {
+                self.0(x);
+            }
+        }
+        walk_parameters(&mut X(f), self);
+    }
+}
+
+impl Visit<Expr> for TypeParams {
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Expr)) {
+        struct X<T>(T);
+        impl<'a, T: FnMut(&'a Expr)> SourceOrderVisitor<'a> for X<T> {
+            fn visit_expr(&mut self, x: &'a Expr) {
+                self.0(x);
+            }
+        }
+        walk_type_params(&mut X(f), self);
+    }
+}
+
+impl Visit<Expr> for Pattern {
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Expr)) {
+        struct X<T>(T);
+        impl<'a, T: FnMut(&'a Expr)> SourceOrderVisitor<'a> for X<T> {
+            fn visit_expr(&mut self, x: &'a Expr) {
+                self.0(x);
+            }
+        }
+        walk_pattern(&mut X(f), self);
     }
 }
