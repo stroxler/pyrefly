@@ -1071,7 +1071,7 @@ impl Type {
 
     /// Apply `f` to this type if it is a callable. Note that we do *not* recurse into the type to
     /// find nested callable types.
-    fn visit_toplevel_callable(&self, mut f: impl FnMut(&Callable)) {
+    fn visit_toplevel_callable<'a>(&'a self, mut f: impl FnMut(&'a Callable)) {
         match self {
             Type::Callable(callable) => f(callable),
             Type::Function(box func)
@@ -1174,12 +1174,9 @@ impl Type {
         }
     }
 
-    pub fn callable_signatures(&self) -> Vec<Callable> {
+    pub fn callable_signatures(&self) -> Vec<&Callable> {
         let mut sigs = Vec::new();
-        let mut get_sig = |sig: &Callable| {
-            sigs.push(sig.clone());
-        };
-        self.visit_toplevel_callable(&mut get_sig);
+        self.visit_toplevel_callable(&mut |sig| sigs.push(sig));
         sigs
     }
 
