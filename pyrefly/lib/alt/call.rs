@@ -642,19 +642,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     context,
                 )
             }
-            Target::FunctionOverload(overloads, meta) => self.call_overloads(
-                overloads, meta, None, args, keywords, range, errors, context,
-            ),
-            Target::BoundMethodOverload(obj, overloads, meta) => self.call_overloads(
-                overloads,
-                meta,
-                Some(CallArg::ty(&obj, range)),
-                args,
-                keywords,
-                range,
-                errors,
-                context,
-            ),
+            Target::FunctionOverload(overloads, meta) => {
+                self.call_overloads(
+                    overloads, meta, None, args, keywords, range, errors, context,
+                )
+                .0
+            }
+            Target::BoundMethodOverload(obj, overloads, meta) => {
+                self.call_overloads(
+                    overloads,
+                    meta,
+                    Some(CallArg::ty(&obj, range)),
+                    args,
+                    keywords,
+                    range,
+                    errors,
+                    context,
+                )
+                .0
+            }
             Target::Union(targets) => {
                 let call = CallWithTypes::new();
                 self.unions(targets.into_map(|t| {
@@ -702,7 +708,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn call_overloads(
+    /// Calls an overloaded function, returning the return type and the closest matching overload signature.
+    pub fn call_overloads(
         &self,
         overloads: Vec1<Callable>,
         metadata: FuncMetadata,
@@ -712,7 +719,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
-    ) -> Type {
+    ) -> (Type, Callable) {
         // There may be Expr values in self_arg, args and keywords.
         // If we infer them for each overload, we may end up infering them multiple times.
         // If those overloads contain nested overloads, then we can easily end up with O(2^n) perf.
@@ -759,7 +766,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // empty, as parameter types from the overload signature may be used as hints when
                 // evaluating arguments, producing arg_errors for some overloads but not others.
                 // See test::overload::test_pass_generic_class_to_overload for an example.
-                return res;
+                return (res, callable.clone());
             }
             let called_overload = CalledOverload {
                 signature: callable.clone(),
@@ -797,7 +804,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             //
             // the call to f should match the first overload, even though `1 + "2"` generates an
             // arg error for both overloads.
-            closest_overload.return_type
+            (closest_overload.return_type, closest_overload.signature)
         } else {
             let mut msg = vec1![
                 format!(
@@ -825,7 +832,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // there's a high likelihood that the "closest" one by our heuristic isn't the right
             // one, in which case the call errors are just noise.
             errors.add(range, ErrorKind::NoMatchingOverload, context, msg);
-            Type::any_error()
+            (Type::any_error(), closest_overload.signature)
         }
     }
 
