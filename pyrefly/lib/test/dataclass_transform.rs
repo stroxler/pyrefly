@@ -197,7 +197,6 @@ C(y='hello world')  # E: Missing argument `x`
 );
 
 testcase!(
-    bug = "`x` should be kw-only",
     test_field_default,
     r#"
 from typing import dataclass_transform, Any
@@ -208,7 +207,7 @@ def build(x): ...
 class C:
     x: int = field()
 C(x=0)
-C(0)  # Should be an error
+C(0)  # E: Missing argument `x`  # E: Expected 0 positional arguments
     "#,
 );
 

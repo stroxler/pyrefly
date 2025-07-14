@@ -3571,16 +3571,6 @@
     {
       "code": -2,
       "column": 15,
-      "concise_description": "Missing argument `id` in function `CustomerModel2.__init__`",
-      "description": "Missing argument `id` in function `CustomerModel2.__init__`",
-      "line": 75,
-      "name": "missing-argument",
-      "stop_column": 18,
-      "stop_line": 75
-    },
-    {
-      "code": -2,
-      "column": 15,
       "concise_description": "Missing argument `name` in function `CustomerModel2.__init__`",
       "description": "Missing argument `name` in function `CustomerModel2.__init__`",
       "line": 75,
@@ -3597,16 +3587,6 @@
       "name": "bad-argument-count",
       "stop_column": 17,
       "stop_line": 75
-    },
-    {
-      "code": -2,
-      "column": 15,
-      "concise_description": "Missing argument `id` in function `CustomerModel2.__init__`",
-      "description": "Missing argument `id` in function `CustomerModel2.__init__`",
-      "line": 77,
-      "name": "missing-argument",
-      "stop_column": 28,
-      "stop_line": 77
     }
   ],
   "dataclasses_transform_func.py": [

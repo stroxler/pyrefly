@@ -1174,6 +1174,15 @@ impl Type {
         }
     }
 
+    pub fn callable_signatures(&self) -> Vec<Callable> {
+        let mut sigs = Vec::new();
+        let mut get_sig = |sig: &Callable| {
+            sigs.push(sig.clone());
+        };
+        self.visit_toplevel_callable(&mut get_sig);
+        sigs
+    }
+
     pub fn promote_literals(self, stdlib: &Stdlib) -> Type {
         self.transform(&mut |ty| match &ty {
             Type::Literal(lit) => *ty = lit.general_class_type(stdlib).clone().to_type(),

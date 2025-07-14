@@ -32,6 +32,7 @@ use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
+use crate::types::callable::Params;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
@@ -192,7 +193,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn dataclass_field_keywords(
         &self,
-        _func: &Type,
+        func: &Type,
         args: &Arguments,
         errors: &ErrorCollector,
     ) -> DataclassFieldKeywords {
@@ -203,7 +204,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .insert(name.id.clone(), self.expr_infer(&kw.value, errors));
             }
         }
-        let init = map.get_bool(&DataclassFieldKeywords::INIT).unwrap_or(true);
+        let mut init = map.get_bool(&DataclassFieldKeywords::INIT);
         let default = [
             &DataclassFieldKeywords::DEFAULT,
             &DataclassFieldKeywords::DEFAULT_FACTORY,
@@ -211,20 +212,95 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ]
         .iter()
         .any(|k| map.0.contains_key(*k));
-        let kw_only = map.get_bool(&DataclassFieldKeywords::KW_ONLY);
-        let alias = map
+        let mut kw_only = map.get_bool(&DataclassFieldKeywords::KW_ONLY);
+        let mut alias = map
             .get_string(&DataclassFieldKeywords::ALIAS)
             .map(Name::new);
-        let converter_param = map
+        let mut converter_param = map
             .0
             .get(&DataclassFieldKeywords::CONVERTER)
             .map(|converter| self.get_converter_param(converter));
+        // Note that we intentionally don't try to fill in `default`, since we can't distinguish
+        // between a real default and something like `dataclasses.MISSING`.
+        if init.is_none() || kw_only.is_none() || alias.is_none() || converter_param.is_none() {
+            self.fill_in_field_keywords_from_function_signature(
+                func,
+                &mut init,
+                &mut kw_only,
+                &mut alias,
+                &mut converter_param,
+            );
+        }
         DataclassFieldKeywords {
-            init,
+            init: init.unwrap_or(true),
             default,
             kw_only,
             alias,
             converter_param,
+        }
+    }
+
+    /// Fill in keyword values from the function signature of a dataclass field specifier.
+    fn fill_in_field_keywords_from_function_signature(
+        &self,
+        func: &Type,
+        init: &mut Option<bool>,
+        kw_only: &mut Option<bool>,
+        alias: &mut Option<Name>,
+        converter_param: &mut Option<Type>,
+    ) {
+        let sigs = func.callable_signatures();
+        if sigs.len() != 1 {
+            return;
+        }
+        let sig = &sigs[0];
+        if let Params::List(params) = &sig.params {
+            for param in params.items() {
+                // Look for a parameter that can be called by name, to attempt to read a default value for a keyword argument.
+                let (name, ty, default_ty) = match param {
+                    Param::Pos(name, ty, Required::Required)
+                    | Param::KwOnly(name, ty, Required::Required) => (name, ty, None),
+                    Param::Pos(name, ty, Required::Optional(default))
+                    | Param::KwOnly(name, ty, Required::Optional(default)) => {
+                        (name, ty, default.as_ref())
+                    }
+                    _ => continue,
+                };
+                if name == &DataclassFieldKeywords::INIT {
+                    self.fill_in_literal(init, ty, default_ty, |ty| ty.as_bool());
+                }
+                if name == &DataclassFieldKeywords::KW_ONLY {
+                    self.fill_in_literal(kw_only, ty, default_ty, |ty| ty.as_bool());
+                }
+                if alias.is_none() && name == &DataclassFieldKeywords::ALIAS {
+                    self.fill_in_literal(alias, ty, default_ty, |ty| match ty {
+                        Type::Literal(Lit::Str(s)) => Some(Name::new(s)),
+                        _ => None,
+                    });
+                }
+                if converter_param.is_none() && name == &DataclassFieldKeywords::CONVERTER {
+                    *converter_param = Some(self.get_converter_param(ty));
+                }
+            }
+        }
+    }
+
+    /// Fills in a keyword with a literal value from a parameter type and default, if possible.
+    fn fill_in_literal<T>(
+        &self,
+        keyword: &mut Option<T>,
+        ty: &Type,
+        default: Option<&Type>,
+        type_to_literal: impl Fn(&Type) -> Option<T>,
+    ) {
+        if keyword.is_none() {
+            if let Some(lit) = type_to_literal(ty) {
+                *keyword = Some(lit);
+            } else if let Some(default) = default
+                && let Some(lit) = type_to_literal(default)
+            {
+                *keyword = Some(lit);
+            }
         }
     }
 
