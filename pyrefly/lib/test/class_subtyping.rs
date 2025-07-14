@@ -209,12 +209,11 @@ class B(type(a)):
 );
 
 testcase!(
-    bug = "We probably need to be able to handle `type(...)` as a base class better than we do.",
     test_type_function_in_base_class_list_v1,
     r#"
 class A:
     pass
-class B(type(A)):  # E: Expected a type form, got instance of `type`
+class B(type(A)):
     pass
     "#,
 );
@@ -228,8 +227,8 @@ class M(type):
     x: ClassVar[int] = 42
 class A(metaclass=M):
     pass
-class B(type(A)):  # E: Expected a type form, got instance of `type`
+class B(type(A)):
     pass
-assert_type(B.x, int)  # E: assert_type(Any, int)
+assert_type(B.x, int)  # E: Class `B` has no class attribute `x`  # E: assert_type(Any, int)
     "#,
 );

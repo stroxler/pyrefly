@@ -2983,6 +2983,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::TypeAlias(ta) => self.type_of(ta.as_type()),
             Type::Any(style) => Type::type_form(style.propagate()),
+            Type::ClassDef(_) => Type::ClassDef(self.stdlib.builtins_type().class_object().clone()),
             _ => self.stdlib.builtins_type().clone().to_type(),
         }
     }
