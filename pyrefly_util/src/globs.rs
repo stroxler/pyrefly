@@ -115,10 +115,10 @@ impl Glob {
         }
 
         // Check if it's a dot file
-        if let Some(file_name) = path.file_name().and_then(OsStr::to_str) {
-            if file_name.starts_with('.') {
-                return false;
-            }
+        if let Some(file_name) = path.file_name().and_then(OsStr::to_str)
+            && file_name.starts_with('.')
+        {
+            return false;
         }
 
         true
@@ -439,8 +439,7 @@ mod tests {
             assert_eq!(
                 globs.roots(),
                 vec![PathBuf::from(root)],
-                "Glob parsing failed for pattern {}",
-                pattern
+                "Glob parsing failed for pattern {pattern}",
             );
         }
 
@@ -530,7 +529,7 @@ mod tests {
                 .into_iter()
                 .map(|g| g.0)
                 .collect();
-            assert_eq!(globs, expected, "with root {:?}", root);
+            assert_eq!(globs, expected, "with root {root:?}");
         };
 
         f(
@@ -933,9 +932,7 @@ mod tests {
                 .unwrap_or_else(|_| Vec::new());
             assert!(
                 found_files.is_empty(),
-                "{} should be excluded, found: {:?}",
-                description,
-                found_files
+                "{description} should be excluded, found: {found_files:?}",
             );
         };
 
@@ -960,8 +957,7 @@ mod tests {
             if let Some(file_name) = file.file_name().and_then(|n| n.to_str()) {
                 assert!(
                     !file_name.starts_with('.'),
-                    "Found dot file in results: {:?}",
-                    file
+                    "Found dot file in results: {file:?}",
                 );
             }
         }
