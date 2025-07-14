@@ -501,7 +501,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         todo_ctx: &str,
     ) -> Type {
         let bases = self.get_possible_attribute_bases(base);
-        let mut results = Vec::new();
+        let mut results = Vec::with_capacity(bases.len());
         for attr_base in bases {
             let lookup_result = attr_base.map_or_else(
                 || LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone())),
