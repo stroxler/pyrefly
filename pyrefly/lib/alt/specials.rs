@@ -139,7 +139,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         value.range(),
                         ErrorKind::BadUnpacking,
                         None,
-                        format!("Expected a tuple or `TypeVarTuple`, got `{}`", ty),
+                        format!("Expected a tuple or `TypeVarTuple`, got `{ty}`"),
                     );
                     return None;
                 }
@@ -364,8 +364,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ErrorKind::BadSpecialization,
                             None,
                             format!(
-                                "Expected a `ParamSpec` for the second argument of `Concatenate`, got {}",
-                                pspec
+                                "Expected a `ParamSpec` for the second argument of `Concatenate`, got {pspec}",
                             ),
                         );
                     }
@@ -520,7 +519,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                format!("`{}` may not be subscripted", special_form),
+                format!("`{special_form}` may not be subscripted"),
             ),
             SpecialForm::ClassVar
             | SpecialForm::Final
@@ -534,7 +533,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                format!("`{}` is not allowed in this context", special_form),
+                format!("`{special_form}` is not allowed in this context"),
             ),
         }
     }

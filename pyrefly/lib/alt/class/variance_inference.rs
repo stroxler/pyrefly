@@ -62,7 +62,7 @@ impl Display for VarianceMap {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{{")?;
         for (key, value) in self.0.iter() {
-            write!(f, "{}: {}, ", key, value)?;
+            write!(f, "{key}: {value}, ")?;
         }
         write!(f, "}}")
     }
@@ -384,10 +384,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         (Variance::Invariant, _) => Variance::Invariant,
                     },
                     Some(&res) => res,
-                    None => panic!(
-                        "Impossible. Class name {} must be present in variance map",
-                        name
-                    ),
+                    None => {
+                        panic!("Impossible. Class name {name} must be present in variance map",)
+                    }
                 };
                 map.insert(name.clone(), inferred_variance);
             }
