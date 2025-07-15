@@ -2018,6 +2018,7 @@ dependencies = [
  "pyrefly_python",
  "pyrefly_types",
  "pyrefly_util",
+ "rayon",
  "regex",
  "regex-syntax 0.7.5",
  "ruff_annotate_snippets",

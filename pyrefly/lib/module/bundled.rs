@@ -105,6 +105,10 @@ impl BundledTypeshed {
         self.load.get(path).duped()
     }
 
+    pub fn modules(&self) -> impl Iterator<Item = ModuleName> {
+        self.find.keys().copied()
+    }
+
     pub fn config() -> ArcId<ConfigFile> {
         static CONFIG: LazyLock<ArcId<ConfigFile>> = LazyLock::new(|| {
             let mut config_file = ConfigFile::default();

@@ -33,7 +33,7 @@ pub enum ModuleStyle {
 #[derive(Debug, Clone, Dupe, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct ModulePath(Arc<WithHash<ModulePathDetails>>);
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize)]
 pub enum ModulePathDetails {
     /// The module source comes from a file on disk. Probably a `.py` or `.pyi` file.
     FileSystem(PathBuf),

@@ -124,6 +124,9 @@ struct OutputArgs {
     /// Generate a Glean-compatible JSON file for each module
     #[arg(long, env = clap_env("REPORT_GLEAN"), value_name = "OUTPUT_FILE")]
     report_glean: Option<PathBuf>,
+    /// Generate a Pysa-compatible JSON file for each module
+    #[arg(long, env = clap_env("REPORT_PYSA"), value_name = "OUTPUT_FILE")]
+    report_pysa: Option<PathBuf>,
     /// Count the number of each error kind. Prints the top N [default=5] errors, sorted by count, or all errors if N is 0.
     #[arg(
         long,
@@ -668,7 +671,8 @@ impl Args {
         let retain = self.output.report_binding_memory.is_some()
             || self.output.debug_info.is_some()
             || self.output.report_trace.is_some()
-            || self.output.report_glean.is_some();
+            || self.output.report_glean.is_some()
+            || self.output.report_pysa.is_some();
         RequireLevels {
             specified: if retain {
                 Require::Everything
@@ -775,6 +779,9 @@ impl Args {
                     report::glean::glean(transaction, handle).as_bytes(),
                 )?;
             }
+        }
+        if let Some(pysa_directory) = &self.output.report_pysa {
+            report::pysa::write_results(pysa_directory, transaction)?;
         }
         if let Some(path) = &self.output.report_binding_memory {
             fs_anyhow::write(

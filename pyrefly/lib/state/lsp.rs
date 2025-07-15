@@ -946,7 +946,7 @@ impl<'a> Transaction<'a> {
         })
     }
 
-    fn find_definition_for_name_use(
+    pub fn find_definition_for_name_use(
         &self,
         handle: &Handle,
         name: &Identifier,
@@ -971,7 +971,7 @@ impl<'a> Transaction<'a> {
         })
     }
 
-    fn find_definition_for_attribute(
+    pub fn find_definition_for_attribute(
         &self,
         handle: &Handle,
         base_range: TextRange,
