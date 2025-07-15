@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -1297,6 +1298,26 @@ impl Type {
         match self {
             Type::Union(types) => types,
             _ => vec![self],
+        }
+    }
+
+    /// Create an optional type (union with None).
+    pub fn optional(x: Self) -> Self {
+        // We would like the resulting type not nested, and well sorted.
+        if let Type::Union(mut xs) = x {
+            match xs.binary_search(&Type::None) {
+                Ok(_) => Type::Union(xs),
+                Err(i) => {
+                    xs.insert(i, Type::None);
+                    Type::Union(xs)
+                }
+            }
+        } else {
+            match x.cmp(&Type::None) {
+                Ordering::Equal => Type::None,
+                Ordering::Less => Type::Union(vec![x, Type::None]),
+                Ordering::Greater => Type::Union(vec![Type::None, x]),
+            }
         }
     }
 

@@ -342,7 +342,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // (self, key: Literal["key"]) -> ValueType | None
                 literal_signatures.push(OverloadType::Callable(Callable::list(
                     ParamList::new(vec![self_param.clone(), key_param.clone()]),
-                    Type::Union(vec![field.ty.clone(), Type::None]),
+                    Type::optional(field.ty.clone()),
                 )));
                 // (self, key: Literal["key"], default: T) -> ValueType | T
                 let q = Quantified::type_var(
@@ -437,7 +437,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // 1) no default: (self, key: Literal["field_name"]) -> Optional[FieldType]
                 literal_signatures.push(OverloadType::Callable(Callable::list(
                     ParamList::new(vec![self_param.clone(), key_param.clone()]),
-                    Type::Union(vec![field.ty.clone(), Type::None]),
+                    Type::optional(field.ty.clone()),
                 )));
 
                 // 2) default: (self, key: Literal["field_name"], default: _T) -> Union[FieldType, _T]

@@ -934,15 +934,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Type {
         let base_exception_class_type =
             Type::type_form(self.stdlib.base_exception().clone().to_type());
-        let arg1 = Type::Union(vec![base_exception_class_type, Type::None]);
-        let arg2 = Type::Union(vec![
-            self.stdlib.base_exception().clone().to_type(),
-            Type::None,
-        ]);
-        let arg3 = Type::Union(vec![
-            self.stdlib.traceback_type().clone().to_type(),
-            Type::None,
-        ]);
+        let arg1 = Type::optional(base_exception_class_type);
+        let arg2 = Type::optional(self.stdlib.base_exception().clone().to_type());
+        let arg3 = Type::optional(self.stdlib.traceback_type().clone().to_type());
         let exit_arg_types = [
             CallArg::ty(&arg1, range),
             CallArg::ty(&arg2, range),
@@ -994,7 +988,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let exit_type =
                 self.context_value_exit(context_manager_type, kind, range, errors, Some(&context));
             self.check_type(
-                &Type::Union(vec![self.stdlib.bool().clone().to_type(), Type::None]),
+                &Type::optional(self.stdlib.bool().clone().to_type()),
                 &exit_type,
                 range,
                 errors,

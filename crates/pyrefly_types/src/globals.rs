@@ -39,7 +39,7 @@ const GLOBALS: &[Global] = &[
     Global::new("__loader__", |_| Type::any_explicit()),
     Global::new("__name__", |stdlib| stdlib.str().clone().to_type()),
     Global::new("__package__", |stdlib| {
-        Type::Union(vec![stdlib.str().clone().to_type(), Type::None])
+        Type::optional(stdlib.str().clone().to_type())
     }),
     Global::new("__path__", |stdlib| {
         stdlib.iterable(stdlib.str().clone().to_type()).to_type()

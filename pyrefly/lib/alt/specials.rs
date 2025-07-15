@@ -296,10 +296,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
 
         match special_form {
-            SpecialForm::Optional if arguments.len() == 1 => Type::type_form(Type::Union(vec![
+            SpecialForm::Optional if arguments.len() == 1 => Type::type_form(Type::optional(
                 self.expr_untype(&arguments[0], TypeFormContext::TypeArgument, errors),
-                Type::None,
-            ])),
+            )),
             SpecialForm::Optional => self.error(
                 errors,
                 range,
