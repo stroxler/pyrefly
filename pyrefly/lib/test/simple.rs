@@ -1644,6 +1644,14 @@ def f(x: type[Any]):
 );
 
 testcase!(
+    test_bool_complex,
+    r#"
+def f(x:complex, y:bool):
+    return x - y
+    "#,
+);
+
+testcase!(
     test_bin_op_bool_num,
     r#"
 def f(x:float, y:bool) -> float:

@@ -811,7 +811,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (Type::ClassType(got), Type::ClassType(want))
                 if want.is_builtin("complex")
-                    && (got.is_builtin("int") || got.is_builtin("float")) =>
+                    && (got.is_builtin("int")
+                        || got.is_builtin("float")
+                        || got.is_builtin("bool")) =>
             {
                 true
             }
