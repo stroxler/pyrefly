@@ -378,6 +378,14 @@ impl ClassField {
         }
     }
 
+    pub fn read_only_reason(&self) -> &Option<ReadOnlyReason> {
+        match &self.0 {
+            ClassFieldInner::Simple {
+                read_only_reason, ..
+            } => read_only_reason,
+        }
+    }
+
     /// Check if this field is read-only for any reason.
     pub fn is_read_only(&self) -> bool {
         match &self.0 {
@@ -485,8 +493,17 @@ impl<'a> Instance<'a> {
     }
 }
 
-fn bind_class_attribute(cls: &Class, attr: Type) -> Attribute {
-    Attribute::read_write(make_bound_classmethod(cls, attr).into_inner())
+fn bind_class_attribute(
+    cls: &Class,
+    attr: Type,
+    read_only_reason: &Option<ReadOnlyReason>,
+) -> Attribute {
+    let ty = make_bound_classmethod(cls, attr).into_inner();
+    if let Some(reason) = read_only_reason {
+        Attribute::read_only(ty, reason.clone())
+    } else {
+        Attribute::read_write(ty)
+    }
 }
 
 /// Return the type of making it bound, or if not,
@@ -1178,7 +1195,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ))
                         })
                 } else {
-                    bind_class_attribute(cls, ty.clone())
+                    bind_class_attribute(cls, ty.clone(), field.read_only_reason())
                 }
             }
         }
@@ -1245,7 +1262,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
         foralled.subst_self_type_mut(&self.instantiate(cls), &|a, b| self.is_subset_eq(a, b));
-        Some(bind_class_attribute(cls, foralled))
+        Some(bind_class_attribute(cls, foralled, &None))
     }
 
     fn check_class_field_for_override_mismatch(

@@ -3101,6 +3101,16 @@
     {
       "code": -2,
       "column": 1,
+      "concise_description": "Cannot set field `final_classvar`",
+      "description": "Cannot set field `final_classvar`\n  This field is marked as Final",
+      "line": 27,
+      "name": "read-only",
+      "stop_column": 17,
+      "stop_line": 27
+    },
+    {
+      "code": -2,
+      "column": 1,
       "concise_description": "Cannot set field `final_with_default`",
       "description": "Cannot set field `final_with_default`\n  This field is marked as Final",
       "line": 36,
@@ -3117,6 +3127,16 @@
       "name": "no-access",
       "stop_column": 19,
       "stop_line": 37
+    },
+    {
+      "code": -2,
+      "column": 1,
+      "concise_description": "Cannot set field `final_with_default`",
+      "description": "Cannot set field `final_with_default`\n  This field is marked as Final",
+      "line": 38,
+      "name": "read-only",
+      "stop_column": 21,
+      "stop_line": 38
     }
   ],
   "dataclasses_frozen.py": [
@@ -8726,6 +8746,16 @@
       "name": "bad-assignment",
       "stop_column": 11,
       "stop_line": 71
+    },
+    {
+      "code": -2,
+      "column": 1,
+      "concise_description": "Cannot set field `DEFAULT_ID`",
+      "description": "Cannot set field `DEFAULT_ID`\n  This field is marked as Final",
+      "line": 81,
+      "name": "read-only",
+      "stop_column": 18,
+      "stop_line": 81
     },
     {
       "code": -2,

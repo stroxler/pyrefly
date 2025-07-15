@@ -135,9 +135,7 @@
     "Line 35: Unexpected errors ['Argument `Literal[3]` is not assignable to parameter `y` with type `Desc1` in function `DC1.__init__`']"
   ],
   "dataclasses_final.py": [
-    "Line 27: Expected 1 errors",
-    "Line 35: Expected 1 errors",
-    "Line 38: Expected 1 errors"
+    "Line 35: Expected 1 errors"
   ],
   "dataclasses_frozen.py": [],
   "dataclasses_hash.py": [],
@@ -430,7 +428,6 @@
   "qualifiers_final_annotation.py": [
     "Line 34: Expected 1 errors",
     "Line 38: Expected 1 errors",
-    "Line 81: Expected 1 errors",
     "Line 107: Expected 1 errors",
     "Line 149: Expected 1 errors",
     "Line 152: Expected 1 errors",

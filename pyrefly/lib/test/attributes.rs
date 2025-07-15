@@ -1135,7 +1135,7 @@ class Backend:
         pass
 class Options2(Backend.Options):
     pass
-Backend.Options = Options2  # This probably should not be legal
+Backend.Options = Options2  # E: A class object initialized in the class body is considered read-only
     "#,
 );
 
@@ -1165,13 +1165,12 @@ class ProcessGroupGloo(Backend):
 );
 
 testcase!(
-    bug = "We currently fail to validate read-onlyness of class attributes",
     test_read_only_class_var,
     r#"
 from typing import ClassVar, Final
 class C:
     x: ClassVar[Final[int]] = 42
-C.x = 43  # This should error
+C.x = 43  # E: This field is marked as Final
     "#,
 );
 
