@@ -2008,7 +2008,6 @@ dependencies = [
  "lsp-server",
  "lsp-types",
  "mimalloc",
- "num-bigint",
  "num-traits",
  "parse-display",
  "paste",
