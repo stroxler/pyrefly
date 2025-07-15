@@ -81,23 +81,26 @@ class A:
 );
 
 testcase!(
-    bug = "Should not contain any errors",
+    bug = "We are unable to understand `typing.Self` literals",
     test_instance_attr,
     r#"
 from typing import Self, assert_type
 class A:
     x: Self
     def f(self):
+        # This is also an error... the assert passes because we get both sides wrong
+        # in the same way (both are being treated as the `typing.Self` special form, not
+        # as a "bound" Self)
         assert_type(self.x, Self)
 class B(A):
     pass
-assert_type(A().x, A)  # E:
-assert_type(B().x, B)  # E:
+assert_type(A().x, A)  # E: assert_type(Self, A) failed
+assert_type(B().x, B)  # E: assert_type(Self, B) failed
     "#,
 );
 
 testcase!(
-    bug = "Should not contain any errors",
+    bug = "We are unable to understand `typing.Self` literals",
     test_class_attr,
     r#"
 from typing import ClassVar, Self, assert_type
@@ -105,7 +108,7 @@ class A:
     x: ClassVar[Self]
 class B(A):
     pass
-assert_type(A.x, A)  # E:
-assert_type(B.x, B)  # E:
+assert_type(A.x, A)  # E: assert_type(Self, A) failed
+assert_type(B.x, B)  # E: assert_type(Self, B) failed
     "#,
 );
