@@ -87,15 +87,18 @@ testcase!(
 from typing import Self, assert_type
 class A:
     x: Self
+    y: int
     def f(self):
         # This is also an error... the assert passes because we get both sides wrong
         # in the same way (both are being treated as the `typing.Self` special form, not
         # as a "bound" Self)
         assert_type(self.x, Self)
+        # Here we can see what's really happening
+        assert_type(self.x.y, int)  # E: Expr::attr_infer_for_type attribute base undefined for type: Self  # E: assert_type(Any, int)
 class B(A):
     pass
-assert_type(A().x, A)  # E: assert_type(Self, A) failed
-assert_type(B().x, B)  # E: assert_type(Self, B) failed
+assert_type(A().x, A)  # E: assert_type(Self, A)
+assert_type(B().x, B)  # E: assert_type(Self, B)
     "#,
 );
 
@@ -108,7 +111,7 @@ class A:
     x: ClassVar[Self]
 class B(A):
     pass
-assert_type(A.x, A)  # E: assert_type(Self, A) failed
-assert_type(B.x, B)  # E: assert_type(Self, B) failed
+assert_type(A.x, A)  # E: assert_type(Self, A)
+assert_type(B.x, B)  # E: assert_type(Self, B)
     "#,
 );
