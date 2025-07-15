@@ -334,7 +334,6 @@ pub enum Key {
     /// A usage link - a placeholder used for first-usage type inference.
     UsageLink(TextRange),
     /// A use of `typing.Self` in an expression. Used to redirect to the appropriate type (which is aware of the current class).
-    #[expect(dead_code)]
     SelfTypeLiteral(TextRange),
 }
 
@@ -1127,7 +1126,6 @@ pub enum Binding {
     /// export. If so, we create a `SelfTypeLiteral` key/binding pair so that the AnswersSolver can
     /// later synthesize the correct `Type::SelfType` (this binding is needed
     /// because we need access to the current class to do so).
-    #[expect(dead_code)]
     SelfTypeLiteral(Idx<KeyClass>, TextRange),
     /// Binding used to pin placeholder types from `NameAssign` bindings. The first
     /// entry should always correspond to a `Key::Definition` from a name assignment

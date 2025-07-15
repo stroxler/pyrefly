@@ -653,6 +653,7 @@ impl<'a> BindingsBuilder<'a> {
 
     /// Execute through the expr, ensuring every name has a binding.
     pub fn ensure_type(&mut self, x: &mut Expr, tparams_builder: &mut Option<LegacyTParamBuilder>) {
+        self.track_potential_typing_self(x);
         // We do not treat static types as usage for the purpose of first-usage-based type inference.
         let static_type_usage = &mut Usage::StaticTypeInformation;
         match x {
@@ -712,6 +713,26 @@ impl<'a> BindingsBuilder<'a> {
             // binding that we crash looking for if we don't do this.
             Expr::Call(_) => self.ensure_expr(x, static_type_usage),
             _ => x.recurse_mut(&mut |x| self.ensure_type(x, tparams_builder)),
+        }
+    }
+
+    /// Whenever we see a use of `typing.Self` and we are inside a class body,
+    /// create a special binding that can be used to remap the special form to a proper
+    /// self type during answers solving.
+    ///
+    /// Note that this binding will only be present if we are in a class.
+    fn track_potential_typing_self(&mut self, x: &Expr) {
+        match self.as_special_export(x) {
+            Some(SpecialExport::SelfType) => {
+                if let Some((current_class_idx, _)) = self.scopes.current_class_and_metadata_keys()
+                {
+                    self.insert_binding(
+                        Key::SelfTypeLiteral(x.range()),
+                        Binding::SelfTypeLiteral(current_class_idx, x.range()),
+                    );
+                }
+            }
+            _ => {}
         }
     }
 
