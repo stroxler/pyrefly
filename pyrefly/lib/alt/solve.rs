@@ -1963,6 +1963,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // are handled in `binding_to_type_info`
                 self.binding_to_type_info(binding, errors).into_ty()
             }
+            Binding::SelfTypeLiteral(..) => {
+                unimplemented!("Binding::SelfTypeLiteral is not yet in use")
+            }
             Binding::Pin(unpinned_idx, first_use) => {
                 // Calclulate the first use for its side-effects (it might pin `Var`s)
                 match first_use {

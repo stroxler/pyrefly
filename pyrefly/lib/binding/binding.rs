@@ -333,6 +333,9 @@ pub enum Key {
     Unpack(TextRange),
     /// A usage link - a placeholder used for first-usage type inference.
     UsageLink(TextRange),
+    /// A use of `typing.Self` in an expression. Used to redirect to the appropriate type (which is aware of the current class).
+    #[expect(dead_code)]
+    SelfTypeLiteral(TextRange),
 }
 
 impl Ranged for Key {
@@ -357,6 +360,7 @@ impl Ranged for Key {
             Self::SuperInstance(r) => *r,
             Self::Unpack(r) => *r,
             Self::UsageLink(r) => *r,
+            Self::SelfTypeLiteral(r) => *r,
             Self::PatternNarrow(r) => *r,
         }
     }
@@ -395,6 +399,7 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::SuperInstance(r) => write!(f, "Key::SuperInstance({})", ctx.display(r)),
             Self::Unpack(r) => write!(f, "Key::Unpack({})", ctx.display(r)),
             Self::UsageLink(r) => write!(f, "Key::UsageLink({})", ctx.display(r)),
+            Self::SelfTypeLiteral(r) => write!(f, "Key::SelfTypeLiteral({})", ctx.display(r)),
             Self::PatternNarrow(r) => write!(f, "Key::PatternNarrow({})", ctx.display(r)),
         }
     }
@@ -1118,6 +1123,12 @@ pub enum Binding {
     /// example, forcing a `BindingExpect` to be solved) in the context of first-usage-based
     /// type inference.
     UsageLink(LinkedKey),
+    /// Inside of a class body, we check whether an expression resolves to the `SelfType` special
+    /// export. If so, we create a `SelfTypeLiteral` key/binding pair so that the AnswersSolver can
+    /// later synthesize the correct `Type::SelfType` (this binding is needed
+    /// because we need access to the current class to do so).
+    #[expect(dead_code)]
+    SelfTypeLiteral(Idx<KeyClass>, TextRange),
     /// Binding used to pin placeholder types from `NameAssign` bindings. The first
     /// entry should always correspond to a `Key::Definition` from a name assignment
     /// and the second entry tells us if and where this definition is first used.
@@ -1348,6 +1359,14 @@ impl DisplayWith<Bindings> for Binding {
                 }
                 write!(f, ")")
             }
+            Self::SelfTypeLiteral(class_key, r) => {
+                write!(
+                    f,
+                    "SelfTypeLiteral({}, {})",
+                    m.display(ctx.idx_to_key(*class_key)),
+                    m.display(r)
+                )
+            }
             Self::Pin(k, first_use) => {
                 write!(f, "Pin({}, ", ctx.display(*k),)?;
                 match first_use {
@@ -1422,6 +1441,7 @@ impl Binding {
             | Binding::SuperInstance(_, _)
             | Binding::AssignToAttribute(_, _)
             | Binding::UsageLink(_)
+            | Binding::SelfTypeLiteral(..)
             | Binding::AssignToSubscript(_, _)
             | Binding::Pin(..)
             | Binding::PinUpstream(..) => None,
