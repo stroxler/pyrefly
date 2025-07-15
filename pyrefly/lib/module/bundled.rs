@@ -156,6 +156,14 @@ impl BundledTypeshed {
                 .context("Failed to write file contents")?;
         }
 
+        BundledTypeshed::config()
+            .as_ref()
+            .write_to_toml_in_directory(&temp_dir)
+            .context(format!(
+                "Failed to write pyrefly config at {:?}",
+                temp_dir.to_str()
+            ))?;
+
         *written = true;
 
         Ok(temp_dir)
