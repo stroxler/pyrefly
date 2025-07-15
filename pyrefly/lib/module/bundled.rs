@@ -7,10 +7,7 @@
 
 use std::collections::HashMap;
 use std::env;
-use std::fs;
-use std::fs::File;
 use std::io::Read;
-use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -23,6 +20,7 @@ use dupe::OptionDupedExt;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::fs_anyhow;
 use pyrefly_util::lock::Mutex;
 use starlark_map::small_map::SmallMap;
 use tar::Archive;
@@ -140,20 +138,17 @@ impl BundledTypeshed {
             return Ok(temp_dir);
         }
 
-        fs::create_dir_all(&temp_dir).context("Failed to create temporary directory")?;
+        fs_anyhow::create_dir_all(&temp_dir)?;
 
         for (relative_path, contents) in &self.load {
             let mut file_path = temp_dir.clone();
             file_path.push(relative_path);
 
             if let Some(parent) = file_path.parent() {
-                fs::create_dir_all(parent).context("Failed to create parent directories")?;
+                fs_anyhow::create_dir_all(parent)?;
             }
 
-            let mut file = File::create(&file_path)
-                .with_context(|| format!("Failed to create file {}", file_path.display()))?;
-            file.write_all(contents.as_bytes())
-                .context("Failed to write file contents")?;
+            fs_anyhow::write(&file_path, (*contents).as_bytes())?;
         }
 
         BundledTypeshed::config()
