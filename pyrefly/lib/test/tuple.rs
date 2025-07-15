@@ -77,6 +77,22 @@ assert_type((), tuple[()])
 );
 
 testcase!(
+    test_tuple_base,
+    r#"
+from typing import Any
+class Base1(tuple[Any, ...]): ...
+class Base2(tuple[int, ...]): ...
+class Base3(tuple[int, int]): ...
+class Base4(tuple[str, int]): ...
+
+class Child1(Base1, Base2): ...
+class Child2(Base1, Base3): ...
+class Child3(Base3, Base4): ...  # E: Cannot extend multiple incompatible tuples
+class Child4(Base2, Base3): ...  # E: Cannot extend multiple incompatible tuples 
+"#,
+);
+
+testcase!(
     test_unparameterized,
     r#"
 from typing import assert_type, Any, Tuple

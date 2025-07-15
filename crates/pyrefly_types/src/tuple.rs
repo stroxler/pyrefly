@@ -42,6 +42,14 @@ impl Default for Tuple {
 }
 
 impl Tuple {
+    // Check if this is tuple[Any, ...]
+    pub fn is_any_tuple(&self) -> bool {
+        match self {
+            Self::Unbounded(ty) => ty.is_any(),
+            _ => false,
+        }
+    }
+
     pub fn concrete(elts: Vec<Type>) -> Self {
         Self::Concrete(elts)
     }

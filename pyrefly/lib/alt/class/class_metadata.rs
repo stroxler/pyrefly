@@ -43,6 +43,7 @@ use crate::types::keywords::DataclassKeywords;
 use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
+use crate::types::tuple::Tuple;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
@@ -139,6 +140,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut named_tuple_metadata = None;
         let mut enum_metadata = None;
         let mut dataclass_metadata = None;
+        let mut tuple_base: Option<Tuple> = None;
         let mut bases: Vec<BaseClass> = bases.map(|x| self.base_class_of(x, errors));
         if let Some(special_base) = special_base {
             bases.push((**special_base).clone());
@@ -215,6 +217,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 named_tuple_metadata.is_none() {
                                     named_tuple_metadata = Some(base_named_tuple.clone());
                             }
+                            if let Some(base_class_tuple_base) = base_class_metadata.tuple_base() {
+                                if let Some(existing_tuple_base) = &tuple_base {
+                                    if existing_tuple_base.is_any_tuple() {
+                                        tuple_base = Some(base_class_tuple_base.clone());
+                                    } else if !base_class_tuple_base.is_any_tuple()
+                                        && base_class_tuple_base != existing_tuple_base {
+                                            self.error(errors,
+                                                range,
+                                                ErrorKind::InvalidInheritance,
+                                                None,
+                                                format!("Cannot extend multiple incompatible tuples: `{}` and `{}`",
+                                                    self.for_display(Type::Tuple(existing_tuple_base.clone())),
+                                                    self.for_display(Type::Tuple(base_class_tuple_base.clone())),
+                                            ),
+                                            );
+                                        }
+                                } else {
+                                    tuple_base = Some(base_class_tuple_base.clone());
+                                }
+                            }
                             if let Some(proto) = &mut protocol_metadata {
                                 if let Some(base_proto) = base_class_metadata.protocol_metadata() {
                                     proto.members.extend(base_proto.members.iter().cloned());
@@ -247,6 +269,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Some((c, base_class_metadata))
                         }
                         Some((Type::Tuple(tuple), _)) => {
+                            if tuple_base.is_none() {
+                                tuple_base = Some(tuple.clone());
+                            }
                             let class_ty = self.erase_tuple_type(tuple);
                             let metadata = self.get_metadata_for_class(class_ty.class_object());
                             Some((class_ty, metadata))
@@ -539,6 +564,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             enum_metadata,
             protocol_metadata,
             dataclass_metadata,
+            tuple_base,
             has_base_any,
             is_new_type,
             is_final,

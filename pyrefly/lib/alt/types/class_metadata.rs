@@ -32,6 +32,7 @@ use crate::types::display::ClassDisplayContext;
 use crate::types::keywords::DataclassKeywords;
 use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::stdlib::Stdlib;
+use crate::types::tuple::Tuple;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
@@ -44,6 +45,7 @@ pub struct ClassMetadata {
     enum_metadata: Option<EnumMetadata>,
     protocol_metadata: Option<ProtocolMetadata>,
     dataclass_metadata: Option<DataclassMetadata>,
+    tuple_base: Option<Tuple>,
     bases_with_metadata: Vec<(ClassType, Arc<ClassMetadata>)>,
     has_base_any: bool,
     is_new_type: bool,
@@ -80,6 +82,7 @@ impl ClassMetadata {
         enum_metadata: Option<EnumMetadata>,
         protocol_metadata: Option<ProtocolMetadata>,
         dataclass_metadata: Option<DataclassMetadata>,
+        tuple_base: Option<Tuple>,
         has_base_any: bool,
         is_new_type: bool,
         is_final: bool,
@@ -95,6 +98,7 @@ impl ClassMetadata {
             enum_metadata,
             protocol_metadata,
             dataclass_metadata,
+            tuple_base,
             bases_with_metadata,
             has_base_any,
             is_new_type,
@@ -114,6 +118,7 @@ impl ClassMetadata {
             enum_metadata: None,
             protocol_metadata: None,
             dataclass_metadata: None,
+            tuple_base: None,
             bases_with_metadata: Vec::new(),
             has_base_any: false,
             is_new_type: false,
@@ -155,6 +160,10 @@ impl ClassMetadata {
 
     pub fn named_tuple_metadata(&self) -> Option<&NamedTupleMetadata> {
         self.named_tuple_metadata.as_ref()
+    }
+
+    pub fn tuple_base(&self) -> Option<&Tuple> {
+        self.tuple_base.as_ref()
     }
 
     pub fn enum_metadata(&self) -> Option<&EnumMetadata> {
