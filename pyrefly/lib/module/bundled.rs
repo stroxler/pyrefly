@@ -151,7 +151,7 @@ impl BundledTypeshed {
             }
 
             let mut file = File::create(&file_path)
-                .context(format!("Failed to create file {}", file_path.display()))?;
+                .with_context(|| format!("Failed to create file {}", file_path.display()))?;
             file.write_all(contents.as_bytes())
                 .context("Failed to write file contents")?;
         }
@@ -159,10 +159,9 @@ impl BundledTypeshed {
         BundledTypeshed::config()
             .as_ref()
             .write_to_toml_in_directory(&temp_dir)
-            .context(format!(
-                "Failed to write pyrefly config at {:?}",
-                temp_dir.to_str()
-            ))?;
+            .with_context(|| {
+                format!("Failed to write pyrefly config at {:?}", temp_dir.to_str())
+            })?;
 
         *written = true;
 
