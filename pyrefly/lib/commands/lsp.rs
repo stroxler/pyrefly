@@ -171,6 +171,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use tracing::warn;
 
 use crate::commands::config_finder::standard_config_finder;
 use crate::commands::run::CommandExitStatus;
@@ -797,7 +798,13 @@ fn to_real_path(path: &ModulePath) -> Option<PathBuf> {
         | ModulePathDetails::Namespace(path) => Some(path.to_path_buf()),
         ModulePathDetails::BundledTypeshed(path) => {
             let typeshed = typeshed().ok()?;
-            let typeshed_path = typeshed.materialized_path_on_disk().ok()?;
+            let typeshed_path = match typeshed.materialized_path_on_disk() {
+                Ok(typeshed_path) => Some(typeshed_path),
+                Err(err) => {
+                    warn!("Builtins unable to be loaded on disk, {}", err);
+                    None
+                }
+            }?;
             Some(typeshed_path.join(path))
         }
     }

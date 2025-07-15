@@ -150,7 +150,8 @@ impl BundledTypeshed {
                 fs::create_dir_all(parent).context("Failed to create parent directories")?;
             }
 
-            let mut file = File::create(&file_path).context("Failed to create file")?;
+            let mut file = File::create(&file_path)
+                .context(format!("Failed to create file {}", file_path.display()))?;
             file.write_all(contents.as_bytes())
                 .context("Failed to write file contents")?;
         }
