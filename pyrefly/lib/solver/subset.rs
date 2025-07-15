@@ -854,16 +854,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     want,
                 )
             }
-            (Type::ClassType(got), Type::Tuple(_))
-                if got.is_builtin("tuple") && got.targs().as_slice().len() == 1 =>
-            {
-                let mut tuple_targ = got.targs().as_slice()[0].clone();
-                // TODO: figure out how to get rid of the forcing logic here
-                if let Type::Var(var) = tuple_targ {
-                    tuple_targ = self.force_var(var);
-                }
-                self.is_subset_eq(&Type::Tuple(Tuple::Unbounded(Box::new(tuple_targ))), want)
-            }
             (Type::ClassDef(got), Type::ClassDef(want)) => {
                 self.type_order.has_superclass(got, want)
             }
@@ -881,9 +871,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (Type::Type(box Type::Any(_)), Type::ClassDef(_)) => true,
             (Type::ClassType(cls), want @ Type::Tuple(_))
-                if let Some(elts) = self.type_order.named_tuple_element_types(cls) =>
+                if let Some(got) = self.type_order.as_tuple_type(cls) =>
             {
-                self.is_subset_eq(&Type::Tuple(Tuple::Concrete(elts)), want)
+                self.is_subset_eq(&got, want)
             }
             (Type::ClassType(got), Type::SelfType(want)) => self
                 .type_order

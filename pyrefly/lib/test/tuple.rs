@@ -93,6 +93,17 @@ class Child4(Base2, Base3): ...  # E: Cannot extend multiple incompatible tuples
 );
 
 testcase!(
+    test_tuple_base_subtype,
+    r#"
+from typing import *
+class Size(tuple[int, ...]): ...
+def f(x: tuple[int, ...]): ...
+def g(x: Size):
+    f(x)
+"#,
+);
+
+testcase!(
     test_unparameterized,
     r#"
 from typing import assert_type, Any, Tuple
@@ -303,13 +314,12 @@ def g(x: slice[int, int, int]) -> None:
 );
 
 testcase!(
-    bug = "tuple(z) should be tuple[int, ...] but the hint specializes self to be tuple[int, int]",
     test_tuple_constructor,
     r#"
 from typing import Any, Iterable
 def test(y: Iterable[Any], z: Iterable[int]):
     x: tuple[int, int] = tuple(y)
-    x = tuple(z)  # Not OK
+    x = tuple(z)  # E: `tuple[int, ...]` is not assignable to variable `x` with type `tuple[int, int]`
 "#,
 );
 

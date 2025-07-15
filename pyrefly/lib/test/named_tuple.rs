@@ -105,8 +105,10 @@ class Pair(NamedTuple):
 p: Pair = Pair(1, "")
 def func1(x: tuple[int | str, ...]) -> None: ...
 def func2(x: tuple[int, str]) -> None: ...
+def func3(x: tuple[str, str]) -> None: ...
 func1(p)
 func2(p)
+func3(p)  # E: Argument `Pair` is not assignable to parameter `x` with type `tuple[str, str]` in function `func3
     "#,
 );
 
