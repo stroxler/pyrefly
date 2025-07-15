@@ -585,7 +585,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Special cases like Tuple should be intercepted first.
         let context = || ErrorContext::Iteration(self.for_display(iterable.clone()));
         match iterable {
-            Type::ClassType(cls) if let Some(elts) = self.named_tuple_element_types(cls) => {
+            Type::ClassType(cls) if let Some(Tuple::Concrete(elts)) = self.as_tuple(cls) => {
                 vec![Iterable::FixedLen(elts.clone())]
             }
             Type::Tuple(Tuple::Concrete(elts)) => vec![Iterable::FixedLen(elts.clone())],

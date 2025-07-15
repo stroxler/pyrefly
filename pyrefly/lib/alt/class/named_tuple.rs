@@ -61,7 +61,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         elements.into_iter().map(|(name, _)| name).collect()
     }
 
-    pub fn named_tuple_element_types(&self, cls: &ClassType) -> Option<Vec<Type>> {
+    pub(crate) fn named_tuple_element_types(&self, cls: &ClassType) -> Option<Vec<Type>> {
         let class_metadata = self.get_metadata_for_class(cls.class_object());
         let named_tuple_metadata = class_metadata.named_tuple_metadata()?;
         Some(

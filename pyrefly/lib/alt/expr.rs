@@ -921,7 +921,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.stdlib.str().clone().to_type()
                 }
                 Type::ClassType(ref cls) | Type::SelfType(ref cls)
-                    if let Some(elts) = self.named_tuple_element_types(cls) =>
+                    if let Some(Tuple::Concrete(elts)) = self.as_tuple(cls) =>
                 {
                     self.infer_tuple_index(
                         elts,

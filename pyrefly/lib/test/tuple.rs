@@ -104,6 +104,31 @@ def g(x: Size):
 );
 
 testcase!(
+    test_tuple_base_narrow,
+    r#"
+from typing import *
+class A(tuple[int, str]): ...
+class B(tuple[int, str, bool]): ...
+def test(x: A | B):
+    if len(x) == 2:
+        assert_type(x, A)
+    else:
+        assert_type(x, B)
+"#,
+);
+
+testcase!(
+    test_tuple_base_index,
+    r#"
+from typing import *
+class A(tuple[int, str]): ...
+def test(x: A):
+    assert_type(x[0], int)
+    assert_type(x[1], str)
+"#,
+);
+
+testcase!(
     test_unparameterized,
     r#"
 from typing import assert_type, Any, Tuple
