@@ -5,6 +5,24 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#![warn(clippy::all)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_lifetimes)]
+#![allow(clippy::should_implement_trait)]
+#![allow(clippy::single_match)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::new_without_default)]
+#![deny(clippy::cloned_instead_of_copied)]
+#![deny(clippy::derive_partial_eq_without_eq)]
+#![deny(clippy::inefficient_to_string)]
+#![deny(clippy::mem_replace_option_with_some)]
+#![deny(clippy::str_to_string)]
+#![deny(clippy::string_to_string)]
+#![deny(clippy::trivially_copy_pass_by_ref)]
+#![feature(box_patterns)]
+#![feature(if_let_guard)]
+#![feature(let_chains)]
+
 pub mod alias;
 pub mod annotation;
 pub mod callable;

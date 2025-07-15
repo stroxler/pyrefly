@@ -62,7 +62,7 @@ impl Global {
             .chain(iter::once(Self::doc(has_docstring)))
     }
 
-    #[expect(dead_code)]
+    #[allow(dead_code)]
     pub fn from_name(name: &Name) -> Option<Global> {
         if name.starts_with("__") && name.ends_with("__") {
             GLOBALS.iter().find(|x| &x.name == name).cloned()

@@ -10,16 +10,16 @@ use std::fmt::Display;
 
 use dupe::Dupe;
 use pyrefly_derive::TypeEq;
+use pyrefly_python::module_info::ModuleInfo;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Identifier;
 
-use crate::module::module_info::ModuleInfo;
-use crate::types::equality::TypeEq;
-use crate::types::equality::TypeEqCtx;
-use crate::types::qname::QName;
-use crate::types::types::Type;
+use crate::equality::TypeEq;
+use crate::equality::TypeEqCtx;
+use crate::qname::QName;
+use crate::types::Type;
 
 /// Used to represent TypeVarTuple calls. Each TypeVarTuple is unique, so use the ArcId to separate them.
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]

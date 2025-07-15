@@ -13,7 +13,7 @@ use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_util::display::commas_iter;
 
-use crate::types::types::Type;
+use crate::types::Type;
 
 /*
 Eventually this will have to be generalized enough to handle at least four cases:

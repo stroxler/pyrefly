@@ -10,12 +10,12 @@ use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use ruff_python_ast::name::Name;
 
-use crate::types::class::Class;
-use crate::types::qname::QName;
-use crate::types::read_only::ReadOnlyReason;
-use crate::types::types::Substitution;
-use crate::types::types::TArgs;
-use crate::types::types::Type;
+use crate::class::Class;
+use crate::qname::QName;
+use crate::read_only::ReadOnlyReason;
+use crate::types::Substitution;
+use crate::types::TArgs;
+use crate::types::Type;
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq, Hash)]
 pub struct TypedDictField {

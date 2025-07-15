@@ -17,10 +17,10 @@ use pyrefly_util::uniques::Unique;
 use pyrefly_util::uniques::UniqueFactory;
 use ruff_python_ast::name::Name;
 
-use crate::types::class::ClassType;
-use crate::types::stdlib::Stdlib;
-use crate::types::type_var::Restriction;
-use crate::types::types::Type;
+use crate::class::ClassType;
+use crate::stdlib::Stdlib;
+use crate::type_var::Restriction;
+use crate::types::Type;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[derive(Visit, VisitMut, TypeEq)]

@@ -19,9 +19,9 @@ use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
 
-use crate::types::class::ClassType;
-use crate::types::keywords::DataclassTransformKeywords;
-use crate::types::types::Type;
+use crate::class::ClassType;
+use crate::keywords::DataclassTransformKeywords;
+use crate::types::Type;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]

@@ -21,9 +21,9 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
-use crate::types::param_spec::ParamSpec;
-use crate::types::type_var::TypeVar;
-use crate::types::type_var_tuple::TypeVarTuple;
+use crate::param_spec::ParamSpec;
+use crate::type_var::TypeVar;
+use crate::type_var_tuple::TypeVarTuple;
 
 /// Compare a set of types using the same context.
 /// This will enable unique's to match, so important to use a single context
@@ -264,21 +264,21 @@ mod tests {
     use pyrefly_util::uniques::UniqueFactory;
 
     use super::*;
-    use crate::types::callable::Callable;
-    use crate::types::callable::FuncFlags;
-    use crate::types::callable::FuncMetadata;
-    use crate::types::callable::Function;
-    use crate::types::callable::FunctionKind;
-    use crate::types::callable::ParamList;
-    use crate::types::quantified::Quantified;
-    use crate::types::quantified::QuantifiedInfo;
-    use crate::types::quantified::QuantifiedKind;
-    use crate::types::type_var::PreInferenceVariance;
-    use crate::types::type_var::Restriction;
-    use crate::types::types::Forallable;
-    use crate::types::types::TParam;
-    use crate::types::types::TParams;
-    use crate::types::types::Type;
+    use crate::callable::Callable;
+    use crate::callable::FuncFlags;
+    use crate::callable::FuncMetadata;
+    use crate::callable::Function;
+    use crate::callable::FunctionKind;
+    use crate::callable::ParamList;
+    use crate::quantified::Quantified;
+    use crate::quantified::QuantifiedInfo;
+    use crate::quantified::QuantifiedKind;
+    use crate::type_var::PreInferenceVariance;
+    use crate::type_var::Restriction;
+    use crate::types::Forallable;
+    use crate::types::TParam;
+    use crate::types::TParams;
+    use crate::types::Type;
 
     #[derive(TypeEq, PartialEq, Eq, Debug)]
     struct Foo {

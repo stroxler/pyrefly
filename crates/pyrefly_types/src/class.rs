@@ -19,6 +19,7 @@ use parse_display::Display;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
+use pyrefly_python::module_info::ModuleInfo;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::visit::Visit;
@@ -28,13 +29,12 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 
-use crate::module::module_info::ModuleInfo;
-use crate::types::equality::TypeEq;
-use crate::types::qname::QName;
-use crate::types::types::Substitution;
-use crate::types::types::TArgs;
-use crate::types::types::TParams;
-use crate::types::types::Type;
+use crate::equality::TypeEq;
+use crate::qname::QName;
+use crate::types::Substitution;
+use crate::types::TArgs;
+use crate::types::TParams;
+use crate::types::Type;
 
 /// The name of a nominal type, e.g. `str`
 #[derive(Debug, Clone, TypeEq, Display, Dupe)]

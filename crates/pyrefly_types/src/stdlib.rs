@@ -12,11 +12,11 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::sys_info::PythonVersion;
 use ruff_python_ast::name::Name;
 
-use crate::types::class::Class;
-use crate::types::class::ClassType;
-use crate::types::types::TArgs;
-use crate::types::types::TParams;
-use crate::types::types::Type;
+use crate::class::Class;
+use crate::class::ClassType;
+use crate::types::TArgs;
+use crate::types::TParams;
+use crate::types::Type;
 
 #[derive(Debug, Clone)]
 struct StdlibError {

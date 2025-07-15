@@ -20,19 +20,19 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
 
-use crate::types::callable::Function;
-use crate::types::class::Class;
-use crate::types::qname::QName;
-use crate::types::tuple::Tuple;
-use crate::types::types::AnyStyle;
-use crate::types::types::BoundMethod;
-use crate::types::types::Forall;
-use crate::types::types::Forallable;
-use crate::types::types::NeverStyle;
-use crate::types::types::SuperObj;
-use crate::types::types::TArgs;
-use crate::types::types::TParam;
-use crate::types::types::Type;
+use crate::callable::Function;
+use crate::class::Class;
+use crate::qname::QName;
+use crate::tuple::Tuple;
+use crate::types::AnyStyle;
+use crate::types::BoundMethod;
+use crate::types::Forall;
+use crate::types::Forallable;
+use crate::types::NeverStyle;
+use crate::types::SuperObj;
+use crate::types::TArgs;
+use crate::types::TParam;
+use crate::types::Type;
 
 /// Information about the classes we have seen.
 /// Set to None to indicate we have seen different values, or Some if they are all the same.
@@ -399,31 +399,31 @@ pub mod tests {
     use std::sync::Arc;
 
     use dupe::Dupe;
+    use pyrefly_python::module_info::ModuleInfo;
     use pyrefly_python::module_path::ModulePath;
     use pyrefly_util::uniques::UniqueFactory;
     use ruff_python_ast::Identifier;
     use ruff_text_size::TextSize;
 
     use super::*;
-    use crate::module::module_info::ModuleInfo;
-    use crate::types::callable::Callable;
-    use crate::types::callable::Param;
-    use crate::types::callable::ParamList;
-    use crate::types::callable::Required;
-    use crate::types::class::Class;
-    use crate::types::class::ClassDefIndex;
-    use crate::types::class::ClassType;
-    use crate::types::literal::Lit;
-    use crate::types::quantified::Quantified;
-    use crate::types::quantified::QuantifiedInfo;
-    use crate::types::quantified::QuantifiedKind;
-    use crate::types::tuple::Tuple;
-    use crate::types::type_var::PreInferenceVariance;
-    use crate::types::type_var::Restriction;
-    use crate::types::type_var::TypeVar;
-    use crate::types::typed_dict::TypedDict;
-    use crate::types::types::TParam;
-    use crate::types::types::TParams;
+    use crate::callable::Callable;
+    use crate::callable::Param;
+    use crate::callable::ParamList;
+    use crate::callable::Required;
+    use crate::class::Class;
+    use crate::class::ClassDefIndex;
+    use crate::class::ClassType;
+    use crate::literal::Lit;
+    use crate::quantified::Quantified;
+    use crate::quantified::QuantifiedInfo;
+    use crate::quantified::QuantifiedKind;
+    use crate::tuple::Tuple;
+    use crate::type_var::PreInferenceVariance;
+    use crate::type_var::Restriction;
+    use crate::type_var::TypeVar;
+    use crate::typed_dict::TypedDict;
+    use crate::types::TParam;
+    use crate::types::TParams;
 
     pub fn fake_class(name: &str, module: &str, range: u32) -> Class {
         let mi = ModuleInfo::new(

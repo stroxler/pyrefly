@@ -22,10 +22,10 @@ use ruff_python_ast::Int;
 use ruff_python_ast::InterpolatedStringElement;
 use ruff_python_ast::name::Name;
 
-use crate::types::class::ClassType;
-use crate::types::lit_int::LitInt;
-use crate::types::stdlib::Stdlib;
-use crate::types::types::Type;
+use crate::class::ClassType;
+use crate::lit_int::LitInt;
+use crate::stdlib::Stdlib;
+use crate::types::Type;
 
 assert_words!(Lit, 3);
 

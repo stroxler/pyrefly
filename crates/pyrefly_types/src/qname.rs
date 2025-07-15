@@ -14,6 +14,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 
+use pyrefly_python::module_info::ModuleInfo;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use ruff_python_ast::Identifier;
@@ -21,9 +22,8 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
-use crate::module::module_info::ModuleInfo;
-use crate::types::equality::TypeEq;
-use crate::types::equality::TypeEqCtx;
+use crate::equality::TypeEq;
+use crate::equality::TypeEqCtx;
 
 /// A name, plus where it is defined.
 #[derive(Clone)]

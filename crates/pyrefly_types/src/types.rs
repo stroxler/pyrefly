@@ -25,32 +25,32 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
-use crate::types::callable::Callable;
-use crate::types::callable::FuncMetadata;
-use crate::types::callable::Function;
-use crate::types::callable::FunctionKind;
-use crate::types::callable::Param;
-use crate::types::callable::ParamList;
-use crate::types::callable::Params;
-use crate::types::class::Class;
-use crate::types::class::ClassKind;
-use crate::types::class::ClassType;
-use crate::types::keywords::DataclassTransformKeywords;
-use crate::types::keywords::KwCall;
-use crate::types::literal::Lit;
-use crate::types::module::ModuleType;
-use crate::types::param_spec::ParamSpec;
-use crate::types::quantified::Quantified;
-use crate::types::quantified::QuantifiedKind;
-use crate::types::simplify::unions;
-use crate::types::special_form::SpecialForm;
-use crate::types::stdlib::Stdlib;
-use crate::types::tuple::Tuple;
-use crate::types::type_var::PreInferenceVariance;
-use crate::types::type_var::Restriction;
-use crate::types::type_var::TypeVar;
-use crate::types::type_var_tuple::TypeVarTuple;
-use crate::types::typed_dict::TypedDict;
+use crate::callable::Callable;
+use crate::callable::FuncMetadata;
+use crate::callable::Function;
+use crate::callable::FunctionKind;
+use crate::callable::Param;
+use crate::callable::ParamList;
+use crate::callable::Params;
+use crate::class::Class;
+use crate::class::ClassKind;
+use crate::class::ClassType;
+use crate::keywords::DataclassTransformKeywords;
+use crate::keywords::KwCall;
+use crate::literal::Lit;
+use crate::module::ModuleType;
+use crate::param_spec::ParamSpec;
+use crate::quantified::Quantified;
+use crate::quantified::QuantifiedKind;
+use crate::simplify::unions;
+use crate::special_form::SpecialForm;
+use crate::stdlib::Stdlib;
+use crate::tuple::Tuple;
+use crate::type_var::PreInferenceVariance;
+use crate::type_var::Restriction;
+use crate::type_var::TypeVar;
+use crate::type_var_tuple::TypeVarTuple;
+use crate::typed_dict::TypedDict;
 
 /// An introduced synthetic variable to range over as yet unknown types.
 #[derive(Debug, Copy, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1329,8 +1329,8 @@ impl Type {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::literal::Lit;
-    use crate::types::types::Type;
+    use crate::literal::Lit;
+    use crate::types::Type;
 
     #[test]
     fn test_as_bool() {

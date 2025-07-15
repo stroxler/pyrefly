@@ -16,8 +16,8 @@ use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_util::display::intersperse_iter;
 
-use crate::types::types::AnyStyle;
-use crate::types::types::Type;
+use crate::types::AnyStyle;
+use crate::types::Type;
 
 #[derive(Debug, Clone, Default, VisitMut, TypeEq, PartialEq, Eq)]
 pub struct Annotation {

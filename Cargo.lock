@@ -2017,6 +2017,7 @@ dependencies = [
  "pulldown-cmark",
  "pyrefly_derive",
  "pyrefly_python",
+ "pyrefly_types",
  "pyrefly_util",
  "regex",
  "regex-syntax 0.7.5",
@@ -2075,6 +2076,25 @@ dependencies = [
  "static_interner",
  "thiserror 2.0.12",
  "toml",
+]
+
+[[package]]
+name = "pyrefly_types"
+version = "0.24.2"
+dependencies = [
+ "dupe",
+ "itertools 0.14.0",
+ "num-bigint",
+ "num-traits",
+ "parse-display",
+ "pyrefly_derive",
+ "pyrefly_python",
+ "pyrefly_util",
+ "ruff_python_ast",
+ "ruff_text_size",
+ "starlark_map",
+ "static_assertions",
+ "vec1",
 ]
 
 [[package]]

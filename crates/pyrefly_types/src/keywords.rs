@@ -13,12 +13,12 @@ use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
 use starlark_map::ordered_map::OrderedMap;
 
-use crate::types::callable::FuncMetadata;
-use crate::types::callable::FunctionKind;
-use crate::types::literal::Lit;
-use crate::types::tuple::Tuple;
-use crate::types::types::CalleeKind;
-use crate::types::types::Type;
+use crate::callable::FuncMetadata;
+use crate::callable::FunctionKind;
+use crate::literal::Lit;
+use crate::tuple::Tuple;
+use crate::types::CalleeKind;
+use crate::types::Type;
 
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
 pub struct TypeMap(pub OrderedMap<Name, Type>);

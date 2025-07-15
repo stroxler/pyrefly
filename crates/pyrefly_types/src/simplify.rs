@@ -8,12 +8,12 @@
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::types::class::Class;
-use crate::types::class::ClassType;
-use crate::types::literal::Lit;
-use crate::types::stdlib::Stdlib;
-use crate::types::tuple::Tuple;
-use crate::types::types::Type;
+use crate::class::Class;
+use crate::class::ClassType;
+use crate::literal::Lit;
+use crate::stdlib::Stdlib;
+use crate::tuple::Tuple;
+use crate::types::Type;
 
 /// Turn unions of unions into a flattened list for one union, and return the deduped list.
 fn flatten_and_dedup(xs: Vec<Type>) -> Vec<Type> {
@@ -263,9 +263,9 @@ pub fn simplify_tuples(tuple: Tuple) -> Type {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::simplify::unions;
-    use crate::types::types::NeverStyle;
-    use crate::types::types::Type;
+    use crate::simplify::unions;
+    use crate::types::NeverStyle;
+    use crate::types::Type;
 
     #[test]
     fn test_flatten_nevers() {

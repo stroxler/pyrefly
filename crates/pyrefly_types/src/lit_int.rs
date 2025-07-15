@@ -19,9 +19,9 @@ use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Int;
 
-use crate::types::equality::TypeEq;
-use crate::types::literal::Lit;
-use crate::types::types::Type;
+use crate::equality::TypeEq;
+use crate::literal::Lit;
+use crate::types::Type;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LitInt(LitIntInner);

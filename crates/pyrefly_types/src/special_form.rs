@@ -18,9 +18,9 @@ use pyrefly_derive::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::name::Name;
 
-use crate::types::annotation::Qualifier;
-use crate::types::types::NeverStyle;
-use crate::types::types::Type;
+use crate::annotation::Qualifier;
+use crate::types::NeverStyle;
+use crate::types::Type;
 
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[derive(Visit, VisitMut, TypeEq, Display, FromStr)]

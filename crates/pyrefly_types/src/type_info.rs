@@ -21,8 +21,8 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
 use vec1::Vec1;
 
-use crate::types::facet::FacetKind;
-use crate::types::types::Type;
+use crate::facet::FacetKind;
+use crate::types::Type;
 
 assert_bytes!(TypeInfo, 40);
 
@@ -517,12 +517,12 @@ mod tests {
     use ruff_python_ast::name::Name;
     use vec1::Vec1;
 
-    use crate::types::class::ClassType;
-    use crate::types::display::tests::fake_class;
-    use crate::types::facet::FacetKind;
-    use crate::types::type_info::TypeInfo;
-    use crate::types::types::TArgs;
-    use crate::types::types::Type;
+    use crate::class::ClassType;
+    use crate::display::tests::fake_class;
+    use crate::facet::FacetKind;
+    use crate::type_info::TypeInfo;
+    use crate::types::TArgs;
+    use crate::types::Type;
 
     fn fake_class_type(class_name: &str) -> Type {
         Type::ClassType(ClassType::new(

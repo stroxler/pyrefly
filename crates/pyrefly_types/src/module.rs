@@ -17,7 +17,7 @@ use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
 use starlark_map::ordered_set::OrderedSet;
 
-use crate::types::types::Type;
+use crate::types::Type;
 
 /// In Python if you do `import foo.bar` and `import foo.baz` then what you are really
 /// doing is importing a single symbol `foo` that contains the two modules accessible from it.
