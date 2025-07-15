@@ -72,6 +72,8 @@ pub enum AttrSubsetError {
     Descriptor,
     // either `got` or `want` is a call to `__getattr__`
     Getattr,
+    // either `got` or `want` is a module fallback
+    ModuleFallback,
     // `got` is not a subtype of `want`
     // applies to methods, read-only attributes, and property getters
     Covariant {
@@ -119,6 +121,11 @@ impl AttrSubsetError {
             AttrSubsetError::Getattr => {
                 format!(
                     "`{child_class}.{attr_name}` or `{parent_class}.{attr_name}` uses `__getattr__`, which cannot be checked for override compatibility"
+                )
+            }
+            AttrSubsetError::ModuleFallback => {
+                format!(
+                    "`{child_class}.{attr_name}` or `{parent_class}.{attr_name}` are module fallbacks, which cannot be checked for override compatibility"
                 )
             }
             AttrSubsetError::Covariant {
@@ -217,6 +224,10 @@ enum AttributeInner {
     /// lookup result of the `__getattr__`/`__getattribute__` function or method.
     /// The `Name` field stores the name of the original attribute being looked up.
     GetAttr(NotFound, Box<AttributeInner>, Name),
+    /// We did `a.b`, which is a real module on the file system, but not one the user explicitly
+    /// or implicitly imported. In some cases, treat this as NotFound. In others, emit an error
+    /// but continue on with type.
+    ModuleFallback(NotFound, ModuleName, Type),
 }
 
 #[derive(Clone, Debug)]
@@ -606,7 +617,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeInner::NoAccess(_)
                 | AttributeInner::Property(..)
                 | AttributeInner::Descriptor(..)
-                | AttributeInner::GetAttr(..) => None,
+                | AttributeInner::GetAttr(..)
+                | AttributeInner::ModuleFallback(..) => None,
             },
             _ => None,
         }
@@ -772,7 +784,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // If the attribute is not found, we fall back to `__setattr__`
                 LookupResult::NotFound(not_found)
                 | LookupResult::Found(Attribute {
-                    inner: AttributeInner::GetAttr(not_found, _, _),
+                    inner:
+                        AttributeInner::GetAttr(not_found, _, _)
+                        | AttributeInner::ModuleFallback(not_found, _, _),
                 }) => {
                     self.check_setattr(
                         attr_base, attr_name, got, not_found, range, errors, context,
@@ -930,7 +944,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // If the attribute is not found, we fall back to `__delattr__`
                 LookupResult::NotFound(not_found)
                 | LookupResult::Found(Attribute {
-                    inner: AttributeInner::GetAttr(not_found, _, _),
+                    inner:
+                        AttributeInner::GetAttr(not_found, _, _)
+                        | AttributeInner::ModuleFallback(not_found, _, _),
                 }) => {
                     self.check_delattr(attr_base, attr_name, not_found, range, errors, context);
                 }
@@ -1157,6 +1173,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // check for now. We may revisit this in the future if the need comes.
                 Err(AttrSubsetError::Getattr)
             }
+            (AttributeInner::ModuleFallback(..), _) | (_, AttributeInner::ModuleFallback(..)) => {
+                Err(AttrSubsetError::ModuleFallback)
+            }
         }
     }
 
@@ -1173,6 +1192,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | AttributeInner::Simple(ty, Visibility::ReadOnly(_)) => Ok(ty),
             AttributeInner::Property(getter, ..) => {
                 Ok(self.call_property_getter(getter, range, errors, context))
+            }
+            AttributeInner::ModuleFallback(_, name, ty) => {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::ImplicitImport,
+                    context,
+                    format!("Module `{name}` exists, but was not imported explicitly. You are relying on other modules to load it."),
+                );
+                Ok(ty)
             }
             AttributeInner::Descriptor(d, ..) => {
                 match d {
@@ -1221,7 +1250,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeInner::NoAccess(_)
             | AttributeInner::Property(..)
             | AttributeInner::Descriptor(..)
-            | AttributeInner::GetAttr(..) => None,
+            | AttributeInner::GetAttr(..)
+            | AttributeInner::ModuleFallback(..) => None,
         }
     }
 
@@ -1235,7 +1265,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | AttributeInner::NoAccess(_)
             | AttributeInner::Property(..)
             | AttributeInner::Descriptor(..)
-            | AttributeInner::GetAttr(..) => None,
+            | AttributeInner::GetAttr(..)
+            | AttributeInner::ModuleFallback(..) => None,
         }
     }
 
@@ -1346,7 +1377,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AttributeBase::Module(module) => match self.get_module_attr(&module, attr_name) {
                 // TODO(samzhou19815): Support module attribute go-to-definition
-                Some(attr) => LookupResult::found_type(attr),
+                Some(attr) => LookupResult::Found(attr),
                 None => LookupResult::NotFound(NotFound::ModuleExport(module)),
             },
             AttributeBase::TypeVar(q, bound) => match (q.kind(), attr_name.as_str()) {
@@ -1558,7 +1589,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.exports.get(module_name).ok()
     }
 
-    fn get_module_attr(&self, module: &ModuleType, attr_name: &Name) -> Option<Type> {
+    fn get_module_attr(&self, module: &ModuleType, attr_name: &Name) -> Option<Attribute> {
         // `module_name` could refer to a package, in which case we need to check if
         // `module_name.attr_name`:
         // - Has been imported. This can happen in two ways:
@@ -1573,13 +1604,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // toplevel of `module_name` has been executed.
         let submodule = module.push_part(attr_name.clone());
         if submodule.is_submodules_imported_directly() {
-            return Some(submodule.to_type());
+            return Some(Attribute::read_write(submodule.to_type()));
         }
 
         let module_name = ModuleName::from_parts(module.parts());
         let module_exports = match self.get_module_exports(module_name) {
             Some(x) => x,
-            None => return Some(Type::any_error()), // This module doesn't exist, we must have already errored
+            None => return Some(Attribute::read_write(Type::any_error())), // This module doesn't exist, we must have already errored
         };
 
         if module_exports.is_submodule_imported_implicitly(attr_name)
@@ -1587,12 +1618,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .get_module_exports(module_name.append(attr_name))
                 .is_some()
         {
-            Some(submodule.to_type())
+            Some(Attribute::read_write(submodule.to_type()))
         } else if module_exports.exports(self.exports).contains_key(attr_name) {
-            Some(
+            Some(Attribute::read_write(
                 self.get_from_export(module_name, None, &KeyExport(attr_name.clone()))
                     .arc_clone(),
-            )
+            ))
+        } else if self
+            .get_module_exports(module_name.append(attr_name))
+            .is_some()
+        {
+            // The module isn't imported, but does exist on disk, so user must
+            // be observing someone else's import.
+            Some(Attribute::new(AttributeInner::ModuleFallback(
+                NotFound::ModuleExport(module.clone()),
+                module_name.append(attr_name),
+                submodule.to_type(),
+            )))
         } else {
             None
         }
@@ -1775,7 +1817,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let is_property_or_descriptor = match &attr.inner {
                     AttributeInner::Simple(..)
                     | AttributeInner::NoAccess(..)
-                    | AttributeInner::GetAttr(..) => false,
+                    | AttributeInner::GetAttr(..)
+                    | AttributeInner::ModuleFallback(..) => false,
                     AttributeInner::Property(..) | AttributeInner::Descriptor(..) => true,
                 };
                 match self.resolve_get_access(attr, range, errors, None) {

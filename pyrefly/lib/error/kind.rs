@@ -128,6 +128,8 @@ pub enum ErrorKind {
     DeleteError,
     /// Calling a function marked with `@deprecated`
     Deprecated,
+    /// Usage of a module that was not actually imported, but does exist.
+    ImplicitImport,
     /// An attribute was implicitly defined by assignment to `self` in a method that we
     /// do not recognize as always executing (we recognize constructors and some test setup
     /// methods).
