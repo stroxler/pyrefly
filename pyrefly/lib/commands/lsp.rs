@@ -171,6 +171,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use tracing::error;
 use tracing::warn;
 
 use crate::commands::config_finder::standard_config_finder;
@@ -363,8 +364,10 @@ struct PythonInfo {
 
 impl PythonInfo {
     fn new(interpreter: PathBuf) -> Self {
-        // TODO(connernilsen): propagate the error somehow
-        let env = PythonEnvironment::get_interpreter_env(&interpreter).0;
+        let (env, query_error) = PythonEnvironment::get_interpreter_env(&interpreter);
+        if let Some(error) = query_error {
+            error!("{error}");
+        }
         Self { interpreter, env }
     }
 }
