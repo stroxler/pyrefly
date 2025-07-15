@@ -748,12 +748,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
+    fn intercept_typing_self_use(&self, x: &Expr) -> Option<TypeInfo> {
+        match x {
+            Expr::Name(..) | Expr::Attribute(..) => {
+                let key = Key::SelfTypeLiteral(x.range());
+                let self_type_form = self.get_hashed_opt(Hashed::new(&key))?;
+                Some(self_type_form.arc_clone())
+            }
+            _ => None,
+        }
+    }
+
     fn expr_infer_type_info_with_hint(
         &self,
         x: &Expr,
         hint: Option<&Type>,
         errors: &ErrorCollector,
     ) -> TypeInfo {
+        if let Some(self_type_annotation) = self.intercept_typing_self_use(x) {
+            return self_type_annotation;
+        }
         let res = match x {
             Expr::Name(x) => self
                 .get(&Key::BoundName(ShortIdentifier::expr_name(x)))

@@ -5491,32 +5491,12 @@
     {
       "code": -2,
       "column": 38,
-      "concise_description": "Argument `LinkedList[int]` is not assignable to parameter `next` with type `Self | None` in function `OrdinalLinkedList.__init__`",
-      "description": "Argument `LinkedList[int]` is not assignable to parameter `next` with type `Self | None` in function `OrdinalLinkedList.__init__`",
+      "concise_description": "Argument `LinkedList[int]` is not assignable to parameter `next` with type `OrdinalLinkedList | None` in function `OrdinalLinkedList.__init__`",
+      "description": "Argument `LinkedList[int]` is not assignable to parameter `next` with type `OrdinalLinkedList | None` in function `OrdinalLinkedList.__init__`",
       "line": 26,
       "name": "bad-argument-type",
       "stop_column": 62,
       "stop_line": 26
-    },
-    {
-      "code": -2,
-      "column": 15,
-      "concise_description": "`OrdinalLinkedList` is not assignable to attribute `next` with type `Self | None`",
-      "description": "`OrdinalLinkedList` is not assignable to attribute `next` with type `Self | None`",
-      "line": 29,
-      "name": "bad-assignment",
-      "stop_column": 52,
-      "stop_line": 29
-    },
-    {
-      "code": -2,
-      "column": 15,
-      "concise_description": "`LinkedList[int]` is not assignable to attribute `next` with type `Self | None`",
-      "description": "`LinkedList[int]` is not assignable to attribute `next` with type `Self | None`",
-      "line": 32,
-      "name": "bad-assignment",
-      "stop_column": 50,
-      "stop_line": 32
     }
   ],
   "generics_self_basic.py": [
@@ -5574,16 +5554,6 @@
     }
   ],
   "generics_self_usage.py": [
-    {
-      "code": -2,
-      "column": 34,
-      "concise_description": "`(self: Self@CallableAttribute) -> int` is not assignable to `(Self) -> int`",
-      "description": "`(self: Self@CallableAttribute) -> int` is not assignable to `(Self) -> int`",
-      "line": 50,
-      "name": "bad-assignment",
-      "stop_column": 37,
-      "stop_line": 50
-    },
     {
       "code": -2,
       "column": 19,
