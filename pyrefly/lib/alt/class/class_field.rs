@@ -749,13 +749,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let is_override = value_ty.is_override();
 
         let annotation = direct_annotation.or(inherited_annotation.as_ref());
-        let read_only_reason = self.determine_read_only_reason(
-            class,
-            name,
-            &annotation.cloned(),
-            &value_ty,
-            &initialization,
-        );
+        let read_only_reason =
+            self.determine_read_only_reason(class, name, annotation, &value_ty, &initialization);
         let is_namedtuple_member = metadata
             .named_tuple_metadata()
             .is_some_and(|nt| nt.elements.contains(name));
@@ -913,7 +908,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         name: &Name,
-        annotation: &Option<Annotation>,
+        annotation: Option<&Annotation>,
         ty: &Type,
         initialization: &ClassFieldInitialization,
     ) -> Option<ReadOnlyReason> {
