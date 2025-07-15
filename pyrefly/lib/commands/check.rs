@@ -231,13 +231,13 @@ struct ConfigOverrideArgs {
     #[arg(long, env = clap_env("PERMISSIVE_IGNORES"))]
     permissive_ignores: Option<bool>,
     /// Force this rule to emit an error. Can be used multiple times.
-    #[arg(long, env = clap_env("ERROR"))]
+    #[arg(long, env = clap_env("ERROR"), hide_possible_values = true)]
     error: Vec<ErrorKind>,
     /// Force this rule to emit a warning. Can be used multiple times.
-    #[arg(long, env = clap_env("WARN"))]
+    #[arg(long, env = clap_env("WARN"), hide_possible_values = true)]
     warn: Vec<ErrorKind>,
     /// Do not emit diagnostics for this rule. Can be used multiple times.
-    #[arg(long, env = clap_env("IGNORE"))]
+    #[arg(long, env = clap_env("IGNORE"), hide_possible_values = true)]
     ignore: Vec<ErrorKind>,
 }
 
