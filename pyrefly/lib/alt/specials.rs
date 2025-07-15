@@ -310,11 +310,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     arguments.len()
                 ),
             ),
-            SpecialForm::Union => {
-                Type::type_form(Type::Union(arguments.map(|arg| {
-                    self.expr_untype(arg, TypeFormContext::TypeArgument, errors)
-                })))
-            }
+            SpecialForm::Union => Type::type_form(self.unions(
+                arguments.map(|arg| self.expr_untype(arg, TypeFormContext::TypeArgument, errors)),
+            )),
             SpecialForm::Tuple => match self.check_args_and_construct_tuple(arguments, errors) {
                 Some((tuple, _)) => Type::type_form(Type::Tuple(tuple)),
                 None => Type::type_form(Type::Tuple(Tuple::unbounded(Type::any_error()))),

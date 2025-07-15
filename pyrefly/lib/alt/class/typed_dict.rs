@@ -268,7 +268,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect();
 
-        let iterable_ty = self.stdlib.iterable(Type::Union(tuple_types)).to_type();
+        let iterable_ty = self.stdlib.iterable(self.unions(tuple_types)).to_type();
 
         let tuple_overload = OverloadType::Callable(Callable::list(
             ParamList::new(vec![
@@ -370,7 +370,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     Required::Required,
                                 ),
                             ]),
-                            Type::Union(vec![field.ty.clone(), q.to_type()]),
+                            self.union(field.ty.clone(), q.to_type()),
                         ),
                         metadata: metadata.clone(),
                     },
@@ -454,7 +454,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     Required::Required,
                                 ),
                             ]),
-                            Type::Union(vec![field.ty.clone(), q.clone().to_type()]),
+                            self.union(field.ty.clone(), q.clone().to_type()),
                         ),
                         metadata: metadata.clone(),
                     },
