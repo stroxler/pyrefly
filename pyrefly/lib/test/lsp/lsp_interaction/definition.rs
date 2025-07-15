@@ -183,7 +183,6 @@ fn definition_in_builtins() {
     );
     assert!(
         result_file.exists(),
-        "Expected pyrefly.toml to exist at {:?}",
-        result_file
+        "Expected pyrefly.toml to exist at {result_file:?}",
     );
 }
