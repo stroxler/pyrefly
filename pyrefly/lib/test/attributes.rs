@@ -1140,20 +1140,18 @@ Backend.Options = Options2  # This probably should not be legal
 );
 
 testcase!(
-    bug = "We should allow subtyping in nested class types",
     test_nested_class_inheritance,
     r#"
 class Backend:
     class Options:
         pass
 class ProcessGroupGloo(Backend):
-    class Options(Backend.Options): # E: `ProcessGroupGloo.Options` has type `type[Options]`, which is not consistent with `type[Options]` in `Backend.Options` (the type of read-write attributes cannot be changed)
+    class Options(Backend.Options):
         pass
     "#,
 );
 
 testcase!(
-    bug = "We should allow subtyping in nested class types via assignment",
     test_nested_class_inheritance_via_assignment,
     r#"
 class Backend:
@@ -1162,7 +1160,7 @@ class Backend:
 class Options2(Backend.Options):
     pass
 class ProcessGroupGloo(Backend):
-    Options = Options2  # E: `ProcessGroupGloo.Options` has type `type[Options2]`, which is not consistent with `type[Options]` in `Backend.Options` (the type of read-write attributes cannot be changed)
+    Options = Options2
     "#,
 );
 

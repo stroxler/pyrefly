@@ -21,6 +21,8 @@ pub enum ReadOnlyReason {
     NamedTuple,
     /// Field is a ClassVar
     ClassVar,
+    /// Field is has a type like `type[X]` and is initialized on the body (this includes nested class defs)
+    ClassObjectInitializedOnBody,
 }
 
 impl ReadOnlyReason {
@@ -32,6 +34,9 @@ impl ReadOnlyReason {
             ReadOnlyReason::NamedTuple => "This field is a NamedTuple member".to_owned(),
             ReadOnlyReason::ClassVar => {
                 "A ClassVar may not be mutated from an instance of the class".to_owned()
+            }
+            ReadOnlyReason::ClassObjectInitializedOnBody => {
+                "A class object initialized in the class body is considered read-only".to_owned()
             }
         }
     }
