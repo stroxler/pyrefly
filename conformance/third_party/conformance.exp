@@ -1707,22 +1707,12 @@
     },
     {
       "code": -2,
-      "column": 10,
-      "concise_description": "Missing argument `v1` in function `func1`",
-      "description": "Missing argument `v1` in function `func1`",
+      "column": 11,
+      "concise_description": "Expected argument `v1` to be passed by name in function `func1`",
+      "description": "Expected argument `v1` to be passed by name in function `func1`",
       "line": 52,
       "name": "missing-argument",
-      "stop_column": 22,
-      "stop_line": 52
-    },
-    {
-      "code": -2,
-      "column": 10,
-      "concise_description": "Missing argument `v3` in function `func1`",
-      "description": "Missing argument `v3` in function `func1`",
-      "line": 52,
-      "name": "missing-argument",
-      "stop_column": 22,
+      "stop_column": 12,
       "stop_line": 52
     },
     {
@@ -1733,6 +1723,16 @@
       "line": 52,
       "name": "bad-argument-count",
       "stop_column": 12,
+      "stop_line": 52
+    },
+    {
+      "code": -2,
+      "column": 14,
+      "concise_description": "Expected argument `v3` to be passed by name in function `func1`",
+      "description": "Expected argument `v3` to be passed by name in function `func1`",
+      "line": 52,
+      "name": "missing-argument",
+      "stop_column": 16,
       "stop_line": 52
     },
     {
@@ -3386,32 +3386,22 @@
     },
     {
       "code": -2,
-      "column": 17,
-      "concise_description": "Missing argument `id` in function `Customer1.__init__`",
-      "description": "Missing argument `id` in function `Customer1.__init__`",
-      "line": 66,
-      "name": "missing-argument",
-      "stop_column": 27,
-      "stop_line": 66
-    },
-    {
-      "code": -2,
-      "column": 17,
-      "concise_description": "Missing argument `name` in function `Customer1.__init__`",
-      "description": "Missing argument `name` in function `Customer1.__init__`",
-      "line": 66,
-      "name": "missing-argument",
-      "stop_column": 27,
-      "stop_line": 66
-    },
-    {
-      "code": -2,
       "column": 18,
-      "concise_description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
-      "description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
+      "concise_description": "Expected argument `id` to be passed by name in function `Customer1.__init__`",
+      "description": "Expected argument `id` to be passed by name in function `Customer1.__init__`",
       "line": 66,
-      "name": "bad-argument-count",
+      "name": "missing-argument",
       "stop_column": 19,
+      "stop_line": 66
+    },
+    {
+      "code": -2,
+      "column": 21,
+      "concise_description": "Expected argument `name` to be passed by name in function `Customer1.__init__`",
+      "description": "Expected argument `name` to be passed by name in function `Customer1.__init__`",
+      "line": 66,
+      "name": "missing-argument",
+      "stop_column": 26,
       "stop_line": 66
     },
     {
@@ -3426,12 +3416,12 @@
     },
     {
       "code": -2,
-      "column": 17,
-      "concise_description": "Missing argument `id` in function `Customer2.__init__`",
-      "description": "Missing argument `id` in function `Customer2.__init__`",
+      "column": 18,
+      "concise_description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
+      "description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
       "line": 82,
       "name": "missing-argument",
-      "stop_column": 28,
+      "stop_column": 19,
       "stop_line": 82
     },
     {
@@ -3560,21 +3550,11 @@
     },
     {
       "code": -2,
-      "column": 15,
-      "concise_description": "Missing argument `name` in function `CustomerModel2.__init__`",
-      "description": "Missing argument `name` in function `CustomerModel2.__init__`",
+      "column": 16,
+      "concise_description": "Expected argument `name` to be passed by name in function `CustomerModel2.__init__`",
+      "description": "Expected argument `name` to be passed by name in function `CustomerModel2.__init__`",
       "line": 75,
       "name": "missing-argument",
-      "stop_column": 18,
-      "stop_line": 75
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "Expected 0 positional arguments, got 1 in function `CustomerModel2.__init__`",
-      "description": "Expected 0 positional arguments, got 1 in function `CustomerModel2.__init__`",
-      "line": 75,
-      "name": "bad-argument-count",
       "stop_column": 17,
       "stop_line": 75
     }
@@ -3612,32 +3592,22 @@
     },
     {
       "code": -2,
-      "column": 17,
-      "concise_description": "Missing argument `id` in function `Customer2.__init__`",
-      "description": "Missing argument `id` in function `Customer2.__init__`",
-      "line": 71,
-      "name": "missing-argument",
-      "stop_column": 28,
-      "stop_line": 71
-    },
-    {
-      "code": -2,
-      "column": 17,
-      "concise_description": "Missing argument `name` in function `Customer2.__init__`",
-      "description": "Missing argument `name` in function `Customer2.__init__`",
-      "line": 71,
-      "name": "missing-argument",
-      "stop_column": 28,
-      "stop_line": 71
-    },
-    {
-      "code": -2,
       "column": 18,
-      "concise_description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
-      "description": "Expected 0 positional arguments, got 2 in function `Customer2.__init__`",
+      "concise_description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
+      "description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
       "line": 71,
-      "name": "bad-argument-count",
+      "name": "missing-argument",
       "stop_column": 19,
+      "stop_line": 71
+    },
+    {
+      "code": -2,
+      "column": 21,
+      "concise_description": "Expected argument `name` to be passed by name in function `Customer2.__init__`",
+      "description": "Expected argument `name` to be passed by name in function `Customer2.__init__`",
+      "line": 71,
+      "name": "missing-argument",
+      "stop_column": 27,
       "stop_line": 71
     },
     {
@@ -3684,32 +3654,22 @@
     },
     {
       "code": -2,
-      "column": 17,
-      "concise_description": "Missing argument `id` in function `Customer1.__init__`",
-      "description": "Missing argument `id` in function `Customer1.__init__`",
-      "line": 66,
-      "name": "missing-argument",
-      "stop_column": 27,
-      "stop_line": 66
-    },
-    {
-      "code": -2,
-      "column": 17,
-      "concise_description": "Missing argument `name` in function `Customer1.__init__`",
-      "description": "Missing argument `name` in function `Customer1.__init__`",
-      "line": 66,
-      "name": "missing-argument",
-      "stop_column": 27,
-      "stop_line": 66
-    },
-    {
-      "code": -2,
       "column": 18,
-      "concise_description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
-      "description": "Expected 0 positional arguments, got 2 in function `Customer1.__init__`",
+      "concise_description": "Expected argument `id` to be passed by name in function `Customer1.__init__`",
+      "description": "Expected argument `id` to be passed by name in function `Customer1.__init__`",
       "line": 66,
-      "name": "bad-argument-count",
+      "name": "missing-argument",
       "stop_column": 19,
+      "stop_line": 66
+    },
+    {
+      "code": -2,
+      "column": 21,
+      "concise_description": "Expected argument `name` to be passed by name in function `Customer1.__init__`",
+      "description": "Expected argument `name` to be passed by name in function `Customer1.__init__`",
+      "line": 66,
+      "name": "missing-argument",
+      "stop_column": 26,
       "stop_line": 66
     },
     {
@@ -3724,12 +3684,12 @@
     },
     {
       "code": -2,
-      "column": 17,
-      "concise_description": "Missing argument `id` in function `Customer2.__init__`",
-      "description": "Missing argument `id` in function `Customer2.__init__`",
+      "column": 18,
+      "concise_description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
+      "description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
       "line": 83,
       "name": "missing-argument",
-      "stop_column": 28,
+      "stop_column": 19,
       "stop_line": 83
     },
     {
