@@ -27,6 +27,7 @@ use ruff_python_ast::Number;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use starlark_map::Hashed;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
@@ -1326,13 +1327,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::Call(x) => {
                 let mut ty_fun = self.expr_infer(&x.func, errors);
                 if matches!(&ty_fun, Type::ClassDef(cls) if cls.is_builtin("super")) {
-                    if is_special_name(&x.func, "super") {
-                        self.get(&Key::SuperInstance(x.range)).arc_clone_ty()
-                    } else {
-                        // Because we have to construct a binding for super in order to fill in
-                        // implicit arguments, we can't handle things like local aliases to super.
-                        Type::any_implicit()
-                    }
+                    // Because we have to construct a binding for super in order to fill in implicit arguments,
+                    // we can't handle things like local aliases to super. If we hit a case where the binding
+                    // wasn't constructed, fall back to `Any`.
+                    self.get_hashed_opt(Hashed::new(&Key::SuperInstance(x.range)))
+                        .map_or_else(Type::any_implicit, |type_info| type_info.arc_clone_ty())
                 } else {
                     self.expand_type_mut(&mut ty_fun);
 
