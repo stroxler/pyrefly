@@ -203,6 +203,8 @@ pub enum ErrorKind {
     UnboundName,
     /// An error caused by a keyword argument used in the wrong place.
     UnexpectedKeyword,
+    /// An error caused by passing a positional argument for a keyword-only parameter.
+    UnexpectedPositionalArgument,
     /// Attempting to use a name that is not defined.
     UnknownName,
     /// Attempting to use a feature that is not yet supported.

@@ -1711,7 +1711,7 @@
       "concise_description": "Expected argument `v1` to be passed by name in function `func1`",
       "description": "Expected argument `v1` to be passed by name in function `func1`",
       "line": 52,
-      "name": "missing-argument",
+      "name": "unexpected-positional-argument",
       "stop_column": 12,
       "stop_line": 52
     },
@@ -1731,7 +1731,7 @@
       "concise_description": "Expected argument `v3` to be passed by name in function `func1`",
       "description": "Expected argument `v3` to be passed by name in function `func1`",
       "line": 52,
-      "name": "missing-argument",
+      "name": "unexpected-positional-argument",
       "stop_column": 16,
       "stop_line": 52
     },
@@ -3390,7 +3390,7 @@
       "concise_description": "Expected argument `id` to be passed by name in function `Customer1.__init__`",
       "description": "Expected argument `id` to be passed by name in function `Customer1.__init__`",
       "line": 66,
-      "name": "missing-argument",
+      "name": "unexpected-positional-argument",
       "stop_column": 19,
       "stop_line": 66
     },
@@ -3400,7 +3400,7 @@
       "concise_description": "Expected argument `name` to be passed by name in function `Customer1.__init__`",
       "description": "Expected argument `name` to be passed by name in function `Customer1.__init__`",
       "line": 66,
-      "name": "missing-argument",
+      "name": "unexpected-positional-argument",
       "stop_column": 26,
       "stop_line": 66
     },
@@ -3420,7 +3420,7 @@
       "concise_description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
       "description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
       "line": 82,
-      "name": "missing-argument",
+      "name": "unexpected-positional-argument",
       "stop_column": 19,
       "stop_line": 82
     },
@@ -3554,7 +3554,7 @@
       "concise_description": "Expected argument `name` to be passed by name in function `CustomerModel2.__init__`",
       "description": "Expected argument `name` to be passed by name in function `CustomerModel2.__init__`",
       "line": 75,
-      "name": "missing-argument",
+      "name": "unexpected-positional-argument",
       "stop_column": 17,
       "stop_line": 75
     }
@@ -3596,7 +3596,7 @@
       "concise_description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
       "description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
       "line": 71,
-      "name": "missing-argument",
+      "name": "unexpected-positional-argument",
       "stop_column": 19,
       "stop_line": 71
     },
@@ -3606,7 +3606,7 @@
       "concise_description": "Expected argument `name` to be passed by name in function `Customer2.__init__`",
       "description": "Expected argument `name` to be passed by name in function `Customer2.__init__`",
       "line": 71,
-      "name": "missing-argument",
+      "name": "unexpected-positional-argument",
       "stop_column": 27,
       "stop_line": 71
     },
@@ -3658,7 +3658,7 @@
       "concise_description": "Expected argument `id` to be passed by name in function `Customer1.__init__`",
       "description": "Expected argument `id` to be passed by name in function `Customer1.__init__`",
       "line": 66,
-      "name": "missing-argument",
+      "name": "unexpected-positional-argument",
       "stop_column": 19,
       "stop_line": 66
     },
@@ -3668,7 +3668,7 @@
       "concise_description": "Expected argument `name` to be passed by name in function `Customer1.__init__`",
       "description": "Expected argument `name` to be passed by name in function `Customer1.__init__`",
       "line": 66,
-      "name": "missing-argument",
+      "name": "unexpected-positional-argument",
       "stop_column": 26,
       "stop_line": 66
     },
@@ -3688,7 +3688,7 @@
       "concise_description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
       "description": "Expected argument `id` to be passed by name in function `Customer2.__init__`",
       "line": 83,
-      "name": "missing-argument",
+      "name": "unexpected-positional-argument",
       "stop_column": 19,
       "stop_line": 83
     },

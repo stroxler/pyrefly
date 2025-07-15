@@ -758,6 +758,17 @@ def two_args(a: int, b: int) -> int:
 two_args(a=1, b=2, c=3)
 ```
 
+## unexpected-positional-argument
+
+A positional argument was passed for a keyword-only parameter.
+
+```python
+def takes_kwonly(*, x: int) -> int:
+  ...
+
+takes_kwonly(1)  # should be `takes_kwonly(x=1)`!
+```
+
 ## unknown-name
 
 `unknown-name` occurs when attempting to load a name from another scope, but the name cannot be found.

@@ -841,7 +841,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         error(
                             call_errors,
                             *arg_range,
-                            ErrorKind::MissingArgument,
+                            ErrorKind::UnexpectedPositionalArgument,
                             format!("Expected argument `{name}` to be passed by name"),
                         );
                         extra_posargs_matched += 1;
