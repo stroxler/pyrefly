@@ -1165,6 +1165,17 @@ class ProcessGroupGloo(Backend):
 );
 
 testcase!(
+    bug = "We currently fail to validate read-onlyness of class attributes",
+    test_read_only_class_var,
+    r#"
+from typing import ClassVar, Final
+class C:
+    x: ClassVar[Final[int]] = 42
+C.x = 43  # This should error
+    "#,
+);
+
+testcase!(
     bug = "other.output type is too general. Also, there should be no errors.",
     test_attr_cast,
     r#"
