@@ -156,6 +156,9 @@ pub enum ErrorKind {
     InvalidOverload,
     /// An error related to ParamSpec definition or usage.
     InvalidParamSpec,
+    /// A use of `typing.Self` in a context where Pyrefly does not recognize it as
+    /// mapping to a valid class type.
+    InvalidSelfType,
     /// Attempting to call `super()` in a way that is not allowed.
     /// e.g. calling `super(Y, x)` on an object `x` that does not match the class `Y`.
     InvalidSuperCall,

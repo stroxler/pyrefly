@@ -1963,8 +1963,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // are handled in `binding_to_type_info`
                 self.binding_to_type_info(binding, errors).into_ty()
             }
-            Binding::SelfTypeLiteral(..) => {
-                unimplemented!("Binding::SelfTypeLiteral is not yet in use")
+            Binding::SelfTypeLiteral(class_key, r) => {
+                if let Some(cls) = &self.get_idx(*class_key).as_ref().0 {
+                    match self.instantiate(cls) {
+                        Type::ClassType(class_type) => Type::type_form(Type::SelfType(class_type)),
+                        ty => self.error(
+                            errors,
+                            *r,
+                            ErrorKind::InvalidSelfType,
+                            None,
+                            format!(
+                                "Cannot apply `typing.Self` to non-class-instance type `{}`",
+                                self.for_display(ty)
+                            ),
+                        ),
+                    }
+                } else {
+                    self.error(
+                        errors,
+                        *r,
+                        ErrorKind::InvalidSelfType,
+                        None,
+                        "Could not resolve the class for `typing.Self` (may indicate unexpected recursion resolving types)".to_owned(),
+                    )
+                }
             }
             Binding::Pin(unpinned_idx, first_use) => {
                 // Calclulate the first use for its side-effects (it might pin `Var`s)
