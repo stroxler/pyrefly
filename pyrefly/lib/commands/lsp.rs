@@ -196,6 +196,7 @@ use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionData;
+use crate::types::display::TypeDisplayContext;
 
 /// Pyrefly's indexing strategy for open projects when performing go-to-definition
 /// requests.
@@ -1887,10 +1888,41 @@ impl Server {
                 docstring_formatted = format!("\n---\n{}", docstring.as_string().trim());
             }
         }
+        let mut type_display_context = TypeDisplayContext::new(&[&t]);
+        type_display_context.start_tracking_displayed_class_definitions();
+        let type_formatted = format!("{}", type_display_context.display(&t));
+        let symbol_def_loc_formatted = {
+            let tracked_def_locs = type_display_context
+                .tracked_displayed_class_definitions()
+                .unwrap_or_default();
+            let linked_names = tracked_def_locs
+                .into_iter()
+                .filter_map(|qname| {
+                    if let Ok(mut url) = Url::from_file_path(qname.module_info().path().as_path()) {
+                        let start_pos = qname.module_info().display_range(qname.range()).start;
+                        url.set_fragment(Some(&format!(
+                            "L{},{}",
+                            start_pos.line.get(),
+                            start_pos.column
+                        )));
+                        Some(format!("[{}]({})", qname.id(), url))
+                    } else {
+                        None
+                    }
+                })
+                .join(" | ");
+            if linked_names.is_empty() {
+                "".to_owned()
+            } else {
+                format!("\n---\nGo to {linked_names}")
+            }
+        };
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: format!("```python\n{kind_formatted}{t}\n```{docstring_formatted}",),
+                value: format!(
+                    "```python\n{kind_formatted}{type_formatted}\n```{docstring_formatted}{symbol_def_loc_formatted}",
+                ),
             }),
             range: None,
         })

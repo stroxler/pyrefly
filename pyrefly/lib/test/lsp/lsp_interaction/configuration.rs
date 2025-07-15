@@ -374,7 +374,12 @@ fn test_disable_type_errors_language_services_still_work() {
         Message::Response(Response {
             id: RequestId::from(2),
             result: Some(serde_json::json!({
-                "contents": {"kind":"markdown","value":"```python\n(class) Bar: type[Bar]\n```"}
+                "contents": {
+                    "kind":"markdown",
+                    "value":"```python\n(class) Bar: type[Bar]\n```\n---\nGo to [Bar](".to_owned()
+                        + Url::from_file_path(test_files_root.path().join("bar.py")).unwrap().as_str()
+                        + "#L7,7)"
+                }
             })),
             error: None,
         }),

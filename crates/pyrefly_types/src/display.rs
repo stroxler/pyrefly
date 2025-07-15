@@ -14,10 +14,12 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::display::Fmt;
 use pyrefly_util::display::append;
 use pyrefly_util::display::commas_iter;
+use pyrefly_util::lock::Mutex;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 use starlark_map::smallmap;
 
 use crate::callable::Function;
@@ -78,9 +80,13 @@ impl ClassInfo {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct TypeDisplayContext<'a> {
     classes: SmallMap<&'a Name, ClassInfo>,
+    /// For class names that are printed, we will track the names of the definition location.
+    /// On hover, we can additionally show something like:
+    /// `Foo` defined at [`foo.py:1:1`](file:///foo.py#L1,1)
+    tracked_displayed_class_definitions: Option<Mutex<SmallSet<QName>>>,
 }
 
 impl<'a> TypeDisplayContext<'a> {
@@ -126,6 +132,17 @@ impl<'a> TypeDisplayContext<'a> {
         for c in self.classes.values_mut() {
             c.info.insert(fake_module, None);
         }
+    }
+
+    /// Make the context track the definition locations of displayed class names.
+    pub fn start_tracking_displayed_class_definitions(&mut self) {
+        if self.tracked_displayed_class_definitions.is_none() {
+            self.tracked_displayed_class_definitions = Some(Default::default())
+        }
+    }
+
+    pub fn tracked_displayed_class_definitions(self) -> Option<SmallSet<QName>> {
+        Some(self.tracked_displayed_class_definitions?.into_inner())
     }
 
     pub fn display(&'a self, t: &'a Type) -> impl Display + 'a {
@@ -181,7 +198,12 @@ impl<'a> TypeDisplayContext<'a> {
 
     fn fmt_qname(&self, qname: &QName, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.classes.get(&qname.id()) {
-            Some(info) => info.fmt(qname, f),
+            Some(info) => {
+                if let Some(tracked) = &self.tracked_displayed_class_definitions {
+                    tracked.lock().insert(qname.clone());
+                }
+                info.fmt(qname, f)
+            }
             None => ClassInfo::qualified().fmt(qname, f), // we should not get here, if we do, be safe
         }
     }
