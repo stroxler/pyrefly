@@ -14,7 +14,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-use pyrefly_python::module_info::ModuleInfo;
+use pyrefly_python::module::ModuleInfo;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use ruff_python_ast::Identifier;

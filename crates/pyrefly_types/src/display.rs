@@ -421,7 +421,7 @@ pub mod tests {
     use std::sync::Arc;
 
     use dupe::Dupe;
-    use pyrefly_python::module_info::ModuleInfo;
+    use pyrefly_python::module::ModuleInfo;
     use pyrefly_python::module_path::ModulePath;
     use pyrefly_util::uniques::UniqueFactory;
     use ruff_python_ast::Identifier;

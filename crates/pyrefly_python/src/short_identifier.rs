@@ -13,7 +13,7 @@ use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
-use crate::module_info::ModuleInfo;
+use crate::module::ModuleInfo;
 
 /// An identifier, where we can drop the `Name` part because it came from a `ModuleInfo`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

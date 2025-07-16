@@ -13,5 +13,5 @@ pub mod wildcard;
 
 // Temporary reexports. Given these are such central types going
 // to land the move with forwards, then clean up the forwards separately.
-pub use pyrefly_python::module_info;
+pub use pyrefly_python::module as module_info;
 pub use pyrefly_python::short_identifier;
