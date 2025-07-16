@@ -35,3 +35,126 @@ impl ConfigOptionMigrater for SearchPath {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    // Constants for test paths
+    const FILE_PATH1: &str = "/path/to/stubs";
+    const FILE_PATH2: &str = "/another/path";
+    const FILE_PATH3: &str = "/third/path";
+
+    // Constants for mypy config
+    const MYPY_SECTION: &str = "mypy";
+    const MYPY_PATH_KEY: &str = "mypy_path";
+
+    // Constant vector of all paths
+    const ALL_PATHS: [&str; 3] = [FILE_PATH1, FILE_PATH2, FILE_PATH3];
+
+    #[test]
+    fn test_migrate_from_mypy_with_single_path() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(MYPY_SECTION, MYPY_PATH_KEY, Some(FILE_PATH1.to_owned()));
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let search_path = SearchPath;
+        let _ = search_path.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(
+            pyrefly_cfg.search_path_from_file,
+            vec![PathBuf::from(FILE_PATH1)]
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_with_comma_separated_paths() {
+        let mut mypy_cfg = Ini::new();
+        let comma_separated = format!("{FILE_PATH1}, {FILE_PATH2}, {FILE_PATH3}");
+        mypy_cfg.set(MYPY_SECTION, MYPY_PATH_KEY, Some(comma_separated));
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let search_path = SearchPath;
+        let _ = search_path.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        // Verify that the ConfigFile was updated correctly
+        assert_eq!(
+            pyrefly_cfg.search_path_from_file,
+            ALL_PATHS
+                .iter()
+                .map(|&p| PathBuf::from(p))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_with_colon_separated_paths() {
+        let mut mypy_cfg = Ini::new();
+        let colon_separated = format!("{FILE_PATH1}:{FILE_PATH2}:{FILE_PATH3}");
+        mypy_cfg.set(MYPY_SECTION, MYPY_PATH_KEY, Some(colon_separated));
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let search_path = SearchPath;
+        let _ = search_path.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(
+            pyrefly_cfg.search_path_from_file,
+            ALL_PATHS
+                .iter()
+                .map(|&p| PathBuf::from(p))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_with_mixed_separators() {
+        let mut mypy_cfg = Ini::new();
+        let mixed_separators = format!("{FILE_PATH1}, {FILE_PATH2}:{FILE_PATH3}");
+        mypy_cfg.set(MYPY_SECTION, MYPY_PATH_KEY, Some(mixed_separators));
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let search_path = SearchPath;
+        let _ = search_path.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(
+            pyrefly_cfg.search_path_from_file,
+            ALL_PATHS
+                .iter()
+                .map(|&p| PathBuf::from(p))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_with_empty_path() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(MYPY_SECTION, MYPY_PATH_KEY, Some("".to_owned()));
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_search_path = pyrefly_cfg.search_path_from_file.clone();
+
+        let search_path = SearchPath;
+        let _ = search_path.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(pyrefly_cfg.search_path_from_file, default_search_path);
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_with_no_path() {
+        let mypy_cfg = Ini::new();
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_search_path = pyrefly_cfg.search_path_from_file.clone();
+
+        let search_path = SearchPath;
+        let _ = search_path.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(pyrefly_cfg.search_path_from_file, default_search_path);
+    }
+}
