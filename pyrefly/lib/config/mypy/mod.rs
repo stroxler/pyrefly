@@ -14,6 +14,7 @@ use std::collections::HashMap;
 pub use ini::MypyConfig;
 pub use pyproject::parse_pyproject_config;
 
+use crate::config::config_utils;
 use crate::config::error::ErrorDisplayConfig;
 use crate::error::kind::ErrorKind;
 use crate::error::kind::Severity;
@@ -35,7 +36,7 @@ use crate::error::kind::Severity;
 //     {
 //         map.insert(ErrorKind::Unkown, import_error);
 //     }
-fn code_to_kind(mut errors: HashMap<String, Severity>) -> Option<ErrorDisplayConfig> {
+pub(crate) fn code_to_kind(mut errors: HashMap<String, Severity>) -> Option<ErrorDisplayConfig> {
     let mut map = HashMap::new();
     if let Some(value) = [errors.remove("union-attr"), errors.remove("attr-defined")]
         .into_iter()

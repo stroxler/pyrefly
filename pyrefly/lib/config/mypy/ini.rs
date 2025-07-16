@@ -22,6 +22,7 @@ use serde::Deserialize;
 use crate::config::base::ConfigBase;
 use crate::config::config::ConfigFile;
 use crate::config::config::SubConfig;
+use crate::config::config_utils;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::mypy::regex_converter;
@@ -54,44 +55,6 @@ pub struct MypyConfig {
 
 impl MypyConfig {
     pub fn parse_mypy_config(ini_path: &Path) -> anyhow::Result<ConfigFile> {
-        fn ini_string_to_array(value: &Option<String>) -> Vec<String> {
-            match value {
-                Some(value) => value
-                    .split(',')
-                    .map(|x| x.trim().to_owned())
-                    .filter(|s| !s.is_empty())
-                    .collect(),
-                _ => Vec::new(),
-            }
-        }
-
-        // getboolcoerce returns an Option<bool> to indicate if the value was set or not,
-        // wrapped in a Result to indicate if the value could be parsed as a bool.
-        // We assume that mypy configs are well formed, since they're already used by mypy itself,
-        // so it's semantically safe to smoosh this down to an Option and unwrap_or_default it.
-        fn bool_or_default(config: &Ini, section: &str, key: &str) -> bool {
-            config
-                .getboolcoerce(section, key)
-                .ok()
-                .flatten()
-                .unwrap_or_default()
-        }
-
-        fn make_error_config(
-            disables: Vec<String>,
-            enables: Vec<String>,
-        ) -> Option<ErrorDisplayConfig> {
-            let mut errors = HashMap::new();
-            for error_code in disables {
-                errors.insert(error_code, Severity::Ignore);
-            }
-            // enable_error_code overrides disable_error_code
-            for error_code in enables {
-                errors.insert(error_code, Severity::Error);
-            }
-            crate::config::mypy::code_to_kind(errors)
-        }
-
         let mut default = IniDefault::default();
         // Need to set this to properly parse things like the PyTorch mypy.ini file,
         // Which has a multiline `files` comment that gets parsed incorrectly without this.
@@ -106,17 +69,17 @@ impl MypyConfig {
 
         // https://mypy.readthedocs.io/en/latest/config_file.html#import-discovery
         // files, packages, modules, mypy_path, python_executable, python_version, and excludes can only be set in the top level `[mypy]` global section
-        let files: Vec<String> = ini_string_to_array(&config.get("mypy", "files"));
-        let packages: Vec<String> = ini_string_to_array(&config.get("mypy", "packages")); // list of strings
-        let modules: Vec<String> = ini_string_to_array(&config.get("mypy", "modules")); // list of strings
+        let files: Vec<String> = config_utils::string_to_array(&config.get("mypy", "files"));
+        let packages: Vec<String> = config_utils::string_to_array(&config.get("mypy", "packages")); // list of strings
+        let modules: Vec<String> = config_utils::string_to_array(&config.get("mypy", "modules")); // list of strings
         let excludes = config.get("mypy", "exclude"); // regex
         let mypy_path = config.get("mypy", "mypy_path"); // string
         let python_executable = config.get("mypy", "python_executable");
         let python_version = config.get("mypy", "python_version");
         let disable_error_code: Vec<String> =
-            ini_string_to_array(&config.get("mypy", "disable_error_code"));
+            config_utils::string_to_array(&config.get("mypy", "disable_error_code"));
         let enable_error_code: Vec<String> =
-            ini_string_to_array(&config.get("mypy", "enable_error_code"));
+            config_utils::string_to_array(&config.get("mypy", "enable_error_code"));
         // follow_untyped_imports may be used as a global or per-module setting. As a per-module setting, it's used to
         // indicate that the module should be ignored if it's untyped.
         // Pyrefly's use_untyped_imports is only a global setting.
@@ -135,7 +98,7 @@ impl MypyConfig {
                 continue;
             }
 
-            if bool_or_default(&config, section, "ignore_missing_imports")
+            if config_utils::get_bool_or_default(&config, section, "ignore_missing_imports")
                 || config
                     .get(section, "follow_imports")
                     .is_some_and(|val| val == "skip")
@@ -145,10 +108,10 @@ impl MypyConfig {
 
             // For subconfigs, the only config that needs to be extracted is enable/disable error codes.
             let disable_error_code: Vec<String> =
-                ini_string_to_array(&config.get(section, "disable_error_code"));
+                config_utils::string_to_array(&config.get(section, "disable_error_code"));
             let enable_error_code: Vec<String> =
-                ini_string_to_array(&config.get(section, "enable_error_code"));
-            let errors = make_error_config(disable_error_code, enable_error_code);
+                config_utils::string_to_array(&config.get(section, "enable_error_code"));
+            let errors = config_utils::make_error_config(disable_error_code, enable_error_code);
             if let Some(errors) = errors {
                 sub_configs.push((section.strip_prefix("mypy-").unwrap().to_owned(), errors));
             }
@@ -184,13 +147,7 @@ impl MypyConfig {
         }
 
         if let Some(search_paths) = mypy_path {
-            let value: Vec<PathBuf> = search_paths
-                .split([',', ':'])
-                .map(|x| x.trim().to_owned())
-                .filter(|x| !x.is_empty())
-                .map(PathBuf::from)
-                .collect();
-            cfg.search_path_from_file = value;
+            cfg.search_path_from_file = config_utils::string_to_paths(&search_paths);
         }
         cfg.use_untyped_imports = follow_untyped_imports.unwrap_or(cfg.use_untyped_imports);
         cfg.root.replace_imports_with_any = replace_imports
@@ -209,7 +166,7 @@ impl MypyConfig {
             .filter(|x| x.is_some())
             .collect();
 
-        cfg.root.errors = make_error_config(disable_error_code, enable_error_code);
+        cfg.root.errors = config_utils::make_error_config(disable_error_code, enable_error_code);
 
         let sub_configs = sub_configs
             .into_iter()
@@ -257,13 +214,13 @@ files =
     src,
     other_src,
     test/some_test.py,
- 
+
 mypy_path = some_paths:comma,separated
- 
+
 unknown_option = True
- 
+
 exclude = src/include/|other_src/include/|src/specific/bad/file.py
- 
+
 [mypy-some.*.project]
 ignore_missing_imports = True
 

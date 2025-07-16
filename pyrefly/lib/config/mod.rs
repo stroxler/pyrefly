@@ -7,6 +7,7 @@
 
 pub mod base;
 pub mod config;
+pub mod config_utils;
 pub mod environment;
 pub mod error;
 pub mod finder;
