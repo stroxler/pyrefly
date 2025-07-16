@@ -63,15 +63,15 @@ mod tests {
 
     #[test]
     fn test_display_short_identifier() {
-        let module_info = Module::new(
+        let module = Module::new(
             ModuleName::from_str("foo"),
             ModulePath::filesystem(Path::new("foo.py").to_owned()),
             Arc::new("hello_world = Baz123.attribute".to_owned()),
         );
-        let module = Ast::parse(module_info.contents()).0;
-        let show = |x: &ShortIdentifier| module_info.display(x).to_string();
+        let ast = Ast::parse(module.contents()).0;
+        let show = |x: &ShortIdentifier| module.display(x).to_string();
 
-        let assign = &module.body[0].as_assign_stmt().unwrap();
+        let assign = &ast.body[0].as_assign_stmt().unwrap();
         let attribute = assign.value.as_attribute_expr().unwrap();
         assert_eq!(show(&from_expr(&assign.targets[0])), "hello_world");
         assert_eq!(show(&from_expr(&attribute.value)), "Baz123");
