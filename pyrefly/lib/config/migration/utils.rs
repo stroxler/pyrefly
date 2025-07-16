@@ -13,6 +13,38 @@ use configparser::ini::Ini;
 use crate::config::error::ErrorDisplayConfig;
 use crate::error::kind::Severity;
 
+/// Iterate over INI sections and apply a function to each section
+///
+/// # Arguments
+///
+/// * `ini` - The INI configuration to iterate over
+/// * `section_filter` - A function that determines which sections to process
+/// * `section_processor` - A function that processes each section that passes the filter
+///
+/// # Example
+///
+/// let mut result = Vec::new();
+/// visit_ini_sections(
+///     &mypy_cfg,
+///     |section_name| section_name.starts_with("mypy-"),
+///     |section_name, ini| {
+///         if get_bool_or_default(ini, section_name, "ignore_missing_imports") {
+///             result.push(section_name.to_owned());
+///         }
+///     },
+/// );
+pub fn visit_ini_sections<F, P>(ini: &Ini, section_filter: F, mut section_processor: P)
+where
+    F: Fn(&str) -> bool,
+    P: FnMut(&str, &Ini),
+{
+    for section_name in &ini.sections() {
+        if section_filter(section_name) {
+            section_processor(section_name, ini);
+        }
+    }
+}
+
 /// Convert a comma-separated string to a vector of strings
 pub fn string_to_array(value: &Option<String>) -> Vec<String> {
     match value {

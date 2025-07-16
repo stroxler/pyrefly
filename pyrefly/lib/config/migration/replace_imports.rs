@@ -24,19 +24,19 @@ impl ConfigOptionMigrater for ReplaceImports {
         let mut replace_imports: Vec<String> = Vec::new();
 
         // Check all sections for ignore_missing_imports or follow_imports=skip
-        for section_name in &mypy_cfg.sections() {
-            if !section_name.starts_with("mypy-") {
-                continue;
-            }
-
-            if utils::get_bool_or_default(mypy_cfg, section_name, "ignore_missing_imports")
-                || mypy_cfg
-                    .get(section_name, "follow_imports")
-                    .is_some_and(|val| val == "skip")
-            {
-                replace_imports.push(section_name.to_owned());
-            }
-        }
+        utils::visit_ini_sections(
+            mypy_cfg,
+            |section_name| section_name.starts_with("mypy-"),
+            |section_name, ini| {
+                if utils::get_bool_or_default(ini, section_name, "ignore_missing_imports")
+                    || ini
+                        .get(section_name, "follow_imports")
+                        .is_some_and(|val| val == "skip")
+                {
+                    replace_imports.push(section_name.to_owned());
+                }
+            },
+        );
 
         if replace_imports.is_empty() {
             return Err(anyhow::anyhow!("No replace imports found in mypy config"));
