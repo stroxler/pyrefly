@@ -7,6 +7,7 @@
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::symbol_kind::SymbolKind;
 use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
@@ -174,7 +175,12 @@ impl<'a> BindingsBuilder<'a> {
                     Binding::Type(Type::any_error())
                 }
             };
-        self.insert_binding(key, binding);
+        let binding_key = self.insert_binding(key, binding);
+
+        self.scopes
+            .add_to_current_static(name.id.clone(), name.range, SymbolKind::Variable, None);
+
+        self.bind_name(&name.id, binding_key, FlowStyle::Other);
     }
 
     fn define_global_name(&mut self, name: &Identifier) {

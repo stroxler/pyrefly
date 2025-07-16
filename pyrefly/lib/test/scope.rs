@@ -228,7 +228,6 @@ def f() -> None:
 );
 
 testcase!(
-    bug = "We fail to correctly mark `g()` as allowing an aug assign",
     test_nonlocal_aug_assign,
     r#"
 def outer():
@@ -237,8 +236,7 @@ def outer():
         x += "a"  # E: `x` is not mutable from the current scope
     def g():
         nonlocal x
-        # Should be okay!!
-        x += "a"  # E: `x` is not mutable from the current scope
+        x += "a"  
     def h0():
         nonlocal x
         def h1():
@@ -250,7 +248,7 @@ def outer():
 // mutable capture entirely (leading to an error saying the mutation is invalid), whereas
 // if there is an assignment we incorrectly mark the name as defined in the local scope.
 testcase!(
-    bug = "We fail to mark a del of a mutable capture as illegal, unless there is no assignment",
+    bug = "We fail to mark a del of a mutable capture as illegal",
     test_nonlocal_del,
     r#"
 def outer():
@@ -260,10 +258,9 @@ def outer():
         x = "foo"
         del x  # not okay: it will work at runtime, but is not statically analyzable
     # A minor variation on f(), relevant to specific implementation bugs in our scope analysis
-    # Here we do error, but for the wrong reason - we think `x` is an immutable capture.
     def g():
         nonlocal x
-        del x  # E: `x` is not mutable from the current scope
+        del x  
     f()
     f()  # This will crash at runtime!
 "#,
@@ -440,5 +437,16 @@ def f(arg: int) -> None:
     assert_type(w, list[int])
     lambd = lambda x: (z := x) + 1
     z  # E: Could not find name `z`
+"#,
+);
+
+testcase!(
+    test_non_local_simple,
+    r#"
+def stuff():
+    run_count = 0
+    def drain():
+        nonlocal run_count
+        run_count += 1
 "#,
 );
