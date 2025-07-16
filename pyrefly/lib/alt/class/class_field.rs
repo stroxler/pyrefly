@@ -547,28 +547,30 @@ fn bind_instance_attribute(
     read_only: Option<ReadOnlyReason>,
 ) -> Attribute {
     // Decorated objects are methods, so they can't be ClassVars
-    match attr {
-        _ if attr.is_property_getter() => Attribute::property(
+    if attr.is_property_getter() {
+        Attribute::property(
             make_bound_method(instance, attr).into_inner(),
             None,
             instance.class.dupe(),
-        ),
-        _ if let Some(getter) = attr.is_property_setter_with_getter() => Attribute::property(
+        )
+    } else if let Some(getter) = attr.is_property_setter_with_getter() {
+        Attribute::property(
             make_bound_method(instance, getter).into_inner(),
             Some(make_bound_method(instance, attr).into_inner()),
             instance.class.dupe(),
-        ),
-        attr if is_class_var => Attribute::read_only(
+        )
+    } else if is_class_var {
+        Attribute::read_only(
             make_bound_method(instance, attr).into_inner(),
             ReadOnlyReason::ClassVar,
-        ),
-        attr if let Some(reason) = read_only => {
-            Attribute::read_only(make_bound_method(instance, attr).into_inner(), reason)
-        }
-        attr => Attribute::read_write(
+        )
+    } else if let Some(reason) = read_only {
+        Attribute::read_only(make_bound_method(instance, attr).into_inner(), reason)
+    } else {
+        Attribute::read_write(
             make_bound_method(instance, attr)
                 .unwrap_or_else(|attr| make_bound_classmethod(instance.class, attr).into_inner()),
-        ),
+        )
     }
 }
 
