@@ -21,7 +21,7 @@ use crate::config::base::ConfigBase;
 use crate::config::config::ConfigFile;
 use crate::config::config::SubConfig;
 use crate::config::error::ErrorDisplayConfig;
-use crate::config::mypy::regex_converter;
+use crate::config::migration::mypy::regex_converter;
 use crate::config::util::ConfigOrigin;
 use crate::error::kind::Severity;
 use crate::module::wildcard::ModuleWildcard;
@@ -120,7 +120,7 @@ fn make_error_config(disable: Vec<String>, enable: Vec<String>) -> Option<ErrorD
     for error_code in enable {
         errors.insert(error_code, Severity::Error);
     }
-    crate::config::mypy::code_to_kind(errors)
+    crate::config::migration::mypy::code_to_kind(errors)
 }
 
 pub fn parse_pyproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {

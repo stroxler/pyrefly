@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-mod ini;
+pub(crate) mod ini;
 mod pyproject;
 mod regex_converter;
 
@@ -14,7 +14,6 @@ use std::collections::HashMap;
 pub use ini::MypyConfig;
 pub use pyproject::parse_pyproject_config;
 
-use crate::config::config_utils;
 use crate::config::error::ErrorDisplayConfig;
 use crate::error::kind::ErrorKind;
 use crate::error::kind::Severity;
@@ -34,7 +33,7 @@ use crate::error::kind::Severity;
 //     .flatten()  // get rid of the ones that are None
 //     .reduce(|acc, x| acc | x)  // OR them together
 //     {
-//         map.insert(ErrorKind::Unkown, import_error);
+//         map.insert(ErrorKind::Unknown, import_error);
 //     }
 pub(crate) fn code_to_kind(mut errors: HashMap<String, Severity>) -> Option<ErrorDisplayConfig> {
     let mut map = HashMap::new();

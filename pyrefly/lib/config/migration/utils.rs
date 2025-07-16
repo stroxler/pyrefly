@@ -57,5 +57,5 @@ pub fn make_error_config(
     for error_code in enables {
         errors.insert(error_code, Severity::Error);
     }
-    crate::config::mypy::code_to_kind(errors)
+    crate::config::migration::mypy::code_to_kind(errors)
 }

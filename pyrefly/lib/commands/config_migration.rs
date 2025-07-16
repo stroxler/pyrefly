@@ -25,10 +25,10 @@ use tracing::warn;
 
 use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
-use crate::config::mypy;
-use crate::config::mypy::MypyConfig;
-use crate::config::pyright;
-use crate::config::pyright::PyrightConfig;
+use crate::config::migration::mypy;
+use crate::config::migration::mypy::MypyConfig;
+use crate::config::migration::pyright;
+use crate::config::migration::pyright::PyrightConfig;
 use crate::config::util::PyProject;
 
 /// Arguments for configuration migration from other type checkers

@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -13,7 +12,6 @@ use std::str::FromStr;
 use anyhow::Context as _;
 use configparser::ini::Ini;
 use configparser::ini::IniDefault;
-use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_util::globs::Glob;
 use pyrefly_util::globs::Globs;
@@ -22,14 +20,13 @@ use serde::Deserialize;
 use crate::config::base::ConfigBase;
 use crate::config::config::ConfigFile;
 use crate::config::config::SubConfig;
-use crate::config::config_utils;
-use crate::config::environment::environment::PythonEnvironment;
 use crate::config::error::ErrorDisplayConfig;
-use crate::config::mypy::regex_converter;
+use crate::config::migration::mypy::regex_converter;
+use crate::config::migration::utils;
 use crate::config::util::ConfigOrigin;
-use crate::error::kind::Severity;
 use crate::module::wildcard::ModuleWildcard;
 #[derive(Clone, Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct MypyConfig {
     files: Option<Vec<String>>,
     packages: Option<Vec<String>>,
@@ -69,17 +66,17 @@ impl MypyConfig {
 
         // https://mypy.readthedocs.io/en/latest/config_file.html#import-discovery
         // files, packages, modules, mypy_path, python_executable, python_version, and excludes can only be set in the top level `[mypy]` global section
-        let files: Vec<String> = config_utils::string_to_array(&config.get("mypy", "files"));
-        let packages: Vec<String> = config_utils::string_to_array(&config.get("mypy", "packages")); // list of strings
-        let modules: Vec<String> = config_utils::string_to_array(&config.get("mypy", "modules")); // list of strings
+        let files: Vec<String> = utils::string_to_array(&config.get("mypy", "files"));
+        let packages: Vec<String> = utils::string_to_array(&config.get("mypy", "packages")); // list of strings
+        let modules: Vec<String> = utils::string_to_array(&config.get("mypy", "modules")); // list of strings
         let excludes = config.get("mypy", "exclude"); // regex
         let mypy_path = config.get("mypy", "mypy_path"); // string
         let python_executable = config.get("mypy", "python_executable");
         let python_version = config.get("mypy", "python_version");
         let disable_error_code: Vec<String> =
-            config_utils::string_to_array(&config.get("mypy", "disable_error_code"));
+            utils::string_to_array(&config.get("mypy", "disable_error_code"));
         let enable_error_code: Vec<String> =
-            config_utils::string_to_array(&config.get("mypy", "enable_error_code"));
+            utils::string_to_array(&config.get("mypy", "enable_error_code"));
         // follow_untyped_imports may be used as a global or per-module setting. As a per-module setting, it's used to
         // indicate that the module should be ignored if it's untyped.
         // Pyrefly's use_untyped_imports is only a global setting.
@@ -98,7 +95,7 @@ impl MypyConfig {
                 continue;
             }
 
-            if config_utils::get_bool_or_default(&config, section, "ignore_missing_imports")
+            if utils::get_bool_or_default(&config, section, "ignore_missing_imports")
                 || config
                     .get(section, "follow_imports")
                     .is_some_and(|val| val == "skip")
@@ -108,10 +105,10 @@ impl MypyConfig {
 
             // For subconfigs, the only config that needs to be extracted is enable/disable error codes.
             let disable_error_code: Vec<String> =
-                config_utils::string_to_array(&config.get(section, "disable_error_code"));
+                utils::string_to_array(&config.get(section, "disable_error_code"));
             let enable_error_code: Vec<String> =
-                config_utils::string_to_array(&config.get(section, "enable_error_code"));
-            let errors = config_utils::make_error_config(disable_error_code, enable_error_code);
+                utils::string_to_array(&config.get(section, "enable_error_code"));
+            let errors = utils::make_error_config(disable_error_code, enable_error_code);
             if let Some(errors) = errors {
                 sub_configs.push((section.strip_prefix("mypy-").unwrap().to_owned(), errors));
             }
@@ -147,7 +144,7 @@ impl MypyConfig {
         }
 
         if let Some(search_paths) = mypy_path {
-            cfg.search_path_from_file = config_utils::string_to_paths(&search_paths);
+            cfg.search_path_from_file = utils::string_to_paths(&search_paths);
         }
         cfg.use_untyped_imports = follow_untyped_imports.unwrap_or(cfg.use_untyped_imports);
         cfg.root.replace_imports_with_any = replace_imports
@@ -166,7 +163,7 @@ impl MypyConfig {
             .filter(|x| x.is_some())
             .collect();
 
-        cfg.root.errors = config_utils::make_error_config(disable_error_code, enable_error_code);
+        cfg.root.errors = utils::make_error_config(disable_error_code, enable_error_code);
 
         let sub_configs = sub_configs
             .into_iter()
