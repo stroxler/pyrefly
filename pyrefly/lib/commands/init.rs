@@ -64,14 +64,14 @@ impl ConfigFileKind {
 #[command(after_help = "Examples:
    `pyrefly init`: Create a new pyrefly.toml config in the current directory
  ")]
-pub struct Args {
+pub struct InitArgs {
     /// The path to the project to initialize. Optional. If not present, will create a new pyrefly.toml config in the current directory.
     /// If this is the path to a pyproject.toml, the config will be written as a `[tool.pyrefly]` entry in that file.
     #[arg(default_value_os_t = PathBuf::from("."))]
     path: PathBuf,
 }
 
-impl Args {
+impl InitArgs {
     pub fn new(path: PathBuf) -> Self {
         Self { path }
     }
@@ -104,10 +104,12 @@ impl Args {
             return Ok(raw_pyproject.contains(&kind.toml_identifier()));
         }
         if path.is_dir() {
-            let custom_file = Args::check_for_existing_config(&path.join(file_name), kind);
+            let custom_file = InitArgs::check_for_existing_config(&path.join(file_name), kind);
 
-            let pyproject =
-                Args::check_for_existing_config(&path.join(ConfigFile::PYPROJECT_FILE_NAME), kind);
+            let pyproject = InitArgs::check_for_existing_config(
+                &path.join(ConfigFile::PYPROJECT_FILE_NAME),
+                kind,
+            );
             return Ok(custom_file? || pyproject?);
         }
         Ok(false)
@@ -161,7 +163,8 @@ impl Args {
         info!("Running pyrefly check...");
 
         // Create check args by parsing arguments with output-format set to omit-errors
-        let mut check_args = check::Args::parse_from(["check", "--output-format", "omit-errors"]);
+        let mut check_args =
+            check::CheckArgs::parse_from(["check", "--output-format", "omit-errors"]);
 
         // Use get to get the filtered globs and config finder
         let (filtered_globs, config_finder) =
@@ -189,7 +192,7 @@ impl Args {
             info!("Running pyrefly check with suppress-errors flag...");
 
             // Create check args with suppress-errors flag
-            let mut suppress_args = check::Args::parse_from([
+            let mut suppress_args = check::CheckArgs::parse_from([
                 "check",
                 "--suppress-errors",
                 "--output-format",
@@ -285,7 +288,7 @@ impl Args {
         );
 
         // Create check args with suppress-errors flag
-        let mut suppress_args = check::Args::parse_from([
+        let mut suppress_args = check::CheckArgs::parse_from([
             "check",
             "--suppress-errors",
             "--output-format",
@@ -332,7 +335,7 @@ impl Args {
             path.parent()
         };
         if let Some(dir) = dir
-            && Args::check_for_existing_config(dir, ConfigFileKind::Pyrefly)?
+            && InitArgs::check_for_existing_config(dir, ConfigFileKind::Pyrefly)?
         {
             let prompt = format!(
                 "The project at `{}` has already been initialized for pyrefly. Run `pyrefly check` to see type errors. Re-initialize and write a new section? (y/N): ",
@@ -344,8 +347,8 @@ impl Args {
         }
 
         // 1. Check for mypy or pyright configuration
-        let found_mypy = Args::check_for_existing_config(&path, ConfigFileKind::MyPy)?;
-        let found_pyright = Args::check_for_existing_config(&path, ConfigFileKind::Pyright)?;
+        let found_mypy = InitArgs::check_for_existing_config(&path, ConfigFileKind::MyPy)?;
+        let found_pyright = InitArgs::check_for_existing_config(&path, ConfigFileKind::Pyright)?;
 
         // 2. Migrate existing configuration to Pyrefly configuration
         if found_mypy || found_pyright {
@@ -369,7 +372,7 @@ impl Args {
         };
 
         // 3. Initialize pyproject.toml configuration in the case that there are no existing Mypy or Pyright configurations but user specified a pyproject.toml
-        if Args::check_for_pyproject_file(&path) {
+        if InitArgs::check_for_pyproject_file(&path) {
             let config_path = if path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
                 path
             } else {
@@ -480,12 +483,12 @@ mod test {
     }
 
     fn run_init_on_dir(dir: &TempDir) -> anyhow::Result<CommandExitStatus> {
-        let args = Args::new(dir.path().to_path_buf());
+        let args = InitArgs::new(dir.path().to_path_buf());
         args.run()
     }
 
     fn run_init_on_file(dir: &TempDir, file: &str) -> anyhow::Result<CommandExitStatus> {
-        let args = Args::new(dir.path().join(file));
+        let args = InitArgs::new(dir.path().join(file));
         args.run()
     }
 
@@ -841,7 +844,7 @@ k = [\"v\"]
 
         // Run each test case
         for (i, (input, min, max, expected)) in test_cases.iter().enumerate() {
-            let result = Args::parse_comma_separated_values(input, *min, *max);
+            let result = InitArgs::parse_comma_separated_values(input, *min, *max);
             assert_eq!(
                 result, *expected,
                 "Test case {i} failed: input='{input}', min={min}, max={max}",

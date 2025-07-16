@@ -147,13 +147,13 @@ mod tests {
     use pyrefly_util::test_path::TestPath;
 
     use super::*;
-    use crate::commands::check::Args;
+    use crate::commands::check::CheckArgs;
     use crate::config::config::ConfigSource;
     use crate::config::environment::environment::PythonEnvironment;
 
     #[test]
     fn test_site_package_path_from_environment() {
-        let args = Args::parse_from(Vec::<OsString>::new().iter());
+        let args = CheckArgs::parse_from(Vec::<OsString>::new().iter());
         let config = standard_config_finder(Arc::new(move |_, x| args.override_config(x)))
             .python_file(ModuleName::unknown(), &ModulePath::filesystem("".into()));
         let env = PythonEnvironment::get_default_interpreter_env();

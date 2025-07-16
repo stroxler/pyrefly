@@ -217,7 +217,7 @@ pub(crate) enum IndexingMode {
 /// Arguments for LSP server
 #[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Parser, Clone)]
-pub struct Args {
+pub struct LspArgs {
     /// Find the struct that contains this field and add the indexing mode used by the language server
     #[arg(long, value_enum, default_value_t, env = clap_env("INDEXING_MODE"))]
     pub(crate) indexing_mode: IndexingMode,
@@ -624,7 +624,7 @@ fn dispatch_lsp_events(
 
 fn initialize_connection(
     connection: &Connection,
-    args: &Args,
+    args: &LspArgs,
 ) -> Result<InitializeParams, ProtocolError> {
     let (request_id, initialization_params) = connection.initialize_start()?;
     let initialization_params: InitializeParams =
@@ -714,7 +714,7 @@ fn initialize_connection(
 pub fn run_lsp(
     connection: Arc<Connection>,
     wait_on_connection: impl FnOnce() -> anyhow::Result<()> + Send + 'static,
-    args: Args,
+    args: LspArgs,
 ) -> anyhow::Result<CommandExitStatus> {
     let initialization_params = match initialize_connection(&connection, &args) {
         Ok(it) => it,
@@ -780,7 +780,7 @@ pub fn run_lsp(
     Ok(CommandExitStatus::Success)
 }
 
-impl Args {
+impl LspArgs {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         // Note that  we must have our logging only write out to stderr.
         eprintln!("starting generic LSP server");

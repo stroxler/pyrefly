@@ -10,7 +10,7 @@ use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::globs::FilteredGlobs;
 use starlark_map::small_map::SmallMap;
 
-use crate::commands::check::Args;
+use crate::commands::check::CheckArgs;
 use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
@@ -19,7 +19,7 @@ use crate::config::finder::ConfigFinder;
 pub fn dump_config(
     files_to_check: FilteredGlobs,
     config_finder: ConfigFinder,
-    args: Args,
+    args: CheckArgs,
 ) -> anyhow::Result<CommandExitStatus> {
     let mut configs_to_files: SmallMap<ArcId<ConfigFile>, Vec<ModulePath>> = SmallMap::new();
     let mut handles = args

@@ -88,7 +88,7 @@ enum OutputFormat {
 /// Main arguments for Pyrefly type checker
 #[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Parser, Clone)]
-pub struct Args {
+pub struct CheckArgs {
     /// Output related configuration options
     #[command(flatten, next_help_heading = "Output")]
     output: OutputArgs,
@@ -452,7 +452,7 @@ impl Timings {
     }
 }
 
-impl Args {
+impl CheckArgs {
     pub fn absolute_search_path(&mut self) {
         if let Some(paths) = self.config_override.search_path.as_mut() {
             for x in paths.iter_mut() {
