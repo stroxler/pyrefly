@@ -196,7 +196,6 @@ use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionData;
-use crate::types::display::TypeDisplayContext;
 
 /// Pyrefly's indexing strategy for open projects when performing go-to-definition
 /// requests.
@@ -1888,13 +1887,10 @@ impl Server {
                 docstring_formatted = format!("\n---\n{}", docstring.as_string().trim());
             }
         }
-        let mut type_display_context = TypeDisplayContext::new(&[&t]);
-        type_display_context.start_tracking_displayed_class_definitions();
-        let type_formatted = format!("{}", type_display_context.display(&t));
+        let type_formatted = t.to_string();
         let symbol_def_loc_formatted = {
-            let tracked_def_locs = type_display_context
-                .tracked_displayed_class_definitions()
-                .unwrap_or_default();
+            let mut tracked_def_locs = SmallSet::new();
+            t.universe(&mut |t| tracked_def_locs.extend(t.qname()));
             let linked_names = tracked_def_locs
                 .into_iter()
                 .filter_map(|qname| {
