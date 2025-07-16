@@ -39,6 +39,7 @@ struct Facts {
     import_star_locations: Vec<python::ImportStarLocation>,
     file_calls: Vec<python::FileCall>,
     callee_to_callers: Vec<python::CalleeToCaller>,
+    containing_top_level_declarations: Vec<python::ContainingTopLevelDeclaration>,
 }
 
 fn to_span(range: TextRange) -> src::ByteSpan {
@@ -59,6 +60,7 @@ impl Facts {
             import_star_locations: vec![],
             file_calls: vec![],
             callee_to_callers: vec![],
+            containing_top_level_declarations: vec![],
         }
     }
 
@@ -88,14 +90,26 @@ impl Facts {
         python::Name::new(fq_name)
     }
 
-    fn module_facts(&mut self, module: &python::Module, range: TextRange) {
+    fn module_facts(
+        &mut self,
+        module: &python::Module,
+        range: TextRange,
+        top_level_decl: python::Declaration,
+    ) {
+        let declaration = python::Declaration::module(module.clone());
+        let containing_top_level_decl =
+            python::ContainingTopLevelDeclaration::new(declaration.clone(), top_level_decl);
+
         self.decl_locations
-            .push(self.decl_location_fact(python::Declaration::module(module.clone()), range));
+            .push(self.decl_location_fact(declaration, range));
 
         self.def_locations.push(self.def_location_fact(
             python::Definition::module(python::ModuleDefinition::new(module.clone())),
             range,
-        ))
+        ));
+
+        self.containing_top_level_declarations
+            .push(containing_top_level_decl);
     }
 
     fn class_facts(
@@ -103,6 +117,7 @@ impl Facts {
         cls: &StmtClassDef,
         cls_declaration: python::ClassDeclaration,
         container: python::DeclarationContainer,
+        top_level_decl: python::Declaration,
     ) {
         let bases = if let Some(arguments) = &cls.arguments {
             arguments
@@ -126,10 +141,16 @@ impl Facts {
             Some(container),
         );
 
+        let declaration = python::Declaration::cls(cls_declaration);
+        let containing_top_level_decl =
+            python::ContainingTopLevelDeclaration::new(declaration.clone(), top_level_decl);
+
         self.decl_locations
-            .push(self.decl_location_fact(python::Declaration::cls(cls_declaration), cls.range));
+            .push(self.decl_location_fact(declaration, cls.range));
         self.def_locations
             .push(self.def_location_fact(python::Definition::cls(cls_definition), cls.range));
+        self.containing_top_level_declarations
+            .push(containing_top_level_decl);
     }
 
     fn function_facts(
@@ -137,6 +158,7 @@ impl Facts {
         func: &StmtFunctionDef,
         func_declaration: python::FunctionDeclaration,
         container: python::DeclarationContainer,
+        top_level_decl: python::Declaration,
     ) {
         let func_definition = python::FunctionDefinition::new(
             func_declaration.clone(),
@@ -152,11 +174,18 @@ impl Facts {
             Some(container),
         );
 
+        let declaration = python::Declaration::func(func_declaration);
+        let containing_top_level_decl =
+            python::ContainingTopLevelDeclaration::new(declaration.clone(), top_level_decl);
+
         self.decl_locations
-            .push(self.decl_location_fact(python::Declaration::func(func_declaration), func.range));
+            .push(self.decl_location_fact(declaration, func.range));
 
         self.def_locations
             .push(self.def_location_fact(python::Definition::func(func_definition), func.range));
+
+        self.containing_top_level_declarations
+            .push(containing_top_level_decl);
     }
 
     fn variable_facts(&mut self, expr: &Expr, _type_info: Option<&Expr>) {
@@ -178,7 +207,12 @@ impl Facts {
         expr.recurse(&mut |expr| self.variable_facts(expr, _type_info));
     }
 
-    fn import_facts(&mut self, imports: &Vec<Alias>, from_module_id: &Option<Identifier>) {
+    fn import_facts(
+        &mut self,
+        imports: &Vec<Alias>,
+        from_module_id: &Option<Identifier>,
+        top_level_decl: &python::Declaration,
+    ) {
         //TODO(@rubmary) Handle level for imports. Ex from ..a import A
         for import in imports {
             let from_module = from_module_id.as_ref().map(|module| module.as_str());
@@ -203,9 +237,17 @@ impl Facts {
                     self.make_fq_name(from_name, from_module),
                     self.make_fq_name(as_name, Some(&self.module_name)),
                 );
-                self.decl_locations.push(
-                    self.decl_location_fact(python::Declaration::imp(import_fact), import.range()),
+
+                let declaration = python::Declaration::imp(import_fact);
+                let containing_top_level_decl = python::ContainingTopLevelDeclaration::new(
+                    declaration.clone(),
+                    top_level_decl.clone(),
                 );
+
+                self.decl_locations
+                    .push(self.decl_location_fact(declaration, import.range()));
+                self.containing_top_level_declarations
+                    .push(containing_top_level_decl);
             }
         }
     }
@@ -274,26 +316,48 @@ impl Facts {
         node.visit(&mut |expr| self.generate_facts_from_exprs(expr, container));
     }
 
-    fn generate_facts(&mut self, stmt: &Stmt, container: &python::DeclarationContainer) {
+    fn generate_facts(
+        &mut self,
+        stmt: &Stmt,
+        container: &python::DeclarationContainer,
+        top_level_decl: &python::Declaration,
+    ) {
         let mut new_container = None;
+        let mut new_top_level_decl = None;
         match stmt {
             Stmt::ClassDef(cls) => {
                 let cls_declaration =
                     python::ClassDeclaration::new(self.make_fq_name(&cls.name.id, None), None);
-                self.class_facts(cls, cls_declaration.clone(), container.clone());
+                self.class_facts(
+                    cls,
+                    cls_declaration.clone(),
+                    container.clone(),
+                    top_level_decl.clone(),
+                );
                 self.visit_exprs(&cls.decorator_list, container);
                 self.visit_exprs(&cls.type_params, container);
                 self.visit_exprs(&cls.arguments, container);
+                if let python::Declaration::module(_) = top_level_decl {
+                    new_top_level_decl = Some(python::Declaration::cls(cls_declaration.clone()));
+                }
                 new_container = Some(python::DeclarationContainer::cls(cls_declaration));
             }
             Stmt::FunctionDef(func) => {
                 let func_declaration =
                     python::FunctionDeclaration::new(self.make_fq_name(&func.name.id, None));
-                self.function_facts(func, func_declaration.clone(), container.clone());
+                self.function_facts(
+                    func,
+                    func_declaration.clone(),
+                    container.clone(),
+                    top_level_decl.clone(),
+                );
                 self.visit_exprs(&func.decorator_list, container);
                 self.visit_exprs(&func.type_params, container);
                 self.visit_exprs(&func.parameters, container);
                 self.visit_exprs(&func.returns, container);
+                if let python::Declaration::module(_) = top_level_decl {
+                    new_top_level_decl = Some(python::Declaration::func(func_declaration.clone()));
+                }
                 new_container = Some(python::DeclarationContainer::func(func_declaration));
             }
             Stmt::Assign(assign) => {
@@ -311,8 +375,10 @@ impl Facts {
                 self.variable_facts(&assign.target, None);
                 self.visit_exprs(&assign.value, container);
             }
-            Stmt::Import(import) => self.import_facts(&import.names, &None),
-            Stmt::ImportFrom(import) => self.import_facts(&import.names, &import.module),
+            Stmt::Import(import) => self.import_facts(&import.names, &None, top_level_decl),
+            Stmt::ImportFrom(import) => {
+                self.import_facts(&import.names, &import.module, top_level_decl)
+            }
             Stmt::For(stmt_for) => {
                 stmt_for
                     .target
@@ -347,7 +413,13 @@ impl Facts {
             }
             _ => self.visit_exprs(stmt, container),
         }
-        stmt.recurse(&mut |x| self.generate_facts(x, new_container.as_ref().unwrap_or(container)));
+        stmt.recurse(&mut |x| {
+            self.generate_facts(
+                x,
+                new_container.as_ref().unwrap_or(container),
+                new_top_level_decl.as_ref().unwrap_or(top_level_decl),
+            )
+        });
     }
 }
 
@@ -363,6 +435,7 @@ impl Glean {
         let module_fact = python::Module::new(module_name);
         let file_fact = src::File::new(module_info.path().to_string());
         let container = python::DeclarationContainer::module(module_fact.clone());
+        let top_level_decl = python::Declaration::module(module_fact.clone());
 
         let mut facts = Facts::new(
             file_fact.clone(),
@@ -370,10 +443,10 @@ impl Glean {
             module_info.name().to_string(),
         );
 
-        facts.module_facts(&module_fact, ast.range);
+        facts.module_facts(&module_fact, ast.range, top_level_decl.clone());
 
         ast.body
-            .visit(&mut |stmt: &Stmt| facts.generate_facts(stmt, &container));
+            .visit(&mut |stmt: &Stmt| facts.generate_facts(stmt, &container, &top_level_decl));
 
         let digest = digest::Digest {
             hash: hash(module_info.contents().as_bytes()),
@@ -416,6 +489,14 @@ impl Glean {
             GleanEntry::Predicate {
                 predicate: python::CalleeToCaller::GLEAN_name(),
                 facts: facts.callee_to_callers.into_iter().map(json).collect(),
+            },
+            GleanEntry::Predicate {
+                predicate: python::ContainingTopLevelDeclaration::GLEAN_name(),
+                facts: facts
+                    .containing_top_level_declarations
+                    .into_iter()
+                    .map(json)
+                    .collect(),
             },
         ];
 
