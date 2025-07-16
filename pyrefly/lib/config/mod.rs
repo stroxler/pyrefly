@@ -11,6 +11,7 @@ pub mod config_utils;
 pub mod environment;
 pub mod error;
 pub mod finder;
+pub mod migration;
 #[allow(dead_code, unused_imports)] // Used in config migration, which is temporarily disabled
 pub mod mypy;
 #[allow(dead_code)] // Used in config migration, which is temporarily disabled
