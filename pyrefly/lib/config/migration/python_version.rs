@@ -35,3 +35,40 @@ impl ConfigOptionMigrater for PythonVersionConfig {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_migrate_from_mypy() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set("mypy", "python_version", Some("3.8".to_owned()));
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let python_version_config = PythonVersionConfig;
+        let _ = python_version_config.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(
+            pyrefly_cfg.python_environment.python_version,
+            Some(PythonVersion::new(3, 8, 0))
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_empty() {
+        let mypy_cfg = Ini::new();
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_version = pyrefly_cfg.python_environment.python_version;
+
+        let python_version_config = PythonVersionConfig;
+        let _ = python_version_config.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(
+            pyrefly_cfg.python_environment.python_version,
+            default_version
+        );
+    }
+}
