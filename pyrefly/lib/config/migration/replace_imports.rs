@@ -69,3 +69,166 @@ impl ConfigOptionMigrater for ReplaceImports {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_migrate_from_mypy_ignore_missing_imports() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(
+            "mypy-some.*.project",
+            "ignore_missing_imports",
+            Some("True".to_owned()),
+        );
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let replace_imports = ReplaceImports;
+        let _ = replace_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        let expected = vec![ModuleWildcard::new("some.*.project").unwrap()];
+        assert_eq!(pyrefly_cfg.root.replace_imports_with_any, Some(expected));
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_follow_imports_skip() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(
+            "mypy-another.project",
+            "follow_imports",
+            Some("skip".to_owned()),
+        );
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let replace_imports = ReplaceImports;
+        let _ = replace_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        let expected = vec![ModuleWildcard::new("another.project").unwrap()];
+        assert_eq!(pyrefly_cfg.root.replace_imports_with_any, Some(expected));
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_multiple_sections() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(
+            "mypy-some.*.project",
+            "ignore_missing_imports",
+            Some("True".to_owned()),
+        );
+        mypy_cfg.set(
+            "mypy-another.project",
+            "follow_imports",
+            Some("skip".to_owned()),
+        );
+        mypy_cfg.set(
+            "mypy-third.project",
+            "follow_imports",
+            Some("silent".to_owned()),
+        ); // This should be ignored
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let replace_imports = ReplaceImports;
+        let _ = replace_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        let expected = [
+            ModuleWildcard::new("some.*.project").unwrap(),
+            ModuleWildcard::new("another.project").unwrap(),
+        ];
+        assert_eq!(
+            pyrefly_cfg
+                .root
+                .replace_imports_with_any
+                .as_ref()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(
+            pyrefly_cfg
+                .root
+                .replace_imports_with_any
+                .as_ref()
+                .unwrap()
+                .contains(&expected[0])
+        );
+        assert!(
+            pyrefly_cfg
+                .root
+                .replace_imports_with_any
+                .as_ref()
+                .unwrap()
+                .contains(&expected[1])
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_comma_separated() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(
+            "mypy-module1,module2",
+            "ignore_missing_imports",
+            Some("True".to_owned()),
+        );
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let replace_imports = ReplaceImports;
+        let _ = replace_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        let expected = [
+            ModuleWildcard::new("module1").unwrap(),
+            ModuleWildcard::new("module2").unwrap(),
+        ];
+        assert_eq!(
+            pyrefly_cfg
+                .root
+                .replace_imports_with_any
+                .as_ref()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(
+            pyrefly_cfg
+                .root
+                .replace_imports_with_any
+                .as_ref()
+                .unwrap()
+                .contains(&expected[0])
+        );
+        assert!(
+            pyrefly_cfg
+                .root
+                .replace_imports_with_any
+                .as_ref()
+                .unwrap()
+                .contains(&expected[1])
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_empty() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set("mypy", "files", Some("src".to_owned()));
+        mypy_cfg.set(
+            "mypy-some.project",
+            "follow_imports",
+            Some("normal".to_owned()),
+        );
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_replace_imports = pyrefly_cfg.root.replace_imports_with_any.clone();
+
+        let replace_imports = ReplaceImports;
+        let _ = replace_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(
+            pyrefly_cfg.root.replace_imports_with_any,
+            default_replace_imports
+        );
+    }
+}

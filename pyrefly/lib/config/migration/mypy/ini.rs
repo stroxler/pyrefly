@@ -97,7 +97,6 @@ mod tests {
 
     use super::*;
     use crate::error::kind::ErrorKind;
-    use crate::module::wildcard::ModuleWildcard;
 
     #[test]
     fn test_run_mypy() -> anyhow::Result<()> {
@@ -189,30 +188,6 @@ disable_error_code = union-attr
         cfg.configure();
         let errors = cfg.errors(tmp.path());
         assert!(!errors.is_enabled(ErrorKind::MissingAttribute));
-        Ok(())
-    }
-
-    #[test]
-    fn test_replace_imports() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let input_path = tmp.path().join("mypy.ini");
-        let src = br#"[mypy]
-test_flag = True
-
-# replace some.*.project with Any.
-[mypy-some.*.project]
-ignore_missing_imports = True
-
-# Don't replace this one, because it's not `follow_imports = skip`.
-[mypy-another.project]
-follow_imports = silent
-"#;
-        fs_anyhow::write(&input_path, src)?;
-        let cfg = MypyConfig::parse_mypy_config(&input_path)?;
-        assert_eq!(
-            cfg.replace_imports_with_any(None),
-            vec![ModuleWildcard::new("some.*.project").unwrap(),]
-        );
         Ok(())
     }
 
