@@ -7,24 +7,26 @@
 
 use std::path::Path;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 use anyhow::Context as _;
 use configparser::ini::Ini;
 use configparser::ini::IniDefault;
 use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_util::globs::Glob;
-use pyrefly_util::globs::Globs;
 use serde::Deserialize;
 
 use crate::config::base::ConfigBase;
 use crate::config::config::ConfigFile;
 use crate::config::config::SubConfig;
 use crate::config::error::ErrorDisplayConfig;
-use crate::config::migration::mypy::regex_converter;
+use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::config::migration::project_excludes::ProjectExcludes;
+use crate::config::migration::project_includes::ProjectIncludes;
+use crate::config::migration::python_interpreter::PythonInterpreter;
+use crate::config::migration::python_version::PythonVersionConfig;
+use crate::config::migration::replace_imports::ReplaceImports;
+use crate::config::migration::use_untyped_imports::UseUntypedImports;
 use crate::config::migration::utils;
-use crate::config::util::ConfigOrigin;
-use crate::module::wildcard::ModuleWildcard;
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct MypyConfig {
@@ -64,43 +66,41 @@ impl MypyConfig {
                 format!("While trying to read mypy config at {}", ini_path.display())
             })?;
 
-        // https://mypy.readthedocs.io/en/latest/config_file.html#import-discovery
-        // files, packages, modules, mypy_path, python_executable, python_version, and excludes can only be set in the top level `[mypy]` global section
-        let files: Vec<String> = utils::string_to_array(&config.get("mypy", "files"));
-        let packages: Vec<String> = utils::string_to_array(&config.get("mypy", "packages")); // list of strings
-        let modules: Vec<String> = utils::string_to_array(&config.get("mypy", "modules")); // list of strings
-        let excludes = config.get("mypy", "exclude"); // regex
+        let mut cfg = ConfigFile::default();
+
+        let config_options: Vec<Box<dyn ConfigOptionMigrater>> = vec![
+            Box::new(ProjectIncludes),
+            Box::new(ProjectExcludes),
+            Box::new(PythonInterpreter),
+            Box::new(PythonVersionConfig),
+            Box::new(UseUntypedImports),
+            Box::new(ReplaceImports),
+        ];
+
+        // Iterate through all config options and apply them to the config
+        for option in config_options {
+            // Ignore errors for now, we can use this in the future if we want to print out error messages or use for logging purpose
+            let _ = option.migrate_from_mypy(&config, &mut cfg);
+        }
+
+        // Process search path (mypy_path)
         let mypy_path = config.get("mypy", "mypy_path"); // string
-        let python_executable = config.get("mypy", "python_executable");
-        let python_version = config.get("mypy", "python_version");
+        if let Some(search_paths) = mypy_path {
+            cfg.search_path_from_file = utils::string_to_paths(&search_paths);
+        }
+
+        // Process error codes
         let disable_error_code: Vec<String> =
             utils::string_to_array(&config.get("mypy", "disable_error_code"));
         let enable_error_code: Vec<String> =
             utils::string_to_array(&config.get("mypy", "enable_error_code"));
-        // follow_untyped_imports may be used as a global or per-module setting. As a per-module setting, it's used to
-        // indicate that the module should be ignored if it's untyped.
-        // Pyrefly's use_untyped_imports is only a global setting.
-        // We handle this by *only* checking the for the global config.
-        let follow_untyped_imports = config
-            .getboolcoerce("mypy", "follow_untyped_imports")
-            .ok()
-            .flatten();
+        cfg.root.errors = utils::make_error_config(disable_error_code, enable_error_code);
 
-        let mut replace_imports: Vec<String> = Vec::new();
-        // This is the list of mypy per-module section headers and the error configs found in those sections.
-        // We'll split the headers into separate modules later and turn each one into a subconfig.
+        // Process sub configs
         let mut sub_configs: Vec<(String, ErrorDisplayConfig)> = vec![];
         for section in &config.sections() {
             if !section.starts_with("mypy-") {
                 continue;
-            }
-
-            if utils::get_bool_or_default(&config, section, "ignore_missing_imports")
-                || config
-                    .get(section, "follow_imports")
-                    .is_some_and(|val| val == "skip")
-            {
-                replace_imports.push(section.to_owned());
             }
 
             // For subconfigs, the only config that needs to be extracted is enable/disable error codes.
@@ -113,57 +113,6 @@ impl MypyConfig {
                 sub_configs.push((section.strip_prefix("mypy-").unwrap().to_owned(), errors));
             }
         }
-
-        let mut cfg = ConfigFile::default();
-
-        let project_includes = [files, packages, modules]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
-        if !project_includes.is_empty() {
-            cfg.project_includes = Globs::new(project_includes);
-        }
-
-        if let Some(exclude_regex) = excludes {
-            let patterns = regex_converter::convert(&exclude_regex)?;
-            if !patterns.is_empty() {
-                cfg.project_excludes = Globs::new(patterns);
-            }
-        }
-
-        if let Some(python_interpreter) = python_executable {
-            // TODO: Add handling for when these are virtual environments
-            // Is this something we can auto detect instead of hardcoding here.
-            cfg.interpreters.python_interpreter = PathBuf::from_str(&python_interpreter)
-                .ok()
-                .map(ConfigOrigin::config);
-        }
-
-        if let Some(version) = python_version {
-            cfg.python_environment.python_version = PythonVersion::from_str(&version).ok();
-        }
-
-        if let Some(search_paths) = mypy_path {
-            cfg.search_path_from_file = utils::string_to_paths(&search_paths);
-        }
-        cfg.use_untyped_imports = follow_untyped_imports.unwrap_or(cfg.use_untyped_imports);
-        cfg.root.replace_imports_with_any = replace_imports
-            .into_iter()
-            .flat_map(|x| {
-                if let Some(stripped) = x.strip_prefix("mypy-") {
-                    stripped
-                        .split(",")
-                        .filter(|x| !x.is_empty())
-                        .map(|x| ModuleWildcard::new(x).ok())
-                        .collect()
-                } else {
-                    vec![ModuleWildcard::new(&x).ok()]
-                }
-            })
-            .filter(|x| x.is_some())
-            .collect();
-
-        cfg.root.errors = utils::make_error_config(disable_error_code, enable_error_code);
 
         let sub_configs = sub_configs
             .into_iter()
@@ -197,9 +146,11 @@ impl MypyConfig {
 #[cfg(test)]
 mod tests {
     use pyrefly_util::fs_anyhow;
+    use pyrefly_util::globs::Globs;
 
     use super::*;
     use crate::error::kind::ErrorKind;
+    use crate::module::wildcard::ModuleWildcard;
 
     #[test]
     fn test_run_mypy() -> anyhow::Result<()> {

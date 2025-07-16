@@ -1,0 +1,40 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+use std::path::PathBuf;
+use std::str::FromStr;
+
+use configparser::ini::Ini;
+
+use crate::config::config::ConfigFile;
+use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::config::util::ConfigOrigin;
+
+/// Configuration option for Python interpreter
+pub struct PythonInterpreter;
+
+impl ConfigOptionMigrater for PythonInterpreter {
+    fn migrate_from_mypy(
+        &self,
+        mypy_cfg: &Ini,
+        pyrefly_cfg: &mut ConfigFile,
+    ) -> anyhow::Result<()> {
+        // https://mypy.readthedocs.io/en/latest/config_file.html#import-discovery
+        // python_executable can only be set in the top level `[mypy]` global section
+        let python_executable = mypy_cfg.get("mypy", "python_executable");
+
+        if python_executable.is_none() {
+            return Err(anyhow::anyhow!("No python_executable found in mypy config"));
+        }
+
+        let python_interpreter = python_executable.unwrap();
+        pyrefly_cfg.interpreters.python_interpreter = PathBuf::from_str(&python_interpreter)
+            .ok()
+            .map(ConfigOrigin::config);
+        Ok(())
+    }
+}

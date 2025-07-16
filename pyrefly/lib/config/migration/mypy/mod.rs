@@ -7,7 +7,7 @@
 
 pub(crate) mod ini;
 mod pyproject;
-mod regex_converter;
+pub(crate) mod regex_converter;
 
 use std::collections::HashMap;
 
@@ -15,6 +15,10 @@ pub use ini::MypyConfig;
 pub use pyproject::parse_pyproject_config;
 
 use crate::config::error::ErrorDisplayConfig;
+use crate::config::migration::project_excludes::ProjectExcludes;
+use crate::config::migration::project_includes::ProjectIncludes;
+use crate::config::migration::python_interpreter::PythonInterpreter;
+use crate::config::migration::use_untyped_imports::UseUntypedImports;
 use crate::error::kind::ErrorKind;
 use crate::error::kind::Severity;
 
