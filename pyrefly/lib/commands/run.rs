@@ -17,6 +17,7 @@ use pyrefly_util::trace::init_tracing;
 pub use crate::commands::autotype::Args as AutotypeArgs;
 pub use crate::commands::buck_check::Args as BuckCheckArgs;
 pub use crate::commands::check::Args as CheckArgs;
+pub use crate::commands::dump_config::dump_config;
 pub use crate::commands::init::Args as InitArgs;
 pub use crate::commands::lsp::Args as LspArgs;
 
