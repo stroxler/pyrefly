@@ -421,7 +421,7 @@ pub mod tests {
     use std::sync::Arc;
 
     use dupe::Dupe;
-    use pyrefly_python::module::ModuleInfo;
+    use pyrefly_python::module::Module;
     use pyrefly_python::module_path::ModulePath;
     use pyrefly_util::uniques::UniqueFactory;
     use ruff_python_ast::Identifier;
@@ -448,7 +448,7 @@ pub mod tests {
     use crate::types::TParams;
 
     pub fn fake_class(name: &str, module: &str, range: u32) -> Class {
-        let mi = ModuleInfo::new(
+        let mi = Module::new(
             ModuleName::from_str(module),
             ModulePath::filesystem(PathBuf::from(module)),
             Arc::new("1234567890".to_owned()),
@@ -483,7 +483,7 @@ pub mod tests {
     }
 
     fn fake_tyvar(name: &str, module: &str, range: u32) -> TypeVar {
-        let mi = ModuleInfo::new(
+        let mi = Module::new(
             ModuleName::from_str(module),
             ModulePath::filesystem(PathBuf::from(module)),
             Arc::new("1234567890".to_owned()),

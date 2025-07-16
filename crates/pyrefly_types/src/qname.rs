@@ -14,7 +14,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-use pyrefly_python::module::ModuleInfo;
+use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use ruff_python_ast::Identifier;
@@ -29,16 +29,16 @@ use crate::equality::TypeEqCtx;
 #[derive(Clone)]
 pub struct QName {
     name: Identifier,
-    module: ModuleInfo,
+    module: Module,
 }
 
 impl Debug for QName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QName")
             .field("name", &self.name)
-            // The full details of ModuleInfo are pretty boring in most cases,
+            // The full details of Module are pretty boring in most cases,
             // and we only cache it so we can defer expanding the range.
-            // Therefore, shorten the Debug output, as ModuleInfo is pretty big.
+            // Therefore, shorten the Debug output, as Module is pretty big.
             .field("module", &self.module.name())
             .field("path", &self.module.path())
             .finish()
@@ -96,7 +96,7 @@ impl QName {
         )
     }
 
-    pub fn new(name: Identifier, module: ModuleInfo) -> Self {
+    pub fn new(name: Identifier, module: Module) -> Self {
         Self { name, module }
     }
 
@@ -108,7 +108,7 @@ impl QName {
         self.name.range
     }
 
-    pub fn module_info(&self) -> &ModuleInfo {
+    pub fn module_info(&self) -> &Module {
         &self.module
     }
 

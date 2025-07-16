@@ -19,7 +19,7 @@ use parse_display::Display;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
-use pyrefly_python::module::ModuleInfo;
+use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::visit::Visit;
@@ -183,7 +183,7 @@ impl Class {
     pub fn new(
         def_index: ClassDefIndex,
         name: Identifier,
-        module_info: ModuleInfo,
+        module_info: Module,
         precomputed_tparams: Option<Arc<TParams>>,
         fields: SmallMap<Name, ClassFieldProperties>,
     ) -> Self {
@@ -231,7 +231,7 @@ impl Class {
         self.0.qname.module_path()
     }
 
-    pub fn module_info(&self) -> &ModuleInfo {
+    pub fn module_info(&self) -> &Module {
         self.0.qname.module_info()
     }
 

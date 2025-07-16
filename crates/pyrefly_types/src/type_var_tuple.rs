@@ -10,7 +10,7 @@ use std::fmt::Display;
 
 use dupe::Dupe;
 use pyrefly_derive::TypeEq;
-use pyrefly_python::module::ModuleInfo;
+use pyrefly_python::module::Module;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
@@ -48,7 +48,7 @@ struct TypeVarTupleInner {
 }
 
 impl TypeVarTuple {
-    pub fn new(name: Identifier, module: ModuleInfo, default: Option<Type>) -> Self {
+    pub fn new(name: Identifier, module: Module, default: Option<Type>) -> Self {
         Self(ArcId::new(TypeVarTupleInner {
             qname: QName::new(name, module),
             default,

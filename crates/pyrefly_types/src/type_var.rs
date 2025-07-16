@@ -13,7 +13,7 @@ use dupe::Dupe;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
-use pyrefly_python::module::ModuleInfo;
+use pyrefly_python::module::Module;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
@@ -138,7 +138,7 @@ struct TypeVarInner {
 impl TypeVar {
     pub fn new(
         name: Identifier,
-        module: ModuleInfo,
+        module: Module,
         restriction: Restriction,
         default: Option<Type>,
         variance: PreInferenceVariance,
