@@ -45,6 +45,7 @@ use pyrefly_util::watcher::Watcher;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
+use tracing::info;
 
 use crate::commands::run::CommandExitStatus;
 use crate::commands::suppress;
@@ -742,9 +743,8 @@ impl Args {
         timings.report_errors = report_errors_start.elapsed();
 
         if !self.output.no_summary {
-            anstream::eprintln!(
-                "{} errors shown: {}, errors ignored: {}, modules: {}, transitive dependencies: {}, lines: {}, time: {timings}, peak memory: {}",
-                Severity::Info.painted(),
+            info!(
+                "errors shown: {}, errors ignored: {}, modules: {}, transitive dependencies: {}, lines: {}, time: {timings}, peak memory: {}",
                 number_thousands(shown_errors_count),
                 number_thousands(errors.disabled.len() + errors.suppressed.len()),
                 number_thousands(handles.len()),

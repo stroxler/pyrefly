@@ -56,7 +56,7 @@ impl Severity {
 
     pub fn painted(self) -> Painted<&'static str> {
         (match self {
-            Severity::Info => Paint::blue,
+            Severity::Info => Paint::green,
             Severity::Warn => Paint::yellow,
             Severity::Error => Paint::red,
             Severity::Ignore => Paint::conceal,
