@@ -78,13 +78,14 @@ impl Facts {
         python::DefinitionLocation::new(definition.to_owned(), self.file.clone(), to_span(range))
     }
 
-    fn make_fq_name(&self, name: &Name, module_name: Option<&str>) -> String {
+    fn make_fq_name(&self, name: &Name, module_name: Option<&str>) -> python::Name {
         // TODO(@rubmary) create fully qualified name
-        if let Some(module) = module_name {
+        let fq_name = if let Some(module) = module_name {
             module.to_owned() + "." + name
         } else {
             name.to_string()
-        }
+        };
+        python::Name::new(fq_name)
     }
 
     fn module_facts(&mut self, module: &python::Module, range: TextRange) {
@@ -97,20 +98,19 @@ impl Facts {
         ))
     }
 
-    fn class_facts(&mut self, cls: &StmtClassDef) {
-        let fqname = python::Name::new(self.make_fq_name(&cls.name.id, None));
-        let cls_declaration = python::ClassDeclaration::new(fqname, None);
-
+    fn class_facts(
+        &mut self,
+        cls: &StmtClassDef,
+        cls_declaration: python::ClassDeclaration,
+        container: python::DeclarationContainer,
+    ) {
         let bases = if let Some(arguments) = &cls.arguments {
             arguments
                 .args
                 .iter()
                 .filter_map(|expr| expr.as_name_expr())
                 .map(|expr_name| {
-                    python::ClassDeclaration::new(
-                        python::Name::new(self.make_fq_name(&expr_name.id, None)),
-                        None,
-                    )
+                    python::ClassDeclaration::new(self.make_fq_name(&expr_name.id, None), None)
                 })
                 .collect()
         } else {
@@ -123,7 +123,7 @@ impl Facts {
             None,
             //TODO(@rubmary) Generate decorators and container for classes
             None,
-            None,
+            Some(container),
         );
 
         self.decl_locations
@@ -132,10 +132,12 @@ impl Facts {
             .push(self.def_location_fact(python::Definition::cls(cls_definition), cls.range));
     }
 
-    fn function_facts(&mut self, func: &StmtFunctionDef) {
-        let fqname = python::Name::new(self.make_fq_name(&func.name.id, None));
-        let func_declaration = python::FunctionDeclaration::new(fqname);
-
+    fn function_facts(
+        &mut self,
+        func: &StmtFunctionDef,
+        func_declaration: python::FunctionDeclaration,
+        container: python::DeclarationContainer,
+    ) {
         let func_definition = python::FunctionDefinition::new(
             func_declaration.clone(),
             func.is_async,
@@ -147,7 +149,7 @@ impl Facts {
             None,
             None,
             None,
-            None,
+            Some(container),
         );
 
         self.decl_locations
@@ -160,7 +162,7 @@ impl Facts {
     fn variable_facts(&mut self, expr: &Expr, _type_info: Option<&Expr>) {
         // TODO(@rubmary) add type_info
         if let Some(name) = expr.as_name_expr() {
-            let fqname = python::Name::new(self.make_fq_name(&name.id, None));
+            let fqname = self.make_fq_name(&name.id, None);
             let variable_declaration = python::VariableDeclaration::new(fqname);
             let variable_definition =
                 python::VariableDefinition::new(variable_declaration.clone(), None, None);
@@ -198,8 +200,8 @@ impl Facts {
                 let as_name = import.asname.as_ref().map_or(from_name, |x| &x.id);
 
                 let import_fact = python::ImportStatement::new(
-                    python::Name::new(self.make_fq_name(from_name, from_module)),
-                    python::Name::new(self.make_fq_name(as_name, Some(&self.module_name))),
+                    self.make_fq_name(from_name, from_module),
+                    self.make_fq_name(as_name, Some(&self.module_name)),
                 );
                 self.decl_locations.push(
                     self.decl_location_fact(python::Declaration::imp(import_fact), import.range()),
@@ -230,7 +232,7 @@ impl Facts {
                 label: keyword
                     .arg
                     .as_ref()
-                    .map(|id| python::Name::new(self.make_fq_name(id.id(), None))),
+                    .map(|id| self.make_fq_name(id.id(), None)),
                 span: to_span(keyword.range()),
                 argument: None,
             });
@@ -244,51 +246,55 @@ impl Facts {
         ));
     }
 
-    fn callee_to_caller_facts(&mut self, call: &ExprCall, caller: &StmtFunctionDef) {
-        let caller_fact = python::Name::new(self.make_fq_name(&caller.name.id, None));
+    fn callee_to_caller_facts(&mut self, call: &ExprCall, caller: &python::FunctionDeclaration) {
+        let caller_fact = caller.key.name.clone();
         let callee_name = match call.func.as_ref() {
             Expr::Attribute(attr) => Some(attr.attr.id()),
             Expr::Name(expr_name) => Some(expr_name.id()),
             _ => None,
         };
         if let Some(name) = callee_name {
-            let callee_fact = python::Name::new(self.make_fq_name(name, None));
+            let callee_fact = self.make_fq_name(name, None);
             self.callee_to_callers
                 .push(python::CalleeToCaller::new(callee_fact, caller_fact));
         }
     }
 
-    fn generate_facts_from_exprs(&mut self, expr: &Expr, container: Option<&Stmt>) {
+    fn generate_facts_from_exprs(&mut self, expr: &Expr, container: &python::DeclarationContainer) {
         if let Some(call) = expr.as_call_expr() {
             self.file_call_facts(call);
-            if let Some(caller) = container.and_then(|p| p.as_function_def_stmt()) {
+            if let python::DeclarationContainer::func(caller) = container {
                 self.callee_to_caller_facts(call, caller);
             }
         }
         expr.recurse(&mut |s| self.generate_facts_from_exprs(s, container));
     }
 
-    fn visit_exprs(&mut self, node: &impl Visit<Expr>, container: Option<&Stmt>) {
+    fn visit_exprs(&mut self, node: &impl Visit<Expr>, container: &python::DeclarationContainer) {
         node.visit(&mut |expr| self.generate_facts_from_exprs(expr, container));
     }
 
-    fn generate_facts(&mut self, stmt: &Stmt, container: Option<&Stmt>) {
-        let mut new_container = container;
+    fn generate_facts(&mut self, stmt: &Stmt, container: &python::DeclarationContainer) {
+        let mut new_container = None;
         match stmt {
             Stmt::ClassDef(cls) => {
-                self.class_facts(cls);
+                let cls_declaration =
+                    python::ClassDeclaration::new(self.make_fq_name(&cls.name.id, None), None);
+                self.class_facts(cls, cls_declaration.clone(), container.clone());
                 self.visit_exprs(&cls.decorator_list, container);
                 self.visit_exprs(&cls.type_params, container);
                 self.visit_exprs(&cls.arguments, container);
-                new_container = Some(stmt);
+                new_container = Some(python::DeclarationContainer::cls(cls_declaration));
             }
             Stmt::FunctionDef(func) => {
-                self.function_facts(func);
+                let func_declaration =
+                    python::FunctionDeclaration::new(self.make_fq_name(&func.name.id, None));
+                self.function_facts(func, func_declaration.clone(), container.clone());
                 self.visit_exprs(&func.decorator_list, container);
                 self.visit_exprs(&func.type_params, container);
                 self.visit_exprs(&func.parameters, container);
                 self.visit_exprs(&func.returns, container);
-                new_container = Some(stmt);
+                new_container = Some(python::DeclarationContainer::func(func_declaration));
             }
             Stmt::Assign(assign) => {
                 assign
@@ -341,7 +347,7 @@ impl Facts {
             }
             _ => self.visit_exprs(stmt, container),
         }
-        stmt.recurse(&mut |x| self.generate_facts(x, new_container));
+        stmt.recurse(&mut |x| self.generate_facts(x, new_container.as_ref().unwrap_or(container)));
     }
 }
 
@@ -356,6 +362,7 @@ impl Glean {
         let module_name = python::Name::new(module_info.name().as_str().to_owned());
         let module_fact = python::Module::new(module_name);
         let file_fact = src::File::new(module_info.path().to_string());
+        let container = python::DeclarationContainer::module(module_fact.clone());
 
         let mut facts = Facts::new(
             file_fact.clone(),
@@ -366,7 +373,7 @@ impl Glean {
         facts.module_facts(&module_fact, ast.range);
 
         ast.body
-            .visit(&mut |stmt: &Stmt| facts.generate_facts(stmt, None));
+            .visit(&mut |stmt: &Stmt| facts.generate_facts(stmt, &container));
 
         let digest = digest::Digest {
             hash: hash(module_info.contents().as_bytes()),
