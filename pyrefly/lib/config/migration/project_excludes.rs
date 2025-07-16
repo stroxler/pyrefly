@@ -40,3 +40,42 @@ impl ConfigOptionMigrater for ProjectExcludes {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_migrate_from_mypy() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(
+            "mypy",
+            "exclude",
+            Some("src/include/|other_src/include/".to_owned()),
+        );
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let project_excludes = ProjectExcludes;
+        let _ = project_excludes.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        let expected_excludes = Globs::new(vec![
+            "**/src/include/".to_owned(),
+            "**/other_src/include/".to_owned(),
+        ]);
+        assert_eq!(pyrefly_cfg.project_excludes, expected_excludes);
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_empty() {
+        let mypy_cfg = Ini::new();
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_excludes = pyrefly_cfg.project_excludes.clone();
+
+        let project_excludes = ProjectExcludes;
+        let _ = project_excludes.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(pyrefly_cfg.project_excludes, default_excludes);
+    }
+}
