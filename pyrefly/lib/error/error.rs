@@ -233,6 +233,10 @@ impl Error {
         &self.msg_header
     }
 
+    pub fn msg_details(&self) -> Option<&str> {
+        self.msg_details.as_deref()
+    }
+
     pub fn msg(&self) -> String {
         if let Some(details) = &self.msg_details {
             format!("{}\n{}", self.msg_header, details)

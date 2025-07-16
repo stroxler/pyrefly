@@ -17,7 +17,8 @@ export interface PyreflyErrorMessage {
     startColumn: number;
     endLineNumber: number;
     endColumn: number;
-    message: string;
+    message_header: string;
+    message_details: string;
     kind: string;
     severity: number;
 }
@@ -76,7 +77,6 @@ function ErrorMessage({
             {error.kind}
         </a>
     );
-    const message = `${rangeStr}: ${error.message} `;
 
     return (
         <span
@@ -85,15 +85,16 @@ function ErrorMessage({
                 goToDef(startLineNumber, startColumn, endLineNumber, endColumn)
             }
         >
-            {error.message.includes('revealed type') ? (
+            {error.message_header.includes('revealed type') ? (
                 <span {...stylex.props(styles.RevealTypeError)}>INFO </span>
             ) : (
                 <span {...stylex.props(styles.ErrorMessageError)}>ERROR </span>
             )}
-            {message}
+            {`${rangeStr}: ${error.message_header} `}
             {'['}
             {errorKindUrl}
             {']'}
+            {error.message_details && '\n' + error.message_details}
         </span>
     );
 }
