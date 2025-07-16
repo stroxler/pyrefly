@@ -85,11 +85,24 @@ function ErrorMessage({
                 goToDef(startLineNumber, startColumn, endLineNumber, endColumn)
             }
         >
-            {error.message_header.includes('revealed type') ? (
-                <span {...stylex.props(styles.RevealTypeError)}>INFO </span>
-            ) : (
-                <span {...stylex.props(styles.ErrorMessageError)}>ERROR </span>
-            )}
+            {
+                // We intentionally add a leading space to INFO and WARN so they visually line up with ERROR
+                error.severity == 2 ? (
+                    <span {...stylex.props(styles.ErrorMessageInfo)}>
+                        {' '}
+                        INFO{' '}
+                    </span>
+                ) : error.severity == 4 ? (
+                    <span {...stylex.props(styles.ErrorMessageWarning)}>
+                        {' '}
+                        WARN{' '}
+                    </span>
+                ) : (
+                    <span {...stylex.props(styles.ErrorMessageError)}>
+                        ERROR{' '}
+                    </span>
+                )
+            }
             {`${rangeStr}: ${error.message_header} `}
             {'['}
             {errorKindUrl}
@@ -311,10 +324,13 @@ const styles = stylex.create({
         cursor: 'pointer',
     },
     ErrorMessageError: {
-        color: '#ed0a0a',
+        color: '#ed0a0a', // red
     },
-    RevealTypeError: {
-        color: '#007bff', // Blue color for reveal_type errors
+    ErrorMessageWarning: {
+        color: '#ffde21', // yellow
+    },
+    ErrorMessageInfo: {
+        color: '#007bff', // blue
     },
     PyodideDisclaimer: {
         color: 'var(--color-primary)',
