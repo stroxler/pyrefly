@@ -187,7 +187,7 @@ use crate::error::error::Error;
 use crate::error::kind::Severity;
 use crate::module::bundled::typeshed;
 use crate::module::module_info::ModuleInfo;
-use crate::module::module_info::TextRangeWithModuleInfo;
+use crate::module::module_info::TextRangeWithModule;
 use crate::state::handle::Handle;
 use crate::state::lsp::FindDefinitionItem;
 use crate::state::require::Require;
@@ -1575,9 +1575,9 @@ impl Server {
         })
     }
 
-    fn to_lsp_location(&self, location: &TextRangeWithModuleInfo) -> Option<Location> {
-        let TextRangeWithModuleInfo {
-            module_info: definition_module_info,
+    fn to_lsp_location(&self, location: &TextRangeWithModule) -> Option<Location> {
+        let TextRangeWithModule {
+            module: definition_module_info,
             range,
         } = location;
         let uri = module_info_to_uri(definition_module_info)?;
@@ -1881,7 +1881,7 @@ impl Server {
                 kind_formatted = format!(
                     "{} {}: ",
                     &symbol_kind.display_for_hover(),
-                    location.module_info.code_at(location.range)
+                    location.module.code_at(location.range)
                 );
             }
             if let Some(docstring) = docstring {

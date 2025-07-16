@@ -122,13 +122,13 @@ impl Module {
 }
 
 #[derive(Debug, Clone)]
-pub struct TextRangeWithModuleInfo {
-    pub module_info: ModuleInfo,
+pub struct TextRangeWithModule {
+    pub module: Module,
     pub range: TextRange,
 }
 
-impl TextRangeWithModuleInfo {
-    pub fn new(module_info: ModuleInfo, range: TextRange) -> Self {
-        Self { module_info, range }
+impl TextRangeWithModule {
+    pub fn new(module: Module, range: TextRange) -> Self {
+        Self { module, range }
     }
 }

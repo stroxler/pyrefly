@@ -213,7 +213,7 @@ impl Playground {
             .goto_definition(&self.handle, position)
             .into_iter()
             .next()
-            .map(|r| Range::new(r.module_info.display_range(r.range)))
+            .map(|r| Range::new(r.module.display_range(r.range)))
     }
 
     pub fn autocomplete(&self, pos: Position) -> Vec<AutoCompletionItem> {

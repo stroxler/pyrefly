@@ -59,7 +59,7 @@ use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
-use crate::module::module_info::TextRangeWithModuleInfo;
+use crate::module::module_info::TextRangeWithModule;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::state::handle::Handle;
 use crate::state::ide::IntermediateDefinition;
@@ -365,7 +365,7 @@ impl IdentifierWithContext {
 #[derive(Debug, Clone)]
 pub struct FindDefinitionItem {
     pub metadata: DefinitionMetadata,
-    pub location: TextRangeWithModuleInfo,
+    pub location: TextRangeWithModule,
     pub docstring: Option<DocString>,
 }
 
@@ -866,7 +866,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         attr_name: &Name,
         definition: AttrDefinition,
-    ) -> Option<(TextRangeWithModuleInfo, Option<DocString>)> {
+    ) -> Option<(TextRangeWithModule, Option<DocString>)> {
         match definition {
             AttrDefinition::FullyResolved(text_range_with_module_info) => {
                 // TODO(kylei): attribute docstrings
@@ -878,7 +878,7 @@ impl<'a> Transaction<'a> {
                     self.resolve_named_import(handle, module_name, attr_name.clone(), &mut gas)?;
                 let module_info = self.get_module_info(&handle)?;
                 Some((
-                    TextRangeWithModuleInfo::new(module_info, export.location),
+                    TextRangeWithModule::new(module_info, export.location),
                     export.docstring,
                 ))
             }
@@ -914,7 +914,7 @@ impl<'a> Transaction<'a> {
     ) -> Option<FindDefinitionItem> {
         Some(FindDefinitionItem {
             metadata: DefinitionMetadata::Variable(Some(symbol_kind)),
-            location: TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
+            location: TextRangeWithModule::new(self.get_module_info(handle)?, identifier.range),
             docstring: None,
         })
     }
@@ -941,7 +941,7 @@ impl<'a> Transaction<'a> {
         let name = Name::new(module_info.code_at(location));
         Some(FindDefinitionItem {
             metadata: DefinitionMetadata::VariableOrAttribute(name, symbol_kind),
-            location: TextRangeWithModuleInfo::new(module_info, location),
+            location: TextRangeWithModule::new(module_info, location),
             docstring,
         })
     }
@@ -966,7 +966,7 @@ impl<'a> Transaction<'a> {
         ) = self.key_to_export(handle, &use_key, jump_through_renamed_import, INITIAL_GAS)?;
         Some(FindDefinitionItem {
             metadata: DefinitionMetadata::Variable(symbol_kind),
-            location: TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
+            location: TextRangeWithModule::new(self.get_module_info(&handle)?, location),
             docstring,
         })
     }
@@ -1025,7 +1025,7 @@ impl<'a> Transaction<'a> {
         let handle = self.import_handle(handle, module_name, None).ok()?;
         Some(FindDefinitionItem {
             metadata: DefinitionMetadata::Module,
-            location: TextRangeWithModuleInfo::new(
+            location: TextRangeWithModule::new(
                 self.get_module_info(&handle)?,
                 TextRange::default(),
             ),
@@ -1051,11 +1051,8 @@ impl<'a> Transaction<'a> {
         let location_count = callee_locations.len();
         let mut modules_to_ranges: SmallMap<ModuleInfo, Vec<TextRange>> =
             SmallMap::with_capacity(location_count);
-        for TextRangeWithModuleInfo { module_info, range } in callee_locations.into_iter() {
-            modules_to_ranges
-                .entry(module_info)
-                .or_default()
-                .push(range)
+        for TextRangeWithModule { module, range } in callee_locations.into_iter() {
+            modules_to_ranges.entry(module).or_default().push(range)
         }
 
         let mut results: Vec<FindDefinitionItem> = Vec::with_capacity(location_count);
@@ -1079,7 +1076,7 @@ impl<'a> Transaction<'a> {
                 // TODO(grievejia): Should we filter out unrefinable ranges here?
                 results.push(FindDefinitionItem {
                     metadata: DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
-                    location: TextRangeWithModuleInfo::new(
+                    location: TextRangeWithModule::new(
                         module_info.dupe(),
                         refined_param_range.unwrap_or(range),
                     ),
@@ -1094,7 +1091,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         callee_kind: &CalleeKind,
-    ) -> Vec<TextRangeWithModuleInfo> {
+    ) -> Vec<TextRangeWithModule> {
         let defs = match callee_kind {
             CalleeKind::Function(name) => self
                 .find_definition_for_name_use(handle, name, true)
@@ -1199,11 +1196,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    pub fn goto_definition(
-        &self,
-        handle: &Handle,
-        position: TextSize,
-    ) -> Vec<TextRangeWithModuleInfo> {
+    pub fn goto_definition(&self, handle: &Handle, position: TextSize) -> Vec<TextRangeWithModule> {
         self.find_definition(handle, position, true)
             .into_map(|item| item.location)
     }
@@ -1215,7 +1208,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         position: TextSize,
-    ) -> Option<TextRangeWithModuleInfo> {
+    ) -> Option<TextRangeWithModule> {
         self.find_definition(handle, position, false)
             .into_iter()
             .next()
@@ -1282,9 +1275,9 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         definition_metadata: DefinitionMetadata,
-        definition: TextRangeWithModuleInfo,
+        definition: TextRangeWithModule,
     ) -> Option<Vec<TextRange>> {
-        if handle.path() != definition.module_info.path() {
+        if handle.path() != definition.module.path() {
             let index = self.get_solutions(handle)?.get_index()?;
             let index = index.lock();
             let mut references = Vec::new();
@@ -1299,7 +1292,7 @@ impl<'a> Transaction<'a> {
                     *imported_module_name,
                     imported_name.clone(),
                     &mut gas,
-                ) && imported_handle.path().as_path() == definition.module_info.path().as_path()
+                ) && imported_handle.path().as_path() == definition.module.path().as_path()
                     && export.location == definition.range
                 {
                     references.extend(ranges.iter().copied());
@@ -1308,7 +1301,7 @@ impl<'a> Transaction<'a> {
             for (attribute_module_path, def_and_ref_ranges) in
                 &index.externally_defined_attribute_references
             {
-                if attribute_module_path == definition.module_info.path() {
+                if attribute_module_path == definition.module.path() {
                     for (def_range, ref_range) in def_and_ref_ranges {
                         if def_range == &definition.range {
                             references.push(*ref_range);
@@ -1339,7 +1332,7 @@ impl<'a> Transaction<'a> {
             ]
             .concat(),
         };
-        if definition.module_info.path() == handle.path() {
+        if definition.module.path() == handle.path() {
             references.push(definition.range);
         }
         references.sort_by_key(|range| range.start());
@@ -1350,7 +1343,7 @@ impl<'a> Transaction<'a> {
     fn local_attribute_references_from_definition(
         &self,
         handle: &Handle,
-        definition: &TextRangeWithModuleInfo,
+        definition: &TextRangeWithModule,
         expected_name: &Name,
     ) -> Vec<TextRange> {
         // We first find all the attributes of the form `<expr>.<expected_name>`.
@@ -1384,15 +1377,11 @@ impl<'a> Transaction<'a> {
                         definition: attribute_definition,
                     } in solver.completions(base_type.arc_clone(), Some(expected_name), false)
                     {
-                        if let Some((
-                            TextRangeWithModuleInfo {
-                                module_info: module,
-                                range,
-                            },
-                            _,
-                        )) = attribute_definition.and_then(|definition| {
-                            self.resolve_attribute_definition(handle, &name, definition)
-                        }) && module.path() == definition.module_info.path()
+                        if let Some((TextRangeWithModule { module, range }, _)) =
+                            attribute_definition.and_then(|definition| {
+                                self.resolve_attribute_definition(handle, &name, definition)
+                            })
+                            && module.path() == definition.module.path()
                             && range == definition.range
                         {
                             references.push(attribute.attr.range());
@@ -1408,7 +1397,7 @@ impl<'a> Transaction<'a> {
     fn local_variable_references_from_definition(
         &self,
         handle: &Handle,
-        definition: &TextRangeWithModuleInfo,
+        definition: &TextRangeWithModule,
     ) -> Option<Vec<TextRange>> {
         let bindings = self.get_bindings(handle)?;
         let mut references = Vec::new();
@@ -1418,7 +1407,7 @@ impl<'a> Transaction<'a> {
             key,
         } in self.named_bindings(handle, &bindings)
         {
-            if definition_handle.path() == definition.module_info.path()
+            if definition_handle.path() == definition.module.path()
                 && definition.range == definition_export.location
             {
                 references.push(key.range());
@@ -1713,7 +1702,7 @@ impl<'a> Transaction<'a> {
             if let Ok(references) = transaction.find_global_references_from_definition(
                 handle.sys_info(),
                 definition_kind,
-                TextRangeWithModuleInfo::new(module_info, id.range()),
+                TextRangeWithModule::new(module_info, id.range()),
             ) {
                 return references;
             }
@@ -2009,18 +1998,18 @@ impl<'a> Transaction<'a> {
     pub fn workspace_symbols(
         &self,
         query: &str,
-    ) -> Option<Vec<(String, lsp_types::SymbolKind, TextRangeWithModuleInfo)>> {
+    ) -> Option<Vec<(String, lsp_types::SymbolKind, TextRangeWithModule)>> {
         if query.len() < MIN_CHARACTERS_TYPED_AUTOIMPORT {
             return None;
         }
         let mut result = Vec::new();
         for (handle, name, export) in self.search_exports_fuzzy(query) {
-            if let Some(module_info) = self.get_module_info(&handle) {
+            if let Some(module) = self.get_module_info(&handle) {
                 let kind = export
                     .symbol_kind
                     .map_or(lsp_types::SymbolKind::VARIABLE, |k| k.to_lsp_symbol_kind());
-                let location = TextRangeWithModuleInfo {
-                    module_info,
+                let location = TextRangeWithModule {
+                    module,
                     range: export.location,
                 };
                 result.push((name, kind, location));
@@ -2036,15 +2025,15 @@ impl<'a> CancellableTransaction<'a> {
         &mut self,
         sys_info: &SysInfo,
         definition_kind: DefinitionMetadata,
-        definition: TextRangeWithModuleInfo,
+        definition: TextRangeWithModule,
     ) -> Result<Vec<(ModuleInfo, Vec<TextRange>)>, Cancelled> {
         // General strategy:
         // 1: Compute the set of transitive rdeps.
         // 2. Find references in each one of them using the index computed during earlier checking
-        let mut transitive_rdeps = match definition.module_info.path().details() {
+        let mut transitive_rdeps = match definition.module.path().details() {
             ModulePathDetails::Memory(path_buf) => {
                 let handle_of_filesystem_counterpart = Handle::new(
-                    definition.module_info.name(),
+                    definition.module.name(),
                     ModulePath::filesystem(path_buf.clone()),
                     sys_info.dupe(),
                 );
@@ -2056,16 +2045,16 @@ impl<'a> CancellableTransaction<'a> {
                 // We still add itself to the rdeps set, so that we will still find local references
                 // within the file.
                 rdeps.insert(Handle::new(
-                    definition.module_info.name(),
-                    definition.module_info.path().dupe(),
+                    definition.module.name(),
+                    definition.module.path().dupe(),
                     sys_info.dupe(),
                 ));
                 rdeps
             }
             _ => {
                 let definition_handle = Handle::new(
-                    definition.module_info.name(),
-                    definition.module_info.path().dupe(),
+                    definition.module.name(),
+                    definition.module.path().dupe(),
                     sys_info.dupe(),
                 );
                 let rdeps = self.as_ref().get_transitive_rdeps(definition_handle.dupe());
@@ -2097,7 +2086,7 @@ impl<'a> CancellableTransaction<'a> {
             .collect::<Vec<_>>();
         let mut global_references = Vec::new();
         for handle in candidate_handles_for_references {
-            let definition = match definition.module_info.path().details() {
+            let definition = match definition.module.path().details() {
                 // Special-case for definition inside in-memory file
                 // Calling `local_references_from_definition` naively
                 // will find no references outside of the in-memory file because
@@ -2106,7 +2095,7 @@ impl<'a> CancellableTransaction<'a> {
                     // Why do exclude the case of finding references within the same in-memory file?
                     // If we are finding references within the same in-memory file, 
                     // then there is no problem for us to use the in-memory definition location.
-                    if handle.path() != definition.module_info.path() =>
+                    if handle.path() != definition.module.path() =>
                 {
                     // Below, we try to patch the definition location to be at the same offset, but
                     // making the path to be filesystem path instead. In this way, in the happy case
@@ -2117,18 +2106,18 @@ impl<'a> CancellableTransaction<'a> {
                     // In general, other than checking the reverse dependency against the in-memory
                     // content, there is not much we can do: the in-memory content can diverge from
                     // the filesystem content in arbitrary ways.
-                    let TextRangeWithModuleInfo { module_info, range } = &definition;
-                    let module_info = if let Some(info) = self.as_ref().get_module_info(&Handle::new(
-                        module_info.name(),
+                    let TextRangeWithModule { module, range } = &definition;
+                    let module = if let Some(info) = self.as_ref().get_module_info(&Handle::new(
+                        module.name(),
                         ModulePath::filesystem(path_buf.clone()),
                         handle.sys_info().dupe(),
                     )) {
                         info
                     } else {
-                        module_info.dupe()
+                        module.dupe()
                     };
-                    TextRangeWithModuleInfo {
-                        module_info,
+                    TextRangeWithModule {
+                        module,
                         range: *range,
                     }
                 }

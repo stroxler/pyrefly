@@ -29,7 +29,7 @@ use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
 use crate::export::exports::Exports;
-use crate::module::module_info::TextRangeWithModuleInfo;
+use crate::module::module_info::TextRangeWithModule;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
@@ -1838,7 +1838,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
 #[derive(Debug)]
 pub enum AttrDefinition {
-    FullyResolved(TextRangeWithModuleInfo),
+    FullyResolved(TextRangeWithModule),
     PartiallyResolvedImportedModuleAttribute { module_name: ModuleName },
 }
 
@@ -1873,7 +1873,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 name: fld.clone(),
                                 ty: None,
                                 definition: Some(AttrDefinition::FullyResolved(
-                                    TextRangeWithModuleInfo::new(c.module_info().dupe(), range),
+                                    TextRangeWithModule::new(c.module_info().dupe(), range),
                                 )),
                             });
                         }
@@ -1885,7 +1885,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             name: expected_attribute_name.clone(),
                             ty: None,
                             definition: Some(AttrDefinition::FullyResolved(
-                                TextRangeWithModuleInfo::new(c.module_info().dupe(), range),
+                                TextRangeWithModule::new(c.module_info().dupe(), range),
                             )),
                         });
                     }

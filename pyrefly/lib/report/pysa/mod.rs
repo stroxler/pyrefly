@@ -164,7 +164,7 @@ fn add_expression_definitions(
             )
         })
         .filter_map(|definition| {
-            let module_info = &definition.location.module_info;
+            let module_info = &definition.location.module;
             let display_range = module_info.display_range(definition.location.range);
             match context.module_ids.get(ModuleKey::from_info(module_info)) {
                 Some(module_id) => Some(DefinitionRef {
