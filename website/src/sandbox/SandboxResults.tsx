@@ -131,7 +131,7 @@ export default function SandboxResults({
     pythonOutput,
     pyodideStatus,
     activeTab,
-    setActiveTab = () => {},
+    setActiveTab = () => { },
 }: SandboxResultsProps): React.ReactElement {
     const activeToolbarTab = activeTab;
 
@@ -191,11 +191,11 @@ export default function SandboxResults({
                                     {internalError
                                         ? `Pyrefly encountered an internal error: ${internalError}.`
                                         : errors === undefined ||
-                                          errors === null
-                                        ? 'Pyrefly failed to fetch errors.'
-                                        : errors?.length === 0
-                                        ? 'No errors!'
-                                        : null}
+                                            errors === null
+                                            ? 'Pyrefly failed to fetch errors.'
+                                            : errors?.length === 0
+                                                ? 'No errors!'
+                                                : null}
                                 </li>
                             )}
                         </ul>
@@ -210,10 +210,10 @@ export default function SandboxResults({
                         {pyodideStatus === PyodideStatus.NOT_INITIALIZED
                             ? 'No output, please press the ▶️ Run button.'
                             : pyodideStatus === PyodideStatus.INITIALIZING
-                            ? 'Loading Python interpreter...'
-                            : pyodideStatus === PyodideStatus.RUNNING
-                            ? 'Running...'
-                            : pythonOutput.trimStart()}
+                                ? 'Loading Python interpreter...'
+                                : pyodideStatus === PyodideStatus.RUNNING
+                                    ? 'Running...'
+                                    : pythonOutput.trimStart()}
                     </pre>
                 )}
                 {/* TODO (T217536145): Add JSON tab to sandbox */}
@@ -330,7 +330,7 @@ const styles = stylex.create({
         color: '#ffde21', // yellow
     },
     ErrorMessageInfo: {
-        color: '#007bff', // blue
+        color: '#00aa00', // green
     },
     PyodideDisclaimer: {
         color: 'var(--color-primary)',
