@@ -155,8 +155,12 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             config,
             mut args,
         }) => {
-            let (files_to_check, config_finder) =
-                globs_and_config_getter::get(files, project_excludes, config, &mut args)?;
+            let (files_to_check, config_finder) = globs_and_config_getter::get(
+                files,
+                project_excludes,
+                config,
+                &mut args.config_override,
+            )?;
             run_check(args, watch, files_to_check, config_finder, allow_forget).await
         }
         Command::BuckCheck(args) => args.run(),
@@ -169,8 +173,12 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             watch: _,
             mut args,
         }) => {
-            let (files_to_check, config_finder) =
-                globs_and_config_getter::get(files, project_excludes, config, &mut args)?;
+            let (files_to_check, config_finder) = globs_and_config_getter::get(
+                files,
+                project_excludes,
+                config,
+                &mut args.config_override,
+            )?;
             run_autotype(AutotypeArgs::new(), files_to_check, config_finder).await
         }
         // We intentionally make DumpConfig take the same arguments as Check so that dumping the
@@ -182,8 +190,12 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             mut args,
             ..
         }) => {
-            let (files_to_check, config_finder) =
-                globs_and_config_getter::get(files, project_excludes, config, &mut args)?;
+            let (files_to_check, config_finder) = globs_and_config_getter::get(
+                files,
+                project_excludes,
+                config,
+                &mut args.config_override,
+            )?;
             dump_config(files_to_check, config_finder, args)
         }
     }

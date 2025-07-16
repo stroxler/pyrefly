@@ -167,8 +167,12 @@ impl InitArgs {
             check::CheckArgs::parse_from(["check", "--output-format", "omit-errors"]);
 
         // Use get to get the filtered globs and config finder
-        let (filtered_globs, config_finder) =
-            globs_and_config_getter::get(Vec::new(), None, config_path, &mut check_args)?;
+        let (filtered_globs, config_finder) = globs_and_config_getter::get(
+            Vec::new(),
+            None,
+            config_path,
+            &mut check_args.config_override,
+        )?;
 
         // Run the check directly
         match check_args.run_once(filtered_globs, config_finder, true) {
@@ -201,8 +205,12 @@ impl InitArgs {
             ]);
 
             // Use get to get the filtered globs and config finder
-            let (suppress_globs, suppress_config_finder) =
-                globs_and_config_getter::get(Vec::new(), None, config_path, &mut suppress_args)?;
+            let (suppress_globs, suppress_config_finder) = globs_and_config_getter::get(
+                Vec::new(),
+                None,
+                config_path,
+                &mut suppress_args.config_override,
+            )?;
 
             // Run the check with suppress-errors flag
             match suppress_args.run_once(suppress_globs, suppress_config_finder, true) {
@@ -313,8 +321,12 @@ impl InitArgs {
         }
 
         // Use get to get the filtered globs and config finder, passing the files to check
-        let (suppress_globs, suppress_config_finder) =
-            globs_and_config_getter::get(files_to_check, None, config_path, &mut suppress_args)?;
+        let (suppress_globs, suppress_config_finder) = globs_and_config_getter::get(
+            files_to_check,
+            None,
+            config_path,
+            &mut suppress_args.config_override,
+        )?;
 
         // Run the check with suppress-errors flag
         match suppress_args.run_once(suppress_globs, suppress_config_finder, true) {
