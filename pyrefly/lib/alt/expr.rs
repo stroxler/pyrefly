@@ -1339,20 +1339,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::YieldFrom(x) => self.get(&KeyYieldFrom(x.range)).return_ty.clone(),
             Expr::Compare(x) => self.compare_infer(x, errors),
             Expr::Call(x) => {
-                let mut ty_fun = self.expr_infer(&x.func, errors);
-                if matches!(&ty_fun, Type::ClassDef(cls) if cls.is_builtin("super")) {
+                let mut callee_ty = self.expr_infer(&x.func, errors);
+                if matches!(&callee_ty, Type::ClassDef(cls) if cls.is_builtin("super")) {
                     // Because we have to construct a binding for super in order to fill in implicit arguments,
                     // we can't handle things like local aliases to super. If we hit a case where the binding
                     // wasn't constructed, fall back to `Any`.
                     self.get_hashed_opt(Hashed::new(&Key::SuperInstance(x.range)))
                         .map_or_else(Type::any_implicit, |type_info| type_info.arc_clone_ty())
                 } else {
-                    self.expand_type_mut(&mut ty_fun);
+                    self.expand_type_mut(&mut callee_ty);
 
                     let args;
                     let kws;
                     let call = CallWithTypes::new();
-                    if ty_fun.is_union() {
+                    if callee_ty.is_union() {
                         // If we have a union we will distribute over it, and end up duplicating each function call.
                         args = x
                             .arguments
@@ -1367,7 +1367,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         kws = x.arguments.keywords.map(CallKeyword::new);
                     }
 
-                    self.distribute_over_union(&ty_fun, |ty| match ty.callee_kind() {
+                    self.distribute_over_union(&callee_ty, |ty| match ty.callee_kind() {
                         Some(CalleeKind::Function(FunctionKind::AssertType)) => self
                             .call_assert_type(
                                 &x.arguments.args,
@@ -1418,7 +1418,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         {
                             self.call_issubclass(&x.arguments.args[0], &x.arguments.args[1], errors)
                         }
-                        _ if matches!(&ty_fun, Type::ClassDef(cls) if cls == self.stdlib.builtins_type().class_object())
+                        _ if matches!(&callee_ty, Type::ClassDef(cls) if cls == self.stdlib.builtins_type().class_object())
                             && x.arguments.args.len() == 1 && x.arguments.keywords.is_empty() =>
                         {
                             // We may be able to provide a more precise type when the constructor for `builtins.type`
