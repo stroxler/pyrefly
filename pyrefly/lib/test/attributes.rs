@@ -365,7 +365,7 @@ C().f(0)    # E: Argument `Literal[0]` is not assignable to parameter `x` with t
 testcase!(
     test_callable_instance_only_attribute,
     r#"
-from typing import Callable, assert_type, Literal, reveal_type
+from typing import Callable, assert_type, Literal
 class C:
     callable_attr: Callable[[int], int]
     def __init__(self):
