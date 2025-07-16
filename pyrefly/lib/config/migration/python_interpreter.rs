@@ -38,3 +38,44 @@ impl ConfigOptionMigrater for PythonInterpreter {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_migrate_from_mypy() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(
+            "mypy",
+            "python_executable",
+            Some("/usr/bin/python3".to_owned()),
+        );
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let python_interpreter = PythonInterpreter;
+        let _ = python_interpreter.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(
+            pyrefly_cfg.interpreters.python_interpreter,
+            Some(ConfigOrigin::config(PathBuf::from("/usr/bin/python3")))
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_empty() {
+        let mypy_cfg = Ini::new();
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_interpreter = pyrefly_cfg.interpreters.python_interpreter.clone();
+
+        let python_interpreter = PythonInterpreter;
+        let _ = python_interpreter.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(
+            pyrefly_cfg.interpreters.python_interpreter,
+            default_interpreter
+        );
+    }
+}
