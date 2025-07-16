@@ -37,3 +37,44 @@ impl ConfigOptionMigrater for ProjectIncludes {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_migrate_from_mypy() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set("mypy", "files", Some("src,test/some_test.py".to_owned()));
+        mypy_cfg.set("mypy", "packages", Some("package1,package2".to_owned()));
+        mypy_cfg.set("mypy", "modules", Some("module1,module2".to_owned()));
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let project_includes = ProjectIncludes;
+        let _ = project_includes.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        let expected_includes = Globs::new(vec![
+            "src".to_owned(),
+            "test/some_test.py".to_owned(),
+            "package1".to_owned(),
+            "package2".to_owned(),
+            "module1".to_owned(),
+            "module2".to_owned(),
+        ]);
+        assert_eq!(pyrefly_cfg.project_includes, expected_includes);
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_empty() {
+        let mypy_cfg = Ini::new();
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_includes = pyrefly_cfg.project_includes.clone();
+
+        let project_includes = ProjectIncludes;
+        let _ = project_includes.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(pyrefly_cfg.project_includes, default_includes);
+    }
+}
