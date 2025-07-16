@@ -281,7 +281,7 @@ impl ClassField {
 
     fn as_special_method_type(&self, instance: &Instance) -> Option<Type> {
         self.as_raw_special_method_type(instance)
-            .and_then(|ty| make_bound_method(instance, ty).ok())
+            .and_then(|ty| make_bound_method(instance.to_type(), ty).ok())
     }
 
     pub fn as_named_tuple_type(&self) -> Type {
@@ -534,10 +534,10 @@ fn make_bound_classmethod(cls: &Class, attr: Type) -> Result<Type, Type> {
     make_bound_method_helper(Type::ClassDef(cls.dupe()), attr, &should_bind)
 }
 
-fn make_bound_method(instance: &Instance, attr: Type) -> Result<Type, Type> {
+fn make_bound_method(obj: Type, attr: Type) -> Result<Type, Type> {
     let should_bind =
         |meta: &FuncMetadata| !meta.flags.is_staticmethod && !meta.flags.is_classmethod;
-    make_bound_method_helper(instance.to_type(), attr, &should_bind)
+    make_bound_method_helper(obj, attr, &should_bind)
 }
 
 fn bind_instance_attribute(
@@ -549,26 +549,29 @@ fn bind_instance_attribute(
     // Decorated objects are methods, so they can't be ClassVars
     if attr.is_property_getter() {
         Attribute::property(
-            make_bound_method(instance, attr).into_inner(),
+            make_bound_method(instance.to_type(), attr).into_inner(),
             None,
             instance.class.dupe(),
         )
     } else if let Some(getter) = attr.is_property_setter_with_getter() {
         Attribute::property(
-            make_bound_method(instance, getter).into_inner(),
-            Some(make_bound_method(instance, attr).into_inner()),
+            make_bound_method(instance.to_type(), getter).into_inner(),
+            Some(make_bound_method(instance.to_type(), attr).into_inner()),
             instance.class.dupe(),
         )
     } else if is_class_var {
         Attribute::read_only(
-            make_bound_method(instance, attr).into_inner(),
+            make_bound_method(instance.to_type(), attr).into_inner(),
             ReadOnlyReason::ClassVar,
         )
     } else if let Some(reason) = read_only {
-        Attribute::read_only(make_bound_method(instance, attr).into_inner(), reason)
+        Attribute::read_only(
+            make_bound_method(instance.to_type(), attr).into_inner(),
+            reason,
+        )
     } else {
         Attribute::read_write(
-            make_bound_method(instance, attr)
+            make_bound_method(instance.to_type(), attr)
                 .unwrap_or_else(|attr| make_bound_classmethod(instance.class, attr).into_inner()),
         )
     }
