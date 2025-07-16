@@ -59,6 +59,12 @@ impl ConfigOptionMigrater for ReplaceImports {
             .flatten()
             .collect();
 
+        if result.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Failed to create valid module wildcards for replace imports"
+            ));
+        }
+
         pyrefly_cfg.root.replace_imports_with_any = Some(result);
         Ok(())
     }

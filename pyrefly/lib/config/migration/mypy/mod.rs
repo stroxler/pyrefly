@@ -15,10 +15,7 @@ pub use ini::MypyConfig;
 pub use pyproject::parse_pyproject_config;
 
 use crate::config::error::ErrorDisplayConfig;
-use crate::config::migration::project_excludes::ProjectExcludes;
-use crate::config::migration::project_includes::ProjectIncludes;
-use crate::config::migration::python_interpreter::PythonInterpreter;
-use crate::config::migration::use_untyped_imports::UseUntypedImports;
+// These imports are used in the code
 use crate::error::kind::ErrorKind;
 use crate::error::kind::Severity;
 

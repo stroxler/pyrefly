@@ -12,21 +12,19 @@ use anyhow::Context as _;
 use configparser::ini::Ini;
 use configparser::ini::IniDefault;
 use pyrefly_python::sys_info::PythonVersion;
-use pyrefly_util::globs::Glob;
 use serde::Deserialize;
 
-use crate::config::base::ConfigBase;
 use crate::config::config::ConfigFile;
-use crate::config::config::SubConfig;
-use crate::config::error::ErrorDisplayConfig;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::config::migration::error_codes::ErrorCodes;
 use crate::config::migration::project_excludes::ProjectExcludes;
 use crate::config::migration::project_includes::ProjectIncludes;
 use crate::config::migration::python_interpreter::PythonInterpreter;
 use crate::config::migration::python_version::PythonVersionConfig;
 use crate::config::migration::replace_imports::ReplaceImports;
+use crate::config::migration::search_path::SearchPath;
+use crate::config::migration::sub_configs::SubConfigs;
 use crate::config::migration::use_untyped_imports::UseUntypedImports;
-use crate::config::migration::utils;
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct MypyConfig {
@@ -75,6 +73,9 @@ impl MypyConfig {
             Box::new(PythonVersionConfig),
             Box::new(UseUntypedImports),
             Box::new(ReplaceImports),
+            Box::new(SearchPath),
+            Box::new(ErrorCodes),
+            Box::new(SubConfigs),
         ];
 
         // Iterate through all config options and apply them to the config
@@ -83,61 +84,7 @@ impl MypyConfig {
             let _ = option.migrate_from_mypy(&config, &mut cfg);
         }
 
-        // Process search path (mypy_path)
-        let mypy_path = config.get("mypy", "mypy_path"); // string
-        if let Some(search_paths) = mypy_path {
-            cfg.search_path_from_file = utils::string_to_paths(&search_paths);
-        }
-
-        // Process error codes
-        let disable_error_code: Vec<String> =
-            utils::string_to_array(&config.get("mypy", "disable_error_code"));
-        let enable_error_code: Vec<String> =
-            utils::string_to_array(&config.get("mypy", "enable_error_code"));
-        cfg.root.errors = utils::make_error_config(disable_error_code, enable_error_code);
-
-        // Process sub configs
-        let mut sub_configs: Vec<(String, ErrorDisplayConfig)> = vec![];
-        for section in &config.sections() {
-            if !section.starts_with("mypy-") {
-                continue;
-            }
-
-            // For subconfigs, the only config that needs to be extracted is enable/disable error codes.
-            let disable_error_code: Vec<String> =
-                utils::string_to_array(&config.get(section, "disable_error_code"));
-            let enable_error_code: Vec<String> =
-                utils::string_to_array(&config.get(section, "enable_error_code"));
-            let errors = utils::make_error_config(disable_error_code, enable_error_code);
-            if let Some(errors) = errors {
-                sub_configs.push((section.strip_prefix("mypy-").unwrap().to_owned(), errors));
-            }
-        }
-
-        let sub_configs = sub_configs
-            .into_iter()
-            .flat_map(|(section, errors)| {
-                // Split the section headers into individual modules and pair them with the section's error config.
-                // mypy uses module wildcards for its per-module sections, but we use globs.
-                // A simple translation: turn `.` into `/` and `*` into `**`, e.g. `a.*.b` -> `a/**/b`.
-                section
-                    .split(",")
-                    .map(|x| x.trim())
-                    .filter(|x| !x.is_empty())
-                    .map(|module| Glob::new(module.replace('.', "/").replace('*', "**")))
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .zip(std::iter::repeat(Some(errors)))
-            })
-            .map(|(matches, errors)| SubConfig {
-                matches,
-                settings: ConfigBase {
-                    errors,
-                    ..Default::default()
-                },
-            })
-            .collect::<Vec<_>>();
-        cfg.sub_configs = sub_configs;
+        // All configuration options are now processed by the individual config option migraters
 
         Ok(cfg)
     }
