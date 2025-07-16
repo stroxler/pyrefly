@@ -349,7 +349,7 @@ impl Args {
 
         // 2. Migrate existing configuration to Pyrefly configuration
         if found_mypy || found_pyright {
-            println!("Found an existing type checking configuration - setting up pyrefly ...");
+            info!("Found an existing type checking configuration - setting up pyrefly ...");
             let args = config_migration::Args {
                 original_config_path: Some(path.clone()),
             };
