@@ -21,9 +21,6 @@ use crate::module_path::ModulePath;
 
 pub static GENERATED_TOKEN: &str = concat!("@", "generated");
 
-/// Legacy alias, to be deleted in due course.
-pub type ModuleInfo = Module;
-
 /// Information about a module, notably its name, path, and contents.
 #[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash)]
 pub struct Module(ArcId<ModuleInner>);
