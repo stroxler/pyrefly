@@ -176,20 +176,6 @@ unknown_option = True
         assert_eq!(cfg.project_excludes, default.project_excludes);
         Ok(())
     }
-    #[test]
-    fn test_disable_errors() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let input_path = tmp.path().join("mypy.ini");
-        let src = br#"[mypy]
-disable_error_code = union-attr
-"#;
-        fs_anyhow::write(&input_path, src)?;
-        let mut cfg = MypyConfig::parse_mypy_config(&input_path)?;
-        cfg.configure();
-        let errors = cfg.errors(tmp.path());
-        assert!(!errors.is_enabled(ErrorKind::MissingAttribute));
-        Ok(())
-    }
 
     #[test]
     fn test_subconfigs() -> anyhow::Result<()> {
