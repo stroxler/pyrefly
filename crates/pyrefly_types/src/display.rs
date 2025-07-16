@@ -109,17 +109,7 @@ impl<'a> TypeDisplayContext<'a> {
 
     pub fn add(&mut self, t: &'a Type) {
         t.universe(&mut |t| {
-            let qname = match t {
-                Type::ClassDef(cls) => Some(cls.qname()),
-                Type::ClassType(c) => Some(c.qname()),
-                Type::TypedDict(c) => Some(c.qname()),
-                Type::TypeVar(t) => Some(t.qname()),
-                Type::TypeVarTuple(t) => Some(t.qname()),
-                Type::ParamSpec(t) => Some(t.qname()),
-                Type::SelfType(cls) => Some(cls.qname()),
-                _ => None,
-            };
-            if let Some(qname) = qname {
+            if let Some(qname) = t.qname() {
                 self.add_qname(qname);
             }
         })

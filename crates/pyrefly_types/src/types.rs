@@ -41,6 +41,7 @@ use crate::keywords::KwCall;
 use crate::literal::Lit;
 use crate::module::ModuleType;
 use crate::param_spec::ParamSpec;
+use crate::qname::QName;
 use crate::quantified::Quantified;
 use crate::quantified::QuantifiedKind;
 use crate::simplify::unions;
@@ -1318,6 +1319,20 @@ impl Type {
                 Ordering::Less => Type::Union(vec![x, Type::None]),
                 Ordering::Greater => Type::Union(vec![Type::None, x]),
             }
+        }
+    }
+
+    /// Does this type have a QName associated with it
+    pub fn qname(&self) -> Option<&QName> {
+        match self {
+            Type::ClassDef(cls) => Some(cls.qname()),
+            Type::ClassType(c) => Some(c.qname()),
+            Type::TypedDict(c) => Some(c.qname()),
+            Type::TypeVar(t) => Some(t.qname()),
+            Type::TypeVarTuple(t) => Some(t.qname()),
+            Type::ParamSpec(t) => Some(t.qname()),
+            Type::SelfType(cls) => Some(cls.qname()),
+            _ => None,
         }
     }
 
