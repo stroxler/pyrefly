@@ -218,22 +218,4 @@ follow_imports = silent
         );
         Ok(())
     }
-
-    #[test]
-    fn test_no_use_untyped_imports() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let input_path = tmp.path().join("mypy.ini");
-        let src = br#"[mypy]
-follow_untyped_imports = False
-
-[mypy-this.setting.ignored]
-follow_untyped_imports = True
-"#;
-        fs_anyhow::write(&input_path, src)?;
-        let mut cfg = MypyConfig::parse_mypy_config(&input_path)?;
-        cfg.configure();
-
-        assert!(!cfg.use_untyped_imports);
-        Ok(())
-    }
 }

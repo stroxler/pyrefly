@@ -35,3 +35,74 @@ impl ConfigOptionMigrater for UseUntypedImports {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_migrate_from_mypy_true() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set("mypy", "follow_untyped_imports", Some("True".to_owned()));
+
+        let mut pyrefly_cfg = ConfigFile {
+            use_untyped_imports: false,
+            ..Default::default()
+        };
+
+        let use_untyped_imports = UseUntypedImports;
+        let _ = use_untyped_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert!(pyrefly_cfg.use_untyped_imports);
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_false() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set("mypy", "follow_untyped_imports", Some("False".to_owned()));
+
+        let mut pyrefly_cfg = ConfigFile {
+            use_untyped_imports: true,
+            ..Default::default()
+        };
+        let use_untyped_imports = UseUntypedImports;
+        let _ = use_untyped_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert!(!pyrefly_cfg.use_untyped_imports);
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_empty() {
+        let mypy_cfg = Ini::new();
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_value = pyrefly_cfg.use_untyped_imports;
+
+        let use_untyped_imports = UseUntypedImports;
+        let _ = use_untyped_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(pyrefly_cfg.use_untyped_imports, default_value);
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_ignores_per_module_setting() {
+        // Create a test mypy.ini config with both global and per-module settings
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set("mypy", "follow_untyped_imports", Some("False".to_owned()));
+        mypy_cfg.set(
+            "mypy-this.setting.ignored",
+            "follow_untyped_imports",
+            Some("True".to_owned()),
+        );
+
+        let mut pyrefly_cfg = ConfigFile {
+            ..Default::default()
+        };
+
+        let use_untyped_imports = UseUntypedImports;
+        let _ = use_untyped_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        // Verify that only the global setting was applied, and the per-module setting was ignored
+        assert!(!pyrefly_cfg.use_untyped_imports);
+    }
+}
