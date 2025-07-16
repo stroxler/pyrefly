@@ -13,9 +13,9 @@ use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
-use crate::module::ModuleInfo;
+use crate::module::Module;
 
-/// An identifier, where we can drop the `Name` part because it came from a `ModuleInfo`.
+/// An identifier, where we can drop the `Name` part because it came from a `Module`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ShortIdentifier(TextRange);
 
@@ -36,8 +36,8 @@ impl Ranged for ShortIdentifier {
     }
 }
 
-impl DisplayWith<ModuleInfo> for ShortIdentifier {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
+impl DisplayWith<Module> for ShortIdentifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Module) -> fmt::Result {
         write!(f, "{}", ctx.code_at(self.0))
     }
 }
@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn test_display_short_identifier() {
-        let module_info = ModuleInfo::new(
+        let module_info = Module::new(
             ModuleName::from_str("foo"),
             ModulePath::filesystem(Path::new("foo.py").to_owned()),
             Arc::new("hello_world = Baz123.attribute".to_owned()),

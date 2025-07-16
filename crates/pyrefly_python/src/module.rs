@@ -37,8 +37,8 @@ struct ModuleInner {
     contents: LinedBuffer,
 }
 
-impl ModuleInfo {
-    /// Create a new ModuleInfo. Will NOT read the `path`, but use the value from `contents` instead.
+impl Module {
+    /// Create a new Module. Will NOT read the `path`, but use the value from `contents` instead.
     pub fn new(name: ModuleName, path: ModulePath, contents: Arc<String>) -> Self {
         let ignore = Ignore::new(&contents);
         let is_generated = contents.contains(GENERATED_TOKEN);
