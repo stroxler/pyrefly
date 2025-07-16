@@ -183,13 +183,13 @@ impl Class {
     pub fn new(
         def_index: ClassDefIndex,
         name: Identifier,
-        module_info: Module,
+        module: Module,
         precomputed_tparams: Option<Arc<TParams>>,
         fields: SmallMap<Name, ClassFieldProperties>,
     ) -> Self {
         Self(Arc::new(ClassInner {
             def_index,
-            qname: QName::new(name, module_info),
+            qname: QName::new(name, module),
             precomputed_tparams,
             fields,
         }))
@@ -231,8 +231,8 @@ impl Class {
         self.0.qname.module_path()
     }
 
-    pub fn module_info(&self) -> &Module {
-        self.0.qname.module_info()
+    pub fn module(&self) -> &Module {
+        self.0.qname.module()
     }
 
     pub fn fields(&self) -> impl ExactSizeIterator<Item = &Name> {

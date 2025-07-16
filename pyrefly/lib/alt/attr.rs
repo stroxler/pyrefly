@@ -1873,7 +1873,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 name: fld.clone(),
                                 ty: None,
                                 definition: Some(AttrDefinition::FullyResolved(
-                                    TextRangeWithModule::new(c.module_info().dupe(), range),
+                                    TextRangeWithModule::new(c.module().dupe(), range),
                                 )),
                             });
                         }
@@ -1885,7 +1885,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             name: expected_attribute_name.clone(),
                             ty: None,
                             definition: Some(AttrDefinition::FullyResolved(
-                                TextRangeWithModule::new(c.module_info().dupe(), range),
+                                TextRangeWithModule::new(c.module().dupe(), range),
                             )),
                         });
                     }

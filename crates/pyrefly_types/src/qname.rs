@@ -108,7 +108,7 @@ impl QName {
         self.name.range
     }
 
-    pub fn module_info(&self) -> &Module {
+    pub fn module(&self) -> &Module {
         &self.module
     }
 

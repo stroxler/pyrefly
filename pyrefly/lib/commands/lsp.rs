@@ -1898,8 +1898,8 @@ impl Server {
             let linked_names = tracked_def_locs
                 .into_iter()
                 .filter_map(|qname| {
-                    if let Ok(mut url) = Url::from_file_path(qname.module_info().path().as_path()) {
-                        let start_pos = qname.module_info().display_range(qname.range()).start;
+                    if let Ok(mut url) = Url::from_file_path(qname.module_path().as_path()) {
+                        let start_pos = qname.module().display_range(qname.range()).start;
                         url.set_fragment(Some(&format!(
                             "L{},{}",
                             start_pos.line.get(),
