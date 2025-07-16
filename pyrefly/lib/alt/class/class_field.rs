@@ -1613,7 +1613,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // https://typing.python.org/en/latest/spec/constructors.html#converting-a-constructor-to-callable
             None
         } else {
-            Arc::unwrap_or_clone(attr.value).as_special_method_type(&Instance::of_class(metaclass))
+            Arc::unwrap_or_clone(attr.value)
+                .as_raw_special_method_type(&Instance::of_class(metaclass))
+                .and_then(|ty| make_bound_method(Type::type_form(cls.clone().to_type()), ty).ok())
         }
     }
 }

@@ -361,17 +361,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Option<Type> {
-        let dunder_call = match self.get_metaclass_dunder_call(cls)? {
-            Type::BoundMethod(box BoundMethod { func, .. }) => {
-                // This method was bound to a general instance of the metaclass, but we have more
-                // information about the particular instance that it should be bound to.
-                Type::BoundMethod(Box::new(BoundMethod {
-                    obj: Type::type_form(Type::ClassType(cls.clone())),
-                    func,
-                }))
-            }
-            dunder_call => dunder_call,
-        };
+        let dunder_call = self.get_metaclass_dunder_call(cls)?;
         Some(self.call_infer(
             self.as_call_target_or_error(
                 dunder_call,
