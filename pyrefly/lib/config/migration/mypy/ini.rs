@@ -96,7 +96,6 @@ mod tests {
     use pyrefly_util::globs::Globs;
 
     use super::*;
-    use crate::error::kind::ErrorKind;
 
     #[test]
     fn test_run_mypy() -> anyhow::Result<()> {
@@ -174,34 +173,6 @@ unknown_option = True
         let default = ConfigFile::default();
         assert_eq!(cfg.project_includes, default.project_includes);
         assert_eq!(cfg.project_excludes, default.project_excludes);
-        Ok(())
-    }
-
-    #[test]
-    fn test_subconfigs() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let input_path = tmp.path().join("mypy.ini");
-        let src = br#"[mypy]
-files = src
-
-[mypy-src.*.linux]
-disable_error_code = union-attr
-
-[mypy-another.project]
-follow_imports = silent
-"#;
-        fs_anyhow::write(&input_path, src)?;
-        let mut cfg = MypyConfig::parse_mypy_config(&input_path)?;
-        cfg.configure();
-
-        assert!(
-            cfg.errors(Path::new("src"))
-                .is_enabled(ErrorKind::MissingAttribute)
-        );
-        assert!(
-            !cfg.errors(Path::new("src/linux"))
-                .is_enabled(ErrorKind::MissingAttribute)
-        );
         Ok(())
     }
 }

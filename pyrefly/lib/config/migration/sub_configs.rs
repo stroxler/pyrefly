@@ -85,3 +85,177 @@ impl ConfigOptionMigrater for SubConfigs {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::kind::ErrorKind;
+    use crate::error::kind::Severity;
+
+    #[test]
+    fn test_migrate_from_mypy_with_single_module() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(
+            "mypy-app.models",
+            "disable_error_code",
+            Some("union-attr".to_owned()),
+        );
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let sub_configs = SubConfigs;
+        let _ = sub_configs.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(pyrefly_cfg.sub_configs.len(), 1);
+
+        let sub_config = &pyrefly_cfg.sub_configs[0];
+        assert_eq!(sub_config.matches.to_string(), "app/models");
+
+        let errors = sub_config.settings.errors.as_ref().unwrap();
+        assert_eq!(
+            errors.severity(ErrorKind::MissingAttribute),
+            Severity::Ignore
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_with_multiple_modules() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(
+            "mypy-app.models",
+            "disable_error_code",
+            Some("union-attr".to_owned()),
+        );
+        mypy_cfg.set(
+            "mypy-app.views",
+            "enable_error_code",
+            Some("union-attr".to_owned()),
+        );
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let sub_configs = SubConfigs;
+        let _ = sub_configs.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(pyrefly_cfg.sub_configs.len(), 2);
+
+        // Find the sub_config for app.models
+        let models_config = pyrefly_cfg
+            .sub_configs
+            .iter()
+            .find(|c| c.matches.to_string() == "app/models")
+            .unwrap();
+        let models_errors = models_config.settings.errors.as_ref().unwrap();
+        assert_eq!(
+            models_errors.severity(ErrorKind::MissingAttribute),
+            Severity::Ignore
+        );
+
+        // Find the sub_config for app.views
+        let views_config = pyrefly_cfg
+            .sub_configs
+            .iter()
+            .find(|c| c.matches.to_string() == "app/views")
+            .unwrap();
+        let views_errors = views_config.settings.errors.as_ref().unwrap();
+        assert_eq!(
+            views_errors.severity(ErrorKind::MissingAttribute),
+            Severity::Error
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_with_no_error_codes() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set("mypy-app.models", "follow_imports", Some("skip".to_owned()));
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_sub_configs = pyrefly_cfg.sub_configs.clone();
+
+        let sub_configs = SubConfigs;
+        let _ = sub_configs.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(pyrefly_cfg.sub_configs, default_sub_configs);
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_with_comma_separated_modules() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(
+            "mypy-app.models, app.views",
+            "disable_error_code",
+            Some("union-attr".to_owned()),
+        );
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let sub_configs = SubConfigs;
+        let _ = sub_configs.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(pyrefly_cfg.sub_configs.len(), 2);
+
+        // Check that both modules have the same error config
+        let models_config = pyrefly_cfg
+            .sub_configs
+            .iter()
+            .find(|c| c.matches.to_string() == "app/models")
+            .unwrap();
+        let views_config = pyrefly_cfg
+            .sub_configs
+            .iter()
+            .find(|c| c.matches.to_string() == "app/views")
+            .unwrap();
+
+        let models_errors = models_config.settings.errors.as_ref().unwrap();
+        let views_errors = views_config.settings.errors.as_ref().unwrap();
+
+        assert_eq!(
+            models_errors.severity(ErrorKind::MissingAttribute),
+            Severity::Ignore
+        );
+        assert_eq!(
+            views_errors.severity(ErrorKind::MissingAttribute),
+            Severity::Ignore
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_with_module_wildcards() {
+        let mut mypy_cfg = Ini::new();
+        mypy_cfg.set(
+            "mypy-app.*.models",
+            "disable_error_code",
+            Some("union-attr".to_owned()),
+        );
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let sub_configs = SubConfigs;
+        let _ = sub_configs.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(pyrefly_cfg.sub_configs.len(), 1);
+
+        let sub_config = &pyrefly_cfg.sub_configs[0];
+        // Check that the module wildcard was converted to a glob
+        assert_eq!(sub_config.matches.to_string(), "app/**/models");
+
+        let errors = sub_config.settings.errors.as_ref().unwrap();
+        assert_eq!(
+            errors.severity(ErrorKind::MissingAttribute),
+            Severity::Ignore
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_mypy_with_empty_config() {
+        let mypy_cfg = Ini::new();
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_sub_configs = pyrefly_cfg.sub_configs.clone();
+
+        let sub_configs = SubConfigs;
+        let _ = sub_configs.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+
+        assert_eq!(pyrefly_cfg.sub_configs, default_sub_configs);
+    }
+}
