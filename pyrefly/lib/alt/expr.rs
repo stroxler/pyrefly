@@ -1423,8 +1423,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         {
                             // We may be able to provide a more precise type when the constructor for `builtins.type`
                             // is called with a single argument.
-                            let typ = self.expr_infer(&x.arguments.args[0], errors);
-                            self.type_of(typ)
+                            let arg_ty = self.expr_infer(&x.arguments.args[0], errors);
+                            self.type_of(arg_ty)
                         }
                         _ => {
                             let callable = self.as_call_target_or_error(
