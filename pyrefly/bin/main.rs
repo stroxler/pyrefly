@@ -50,11 +50,6 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #[command(about = "A fast Python type checker", long_about = None)]
 #[command(version)]
 struct Args {
-    /// Set this to true to run profiling of fast jobs.
-    /// Will run the command repeatedly.
-    #[arg(long = "profiling", global = true, hide = true, env = clap_env("PROFILING"))]
-    profiling: bool,
-
     /// Common global arguments shared across commands.
     #[command(flatten)]
     common: CommonGlobalArgs,
@@ -252,13 +247,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
 async fn run() -> anyhow::Result<ExitCode> {
     let args = Args::parse_from(get_args_expanded(args_os())?);
     args.common.init();
-    if args.profiling {
-        loop {
-            let _ = run_command(args.command.clone(), false).await;
-        }
-    } else {
-        Ok(run_command(args.command, true).await?.to_exit_code())
-    }
+    Ok(run_command(args.command, true).await?.to_exit_code())
 }
 
 #[tokio::main(flavor = "current_thread")]
