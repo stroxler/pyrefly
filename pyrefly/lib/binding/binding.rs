@@ -1641,6 +1641,17 @@ impl DisplayWith<Bindings> for BindingClassField {
     }
 }
 
+/// The method where an attribute was defined implicitly by assignment to `self.<attr_name>`
+///
+/// We track whether this method is recognized as a valid attribute-defining
+/// method (e.g. a constructor); if an attribute is inferred only from assignments
+/// in non-recognized methods, we will infer its type but also produce a type error.
+#[derive(Clone, Debug)]
+pub struct MethodThatSetsAttr {
+    pub method_name: Name,
+    pub recognized_attribute_defining_method: bool,
+}
+
 /// Information about the value, if any, that a field is initialized to when it is declared.
 #[derive(Clone, Debug)]
 pub enum RawClassFieldInitialization {
