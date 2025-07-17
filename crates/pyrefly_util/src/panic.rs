@@ -15,6 +15,12 @@ pub fn exit_on_panic() {
             "Thread panicked, shutting down: {info}\nBacktrace:\n{}",
             Backtrace::force_capture()
         );
+        eprintln!("Sorry, Pyrefly crashed, this is always a bug in Pyrefly itself.");
+        if cfg!(fbcode_build) {
+            eprintln!("Please report the bug at https://fb.workplace.com/groups/pyreqa");
+        } else {
+            eprintln!("Please report the bug at https://github.com/facebook/pyrefly/issues/new")
+        }
         std::process::exit(1);
     }));
 }
