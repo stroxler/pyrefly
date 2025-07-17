@@ -16,13 +16,13 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-/// If we create tracing twice, the library panics. Avoid that.
-/// Mostly happens when we run tests.
-static INIT_TRACING_ONCE: Once = Once::new();
-
 /// Set up tracing so it prints to stderr, and can be used for output.
 /// Most things should use `info` and `debug` level for showing messages.
 pub fn init_tracing(verbose: bool, testing: bool) {
+    // If we create tracing twice, the library panics. Avoid that.
+    // Mostly happens when we run tests.
+    static INIT_TRACING_ONCE: Once = Once::new();
+
     INIT_TRACING_ONCE.call_once(|| {
         const ENV_VAR: &str = "PYREFLY_LOG";
         let mut env_filter = EnvFilter::from_env(ENV_VAR);
