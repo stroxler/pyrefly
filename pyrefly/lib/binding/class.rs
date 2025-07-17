@@ -530,7 +530,7 @@ impl<'a> BindingsBuilder<'a> {
                 Some(value) => ExprOrBinding::Expr(value),
                 None => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
             };
-            let annotation_binding = if let Some(annotation) = member_annotation {
+            let annotation = if let Some(annotation) = member_annotation {
                 let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(&Identifier::new(
                     member_name.clone(),
                     range,
@@ -552,22 +552,20 @@ impl<'a> BindingsBuilder<'a> {
                 None
             };
 
-            let key_field = KeyClassField(class_indices.def_index, member_name.clone());
-            key_class_fields.insert(self.idx_for_promise(key_field.clone()));
-
-            self.insert_binding(
-                key_field,
+            let idx = self.insert_binding(
+                KeyClassField(class_indices.def_index, member_name.clone()),
                 BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: member_name,
                     range,
                     definition: ClassFieldDefinition::DefinedInBody {
                         value,
-                        annotation: annotation_binding,
+                        annotation,
                         initial_value,
                     },
                 },
             );
+            key_class_fields.insert(idx);
         }
         self.bind_definition_current(
             &class_name,
