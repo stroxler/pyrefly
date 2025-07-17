@@ -1621,12 +1621,16 @@ impl DisplayWith<Bindings> for BindingTParams {
 /// Represents everything we know about a class field definition at binding time.
 #[derive(Clone, Debug)]
 pub enum ClassFieldDefinition {
+    MethodLike {
+        definition: Idx<Key>,
+        range: TextRange,
+        has_return_annotation: bool,
+    },
     Simple {
         value: ExprOrBinding,
         annotation: Option<Idx<KeyAnnotation>>,
         range: TextRange,
         initial_value: RawClassFieldInitialization,
-        is_function_without_return_annotation: bool,
         implicit_def_method: Option<Name>,
     },
 }
@@ -1634,6 +1638,13 @@ pub enum ClassFieldDefinition {
 impl DisplayWith<Bindings> for ClassFieldDefinition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         match self {
+            Self::MethodLike { definition, .. } => {
+                write!(
+                    f,
+                    "ClassFieldDefinition::MethodLike({}, ..)",
+                    ctx.display(*definition),
+                )
+            }
             Self::Simple { value, .. } => {
                 write!(
                     f,

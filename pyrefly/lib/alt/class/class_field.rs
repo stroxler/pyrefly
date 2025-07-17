@@ -30,6 +30,7 @@ use crate::alt::attr::Attribute;
 use crate::alt::attr::DescriptorBase;
 use crate::alt::attr::NoAccessReason;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyClassField;
@@ -653,6 +654,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> ClassField {
         // TODO(stroxler): Clean this up, as we convert more of the class field logic to using enums.
+        //
+        // It's a mess becasue we are relying on refs to fields that don't make sense for some cases,
+        // which requires us having a place to store synthesized dummy values until we've refactored more.
+        let method_value_storage = Owner::new();
+        let method_initial_value_storage = Owner::new();
         let (
             value,
             direct_annotation,
@@ -661,12 +667,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_function_without_return_annotation,
             implicit_def_method,
         ) = match field_definition {
+            ClassFieldDefinition::MethodLike {
+                definition,
+                range,
+                has_return_annotation,
+            } => (
+                method_value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition))),
+                None,
+                *range,
+                method_initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
+                !has_return_annotation,
+                None,
+            ),
             ClassFieldDefinition::Simple {
                 value,
                 annotation,
                 range,
                 initial_value,
-                is_function_without_return_annotation,
                 implicit_def_method,
             } => {
                 let annotation = annotation
@@ -678,7 +695,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     annotation,
                     *range,
                     initial_value,
-                    *is_function_without_return_annotation,
+                    false,
                     implicit_def_method.as_ref(),
                 )
             }

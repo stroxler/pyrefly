@@ -225,32 +225,41 @@ impl<'a> BindingsBuilder<'a> {
             // Ignore a name not in the current flow's static. This can happen because operations
             // like narrows can change the local flow info for a name defined in some parent scope.
             if let Some(stat_info) = last_scope.stat.0.get_hashed(name) {
-                let is_function_without_return_annotation =
+                let (definition, is_initialized_on_class) =
                     if let FlowStyle::FunctionDef(_, has_return_annotation) = info.style {
-                        !has_return_annotation
+                        (
+                            ClassFieldDefinition::MethodLike {
+                                definition: info.key,
+                                range: stat_info.loc,
+                                has_return_annotation,
+                            },
+                            true,
+                        )
                     } else {
-                        false
+                        let initial_value = info.as_initial_value();
+                        let value = match &initial_value {
+                            RawClassFieldInitialization::ClassBody(Some(e)) => {
+                                ExprOrBinding::Expr(e.clone())
+                            }
+                            _ => ExprOrBinding::Binding(Binding::Forward(info.key)),
+                        };
+                        let is_initialized_on_class =
+                            matches!(initial_value, RawClassFieldInitialization::ClassBody(_));
+                        (
+                            ClassFieldDefinition::Simple {
+                                value,
+                                annotation: stat_info.annot,
+                                range: stat_info.loc,
+                                initial_value,
+                                implicit_def_method: None,
+                            },
+                            is_initialized_on_class,
+                        )
                     };
-                let initial_value = info.as_initial_value();
-                let value = match &initial_value {
-                    RawClassFieldInitialization::ClassBody(Some(e)) => {
-                        ExprOrBinding::Expr(e.clone())
-                    }
-                    _ => ExprOrBinding::Binding(Binding::Forward(info.key)),
-                };
-                let is_initialized_on_class =
-                    matches!(initial_value, RawClassFieldInitialization::ClassBody(_));
                 let binding = BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: name.into_key().clone(),
-                    definition: ClassFieldDefinition::Simple {
-                        value,
-                        annotation: stat_info.annot,
-                        range: stat_info.loc,
-                        initial_value,
-                        is_function_without_return_annotation,
-                        implicit_def_method: None,
-                    },
+                    definition,
                 };
                 fields.insert_hashed(
                     name.cloned(),
@@ -302,7 +311,6 @@ impl<'a> BindingsBuilder<'a> {
                                 initial_value: RawClassFieldInitialization::Method(
                                     method_name.clone(),
                                 ),
-                                is_function_without_return_annotation: false,
                                 implicit_def_method,
                             },
                         },
@@ -567,7 +575,6 @@ impl<'a> BindingsBuilder<'a> {
                         annotation: annotation_binding,
                         range,
                         initial_value,
-                        is_function_without_return_annotation: false,
                         implicit_def_method: None,
                     },
                 },
