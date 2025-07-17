@@ -1623,19 +1623,16 @@ impl DisplayWith<Bindings> for BindingTParams {
 pub enum ClassFieldDefinition {
     MethodLike {
         definition: Idx<Key>,
-        range: TextRange,
         has_return_annotation: bool,
     },
     DefinedInBody {
         value: ExprOrBinding,
         annotation: Option<Idx<KeyAnnotation>>,
-        range: TextRange,
         initial_value: RawClassFieldInitialization,
     },
     DefinedInMethod {
         value: ExprOrBinding,
         annotation: Option<Idx<KeyAnnotation>>,
-        range: TextRange,
         method: MethodThatSetsAttr,
     },
 }
@@ -1675,6 +1672,7 @@ impl DisplayWith<Bindings> for ClassFieldDefinition {
 pub struct BindingClassField {
     pub class_idx: Idx<KeyClass>,
     pub name: Name,
+    pub range: TextRange,
     pub definition: ClassFieldDefinition,
 }
 

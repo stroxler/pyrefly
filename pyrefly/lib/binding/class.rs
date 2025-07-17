@@ -229,7 +229,6 @@ impl<'a> BindingsBuilder<'a> {
                         (
                             ClassFieldDefinition::MethodLike {
                                 definition: info.key,
-                                range: stat_info.loc,
                                 has_return_annotation,
                             },
                             true,
@@ -248,7 +247,6 @@ impl<'a> BindingsBuilder<'a> {
                             ClassFieldDefinition::DefinedInBody {
                                 value,
                                 annotation: stat_info.annot,
-                                range: stat_info.loc,
                                 initial_value,
                             },
                             is_initialized_on_class,
@@ -257,6 +255,7 @@ impl<'a> BindingsBuilder<'a> {
                 let binding = BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: name.into_key().clone(),
+                    range: stat_info.loc,
                     definition,
                 };
                 fields.insert_hashed(
@@ -290,10 +289,10 @@ impl<'a> BindingsBuilder<'a> {
                         BindingClassField {
                             class_idx: class_indices.class_idx,
                             name: name.into_key(),
+                            range,
                             definition: ClassFieldDefinition::DefinedInMethod {
                                 value,
                                 annotation,
-                                range,
                                 method,
                             },
                         },
@@ -553,10 +552,10 @@ impl<'a> BindingsBuilder<'a> {
                 BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: member_name,
+                    range,
                     definition: ClassFieldDefinition::DefinedInBody {
                         value,
                         annotation: annotation_binding,
-                        range,
                         initial_value,
                     },
                 },

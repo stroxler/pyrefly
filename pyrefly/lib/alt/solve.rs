@@ -1360,9 +1360,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Arc<ClassField> {
         let field = match &self.get_idx(field.class_idx).0 {
             None => ClassField::recursive(),
-            Some(class) => {
-                self.calculate_class_field(class, &field.name, &field.definition, errors)
-            }
+            Some(class) => self.calculate_class_field(
+                class,
+                &field.name,
+                field.range,
+                &field.definition,
+                errors,
+            ),
         };
         Arc::new(field)
     }

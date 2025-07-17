@@ -651,6 +651,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         class: &Class,
         name: &Name,
+        range: TextRange,
         field_definition: &ClassFieldDefinition,
         errors: &ErrorCollector,
     ) -> ClassField {
@@ -660,35 +661,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // which requires us having a place to store synthesized dummy values until we've refactored more.
         let value_storage = Owner::new();
         let initial_value_storage = Owner::new();
-        let (value, direct_annotation, range, initial_value, is_function_without_return_annotation) =
+        let (value, direct_annotation, initial_value, is_function_without_return_annotation) =
             match field_definition {
                 ClassFieldDefinition::MethodLike {
                     definition,
-                    range,
                     has_return_annotation,
                 } => (
                     value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition))),
                     None,
-                    *range,
                     initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
                     !has_return_annotation,
                 ),
                 ClassFieldDefinition::DefinedInBody {
                     value,
                     annotation,
-                    range,
                     initial_value,
                 } => {
                     let annotation = annotation
                         .map(|a| self.get_idx(a))
                         .as_deref()
                         .map(|annot| annot.annotation.clone());
-                    (value, annotation, *range, initial_value, false)
+                    (value, annotation, initial_value, false)
                 }
                 ClassFieldDefinition::DefinedInMethod {
                     value,
                     annotation,
-                    range,
                     method,
                 } => {
                     let annotation = annotation
@@ -698,7 +695,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     (
                         value,
                         annotation,
-                        *range,
                         initial_value_storage
                             .push(RawClassFieldInitialization::Method(method.clone())),
                         false,
