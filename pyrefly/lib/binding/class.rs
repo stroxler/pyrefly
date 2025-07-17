@@ -224,7 +224,7 @@ impl<'a> BindingsBuilder<'a> {
             // Ignore a name not in the current flow's static. This can happen because operations
             // like narrows can change the local flow info for a name defined in some parent scope.
             if let Some(stat_info) = last_scope.stat.0.get_hashed(name) {
-                let (definition, is_initialized_on_class) =
+                let (definition, is_initialized_on_class) = {
                     if let FlowStyle::FunctionDef(_, has_return_annotation) = info.style {
                         (
                             ClassFieldDefinition::MethodLike {
@@ -234,32 +234,37 @@ impl<'a> BindingsBuilder<'a> {
                             true,
                         )
                     } else {
-                        let initial_value = info.as_initial_value();
-                        let (value, is_initialized_on_class) = match &initial_value {
-                            RawClassFieldInitialization::ClassBody(Some(e)) => {
-                                (ExprOrBinding::Expr(e.clone()), true)
-                            }
-                            RawClassFieldInitialization::ClassBody(None) => {
-                                (ExprOrBinding::Binding(Binding::Forward(info.key)), true)
-                            }
+                        match info.as_initial_value() {
+                            RawClassFieldInitialization::ClassBody(Some(e)) => (
+                                ClassFieldDefinition::AssignedInBody {
+                                    value: ExprOrBinding::Expr(e.clone()),
+                                    annotation: stat_info.annot,
+                                },
+                                true,
+                            ),
+                            RawClassFieldInitialization::ClassBody(None) => (
+                                ClassFieldDefinition::DefinedWithoutAssign {
+                                    definition: info.key,
+                                },
+                                true,
+                            ),
                             RawClassFieldInitialization::Uninitialized => {
-                                (ExprOrBinding::Binding(Binding::Forward(info.key)), false)
+                                let annotation = stat_info.annot.unwrap_or_else(
+                                    || panic!("A class field known in the body but uninitialized always has an annotation.")
+                                );
+                                (
+                                    ClassFieldDefinition::DeclaredByAnnotation { annotation },
+                                    false,
+                                )
                             }
                             RawClassFieldInitialization::Method(..) => {
                                 unreachable!(
                                     "A class field defined on the body cannot be method-defined"
                                 )
                             }
-                        };
-                        (
-                            ClassFieldDefinition::DefinedInBody {
-                                value,
-                                annotation: stat_info.annot,
-                                initial_value,
-                            },
-                            is_initialized_on_class,
-                        )
-                    };
+                        }
+                    }
+                };
                 let binding = BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: name.into_key().clone(),
@@ -542,33 +547,27 @@ impl<'a> BindingsBuilder<'a> {
             } else {
                 None
             };
-
-            let (initial_value, value) = match (member_value, force_class_initialization) {
-                (Some(value), _) => (
-                    RawClassFieldInitialization::ClassBody(Some(value.clone())),
-                    ExprOrBinding::Expr(value),
-                ),
-                (None, true) => (
-                    RawClassFieldInitialization::ClassBody(None),
-                    ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
-                ),
-                (None, false) => (
-                    RawClassFieldInitialization::Uninitialized,
-                    ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
-                ),
+            let definition = match (member_value, force_class_initialization) {
+                (Some(value), _) => ClassFieldDefinition::AssignedInBody {
+                    value: ExprOrBinding::Expr(value),
+                    annotation,
+                },
+                (None, true) => ClassFieldDefinition::AssignedInBody {
+                    value: ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
+                    annotation,
+                },
+                (None, false) => match annotation {
+                    Some(annotation) => ClassFieldDefinition::DeclaredByAnnotation { annotation },
+                    None => ClassFieldDefinition::DeclaredWithoutAnnotation,
+                },
             };
-
             let idx = self.insert_binding(
                 KeyClassField(class_indices.def_index, member_name.clone()),
                 BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: member_name,
                     range,
-                    definition: ClassFieldDefinition::DefinedInBody {
-                        value,
-                        annotation,
-                        initial_value,
-                    },
+                    definition,
                 },
             );
             key_class_fields.insert(idx);

@@ -95,7 +95,7 @@ assert_words!(BindingClass, 21);
 assert_words!(BindingTParams, 10);
 assert_words!(BindingClassMetadata, 8);
 assert_bytes!(BindingClassMro, 4);
-assert_words!(BindingClassField, 27);
+assert_words!(BindingClassField, 21);
 assert_bytes!(BindingClassSynthesizedFields, 4);
 assert_bytes!(BindingLegacyTypeParam, 4);
 assert_words!(BindingYield, 4);
@@ -1621,15 +1621,27 @@ impl DisplayWith<Bindings> for BindingTParams {
 /// Represents everything we know about a class field definition at binding time.
 #[derive(Clone, Debug)]
 pub enum ClassFieldDefinition {
+    /// Declared by an annotation, with no assignment
+    DeclaredByAnnotation { annotation: Idx<KeyAnnotation> },
+    /// Declared with no annotation or assignment (this is impossible
+    /// in a normal class, but can happen with some synthesized classes).
+    DeclaredWithoutAnnotation,
+    /// Defined via assignment, possibly with an annotation
+    AssignedInBody {
+        value: ExprOrBinding,
+        annotation: Option<Idx<KeyAnnotation>>,
+    },
+    /// Defined by a `def` form. Because of decorators it may not
+    /// actually *be* a method, hence the name `MethodLike`.
     MethodLike {
         definition: Idx<Key>,
         has_return_annotation: bool,
     },
-    DefinedInBody {
-        value: ExprOrBinding,
-        annotation: Option<Idx<KeyAnnotation>>,
-        initial_value: RawClassFieldInitialization,
-    },
+    /// Defined in some way other than assignment or a `def` form,
+    /// for example a name imported into a class body.
+    DefinedWithoutAssign { definition: Idx<Key> },
+    /// Implicitly defined in a method, without any explicit reference
+    /// in the class body.
     DefinedInMethod {
         value: ExprOrBinding,
         annotation: Option<Idx<KeyAnnotation>>,
@@ -1640,18 +1652,35 @@ pub enum ClassFieldDefinition {
 impl DisplayWith<Bindings> for ClassFieldDefinition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         match self {
+            Self::DeclaredByAnnotation { annotation } => {
+                write!(
+                    f,
+                    "ClassFieldDefinition::DeclaredByAnnotation({})",
+                    ctx.display(*annotation),
+                )
+            }
+            Self::DeclaredWithoutAnnotation => {
+                write!(f, "ClassFieldDefinition::DeclaredWithoutAnnotation",)
+            }
+            Self::AssignedInBody { value, .. } => {
+                write!(
+                    f,
+                    "ClassFieldDefinition::AssignedInBody({}, ..)",
+                    value.display_with(ctx),
+                )
+            }
             Self::MethodLike { definition, .. } => {
                 write!(
                     f,
                     "ClassFieldDefinition::MethodLike({}, ..)",
-                    ctx.display(*definition),
+                    ctx.display(*definition)
                 )
             }
-            Self::DefinedInBody { value, .. } => {
+            Self::DefinedWithoutAssign { definition, .. } => {
                 write!(
                     f,
-                    "ClassFieldDefinition::DefinedInBody({}, ..)",
-                    value.display_with(ctx),
+                    "ClassFieldDefinition::DefinedWithoutAssign({})",
+                    ctx.display(*definition),
                 )
             }
             Self::DefinedInMethod { value, .. } => {
