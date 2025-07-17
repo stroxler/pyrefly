@@ -54,7 +54,7 @@ use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
 use crate::binding::bindings::Bindings;
 use crate::error::kind::ErrorKind;
-use crate::export::definitions::DocString;
+use crate::export::definitions::Docstring;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::graph::index::Idx;
@@ -366,7 +366,7 @@ impl IdentifierWithContext {
 pub struct FindDefinitionItem {
     pub metadata: DefinitionMetadata,
     pub location: TextRangeWithModule,
-    pub docstring: Option<DocString>,
+    pub docstring: Option<Docstring>,
 }
 
 impl<'a> Transaction<'a> {
@@ -866,7 +866,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         attr_name: &Name,
         definition: AttrDefinition,
-    ) -> Option<(TextRangeWithModule, Option<DocString>)> {
+    ) -> Option<(TextRangeWithModule, Option<Docstring>)> {
         match definition {
             AttrDefinition::FullyResolved(text_range_with_module_info) => {
                 // TODO(kylei): attribute docstrings

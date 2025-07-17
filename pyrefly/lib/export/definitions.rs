@@ -67,7 +67,7 @@ pub struct Definition {
     pub count: usize,
     /// If the first statement in a definition (class, function) is a string literal, PEP 257 convention
     /// states that is is the docstring.
-    pub docstring: Option<DocString>,
+    pub docstring: Option<Docstring>,
 }
 
 /// Find the definitions available in a scope. Does not traverse inside classes/functions,
@@ -223,14 +223,14 @@ impl Definitions {
 }
 
 #[derive(Debug, Clone)]
-pub struct DocString(Arc<String>);
-impl DocString {
+pub struct Docstring(Arc<String>);
+impl Docstring {
     pub fn from_stmts(xs: &[Stmt]) -> Option<Self> {
         xs.first().and_then(|stmt| {
             if let Stmt::Expr(expr_stmt) = stmt
                 && let ruff_python_ast::Expr::StringLiteral(string_lit) = &*expr_stmt.value
             {
-                return Some(DocString(Arc::new(string_lit.value.to_string())));
+                return Some(Docstring(Arc::new(string_lit.value.to_string())));
             }
             None
         })
@@ -270,7 +270,7 @@ impl<'a> DefinitionsBuilder<'a> {
                     style,
                     annot,
                     count: 1,
-                    docstring: body.and_then(DocString::from_stmts),
+                    docstring: body.and_then(Docstring::from_stmts),
                 });
             }
         }

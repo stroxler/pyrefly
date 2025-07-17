@@ -88,7 +88,7 @@ use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
-use crate::export::definitions::DocString;
+use crate::export::definitions::Docstring;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
@@ -1473,7 +1473,7 @@ impl<'a> Transaction<'a> {
             .exports(&self.lookup(module_data))
     }
 
-    pub fn get_module_docstring(&self, handle: &Handle) -> Option<DocString> {
+    pub fn get_module_docstring(&self, handle: &Handle) -> Option<Docstring> {
         let module_data = self.get_module(handle);
         self.lookup_export(&module_data).docstring().cloned()
     }

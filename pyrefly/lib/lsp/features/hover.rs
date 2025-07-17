@@ -15,7 +15,7 @@ use pyrefly_types::types::Type;
 use ruff_text_size::TextSize;
 use starlark_map::small_set::SmallSet;
 
-use crate::export::definitions::DocString;
+use crate::export::definitions::Docstring;
 use crate::state::handle::Handle;
 use crate::state::lsp::FindDefinitionItem;
 use crate::state::state::Transaction;
@@ -24,7 +24,7 @@ pub struct HoverValue {
     pub kind: Option<SymbolKind>,
     pub name: Option<String>,
     pub type_: Type,
-    pub docstring: Option<DocString>,
+    pub docstring: Option<Docstring>,
 }
 
 impl HoverValue {
