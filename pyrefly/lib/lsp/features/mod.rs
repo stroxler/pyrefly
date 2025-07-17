@@ -5,7 +5,4 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-pub mod features;
-pub mod server;
-pub mod transaction_manager;
-pub mod workspace;
+pub mod hover;

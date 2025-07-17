@@ -18,7 +18,6 @@ use std::sync::atomic::Ordering;
 use crossbeam_channel::Sender;
 use dupe::Dupe;
 use itertools::__std_iter::once;
-use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::ErrorCode;
 use lsp_server::Message;
@@ -72,8 +71,6 @@ use lsp_types::InlayHint;
 use lsp_types::InlayHintLabel;
 use lsp_types::InlayHintParams;
 use lsp_types::Location;
-use lsp_types::MarkupContent;
-use lsp_types::MarkupKind;
 use lsp_types::NumberOrString;
 use lsp_types::OneOf;
 use lsp_types::Position;
@@ -165,7 +162,6 @@ use ruff_text_size::Ranged;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
-use starlark_map::small_set::SmallSet;
 use tracing::warn;
 
 use crate::commands::lsp::IndexingMode;
@@ -175,6 +171,7 @@ use crate::common::files::PYTHON_FILE_SUFFIXES_TO_WATCH;
 use crate::config::config::ConfigFile;
 use crate::error::error::Error;
 use crate::error::kind::Severity;
+use crate::lsp::features::hover::get_hover;
 use crate::lsp::transaction_manager::IDETransactionManager;
 use crate::lsp::workspace::PythonInfo;
 use crate::lsp::workspace::Workspace;
@@ -1489,68 +1486,11 @@ impl Server {
         let uri = &params.text_document_position_params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
-        let range = info
+        let position = info
             .lined_buffer()
             .from_lsp_position(params.text_document_position_params.position);
-        let t = transaction.get_type_at(&handle, range)?;
-        let mut kind_formatted: String = "".to_owned();
-        let mut docstring_formatted: String = "".to_owned();
-        if let Some(FindDefinitionItem {
-            metadata,
-            location,
-            docstring,
-        }) = transaction
-            .find_definition(&handle, range, true)
-            // TODO: handle more than 1 definition
-            .into_iter()
-            .next()
-        {
-            if let Some(symbol_kind) = metadata.symbol_kind() {
-                kind_formatted = format!(
-                    "{} {}: ",
-                    &symbol_kind.display_for_hover(),
-                    location.module.code_at(location.range)
-                );
-            }
-            if let Some(docstring) = docstring {
-                docstring_formatted = format!("\n---\n{}", docstring.as_string().trim());
-            }
-        }
-        let type_formatted = t.to_string();
-        let symbol_def_loc_formatted = {
-            let mut tracked_def_locs = SmallSet::new();
-            t.universe(&mut |t| tracked_def_locs.extend(t.qname()));
-            let linked_names = tracked_def_locs
-                .into_iter()
-                .filter_map(|qname| {
-                    if let Ok(mut url) = Url::from_file_path(qname.module_path().as_path()) {
-                        let start_pos = qname.module().display_range(qname.range()).start;
-                        url.set_fragment(Some(&format!(
-                            "L{},{}",
-                            start_pos.line.get(),
-                            start_pos.column
-                        )));
-                        Some(format!("[{}]({})", qname.id(), url))
-                    } else {
-                        None
-                    }
-                })
-                .join(" | ");
-            if linked_names.is_empty() {
-                "".to_owned()
-            } else {
-                format!("\n---\nGo to {linked_names}")
-            }
-        };
-        Some(Hover {
-            contents: HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: format!(
-                    "```python\n{kind_formatted}{type_formatted}\n```{docstring_formatted}{symbol_def_loc_formatted}",
-                ),
-            }),
-            range: None,
-        })
+
+        get_hover(transaction, &handle, position)
     }
 
     fn inlay_hints(
