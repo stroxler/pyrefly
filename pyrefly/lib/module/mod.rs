@@ -9,6 +9,7 @@ pub mod bundled;
 pub mod finder;
 pub mod parse;
 pub mod source_db;
+pub mod typeshed;
 pub mod wildcard;
 
 // Temporary reexports. Given these are such central types going

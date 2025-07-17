@@ -20,8 +20,8 @@ use vec1::vec1;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::error::style::ErrorStyle;
-use crate::module::bundled::typeshed;
 use crate::module::module_info::ModuleInfo;
+use crate::module::typeshed::typeshed;
 use crate::state::memory::MemoryFilesLookup;
 
 /// The result of loading a module, including its `ModuleInfo` and `ErrorCollector`.

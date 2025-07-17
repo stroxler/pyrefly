@@ -30,8 +30,8 @@ use tracing::debug;
 use tracing::info;
 
 use crate::alt::answers::Answers;
-use crate::module::bundled::typeshed;
 use crate::module::module_info::ModuleInfo;
+use crate::module::typeshed::typeshed;
 use crate::state::handle::Handle;
 use crate::state::lsp::DefinitionMetadata;
 use crate::state::lsp::FindDefinitionItem;
