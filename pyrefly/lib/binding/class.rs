@@ -521,15 +521,6 @@ impl<'a> BindingsBuilder<'a> {
                     range,
                 ),
             );
-            let initial_value = if force_class_initialization || member_value.is_some() {
-                RawClassFieldInitialization::ClassBody(member_value.clone())
-            } else {
-                RawClassFieldInitialization::Uninitialized
-            };
-            let value = match member_value {
-                Some(value) => ExprOrBinding::Expr(value),
-                None => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
-            };
             let annotation = if let Some(annotation) = member_annotation {
                 let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(&Identifier::new(
                     member_name.clone(),
@@ -550,6 +541,16 @@ impl<'a> BindingsBuilder<'a> {
                 Some(self.insert_binding(ann_key, ann_val))
             } else {
                 None
+            };
+
+            let initial_value = if force_class_initialization || member_value.is_some() {
+                RawClassFieldInitialization::ClassBody(member_value.clone())
+            } else {
+                RawClassFieldInitialization::Uninitialized
+            };
+            let value = match member_value {
+                Some(value) => ExprOrBinding::Expr(value),
+                None => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
             };
 
             let idx = self.insert_binding(
