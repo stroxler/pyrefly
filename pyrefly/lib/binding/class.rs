@@ -242,7 +242,14 @@ impl<'a> BindingsBuilder<'a> {
                             RawClassFieldInitialization::ClassBody(None) => {
                                 (ExprOrBinding::Binding(Binding::Forward(info.key)), true)
                             }
-                            _ => (ExprOrBinding::Binding(Binding::Forward(info.key)), false),
+                            RawClassFieldInitialization::Uninitialized => {
+                                (ExprOrBinding::Binding(Binding::Forward(info.key)), false)
+                            }
+                            RawClassFieldInitialization::Method(..) => {
+                                unreachable!(
+                                    "A class field defined on the body cannot be method-defined"
+                                )
+                            }
                         };
                         (
                             ClassFieldDefinition::DefinedInBody {
