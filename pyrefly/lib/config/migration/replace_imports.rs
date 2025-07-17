@@ -9,6 +9,7 @@ use configparser::ini::Ini;
 
 use crate::config::config::ConfigFile;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::config::migration::pyright::PyrightConfig;
 use crate::config::migration::utils;
 use crate::module::wildcard::ModuleWildcard;
 
@@ -67,6 +68,16 @@ impl ConfigOptionMigrater for ReplaceImports {
 
         pyrefly_cfg.root.replace_imports_with_any = Some(result);
         Ok(())
+    }
+
+    fn migrate_from_pyright(
+        &self,
+        _pyright_cfg: &PyrightConfig,
+        _pyrefly_cfg: &mut ConfigFile,
+    ) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!(
+            "Pyright does not have a direct equivalent for ignore_missing_imports or follow_imports=skip"
+        ))
     }
 }
 

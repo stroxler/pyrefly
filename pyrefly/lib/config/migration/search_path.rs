@@ -9,6 +9,7 @@ use configparser::ini::Ini;
 
 use crate::config::config::ConfigFile;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::config::migration::pyright::PyrightConfig;
 use crate::config::migration::utils;
 
 /// Configuration option for search path
@@ -32,6 +33,26 @@ impl ConfigOptionMigrater for SearchPath {
             return Err(anyhow::anyhow!("Empty search paths found in mypy config"));
         }
         pyrefly_cfg.search_path_from_file = paths;
+        Ok(())
+    }
+
+    fn migrate_from_pyright(
+        &self,
+        pyright_cfg: &PyrightConfig,
+        pyrefly_cfg: &mut ConfigFile,
+    ) -> anyhow::Result<()> {
+        // In pyright, search path is specified in the "extraPaths" field
+        let search_path = match &pyright_cfg.search_path {
+            Some(path) => path,
+            None => return Err(anyhow::anyhow!("No search paths found in pyright config")),
+        };
+        if search_path.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Empty search paths found in pyright config"
+            ));
+        }
+
+        pyrefly_cfg.search_path_from_file = search_path.clone();
         Ok(())
     }
 }

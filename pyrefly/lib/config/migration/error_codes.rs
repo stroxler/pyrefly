@@ -9,6 +9,7 @@ use configparser::ini::Ini;
 
 use crate::config::config::ConfigFile;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::config::migration::pyright::PyrightConfig;
 use crate::config::migration::utils;
 
 /// Configuration option for error codes
@@ -27,6 +28,23 @@ impl ConfigOptionMigrater for ErrorCodes {
 
         let error_config = utils::make_error_config(disable_error_code, enable_error_code)
             .ok_or_else(|| anyhow::anyhow!("Failed to create error config"))?;
+        pyrefly_cfg.root.errors = Some(error_config);
+        Ok(())
+    }
+
+    fn migrate_from_pyright(
+        &self,
+        pyright_cfg: &PyrightConfig,
+        pyrefly_cfg: &mut ConfigFile,
+    ) -> anyhow::Result<()> {
+        // In pyright, error settings are specified in various "report*" fields
+        // The PyrightConfig struct already has a method to convert these to an ErrorDisplayConfig
+        let error_config = pyright_cfg
+            .errors
+            .clone()
+            .to_config()
+            .ok_or_else(|| anyhow::anyhow!("No error settings found in pyright config"))?;
+
         pyrefly_cfg.root.errors = Some(error_config);
         Ok(())
     }

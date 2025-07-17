@@ -10,6 +10,7 @@ use pyrefly_util::globs::Globs;
 
 use crate::config::config::ConfigFile;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::config::migration::pyright::PyrightConfig;
 use crate::config::migration::utils;
 
 /// Configuration option for project includes (files, packages, modules)
@@ -34,6 +35,30 @@ impl ConfigOptionMigrater for ProjectIncludes {
         }
 
         pyrefly_cfg.project_includes = Globs::new(includes);
+        Ok(())
+    }
+
+    fn migrate_from_pyright(
+        &self,
+        pyright_cfg: &PyrightConfig,
+        pyrefly_cfg: &mut ConfigFile,
+    ) -> anyhow::Result<()> {
+        // In pyright, project includes are specified in the "include" field
+        let includes = match &pyright_cfg.project_includes {
+            Some(includes) => includes,
+            None => {
+                return Err(anyhow::anyhow!(
+                    "No project includes found in pyright config"
+                ));
+            }
+        };
+        if includes.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Empty project includes found in pyright config"
+            ));
+        }
+
+        pyrefly_cfg.project_includes = includes.clone();
         Ok(())
     }
 }

@@ -11,6 +11,7 @@ use pyrefly_util::globs::Globs;
 use crate::config::config::ConfigFile;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::config::migration::mypy::regex_converter;
+use crate::config::migration::pyright::PyrightConfig;
 
 /// Configuration option for project excludes
 pub struct ProjectExcludes;
@@ -38,6 +39,26 @@ impl ConfigOptionMigrater for ProjectExcludes {
 
         pyrefly_cfg.project_excludes = Globs::new(patterns);
         Ok(())
+    }
+    fn migrate_from_pyright(
+        &self,
+        pyright_cfg: &PyrightConfig,
+        pyrefly_cfg: &mut ConfigFile,
+    ) -> anyhow::Result<()> {
+        // In pyright, project excludes are specified in the "exclude" field
+        if let Some(excludes) = &pyright_cfg.project_excludes {
+            if excludes.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "No project excludes found in pyright config"
+                ));
+            }
+            pyrefly_cfg.project_excludes = excludes.clone();
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(
+                "No project excludes found in pyright config"
+            ))
+        }
     }
 }
 

@@ -12,6 +12,7 @@ use configparser::ini::Ini;
 
 use crate::config::config::ConfigFile;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::config::migration::pyright::PyrightConfig;
 use crate::config::util::ConfigOrigin;
 
 /// Configuration option for Python interpreter
@@ -36,6 +37,16 @@ impl ConfigOptionMigrater for PythonInterpreter {
             .ok()
             .map(ConfigOrigin::config);
         Ok(())
+    }
+
+    fn migrate_from_pyright(
+        &self,
+        _pyright_cfg: &PyrightConfig,
+        _pyrefly_cfg: &mut ConfigFile,
+    ) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!(
+            "Pyright does not have a direct equivalent for python_interpreter"
+        ))
     }
 }
 

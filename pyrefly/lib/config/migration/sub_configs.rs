@@ -13,6 +13,7 @@ use crate::config::config::ConfigFile;
 use crate::config::config::SubConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::config::migration::pyright::PyrightConfig;
 use crate::config::migration::utils;
 /// Configuration option for sub-configs (per-module options)
 pub struct SubConfigs;
@@ -82,6 +83,29 @@ impl ConfigOptionMigrater for SubConfigs {
             return Err(anyhow::anyhow!("No valid sub configs found in mypy config"));
         }
         pyrefly_cfg.sub_configs = sub_configs_vec;
+        Ok(())
+    }
+
+    fn migrate_from_pyright(
+        &self,
+        pyright_cfg: &PyrightConfig,
+        pyrefly_cfg: &mut ConfigFile,
+    ) -> anyhow::Result<()> {
+        // In pyright, sub configs are specified in the "executionEnvironments" field
+        // Each execution environment has a root path and error settings
+        let sub_configs: Vec<SubConfig> = pyright_cfg
+            .execution_environments
+            .iter()
+            .map(|env| env.clone().convert())
+            .collect();
+
+        if sub_configs.is_empty() {
+            return Err(anyhow::anyhow!(
+                "No execution environments found in pyright config"
+            ));
+        }
+
+        pyrefly_cfg.sub_configs = sub_configs;
         Ok(())
     }
 }

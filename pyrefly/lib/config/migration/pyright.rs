@@ -50,47 +50,58 @@ impl ExecEnv {
 #[derive(Clone, Debug, Deserialize)]
 pub struct PyrightConfig {
     #[serde(rename = "include")]
-    project_includes: Option<Globs>,
+    pub project_includes: Option<Globs>,
     #[serde(rename = "exclude")]
-    project_excludes: Option<Globs>,
+    pub project_excludes: Option<Globs>,
     #[serde(rename = "extraPaths")]
-    search_path: Option<Vec<PathBuf>>,
+    pub search_path: Option<Vec<PathBuf>>,
     #[serde(rename = "pythonPlatform")]
-    python_platform: Option<String>,
+    pub python_platform: Option<String>,
     #[serde(rename = "pythonVersion")]
-    python_version: Option<PythonVersion>,
+    pub python_version: Option<PythonVersion>,
     #[serde(flatten)]
-    errors: RuleOverrides,
+    pub errors: RuleOverrides,
     #[serde(default, rename = "executionEnvironments")]
-    execution_environments: Vec<ExecEnv>,
+    pub execution_environments: Vec<ExecEnv>,
 }
+
+use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::config::migration::error_codes::ErrorCodes;
+use crate::config::migration::project_excludes::ProjectExcludes;
+use crate::config::migration::project_includes::ProjectIncludes;
+use crate::config::migration::python_interpreter::PythonInterpreter;
+use crate::config::migration::python_version::PythonVersionConfig;
+use crate::config::migration::replace_imports::ReplaceImports;
+use crate::config::migration::search_path::SearchPath;
+use crate::config::migration::sub_configs::SubConfigs;
+use crate::config::migration::use_untyped_imports::UseUntypedImports;
 
 impl PyrightConfig {
     pub fn convert(self) -> ConfigFile {
         let mut cfg = ConfigFile::default();
-        if let Some(includes) = self.project_includes {
-            cfg.project_includes = includes;
+
+        // Create a list of all config options
+        let config_options: Vec<Box<dyn ConfigOptionMigrater>> = vec![
+            Box::new(ProjectIncludes),
+            Box::new(ProjectExcludes),
+            Box::new(PythonInterpreter),
+            Box::new(PythonVersionConfig),
+            Box::new(SearchPath),
+            Box::new(UseUntypedImports),
+            Box::new(ReplaceImports),
+            Box::new(ErrorCodes),
+            Box::new(SubConfigs),
+        ];
+
+        // Iterate through all config options and apply them to the config
+        for option in config_options {
+            // Ignore errors for now, we can use this in the future if we want to print out error messages or use for logging purpose
+            let _ = option.migrate_from_pyright(&self, &mut cfg);
         }
-        if let Some(excludes) = self.project_excludes {
-            cfg.project_excludes = excludes;
-        }
-        if let Some(search_path) = self.search_path {
-            cfg.search_path_from_file = search_path;
-        }
+
         if let Some(platform) = self.python_platform {
             cfg.python_environment.python_platform = Some(PythonPlatform::new(&platform));
         }
-        if self.python_version.is_some() {
-            cfg.python_environment.python_version = self.python_version;
-        }
-        cfg.root.errors = self.errors.to_config();
-
-        let sub_configs: Vec<SubConfig> = self
-            .execution_environments
-            .into_iter()
-            .map(ExecEnv::convert)
-            .collect();
-        cfg.sub_configs = sub_configs;
 
         cfg
     }
@@ -158,7 +169,7 @@ pub struct RuleOverrides {
 
 impl RuleOverrides {
     /// Consume the RuleOverrides to turn it into an ErrorDisplayConfig map.
-    fn to_config(self) -> Option<ErrorDisplayConfig> {
+    pub fn to_config(self) -> Option<ErrorDisplayConfig> {
         let mut map = HashMap::new();
         // For each ErrorKind, there are one or more RuleOverrides fields.
         // The ErrorDisplayConfig map has an entry for an ErrorKind if at least one of the RuleOverrides for that ErrorKind is present.

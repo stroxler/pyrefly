@@ -12,6 +12,7 @@ use pyrefly_python::sys_info::PythonVersion;
 
 use crate::config::config::ConfigFile;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::config::migration::pyright::PyrightConfig;
 
 /// Configuration option for Python version
 pub struct PythonVersionConfig;
@@ -32,6 +33,21 @@ impl ConfigOptionMigrater for PythonVersionConfig {
 
         let version = python_version.unwrap();
         pyrefly_cfg.python_environment.python_version = PythonVersion::from_str(&version).ok();
+        Ok(())
+    }
+
+    fn migrate_from_pyright(
+        &self,
+        pyright_cfg: &PyrightConfig,
+        pyrefly_cfg: &mut ConfigFile,
+    ) -> anyhow::Result<()> {
+        // In pyright, python version is specified in the "pythonVersion" field
+        let version = match &pyright_cfg.python_version {
+            Some(v) => v,
+            None => return Err(anyhow::anyhow!("No python_version found in pyright config")),
+        };
+
+        pyrefly_cfg.python_environment.python_version = Some(*version);
         Ok(())
     }
 }
