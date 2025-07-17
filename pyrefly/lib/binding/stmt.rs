@@ -397,56 +397,6 @@ impl<'a> BindingsBuilder<'a> {
                     self.bind_targets_with_value(&mut x.targets, &mut x.value);
                 }
             }
-            Stmt::AugAssign(mut x) => {
-                match x.target.as_ref() {
-                    Expr::Name(name) => {
-                        // TODO(stroxler): Is this really a good key for an augmented assignment?
-                        // It works okay for type checking, but might have weird effects on the IDE.
-                        let mut assigned = self
-                            .declare_current_idx(Key::Definition(ShortIdentifier::expr_name(name)));
-                        // Ensure the target name, which must already be in scope (it is part of the implicit dunder method call
-                        // used in augmented assignment).
-                        self.ensure_mutable_name(name);
-                        self.ensure_expr(&mut x.value, assigned.usage());
-                        // TODO(stroxler): Should we really be using `bind_key` here? This will update the
-                        // flow info to define the name, even if it was not previously defined.
-                        let (ann, default) =
-                            self.bind_current(&name.id, &assigned, FlowStyle::Other);
-                        let mut binding = Binding::AugAssign(ann, x.clone());
-                        if let Some(default) = default {
-                            binding = Binding::Default(default, Box::new(binding));
-                        }
-                        self.insert_binding_current(assigned, binding);
-                    }
-                    Expr::Attribute(attr) => {
-                        let mut x_cloned = x.clone();
-                        self.bind_attr_assign(attr.clone(), &mut x.value, move |expr, ann| {
-                            x_cloned.value = Box::new(expr.clone());
-                            ExprOrBinding::Binding(Binding::AugAssign(ann, x_cloned))
-                        });
-                    }
-                    Expr::Subscript(subscr) => {
-                        let mut x_cloned = x.clone();
-                        self.bind_subscript_assign(
-                            subscr.clone(),
-                            &mut x.value,
-                            move |expr, ann| {
-                                x_cloned.value = Box::new(expr.clone());
-                                ExprOrBinding::Binding(Binding::AugAssign(ann, x_cloned))
-                            },
-                        );
-                    }
-                    illegal_target => {
-                        // Most structurally invalid targets become errors in the parser, which we propagate so there
-                        // is no need for duplicate errors. But we do want to catch unbound names (which the parser
-                        // will not catch)
-                        //
-                        // We don't track first-usage in this context, since we won't analyze the usage anyway.
-                        let mut e = illegal_target.clone();
-                        self.ensure_expr(&mut e, &mut Usage::StaticTypeInformation);
-                    }
-                }
-            }
             Stmt::AnnAssign(mut x) => match *x.target {
                 Expr::Name(name) => {
                     let name = Ast::expr_name_identifier(name);
@@ -572,6 +522,56 @@ impl<'a> BindingsBuilder<'a> {
                     }
                 }
             },
+            Stmt::AugAssign(mut x) => {
+                match x.target.as_ref() {
+                    Expr::Name(name) => {
+                        // TODO(stroxler): Is this really a good key for an augmented assignment?
+                        // It works okay for type checking, but might have weird effects on the IDE.
+                        let mut assigned = self
+                            .declare_current_idx(Key::Definition(ShortIdentifier::expr_name(name)));
+                        // Ensure the target name, which must already be in scope (it is part of the implicit dunder method call
+                        // used in augmented assignment).
+                        self.ensure_mutable_name(name);
+                        self.ensure_expr(&mut x.value, assigned.usage());
+                        // TODO(stroxler): Should we really be using `bind_key` here? This will update the
+                        // flow info to define the name, even if it was not previously defined.
+                        let (ann, default) =
+                            self.bind_current(&name.id, &assigned, FlowStyle::Other);
+                        let mut binding = Binding::AugAssign(ann, x.clone());
+                        if let Some(default) = default {
+                            binding = Binding::Default(default, Box::new(binding));
+                        }
+                        self.insert_binding_current(assigned, binding);
+                    }
+                    Expr::Attribute(attr) => {
+                        let mut x_cloned = x.clone();
+                        self.bind_attr_assign(attr.clone(), &mut x.value, move |expr, ann| {
+                            x_cloned.value = Box::new(expr.clone());
+                            ExprOrBinding::Binding(Binding::AugAssign(ann, x_cloned))
+                        });
+                    }
+                    Expr::Subscript(subscr) => {
+                        let mut x_cloned = x.clone();
+                        self.bind_subscript_assign(
+                            subscr.clone(),
+                            &mut x.value,
+                            move |expr, ann| {
+                                x_cloned.value = Box::new(expr.clone());
+                                ExprOrBinding::Binding(Binding::AugAssign(ann, x_cloned))
+                            },
+                        );
+                    }
+                    illegal_target => {
+                        // Most structurally invalid targets become errors in the parser, which we propagate so there
+                        // is no need for duplicate errors. But we do want to catch unbound names (which the parser
+                        // will not catch)
+                        //
+                        // We don't track first-usage in this context, since we won't analyze the usage anyway.
+                        let mut e = illegal_target.clone();
+                        self.ensure_expr(&mut e, &mut Usage::StaticTypeInformation);
+                    }
+                }
+            }
             Stmt::TypeAlias(mut x) => {
                 if let Expr::Name(name) = *x.name {
                     if let Some(params) = &mut x.type_params {
