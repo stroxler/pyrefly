@@ -543,14 +543,19 @@ impl<'a> BindingsBuilder<'a> {
                 None
             };
 
-            let initial_value = if force_class_initialization || member_value.is_some() {
-                RawClassFieldInitialization::ClassBody(member_value.clone())
-            } else {
-                RawClassFieldInitialization::Uninitialized
-            };
-            let value = match member_value {
-                Some(value) => ExprOrBinding::Expr(value),
-                None => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
+            let (initial_value, value) = match (member_value, force_class_initialization) {
+                (Some(value), _) => (
+                    RawClassFieldInitialization::ClassBody(Some(value.clone())),
+                    ExprOrBinding::Expr(value),
+                ),
+                (None, true) => (
+                    RawClassFieldInitialization::ClassBody(None),
+                    ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
+                ),
+                (None, false) => (
+                    RawClassFieldInitialization::Uninitialized,
+                    ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
+                ),
             };
 
             let idx = self.insert_binding(
