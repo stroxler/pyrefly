@@ -1041,7 +1041,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Expr::BoolOp(x) => self.boolop(&x.values, x.op, errors),
-            Expr::BinOp(x) => self.binop_infer(x, errors),
+            Expr::BinOp(x) => self.binop_infer(x, hint, errors),
             Expr::UnaryOp(x) => self.unop_infer(x, errors),
             Expr::Lambda(lambda) => {
                 let mut param_vars = Vec::new();
@@ -1501,7 +1501,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn expr_infer_with_hint_promote(
+    pub fn expr_infer_with_hint_promote(
         &self,
         x: &Expr,
         hint: Option<&Type>,
