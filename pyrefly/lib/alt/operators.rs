@@ -388,7 +388,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             self.error(
                                                 errors,
                                                 x.range,
-                                                ErrorKind::UnsupportedOperand,
+                                                ErrorKind::UnsupportedOperation,
                                                 None,
                                                 context().format(),
                                             );
@@ -453,7 +453,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 _ => self.error(
                     errors,
                     x.range,
-                    ErrorKind::UnsupportedOperand,
+                    ErrorKind::UnsupportedOperation,
                     None,
                     context().format(),
                 ),

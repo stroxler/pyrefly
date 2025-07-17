@@ -48,6 +48,25 @@ pub enum ErrorContext {
     ImportNotFound(ModuleName),
 }
 
+impl ErrorContext {
+    pub fn as_error_kind(&self) -> ErrorKind {
+        match self {
+            Self::BadContextManager(..) => ErrorKind::BadContextManager,
+            Self::UnaryOp(..) => ErrorKind::UnsupportedOperation,
+            Self::BinaryOp(..) => ErrorKind::UnsupportedOperation,
+            Self::InplaceBinaryOp(..) => ErrorKind::UnsupportedOperation,
+            Self::Iteration(..) => ErrorKind::NotIterable,
+            Self::AsyncIteration(..) => ErrorKind::NotIterable,
+            Self::Await(..) => ErrorKind::AsyncError,
+            Self::Index(..) => ErrorKind::IndexError,
+            Self::SetItem(..) => ErrorKind::UnsupportedOperation,
+            Self::DelItem(..) => ErrorKind::UnsupportedOperation,
+            Self::MatchPositional(..) => ErrorKind::MatchError,
+            Self::ImportNotFound(..) => ErrorKind::ImportError,
+        }
+    }
+}
+
 /// The context in which a got <: want type check occurs. This differs from ErrorContext in that
 /// TypeCheckContext applies specifically to type mismatches. For example:
 ///   class C:
