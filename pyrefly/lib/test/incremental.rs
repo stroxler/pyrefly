@@ -53,6 +53,14 @@ impl IncrementalResult {
         assert_eq!(want, self.changed);
     }
 
+    fn check_recompute_dedup(&self, want: &[&str]) {
+        let mut changed = self.changed.clone();
+        changed.dedup();
+        let mut want = want.map(|x| (*x).to_owned());
+        want.sort();
+        assert_eq!(want, changed);
+    }
+
     fn check_errors(&self) {
         self.errors.check_against_expectations().unwrap();
     }
@@ -353,9 +361,9 @@ fn test_stale_class() {
 
     i.set("foo", "");
     i.set("main", "from bar import c; v = c.x # hello");
-    // Should not panic, which it does if we access the missing class.
-    // TODO: This is non-deterministic in terms of what it re-computes.
-    // i.check_ignoring_expectations(&["main", "foo"], &["main", "foo", "bar", "main"]);
+    let res = i.unchecked(&["main", "foo"]);
+    res.check_recompute_dedup(&["main", "foo", "bar"]);
+    assert_eq!(res.errors.collect_errors().shown.len(), 1);
 }
 
 #[test]

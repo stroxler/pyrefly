@@ -1002,7 +1002,10 @@ impl<'a> Transaction<'a> {
         // Check; demand; check - the second check is guaranteed to work.
         for _ in 0..2 {
             let lock = module_data.state.read();
-            if let Some(solutions) = &lock.steps.solutions {
+            if let Some(solutions) = &lock.steps.solutions
+                && lock.epochs.checked == self.data.now
+                && lock.steps.last_step == Some(Step::Solutions)
+            {
                 return solutions.get_hashed_opt(key).duped();
             } else if let Some(answers) = &lock.steps.answers {
                 let load = lock.steps.load.dupe().unwrap();
