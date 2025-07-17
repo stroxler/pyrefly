@@ -62,6 +62,7 @@ use crate::binding::table::TableKeyed;
 use crate::config::base::UntypedDefBehavior;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
+use crate::error::context::ErrorInfo;
 use crate::error::kind::ErrorKind;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
@@ -680,7 +681,8 @@ impl<'a> BindingsBuilder<'a> {
         context: Option<&dyn Fn() -> ErrorContext>,
         msg: String,
     ) {
-        self.errors.add(range, error_kind, context, vec1![msg]);
+        self.errors
+            .add(range, ErrorInfo::new(error_kind, context), vec1![msg]);
     }
 
     pub fn error_multiline(
@@ -690,7 +692,8 @@ impl<'a> BindingsBuilder<'a> {
         context: Option<&dyn Fn() -> ErrorContext>,
         msg: Vec1<String>,
     ) {
-        self.errors.add(range, error_kind, context, msg);
+        self.errors
+            .add(range, ErrorInfo::new(error_kind, context), msg);
     }
 
     pub fn lookup_mutable_captured_name(

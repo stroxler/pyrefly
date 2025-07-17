@@ -44,6 +44,7 @@ use crate::binding::bindings::Bindings;
 use crate::binding::table::TableKeyed;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
+use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::kind::ErrorKind;
 use crate::error::style::ErrorStyle;
@@ -822,7 +823,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         msg: String,
     ) -> Type {
-        errors.add(range, kind, context, vec1![msg]);
+        errors.add(range, ErrorInfo::new(kind, context), vec1![msg]);
         Type::any_error()
     }
 

@@ -38,6 +38,7 @@ use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::binding::RawClassFieldInitialization;
 use crate::error::collector::ErrorCollector;
+use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
@@ -1459,7 +1460,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ),
                     error.to_error_msg(class.name(), parent.name(), name)
                 ];
-                errors.add(range, ErrorKind::BadOverride, None, msg);
+                errors.add(range, ErrorInfo::Kind(ErrorKind::BadOverride), msg);
             }
         }
         if is_override && !parent_attr_found && !parent_has_any {

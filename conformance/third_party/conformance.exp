@@ -3304,7 +3304,7 @@
       "concise_description": "`<` is not supported between `DC1` and `DC2`",
       "description": "`<` is not supported between `DC1` and `DC2`\n  Argument `DC2` is not assignable to parameter `other` with type `DC1` in function `DC1.__lt__`",
       "line": 50,
-      "name": "bad-argument-type",
+      "name": "unsupported-operation",
       "stop_column": 17,
       "stop_line": 50
     }
@@ -3430,7 +3430,7 @@
       "concise_description": "`<` is not supported between `Customer1` and `Customer1`",
       "description": "`<` is not supported between `Customer1` and `Customer1`\n  Cannot find `__lt__` or `__gt__`",
       "line": 72,
-      "name": "missing-attribute",
+      "name": "unsupported-operation",
       "stop_column": 17,
       "stop_line": 72
     },
@@ -3596,7 +3596,7 @@
       "concise_description": "`<` is not supported between `Customer1` and `Customer1`",
       "description": "`<` is not supported between `Customer1` and `Customer1`\n  Cannot find `__lt__` or `__gt__`",
       "line": 61,
-      "name": "missing-attribute",
+      "name": "unsupported-operation",
       "stop_column": 17,
       "stop_line": 61
     },
@@ -3698,7 +3698,7 @@
       "concise_description": "`<` is not supported between `Customer1` and `Customer1`",
       "description": "`<` is not supported between `Customer1` and `Customer1`\n  Cannot find `__lt__` or `__gt__`",
       "line": 73,
-      "name": "missing-attribute",
+      "name": "unsupported-operation",
       "stop_column": 17,
       "stop_line": 73
     },
@@ -4129,7 +4129,7 @@
       "concise_description": "Type `type[Color]` is not iterable",
       "description": "Type `type[Color]` is not iterable\n  Argument `int` is not assignable to parameter `name` with type `str` in function `enum.EnumMeta.__getitem__`",
       "line": 19,
-      "name": "bad-argument-type",
+      "name": "not-iterable",
       "stop_column": 19,
       "stop_line": 19
     },
@@ -4574,7 +4574,7 @@
       "concise_description": "`+` is not supported between `AnyStr` and `AnyStr`",
       "description": "`+` is not supported between `AnyStr` and `AnyStr`\n  Argument `AnyStr` is not assignable to parameter `self` with type `Self@bytes` in function `bytes.__add__`",
       "line": 34,
-      "name": "bad-argument-type",
+      "name": "unsupported-operation",
       "stop_column": 17,
       "stop_line": 34
     },
@@ -4584,7 +4584,7 @@
       "concise_description": "`+` is not supported between `AnyStr` and `AnyStr`",
       "description": "`+` is not supported between `AnyStr` and `AnyStr`\n  No matching overload found for function `str.__add__`\n  Possible overloads:\n  (value: LiteralString, /) -> LiteralString [closest match]\n  (value: str, /) -> str",
       "line": 34,
-      "name": "no-matching-overload",
+      "name": "unsupported-operation",
       "stop_column": 17,
       "stop_line": 34
     },
@@ -4674,7 +4674,7 @@
       "concise_description": "Cannot index into `MyMap1[str, int]`",
       "description": "Cannot index into `MyMap1[str, int]`\n  Argument `Literal[0]` is not assignable to parameter `key` with type `str` in function `typing.Mapping.__getitem__`",
       "line": 157,
-      "name": "bad-argument-type",
+      "name": "index-error",
       "stop_column": 9,
       "stop_line": 157
     },
@@ -4684,7 +4684,7 @@
       "concise_description": "Cannot index into `MyMap2[int, str]`",
       "description": "Cannot index into `MyMap2[int, str]`\n  Argument `Literal[0]` is not assignable to parameter `key` with type `str` in function `typing.Mapping.__getitem__`",
       "line": 158,
-      "name": "bad-argument-type",
+      "name": "index-error",
       "stop_column": 9,
       "stop_line": 158
     },
@@ -6813,7 +6813,7 @@
       "concise_description": "`@` is not supported between `Matrix[Literal[2], Literal[3]]` and `Matrix[Literal[3], Literal[7]]`",
       "description": "`@` is not supported between `Matrix[Literal[2], Literal[3]]` and `Matrix[Literal[3], Literal[7]]`\n  Argument `Matrix[Literal[3], Literal[7]]` is not assignable to parameter `other` with type `Matrix[Literal[3], int]` in function `Matrix.__matmul__`",
       "line": 71,
-      "name": "bad-argument-type",
+      "name": "unsupported-operation",
       "stop_column": 14,
       "stop_line": 71
     },
@@ -7467,7 +7467,7 @@
       "concise_description": "Cannot set item in `Point`",
       "description": "Cannot set item in `Point`\n  Object of class `Point` has no attribute `__setitem__`",
       "line": 41,
-      "name": "missing-attribute",
+      "name": "unsupported-operation",
       "stop_column": 5,
       "stop_line": 41
     },
@@ -7487,7 +7487,7 @@
       "concise_description": "Cannot delete item in `Point`",
       "description": "Cannot delete item in `Point`\n  Object of class `Point` has no attribute `__delitem__`",
       "line": 43,
-      "name": "missing-attribute",
+      "name": "unsupported-operation",
       "stop_column": 9,
       "stop_line": 43
     },
@@ -7653,7 +7653,7 @@
       "concise_description": "Cannot index into `Bytes`",
       "description": "Cannot index into `Bytes`\n  No matching overload found for function `Bytes.__getitem__`\n  Possible overloads:\n  (__i: int, /) -> int [closest match]\n  (__s: slice[Any, Any, Any], /) -> bytes",
       "line": 39,
-      "name": "no-matching-overload",
+      "name": "index-error",
       "stop_column": 6,
       "stop_line": 39
     }

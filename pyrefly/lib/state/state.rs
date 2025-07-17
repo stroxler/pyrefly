@@ -87,6 +87,7 @@ use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::error::collector::ErrorCollector;
+use crate::error::context::ErrorInfo;
 use crate::error::kind::ErrorKind;
 use crate::export::docstring::Docstring;
 use crate::export::exports::Export;
@@ -916,7 +917,7 @@ impl<'a> Transaction<'a> {
         kind: ErrorKind,
     ) {
         let load = module_data.state.read().steps.load.dupe().unwrap();
-        load.errors.add(range, kind, None, vec1![msg]);
+        load.errors.add(range, ErrorInfo::Kind(kind), vec1![msg]);
     }
 
     fn lookup<'b>(&'b self, module_data: ArcId<ModuleDataMut>) -> TransactionHandle<'b> {

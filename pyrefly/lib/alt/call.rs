@@ -25,6 +25,7 @@ use crate::alt::callable::CallWithTypes;
 use crate::alt::expr::TypeOrExpr;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
+use crate::error::context::ErrorInfo;
 use crate::error::kind::ErrorKind;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncMetadata;
@@ -821,7 +822,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // We intentionally discard closest_overload.call_errors. When no overload matches,
             // there's a high likelihood that the "closest" one by our heuristic isn't the right
             // one, in which case the call errors are just noise.
-            errors.add(range, ErrorKind::NoMatchingOverload, context, msg);
+            errors.add(
+                range,
+                ErrorInfo::new(ErrorKind::NoMatchingOverload, context),
+                msg,
+            );
             (Type::any_error(), closest_overload.signature)
         }
     }

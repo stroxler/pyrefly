@@ -25,6 +25,7 @@ use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyExport;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
+use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
@@ -846,7 +847,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         format!("Cannot set field `{attr_name}`"),
                         reason.error_message()
                     ];
-                    errors.add(range, ErrorKind::ReadOnly, None, msg);
+                    errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
                 }
                 LookupResult::Found(Attribute {
                     inner: AttributeInner::Property(_, None, cls),
@@ -976,7 +977,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         format!("Cannot delete field `{attr_name}`"),
                         reason.error_message()
                     ];
-                    errors.add(range, ErrorKind::ReadOnly, None, msg);
+                    errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
                 }
                 LookupResult::InternalError(e) => {
                     self.error(
