@@ -65,6 +65,18 @@ def get_typeshed_url(specified_url: str | None) -> str:
         ) from e
 
 
+def get_output_dir(specified_output: Path | None) -> Path:
+    if specified_output is not None:
+        return specified_output
+    possible = Path(__file__).parent.joinpath("third_party")
+    if possible.joinpath("typeshed_metadata.json").exists():
+        return possible
+    raise RuntimeError(
+        "Cannot determine the output directory. "
+        + "Please manually specify one with `--output` argument."
+    )
+
+
 def fetch_as_tarfile(
     url: str,
 ) -> tuple[tarfile.TarFile, FetchMetadata]:
@@ -172,12 +184,11 @@ def write_metadata(output_path: Path, metadata: FetchMetadata) -> None:
     )
 
 
-def run(specified_url: str | None, output_dir: Path) -> None:
+def run(url: str, output_dir: Path) -> None:
     if not output_dir.exists():
         raise RuntimeError(f"Output path `{output_dir}` does not exist")
     if not output_dir.is_dir():
         raise RuntimeError(f"Output path `{output_dir}` is not a directory")
-    url = get_typeshed_url(specified_url)
     typeshed_tarfile, metadata = fetch_as_tarfile(url)
     entries = trim_typeshed(typeshed_tarfile)
     write_typeshed(output_dir / "typeshed", entries)
@@ -197,7 +208,6 @@ def main() -> None:
         "-o",
         "--output",
         type=Path,
-        required=True,
         help="The directory to write the downloaded typeshed to.",
     )
     args = parser.parse_args()
@@ -206,7 +216,7 @@ def main() -> None:
         format="%(levelname)s %(asctime)s: %(message)s",
         level=logging.INFO,
     )
-    run(args.url, args.output)
+    run(get_typeshed_url(args.url), get_output_dir(args.output))
 
 
 if __name__ == "__main__":
