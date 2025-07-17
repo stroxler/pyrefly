@@ -1554,8 +1554,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .map(|member| self.as_class_attribute(Arc::unwrap_or_clone(member.value), cls))
     }
 
-    pub fn method_is_inherited_from_object(&self, cls: &ClassType, name: &Name) -> bool {
-        let member = self.get_class_member(cls.class_object(), name);
+    pub fn field_is_inherited_from_object(&self, cls: &Class, name: &Name) -> bool {
+        let member = self.get_class_member(cls, name);
         match member {
             Some(member) => member.defined_on("builtins", "object"),
             None => false,

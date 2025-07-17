@@ -1470,7 +1470,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let metadata = self.get_metadata_for_class(class);
                 let metaclass = metadata.metaclass().unwrap_or(self.stdlib.builtins_type());
                 if *dunder_name == dunder::GETATTRIBUTE
-                    && self.method_is_inherited_from_object(metaclass, dunder_name)
+                    && self.field_is_inherited_from_object(metaclass.class_object(), dunder_name)
                 {
                     return LookupResult::NotFound(NotFound::Attribute(
                         metaclass.class_object().clone(),
@@ -1490,7 +1490,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if (*dunder_name == dunder::SETATTR
                     || *dunder_name == dunder::DELATTR
                     || *dunder_name == dunder::GETATTRIBUTE)
-                    && self.method_is_inherited_from_object(cls, dunder_name) =>
+                    && self.field_is_inherited_from_object(cls.class_object(), dunder_name) =>
             {
                 LookupResult::NotFound(NotFound::Attribute(cls.class_object().clone()))
             }
