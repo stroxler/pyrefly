@@ -1562,6 +1562,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    pub fn field_is_inherited_from_enum(&self, cls: &Class, name: &Name) -> bool {
+        let member = self.get_class_member(cls, name);
+        match member {
+            Some(member) => member.defined_on("enum", "Enum"),
+            None => false,
+        }
+    }
+
     /// Get the class's `__new__` method.
     ///
     /// This lookup skips normal method binding logic (it behaves like a cross

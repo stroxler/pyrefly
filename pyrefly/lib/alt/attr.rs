@@ -1312,9 +1312,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase::ClassInstance(class) | AttributeBase::EnumLiteral(class, _, _) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
                 let mut attr_name = attr_name.clone();
-                // Special case magic enum properties
+                // Special case magic enum properties for `AttributeBase::ClassInstance`
                 if metadata.is_enum() && attr_name.as_str() == "value" {
-                    attr_name = Name::new("_value_")
+                    attr_name = Name::new("_value_");
+                    if self.field_is_inherited_from_enum(class.class_object(), &attr_name) {
+                        // The `_value_` annotation on `enum.Enum` is `Any`; we can infer a better type
+                        let enum_value_types: Vec<_> = self
+                            .get_enum_members(class.class_object())
+                            .into_iter()
+                            .filter_map(|lit| {
+                                if let Lit::Enum(lit_enum) = lit {
+                                    Some(lit_enum.ty)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
+                        return LookupResult::found_type(self.unions(enum_value_types));
+                    }
                 }
                 if metadata.is_enum() && attr_name.as_str() == "name" {
                     attr_name = Name::new("_name_")

@@ -4213,8 +4213,8 @@
     {
       "code": -2,
       "column": 16,
-      "concise_description": "assert_type(Any, Literal[1, 2, 3]) failed",
-      "description": "assert_type(Any, Literal[1, 2, 3]) failed",
+      "concise_description": "assert_type(int, Literal[1, 2, 3]) failed",
+      "description": "assert_type(int, Literal[1, 2, 3]) failed",
       "line": 30,
       "name": "assert-type",
       "stop_column": 51,
