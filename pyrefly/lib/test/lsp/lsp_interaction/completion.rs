@@ -186,7 +186,6 @@ fn test_module_completion() {
                 }),
             }),
         ],
-        // todo(kylei): remove duplicates
         expected_messages_from_language_server: vec![Message::Response(Response {
             id: RequestId::from(2),
             result: Some(
