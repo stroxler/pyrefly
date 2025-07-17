@@ -334,8 +334,8 @@ fn test_stale_class() {
 
     i.set("foo", "");
     i.set("main", "from bar import c; v = c.x # hello");
-    // This panics
-    // i.check(&["main", "foo"], &["main", "foo", "bar"]);
+    // Should not panic, which it does if we access the missing class.
+    i.check_ignoring_loads_expectations(&["main", "foo"], &["main", "foo", "bar", "main"]);
 }
 
 #[test]
