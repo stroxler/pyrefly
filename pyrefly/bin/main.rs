@@ -196,7 +196,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
 /// Run based on the command line arguments.
 async fn run() -> anyhow::Result<ExitCode> {
     let args = Args::parse_from(get_args_expanded(args_os())?);
-    args.common.init();
+    args.common.init(false);
     Ok(run_command(args.command, true).await?.to_exit_code())
 }
 
