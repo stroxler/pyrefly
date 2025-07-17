@@ -367,6 +367,31 @@ fn test_stale_class() {
 }
 
 #[test]
+fn test_stale_typed_dict() {
+    let mut i = Incremental::new();
+
+    // We need to set up a dep chain of size 4 (i.e. main -> bar -> baz -> foo) to more reliably
+    // force `main` to see a stale TypedDict in `bar` during the recheck.
+    // It may still be possible to hide the staleness in certain circumstances, but that's fine since
+    // the test would still pass in those cases.
+    i.set(
+        "foo",
+        "from typing import TypedDict\nclass D(TypedDict):\n  x: int",
+    );
+    i.set("bar", "from foo import D\nclass D2:\n  y: D");
+    i.set("baz", "from bar import D2\nclass D3:\n  z: D2");
+    i.set(
+        "main",
+        "from baz import D3\ndef test(d: D3) -> None:\n  d.z.y[\'x\']",
+    );
+    i.check(&["main"], &["main", "foo", "bar", "baz"]);
+
+    i.set("foo", "class D: x: int");
+
+    i.check_ignoring_expectations(&["main"], &["main", "foo", "bar", "baz"]);
+}
+
+#[test]
 fn test_dueling_typevar() {
     // TypeVar (and ParamSpec, TypeVarTuple) are implemented in a way that means
     // grabbing the same value from different modules in conjunction with incremental

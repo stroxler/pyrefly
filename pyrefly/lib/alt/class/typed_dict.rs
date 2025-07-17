@@ -20,7 +20,6 @@ use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::error::collector::ErrorCollector;
@@ -141,12 +140,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    // Get the field names + requiredness, given the ClassMetadata of a typed dict.
-    // Callers must be certain the class is a typed dict, we will panic if it is not.
-    fn fields_from_metadata<'m>(metadata: &'m ClassMetadata) -> &'m SmallMap<Name, bool> {
-        &metadata.typed_dict_metadata().unwrap().fields
-    }
-
     fn class_field_to_typed_dict_field(
         &self,
         class: &Class,
@@ -165,23 +158,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let class = typed_dict.class_object();
         let metadata = self.get_metadata_for_class(class);
         let substitution = typed_dict.targs().substitution();
-        Self::fields_from_metadata(&metadata)
-            .iter()
-            .filter_map(|(name, is_total)| {
-                self.class_field_to_typed_dict_field(class, &substitution, name, *is_total)
-                    .map(|field| (name.clone(), field))
-            })
-            .collect()
+
+        match metadata.typed_dict_metadata() {
+            None => {
+                // This may happen during incremental update where `class` is stale/outdated
+                SmallMap::new()
+            }
+            Some(typed_dict_metadata) => typed_dict_metadata
+                .fields
+                .iter()
+                .filter_map(|(name, is_total)| {
+                    self.class_field_to_typed_dict_field(class, &substitution, name, *is_total)
+                        .map(|field| (name.clone(), field))
+                })
+                .collect(),
+        }
     }
 
     pub fn typed_dict_field(&self, typed_dict: &TypedDict, name: &Name) -> Option<TypedDictField> {
         let class = typed_dict.class_object();
         let metadata = self.get_metadata_for_class(class);
         let substitution = typed_dict.targs().substitution();
-        Self::fields_from_metadata(&metadata)
-            .get(name)
-            .and_then(|is_total| {
-                self.class_field_to_typed_dict_field(class, &substitution, name, *is_total)
+
+        metadata
+            .typed_dict_metadata()
+            .and_then(|typed_dict_metadata| {
+                typed_dict_metadata.fields.get(name).and_then(|is_total| {
+                    self.class_field_to_typed_dict_field(class, &substitution, name, *is_total)
+                })
             })
     }
 
