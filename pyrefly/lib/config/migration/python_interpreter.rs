@@ -53,6 +53,7 @@ impl ConfigOptionMigrater for PythonInterpreter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy() {
@@ -84,6 +85,22 @@ mod tests {
         let python_interpreter = PythonInterpreter;
         let _ = python_interpreter.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
 
+        assert_eq!(
+            pyrefly_cfg.interpreters.python_interpreter,
+            default_interpreter
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_pyright() {
+        let pyright_cfg = default_pyright_config();
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_interpreter = pyrefly_cfg.interpreters.python_interpreter.clone();
+
+        let python_interpreter = PythonInterpreter;
+        let result = python_interpreter.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_err());
         assert_eq!(
             pyrefly_cfg.interpreters.python_interpreter,
             default_interpreter

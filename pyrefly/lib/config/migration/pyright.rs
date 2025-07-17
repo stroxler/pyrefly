@@ -29,9 +29,9 @@ use crate::error::kind::Severity;
 /// pyrefly does not support any of that, so we only look for rule overrides.
 #[derive(Clone, Debug, Deserialize)]
 pub struct ExecEnv {
-    root: String,
+    pub root: String,
     #[serde(flatten)]
-    errors: RuleOverrides,
+    pub errors: RuleOverrides,
 }
 
 impl ExecEnv {
@@ -158,13 +158,15 @@ impl From<DiagnosticLevelOrBool> for bool {
 #[serde_as]
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+/// Rule overrides for pyright
+#[derive(Default)]
 pub struct RuleOverrides {
     #[serde_as(as = "Option<FromInto<DiagnosticLevelOrBool>>")]
     #[serde(default)]
-    report_missing_imports: Option<bool>,
+    pub report_missing_imports: Option<bool>,
     #[serde_as(as = "Option<FromInto<DiagnosticLevelOrBool>>")]
     #[serde(default)]
-    report_missing_module_source: Option<bool>,
+    pub report_missing_module_source: Option<bool>,
 }
 
 impl RuleOverrides {
@@ -224,8 +226,6 @@ pub fn parse_pyproject_toml(raw_file: &str) -> anyhow::Result<ConfigFile> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-
     use super::*;
     use crate::config::environment::environment::PythonEnvironment;
 
@@ -304,79 +304,6 @@ mod tests {
                 },
                 ..Default::default()
             }
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_report_diagnostics_with_bool() -> anyhow::Result<()> {
-        let raw_file = r#"
-            {
-                "include": [
-                    "src/**/*.py",
-                    "test/**/*.py"
-                ],
-                "pythonVersion": "3.11",
-                "reportMissingImports": false
-            }
-            "#;
-        let pyr = serde_json::from_str::<PyrightConfig>(raw_file)?;
-        let config = pyr.convert();
-        assert!(
-            config
-                .root
-                .errors
-                .is_some_and(|m| !m.is_enabled(ErrorKind::ImportError))
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_report_diagnostics_with_level() -> anyhow::Result<()> {
-        let raw_file = r#"
-            {
-                "include": [
-                    "src/**/*.py",
-                    "test/**/*.py"
-                ],
-                "pythonVersion": "3.11",
-                "reportMissingImports": "none"
-            }
-            "#;
-        let pyr = serde_json::from_str::<PyrightConfig>(raw_file)?;
-        let config = pyr.convert();
-        assert!(
-            config
-                .root
-                .errors
-                .is_some_and(|m| !m.is_enabled(ErrorKind::ImportError))
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_exec_env() -> anyhow::Result<()> {
-        let raw_file = r#"
-        {
-            "include": ["src"],
-            "executionEnvironments": [
-                { "root": "src/web", "pythonVersion": "3.5", "pythonPlatform": "Windows", "extraPaths": [ "src/service_libs" ], "reportMissingImports": "none" },
-                { "root": "src" }
-            ]
-        }
-        "#;
-        let pyr = serde_json::from_str::<PyrightConfig>(raw_file)?;
-        let mut config = pyr.convert();
-        config.configure();
-        assert!(
-            config
-                .errors(Path::new("src/init.py"))
-                .is_enabled(ErrorKind::ImportError)
-        );
-        assert!(
-            !config
-                .errors(Path::new("src/web/foo.py"))
-                .is_enabled(ErrorKind::ImportError)
         );
         Ok(())
     }

@@ -84,6 +84,7 @@ impl ConfigOptionMigrater for ReplaceImports {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy_ignore_missing_imports() {
@@ -237,6 +238,22 @@ mod tests {
         let replace_imports = ReplaceImports;
         let _ = replace_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
 
+        assert_eq!(
+            pyrefly_cfg.root.replace_imports_with_any,
+            default_replace_imports
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_pyright() {
+        let pyright_cfg = default_pyright_config();
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_replace_imports = pyrefly_cfg.root.replace_imports_with_any.clone();
+
+        let replace_imports = ReplaceImports;
+        let result = replace_imports.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_err());
         assert_eq!(
             pyrefly_cfg.root.replace_imports_with_any,
             default_replace_imports

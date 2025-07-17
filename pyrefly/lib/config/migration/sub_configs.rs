@@ -113,6 +113,9 @@ impl ConfigOptionMigrater for SubConfigs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::migration::pyright::ExecEnv;
+    use crate::config::migration::pyright::RuleOverrides;
+    use crate::config::migration::test_utils::default_pyright_config;
     use crate::error::kind::ErrorKind;
     use crate::error::kind::Severity;
 
@@ -280,6 +283,79 @@ mod tests {
         let sub_configs = SubConfigs;
         let _ = sub_configs.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
 
+        assert_eq!(pyrefly_cfg.sub_configs, default_sub_configs);
+    }
+
+    #[test]
+    fn test_migrate_from_pyright() {
+        let mut pyright_cfg = default_pyright_config();
+
+        // Create execution environments with different error settings
+        let env1 = ExecEnv {
+            root: "src".to_owned(),
+            errors: RuleOverrides {
+                report_missing_imports: Some(false),
+                report_missing_module_source: None,
+            },
+        };
+
+        let env2 = ExecEnv {
+            root: "tests".to_owned(),
+            errors: RuleOverrides {
+                report_missing_imports: None,
+                report_missing_module_source: Some(true),
+            },
+        };
+
+        pyright_cfg.execution_environments = vec![env1, env2];
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let sub_configs = SubConfigs;
+        let result = sub_configs.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_ok());
+        assert_eq!(pyrefly_cfg.sub_configs.len(), 2);
+
+        // Find the sub_config for src
+        let src_config = pyrefly_cfg
+            .sub_configs
+            .iter()
+            .find(|c| c.matches.to_string() == "src")
+            .unwrap();
+
+        // Find the sub_config for tests
+        let tests_config = pyrefly_cfg
+            .sub_configs
+            .iter()
+            .find(|c| c.matches.to_string() == "tests")
+            .unwrap();
+
+        // Verify that the error settings were properly migrated
+        let src_errors = src_config.settings.errors.as_ref().unwrap();
+        let tests_errors = tests_config.settings.errors.as_ref().unwrap();
+
+        assert_eq!(
+            src_errors.severity(ErrorKind::ImportError),
+            Severity::Ignore
+        );
+        assert_eq!(
+            tests_errors.severity(ErrorKind::ImportError),
+            Severity::Error
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_pyright_empty() {
+        let pyright_cfg = default_pyright_config();
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_sub_configs = pyrefly_cfg.sub_configs.clone();
+
+        let sub_configs = SubConfigs;
+        let result = sub_configs.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_err());
         assert_eq!(pyrefly_cfg.sub_configs, default_sub_configs);
     }
 }

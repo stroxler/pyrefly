@@ -62,6 +62,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
+    use crate::config::migration::test_utils::default_pyright_config;
 
     // Constants for test paths
     const FILE_PATH1: &str = "/path/to/stubs";
@@ -176,6 +177,112 @@ mod tests {
         let search_path = SearchPath;
         let _ = search_path.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
 
+        assert_eq!(pyrefly_cfg.search_path_from_file, default_search_path);
+    }
+
+    #[test]
+    fn test_migrate_from_pyright() {
+        let mut pyright_cfg = default_pyright_config();
+        pyright_cfg.search_path = Some(vec![
+            PathBuf::from(FILE_PATH1),
+            PathBuf::from(FILE_PATH2),
+            PathBuf::from(FILE_PATH3),
+        ]);
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let search_path = SearchPath;
+        let result = search_path.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_ok());
+        assert_eq!(
+            pyrefly_cfg.search_path_from_file,
+            ALL_PATHS
+                .iter()
+                .map(|&p| PathBuf::from(p))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_pyright_empty() {
+        let pyright_cfg = default_pyright_config();
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_search_path = pyrefly_cfg.search_path_from_file.clone();
+
+        let search_path = SearchPath;
+        let result = search_path.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_err());
+        assert_eq!(pyrefly_cfg.search_path_from_file, default_search_path);
+    }
+
+    #[test]
+    fn test_migrate_from_pyright_empty_paths() {
+        let mut pyright_cfg = default_pyright_config();
+        pyright_cfg.search_path = Some(vec![]);
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_search_path = pyrefly_cfg.search_path_from_file.clone();
+
+        let search_path = SearchPath;
+        let result = search_path.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_err());
+        assert_eq!(pyrefly_cfg.search_path_from_file, default_search_path);
+    }
+
+    #[test]
+    fn test_migrate_from_pyright_with_paths() {
+        let mut pyright_cfg = default_pyright_config();
+        pyright_cfg.search_path = Some(vec![
+            PathBuf::from(FILE_PATH1),
+            PathBuf::from(FILE_PATH2),
+            PathBuf::from(FILE_PATH3),
+        ]);
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let search_path = SearchPath;
+        let result = search_path.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_ok());
+        assert_eq!(
+            pyrefly_cfg.search_path_from_file,
+            ALL_PATHS
+                .iter()
+                .map(|&p| PathBuf::from(p))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_migrate_from_pyright_with_no_paths() {
+        let pyright_cfg = default_pyright_config();
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_search_path = pyrefly_cfg.search_path_from_file.clone();
+
+        let search_path = SearchPath;
+        let result = search_path.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_err());
+        assert_eq!(pyrefly_cfg.search_path_from_file, default_search_path);
+    }
+
+    #[test]
+    fn test_migrate_from_pyright_with_empty_paths() {
+        let mut pyright_cfg = default_pyright_config();
+        pyright_cfg.search_path = Some(vec![]);
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_search_path = pyrefly_cfg.search_path_from_file.clone();
+
+        let search_path = SearchPath;
+        let result = search_path.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_err());
         assert_eq!(pyrefly_cfg.search_path_from_file, default_search_path);
     }
 }

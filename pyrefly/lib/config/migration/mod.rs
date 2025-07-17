@@ -18,3 +18,6 @@ pub mod search_path;
 pub mod sub_configs;
 pub mod use_untyped_imports;
 pub mod utils;
+
+#[cfg(test)]
+pub mod test_utils;

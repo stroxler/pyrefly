@@ -65,6 +65,7 @@ impl ConfigOptionMigrater for ProjectExcludes {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy() {
@@ -88,15 +89,47 @@ mod tests {
     }
 
     #[test]
-    fn test_migrate_from_mypy_empty() {
-        let mypy_cfg = Ini::new();
+    fn test_migrate_from_pyright() {
+        let project_excludes_globs =
+            Globs::new(vec!["src/**/*.py".to_owned(), "test/**/*.py".to_owned()]);
+        let mut pyright_cfg = default_pyright_config();
+        pyright_cfg.project_excludes = Some(project_excludes_globs.clone());
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let project_excludes = ProjectExcludes;
+        let result = project_excludes.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_ok());
+        assert_eq!(pyrefly_cfg.project_excludes, project_excludes_globs);
+    }
+
+    #[test]
+    fn test_migrate_from_pyright_empty() {
+        let pyright_cfg = default_pyright_config();
 
         let mut pyrefly_cfg = ConfigFile::default();
         let default_excludes = pyrefly_cfg.project_excludes.clone();
 
         let project_excludes = ProjectExcludes;
-        let _ = project_excludes.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
+        let result = project_excludes.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
 
+        assert!(result.is_err());
+        assert_eq!(pyrefly_cfg.project_excludes, default_excludes);
+    }
+
+    #[test]
+    fn test_migrate_from_pyright_empty_globs() {
+        let mut pyright_cfg = default_pyright_config();
+        pyright_cfg.project_excludes = Some(Globs::new(vec![]));
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_excludes = pyrefly_cfg.project_excludes.clone();
+
+        let project_excludes = ProjectExcludes;
+        let result = project_excludes.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_err());
         assert_eq!(pyrefly_cfg.project_excludes, default_excludes);
     }
 }

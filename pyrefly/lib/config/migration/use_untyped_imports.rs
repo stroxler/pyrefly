@@ -52,6 +52,7 @@ impl ConfigOptionMigrater for UseUntypedImports {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy_true() {
@@ -117,5 +118,20 @@ mod tests {
 
         // Verify that only the global setting was applied, and the per-module setting was ignored
         assert!(!pyrefly_cfg.use_untyped_imports);
+    }
+
+    #[test]
+    fn test_migrate_from_pyright() {
+        let pyright_cfg = default_pyright_config();
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_value = pyrefly_cfg.use_untyped_imports;
+
+        let use_untyped_imports = UseUntypedImports;
+        let result = use_untyped_imports.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        // Pyright doesn't have a direct equivalent to follow_untyped_imports, so we expect an error
+        assert!(result.is_err());
+        // The value should remain unchanged
+        assert_eq!(pyrefly_cfg.use_untyped_imports, default_value);
     }
 }

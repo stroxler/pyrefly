@@ -66,6 +66,7 @@ impl ConfigOptionMigrater for ProjectIncludes {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy() {
@@ -100,6 +101,51 @@ mod tests {
         let project_includes = ProjectIncludes;
         let _ = project_includes.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
 
+        assert_eq!(pyrefly_cfg.project_includes, default_includes);
+    }
+
+    #[test]
+    fn test_migrate_from_pyright() {
+        let project_includes_globs =
+            Globs::new(vec!["src/**/*.py".to_owned(), "test/**/*.py".to_owned()]);
+        let mut pyright_cfg = default_pyright_config();
+        pyright_cfg.project_includes = Some(project_includes_globs.clone());
+
+        let mut pyrefly_cfg = ConfigFile::default();
+
+        let project_includes = ProjectIncludes;
+        let result = project_includes.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_ok());
+        assert_eq!(pyrefly_cfg.project_includes, project_includes_globs);
+    }
+
+    #[test]
+    fn test_migrate_from_pyright_empty() {
+        let pyright_cfg = default_pyright_config();
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_includes = pyrefly_cfg.project_includes.clone();
+
+        let project_includes = ProjectIncludes;
+        let result = project_includes.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_err());
+        assert_eq!(pyrefly_cfg.project_includes, default_includes);
+    }
+
+    #[test]
+    fn test_migrate_from_pyright_empty_globs() {
+        let mut pyright_cfg = default_pyright_config();
+        pyright_cfg.project_includes = Some(Globs::new(vec![]));
+
+        let mut pyrefly_cfg = ConfigFile::default();
+        let default_includes = pyrefly_cfg.project_includes.clone();
+
+        let project_includes = ProjectIncludes;
+        let result = project_includes.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
+
+        assert!(result.is_err());
         assert_eq!(pyrefly_cfg.project_includes, default_includes);
     }
 }
