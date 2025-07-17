@@ -16,11 +16,11 @@ use lsp_server::Connection;
 use pyrefly_util::args::clap_env;
 
 use crate::commands::run::CommandExitStatus;
-use crate::lsp::server::IDETransactionManager;
 use crate::lsp::server::ProcessEvent;
 use crate::lsp::server::Server;
 use crate::lsp::server::dispatch_lsp_events;
 use crate::lsp::server::initialize_connection;
+use crate::lsp::transaction_manager::IDETransactionManager;
 
 /// Pyrefly's indexing strategy for open projects when performing go-to-definition
 /// requests.

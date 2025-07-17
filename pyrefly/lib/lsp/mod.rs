@@ -6,4 +6,5 @@
  */
 
 pub mod server;
+pub mod transaction_manager;
 pub mod workspace;
