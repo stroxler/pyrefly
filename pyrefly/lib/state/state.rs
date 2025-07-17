@@ -786,7 +786,6 @@ impl<'a> Transaction<'a> {
                             module_data.handle.module(),
                         );
                         changed = true;
-                        writer.epochs.changed = self.data.now;
                     }
                     if !require.keep_bindings() && !require.keep_answers() {
                         // From now on we can use the answers directly, so evict the bindings/answers.
