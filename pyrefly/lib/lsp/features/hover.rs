@@ -5,50 +5,30 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use itertools::Itertools;
 use lsp_types::Hover;
 use lsp_types::HoverContents;
 use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
 use lsp_types::Url;
+use pyrefly_python::symbol_kind::SymbolKind;
+use pyrefly_types::types::Type;
 use ruff_text_size::TextSize;
 use starlark_map::small_set::SmallSet;
 
+use crate::export::definitions::DocString;
 use crate::state::handle::Handle;
 use crate::state::lsp::FindDefinitionItem;
 use crate::state::state::Transaction;
 
-pub fn get_hover(
-    transaction: &Transaction<'_>,
-    handle: &Handle,
-    position: TextSize,
-) -> Option<Hover> {
-    let t = transaction.get_type_at(handle, position)?;
-    let mut kind_formatted: String = "".to_owned();
-    let mut docstring_formatted: String = "".to_owned();
-    if let Some(FindDefinitionItem {
-        metadata,
-        location,
-        docstring,
-    }) = transaction
-        .find_definition(handle, position, true)
-        // TODO: handle more than 1 definition
-        .into_iter()
-        .next()
-    {
-        if let Some(symbol_kind) = metadata.symbol_kind() {
-            kind_formatted = format!(
-                "{} {}: ",
-                &symbol_kind.display_for_hover(),
-                location.module.code_at(location.range)
-            );
-        }
-        if let Some(docstring) = docstring {
-            docstring_formatted = format!("\n---\n{}", docstring.as_string().trim());
-        }
-    }
-    let type_formatted = t.to_string();
-    let symbol_def_loc_formatted = {
+pub struct HoverValue {
+    pub kind: Option<SymbolKind>,
+    pub name: Option<String>,
+    pub type_: Type,
+    pub docstring: Option<DocString>,
+}
+
+impl HoverValue {
+    fn format_symbol_def_locations(t: &Type) -> Option<String> {
         let mut tracked_def_locs = SmallSet::new();
         t.universe(&mut |t| tracked_def_locs.extend(t.qname()));
         let linked_names = tracked_def_locs
@@ -66,20 +46,79 @@ pub fn get_hover(
                     None
                 }
             })
+            .collect::<Vec<_>>()
             .join(" | ");
+
         if linked_names.is_empty() {
-            "".to_owned()
+            None
         } else {
-            format!("\n---\nGo to {linked_names}")
+            Some(format!("\n---\nGo to {linked_names}"))
         }
+    }
+
+    pub fn format(&self) -> Hover {
+        let docstring_formatted = self.docstring.clone().map_or("".to_owned(), |docstring| {
+            format!("\n---\n{}", docstring.as_string().trim())
+        });
+        let kind_formatted = self.kind.map_or("".to_owned(), |kind| {
+            format!("{} ", kind.display_for_hover())
+        });
+        let name_formatted = self
+            .name
+            .as_ref()
+            .map_or("".to_owned(), |s| format!("{s}: "));
+        let symbol_def_formatted =
+            HoverValue::format_symbol_def_locations(&self.type_).unwrap_or("".to_owned());
+
+        Hover {
+            contents: HoverContents::Markup(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: format!(
+                    "```python\n{}{}{}\n```{}{}",
+                    kind_formatted,
+                    name_formatted,
+                    self.type_,
+                    docstring_formatted,
+                    symbol_def_formatted
+                ),
+            }),
+            range: None,
+        }
+    }
+}
+
+pub fn get_hover(
+    transaction: &Transaction<'_>,
+    handle: &Handle,
+    position: TextSize,
+) -> Option<Hover> {
+    let type_ = transaction.get_type_at(handle, position)?;
+    let (kind, name, docstring) = if let Some(FindDefinitionItem {
+        metadata,
+        location,
+        docstring,
+    }) = transaction
+        .find_definition(handle, position, true)
+        // TODO: handle more than 1 definition
+        .into_iter()
+        .next()
+    {
+        (
+            metadata.symbol_kind(),
+            Some(location.module.code_at(location.range).to_owned()),
+            docstring,
+        )
+    } else {
+        (None, None, None)
     };
-    Some(Hover {
-        contents: HoverContents::Markup(MarkupContent {
-            kind: MarkupKind::Markdown,
-            value: format!(
-                "```python\n{kind_formatted}{type_formatted}\n```{docstring_formatted}{symbol_def_loc_formatted}",
-            ),
-        }),
-        range: None,
-    })
+
+    Some(
+        HoverValue {
+            kind,
+            name,
+            type_,
+            docstring,
+        }
+        .format(),
+    )
 }
