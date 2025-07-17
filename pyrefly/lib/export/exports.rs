@@ -22,8 +22,8 @@ use starlark_map::small_set::SmallSet;
 
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
-use crate::export::definitions::Docstring;
 use crate::export::definitions::DunderAllEntry;
+use crate::export::docstring::Docstring;
 use crate::graph::calculation::Calculation;
 use crate::module::module_info::ModuleInfo;
 use crate::state::loader::FindError;

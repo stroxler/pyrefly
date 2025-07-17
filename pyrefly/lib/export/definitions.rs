@@ -6,7 +6,6 @@
  */
 
 use std::cmp;
-use std::sync::Arc;
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
@@ -31,6 +30,7 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
+use crate::export::docstring::Docstring;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::types::globals::Global;
 
@@ -219,25 +219,6 @@ impl Definitions {
                     .push(DunderAllEntry::Name(def.range, name.clone()))
             }
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Docstring(Arc<String>);
-impl Docstring {
-    pub fn from_stmts(xs: &[Stmt]) -> Option<Self> {
-        xs.first().and_then(|stmt| {
-            if let Stmt::Expr(expr_stmt) = stmt
-                && let ruff_python_ast::Expr::StringLiteral(string_lit) = &*expr_stmt.value
-            {
-                return Some(Docstring(Arc::new(string_lit.value.to_string())));
-            }
-            None
-        })
-    }
-
-    pub fn as_string(&self) -> String {
-        self.0.to_string()
     }
 }
 

@@ -88,7 +88,7 @@ use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
-use crate::export::definitions::Docstring;
+use crate::export::docstring::Docstring;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
