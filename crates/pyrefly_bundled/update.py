@@ -18,17 +18,17 @@ import hashlib
 import io
 import json
 import logging
-import pathlib
 import shutil
 import tarfile
 import urllib.request
+from pathlib import Path
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass(frozen=True)
 class TypeshedEntry:
-    path: pathlib.Path
+    path: Path
     data: bytes
 
 
@@ -89,7 +89,7 @@ def should_include_member(info: tarfile.TarInfo) -> bool:
     if info.isdir():
         return False
 
-    path = pathlib.Path(info.name)
+    path = Path(info.name)
     parts = path.parts
 
     # There are quite a few config files and some test directories in
@@ -122,12 +122,12 @@ def should_include_member(info: tarfile.TarInfo) -> bool:
     return True
 
 
-def relative_path(info: tarfile.TarInfo) -> pathlib.Path:
+def relative_path(info: tarfile.TarInfo) -> Path:
     """
     Convert a filename within a typeshed tarball into a path relative to the
     top of typeshed/.
     """
-    return pathlib.Path(*pathlib.Path(info.name).parts[1:])
+    return Path(*Path(info.name).parts[1:])
 
 
 def trim_typeshed(input_tar: tarfile.TarFile) -> list[TypeshedEntry]:
@@ -147,7 +147,7 @@ def trim_typeshed(input_tar: tarfile.TarFile) -> list[TypeshedEntry]:
     ]
 
 
-def write_typeshed(output_path: pathlib.Path, entries: list[TypeshedEntry]) -> None:
+def write_typeshed(output_path: Path, entries: list[TypeshedEntry]) -> None:
     LOG.info("Clearing output directory...")
     shutil.rmtree(output_path, ignore_errors=True)
     LOG.info("Writing trimmed typeshed to disk...")
@@ -157,7 +157,7 @@ def write_typeshed(output_path: pathlib.Path, entries: list[TypeshedEntry]) -> N
         file_path.write_bytes(entry.data)
 
 
-def write_metadata(output_path: pathlib.Path, metadata: FetchMetadata) -> None:
+def write_metadata(output_path: Path, metadata: FetchMetadata) -> None:
     output_path.write_text(
         json.dumps(
             {
@@ -172,7 +172,7 @@ def write_metadata(output_path: pathlib.Path, metadata: FetchMetadata) -> None:
     )
 
 
-def run(specified_url: str | None, output_dir: pathlib.Path) -> None:
+def run(specified_url: str | None, output_dir: Path) -> None:
     if not output_dir.exists():
         raise RuntimeError(f"Output path `{output_dir}` does not exist")
     if not output_dir.is_dir():
@@ -196,7 +196,7 @@ def main() -> None:
     parser.add_argument(
         "-o",
         "--output",
-        type=pathlib.Path,
+        type=Path,
         required=True,
         help="The directory to write the downloaded typeshed to.",
     )
