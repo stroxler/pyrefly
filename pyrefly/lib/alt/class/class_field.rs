@@ -658,8 +658,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         //
         // It's a mess becasue we are relying on refs to fields that don't make sense for some cases,
         // which requires us having a place to store synthesized dummy values until we've refactored more.
-        let method_value_storage = Owner::new();
-        let method_initial_value_storage = Owner::new();
+        let value_storage = Owner::new();
+        let initial_value_storage = Owner::new();
         let (value, direct_annotation, range, initial_value, is_function_without_return_annotation) =
             match field_definition {
                 ClassFieldDefinition::MethodLike {
@@ -667,14 +667,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     has_return_annotation,
                 } => (
-                    method_value_storage
-                        .push(ExprOrBinding::Binding(Binding::Forward(*definition))),
+                    value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition))),
                     None,
                     *range,
-                    method_initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
+                    initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
                     !has_return_annotation,
                 ),
-                ClassFieldDefinition::Simple {
+                ClassFieldDefinition::DefinedInBody {
                     value,
                     annotation,
                     range,
@@ -685,6 +684,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .as_deref()
                         .map(|annot| annot.annotation.clone());
                     (value, annotation, *range, initial_value, false)
+                }
+                ClassFieldDefinition::DefinedInMethod {
+                    value,
+                    annotation,
+                    range,
+                    method,
+                } => {
+                    let annotation = annotation
+                        .map(|a| self.get_idx(a))
+                        .as_deref()
+                        .map(|annot| annot.annotation.clone());
+                    (
+                        value,
+                        annotation,
+                        *range,
+                        initial_value_storage
+                            .push(RawClassFieldInitialization::Method(method.clone())),
+                        false,
+                    )
                 }
             };
 

@@ -1626,11 +1626,17 @@ pub enum ClassFieldDefinition {
         range: TextRange,
         has_return_annotation: bool,
     },
-    Simple {
+    DefinedInBody {
         value: ExprOrBinding,
         annotation: Option<Idx<KeyAnnotation>>,
         range: TextRange,
         initial_value: RawClassFieldInitialization,
+    },
+    DefinedInMethod {
+        value: ExprOrBinding,
+        annotation: Option<Idx<KeyAnnotation>>,
+        range: TextRange,
+        method: MethodThatSetsAttr,
     },
 }
 
@@ -1644,10 +1650,17 @@ impl DisplayWith<Bindings> for ClassFieldDefinition {
                     ctx.display(*definition),
                 )
             }
-            Self::Simple { value, .. } => {
+            Self::DefinedInBody { value, .. } => {
                 write!(
                     f,
-                    "ClassFieldDefinition::Simple({}, ..)",
+                    "ClassFieldDefinition::DefinedInBody({}, ..)",
+                    value.display_with(ctx),
+                )
+            }
+            Self::DefinedInMethod { value, .. } => {
+                write!(
+                    f,
+                    "ClassFieldDefinition::DefinedInMethod({}, ..)",
                     value.display_with(ctx),
                 )
             }

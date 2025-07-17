@@ -245,7 +245,7 @@ impl<'a> BindingsBuilder<'a> {
                         let is_initialized_on_class =
                             matches!(initial_value, RawClassFieldInitialization::ClassBody(_));
                         (
-                            ClassFieldDefinition::Simple {
+                            ClassFieldDefinition::DefinedInBody {
                                 value,
                                 annotation: stat_info.annot,
                                 range: stat_info.loc,
@@ -290,11 +290,11 @@ impl<'a> BindingsBuilder<'a> {
                         BindingClassField {
                             class_idx: class_indices.class_idx,
                             name: name.into_key(),
-                            definition: ClassFieldDefinition::Simple {
+                            definition: ClassFieldDefinition::DefinedInMethod {
                                 value,
                                 annotation,
                                 range,
-                                initial_value: RawClassFieldInitialization::Method(method),
+                                method,
                             },
                         },
                     );
@@ -553,7 +553,7 @@ impl<'a> BindingsBuilder<'a> {
                 BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: member_name,
-                    definition: ClassFieldDefinition::Simple {
+                    definition: ClassFieldDefinition::DefinedInBody {
                         value,
                         annotation: annotation_binding,
                         range,
