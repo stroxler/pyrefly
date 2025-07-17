@@ -17,6 +17,7 @@ pub mod python_version;
 pub mod replace_imports;
 pub mod search_path;
 pub mod sub_configs;
+pub mod untyped_def_behavior;
 pub mod use_untyped_imports;
 pub mod utils;
 
