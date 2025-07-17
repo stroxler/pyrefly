@@ -235,14 +235,15 @@ impl<'a> BindingsBuilder<'a> {
                         )
                     } else {
                         let initial_value = info.as_initial_value();
-                        let value = match &initial_value {
+                        let (value, is_initialized_on_class) = match &initial_value {
                             RawClassFieldInitialization::ClassBody(Some(e)) => {
-                                ExprOrBinding::Expr(e.clone())
+                                (ExprOrBinding::Expr(e.clone()), true)
                             }
-                            _ => ExprOrBinding::Binding(Binding::Forward(info.key)),
+                            RawClassFieldInitialization::ClassBody(None) => {
+                                (ExprOrBinding::Binding(Binding::Forward(info.key)), true)
+                            }
+                            _ => (ExprOrBinding::Binding(Binding::Forward(info.key)), false),
                         };
-                        let is_initialized_on_class =
-                            matches!(initial_value, RawClassFieldInitialization::ClassBody(_));
                         (
                             ClassFieldDefinition::DefinedInBody {
                                 value,
