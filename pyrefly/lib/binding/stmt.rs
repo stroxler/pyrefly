@@ -169,8 +169,7 @@ impl<'a> BindingsBuilder<'a> {
                 Err(error) => {
                     self.error(
                         name.range,
-                        ErrorKind::UnknownName,
-                        None,
+                        ErrorInfo::Kind(ErrorKind::UnknownName),
                         error.message(name),
                     );
                     Binding::Type(Type::any_error())
@@ -192,8 +191,7 @@ impl<'a> BindingsBuilder<'a> {
                 Err(error) => {
                     self.error(
                         name.range,
-                        ErrorKind::UnknownName,
-                        None,
+                        ErrorInfo::Kind(ErrorKind::UnknownName),
                         error.message(name),
                     );
                     Binding::Type(Type::any_error())
@@ -251,8 +249,7 @@ impl<'a> BindingsBuilder<'a> {
             };
             self.error(
                 oops_top_level.range,
-                ErrorKind::BadReturn,
-                None,
+                ErrorInfo::Kind(ErrorKind::BadReturn),
                 "Invalid `return` outside of a function".to_owned(),
             );
         }
@@ -485,8 +482,7 @@ impl<'a> BindingsBuilder<'a> {
                     {
                         self.error(
                              x.range,
-                             ErrorKind::BadAssignment,
-                             None,
+                             ErrorInfo::Kind(ErrorKind::BadAssignment),
                              format!(
                                 "Type cannot be declared in assignment to non-self attribute `{}.{}`",
                                 self.module_info.display(&attr.value),
@@ -502,8 +498,7 @@ impl<'a> BindingsBuilder<'a> {
                         // but Mypy and Pyright both error here, so let's do the same.
                         self.error(
                             x.annotation.range(),
-                            ErrorKind::InvalidSyntax,
-                            None,
+                            ErrorInfo::Kind(ErrorKind::InvalidSyntax),
                             "Subscripts should not be annotated".to_owned(),
                         );
                     }
@@ -592,8 +587,7 @@ impl<'a> BindingsBuilder<'a> {
                 } else {
                     self.error(
                         x.range,
-                        ErrorKind::InvalidSyntax,
-                        None,
+                        ErrorInfo::Kind(ErrorKind::InvalidSyntax),
                         "Invalid assignment target".to_owned(),
                     );
                 }
@@ -852,8 +846,7 @@ impl<'a> BindingsBuilder<'a> {
                                         } else {
                                             self.error(
                                                 x.range,
-                                                ErrorKind::MissingModuleAttribute,
-                                                None,
+                                                ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
                                                 format!("Could not import `{name}` from `{m}`"),
                                             );
                                             Binding::Type(Type::any_error())
@@ -895,8 +888,7 @@ impl<'a> BindingsBuilder<'a> {
                                         } else {
                                             self.error(
                                                 x.range,
-                                                ErrorKind::MissingModuleAttribute,
-                                                None,
+                                                ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
                                                 format!(
                                                     "Could not import `{}` from `{m}`",
                                                     x.name.id
@@ -931,8 +923,7 @@ impl<'a> BindingsBuilder<'a> {
                 } else {
                     self.error(
                         x.range,
-                        ErrorKind::ImportError,
-                        None,
+                        ErrorInfo::Kind(ErrorKind::ImportError),
                         format!(
                             "Could not resolve relative import `{}`",
                             ".".repeat(x.level as usize)
@@ -965,8 +956,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::IpyEscapeCommand(x) => self.error(
                 x.range,
-                ErrorKind::Unsupported,
-                None,
+                ErrorInfo::Kind(ErrorKind::Unsupported),
                 "IPython escapes are not supported".to_owned(),
             ),
         }
