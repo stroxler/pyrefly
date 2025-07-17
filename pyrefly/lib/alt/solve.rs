@@ -1678,6 +1678,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.binding_to_type_info(binding, errors)
             }
             Binding::AssignToAttribute(attr, got) => {
+                // NOTE: Deterministic pinning of placeholder types based on first use relies on an
+                // invariant: if `got` is used in the binding for a class field, we must always solve
+                // that `ClassField` binding *before* analyzing `got`.
+                //
+                // This should be the case since contextual typing requires working out the class field
+                // type information first, but is difficult to see from a skim.
                 let base = self.expr_infer(&attr.value, errors);
                 let narrowed = self.check_assign_to_attribute_and_infer_narrow(
                     &base,
