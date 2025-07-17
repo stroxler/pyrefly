@@ -40,6 +40,7 @@ use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
+use crate::error::context::ErrorInfo;
 use crate::error::kind::ErrorKind;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
@@ -799,7 +800,11 @@ impl<'a> BindingsBuilder<'a> {
                     let m = ModuleName::from_name(&x.name.id);
                     if let Err(err @ FindError::NotFound(..)) = self.lookup.get(m) {
                         let (ctx, msg) = err.display();
-                        self.error_multiline(x.range, ErrorKind::ImportError, ctx.as_deref(), msg);
+                        self.error_multiline(
+                            x.range,
+                            ErrorInfo::new(ErrorKind::ImportError, ctx.as_deref()),
+                            msg,
+                        );
                     }
                     match x.asname {
                         Some(asname) => {
@@ -917,8 +922,7 @@ impl<'a> BindingsBuilder<'a> {
                             let (ctx, msg) = err.display();
                             self.error_multiline(
                                 x.range,
-                                ErrorKind::ImportError,
-                                ctx.as_deref(),
+                                ErrorInfo::new(ErrorKind::ImportError, ctx.as_deref()),
                                 msg,
                             );
                             self.bind_unimportable_names(&x);

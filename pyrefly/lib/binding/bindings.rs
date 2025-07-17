@@ -646,8 +646,7 @@ impl<'a> BindingsBuilder<'a> {
                 let (ctx, msg) = err.display();
                 self.error_multiline(
                     TextRange::default(),
-                    ErrorKind::InternalError,
-                    ctx.as_deref(),
+                    ErrorInfo::new(ErrorKind::InternalError, ctx.as_deref()),
                     msg,
                 );
             }
@@ -685,15 +684,8 @@ impl<'a> BindingsBuilder<'a> {
             .add(range, ErrorInfo::new(error_kind, context), vec1![msg]);
     }
 
-    pub fn error_multiline(
-        &self,
-        range: TextRange,
-        error_kind: ErrorKind,
-        context: Option<&dyn Fn() -> ErrorContext>,
-        msg: Vec1<String>,
-    ) {
-        self.errors
-            .add(range, ErrorInfo::new(error_kind, context), msg);
+    pub fn error_multiline(&self, range: TextRange, info: ErrorInfo, msg: Vec1<String>) {
+        self.errors.add(range, info, msg);
     }
 
     pub fn lookup_mutable_captured_name(
