@@ -81,6 +81,10 @@ struct MypySection {
     #[serde(default)]
     follow_untyped_imports: Option<bool>,
     #[serde(default)]
+    ignore_missing_imports: Option<bool>,
+    #[serde(default)]
+    follow_imports: Option<String>,
+    #[serde(default)]
     overrides: Vec<ModuleSection>,
 }
 
@@ -156,6 +160,16 @@ fn pyproject_to_ini(raw_file: &str) -> anyhow::Result<Ini> {
             "follow_untyped_imports",
             Some(follow_untyped_imports.to_string()),
         );
+    }
+    if let Some(ignore_missing_imports) = mypy.ignore_missing_imports {
+        ini.set(
+            "mypy",
+            "ignore_missing_imports",
+            Some(ignore_missing_imports.to_string()),
+        );
+    }
+    if let Some(follow_imports) = mypy.follow_imports {
+        ini.set("mypy", "follow_imports", Some(follow_imports));
     }
 
     // Add the per-module sections
