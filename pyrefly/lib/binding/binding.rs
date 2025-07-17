@@ -55,6 +55,7 @@ use crate::alt::types::yields::YieldFromResult;
 use crate::alt::types::yields::YieldResult;
 use crate::binding::bindings::Bindings;
 use crate::binding::narrow::NarrowOp;
+use crate::export::docstring::Docstring;
 use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::module::short_identifier::ShortIdentifier;
@@ -90,7 +91,7 @@ assert_words!(KeyFunction, 1);
 assert_words!(Binding, 11);
 assert_words!(BindingExpect, 11);
 assert_words!(BindingAnnotation, 15);
-assert_words!(BindingClass, 20);
+assert_words!(BindingClass, 21);
 assert_words!(BindingTParams, 10);
 assert_words!(BindingClassMetadata, 8);
 assert_bytes!(BindingClassMro, 4);
@@ -99,7 +100,7 @@ assert_bytes!(BindingClassSynthesizedFields, 4);
 assert_bytes!(BindingLegacyTypeParam, 4);
 assert_words!(BindingYield, 4);
 assert_words!(BindingYieldFrom, 4);
-assert_words!(BindingFunction, 22);
+assert_words!(BindingFunction, 23);
 
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AnyIdx {
@@ -845,6 +846,7 @@ pub struct BindingFunction {
     pub decorators: Box<[Idx<Key>]>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
     pub successor: Option<Idx<KeyFunction>>,
+    pub docstring: Option<Docstring>,
 }
 
 impl DisplayWith<Bindings> for BindingFunction {
@@ -872,6 +874,7 @@ pub struct ClassBinding {
     /// that there can be no legacy tparams? If no, we need a `BindingTParams`, if yes
     /// we can directly compute the `TParams` from the class def.
     pub tparams_require_binding: bool,
+    pub docstring: Option<Docstring>,
 }
 
 #[derive(Clone, Debug)]

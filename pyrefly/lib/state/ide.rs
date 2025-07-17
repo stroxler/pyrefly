@@ -21,7 +21,6 @@ use crate::binding::binding::Key;
 use crate::binding::bindings::Bindings;
 use crate::binding::narrow::identifier_and_chain_for_expr;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
-use crate::export::docstring::Docstring;
 use crate::export::exports::Export;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::state::handle::Handle;
@@ -121,16 +120,16 @@ fn binding_to_intermediate_definition(
             Some(IntermediateDefinition::Local(Export {
                 location: func.def.name.range,
                 symbol_kind: binding.symbol_kind(),
-                docstring: Docstring::from_stmts(&func.def.body),
+                docstring: func.docstring.clone(),
             }))
         }
         Binding::ClassDef(idx, _decorators) => match bindings.get(*idx) {
             BindingClass::FunctionalClassDef(..) => None,
-            BindingClass::ClassDef(ClassBinding { def, .. }) => {
+            BindingClass::ClassDef(ClassBinding { def, docstring, .. }) => {
                 Some(IntermediateDefinition::Local(Export {
                     location: def.name.range,
                     symbol_kind: binding.symbol_kind(),
-                    docstring: Docstring::from_stmts(&def.body),
+                    docstring: docstring.clone(),
                 }))
             }
         },

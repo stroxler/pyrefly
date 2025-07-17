@@ -44,7 +44,7 @@ print(F)
 # main.py
 4 | print(F)
           ^
-Docstring Result: None
+Docstring Result: `Test docstring`
 "#
         .trim(),
         report.trim(),
@@ -64,7 +64,7 @@ print(f())
 # main.py
 4 | print(f())
           ^
-Docstring Result: None
+Docstring Result: `Test docstring`
 "#
         .trim(),
         report.trim(),

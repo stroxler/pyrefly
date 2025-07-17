@@ -59,6 +59,7 @@ use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
 use crate::error::kind::ErrorKind;
+use crate::export::docstring::Docstring;
 use crate::graph::index::Idx;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::types::class::ClassDefIndex;
@@ -119,6 +120,7 @@ impl<'a> BindingsBuilder<'a> {
         let (mut class_object, class_indices) = self.class_object_and_indices(&x.name);
         let mut key_class_fields: SmallSet<Idx<KeyClassField>> = SmallSet::new();
 
+        let docstring = Docstring::from_stmts(x.body.as_slice());
         let body = mem::take(&mut x.body);
         let decorators_with_ranges = self.ensure_and_bind_decorators_with_ranges(
             mem::take(&mut x.decorator_list),
@@ -339,6 +341,7 @@ impl<'a> BindingsBuilder<'a> {
                 def: x,
                 fields,
                 tparams_require_binding,
+                docstring,
             }),
         );
 
