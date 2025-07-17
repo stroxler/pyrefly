@@ -19,7 +19,6 @@ use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::prelude::SliceExt;
 use starlark_map::small_map::SmallMap;
-use starlark_map::small_set::SmallSet;
 
 use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
@@ -41,13 +40,15 @@ struct Incremental {
 }
 
 impl Incremental {
+    const USER_FILES: &[&str] = &["main", "foo", "bar", "baz"];
+
     fn new() -> Self {
         init_test();
         let data = IncrementalData::default();
 
         let mut config = ConfigFile::default();
         config.python_environment.set_empty_to_default();
-        for file in ["main", "foo", "bar", "baz"] {
+        for file in Self::USER_FILES {
             config.custom_module_paths.insert(
                 ModuleName::from_str(file),
                 ModulePath::memory(PathBuf::from(file)),
@@ -97,11 +98,7 @@ impl Incremental {
             transaction,
             &handles.map(|x| (x.dupe(), Require::Everything)),
         );
-        let loaded = want
-            .iter()
-            .chain(recompute)
-            .map(|x| self.handle(x))
-            .collect::<SmallSet<_>>();
+        let loaded = Self::USER_FILES.map(|x| self.handle(x));
         let loads = self.state.transaction().get_errors(&loaded);
         print_errors(&loads.collect_errors().shown);
         if !ignore_expectations {
