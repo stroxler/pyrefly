@@ -7,10 +7,14 @@
 
 use std::backtrace::Backtrace;
 
+use tracing::error;
+
 pub fn exit_on_panic() {
     std::panic::set_hook(Box::new(move |info| {
-        eprintln!("Thread panicked, shutting down: {info}");
-        eprintln!("Backtrace:\n{}\n", Backtrace::force_capture());
+        error!(
+            "Thread panicked, shutting down: {info}\nBacktrace:\n{}",
+            Backtrace::force_capture()
+        );
         std::process::exit(1);
     }));
 }
