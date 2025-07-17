@@ -855,6 +855,7 @@ impl DisplayWith<Bindings> for BindingFunction {
 
 #[derive(Clone, Debug)]
 pub struct ClassBinding {
+    /// A class definition, but with the body stripped out.
     pub def: StmtClassDef,
     pub def_index: ClassDefIndex,
     /// The fields are all the names declared on the class that we were able to detect
