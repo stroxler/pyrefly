@@ -130,7 +130,7 @@ impl Incremental {
     }
 
     /// Run a check. Expect to recompute things to have changed, but ignore error comments.
-    fn check_ignoring_loads_expectations(&mut self, want: &[&str], recompute: &[&str]) {
+    fn check_ignoring_expectations(&mut self, want: &[&str], recompute: &[&str]) {
         self.check_internal(want, recompute, true)
     }
 }
@@ -311,7 +311,7 @@ fn test_error_clearing_on_dependency() {
     );
 
     i.set("foo", "def x() -> int: ...");
-    i.check_ignoring_loads_expectations(&["main"], &["foo", "main"]);
+    i.check_ignoring_expectations(&["main"], &["foo", "main"]);
 
     let errors_after_fix = i
         .state
@@ -335,7 +335,7 @@ fn test_stale_class() {
     i.set("foo", "");
     i.set("main", "from bar import c; v = c.x # hello");
     // Should not panic, which it does if we access the missing class.
-    i.check_ignoring_loads_expectations(&["main", "foo"], &["main", "foo", "bar", "main"]);
+    i.check_ignoring_expectations(&["main", "foo"], &["main", "foo", "bar", "main"]);
 }
 
 #[test]
