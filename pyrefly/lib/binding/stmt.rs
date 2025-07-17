@@ -634,7 +634,10 @@ impl<'a> BindingsBuilder<'a> {
                 let mut implicit_else = true;
                 for (range, mut test, body) in Ast::if_branches_owned(x) {
                     // If there is no test, it's an `else` clause and `this_branch_chosen` will be true.
-                    let this_branch_chosen = self.sys_info.evaluate_bool_opt(test.as_ref());
+                    let this_branch_chosen = match &test {
+                        None => Some(true),
+                        Some(x) => self.sys_info.evaluate_bool(x),
+                    };
                     if this_branch_chosen == Some(false) {
                         continue; // We definitely won't pick this branch
                     }
