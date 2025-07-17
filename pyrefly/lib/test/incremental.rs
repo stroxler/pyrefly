@@ -23,6 +23,7 @@ use starlark_map::small_map::SmallMap;
 use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
+use crate::state::errors::Errors;
 use crate::state::handle::Handle;
 use crate::state::require::Require;
 use crate::state::state::State;
@@ -37,6 +38,24 @@ struct Incremental {
     data: IncrementalData,
     state: State,
     to_set: Vec<(String, String)>,
+}
+
+/// What happened when we ran an incremental check.
+struct IncrementalResult {
+    changed: Vec<String>,
+    errors: Errors,
+}
+
+impl IncrementalResult {
+    fn check_recompute(&self, want: &[&str]) {
+        let mut want = want.map(|x| (*x).to_owned());
+        want.sort();
+        assert_eq!(want, self.changed);
+    }
+
+    fn check_errors(&self) {
+        self.errors.check_against_expectations().unwrap();
+    }
 }
 
 impl Incremental {
@@ -77,7 +96,7 @@ impl Incremental {
         )
     }
 
-    fn check_internal(&mut self, want: &[&str], recompute: &[&str], ignore_expectations: bool) {
+    fn unchecked(&mut self, want: &[&str]) -> IncrementalResult {
         let subscriber = TestSubscriber::new();
         let mut transaction = self
             .state
@@ -99,14 +118,8 @@ impl Incremental {
             &handles.map(|x| (x.dupe(), Require::Everything)),
         );
         let loaded = Self::USER_FILES.map(|x| self.handle(x));
-        let loads = self.state.transaction().get_errors(&loaded);
-        print_errors(&loads.collect_errors().shown);
-        if !ignore_expectations {
-            loads.check_against_expectations().unwrap();
-        }
-
-        let mut recompute = recompute.map(|x| (*x).to_owned());
-        recompute.sort();
+        let errors = self.state.transaction().get_errors(&loaded);
+        print_errors(&errors.collect_errors().shown);
 
         let mut changed = Vec::new();
         for (x, (count, _)) in subscriber.finish() {
@@ -118,17 +131,26 @@ impl Incremental {
             }
         }
         changed.sort();
-        assert_eq!(recompute, changed);
+        IncrementalResult { changed, errors }
     }
 
     /// Run a check. Expect to recompute things to have changed and errors from # E: <> comments.
-    fn check(&mut self, want: &[&str], recompute: &[&str]) {
-        self.check_internal(want, recompute, false)
+    fn check(&mut self, want: &[&str], recompute: &[&str]) -> IncrementalResult {
+        let res = self.unchecked(want);
+        res.check_errors();
+        res.check_recompute(recompute);
+        res
     }
 
     /// Run a check. Expect to recompute things to have changed, but ignore error comments.
-    fn check_ignoring_expectations(&mut self, want: &[&str], recompute: &[&str]) {
-        self.check_internal(want, recompute, true)
+    fn check_ignoring_expectations(
+        &mut self,
+        want: &[&str],
+        recompute: &[&str],
+    ) -> IncrementalResult {
+        let res = self.unchecked(want);
+        res.check_recompute(recompute);
+        res
     }
 }
 
