@@ -35,6 +35,7 @@ use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassSynthesizedFields;
+use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::binding::RawClassFieldInitialization;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::TypeCheckContext;
@@ -659,47 +660,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // which requires us having a place to store synthesized dummy values until we've refactored more.
         let method_value_storage = Owner::new();
         let method_initial_value_storage = Owner::new();
-        let (
-            value,
-            direct_annotation,
-            range,
-            initial_value,
-            is_function_without_return_annotation,
-            implicit_def_method,
-        ) = match field_definition {
-            ClassFieldDefinition::MethodLike {
-                definition,
-                range,
-                has_return_annotation,
-            } => (
-                method_value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition))),
-                None,
-                *range,
-                method_initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
-                !has_return_annotation,
-                None,
-            ),
-            ClassFieldDefinition::Simple {
-                value,
-                annotation,
-                range,
-                initial_value,
-                implicit_def_method,
-            } => {
-                let annotation = annotation
-                    .map(|a| self.get_idx(a))
-                    .as_deref()
-                    .map(|annot| annot.annotation.clone());
-                (
+        let (value, direct_annotation, range, initial_value, is_function_without_return_annotation) =
+            match field_definition {
+                ClassFieldDefinition::MethodLike {
+                    definition,
+                    range,
+                    has_return_annotation,
+                } => (
+                    method_value_storage
+                        .push(ExprOrBinding::Binding(Binding::Forward(*definition))),
+                    None,
+                    *range,
+                    method_initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
+                    !has_return_annotation,
+                ),
+                ClassFieldDefinition::Simple {
                     value,
                     annotation,
-                    *range,
+                    range,
                     initial_value,
-                    false,
-                    implicit_def_method.as_ref(),
-                )
-            }
-        };
+                } => {
+                    let annotation = annotation
+                        .map(|a| self.get_idx(a))
+                        .as_deref()
+                        .map(|annot| annot.annotation.clone());
+                    (value, annotation, *range, initial_value, false)
+                }
+            };
 
         // Optimisation. If we can determine that the name definitely doesn't exist in the inheritance
         // then we can avoid a bunch of work with checking for override errors.
@@ -833,10 +820,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let ty = match initial_value {
             RawClassFieldInitialization::ClassBody(_)
             | RawClassFieldInitialization::Uninitialized => ty,
-            RawClassFieldInitialization::Method(method_name) => self
+            RawClassFieldInitialization::Method(method) => self
                 .check_and_sanitize_method_scope_type_parameters(
                     class,
-                    method_name,
+                    &method.method_name,
                     ty,
                     name,
                     range,
@@ -930,7 +917,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
             );
         }
-        if let Some(method_name) = implicit_def_method {
+        if let RawClassFieldInitialization::Method(MethodThatSetsAttr {
+            method_name,
+            recognized_attribute_defining_method: false,
+        }) = initial_value
+        {
             let mut defined_in_parent = false;
             let parents = metadata.bases_with_metadata();
             for (parent, _) in parents {

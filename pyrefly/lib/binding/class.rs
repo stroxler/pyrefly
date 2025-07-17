@@ -49,7 +49,6 @@ use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyTParams;
 use crate::binding::binding::KeyVariance;
-use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::binding::RawClassFieldInitialization;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::CurrentIdx;
@@ -251,7 +250,6 @@ impl<'a> BindingsBuilder<'a> {
                                 annotation: stat_info.annot,
                                 range: stat_info.loc,
                                 initial_value,
-                                implicit_def_method: None,
                             },
                             is_initialized_on_class,
                         )
@@ -275,22 +273,10 @@ impl<'a> BindingsBuilder<'a> {
             }
         }
         if let ScopeKind::Class(class_scope) = last_scope.kind {
-            for (
-                name,
-                MethodThatSetsAttr {
-                    method_name,
-                    recognized_attribute_defining_method,
-                },
-                InstanceAttribute(value, annotation, range),
-            ) in class_scope.method_defined_attributes()
+            for (name, method, InstanceAttribute(value, annotation, range)) in
+                class_scope.method_defined_attributes()
             {
                 if !fields.contains_key_hashed(name.as_ref()) {
-                    let implicit_def_method = if !recognized_attribute_defining_method {
-                        Some(method_name.clone())
-                    } else {
-                        None
-                    };
-
                     fields.insert_hashed(
                         name.clone(),
                         ClassFieldProperties::new(annotation.is_some(), false, range),
@@ -308,10 +294,7 @@ impl<'a> BindingsBuilder<'a> {
                                 value,
                                 annotation,
                                 range,
-                                initial_value: RawClassFieldInitialization::Method(
-                                    method_name.clone(),
-                                ),
-                                implicit_def_method,
+                                initial_value: RawClassFieldInitialization::Method(method),
                             },
                         },
                     );
@@ -575,7 +558,6 @@ impl<'a> BindingsBuilder<'a> {
                         annotation: annotation_binding,
                         range,
                         initial_value,
-                        implicit_def_method: None,
                     },
                 },
             );

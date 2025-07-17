@@ -95,7 +95,7 @@ assert_words!(BindingClass, 21);
 assert_words!(BindingTParams, 10);
 assert_words!(BindingClassMetadata, 8);
 assert_bytes!(BindingClassMro, 4);
-assert_words!(BindingClassField, 30);
+assert_words!(BindingClassField, 27);
 assert_bytes!(BindingClassSynthesizedFields, 4);
 assert_bytes!(BindingLegacyTypeParam, 4);
 assert_words!(BindingYield, 4);
@@ -1631,7 +1631,6 @@ pub enum ClassFieldDefinition {
         annotation: Option<Idx<KeyAnnotation>>,
         range: TextRange,
         initial_value: RawClassFieldInitialization,
-        implicit_def_method: Option<Name>,
     },
 }
 
@@ -1703,7 +1702,7 @@ pub enum RawClassFieldInitialization {
     ///         self.x = 42
     ///         self.y = 42
     /// `x`'s initialization type is `Uninitialized`, whereas y's is `Method('__init__')`.
-    Method(Name),
+    Method(MethodThatSetsAttr),
     /// The field is declared and initialized to a value in the class body.
     ///
     /// If the value is from an assignment, stores the expression that the field is assigned to,
