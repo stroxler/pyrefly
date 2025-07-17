@@ -638,7 +638,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .is_subset_eq(value, annotation, self.type_order())
         {
             self.error(
-                errors, range, ErrorKind::BadAssignment, None,
+                errors, range, ErrorInfo::Kind(ErrorKind::BadAssignment),
                 format!(
                     "Enum member `{member}` has type `{}`, must match the `_value_` attribute annotation of `{}`",
                     self.for_display(value.clone()),
@@ -784,8 +784,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 range,
-                ErrorKind::BadClassDefinition,
-                None,
+                ErrorInfo::Kind(ErrorKind::BadClassDefinition),
                 format!("TypedDict item `{name}` may not be initialized"),
             );
         }
@@ -802,8 +801,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorKind::InvalidAnnotation,
-                        None,
+                        ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
                         format!("`{q}` may not be used for TypedDict or NamedTuple members",),
                     );
                 }
@@ -822,8 +820,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorKind::InvalidAnnotation,
-                        None,
+                        ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
                         format!("`{q}` may only be used for TypedDict members"),
                     );
                 }
@@ -889,7 +886,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             if direct_annotation.is_some() {
                 self.error(
-                    errors, range,ErrorKind::InvalidAnnotation, None,
+                    errors, range,ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
                     format!("Enum member `{name}` may not be annotated directly. Instead, annotate the `_value_` attribute."),
                 );
             }
@@ -977,8 +974,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                 errors,
                 range,
-                ErrorKind::ImplicitlyDefinedAttribute,
-                None,
+                ErrorInfo::Kind(ErrorKind::ImplicitlyDefinedAttribute,
+                ),
                 format!("Attribute `{}` is implicitly defined by assignment in method `{method_name}`, which is not a constructor", &name),
             );
             }
@@ -1168,8 +1165,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 self.error(
                                     errors,
                                     range,
-                                    ErrorKind::InvalidTypeVar,
-                            None,
+                                    ErrorInfo::Kind(ErrorKind::InvalidTypeVar,
+                            ),
                                 format!(
                                         "Cannot initialize attribute `{}` to a value that depends on method-scoped type variable `{}`",
                                         name,
@@ -1380,8 +1377,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     range,
-                    ErrorKind::BadOverride,
-                    None,
+                    ErrorInfo::Kind(ErrorKind::BadOverride),
                     format!("Cannot override named tuple element `{name}`"),
                 );
             }
@@ -1394,8 +1390,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     range,
-                    ErrorKind::BadOverride,
-                    None,
+                    ErrorInfo::Kind(ErrorKind::BadOverride),
                     format!(
                         "`{}` is declared as final in parent class `{}`",
                         name,
@@ -1411,8 +1406,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                             errors,
                             range,
-                            ErrorKind::BadOverride,
-                            None,
+                            ErrorInfo::Kind(ErrorKind::BadOverride),
                             format!(
                                 "Instance variable `{}.{}` overrides ClassVar of the same name in parent class `{}`",
                                 class.name(),
@@ -1425,8 +1419,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                             errors,
                             range,
-                            ErrorKind::BadOverride,
-                            None,
+                            ErrorInfo::Kind(ErrorKind::BadOverride),
                             format!(
                                 "ClassVar `{}.{}` overrides instance variable of the same name in parent class `{}`",
                                 class.name(),
@@ -1467,8 +1460,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                     errors,
                     range,
-                    ErrorKind::BadOverride,
-                    None,
+                    ErrorInfo::Kind(ErrorKind::BadOverride),
                     format!(
                         "Class member `{}.{}` is marked as an override, but no parent class has a matching attribute",
                         class.name(),

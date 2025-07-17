@@ -124,7 +124,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         error_kind: ErrorKind,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> CallTarget {
-        self.error(errors, range, error_kind, context, msg);
+        self.error(errors, range, ErrorInfo::new(error_kind, context), msg);
         CallTarget::new(Target::Any(AnyStyle::Error))
     }
 
@@ -551,8 +551,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorKind::BadInstantiation,
-                        context,
+                        ErrorInfo::new(ErrorKind::BadInstantiation, context),
                         format!(
                             "Cannot instantiate `{}` because it is a protocol",
                             cls.name()
@@ -595,8 +594,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorKind::Deprecated,
-                        context,
+                        ErrorInfo::new(ErrorKind::Deprecated, context),
                         format!(
                             "Call to deprecated function `{}`",
                             metadata.kind.as_func_id().format(self.module_info().name())

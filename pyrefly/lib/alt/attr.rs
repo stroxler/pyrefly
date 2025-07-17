@@ -531,8 +531,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Err(msg) => results.push(self.error(
                     errors,
                     range,
-                    ErrorKind::MissingAttribute,
-                    context,
+                    ErrorInfo::new(ErrorKind::MissingAttribute, context),
                     msg,
                 )),
             }
@@ -582,8 +581,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 range,
-                                ErrorKind::MissingAttribute,
-                                context,
+                                ErrorInfo::new(ErrorKind::MissingAttribute, context),
                                 e.to_error_msg(attr_name),
                             )
                         }),
@@ -591,8 +589,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 LookupResult::InternalError(e) => attr_tys.push(self.error(
                     errors,
                     range,
-                    ErrorKind::InternalError,
-                    context,
+                    ErrorInfo::new(ErrorKind::InternalError, context),
                     e.to_error_msg(attr_name, todo_ctx),
                 )),
                 LookupResult::NotFound(_) => {
@@ -673,8 +670,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     range,
-                    ErrorKind::MissingAttribute,
-                    context,
+                    ErrorInfo::new(ErrorKind::MissingAttribute, context),
                     not_found.to_error_msg(attr_name),
                 );
             }
@@ -697,8 +693,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             range,
-                            ErrorKind::MissingAttribute,
-                            context,
+                            ErrorInfo::new(ErrorKind::MissingAttribute, context),
                             no_access.to_error_msg(attr_name),
                         );
                     }
@@ -722,8 +717,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     range,
-                    ErrorKind::MissingAttribute,
-                    context,
+                    ErrorInfo::new(ErrorKind::MissingAttribute, context),
                     not_found.to_error_msg(attr_name),
                 );
             }
@@ -745,8 +739,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             range,
-                            ErrorKind::MissingAttribute,
-                            context,
+                            ErrorInfo::new(ErrorKind::MissingAttribute, context),
                             no_access.to_error_msg(attr_name),
                         );
                     }
@@ -772,8 +765,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     range,
-                    ErrorKind::InternalError,
-                    context,
+                    ErrorInfo::new(ErrorKind::InternalError, context),
                     InternalError::AttributeBaseUndefined(base.clone())
                         .to_error_msg(attr_name, todo_ctx),
                 );
@@ -835,8 +827,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorKind::NoAccess,
-                        context,
+                        ErrorInfo::new(ErrorKind::NoAccess, context),
                         e.to_error_msg(attr_name),
                     );
                 }
@@ -856,8 +847,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorKind::ReadOnly,
-                        context,
+                        ErrorInfo::new(ErrorKind::ReadOnly, context),
                         e.to_error_msg(attr_name),
                     );
                 }
@@ -884,8 +874,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 range,
-                                ErrorKind::ReadOnly,
-                                context,
+                                ErrorInfo::new(ErrorKind::ReadOnly, context),
                                 e.to_error_msg(attr_name),
                             );
                         }
@@ -894,8 +883,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 range,
-                                ErrorKind::NoAccess,
-                                context,
+                                ErrorInfo::new(ErrorKind::NoAccess, context),
                                 e.to_error_msg(attr_name),
                             );
                         }
@@ -905,8 +893,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorKind::InternalError,
-                        context,
+                        ErrorInfo::new(ErrorKind::InternalError, context),
                         e.to_error_msg(attr_name, todo_ctx),
                     );
                 }
@@ -933,8 +920,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     range,
-                    ErrorKind::InternalError,
-                    context,
+                    ErrorInfo::new(ErrorKind::InternalError, context),
                     InternalError::AttributeBaseUndefined(base.clone())
                         .to_error_msg(attr_name, todo_ctx),
                 );
@@ -965,8 +951,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorKind::NoAccess,
-                        context,
+                        ErrorInfo::new(ErrorKind::NoAccess, context),
                         e.to_error_msg(attr_name),
                     );
                 }
@@ -983,8 +968,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorKind::InternalError,
-                        context,
+                        ErrorInfo::new(ErrorKind::InternalError, context),
                         e.to_error_msg(attr_name, todo_ctx),
                     );
                 }
@@ -1198,8 +1182,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     range,
-                    ErrorKind::ImplicitImport,
-                    context,
+                    ErrorInfo::new(ErrorKind::ImplicitImport, context),
                     format!("Module `{name}` exists, but was not imported explicitly. You are relying on other modules to load it."),
                 );
                 Ok(ty)
@@ -2071,8 +2054,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 range,
-                ErrorKind::InvalidArgument,
-                None,
+                ErrorInfo::Kind(ErrorKind::InvalidArgument),
                 format!(
                     "`{}.__bool__` has type `{}`, which is not callable",
                     self.for_display(condition_type.clone()),

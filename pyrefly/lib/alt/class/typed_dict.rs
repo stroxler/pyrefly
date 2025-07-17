@@ -23,6 +23,7 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::error::collector::ErrorCollector;
+use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
@@ -86,8 +87,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             key.range(),
-                            ErrorKind::TypedDictKeyError,
-                            None,
+                            ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
                             format!(
                                 "Key `{}` is not defined in TypedDict `{}`",
                                 key_name,
@@ -100,8 +100,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         key.range(),
-                        ErrorKind::TypedDictKeyError,
-                        None,
+                        ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
                         format!(
                             "Expected string literal key, got `{}`",
                             self.for_display(key_type)
@@ -127,8 +126,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorKind::TypedDictKeyError,
-                        None,
+                        ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
                         format!(
                             "Missing required key `{}` for TypedDict `{}`",
                             key,
