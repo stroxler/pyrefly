@@ -1618,6 +1618,33 @@ impl DisplayWith<Bindings> for BindingTParams {
     }
 }
 
+/// Represents everything we know about a class field definition at binding time.
+#[derive(Clone, Debug)]
+pub enum ClassFieldDefinition {
+    Simple {
+        value: ExprOrBinding,
+        annotation: Option<Idx<KeyAnnotation>>,
+        range: TextRange,
+        initial_value: RawClassFieldInitialization,
+        is_function_without_return_annotation: bool,
+        implicit_def_method: Option<Name>,
+    },
+}
+
+impl DisplayWith<Bindings> for ClassFieldDefinition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
+        match self {
+            Self::Simple { value, .. } => {
+                write!(
+                    f,
+                    "ClassFieldDefinition::Simple({}, ..)",
+                    value.display_with(ctx),
+                )
+            }
+        }
+    }
+}
+
 /// Binding for a class field, which is any attribute (including methods) of a class defined in
 /// either the class body or in method (like `__init__`) that we recognize as
 /// defining instance attributes.
@@ -1625,12 +1652,7 @@ impl DisplayWith<Bindings> for BindingTParams {
 pub struct BindingClassField {
     pub class_idx: Idx<KeyClass>,
     pub name: Name,
-    pub value: ExprOrBinding,
-    pub annotation: Option<Idx<KeyAnnotation>>,
-    pub range: TextRange,
-    pub initial_value: RawClassFieldInitialization,
-    pub is_function_without_return_annotation: bool,
-    pub implicit_def_method: Option<Name>,
+    pub definition: ClassFieldDefinition,
 }
 
 impl DisplayWith<Bindings> for BindingClassField {
@@ -1640,7 +1662,7 @@ impl DisplayWith<Bindings> for BindingClassField {
             "BindingClassField({}, {}, {})",
             ctx.display(self.class_idx),
             self.name,
-            self.value.display_with(ctx),
+            self.definition.display_with(ctx),
         )
     }
 }

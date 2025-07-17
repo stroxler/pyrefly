@@ -1361,18 +1361,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let field = match &self.get_idx(field.class_idx).0 {
             None => ClassField::recursive(),
             Some(class) => {
-                let annotation = field.annotation.map(|a| self.get_idx(a));
-                self.calculate_class_field(
-                    &field.name,
-                    &field.value,
-                    annotation.as_deref().map(|annot| &annot.annotation),
-                    &field.initial_value,
-                    class,
-                    field.is_function_without_return_annotation,
-                    field.implicit_def_method.as_ref(),
-                    field.range,
-                    errors,
-                )
+                self.calculate_class_field(class, &field.name, &field.definition, errors)
             }
         };
         Arc::new(field)

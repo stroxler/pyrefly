@@ -30,6 +30,7 @@ use crate::alt::attr::Attribute;
 use crate::alt::attr::DescriptorBase;
 use crate::alt::attr::NoAccessReason;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassSynthesizedFields;
@@ -646,17 +647,43 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn calculate_class_field(
         &self,
-        name: &Name,
-        value: &ExprOrBinding,
-        // Type annotation that appears directly on the field declaration (vs. one inherited from a parent)
-        direct_annotation: Option<&Annotation>,
-        initial_value: &RawClassFieldInitialization,
         class: &Class,
-        is_function_without_return_annotation: bool,
-        implicit_def_method: Option<&Name>,
-        range: TextRange,
+        name: &Name,
+        field_definition: &ClassFieldDefinition,
         errors: &ErrorCollector,
     ) -> ClassField {
+        // TODO(stroxler): Clean this up, as we convert more of the class field logic to using enums.
+        let (
+            value,
+            direct_annotation,
+            range,
+            initial_value,
+            is_function_without_return_annotation,
+            implicit_def_method,
+        ) = match field_definition {
+            ClassFieldDefinition::Simple {
+                value,
+                annotation,
+                range,
+                initial_value,
+                is_function_without_return_annotation,
+                implicit_def_method,
+            } => {
+                let annotation = annotation
+                    .map(|a| self.get_idx(a))
+                    .as_deref()
+                    .map(|annot| annot.annotation.clone());
+                (
+                    value,
+                    annotation,
+                    *range,
+                    initial_value,
+                    *is_function_without_return_annotation,
+                    implicit_def_method.as_ref(),
+                )
+            }
+        };
+
         // Optimisation. If we can determine that the name definitely doesn't exist in the inheritance
         // then we can avoid a bunch of work with checking for override errors.
         let mut name_might_exist_in_inherited = true;
@@ -721,7 +748,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .is_some_and(|m| m.elements.contains(name))
         {
             for q in &[Qualifier::Final, Qualifier::ClassVar] {
-                if direct_annotation.is_some_and(|ann| ann.has_qualifier(q)) {
+                if direct_annotation
+                    .as_ref()
+                    .is_some_and(|ann| ann.has_qualifier(q))
+                {
                     self.error(
                         errors,
                         range,
@@ -738,7 +768,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Qualifier::NotRequired,
                 Qualifier::ReadOnly,
             ] {
-                if direct_annotation.is_some_and(|ann| ann.has_qualifier(q)) {
+                if direct_annotation
+                    .as_ref()
+                    .is_some_and(|ann| ann.has_qualifier(q))
+                {
                     self.error(
                         errors,
                         range,
@@ -753,7 +786,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Determine whether this is an explicit `@override`.
         let is_override = value_ty.is_override();
 
-        let annotation = direct_annotation.or(inherited_annotation.as_ref());
+        let annotation = direct_annotation.as_ref().or(inherited_annotation.as_ref());
         let read_only_reason =
             self.determine_read_only_reason(class, name, annotation, &value_ty, &initialization);
         let is_namedtuple_member = metadata
@@ -863,7 +896,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Create the resulting field and check for override inconsistencies before returning
         let class_field = ClassField::new(
             ty,
-            direct_annotation.cloned(),
+            direct_annotation,
             initialization,
             read_only_reason,
             descriptor_getter,

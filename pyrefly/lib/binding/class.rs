@@ -38,6 +38,7 @@ use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::BindingTParams;
 use crate::binding::binding::BindingVariance;
 use crate::binding::binding::ClassBinding;
+use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
@@ -242,12 +243,14 @@ impl<'a> BindingsBuilder<'a> {
                 let binding = BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: name.into_key().clone(),
-                    value,
-                    annotation: stat_info.annot,
-                    range: stat_info.loc,
-                    initial_value,
-                    is_function_without_return_annotation,
-                    implicit_def_method: None,
+                    definition: ClassFieldDefinition::Simple {
+                        value,
+                        annotation: stat_info.annot,
+                        range: stat_info.loc,
+                        initial_value,
+                        is_function_without_return_annotation,
+                        implicit_def_method: None,
+                    },
                 };
                 fields.insert_hashed(
                     name.cloned(),
@@ -292,12 +295,16 @@ impl<'a> BindingsBuilder<'a> {
                         BindingClassField {
                             class_idx: class_indices.class_idx,
                             name: name.into_key(),
-                            value,
-                            annotation,
-                            range,
-                            initial_value: RawClassFieldInitialization::Method(method_name.clone()),
-                            is_function_without_return_annotation: false,
-                            implicit_def_method,
+                            definition: ClassFieldDefinition::Simple {
+                                value,
+                                annotation,
+                                range,
+                                initial_value: RawClassFieldInitialization::Method(
+                                    method_name.clone(),
+                                ),
+                                is_function_without_return_annotation: false,
+                                implicit_def_method,
+                            },
                         },
                     );
                 }
@@ -555,12 +562,14 @@ impl<'a> BindingsBuilder<'a> {
                 BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: member_name,
-                    value,
-                    annotation: annotation_binding,
-                    range,
-                    initial_value,
-                    is_function_without_return_annotation: false,
-                    implicit_def_method: None,
+                    definition: ClassFieldDefinition::Simple {
+                        value,
+                        annotation: annotation_binding,
+                        range,
+                        initial_value,
+                        is_function_without_return_annotation: false,
+                        implicit_def_method: None,
+                    },
                 },
             );
         }
