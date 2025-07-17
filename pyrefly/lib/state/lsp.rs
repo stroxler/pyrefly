@@ -172,10 +172,10 @@ enum IdentifierContext {
     },
     /// An identifier appeared as the name of a function.
     /// ex: `x` in `def x(...): ...`
-    FunctionDef,
+    FunctionDef { docstring: Option<Docstring> },
     /// An identifier appeared as the name of a class.
     /// ex: `x` in `class x(...): ...`
-    ClassDef,
+    ClassDef { docstring: Option<Docstring> },
     /// An identifier appeared as the name of a parameter.
     /// ex: `x` in `def f(x): ...`
     Parameter,
@@ -266,17 +266,17 @@ impl IdentifierWithContext {
         }
     }
 
-    fn from_stmt_function_def(id: &Identifier) -> Self {
+    fn from_stmt_function_def(id: &Identifier, docstring: Option<Docstring>) -> Self {
         Self {
             identifier: id.clone(),
-            context: IdentifierContext::FunctionDef,
+            context: IdentifierContext::FunctionDef { docstring },
         }
     }
 
-    fn from_stmt_class_def(id: &Identifier) -> Self {
+    fn from_stmt_class_def(id: &Identifier, docstring: Option<Docstring>) -> Self {
         Self {
             identifier: id.clone(),
-            context: IdentifierContext::ClassDef,
+            context: IdentifierContext::ClassDef { docstring },
         }
     }
 
@@ -429,13 +429,19 @@ impl<'a> Transaction<'a> {
                     import_from,
                 ))
             }
-            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtFunctionDef(_)), _, _) => {
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtFunctionDef(stmt)), _, _) => {
                 // def id(...): ...
-                Some(IdentifierWithContext::from_stmt_function_def(id))
+                Some(IdentifierWithContext::from_stmt_function_def(
+                    id,
+                    Docstring::from_stmts(&stmt.body),
+                ))
             }
-            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtClassDef(_)), _, _) => {
+            (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtClassDef(stmt)), _, _) => {
                 // class id(...): ...
-                Some(IdentifierWithContext::from_stmt_class_def(id))
+                Some(IdentifierWithContext::from_stmt_class_def(
+                    id,
+                    Docstring::from_stmts(&stmt.body),
+                ))
             }
             (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::Parameter(_)), _, _) => {
                 // def ...(id): ...
@@ -609,14 +615,14 @@ impl<'a> Transaction<'a> {
             }
             Some(IdentifierWithContext {
                 identifier: _,
-                context: IdentifierContext::FunctionDef,
+                context: IdentifierContext::FunctionDef { docstring: _ },
             }) => {
                 // TODO(grievejia): Handle defintions of functions
                 None
             }
             Some(IdentifierWithContext {
                 identifier: _,
-                context: IdentifierContext::ClassDef,
+                context: IdentifierContext::ClassDef { docstring: _ },
             }) => {
                 // TODO(grievejia): Handle defintions of classes
                 None
@@ -1159,26 +1165,26 @@ impl<'a> Transaction<'a> {
                 .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
-                context: IdentifierContext::FunctionDef,
+                context: IdentifierContext::FunctionDef { docstring },
             }) => self
                 .find_definition_for_simple_def(handle, &identifier, SymbolKind::Function)
                 .map_or(vec![], |item| {
                     vec![FindDefinitionItemWithDocstring {
                         metadata: item.metadata,
                         location: item.location,
-                        docstring: None,
+                        docstring,
                     }]
                 }),
             Some(IdentifierWithContext {
                 identifier,
-                context: IdentifierContext::ClassDef,
+                context: IdentifierContext::ClassDef { docstring },
             }) => self
                 .find_definition_for_simple_def(handle, &identifier, SymbolKind::Class)
                 .map_or(vec![], |item| {
                     vec![FindDefinitionItemWithDocstring {
                         metadata: item.metadata,
                         location: item.location,
-                        docstring: None,
+                        docstring,
                     }]
                 }),
             Some(IdentifierWithContext {
