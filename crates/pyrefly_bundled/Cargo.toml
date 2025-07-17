@@ -13,13 +13,8 @@ build = "build.rs"
 anyhow = "1.0.98"
 starlark_map = "0.13.0"
 tar = "0.4.44"
+zstd = "0.13"
 
 [build-dependencies]
 tar = "0.4.44"
 zstd = { version = "0.13", features = ["experimental", "zstdmt"] }
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-zstd = { version = "0.13", features = ["experimental", "zstdmt"] }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-zstd = "0.13"
