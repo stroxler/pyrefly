@@ -30,7 +30,7 @@ From this directory, you can run:
 - Debug a file: `buck2 run pyrefly -- check <filename> --debug-info=debug.js`,
   then open `debug.html` in your browser
 - Fetch Typeshed from upstream
-  `HTTPS_PROXY=https://fwdproxy:8080 fbpython scripts/fetch_typeshed.py -o crates/pyrefly_bundled/third_party`
+  `HTTPS_PROXY=https://fwdproxy:8080 fbpython crates/pyrefly_bundled/update.py -o crates/pyrefly_bundled/third_party`
 
 ## Packaging
 
