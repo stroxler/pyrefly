@@ -198,7 +198,12 @@ impl<'a> BindingsBuilder<'a> {
                     Binding::Type(Type::any_error())
                 }
             };
-        self.insert_binding(key, binding);
+        let binding_key = self.insert_binding(key, binding);
+
+        self.scopes
+            .add_to_current_static(name.id.clone(), name.range, SymbolKind::Variable, None);
+
+        self.bind_name(&name.id, binding_key, FlowStyle::Other);
     }
 
     /// Bind the annotation in an `AnnAssign`

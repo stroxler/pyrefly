@@ -5955,8 +5955,8 @@
     {
       "code": -2,
       "column": 24,
-      "concise_description": "assert_type(str, int) failed",
-      "description": "assert_type(str, int) failed",
+      "concise_description": "assert_type(Any, int) failed",
+      "description": "assert_type(Any, int) failed",
       "line": 67,
       "name": "assert-type",
       "stop_column": 32,
