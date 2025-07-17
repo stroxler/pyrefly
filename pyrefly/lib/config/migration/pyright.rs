@@ -8,7 +8,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_util::globs::Glob;
 use pyrefly_util::globs::Globs;
@@ -70,6 +69,7 @@ use crate::config::migration::error_codes::ErrorCodes;
 use crate::config::migration::project_excludes::ProjectExcludes;
 use crate::config::migration::project_includes::ProjectIncludes;
 use crate::config::migration::python_interpreter::PythonInterpreter;
+use crate::config::migration::python_platform::PythonPlatformConfig;
 use crate::config::migration::python_version::PythonVersionConfig;
 use crate::config::migration::replace_imports::ReplaceImports;
 use crate::config::migration::search_path::SearchPath;
@@ -86,6 +86,7 @@ impl PyrightConfig {
             Box::new(ProjectExcludes),
             Box::new(PythonInterpreter),
             Box::new(PythonVersionConfig),
+            Box::new(PythonPlatformConfig),
             Box::new(SearchPath),
             Box::new(UseUntypedImports),
             Box::new(ReplaceImports),
@@ -97,10 +98,6 @@ impl PyrightConfig {
         for option in config_options {
             // Ignore errors for now, we can use this in the future if we want to print out error messages or use for logging purpose
             let _ = option.migrate_from_pyright(&self, &mut cfg);
-        }
-
-        if let Some(platform) = self.python_platform {
-            cfg.python_environment.python_platform = Some(PythonPlatform::new(&platform));
         }
 
         cfg
@@ -156,10 +153,9 @@ impl From<DiagnosticLevelOrBool> for bool {
 /// Type Check Rule Overrides are pyright's equivalent to the `errors` dict in pyrefly's configs.
 /// That is, they control which "diangostic settings" are displayed to the user.
 #[serde_as]
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 /// Rule overrides for pyright
-#[derive(Default)]
 pub struct RuleOverrides {
     #[serde_as(as = "Option<FromInto<DiagnosticLevelOrBool>>")]
     #[serde(default)]
@@ -226,6 +222,9 @@ pub fn parse_pyproject_toml(raw_file: &str) -> anyhow::Result<ConfigFile> {
 
 #[cfg(test)]
 mod tests {
+
+    use pyrefly_python::sys_info::PythonPlatform;
+
     use super::*;
     use crate::config::environment::environment::PythonEnvironment;
 

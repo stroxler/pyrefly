@@ -12,6 +12,7 @@ pub mod project_excludes;
 pub mod project_includes;
 pub mod pyright;
 pub mod python_interpreter;
+pub mod python_platform;
 pub mod python_version;
 pub mod replace_imports;
 pub mod search_path;
