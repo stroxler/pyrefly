@@ -7,7 +7,7 @@
 
 use dupe::Dupe;
 
-#[derive(Debug, Clone, Dupe, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Dupe, Copy, PartialEq, Eq)]
 pub struct Epoch(u32);
 
 impl Epoch {
