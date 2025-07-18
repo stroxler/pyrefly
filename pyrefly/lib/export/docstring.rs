@@ -15,7 +15,7 @@ use ruff_python_ast::Stmt;
 pub struct Docstring(Arc<String>);
 
 impl Docstring {
-    fn clean(docstring: &str) -> String {
+    fn new(docstring: &str) -> Self {
         let mut result = docstring.to_owned();
         result = result.replace("\r", "");
         result = result.replace("\t", "    ");
@@ -28,11 +28,13 @@ impl Docstring {
             .min()
             .unwrap_or(0);
 
-        result
-            .lines()
-            .map(|line| &line[min(min_indent, line.len())..])
-            .collect::<Vec<_>>()
-            .join("\n")
+        Self(Arc::new(
+            result
+                .lines()
+                .map(|line| &line[min(min_indent, line.len())..])
+                .collect::<Vec<_>>()
+                .join("\n"),
+        ))
     }
 
     pub fn from_stmts(xs: &[Stmt]) -> Option<Self> {
@@ -40,9 +42,7 @@ impl Docstring {
             if let Stmt::Expr(expr_stmt) = stmt
                 && let ruff_python_ast::Expr::StringLiteral(string_lit) = &*expr_stmt.value
             {
-                return Some(Docstring(Arc::new(Docstring::clean(
-                    string_lit.value.to_str(),
-                ))));
+                return Some(Docstring::new(string_lit.value.to_str()));
             }
             None
         })
@@ -59,18 +59,18 @@ mod tests {
 
     #[test]
     fn test_clean_removes_carriage_returns() {
-        assert_eq!(Docstring::clean("hello\rworld"), "helloworld");
+        assert_eq!(Docstring::new("hello\rworld").as_str(), "helloworld");
     }
 
     #[test]
     fn test_clean_replaces_tabs_with_spaces() {
-        assert_eq!(Docstring::clean("hello\tworld"), "hello    world");
+        assert_eq!(Docstring::new("hello\tworld").as_str(), "hello    world");
     }
 
     #[test]
     fn test_clean_trims_shortest_whitespace() {
         assert_eq!(
-            Docstring::clean("  hello\n    world\n  test"),
+            Docstring::new("  hello\n    world\n  test").as_str(),
             "hello\n  world\ntest"
         );
     }
