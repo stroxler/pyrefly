@@ -80,12 +80,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         elements
             .iter()
             .map(|name| {
-                let member = &*self.get_class_member(cls, name).unwrap().value;
-                Param::Pos(
-                    name.clone(),
-                    member.as_named_tuple_type(),
-                    member.as_named_tuple_requiredness(),
-                )
+                let (ty, required) = match self.get_class_member(cls, name) {
+                    None => (Type::any_implicit(), Required::Required),
+                    Some(c) => (
+                        c.value.as_named_tuple_type(),
+                        c.value.as_named_tuple_requiredness(),
+                    ),
+                };
+                Param::Pos(name.clone(), ty, required)
             })
             .collect()
     }
@@ -130,7 +132,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let params = vec![self.class_self_param(cls, false)];
         let element_types: Vec<Type> = elements
             .iter()
-            .map(|name| (*self.get_class_member(cls, name).unwrap().value).as_named_tuple_type())
+            .map(|name| match self.get_class_member(cls, name) {
+                None => Type::any_implicit(),
+                Some(c) => c.value.as_named_tuple_type(),
+            })
             .collect();
         let ty = Type::Function(Box::new(Function {
             signature: Callable::list(

@@ -275,3 +275,15 @@ class C(B):
     y: int  # OK
 "#,
 );
+
+testcase!(
+    test_named_tuple_invalid_field,
+    r#"
+# Used to crash, see https://github.com/facebook/pyrefly/issues/701
+from dataclasses import InitVar
+from typing import NamedTuple
+
+class Cls(NamedTuple):
+    fld: InitVar # E: Expected a type argument for `InitVar`
+"#,
+);
