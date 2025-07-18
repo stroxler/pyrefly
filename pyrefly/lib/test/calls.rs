@@ -81,3 +81,20 @@ from functools import reduce
 reduce(max, [1,2])
     "#,
 );
+
+testcase!(
+    test_union_with_type,
+    r#"
+from typing import assert_type
+class A:
+    pass
+def identity[T](x: T) -> T:
+    return x
+def f(condition: bool):
+    if condition:
+        g = type
+    else:
+        g = identity
+    assert_type(g(A()), type[A] | A)
+    "#,
+);

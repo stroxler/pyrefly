@@ -1386,7 +1386,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         {
                             self.call_issubclass(&x.arguments.args[0], &x.arguments.args[1], errors)
                         }
-                        _ if matches!(&callee_ty, Type::ClassDef(cls) if cls == self.stdlib.builtins_type().class_object())
+                        _ if matches!(ty, Type::ClassDef(cls) if cls == self.stdlib.builtins_type().class_object())
                             && x.arguments.args.len() == 1 && x.arguments.keywords.is_empty() =>
                         {
                             // We may be able to provide a more precise type when the constructor for `builtins.type`
