@@ -65,7 +65,6 @@ use crate::export::docstring::Docstring;
 use crate::graph::index::Idx;
 use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassFieldProperties;
-use crate::types::special_form::SpecialForm;
 use crate::types::types::Type;
 
 enum IllegalIdentifierHandling {
@@ -518,12 +517,7 @@ impl<'a> BindingsBuilder<'a> {
                     member_name.clone(),
                     range,
                 )));
-                let ann_val = if let Some(special) = SpecialForm::new(&member_name, &annotation) {
-                    BindingAnnotation::Type(
-                        AnnotationTarget::ClassMember(member_name.clone()),
-                        special.to_type(),
-                    )
-                } else {
+                let ann_val = {
                     BindingAnnotation::AnnotateExpr(
                         AnnotationTarget::ClassMember(member_name.clone()),
                         annotation,
