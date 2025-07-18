@@ -24,7 +24,7 @@ impl Docstring {
         let min_indent = result
             .lines()
             .flat_map(|line| {
-                let spaces = line.chars().take_while(|&c| c == ' ').count();
+                let spaces = line.bytes().take_while(|&c| c == b' ').count();
                 if spaces == line.len() {
                     None
                 } else {
