@@ -1674,3 +1674,5 @@ def f(condition: bool):
     assert_type(x, A | type[A])
     "#,
 );
+
+testcase!(test_panic_docstring, "\"\"\" F\n\u{85}\"\"\"",);

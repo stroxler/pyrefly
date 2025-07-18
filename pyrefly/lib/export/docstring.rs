@@ -23,8 +23,14 @@ impl Docstring {
         // Remove the shortest amount of whitespace from the beginning of each line
         let min_indent = result
             .lines()
-            .filter(|line| !line.trim().is_empty())
-            .map(|line| line.chars().take_while(|&c| c == ' ').count())
+            .flat_map(|line| {
+                let spaces = line.chars().take_while(|&c| c == ' ').count();
+                if spaces == line.len() {
+                    None
+                } else {
+                    Some(spaces)
+                }
+            })
             .min()
             .unwrap_or(0);
 
@@ -73,5 +79,10 @@ mod tests {
             Docstring::new("  hello\n    world\n  test").as_str(),
             "hello\n  world\ntest"
         );
+    }
+
+    #[test]
+    fn test_docstring_panic() {
+        Docstring::new(" F\n\u{85}");
     }
 }
