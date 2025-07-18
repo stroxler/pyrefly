@@ -512,22 +512,19 @@ impl<'a> BindingsBuilder<'a> {
                     range,
                 ),
             );
-            let annotation = if let Some(annotation) = member_annotation {
-                let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(&Identifier::new(
-                    member_name.clone(),
-                    range,
-                )));
-                let ann_val = {
+            let annotation = member_annotation.map(|annotation_expr| {
+                self.insert_binding(
+                    KeyAnnotation::Annotation(ShortIdentifier::new(&Identifier::new(
+                        member_name.clone(),
+                        range,
+                    ))),
                     BindingAnnotation::AnnotateExpr(
                         AnnotationTarget::ClassMember(member_name.clone()),
-                        annotation,
+                        annotation_expr,
                         None,
-                    )
-                };
-                Some(self.insert_binding(ann_key, ann_val))
-            } else {
-                None
-            };
+                    ),
+                )
+            });
             let definition = match (member_value, force_class_initialization) {
                 (Some(value), _) => ClassFieldDefinition::AssignedInBody {
                     value: ExprOrBinding::Expr(value),
