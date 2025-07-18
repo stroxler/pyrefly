@@ -8,10 +8,12 @@
 use std::cmp::min;
 use std::sync::Arc;
 
+use dupe::Dupe;
 use ruff_python_ast::Stmt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Dupe)]
 pub struct Docstring(Arc<String>);
+
 impl Docstring {
     fn clean(docstring: &str) -> String {
         let mut result = docstring.to_owned();
