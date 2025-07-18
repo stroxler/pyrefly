@@ -354,10 +354,11 @@ impl ConfigFile {
     ) -> Result<ModulePath, FindError> {
         if let Some(path) = self.custom_module_paths.get(&module) {
             Ok(path.clone())
-        } else if self
-            .replace_imports_with_any(path)
-            .iter()
-            .any(|p| p.matches(module))
+        } else if module != ModuleName::builtins()
+            && self
+                .replace_imports_with_any(path)
+                .iter()
+                .any(|p| p.matches(module))
         {
             Err(FindError::Ignored)
         } else if let Some(path) = find_module_in_search_path(module, self.search_path())? {
