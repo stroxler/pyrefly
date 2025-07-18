@@ -523,9 +523,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<Type>,
     ) -> Type {
+        let metadata = call_target.target.function_metadata();
+        if let Some(m) = metadata
+            && m.flags.is_deprecated
+        {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::new(ErrorKind::Deprecated, context),
+                format!(
+                    "Call to deprecated function `{}`",
+                    m.kind.as_func_id().format(self.module_info().name())
+                ),
+            );
+        }
         // Does this call target correspond to a function whose keyword arguments we should save?
         let kw_metadata = {
-            let metadata = call_target.target.function_metadata();
             if let Some(m) = metadata
                 && (matches!(
                     m.kind,
@@ -576,17 +589,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     metadata,
                 },
             ) => {
-                if metadata.flags.is_deprecated {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::new(ErrorKind::Deprecated, context),
-                        format!(
-                            "Call to deprecated function `{}`",
-                            metadata.kind.as_func_id().format(self.module_info().name())
-                        ),
-                    );
-                }
                 let first_arg = CallArg::ty(&obj, range);
                 self.callable_infer(
                     signature,
@@ -607,17 +609,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 signature: mut callable,
                 metadata,
             }) => {
-                if metadata.flags.is_deprecated {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::new(ErrorKind::Deprecated, context),
-                        format!(
-                            "Call to deprecated function `{}`",
-                            metadata.kind.as_func_id().format(self.module_info().name())
-                        ),
-                    );
-                }
                 // Most instances of typing.Self are replaced in as_call_target, but __new__ is a
                 // staticmethod, so we don't have access to the first argument until we get here.
                 let id = metadata.kind.as_func_id();

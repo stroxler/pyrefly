@@ -75,6 +75,24 @@ c.old_function()  # E: Call to deprecated function `C.old_function`
 );
 
 testcase!(
+    test_deprecated_overloaded_call,
+    r#"
+from typing import overload
+from warnings import deprecated
+
+@overload
+def f(x: int) -> int: ...
+@overload
+def f(x: str) -> str: ...
+@deprecated("DEPRECATED")
+def f(x: int | str) -> int | str:
+    return x
+
+f(0)  # E: Call to deprecated function `f`
+    "#,
+);
+
+testcase!(
     test_reduce_call,
     r#"
 from functools import reduce

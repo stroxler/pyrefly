@@ -135,6 +135,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ty
             }
         } else {
+            let impl_is_deprecated = def.metadata.flags.is_deprecated;
             let mut acc = Vec::new();
             let mut first = def;
             while let Some(def) = self.step_pred(predecessor)
@@ -154,13 +155,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                     defs.split_off_first().0.1
                 } else {
+                    // TODO: merge the metadata properly.
+                    let mut metadata = first.metadata.clone();
+                    metadata.flags.is_deprecated = impl_is_deprecated;
                     Type::Overload(Overload {
                         signatures: self.extract_signatures(
-                            first.metadata.kind.as_func_id().func,
+                            metadata.kind.as_func_id().func,
                             defs,
                             errors,
                         ),
-                        metadata: Box::new(first.metadata.clone()),
+                        metadata: Box::new(metadata),
                     })
                 }
             } else {
