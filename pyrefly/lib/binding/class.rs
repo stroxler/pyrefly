@@ -50,10 +50,10 @@ use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyTParams;
 use crate::binding::binding::KeyVariance;
-use crate::binding::binding::RawClassFieldInitialization;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::LegacyTParamBuilder;
+use crate::binding::scope::ClassFieldInBody;
 use crate::binding::scope::ClassIndices;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::InstanceAttribute;
@@ -234,31 +234,26 @@ impl<'a> BindingsBuilder<'a> {
                         )
                     } else {
                         match info.as_initial_value() {
-                            RawClassFieldInitialization::ClassBody(Some(e)) => (
+                            ClassFieldInBody::InitializedByAssign(e) => (
                                 ClassFieldDefinition::AssignedInBody {
                                     value: ExprOrBinding::Expr(e.clone()),
                                     annotation: stat_info.annot,
                                 },
                                 true,
                             ),
-                            RawClassFieldInitialization::ClassBody(None) => (
+                            ClassFieldInBody::InitializedWithoutAssign => (
                                 ClassFieldDefinition::DefinedWithoutAssign {
                                     definition: info.key,
                                 },
                                 true,
                             ),
-                            RawClassFieldInitialization::Uninitialized => {
+                            ClassFieldInBody::Uninitialized => {
                                 let annotation = stat_info.annot.unwrap_or_else(
                                     || panic!("A class field known in the body but uninitialized always has an annotation.")
                                 );
                                 (
                                     ClassFieldDefinition::DeclaredByAnnotation { annotation },
                                     false,
-                                )
-                            }
-                            RawClassFieldInitialization::Method(..) => {
-                                unreachable!(
-                                    "A class field defined on the body cannot be method-defined"
                                 )
                             }
                         }
