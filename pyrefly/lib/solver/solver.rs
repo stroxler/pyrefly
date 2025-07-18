@@ -436,7 +436,7 @@ impl Solver {
         let mut modules: SmallMap<Vec<Name>, ModuleType> = SmallMap::new();
         let mut branches = branches
             .into_iter()
-            .flat_map(|x| match x {
+            .filter_map(|x| match x {
                 // Maybe we should force x before looking at it, but that causes issues with
                 // recursive variables that we can't examine.
                 // In practice unlikely anyone has a recursive variable which evaluates to a module.
