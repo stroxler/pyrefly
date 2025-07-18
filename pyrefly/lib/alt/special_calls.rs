@@ -62,6 +62,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let self_form = Type::SpecialForm(SpecialForm::SelfType);
             a.subst_self_type_mut(&self_form, &|_, _| true);
             b.subst_self_type_mut(&self_form, &|_, _| true);
+
+            // Re-sort unions. Make sure to keep this as the final step before comparison.
+            a = a.sort_unions();
+            b = b.sort_unions();
             if a != b {
                 self.error(
                     errors,
