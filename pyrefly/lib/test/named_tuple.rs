@@ -287,3 +287,25 @@ class Cls(NamedTuple):
     fld: InitVar # E: Expected a type argument for `InitVar`
 "#,
 );
+
+testcase!(
+    bug = "Raise an error on InitVar, or allow it fully",
+    test_named_tuple_initvar,
+    r#"
+# InitVar isn't meant to be used with NamedTuple.
+# Pyright/Python treat this field as int, Mypy as InitVar, Pyrefly as Any.
+
+from dataclasses import InitVar
+from typing import Any, assert_type, NamedTuple
+
+class Cls(NamedTuple):
+    fld: InitVar[int]
+
+v = Cls(1)
+v = Cls("no")
+assert_type(v[0], Any)
+
+for y in v:
+    print(assert_type(y, Any))
+"#,
+);

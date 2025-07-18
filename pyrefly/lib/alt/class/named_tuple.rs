@@ -68,9 +68,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             named_tuple_metadata
                 .elements
                 .iter()
-                .flat_map(|name| {
-                    let attr = self.try_lookup_attr_from_class_type(cls.clone(), name)?;
-                    self.resolve_named_tuple_element(attr)
+                .map(|name| {
+                    self.try_lookup_attr_from_class_type(cls.clone(), name)
+                        .and_then(|attr| self.resolve_named_tuple_element(attr))
+                        .unwrap_or_else(Type::any_implicit)
                 })
                 .collect(),
         )
