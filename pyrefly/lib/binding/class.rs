@@ -10,6 +10,7 @@ use std::sync::LazyLock;
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_util::prelude::SliceExt;
 use regex::Regex;
 use ruff_python_ast::Expr;
@@ -62,7 +63,6 @@ use crate::error::context::ErrorInfo;
 use crate::error::kind::ErrorKind;
 use crate::export::docstring::Docstring;
 use crate::graph::index::Idx;
-use crate::module::short_identifier::ShortIdentifier;
 use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassFieldProperties;
 use crate::types::special_form::SpecialForm;

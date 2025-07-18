@@ -11,6 +11,7 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModuleStyle;
+use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::visit::Visit;
@@ -31,7 +32,6 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::export::docstring::Docstring;
-use crate::module::short_identifier::ShortIdentifier;
 use crate::types::globals::Global;
 
 /// How a name is defined. If a name is defined outside of this

@@ -17,4 +17,3 @@ pub mod module_info {
     pub use pyrefly_python::module::*;
     pub type ModuleInfo = Module;
 }
-pub use pyrefly_python::short_identifier;
