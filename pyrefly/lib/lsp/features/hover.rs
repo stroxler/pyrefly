@@ -96,7 +96,8 @@ pub fn get_hover(
     let type_ = transaction.get_type_at(handle, position)?;
     let (kind, name, docstring) = if let Some(FindDefinitionItemWithDocstring {
         metadata,
-        location,
+        definition_range: definition_location,
+        module,
         docstring,
     }) = transaction
         .find_definition(handle, position, true)
@@ -106,7 +107,7 @@ pub fn get_hover(
     {
         (
             metadata.symbol_kind(),
-            Some(location.module.code_at(location.range).to_owned()),
+            Some(module.code_at(definition_location).to_owned()),
             docstring,
         )
     } else {

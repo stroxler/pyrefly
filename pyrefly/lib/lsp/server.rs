@@ -1342,7 +1342,8 @@ impl Server {
         let position = info.lined_buffer().from_lsp_position(position);
         let Some(FindDefinitionItemWithDocstring {
             metadata,
-            location,
+            definition_range,
+            module,
             docstring: _,
         }) = transaction
             .find_definition(&handle, position, false)
@@ -1368,7 +1369,7 @@ impl Server {
             match transaction.find_global_references_from_definition(
                 handle.sys_info(),
                 metadata,
-                location,
+                TextRangeWithModule::new(module, definition_range),
             ) {
                 Ok(global_references) => {
                     let mut locations = Vec::new();
