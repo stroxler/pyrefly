@@ -471,7 +471,7 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                 None
             }
             _ => {
-                Some(results_directory.join("modules").join(format!(
+                Some(PathBuf::from(format!(
                     "{}:{}.json",
                     // Filename must be less than 255 bytes
                     String::from_iter(
@@ -510,7 +510,9 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
     // Dump information about each module, in parallel.
     module_info_tasks.into_par_iter().try_for_each(
         |(handle, module_id, info_path)| -> anyhow::Result<()> {
-            let writer = BufWriter::new(File::create(info_path)?);
+            let writer = BufWriter::new(File::create(
+                results_directory.join("modules").join(info_path),
+            )?);
             serde_json::to_writer(
                 writer,
                 &get_module_file(handle, module_id, transaction, &module_ids),
