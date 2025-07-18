@@ -23,7 +23,7 @@ fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String
     if !docstrings.is_empty() {
         docstrings
             .into_iter()
-            .map(|t| format!("Docstring Result: `{}`", t.as_string()))
+            .map(|t| format!("Docstring Result: `{}`", t.as_str()))
             .join("\n")
     } else {
         "Docstring Result: None".to_owned()

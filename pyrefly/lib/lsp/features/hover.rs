@@ -59,7 +59,7 @@ impl HoverValue {
 
     pub fn format(&self) -> Hover {
         let docstring_formatted = self.docstring.clone().map_or("".to_owned(), |docstring| {
-            format!("\n---\n{}", docstring.as_string().trim())
+            format!("\n---\n{}", docstring.as_str().trim())
         });
         let kind_formatted = self.kind.map_or("".to_owned(), |kind| {
             format!("{} ", kind.display_for_hover())
