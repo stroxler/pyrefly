@@ -188,6 +188,7 @@ impl TypeFormContext {
     }
 }
 
+#[derive(Debug)]
 pub enum Iterable {
     OfType(Type),
     FixedLen(Vec<Type>),
