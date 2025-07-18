@@ -9,6 +9,7 @@ use std::iter;
 
 use dupe::Dupe;
 use pyrefly_python::dunder;
+use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -30,7 +31,6 @@ use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
 use crate::export::exports::Exports;
-use crate::module::module_info::TextRangeWithModule;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
