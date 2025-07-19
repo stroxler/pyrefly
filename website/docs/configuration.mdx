@@ -333,20 +333,41 @@ Configure the severity for each kind of error that Pyrefly emits: `error`, `warn
 
 ### `replace-imports-with-any`
 
-[`ModuleGlob`](#module-globbing)s of modules from which import errors should be
-ignored, and the module should be replaced with `typing.Any`. For example, with
-`from x.y import z` in a file, adding `x.*`, `*.y`, or `x.y` to this config will
-silence those import errors and replace the module with `typing.Any`. If the module can be found, its type
-information will still be replaced with `typing.Any`.
+Instruct Pyrefly to unconditionally replace the given [`ModuleGlob`](#module-globbing)s
+with `typing.Any` and ignore import errors for the module. For example,
+with `from x.y import z` in a file, adding `x.*`, `*.y`, or `x.y` to this config will
+silence those import errors and replace the module with `typing.Any`. If the module
+can be found, its type information will still be replaced with `typing.Any`.
+
+This is different from [`ignore-missing-imports`](#ignore-missing-imports), which only
+replaces the import with `typing.Any` if it can't be found.
 
 - Type: list of regex
 - Default: `[]`
 - Flag equivalent: `--replace-imports-with-any`
 - ENV equivalent: `PYREFLY_REPLACE_IMPORTS_WITH_ANY`
-- Equivalent configs: `ignore_missing_imports` or `follow_imports = skip` in mypy
+- Equivalent configs: `follow_imports = skip` in mypy
+
+### `ignore-missing-imports`
+
+Instruct Pyrefly to replace the given [`ModuleGlob`](#module-globbing)s
+with `typing.Any` and ignore import errors for the module *only when the module
+can't be found*.
+
+For example, with `from x.y import z` in a file, adding `x.*`, `*.y`, or `x.y` to
+this config will silence those import errors and replace the module with `typing.Any`
+if `x.y` can't be found. If `x.y` can be found, then `z`'s type will be used.
+
+This is different from [`replace-imports-with-any`](#replace-imports-with-any), which
+will always, unconditionally replace the import with `typing.Any`.
+
+- Type: list of regex
+- Default: `[]`
+- Flag equivalent: `--ignore-missing-imports`
+- Equivalent configs: `ignore_missing_imports` in mypy
 - Notes:
   - `errors = {import-error = false}` (TOML inline table for `errors`) has similar behavior in Pyrefly, but ignores
-    *all* import errors instead of import errors from specific modules, and won't replace findable modules with `typing.Any`.
+    *all* import errors instead of import errors from specific modules.
 
 ### `ignore-errors-in-generated-code`
 
