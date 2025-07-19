@@ -403,60 +403,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .arc_clone_ty();
 
         if matches!(&ret, Type::TypeGuard(_) | Type::TypeIs(_)) {
-            // https://typing.python.org/en/latest/spec/narrowing.html#typeguard
-            // https://typing.python.org/en/latest/spec/narrowing.html#typeis
-            // TypeGuard and TypeIs must accept at least one positional argument.
-            // If a type guard function is implemented as an instance method or
-            // class method, the first positional argument maps to the second
-            // parameter (after “self” or “cls”).
-            let position_args_count = params
-                .iter()
-                .filter(|p| matches!(p, Param::Pos(..) | Param::PosOnly(..)))
-                .count()
-                - (if class_key.is_some() && !is_staticmethod {
-                    1 // Subtract the "self" or "cls" parameter
-                } else {
-                    0
-                });
-            if position_args_count < 1 {
-                self.error(
-                    errors,
-                    // The error should be raised on the line of the function
-                    // definition, but using `def.range` would be too broad
-                    // since it includes the decorators, which does not match
-                    // the conformance testsuite.
-                    def.name.range,
-                    ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
-                    "Type guard functions must accept at least one positional argument".to_owned(),
-                );
-            }
+            self.validate_type_guard_positional_argument_count(
+                &params,
+                def,
+                class_key,
+                is_staticmethod,
+                errors,
+            );
         };
 
         if let Type::TypeIs(ty_narrow) = &ret {
-            // https://typing.python.org/en/latest/spec/narrowing.html#typeis
-            // The return type R must be assignable to I. The type checker
-            // should emit an error if this condition is not met.
-            let ty_arg = if class_key.is_some() && !is_staticmethod {
-                // Skip the first argument (`self` or `cls`) if this is a method or class method.
-                params.get(1)
-            } else {
-                params.first()
-            };
-            if let Some(ty_arg) = ty_arg
-                && !self.is_subset_eq(ty_narrow, ty_arg.param_to_type())
-            {
-                // If the narrowed type is not a subtype of the argument type, we report an error.
-                self.error(
-                    errors,
-                    def.name.range,
-                    ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
-                    format!(
-                        "Return type `{}` must be assignable to the first argument type `{}`",
-                        self.for_display(*ty_narrow.clone()),
-                        self.for_display(ty_arg.param_to_type().clone())
-                    ),
-                );
-            }
+            self.validate_type_is_type_narrowing(
+                &params,
+                def,
+                class_key,
+                is_staticmethod,
+                ty_narrow,
+                errors,
+            );
         }
 
         let mut tparams = self.scoped_type_params(def.type_params.as_deref(), errors);
@@ -584,6 +548,82 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             metadata,
             stub_or_impl,
         })
+    }
+
+    /// For a type guard function, validate whether it has at least one
+    /// positional argument.
+    fn validate_type_guard_positional_argument_count(
+        &self,
+        params: &[Param],
+        def: &StmtFunctionDef,
+        class_key: Option<&Idx<KeyClass>>,
+        is_staticmethod: bool,
+        errors: &ErrorCollector,
+    ) {
+        // https://typing.python.org/en/latest/spec/narrowing.html#typeguard
+        // https://typing.python.org/en/latest/spec/narrowing.html#typeis
+        // TypeGuard and TypeIs must accept at least one positional argument.
+        // If a type guard function is implemented as an instance method or
+        // class method, the first positional argument maps to the second
+        // parameter (after “self” or “cls”).
+        let position_args_count = params
+            .iter()
+            .filter(|p| matches!(p, Param::Pos(..) | Param::PosOnly(..)))
+            .count()
+            - (if class_key.is_some() && !is_staticmethod {
+                1 // Subtract the "self" or "cls" parameter
+            } else {
+                0
+            });
+        if position_args_count < 1 {
+            self.error(
+                errors,
+                // The error should be raised on the line of the function
+                // definition, but using `def.range` would be too broad
+                // since it includes the decorators, which does not match
+                // the conformance testsuite.
+                def.name.range,
+                ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                "Type guard functions must accept at least one positional argument".to_owned(),
+            );
+        }
+    }
+
+    /// For a "TypeIs" type guard, validate whether the return type is a subtype
+    /// of the first argument type.
+    fn validate_type_is_type_narrowing(
+        &self,
+        params: &[Param],
+        def: &StmtFunctionDef,
+        class_key: Option<&Idx<KeyClass>>,
+        is_staticmethod: bool,
+        ty_narrow: &Type,
+        errors: &ErrorCollector,
+    ) {
+        // https://typing.python.org/en/latest/spec/narrowing.html#typeis
+        // The return type R must be assignable to I. The type checker
+        // should emit an error if this condition is not met.
+        let ty_arg = if class_key.is_some() && !is_staticmethod {
+            // Skip the first argument (`self` or `cls`) if this is a method or class method.
+            params.get(1)
+        } else {
+            params.first()
+        };
+        if let Some(ty_arg) = ty_arg
+            && !self.is_subset_eq(ty_narrow, ty_arg.param_to_type())
+        {
+            // If the narrowed type is not a subtype of the argument type, we report an error.
+            self.error(
+                errors,
+                def.name.range,
+                ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                format!(
+                    "Return type `{}` must be assignable to the first argument type `{}`",
+                    self.for_display(ty_narrow.clone()),
+                    self.for_display(ty_arg.param_to_type().clone())
+                ),
+            );
+        }
     }
 
     /// If instances of this class are callable - that is, have a `__call__` method - return the method.
