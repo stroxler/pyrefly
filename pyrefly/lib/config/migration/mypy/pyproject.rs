@@ -349,13 +349,14 @@ module = [
 "#;
         let cfg = parse_pyproject_config(src)?;
         assert_eq!(
-            cfg.root.replace_imports_with_any,
+            cfg.root.ignore_missing_imports,
             Some(vec![
                 ModuleWildcard::new("a.*.b").unwrap(),
                 ModuleWildcard::new("some.module").unwrap(),
                 ModuleWildcard::new("uses.follow").unwrap(),
             ])
         );
+        assert_eq!(cfg.root.replace_imports_with_any, Some(vec![]),);
 
         Ok(())
     }

@@ -83,7 +83,8 @@ impl ConfigOptionMigrater for ReplaceImports {
             ));
         }
 
-        pyrefly_cfg.root.replace_imports_with_any = Some(result);
+        pyrefly_cfg.root.ignore_missing_imports = Some(result);
+        pyrefly_cfg.root.replace_imports_with_any = Some(Default::default());
         Ok(())
     }
 
@@ -118,7 +119,7 @@ mod tests {
         let _ = replace_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
 
         let expected = vec![ModuleWildcard::new("some.*.project").unwrap()];
-        assert_eq!(pyrefly_cfg.root.replace_imports_with_any, Some(expected));
+        assert_eq!(pyrefly_cfg.root.ignore_missing_imports, Some(expected));
     }
 
     #[test]
@@ -136,7 +137,7 @@ mod tests {
         let _ = replace_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
 
         let expected = vec![ModuleWildcard::new("another.project").unwrap()];
-        assert_eq!(pyrefly_cfg.root.replace_imports_with_any, Some(expected));
+        assert_eq!(pyrefly_cfg.root.ignore_missing_imports, Some(expected));
     }
 
     #[test]
@@ -170,7 +171,7 @@ mod tests {
         assert_eq!(
             pyrefly_cfg
                 .root
-                .replace_imports_with_any
+                .ignore_missing_imports
                 .as_ref()
                 .unwrap()
                 .len(),
@@ -179,7 +180,7 @@ mod tests {
         assert!(
             pyrefly_cfg
                 .root
-                .replace_imports_with_any
+                .ignore_missing_imports
                 .as_ref()
                 .unwrap()
                 .contains(&expected[0])
@@ -187,7 +188,7 @@ mod tests {
         assert!(
             pyrefly_cfg
                 .root
-                .replace_imports_with_any
+                .ignore_missing_imports
                 .as_ref()
                 .unwrap()
                 .contains(&expected[1])
@@ -215,7 +216,7 @@ mod tests {
         assert_eq!(
             pyrefly_cfg
                 .root
-                .replace_imports_with_any
+                .ignore_missing_imports
                 .as_ref()
                 .unwrap()
                 .len(),
@@ -224,7 +225,7 @@ mod tests {
         assert!(
             pyrefly_cfg
                 .root
-                .replace_imports_with_any
+                .ignore_missing_imports
                 .as_ref()
                 .unwrap()
                 .contains(&expected[0])
@@ -232,7 +233,7 @@ mod tests {
         assert!(
             pyrefly_cfg
                 .root
-                .replace_imports_with_any
+                .ignore_missing_imports
                 .as_ref()
                 .unwrap()
                 .contains(&expected[1])
@@ -250,14 +251,14 @@ mod tests {
         );
 
         let mut pyrefly_cfg = ConfigFile::default();
-        let default_replace_imports = pyrefly_cfg.root.replace_imports_with_any.clone();
+        let default_replace_imports = pyrefly_cfg.root.ignore_missing_imports.clone();
 
         let replace_imports = ReplaceImports;
         let result = replace_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
 
         assert!(result.is_err());
         assert_eq!(
-            pyrefly_cfg.root.replace_imports_with_any,
+            pyrefly_cfg.root.ignore_missing_imports,
             default_replace_imports
         );
     }
@@ -273,7 +274,7 @@ mod tests {
         let _ = replace_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
 
         let expected = vec![ModuleWildcard::new("*").unwrap()];
-        assert_eq!(pyrefly_cfg.root.replace_imports_with_any, Some(expected));
+        assert_eq!(pyrefly_cfg.root.ignore_missing_imports, Some(expected));
     }
 
     #[test]
@@ -287,7 +288,7 @@ mod tests {
         let _ = replace_imports.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
 
         let expected = vec![ModuleWildcard::new("*").unwrap()];
-        assert_eq!(pyrefly_cfg.root.replace_imports_with_any, Some(expected));
+        assert_eq!(pyrefly_cfg.root.ignore_missing_imports, Some(expected));
     }
 
     #[test]
@@ -315,7 +316,7 @@ mod tests {
         assert_eq!(
             pyrefly_cfg
                 .root
-                .replace_imports_with_any
+                .ignore_missing_imports
                 .as_ref()
                 .unwrap()
                 .len(),
@@ -324,7 +325,7 @@ mod tests {
         assert!(
             pyrefly_cfg
                 .root
-                .replace_imports_with_any
+                .ignore_missing_imports
                 .as_ref()
                 .unwrap()
                 .contains(&expected[0])
@@ -332,7 +333,7 @@ mod tests {
         assert!(
             pyrefly_cfg
                 .root
-                .replace_imports_with_any
+                .ignore_missing_imports
                 .as_ref()
                 .unwrap()
                 .contains(&expected[1])
@@ -343,14 +344,14 @@ mod tests {
     fn test_migrate_from_pyright() {
         let pyright_cfg = default_pyright_config();
         let mut pyrefly_cfg = ConfigFile::default();
-        let default_replace_imports = pyrefly_cfg.root.replace_imports_with_any.clone();
+        let default_replace_imports = pyrefly_cfg.root.ignore_missing_imports.clone();
 
         let replace_imports = ReplaceImports;
         let result = replace_imports.migrate_from_pyright(&pyright_cfg, &mut pyrefly_cfg);
 
         assert!(result.is_err());
         assert_eq!(
-            pyrefly_cfg.root.replace_imports_with_any,
+            pyrefly_cfg.root.ignore_missing_imports,
             default_replace_imports
         );
     }
