@@ -66,12 +66,12 @@ pub struct PyrightConfig {
 
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::config::migration::error_codes::ErrorCodes;
+use crate::config::migration::ignore_missing_imports::ReplaceImports;
 use crate::config::migration::project_excludes::ProjectExcludes;
 use crate::config::migration::project_includes::ProjectIncludes;
 use crate::config::migration::python_interpreter::PythonInterpreter;
 use crate::config::migration::python_platform::PythonPlatformConfig;
 use crate::config::migration::python_version::PythonVersionConfig;
-use crate::config::migration::replace_imports::ReplaceImports;
 use crate::config::migration::search_path::SearchPath;
 use crate::config::migration::sub_configs::SubConfigs;
 use crate::config::migration::use_untyped_imports::UseUntypedImports;
