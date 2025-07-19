@@ -70,9 +70,13 @@ pub struct ConfigOverrideArgs {
     /// Whether to search imports in `site-package-path` that do not have a `py.typed` file unconditionally.
     #[arg(long, env = clap_env("USE_UNTYPED_IMPORTS"))]
     use_untyped_imports: Option<bool>,
-    /// Replace specified imports with typing.Any, suppressing related import errors even if the module is found.
+    /// Always replace specified imports with typing.Any, suppressing related import errors even if the module is found.
     #[arg(long, env = clap_env("REPLACE_IMPORTS_WITH_ANY"))]
     replace_imports_with_any: Option<Vec<String>>,
+    /// If the specified imported module can't be found, replace it with typing.Any, suppressing
+    /// related import errors.
+    #[arg(long)]
+    ignore_missing_imports: Option<Vec<String>>,
     /// Ignore missing source packages when only type stubs are available, allowing imports to proceed without source validation.
     #[arg(long, env = clap_env("IGNORE_MISSING_SOURCE"))]
     ignore_missing_source: Option<bool>,
@@ -190,6 +194,14 @@ impl ConfigOverrideArgs {
         }
         if let Some(wildcards) = &self.replace_imports_with_any {
             config.root.replace_imports_with_any = Some(
+                wildcards
+                    .iter()
+                    .filter_map(|x| ModuleWildcard::new(x).ok())
+                    .collect(),
+            );
+        }
+        if let Some(wildcards) = &self.ignore_missing_imports {
+            config.root.ignore_missing_imports = Some(
                 wildcards
                     .iter()
                     .filter_map(|x| ModuleWildcard::new(x).ok())
