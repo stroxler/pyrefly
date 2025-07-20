@@ -197,7 +197,7 @@ mod tests {
     use vec1::Vec1;
 
     use super::*;
-    use crate::error::kind::ErrorKind;
+    use crate::config::error_kind::ErrorKind;
     use crate::module::module_info::ModuleInfo;
 
     fn error(path: PathBuf, row: usize, column: usize, error_kind: ErrorKind) -> Error {

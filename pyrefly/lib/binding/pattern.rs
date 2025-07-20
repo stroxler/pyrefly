@@ -31,8 +31,8 @@ use crate::binding::narrow::NarrowOps;
 use crate::binding::narrow::NarrowingSubject;
 use crate::binding::narrow::expr_to_subjects;
 use crate::binding::scope::FlowStyle;
+use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
-use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 use crate::types::facet::FacetKind;
 

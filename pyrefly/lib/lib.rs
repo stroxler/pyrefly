@@ -78,8 +78,8 @@ pub mod library {
                 pub use crate::config::config::ConfigSource;
                 pub use crate::config::config::ProjectLayout;
                 pub use crate::config::environment::environment::PythonEnvironment;
+                pub use crate::config::error_kind::Severity;
                 pub use crate::config::finder;
-                pub use crate::error::kind::Severity;
             }
         }
     }

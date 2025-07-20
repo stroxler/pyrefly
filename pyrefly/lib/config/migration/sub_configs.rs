@@ -113,11 +113,11 @@ impl ConfigOptionMigrater for SubConfigs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::error_kind::ErrorKind;
+    use crate::config::error_kind::Severity;
     use crate::config::migration::pyright::ExecEnv;
     use crate::config::migration::pyright::RuleOverrides;
     use crate::config::migration::test_utils::default_pyright_config;
-    use crate::error::kind::ErrorKind;
-    use crate::error::kind::Severity;
 
     #[test]
     fn test_migrate_from_mypy_with_single_module() {

@@ -28,8 +28,8 @@ use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
 use yansi::Paint;
 
-use crate::error::kind::ErrorKind;
-use crate::error::kind::Severity;
+use crate::config::error_kind::ErrorKind;
+use crate::config::error_kind::Severity;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Error {

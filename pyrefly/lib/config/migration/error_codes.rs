@@ -53,9 +53,9 @@ impl ConfigOptionMigrater for ErrorCodes {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::error_kind::ErrorKind;
+    use crate::config::error_kind::Severity;
     use crate::config::migration::test_utils::default_pyright_config;
-    use crate::error::kind::ErrorKind;
-    use crate::error::kind::Severity;
 
     #[test]
     fn test_migrate_from_mypy_with_both_error_codes() {

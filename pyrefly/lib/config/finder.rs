@@ -26,7 +26,7 @@ use tracing::info;
 use tracing::warn;
 
 use crate::config::config::ConfigFile;
-use crate::error::kind::Severity;
+use crate::config::error_kind::Severity;
 
 pub struct ConfigError {
     severity: Severity,

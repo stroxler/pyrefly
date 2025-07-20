@@ -14,9 +14,9 @@ use ruff_text_size::TextRange;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
+use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
-use crate::error::kind::ErrorKind;
 use crate::types::special_form::SpecialForm;
 use crate::types::types::Type;
 

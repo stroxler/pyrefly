@@ -56,7 +56,7 @@ use crate::alt::attr::AttrInfo;
 use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
 use crate::binding::bindings::Bindings;
-use crate::error::kind::ErrorKind;
+use crate::config::error_kind::ErrorKind;
 use crate::export::docstring::Docstring;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;

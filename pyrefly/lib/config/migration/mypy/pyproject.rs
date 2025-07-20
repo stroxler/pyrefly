@@ -256,8 +256,8 @@ mod tests {
     use pyrefly_util::globs::Globs;
 
     use super::*;
+    use crate::config::error_kind::ErrorKind;
     use crate::config::module_wildcard::ModuleWildcard;
-    use crate::error::kind::ErrorKind;
 
     #[test]
     fn test_missing_mypy() -> anyhow::Result<()> {

@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use configparser::ini::Ini;
 
 use crate::config::error::ErrorDisplayConfig;
-use crate::error::kind::Severity;
+use crate::config::error_kind::Severity;
 
 /// Iterate over INI sections and apply a function to each section
 ///

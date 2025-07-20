@@ -9,6 +9,7 @@ pub mod base;
 pub mod config;
 pub mod environment;
 pub mod error;
+pub mod error_kind;
 pub mod finder;
 pub mod migration;
 pub mod module_wildcard;

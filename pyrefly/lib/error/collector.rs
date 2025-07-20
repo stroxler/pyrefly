@@ -15,9 +15,9 @@ use ruff_text_size::TextRange;
 use vec1::Vec1;
 
 use crate::config::error::ErrorConfig;
+use crate::config::error_kind::Severity;
 use crate::error::context::ErrorInfo;
 use crate::error::error::Error;
-use crate::error::kind::Severity;
 use crate::error::style::ErrorStyle;
 use crate::module::module_info::ModuleInfo;
 
@@ -193,8 +193,8 @@ mod tests {
 
     use super::*;
     use crate::config::error::ErrorDisplayConfig;
-    use crate::error::kind::ErrorKind;
-    use crate::error::kind::Severity;
+    use crate::config::error_kind::ErrorKind;
+    use crate::config::error_kind::Severity;
 
     fn add(errors: &ErrorCollector, range: TextRange, kind: ErrorKind, msg: String) {
         errors.add(range, ErrorInfo::Kind(kind), vec1![msg]);

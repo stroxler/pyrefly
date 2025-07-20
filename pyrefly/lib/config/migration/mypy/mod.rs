@@ -16,8 +16,8 @@ pub use pyproject::parse_pyproject_config;
 
 use crate::config::error::ErrorDisplayConfig;
 // These imports are used in the code
-use crate::error::kind::ErrorKind;
-use crate::error::kind::Severity;
+use crate::config::error_kind::ErrorKind;
+use crate::config::error_kind::Severity;
 
 /// Convert mypy error codes to pyrefly ErrorKinds. This consumes the input map.
 // One or more error codes can map to the same ErrorKind, and this must be taken into consideration when adding a new error code.

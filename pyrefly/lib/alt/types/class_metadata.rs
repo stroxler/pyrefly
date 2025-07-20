@@ -24,9 +24,9 @@ use vec1::Vec1;
 use vec1::vec1;
 
 use crate::alt::class::class_field::ClassField;
+use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
-use crate::error::kind::ErrorKind;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::display::ClassDisplayContext;

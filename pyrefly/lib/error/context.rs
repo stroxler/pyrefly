@@ -9,7 +9,7 @@ use pyrefly_python::module_name::ModuleName;
 use ruff_python_ast::name::Name;
 
 use crate::binding::binding::AnnotationTarget;
-use crate::error::kind::ErrorKind;
+use crate::config::error_kind::ErrorKind;
 use crate::types::callable::FuncId;
 use crate::types::types::Type;
 

@@ -10,7 +10,6 @@ pub mod context;
 pub mod display;
 pub mod error;
 pub mod expectation;
-pub mod kind;
 pub mod legacy;
 pub mod style;
 pub mod summarise;

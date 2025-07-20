@@ -25,8 +25,8 @@ use crate::binding::scope::FlowInfo;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::Loop;
 use crate::binding::scope::LoopExit;
+use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
-use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
 
 impl<'a> BindingsBuilder<'a> {

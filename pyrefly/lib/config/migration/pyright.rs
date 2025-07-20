@@ -19,8 +19,8 @@ use crate::config::base::ConfigBase;
 use crate::config::config::ConfigFile;
 use crate::config::config::SubConfig;
 use crate::config::error::ErrorDisplayConfig;
-use crate::error::kind::ErrorKind;
-use crate::error::kind::Severity;
+use crate::config::error_kind::ErrorKind;
+use crate::config::error_kind::Severity;
 
 /// Represents a pyright executionEnvironment.
 /// pyright's ExecutionEnvironments allow you to specify a different Python environment for a subdirectory,

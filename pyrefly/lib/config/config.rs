@@ -829,9 +829,9 @@ mod tests {
     use toml::Value;
 
     use super::*;
+    use crate::config::error_kind::ErrorKind;
+    use crate::config::error_kind::Severity;
     use crate::config::util::ConfigOrigin;
-    use crate::error::kind::ErrorKind;
-    use crate::error::kind::Severity;
 
     #[test]
     fn deserialize_pyrefly_config() {

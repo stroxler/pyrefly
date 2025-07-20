@@ -13,8 +13,8 @@ use serde::Serialize;
 use serde::de::MapAccess;
 use serde::de::Visitor;
 
-use crate::error::kind::ErrorKind;
-use crate::error::kind::Severity;
+use crate::config::error_kind::ErrorKind;
+use crate::config::error_kind::Severity;
 
 /// Represents overrides for errors to emit when collecting/printing errors.
 /// Not all error kinds are required to be defined in this map. Any that are missing

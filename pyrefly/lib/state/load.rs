@@ -17,9 +17,9 @@ use pyrefly_util::fs_anyhow;
 use ruff_text_size::TextRange;
 use vec1::vec1;
 
+use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
-use crate::error::kind::ErrorKind;
 use crate::error::style::ErrorStyle;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;

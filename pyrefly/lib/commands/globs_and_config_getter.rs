@@ -23,10 +23,10 @@ use crate::commands::config_finder::standard_config_finder;
 use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::config::config::ProjectLayout;
+use crate::config::error_kind::Severity;
 use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::config::finder::debug_log;
-use crate::error::kind::Severity;
 
 fn config_finder(args: ConfigOverrideArgs) -> ConfigFinder {
     standard_config_finder(Arc::new(move |_, x| args.override_config(x)))
