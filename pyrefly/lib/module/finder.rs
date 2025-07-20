@@ -250,7 +250,7 @@ fn continue_find_module(
 ///    should be third-party imports
 /// 2. import resolution: `site_package_path` has extra checks that can occur, while `search_path`
 ///    is just a 'find and return the first result' search.
-pub fn find_module_in_search_path<'a, I>(
+fn find_module_in_search_path<'a, I>(
     module: ModuleName,
     include: I,
 ) -> Result<Option<ModulePath>, FindError>
@@ -290,7 +290,7 @@ where
 ///    should be third-party imports
 /// 2. import resolution: `site_package_path` has extra checks that can occur, while `search_path`
 ///    is just a 'find and return the first result' search.
-pub fn find_module_in_site_package_path<'a, I>(
+fn find_module_in_site_package_path<'a, I>(
     module: ModuleName,
     include: I,
     use_untyped_imports: bool,
@@ -361,7 +361,7 @@ where
     Ok(None)
 }
 
-pub fn find_module_prefixes<'a>(
+fn find_module_prefixes<'a>(
     prefix: ModuleName,
     include: impl Iterator<Item = &'a PathBuf>,
 ) -> Vec<ModuleName> {
