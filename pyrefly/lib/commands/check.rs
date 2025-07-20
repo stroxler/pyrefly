@@ -22,6 +22,7 @@ use anyhow::Context as _;
 use clap::Parser;
 use clap::ValueEnum;
 use dupe::Dupe;
+use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
@@ -41,7 +42,6 @@ use starlark_map::small_set::SmallSet;
 use tracing::debug;
 use tracing::info;
 
-use crate::commands::config_args::ConfigOverrideArgs;
 use crate::commands::run::CommandExitStatus;
 use crate::commands::suppress;
 use crate::commands::util::module_from_path;

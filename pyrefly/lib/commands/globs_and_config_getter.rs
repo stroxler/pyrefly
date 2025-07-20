@@ -12,13 +12,13 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use dupe::Dupe;
 use path_absolutize::Absolutize;
+use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::globs::FilteredGlobs;
 use pyrefly_util::globs::Globs;
 use tracing::debug;
 use tracing::info;
 
-use crate::commands::config_args::ConfigOverrideArgs;
 use crate::commands::config_finder::standard_config_finder;
 use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;

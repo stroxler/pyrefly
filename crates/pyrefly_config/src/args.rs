@@ -16,15 +16,15 @@ use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::display;
 
-use crate::config::base::UntypedDefBehavior;
-use crate::config::config::ConfigFile;
-use crate::config::config::validate_path;
-use crate::config::error::ErrorDisplayConfig;
-use crate::config::error_kind::ErrorKind;
-use crate::config::error_kind::Severity;
-use crate::config::finder::ConfigError;
-use crate::config::module_wildcard::ModuleWildcard;
-use crate::config::util::ConfigOrigin;
+use crate::base::UntypedDefBehavior;
+use crate::config::ConfigFile;
+use crate::config::validate_path;
+use crate::error::ErrorDisplayConfig;
+use crate::error_kind::ErrorKind;
+use crate::error_kind::Severity;
+use crate::finder::ConfigError;
+use crate::module_wildcard::ModuleWildcard;
+use crate::util::ConfigOrigin;
 
 /// config overrides
 #[deny(clippy::missing_docs_in_private_items)]
