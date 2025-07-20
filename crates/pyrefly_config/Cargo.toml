@@ -24,7 +24,7 @@ regex = "1.11.1"
 regex-syntax = "0.7.5"
 serde = { version = "1.0.185", features = ["derive", "rc"] }
 serde_json = { version = "1.0.140", features = ["alloc", "float_roundtrip", "unbounded_depth"] }
-serde_with = { version = "1.14.0", features = ["hex", "json"] }
+serde_with = { version = "3", features = ["hex", "json"] }
 starlark_map = "0.13.0"
 thiserror = "2.0.12"
 toml = { version = "0.9.2", features = ["preserve_order"] }
