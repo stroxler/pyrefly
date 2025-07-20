@@ -31,6 +31,7 @@ use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
 
+pub use crate::base; // Temporary reexports to avoid changing too much at once
 use crate::config::base::ConfigBase;
 use crate::config::base::UntypedDefBehavior;
 use crate::config::environment::environment::PythonEnvironment;
@@ -39,6 +40,13 @@ use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::finder::ConfigError;
 use crate::config::module_wildcard::ModuleWildcard;
+pub use crate::environment; // Temporary reexports to avoid changing too much at once
+pub use crate::error; // Temporary reexports to avoid changing too much at once
+pub use crate::error_kind;
+pub use crate::finder; // Temporary reexports to avoid changing too much at once
+pub use crate::migration; // Temporary reexports to avoid changing too much at once
+pub use crate::module_wildcard; // Temporary reexports to avoid changing too much at once
+pub use crate::util; // Temporary reexports to avoid changing too much at once // Temporary reexports to avoid changing too much at once
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct SubConfig {

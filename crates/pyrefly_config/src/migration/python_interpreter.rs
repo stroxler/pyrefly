@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use configparser::ini::Ini;
 
-use crate::config::config::ConfigFile;
+use crate::config::ConfigFile;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::config::migration::pyright::PyrightConfig;
 use crate::config::util::ConfigOrigin;

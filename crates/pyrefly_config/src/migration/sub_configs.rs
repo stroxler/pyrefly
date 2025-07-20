@@ -8,9 +8,9 @@
 use configparser::ini::Ini;
 use pyrefly_util::globs::Glob;
 
+use crate::config::ConfigFile;
+use crate::config::SubConfig;
 use crate::config::base::ConfigBase;
-use crate::config::config::ConfigFile;
-use crate::config::config::SubConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::config::migration::pyright::PyrightConfig;

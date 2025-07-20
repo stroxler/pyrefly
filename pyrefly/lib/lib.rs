@@ -34,7 +34,6 @@ mod binding;
 #[cfg(not(target_arch = "wasm32"))]
 mod commands;
 mod common;
-mod config;
 mod error;
 mod export;
 mod graph;
@@ -49,6 +48,7 @@ mod state;
 mod test;
 
 // TODO: Remove. For now, make things compatible.
+use pyrefly_config as config;
 use pyrefly_types as types;
 use pyrefly_types::equality;
 

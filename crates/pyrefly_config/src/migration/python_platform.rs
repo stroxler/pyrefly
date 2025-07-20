@@ -8,7 +8,7 @@
 use configparser::ini::Ini;
 use pyrefly_python::sys_info::PythonPlatform;
 
-use crate::config::config::ConfigFile;
+use crate::config::ConfigFile;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::config::migration::pyright::PyrightConfig;
 

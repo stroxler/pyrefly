@@ -111,7 +111,7 @@ impl PythonEnvironment {
     /// Given a path to a Python interpreter executable, query that interpreter for its
     /// version, platform, and site package path. Return an error in the case of failure during
     /// execution, parsing, or deserializing.
-    fn get_env_from_interpreter(interpreter: &Path) -> anyhow::Result<PythonEnvironment> {
+    pub fn get_env_from_interpreter(interpreter: &Path) -> anyhow::Result<PythonEnvironment> {
         if let Ok(pythonpath) = std::env::var("PYTHONPATH") {
             warn!(
                 "PYTHONPATH environment variable is set to `{}`. Checks in other environments may not include these paths.",
@@ -193,7 +193,6 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
 
     /// [`Self::get_default_interpreter()`] and [`Self::get_interpreter_env()`] with the resulting value,
     /// or return [`PythonEnvironment::default()`] if `None`.
-    #[cfg(test)]
     pub fn get_default_interpreter_env() -> PythonEnvironment {
         use crate::config::environment::interpreters::Interpreters;
 

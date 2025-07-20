@@ -13,7 +13,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use toml::Table;
 
-use crate::config::config::ConfigFile;
+use crate::config::ConfigFile;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(transparent)]

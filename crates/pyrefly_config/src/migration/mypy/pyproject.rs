@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde_with::OneOrMany;
 use serde_with::serde_as;
 
-use crate::config::config::ConfigFile;
+use crate::config::ConfigFile;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::config::migration::error_codes::ErrorCodes;
 use crate::config::migration::ignore_missing_imports::IgnoreMissingImports;

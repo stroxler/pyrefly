@@ -15,9 +15,9 @@ use serde::Deserialize;
 use serde_with::FromInto;
 use serde_with::serde_as;
 
+use crate::config::ConfigFile;
+use crate::config::SubConfig;
 use crate::config::base::ConfigBase;
-use crate::config::config::ConfigFile;
-use crate::config::config::SubConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::error_kind::ErrorKind;
 use crate::config::error_kind::Severity;
