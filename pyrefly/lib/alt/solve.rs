@@ -1516,6 +1516,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         restriction: &Restriction,
         errors: &ErrorCollector,
     ) -> Type {
+        pub fn quantified_error<'a>(kind: QuantifiedKind) -> ErrorInfo<'a> {
+            ErrorInfo::Kind(match kind {
+                QuantifiedKind::TypeVar => ErrorKind::InvalidTypeVar,
+                QuantifiedKind::ParamSpec => ErrorKind::InvalidParamSpec,
+                QuantifiedKind::TypeVarTuple => ErrorKind::InvalidTypeVarTuple,
+            })
+        }
+
         if default.is_error() {
             return default.clone();
         }
@@ -1529,7 +1537,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorInfo::Kind(ErrorKind::from_quantified(kind)),
+                        quantified_error(kind),
                         format!(
                             "Expected default `{default}` of `{name}` to be assignable to the upper bound of `{bound_ty}`",
                         ),
@@ -1551,7 +1559,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorInfo::Kind(ErrorKind::from_quantified(kind)),
+                        quantified_error(kind),
                         format!(
                             "Expected default `{default}` of `{name}` to be one of the following constraints: {formatted_constraints}"
                         ),

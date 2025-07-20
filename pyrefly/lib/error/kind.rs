@@ -19,8 +19,6 @@ use starlark_map::small_map::SmallMap;
 use yansi::Paint;
 use yansi::Painted;
 
-use crate::types::quantified::QuantifiedKind;
-
 // IMPORTANT: these cases should be listed in order of severity
 #[derive(
     Debug,
@@ -259,15 +257,8 @@ impl ErrorKind {
             _ => Severity::Error,
         }
     }
-
-    pub fn from_quantified(kind: QuantifiedKind) -> ErrorKind {
-        match kind {
-            QuantifiedKind::TypeVar => ErrorKind::InvalidTypeVar,
-            QuantifiedKind::ParamSpec => ErrorKind::InvalidParamSpec,
-            QuantifiedKind::TypeVarTuple => ErrorKind::InvalidTypeVarTuple,
-        }
-    }
 }
+
 #[cfg(test)]
 mod tests {
     use enum_iterator::all;
