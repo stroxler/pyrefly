@@ -11,7 +11,7 @@ use crate::config::config::ConfigFile;
 use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::config::migration::pyright::PyrightConfig;
 use crate::config::migration::utils;
-use crate::module::wildcard::ModuleWildcard;
+use crate::config::module_wildcard::ModuleWildcard;
 
 /// Configuration option for ignoring missing imports
 pub struct IgnoreMissingImports;

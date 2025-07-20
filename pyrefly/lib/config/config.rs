@@ -38,11 +38,11 @@ use crate::config::environment::interpreters::Interpreters;
 use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::finder::ConfigError;
+use crate::config::module_wildcard::ModuleWildcard;
 use crate::module::finder::find_module_in_search_path;
 use crate::module::finder::find_module_in_site_package_path;
 use crate::module::finder::find_module_prefixes;
 use crate::module::typeshed::typeshed;
-use crate::module::wildcard::ModuleWildcard;
 use crate::state::loader::FindError;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]

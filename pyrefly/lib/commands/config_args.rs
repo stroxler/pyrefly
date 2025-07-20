@@ -21,10 +21,10 @@ use crate::config::config::ConfigFile;
 use crate::config::config::validate_path;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::finder::ConfigError;
+use crate::config::module_wildcard::ModuleWildcard;
 use crate::config::util::ConfigOrigin;
 use crate::error::kind::ErrorKind;
 use crate::error::kind::Severity;
-use crate::module::wildcard::ModuleWildcard;
 
 /// config overrides
 #[deny(clippy::missing_docs_in_private_items)]

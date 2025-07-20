@@ -10,8 +10,8 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::config::error::ErrorDisplayConfig;
+use crate::config::module_wildcard::ModuleWildcard;
 use crate::config::util::ExtraConfigs;
-use crate::module::wildcard::ModuleWildcard;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Copy, Default)]
 #[derive(ValueEnum)]

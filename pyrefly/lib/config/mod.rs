@@ -11,4 +11,5 @@ pub mod environment;
 pub mod error;
 pub mod finder;
 pub mod migration;
+pub mod module_wildcard;
 pub mod util;
