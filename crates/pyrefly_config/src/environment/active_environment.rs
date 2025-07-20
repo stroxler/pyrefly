@@ -8,8 +8,8 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::config::environment::conda;
-use crate::config::environment::venv;
+use crate::environment::conda;
+use crate::environment::venv;
 
 /// Gets the first Python interpreter set in environment variables.
 pub struct ActiveEnvironment {}

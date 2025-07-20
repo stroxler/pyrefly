@@ -11,8 +11,8 @@ use configparser::ini::Ini;
 use pyrefly_python::sys_info::PythonVersion;
 
 use crate::config::ConfigFile;
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::pyright::PyrightConfig;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::pyright::PyrightConfig;
 
 /// Configuration option for Python version
 pub struct PythonVersionConfig;
@@ -54,7 +54,7 @@ impl ConfigOptionMigrater for PythonVersionConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::migration::test_utils::default_pyright_config;
+    use crate::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy() {

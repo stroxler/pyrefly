@@ -9,9 +9,9 @@ use configparser::ini::Ini;
 use pyrefly_util::globs::Globs;
 
 use crate::config::ConfigFile;
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::pyright::PyrightConfig;
-use crate::config::migration::utils;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::pyright::PyrightConfig;
+use crate::migration::utils;
 
 /// Configuration option for project includes (files, packages, modules)
 pub struct ProjectIncludes;
@@ -66,7 +66,7 @@ impl ConfigOptionMigrater for ProjectIncludes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::migration::test_utils::default_pyright_config;
+    use crate::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy() {

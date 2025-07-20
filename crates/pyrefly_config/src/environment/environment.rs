@@ -194,7 +194,7 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
     /// [`Self::get_default_interpreter()`] and [`Self::get_interpreter_env()`] with the resulting value,
     /// or return [`PythonEnvironment::default()`] if `None`.
     pub fn get_default_interpreter_env() -> PythonEnvironment {
-        use crate::config::environment::interpreters::Interpreters;
+        use crate::environment::interpreters::Interpreters;
 
         Interpreters::get_default_interpreter().map_or_else(Self::pyrefly_default, |path| {
             Self::get_interpreter_env(path).0

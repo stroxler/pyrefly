@@ -15,17 +15,17 @@ use pyrefly_python::sys_info::PythonVersion;
 use serde::Deserialize;
 
 use crate::config::ConfigFile;
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::error_codes::ErrorCodes;
-use crate::config::migration::ignore_missing_imports::IgnoreMissingImports;
-use crate::config::migration::project_excludes::ProjectExcludes;
-use crate::config::migration::project_includes::ProjectIncludes;
-use crate::config::migration::python_interpreter::PythonInterpreter;
-use crate::config::migration::python_version::PythonVersionConfig;
-use crate::config::migration::search_path::SearchPath;
-use crate::config::migration::sub_configs::SubConfigs;
-use crate::config::migration::untyped_def_behavior::UntypedDefBehaviorConfig;
-use crate::config::migration::use_untyped_imports::UseUntypedImports;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::error_codes::ErrorCodes;
+use crate::migration::ignore_missing_imports::IgnoreMissingImports;
+use crate::migration::project_excludes::ProjectExcludes;
+use crate::migration::project_includes::ProjectIncludes;
+use crate::migration::python_interpreter::PythonInterpreter;
+use crate::migration::python_version::PythonVersionConfig;
+use crate::migration::search_path::SearchPath;
+use crate::migration::sub_configs::SubConfigs;
+use crate::migration::untyped_def_behavior::UntypedDefBehaviorConfig;
+use crate::migration::use_untyped_imports::UseUntypedImports;
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct MypyConfig {

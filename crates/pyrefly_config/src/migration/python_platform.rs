@@ -9,8 +9,8 @@ use configparser::ini::Ini;
 use pyrefly_python::sys_info::PythonPlatform;
 
 use crate::config::ConfigFile;
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::pyright::PyrightConfig;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::pyright::PyrightConfig;
 
 /// Configuration option for Python platform
 pub struct PythonPlatformConfig;
@@ -52,7 +52,7 @@ mod tests {
     use configparser::ini::Ini;
 
     use super::*;
-    use crate::config::migration::test_utils::default_pyright_config;
+    use crate::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy() {

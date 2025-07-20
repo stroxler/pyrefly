@@ -8,8 +8,8 @@
 use configparser::ini::Ini;
 
 use crate::config::ConfigFile;
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::pyright::PyrightConfig;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::pyright::PyrightConfig;
 
 /// Configuration option for using untyped imports
 pub struct UseUntypedImports;
@@ -52,7 +52,7 @@ impl ConfigOptionMigrater for UseUntypedImports {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::migration::test_utils::default_pyright_config;
+    use crate::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy_true() {

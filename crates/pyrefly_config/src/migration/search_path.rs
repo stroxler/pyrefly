@@ -8,9 +8,9 @@
 use configparser::ini::Ini;
 
 use crate::config::ConfigFile;
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::pyright::PyrightConfig;
-use crate::config::migration::utils;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::pyright::PyrightConfig;
+use crate::migration::utils;
 
 /// Configuration option for search path
 pub struct SearchPath;
@@ -62,7 +62,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::config::migration::test_utils::default_pyright_config;
+    use crate::migration::test_utils::default_pyright_config;
 
     // Constants for test paths
     const FILE_PATH1: &str = "/path/to/stubs";

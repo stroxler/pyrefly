@@ -8,7 +8,7 @@
 use configparser::ini::Ini;
 
 use crate::config::ConfigFile;
-use crate::config::migration::pyright::PyrightConfig;
+use crate::migration::pyright::PyrightConfig;
 
 /// A trait for configuration options that can be migrated from mypy to pyrefly
 pub trait ConfigOptionMigrater {

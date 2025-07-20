@@ -8,7 +8,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::config::environment::finder::walk_interpreter;
+use crate::environment::finder::walk_interpreter;
 
 const CONFIG_FILE: &str = "pyvenv.cfg";
 /// How deep within a project root should we attempt to search for a valid Python executable?

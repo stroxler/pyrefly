@@ -15,10 +15,10 @@ use serde::Serialize;
 #[cfg(not(target_arch = "wasm32"))]
 use which::which;
 
-use crate::config::environment::active_environment::ActiveEnvironment;
-use crate::config::environment::conda;
-use crate::config::environment::venv;
-use crate::config::util::ConfigOrigin;
+use crate::environment::active_environment::ActiveEnvironment;
+use crate::environment::conda;
+use crate::environment::venv;
+use crate::util::ConfigOrigin;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -39,10 +39,7 @@ pub struct Interpreters {
     pub conda_environment: Option<ConfigOrigin<String>>,
 
     /// Should we do any querying of an interpreter?
-    #[serde(
-        default,
-        skip_serializing_if = "crate::config::util::skip_default_false"
-    )]
+    #[serde(default, skip_serializing_if = "crate::util::skip_default_false")]
     pub skip_interpreter_query: bool,
 }
 

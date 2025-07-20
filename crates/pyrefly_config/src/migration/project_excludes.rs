@@ -9,9 +9,9 @@ use configparser::ini::Ini;
 use pyrefly_util::globs::Globs;
 
 use crate::config::ConfigFile;
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::mypy::regex_converter;
-use crate::config::migration::pyright::PyrightConfig;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::mypy::regex_converter;
+use crate::migration::pyright::PyrightConfig;
 
 /// Configuration option for project excludes
 pub struct ProjectExcludes;
@@ -65,7 +65,7 @@ impl ConfigOptionMigrater for ProjectExcludes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::migration::test_utils::default_pyright_config;
+    use crate::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy() {

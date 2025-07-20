@@ -5,8 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use crate::config::migration::pyright::PyrightConfig;
-use crate::config::migration::pyright::RuleOverrides;
+use crate::migration::pyright::PyrightConfig;
+use crate::migration::pyright::RuleOverrides;
 
 /// Helper function to create a default PyrightConfig with all fields set to None or empty.
 pub fn default_pyright_config() -> PyrightConfig {

@@ -9,9 +9,9 @@ use clap::ValueEnum;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::config::error::ErrorDisplayConfig;
-use crate::config::module_wildcard::ModuleWildcard;
-use crate::config::util::ExtraConfigs;
+use crate::error::ErrorDisplayConfig;
+use crate::module_wildcard::ModuleWildcard;
+use crate::util::ExtraConfigs;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Copy, Default)]
 #[derive(ValueEnum)]
@@ -38,7 +38,7 @@ pub struct ConfigBase {
     /// and the module should always be replaced with `typing.Any`
     #[serde(
         default,
-        skip_serializing_if = "crate::config::util::none_or_empty",
+        skip_serializing_if = "crate::util::none_or_empty",
         // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
         // alias while we migrate existing fields from snake case to kebab case.
         alias = "replace_imports_with_any"
@@ -47,7 +47,7 @@ pub struct ConfigBase {
 
     /// Modules from which import errors should be
     /// ignored. The module is only replaced with `typing.Any` if it can't be found.
-    #[serde(default, skip_serializing_if = "crate::config::util::none_or_empty")]
+    #[serde(default, skip_serializing_if = "crate::util::none_or_empty")]
     pub ignore_missing_imports: Option<Vec<ModuleWildcard>>,
 
     /// How should we handle analyzing and inferring the function signature if it's untyped?

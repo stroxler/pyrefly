@@ -8,10 +8,10 @@
 use configparser::ini::Ini;
 
 use crate::config::ConfigFile;
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::pyright::PyrightConfig;
-use crate::config::migration::utils;
-use crate::config::module_wildcard::ModuleWildcard;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::pyright::PyrightConfig;
+use crate::migration::utils;
+use crate::module_wildcard::ModuleWildcard;
 
 /// Configuration option for ignoring missing imports
 pub struct IgnoreMissingImports;
@@ -104,7 +104,7 @@ impl ConfigOptionMigrater for IgnoreMissingImports {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::migration::test_utils::default_pyright_config;
+    use crate::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy_ignore_missing_imports() {

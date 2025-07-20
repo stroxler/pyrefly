@@ -13,7 +13,7 @@ use anyhow::Context as _;
 use itertools::Itertools as _;
 use serde::Deserialize;
 
-use crate::config::environment::finder::walk_interpreter;
+use crate::environment::finder::walk_interpreter;
 
 const SEARCH_DEPTH: usize = 2;
 pub const ENV_VAR: &str = "CONDA_PREFIX";

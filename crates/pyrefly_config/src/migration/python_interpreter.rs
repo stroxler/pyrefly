@@ -11,9 +11,9 @@ use std::str::FromStr;
 use configparser::ini::Ini;
 
 use crate::config::ConfigFile;
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::pyright::PyrightConfig;
-use crate::config::util::ConfigOrigin;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::pyright::PyrightConfig;
+use crate::util::ConfigOrigin;
 
 /// Configuration option for Python interpreter
 pub struct PythonInterpreter;
@@ -53,7 +53,7 @@ impl ConfigOptionMigrater for PythonInterpreter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::migration::test_utils::default_pyright_config;
+    use crate::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy() {

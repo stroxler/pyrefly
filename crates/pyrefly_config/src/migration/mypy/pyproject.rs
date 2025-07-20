@@ -12,16 +12,16 @@ use serde_with::OneOrMany;
 use serde_with::serde_as;
 
 use crate::config::ConfigFile;
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::error_codes::ErrorCodes;
-use crate::config::migration::ignore_missing_imports::IgnoreMissingImports;
-use crate::config::migration::project_excludes::ProjectExcludes;
-use crate::config::migration::project_includes::ProjectIncludes;
-use crate::config::migration::python_interpreter::PythonInterpreter;
-use crate::config::migration::python_version::PythonVersionConfig;
-use crate::config::migration::search_path::SearchPath;
-use crate::config::migration::sub_configs::SubConfigs;
-use crate::config::migration::use_untyped_imports::UseUntypedImports;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::error_codes::ErrorCodes;
+use crate::migration::ignore_missing_imports::IgnoreMissingImports;
+use crate::migration::project_excludes::ProjectExcludes;
+use crate::migration::project_includes::ProjectIncludes;
+use crate::migration::python_interpreter::PythonInterpreter;
+use crate::migration::python_version::PythonVersionConfig;
+use crate::migration::search_path::SearchPath;
+use crate::migration::sub_configs::SubConfigs;
+use crate::migration::use_untyped_imports::UseUntypedImports;
 
 // A pyproject.toml Mypy config differs a bit from the INI format:
 // - The [mypy] section is written as [tool.mypy]
@@ -256,8 +256,8 @@ mod tests {
     use pyrefly_util::globs::Globs;
 
     use super::*;
-    use crate::config::error_kind::ErrorKind;
-    use crate::config::module_wildcard::ModuleWildcard;
+    use crate::error_kind::ErrorKind;
+    use crate::module_wildcard::ModuleWildcard;
 
     #[test]
     fn test_missing_mypy() -> anyhow::Result<()> {

@@ -15,12 +15,12 @@ use serde::Deserialize;
 use serde_with::FromInto;
 use serde_with::serde_as;
 
+use crate::base::ConfigBase;
 use crate::config::ConfigFile;
 use crate::config::SubConfig;
-use crate::config::base::ConfigBase;
-use crate::config::error::ErrorDisplayConfig;
-use crate::config::error_kind::ErrorKind;
-use crate::config::error_kind::Severity;
+use crate::error::ErrorDisplayConfig;
+use crate::error_kind::ErrorKind;
+use crate::error_kind::Severity;
 
 /// Represents a pyright executionEnvironment.
 /// pyright's ExecutionEnvironments allow you to specify a different Python environment for a subdirectory,
@@ -64,17 +64,17 @@ pub struct PyrightConfig {
     pub execution_environments: Vec<ExecEnv>,
 }
 
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::error_codes::ErrorCodes;
-use crate::config::migration::ignore_missing_imports::IgnoreMissingImports;
-use crate::config::migration::project_excludes::ProjectExcludes;
-use crate::config::migration::project_includes::ProjectIncludes;
-use crate::config::migration::python_interpreter::PythonInterpreter;
-use crate::config::migration::python_platform::PythonPlatformConfig;
-use crate::config::migration::python_version::PythonVersionConfig;
-use crate::config::migration::search_path::SearchPath;
-use crate::config::migration::sub_configs::SubConfigs;
-use crate::config::migration::use_untyped_imports::UseUntypedImports;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::error_codes::ErrorCodes;
+use crate::migration::ignore_missing_imports::IgnoreMissingImports;
+use crate::migration::project_excludes::ProjectExcludes;
+use crate::migration::project_includes::ProjectIncludes;
+use crate::migration::python_interpreter::PythonInterpreter;
+use crate::migration::python_platform::PythonPlatformConfig;
+use crate::migration::python_version::PythonVersionConfig;
+use crate::migration::search_path::SearchPath;
+use crate::migration::sub_configs::SubConfigs;
+use crate::migration::use_untyped_imports::UseUntypedImports;
 
 impl PyrightConfig {
     pub fn convert(self) -> ConfigFile {
@@ -226,7 +226,7 @@ mod tests {
     use pyrefly_python::sys_info::PythonPlatform;
 
     use super::*;
-    use crate::config::environment::environment::PythonEnvironment;
+    use crate::environment::environment::PythonEnvironment;
 
     #[test]
     fn test_convert_pyright_config() -> anyhow::Result<()> {

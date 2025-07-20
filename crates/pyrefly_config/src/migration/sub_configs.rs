@@ -8,13 +8,13 @@
 use configparser::ini::Ini;
 use pyrefly_util::globs::Glob;
 
+use crate::base::ConfigBase;
 use crate::config::ConfigFile;
 use crate::config::SubConfig;
-use crate::config::base::ConfigBase;
-use crate::config::error::ErrorDisplayConfig;
-use crate::config::migration::config_option_migrater::ConfigOptionMigrater;
-use crate::config::migration::pyright::PyrightConfig;
-use crate::config::migration::utils;
+use crate::error::ErrorDisplayConfig;
+use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::pyright::PyrightConfig;
+use crate::migration::utils;
 /// Configuration option for sub-configs (per-module options)
 pub struct SubConfigs;
 
@@ -113,11 +113,11 @@ impl ConfigOptionMigrater for SubConfigs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::error_kind::ErrorKind;
-    use crate::config::error_kind::Severity;
-    use crate::config::migration::pyright::ExecEnv;
-    use crate::config::migration::pyright::RuleOverrides;
-    use crate::config::migration::test_utils::default_pyright_config;
+    use crate::error_kind::ErrorKind;
+    use crate::error_kind::Severity;
+    use crate::migration::pyright::ExecEnv;
+    use crate::migration::pyright::RuleOverrides;
+    use crate::migration::test_utils::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy_with_single_module() {

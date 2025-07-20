@@ -10,8 +10,8 @@ use std::path::PathBuf;
 
 use configparser::ini::Ini;
 
-use crate::config::error::ErrorDisplayConfig;
-use crate::config::error_kind::Severity;
+use crate::error::ErrorDisplayConfig;
+use crate::error_kind::Severity;
 
 /// Iterate over INI sections and apply a function to each section
 ///
@@ -89,5 +89,5 @@ pub fn make_error_config(
     for error_code in enables {
         errors.insert(error_code, Severity::Error);
     }
-    crate::config::migration::mypy::code_to_kind(errors)
+    crate::migration::mypy::code_to_kind(errors)
 }
