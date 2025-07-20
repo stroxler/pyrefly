@@ -94,6 +94,7 @@ use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
+use crate::module::finder::find_import_prefixes;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::BundledTypeshed;
 use crate::state::dirty::Dirty;
@@ -577,10 +578,7 @@ impl<'a> Transaction<'a> {
 
     /// Create a handle for import `module` within the handle `handle`
     pub fn import_prefixes(&self, handle: &Handle, module: ModuleName) -> Vec<ModuleName> {
-        self.get_module(handle)
-            .config
-            .read()
-            .find_import_prefixes(module)
+        find_import_prefixes(&self.get_module(handle).config.read(), module)
     }
 
     fn clean(

@@ -39,11 +39,6 @@ use crate::config::error::ErrorConfig;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::finder::ConfigError;
 use crate::config::module_wildcard::ModuleWildcard;
-use crate::module::finder::find_module_in_search_path;
-use crate::module::finder::find_module_in_site_package_path;
-use crate::module::finder::find_module_prefixes;
-use crate::module::typeshed::typeshed;
-use crate::state::loader::FindError;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct SubConfig {
@@ -341,69 +336,6 @@ impl ConfigFile {
                 .collect::<Vec<_>>(),
         );
         FilteredGlobs::new(self.project_includes.clone(), project_excludes)
-    }
-
-    /// Get the given [`ModuleName`] from this config's search and site package paths.
-    /// We take the `path` of the file we're searching for the module from to determine if
-    /// we should replace imports with `typing.Any`.
-    /// Return `Err` when indicating the module could not be found.
-    pub fn find_import(
-        &self,
-        module: ModuleName,
-        path: Option<&Path>,
-    ) -> Result<ModulePath, FindError> {
-        if let Some(path) = self.custom_module_paths.get(&module) {
-            Ok(path.clone())
-        } else if module != ModuleName::builtins()
-            && self
-                .replace_imports_with_any(path)
-                .iter()
-                .any(|p| p.matches(module))
-        {
-            Err(FindError::Ignored)
-        } else if let Some(path) = find_module_in_search_path(module, self.search_path())? {
-            Ok(path)
-        } else if let Some(custom_typeshed_path) = &self.typeshed_path
-            && let Some(path) = find_module_in_search_path(
-                module,
-                std::iter::once(&custom_typeshed_path.join("stdlib")),
-            )?
-        {
-            Ok(path)
-        } else if let Some(path) = typeshed()
-            .map_err(|err| FindError::not_found(err, module))?
-            .find(module)
-        {
-            Ok(path)
-        } else if let Some(path) =
-            find_module_in_search_path(module, self.fallback_search_path.iter())?
-        {
-            Ok(path)
-        } else if let Some(path) = find_module_in_site_package_path(
-            module,
-            self.site_package_path(),
-            self.use_untyped_imports,
-            self.ignore_missing_source,
-        )? {
-            Ok(path)
-        } else if self
-            .ignore_missing_imports(path)
-            .iter()
-            .any(|p| p.matches(module))
-        {
-            Err(FindError::Ignored)
-        } else {
-            Err(FindError::import_lookup_path(
-                self.structured_import_lookup_path(),
-                module,
-                &self.source,
-            ))
-        }
-    }
-
-    /// Find all legitimate imports that start with `module`
-    pub fn find_import_prefixes(&self, module: ModuleName) -> Vec<ModuleName> {
-        find_module_prefixes(module, self.search_path().chain(self.site_package_path()))
     }
 }
 
