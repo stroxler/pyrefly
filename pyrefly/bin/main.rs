@@ -144,13 +144,13 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             project_excludes,
             watch,
             config,
-            mut args,
+            args,
         }) => {
             let (files_to_check, config_finder) = globs_and_config_getter::get(
                 files,
                 project_excludes,
                 config,
-                &mut args.config_override,
+                &args.config_override,
             )?;
             run_check(args, watch, files_to_check, config_finder, allow_forget).await
         }
@@ -162,13 +162,13 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             project_excludes,
             config,
             watch: _,
-            mut args,
+            args,
         }) => {
             let (files_to_check, config_finder) = globs_and_config_getter::get(
                 files,
                 project_excludes,
                 config,
-                &mut args.config_override,
+                &args.config_override,
             )?;
             run_autotype(AutotypeArgs::new(), files_to_check, config_finder).await
         }
@@ -178,14 +178,14 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             files,
             project_excludes,
             config,
-            mut args,
+            args,
             ..
         }) => {
             let (files_to_check, config_finder) = globs_and_config_getter::get(
                 files,
                 project_excludes,
                 config,
-                &mut args.config_override,
+                &args.config_override,
             )?;
             dump_config(files_to_check, config_finder, args)
         }

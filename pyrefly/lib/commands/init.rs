@@ -106,15 +106,14 @@ impl InitArgs {
         info!("Running pyrefly check...");
 
         // Create check args by parsing arguments with output-format set to omit-errors
-        let mut check_args =
-            check::CheckArgs::parse_from(["check", "--output-format", "omit-errors"]);
+        let check_args = check::CheckArgs::parse_from(["check", "--output-format", "omit-errors"]);
 
         // Use get to get the filtered globs and config finder
         let (filtered_globs, config_finder) = globs_and_config_getter::get(
             Vec::new(),
             None,
             config_path,
-            &mut check_args.config_override,
+            &check_args.config_override,
         )?;
 
         // Run the check directly
@@ -139,7 +138,7 @@ impl InitArgs {
             info!("Running pyrefly check with suppress-errors flag...");
 
             // Create check args with suppress-errors flag
-            let mut suppress_args = check::CheckArgs::parse_from([
+            let suppress_args = check::CheckArgs::parse_from([
                 "check",
                 "--suppress-errors",
                 "--output-format",
@@ -152,7 +151,7 @@ impl InitArgs {
                 Vec::new(),
                 None,
                 config_path,
-                &mut suppress_args.config_override,
+                &suppress_args.config_override,
             )?;
 
             // Run the check with suppress-errors flag
@@ -300,7 +299,7 @@ impl InitArgs {
         );
 
         // Create check args with suppress-errors flag
-        let mut suppress_args = check::CheckArgs::parse_from([
+        let suppress_args = check::CheckArgs::parse_from([
             "check",
             "--suppress-errors",
             "--output-format",
@@ -329,7 +328,7 @@ impl InitArgs {
             files_to_check,
             None,
             config_path.clone(),
-            &mut suppress_args.config_override,
+            &suppress_args.config_override,
         )?;
 
         // Run the check with suppress-errors flag

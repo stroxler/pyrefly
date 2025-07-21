@@ -154,7 +154,7 @@ pub fn get(
     files: Vec<String>,
     project_excludes: Option<Vec<String>>,
     config: Option<PathBuf>,
-    args: &mut ConfigOverrideArgs,
+    args: &ConfigOverrideArgs,
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
     args.validate()?;
     let project_excludes = if let Some(project_excludes) = project_excludes {
