@@ -5,18 +5,17 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use export::docstring::Docstring;
 use lsp_types::Hover;
 use lsp_types::HoverContents;
 use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
 use lsp_types::Url;
+use pyrefly_python::docstring::Docstring;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_types::types::Type;
 use ruff_text_size::TextSize;
 use starlark_map::small_set::SmallSet;
 
-use crate::export;
 use crate::state::handle::Handle;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::state::Transaction;

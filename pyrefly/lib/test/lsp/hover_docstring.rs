@@ -7,9 +7,9 @@
 
 use itertools::Itertools as _;
 use pretty_assertions::assert_eq;
+use pyrefly_python::docstring::Docstring;
 use ruff_text_size::TextSize;
 
-use crate::export::docstring::Docstring;
 use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report;

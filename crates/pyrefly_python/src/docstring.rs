@@ -7,10 +7,11 @@
 
 use std::cmp::min;
 
-use pyrefly_python::module::Module;
 use ruff_python_ast::Stmt;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+
+use crate::module::Module;
 
 #[derive(Debug, Clone)]
 pub struct Docstring(pub TextRange, pub Module);
@@ -84,7 +85,7 @@ impl Docstring {
 
 #[cfg(test)]
 mod tests {
-    use crate::export::docstring::Docstring;
+    use crate::docstring::Docstring;
 
     #[test]
     fn test_clean_removes_double_multiline_double_quotes() {

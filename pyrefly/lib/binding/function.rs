@@ -8,6 +8,7 @@
 use std::mem;
 
 use pyrefly_python::ast::Ast;
+use pyrefly_python::docstring::Docstring;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::prelude::VecExt;
@@ -51,7 +52,6 @@ use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::Scope;
 use crate::binding::scope::YieldsAndReturns;
 use crate::config::base::UntypedDefBehavior;
-use crate::export::docstring::Docstring;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::types::types::Type;

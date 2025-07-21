@@ -11,6 +11,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_python::docstring::Docstring;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
@@ -23,7 +24,6 @@ use starlark_map::small_set::SmallSet;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
 use crate::export::definitions::DunderAllEntry;
-use crate::export::docstring::Docstring;
 use crate::graph::calculation::Calculation;
 use crate::module::module_info::ModuleInfo;
 use crate::state::loader::FindError;

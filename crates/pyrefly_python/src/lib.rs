@@ -21,6 +21,7 @@
 
 pub mod ast;
 pub mod display;
+pub mod docstring;
 pub mod dunder;
 pub mod ignore;
 pub mod keywords;

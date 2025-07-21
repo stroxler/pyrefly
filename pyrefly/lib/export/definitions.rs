@@ -8,6 +8,7 @@
 use std::cmp;
 
 use pyrefly_python::ast::Ast;
+use pyrefly_python::docstring::Docstring;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModuleStyle;
@@ -31,7 +32,6 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::export::docstring::Docstring;
 use crate::types::globals::Global;
 
 /// How a name is defined. If a name is defined outside of this

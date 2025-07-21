@@ -9,6 +9,7 @@ use std::mem;
 use std::sync::LazyLock;
 
 use pyrefly_python::ast::Ast;
+use pyrefly_python::docstring::Docstring;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_util::prelude::SliceExt;
@@ -61,7 +62,6 @@ use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
-use crate::export::docstring::Docstring;
 use crate::graph::index::Idx;
 use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassFieldProperties;
