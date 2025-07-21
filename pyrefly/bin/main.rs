@@ -12,9 +12,9 @@ use clap::Parser;
 use clap::Subcommand;
 use library::AutotypeArgs;
 use library::BuckCheckArgs;
+use library::DumpConfigArgs;
 use library::InitArgs;
 use library::LspArgs;
-use library::dump_config;
 use library::util::CommandExitStatus;
 use library::util::CommonGlobalArgs;
 use pyrefly::library::library::library::library;
@@ -57,7 +57,7 @@ enum Command {
     Check(FullCheckArgs),
 
     /// Dump info about pyrefly's configuration. Use by replacing `check` with `dump-config` in your pyrefly invocation.
-    DumpConfig(FullCheckArgs),
+    DumpConfig(DumpConfigArgs),
 
     /// Entry point for Buck integration
     BuckCheck(BuckCheckArgs),
@@ -80,11 +80,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
         Command::Lsp(args) => args.run(),
         Command::Init(args) => args.run(),
         Command::Autotype(args) => args.run(),
-        // We intentionally make DumpConfig take the same arguments as Check so that dumping the
-        // config is as easy as changing the command name.
-        Command::DumpConfig(FullCheckArgs { files, args, .. }) => {
-            dump_config(files, args.config_override)
-        }
+        Command::DumpConfig(args) => args.run(),
     }
 }
 

@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use clap::Parser;
 use dupe::Dupe;
 use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_python::module_path::ModulePath;
@@ -12,6 +13,7 @@ use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::prelude::SliceExt;
 use starlark_map::small_map::SmallMap;
 
+use crate::commands::check::FullCheckArgs;
 use crate::commands::check::Handles;
 use crate::commands::files::FilesArgs;
 use crate::commands::util::CommandExitStatus;
@@ -19,7 +21,22 @@ use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::state::require::Require;
 
-pub fn dump_config(
+// We intentionally make DumpConfig take the same arguments as Check so that dumping the
+// config is as easy as changing the command name.
+#[derive(Debug, Clone, Parser)]
+pub struct DumpConfigArgs {
+    #[command(flatten)]
+    args: FullCheckArgs,
+}
+
+impl DumpConfigArgs {
+    pub fn run(self) -> anyhow::Result<CommandExitStatus> {
+        // Pass on just the subset of args we use, the rest are irrelevant
+        dump_config(self.args.files, self.args.args.config_override)
+    }
+}
+
+fn dump_config(
     files: FilesArgs,
     config_override: ConfigOverrideArgs,
 ) -> anyhow::Result<CommandExitStatus> {
