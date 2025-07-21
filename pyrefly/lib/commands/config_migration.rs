@@ -23,7 +23,6 @@ use tracing::error;
 use tracing::info;
 use tracing::warn;
 
-use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::config::migration::mypy;
 use crate::config::migration::mypy::MypyConfig;
@@ -145,10 +144,10 @@ impl Args {
         Ok((config, original_config_path))
     }
 
-    pub fn run(&self) -> anyhow::Result<(CommandExitStatus, Option<PathBuf>)> {
+    pub fn run(&self) -> anyhow::Result<Option<PathBuf>> {
         let (config, original_config_path) = match self.load_config() {
             Ok(result) => result,
-            Err(_) => return Ok((CommandExitStatus::UserError, None)),
+            Err(_) => return Ok(None),
         };
 
         let pyrefly_config_path = {
@@ -179,10 +178,7 @@ impl Args {
             fs_anyhow::write(&pyrefly_config_path, serialized.as_bytes())?;
             info!("New config written to `{}`", pyrefly_config_path.display());
         }
-        Ok((
-            CommandExitStatus::Success,
-            Some(pyrefly_config_path.clone()),
-        ))
+        Ok(Some(pyrefly_config_path.clone()))
     }
 }
 
@@ -222,9 +218,8 @@ mod tests {
         let args = Args {
             original_config_path: Some(original_config_path),
         };
-        let (status, pyrefly_config_path) = args.run()?;
+        let pyrefly_config_path = args.run()?;
 
-        assert!(matches!(status, CommandExitStatus::Success));
         assert!(pyrefly_config_path.is_some());
         let pyrefly_config_path_unwrapped = pyrefly_config_path.unwrap();
         let output = fs_anyhow::read_to_string(&(pyrefly_config_path_unwrapped))?;
@@ -266,8 +261,7 @@ check_untyped_defs = True
         let args = Args {
             original_config_path: Some(original_config_path),
         };
-        let (status, pyrefly_config_path) = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success));
+        let pyrefly_config_path = args.run()?;
         assert!(pyrefly_config_path.is_some());
         let pyrefly_config_path_unwrapped = pyrefly_config_path.unwrap();
 
@@ -303,8 +297,7 @@ files = ["a.py"]
         let args = Args {
             original_config_path: Some(original_config_path.clone()),
         };
-        let (status, pyrefly_config_path) = args.run()?;
-        assert_eq!(status, CommandExitStatus::Success);
+        let pyrefly_config_path = args.run()?;
         assert_eq!(pyrefly_config_path.unwrap(), original_config_path);
         let pyproject = fs_anyhow::read_to_string(&original_config_path)?;
         assert_eq!(pyproject.lines().next().unwrap(), "[tool.mypy]");
@@ -323,8 +316,7 @@ include = ["a.py"]
         let args = Args {
             original_config_path: Some(original_config_path.clone()),
         };
-        let (status, pyrefly_config_path) = args.run()?;
-        assert_eq!(status, CommandExitStatus::Success);
+        let pyrefly_config_path = args.run()?;
         assert_eq!(pyrefly_config_path.unwrap(), original_config_path);
         let pyproject = fs_anyhow::read_to_string(&original_config_path)?;
         assert_eq!(pyproject.lines().next().unwrap(), "[tool.pyright]");
@@ -347,7 +339,7 @@ description = "A test project"
             original_config_path: Some(original_config_path.clone()),
         };
         let result = args.run();
-        assert!(matches!(result.unwrap().0, CommandExitStatus::UserError));
+        assert!(result.unwrap().is_none());
         let content = fs_anyhow::read_to_string(&original_config_path)?;
         assert_eq!(content, std::str::from_utf8(pyproject)?);
         Ok(())
@@ -367,8 +359,8 @@ files = 1
         let args = Args {
             original_config_path: Some(original_config_path),
         };
-        let (status, _) = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success));
+        let res = args.run()?;
+        assert!(res.is_some());
         Ok(())
     }
 
@@ -408,11 +400,11 @@ files = ["mypy.py"]
         let bottom = tmp.path().join("a/b/c/");
         std::fs::create_dir_all(&bottom)?;
         fs_anyhow::write(&tmp.path().join("a/mypy.ini"), b"[mypy]\n")?;
-        let (status, _) = Args {
+        let res = Args {
             original_config_path: Some(bottom),
         }
         .run()?;
-        assert!(matches!(status, CommandExitStatus::Success));
+        assert!(res.is_some());
         assert!(tmp.path().join("a/pyrefly.toml").try_exists()?);
         Ok(())
     }
@@ -426,8 +418,8 @@ files = ["mypy.py"]
         let args = Args {
             original_config_path: Some(original_config_path),
         };
-        let (status, _) = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success));
+        let res = args.run()?;
+        assert!(res.is_some());
         let output = fs_anyhow::read_to_string(&pyrefly_config_path)?;
         assert_eq!(output, "");
         Ok(())
@@ -442,8 +434,8 @@ files = ["mypy.py"]
         let args = Args {
             original_config_path: Some(original_config_path),
         };
-        let (status, _) = args.run()?;
-        assert!(matches!(status, CommandExitStatus::Success));
+        let res = args.run()?;
+        assert!(res.is_some());
         let output = fs_anyhow::read_to_string(&pyrefly_config_path)?;
         assert_eq!(output, "");
         Ok(())

@@ -444,8 +444,10 @@ impl InitArgs {
                 original_config_path: Some(path.clone()),
             };
             match args.run() {
-                Ok((status, Some(config_path))) => return Ok((status, Some(config_path))),
-                Ok((status, None)) => return Ok((status, None)),
+                Ok(Some(config_path)) => {
+                    return Ok((CommandExitStatus::Success, Some(config_path)));
+                }
+                Ok(None) => return Ok((CommandExitStatus::UserError, None)),
                 Err(e) => return Err(e),
             }
         }
