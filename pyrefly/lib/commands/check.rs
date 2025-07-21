@@ -42,6 +42,7 @@ use starlark_map::small_set::SmallSet;
 use tracing::debug;
 use tracing::info;
 
+use crate::commands::files::FilesArgs;
 use crate::commands::util::CommandExitStatus;
 use crate::config::error_kind::Severity;
 use crate::config::finder::ConfigFinder;
@@ -58,6 +59,58 @@ use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::subscriber::ProgressBarSubscriber;
+
+/// Check the given files.
+#[deny(clippy::missing_docs_in_private_items)]
+#[derive(Debug, Clone, Parser)]
+pub struct FullCheckArgs {
+    /// Which files to check.
+    #[command(flatten)]
+    pub files: FilesArgs,
+
+    /// Watch for file changes and re-check them.
+    #[arg(long, conflicts_with = "check_all")]
+    watch: bool,
+
+    /// Type checking arguments and configuration
+    #[command(flatten)]
+    pub args: CheckArgs,
+}
+
+impl FullCheckArgs {
+    pub async fn run(self, allow_forget: bool) -> anyhow::Result<CommandExitStatus> {
+        self.args.config_override.validate()?;
+        let (files_to_check, config_finder) = self.files.resolve(&self.args.config_override)?;
+        run_check(
+            self.args,
+            self.watch,
+            files_to_check,
+            config_finder,
+            allow_forget,
+        )
+        .await
+    }
+}
+
+async fn run_check(
+    args: CheckArgs,
+    watch: bool,
+    files_to_check: FilteredGlobs,
+    config_finder: ConfigFinder,
+    allow_forget: bool,
+) -> anyhow::Result<CommandExitStatus> {
+    if watch {
+        let watcher = Watcher::notify(&files_to_check.roots())?;
+        args.run_watch(watcher, files_to_check, config_finder)
+            .await?;
+        Ok(CommandExitStatus::Success)
+    } else {
+        match args.run_once(files_to_check, config_finder, allow_forget) {
+            Ok((status, _)) => Ok(status),
+            Err(e) => Err(e),
+        }
+    }
+}
 
 #[derive(Debug, Clone, ValueEnum, Default)]
 enum OutputFormat {

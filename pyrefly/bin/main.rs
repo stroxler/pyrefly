@@ -12,19 +12,15 @@ use clap::Parser;
 use clap::Subcommand;
 use library::AutotypeArgs;
 use library::BuckCheckArgs;
-use library::CheckArgs;
 use library::InitArgs;
 use library::LspArgs;
 use library::dump_config;
 use library::util::CommandExitStatus;
 use library::util::CommonGlobalArgs;
 use pyrefly::library::library::library::library;
-use pyrefly::library::library::library::library::files::FilesArgs;
-use pyrefly_config::finder::ConfigFinder;
+use pyrefly::library::library::library::library::FullCheckArgs;
 use pyrefly_util::args::get_args_expanded;
-use pyrefly_util::globs::FilteredGlobs;
 use pyrefly_util::panic::exit_on_panic;
-use pyrefly_util::watcher::Watcher;
 
 // fbcode likes to set its own allocator in fbcode.default_allocator
 // So when we set our own allocator, buck build buck2 or buck2 build buck2 often breaks.
@@ -53,22 +49,6 @@ struct Args {
     command: Command,
 }
 
-#[deny(clippy::missing_docs_in_private_items)]
-#[derive(Debug, Clone, Parser)]
-struct FullCheckArgs {
-    /// Which files to check.
-    #[command(flatten)]
-    files: FilesArgs,
-
-    /// Watch for file changes and re-check them.
-    #[arg(long, conflicts_with = "check_all")]
-    watch: bool,
-
-    /// Type checking arguments and configuration
-    #[command(flatten)]
-    args: CheckArgs,
-}
-
 /// Subcommands to run Pyrefly with.
 #[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Subcommand)]
@@ -93,33 +73,9 @@ enum Command {
     Autotype(AutotypeArgs),
 }
 
-async fn run_check(
-    args: library::CheckArgs,
-    watch: bool,
-    files_to_check: FilteredGlobs,
-    config_finder: ConfigFinder,
-    allow_forget: bool,
-) -> anyhow::Result<CommandExitStatus> {
-    if watch {
-        let watcher = Watcher::notify(&files_to_check.roots())?;
-        args.run_watch(watcher, files_to_check, config_finder)
-            .await?;
-        Ok(CommandExitStatus::Success)
-    } else {
-        match args.run_once(files_to_check, config_finder, allow_forget) {
-            Ok((status, _)) => Ok(status),
-            Err(e) => Err(e),
-        }
-    }
-}
-
 async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<CommandExitStatus> {
     match command {
-        Command::Check(FullCheckArgs { files, watch, args }) => {
-            args.config_override.validate()?;
-            let (files_to_check, config_finder) = files.resolve(&args.config_override)?;
-            run_check(args, watch, files_to_check, config_finder, allow_forget).await
-        }
+        Command::Check(args) => args.run(allow_forget).await,
         Command::BuckCheck(args) => args.run(),
         Command::Lsp(args) => args.run(),
         Command::Init(args) => args.run(),
