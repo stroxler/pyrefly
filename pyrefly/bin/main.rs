@@ -145,7 +145,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
         Command::DumpConfig(FullCheckArgs { files, args, .. }) => {
             args.config_override.validate()?;
             let (files_to_check, config_finder) = files.resolve(&args.config_override)?;
-            dump_config(files_to_check, config_finder, args)
+            dump_config(files_to_check, config_finder)
         }
     }
 }
