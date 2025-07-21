@@ -8,6 +8,7 @@
 use num_traits::ToPrimitive;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Alias;
+use ruff_python_ast::Decorator;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
@@ -37,6 +38,7 @@ struct Facts {
     file: src::File,
     module: python::Module,
     module_name: String,
+    module_info: ModuleInfo,
     decl_locations: Vec<python::DeclarationLocation>,
     def_locations: Vec<python::DefinitionLocation>,
     import_star_locations: Vec<python::ImportStarLocation>,
@@ -61,11 +63,12 @@ struct DeclarationInfo {
 }
 
 impl Facts {
-    fn new(file: src::File, module: python::Module, module_name: String) -> Facts {
+    fn new(file: src::File, module: python::Module, module_info: ModuleInfo) -> Facts {
         Facts {
             file,
             module,
-            module_name,
+            module_name: module_info.name().to_string(),
+            module_info,
             decl_locations: vec![],
             def_locations: vec![],
             import_star_locations: vec![],
@@ -127,6 +130,14 @@ impl Facts {
         python::Name::new(fq_name)
     }
 
+    fn make_decorators(&self, decorators: &[Decorator]) -> Vec<String> {
+        let lined_buffer = self.module_info.lined_buffer();
+        decorators
+            .iter()
+            .map(|x| lined_buffer.code_at(x.range()).to_owned())
+            .collect()
+    }
+
     fn class_facts(
         &mut self,
         cls: &StmtClassDef,
@@ -150,8 +161,7 @@ impl Facts {
             cls_declaration.clone(),
             Some(bases),
             None,
-            //TODO(@rubmary) Generate decorators and container for classes
-            None,
+            Some(self.make_decorators(&cls.decorator_list)),
             Some(container),
         );
 
@@ -280,7 +290,7 @@ impl Facts {
             Some(kwonly_args),
             star_arg,
             star_kwarg,
-            None, // TODO(@rubmary) generate decorator
+            Some(self.make_decorators(&func.decorator_list)),
             Some(container),
         );
 
@@ -557,11 +567,7 @@ impl Glean {
         let top_level_decl = python::Declaration::module(module_fact.clone());
         let file_language_fact = src::FileLanguage::new(file_fact.clone(), src::Language::Python);
 
-        let mut facts = Facts::new(
-            file_fact.clone(),
-            module_fact.clone(),
-            module_info.name().to_string(),
-        );
+        let mut facts = Facts::new(file_fact.clone(), module_fact.clone(), module_info.clone());
 
         let file_lines = facts.file_lines_fact(module_info);
 
