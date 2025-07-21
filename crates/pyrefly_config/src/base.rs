@@ -43,12 +43,12 @@ pub struct ConfigBase {
         // alias while we migrate existing fields from snake case to kebab case.
         alias = "replace_imports_with_any"
     )]
-    pub replace_imports_with_any: Option<Vec<ModuleWildcard>>,
+    pub(crate) replace_imports_with_any: Option<Vec<ModuleWildcard>>,
 
     /// Modules from which import errors should be
     /// ignored. The module is only replaced with `typing.Any` if it can't be found.
     #[serde(default, skip_serializing_if = "crate::util::none_or_empty")]
-    pub ignore_missing_imports: Option<Vec<ModuleWildcard>>,
+    pub(crate) ignore_missing_imports: Option<Vec<ModuleWildcard>>,
 
     /// How should we handle analyzing and inferring the function signature if it's untyped?
     #[serde(
@@ -81,11 +81,11 @@ impl ConfigBase {
         base.errors.as_ref()
     }
 
-    pub fn get_replace_imports_with_any(base: &Self) -> Option<&[ModuleWildcard]> {
+    pub(crate) fn get_replace_imports_with_any(base: &Self) -> Option<&[ModuleWildcard]> {
         base.replace_imports_with_any.as_deref()
     }
 
-    pub fn get_ignore_missing_imports(base: &Self) -> Option<&[ModuleWildcard]> {
+    pub(crate) fn get_ignore_missing_imports(base: &Self) -> Option<&[ModuleWildcard]> {
         base.ignore_missing_imports.as_deref()
     }
 

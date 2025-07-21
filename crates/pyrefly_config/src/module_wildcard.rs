@@ -24,25 +24,25 @@ use serde::de::Visitor;
 /// The `*` must be its own path component (`<pattern>.*.<pattern>`), or start
 /// (`*.<pattern>`)/end (`<pattern>.*`) the pattern.
 #[derive(Debug, Clone)]
-pub struct ModuleWildcard {
+pub(crate) struct ModuleWildcard {
     pattern: Regex,
     /// The original pattern, before rewriting to escape it and handle wildcards
     origin: String,
 }
 
 impl ModuleWildcard {
-    pub fn new(value: &str) -> anyhow::Result<Self> {
+    pub(crate) fn new(value: &str) -> anyhow::Result<Self> {
         Ok(Self {
             pattern: rewrite_pattern_as_regex(value)?,
             origin: value.to_owned(),
         })
     }
 
-    pub fn matches(&self, module_path: ModuleName) -> bool {
+    pub(crate) fn matches(&self, module_path: ModuleName) -> bool {
         self.pattern.is_match(module_path.as_str())
     }
 
-    pub fn as_str(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &str {
         self.pattern.as_str()
     }
 }
