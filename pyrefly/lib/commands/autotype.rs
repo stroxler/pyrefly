@@ -9,13 +9,13 @@ use std::path::Path;
 
 use clap::Parser;
 use dupe::Dupe;
+use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_config::finder::ConfigFinder;
 use pyrefly_util::forgetter::Forgetter;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::globs::FilteredGlobs;
 use ruff_text_size::TextSize;
 
-use crate::commands::check::CheckArgs;
 use crate::commands::check::Handles;
 use crate::commands::files::FilesArgs;
 use crate::commands::util::CommandExitStatus;
@@ -36,13 +36,9 @@ pub struct AutotypeArgs {
     #[command(flatten)]
     files: FilesArgs,
 
-    /// Watch for file changes and re-check them.
-    #[arg(long, conflicts_with = "check_all")]
-    watch: bool,
-
     /// Type checking arguments and configuration
     #[command(flatten)]
-    args: CheckArgs,
+    config_override: ConfigOverrideArgs,
 }
 
 impl ParameterAnnotation {
@@ -119,8 +115,8 @@ fn hint_to_string(
 
 impl AutotypeArgs {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
-        self.args.config_override.validate()?;
-        let (files_to_check, config_finder) = self.files.resolve(&self.args.config_override)?;
+        self.config_override.validate()?;
+        let (files_to_check, config_finder) = self.files.resolve(&self.config_override)?;
         Self::run_inner(files_to_check, config_finder)
     }
 
