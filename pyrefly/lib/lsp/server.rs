@@ -164,7 +164,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::commands::lsp::IndexingMode;
 use crate::commands::lsp::LspArgs;
-use crate::commands::util::module_from_path;
 use crate::common::files::PYTHON_FILE_SUFFIXES_TO_WATCH;
 use crate::config::config::ConfigFile;
 use crate::config::error_kind::Severity;
@@ -178,6 +177,7 @@ use crate::lsp::transaction_manager::IDETransactionManager;
 use crate::lsp::workspace::PythonInfo;
 use crate::lsp::workspace::Workspace;
 use crate::lsp::workspace::Workspaces;
+use crate::module::from_path::module_from_path;
 use crate::state::handle::Handle;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::require::Require;

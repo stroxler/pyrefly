@@ -15,7 +15,7 @@ use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
 use tracing::warn;
 
-use crate::commands::util::module_from_path;
+use crate::module::from_path::module_from_path;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
 use crate::state::handle::Handle;

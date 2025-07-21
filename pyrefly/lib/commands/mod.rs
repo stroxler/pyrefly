@@ -18,4 +18,3 @@ pub mod lsp;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod run;
 pub mod suppress;
-pub mod util;
