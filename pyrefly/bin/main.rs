@@ -146,6 +146,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             config,
             args,
         }) => {
+            args.config_override.validate()?;
             let (files_to_check, config_finder) = globs_and_config_getter::get(
                 files,
                 project_excludes,
@@ -164,6 +165,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             watch: _,
             args,
         }) => {
+            args.config_override.validate()?;
             let (files_to_check, config_finder) = globs_and_config_getter::get(
                 files,
                 project_excludes,
@@ -181,6 +183,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             args,
             ..
         }) => {
+            args.config_override.validate()?;
             let (files_to_check, config_finder) = globs_and_config_getter::get(
                 files,
                 project_excludes,
