@@ -62,11 +62,6 @@ pub mod library {
     pub mod library {
         pub mod library {
             pub mod library {
-                pub use pyrefly_python::module_name::ModuleName;
-                pub use pyrefly_python::module_path::ModulePath;
-                pub use pyrefly_python::sys_info::PythonPlatform;
-                pub use pyrefly_python::sys_info::PythonVersion;
-
                 #[cfg(not(target_arch = "wasm32"))]
                 pub use crate::commands::config_finder::standard_config_finder;
                 #[cfg(not(target_arch = "wasm32"))]
