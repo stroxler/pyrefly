@@ -42,17 +42,16 @@ impl Docstring {
             ("r\"", "\""),         // Raw double quotes
         ];
 
-        let mut result = result;
+        let mut result = result.as_str();
         for (prefix, suffix) in patterns {
             if let Some(x) = result.strip_prefix(prefix)
                 && let Some(x) = x.strip_suffix(suffix)
             {
-                result = x.to_owned();
+                result = x;
                 break; // Stop after first match to avoid over-trimming
             }
         }
-        result = result.replace("\r", "");
-        result = result.replace("\t", "    ");
+        let result = result.replace("\r", "").replace("\t", "    ");
 
         // Remove the shortest amount of whitespace from the beginning of each line
         let min_indent = result
