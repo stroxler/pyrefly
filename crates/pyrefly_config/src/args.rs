@@ -26,13 +26,22 @@ use crate::finder::ConfigError;
 use crate::module_wildcard::ModuleWildcard;
 use crate::util::ConfigOrigin;
 
+/// Parser function to convert paths to absolute paths
+fn absolute_path_parser(s: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(s);
+    match path.absolutize() {
+        Ok(abs_path) => Ok(abs_path.into_owned()),
+        Err(_) => Ok(path),
+    }
+}
+
 /// config overrides
 #[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Parser, Clone, Default)]
 pub struct ConfigOverrideArgs {
     /// The list of directories where imports are imported from, including
     /// type checked files.
-    #[arg(long)]
+    #[arg(long, value_parser = absolute_path_parser)]
     search_path: Option<Vec<PathBuf>>,
 
     /// The Python version any `sys.version` checks should evaluate against.
@@ -100,16 +109,6 @@ pub struct ConfigOverrideArgs {
 }
 
 impl ConfigOverrideArgs {
-    pub fn absolute_search_path(&mut self) {
-        if let Some(paths) = self.search_path.as_mut() {
-            for x in paths.iter_mut() {
-                if let Ok(v) = x.absolutize() {
-                    *x = v.into_owned();
-                }
-            }
-        }
-    }
-
     pub fn validate(&self) -> anyhow::Result<()> {
         fn validate_arg(arg_name: &str, paths: Option<&[PathBuf]>) -> anyhow::Result<()> {
             if let Some(paths) = paths {

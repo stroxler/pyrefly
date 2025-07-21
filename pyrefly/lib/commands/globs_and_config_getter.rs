@@ -156,7 +156,6 @@ pub fn get(
     config: Option<PathBuf>,
     args: &mut ConfigOverrideArgs,
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
-    args.absolute_search_path();
     args.validate()?;
     let project_excludes = if let Some(project_excludes) = project_excludes {
         Some(absolutize(Globs::new(project_excludes))?)
