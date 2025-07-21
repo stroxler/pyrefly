@@ -35,7 +35,7 @@ pub struct Args {
     /// The path to the mypy or pyright config file to convert. Optional.
     /// If not provided, or if it's a directory, pyrefly will search upwards for a
     /// mypy.ini, pyrightconfig.json, or pyproject.toml.
-    pub original_config_path: Option<PathBuf>,
+    pub original_config_path: PathBuf,
 }
 
 impl Args {
@@ -89,21 +89,18 @@ impl Args {
     /// This function handles finding the config file if needed, loading it, and converting it to a Pyrefly config.
     /// It returns the config and the path to the original config file.
     pub fn load_config(&self) -> anyhow::Result<(ConfigFile, PathBuf)> {
-        if let Some(path) = self.original_config_path.as_ref()
-            && !path.exists()
-        {
-            error!("Could not find or cannot access `{}`", path.display());
+        if !self.original_config_path.exists() {
+            error!(
+                "Could not find or cannot access `{}`",
+                self.original_config_path.display()
+            );
             return Err(anyhow::anyhow!("Could not find or access config file"));
         }
 
-        let original_config_path = match &self.original_config_path {
-            Some(path) if path.is_file() => path.clone(),
-            Some(path) => Self::find_config(path)?,
-            None => {
-                let cwd = std::env::current_dir()
-                    .context("Could not find dir to start search for configs from")?;
-                Self::find_config(&cwd)?
-            }
+        let original_config_path = if self.original_config_path.is_file() {
+            self.original_config_path.clone()
+        } else {
+            Self::find_config(&self.original_config_path)?
         };
 
         let config = if original_config_path.file_name() == Some("pyrightconfig.json".as_ref()) {
@@ -213,7 +210,7 @@ mod tests {
         fs_anyhow::write(&original_config_path, pyr)?;
 
         let args = Args {
-            original_config_path: Some(original_config_path),
+            original_config_path,
         };
         let pyrefly_config_path = args.run()?;
         let output = fs_anyhow::read_to_string(&pyrefly_config_path)?;
@@ -253,7 +250,7 @@ check_untyped_defs = True
         fs_anyhow::write(&original_config_path, mypy)?;
 
         let args = Args {
-            original_config_path: Some(original_config_path),
+            original_config_path,
         };
         let pyrefly_config_path = args.run()?;
 
@@ -287,7 +284,7 @@ files = ["a.py"]
 "#;
         fs_anyhow::write(&original_config_path, pyproject)?;
         let args = Args {
-            original_config_path: Some(original_config_path.clone()),
+            original_config_path: original_config_path.clone(),
         };
         let pyrefly_config_path = args.run()?;
         assert_eq!(pyrefly_config_path, original_config_path);
@@ -306,7 +303,7 @@ include = ["a.py"]
 "#;
         fs_anyhow::write(&original_config_path, pyproject)?;
         let args = Args {
-            original_config_path: Some(original_config_path.clone()),
+            original_config_path: original_config_path.clone(),
         };
         args.run()?;
         let pyproject = fs_anyhow::read_to_string(&original_config_path)?;
@@ -327,7 +324,7 @@ description = "A test project"
 "#;
         fs_anyhow::write(&original_config_path, pyproject)?;
         let args = Args {
-            original_config_path: Some(original_config_path.clone()),
+            original_config_path: original_config_path.clone(),
         };
         assert!(args.run().is_err());
         let content = fs_anyhow::read_to_string(&original_config_path)?;
@@ -347,7 +344,7 @@ files = 1
 "#;
         fs_anyhow::write(&original_config_path, pyproject)?;
         let args = Args {
-            original_config_path: Some(original_config_path),
+            original_config_path,
         };
         args.run()?;
         Ok(())
@@ -390,7 +387,7 @@ files = ["mypy.py"]
         std::fs::create_dir_all(&bottom)?;
         fs_anyhow::write(&tmp.path().join("a/mypy.ini"), b"[mypy]\n")?;
         Args {
-            original_config_path: Some(bottom),
+            original_config_path: bottom,
         }
         .run()?;
         assert!(tmp.path().join("a/pyrefly.toml").try_exists()?);
@@ -404,7 +401,7 @@ files = ["mypy.py"]
         let pyrefly_config_path = tmp.path().join("pyrefly.toml");
         fs_anyhow::write(&original_config_path, b"[mypy]\nfake_option = True\n")?;
         let args = Args {
-            original_config_path: Some(original_config_path),
+            original_config_path,
         };
         args.run()?;
         let output = fs_anyhow::read_to_string(&pyrefly_config_path)?;
@@ -419,7 +416,7 @@ files = ["mypy.py"]
         let pyrefly_config_path = tmp.path().join("pyrefly.toml");
         fs_anyhow::write(&original_config_path, b"{}")?;
         let args = Args {
-            original_config_path: Some(original_config_path),
+            original_config_path,
         };
         args.run()?;
         let output = fs_anyhow::read_to_string(&pyrefly_config_path)?;

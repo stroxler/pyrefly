@@ -441,7 +441,7 @@ impl InitArgs {
         if found_mypy || found_pyright {
             info!("Found an existing type checking configuration - setting up pyrefly ...");
             let args = config_migration::Args {
-                original_config_path: Some(path.clone()),
+                original_config_path: path.clone(),
             };
             return Ok((CommandExitStatus::Success, Some(args.run()?)));
         }
