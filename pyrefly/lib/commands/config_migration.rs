@@ -16,7 +16,6 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context as _;
-use clap::Parser;
 use pyrefly_config::pyproject::PyProject;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::upward_search::UpwardSearch;
@@ -32,8 +31,7 @@ use crate::config::migration::pyright;
 use crate::config::migration::pyright::PyrightConfig;
 
 /// Arguments for configuration migration from other type checkers
-#[deny(clippy::missing_docs_in_private_items)]
-#[derive(Clone, Debug, Parser)]
+#[derive(Clone, Debug)]
 pub struct Args {
     /// The path to the mypy or pyright config file to convert. Optional.
     /// If not provided, or if it's a directory, pyrefly will search upwards for a
