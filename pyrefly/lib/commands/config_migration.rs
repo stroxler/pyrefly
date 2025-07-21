@@ -203,11 +203,11 @@ mod tests {
     fn test_run_pyright() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let original_config_path = tmp.path().join("pyrightconfig.json");
-        let pyr = br#"{
+        let pyr = r#"{
     "include": ["src/**/*.py"]
 }
 "#;
-        fs_anyhow::write(&original_config_path, pyr)?;
+        fs_anyhow::write(&original_config_path, pyr.as_bytes())?;
 
         let pyrefly_config_path = config_migration(&original_config_path)?;
         let output = fs_anyhow::read_to_string(&pyrefly_config_path)?; // We're not going to check the whole output because most of it will be default values, which may change.
@@ -222,7 +222,7 @@ mod tests {
         let tmp = tempfile::tempdir()?;
         let original_config_path = tmp.path().join("mypy.ini");
         // This config is derived from the pytorch mypy.ini.
-        let mypy = br#"[mypy]
+        let mypy = r#"[mypy]
 files =
     src,
     other_src,
@@ -243,7 +243,7 @@ ignore_missing_imports = True
 [mypy-stricter.on.this.*]
 check_untyped_defs = True
 "#;
-        fs_anyhow::write(&original_config_path, mypy)?;
+        fs_anyhow::write(&original_config_path, mypy.as_bytes())?;
 
         let pyrefly_config_path = config_migration(&original_config_path)?;
 
@@ -272,10 +272,10 @@ check_untyped_defs = True
     fn test_run_pyproject_mypy() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let original_config_path = tmp.path().join("pyproject.toml");
-        let pyproject = br#"[tool.mypy]
+        let pyproject = r#"[tool.mypy]
 files = ["a.py"]
 "#;
-        fs_anyhow::write(&original_config_path, pyproject)?;
+        fs_anyhow::write(&original_config_path, pyproject.as_bytes())?;
         let pyrefly_config_path = config_migration(&original_config_path)?;
         assert_eq!(pyrefly_config_path, original_config_path);
         let pyproject = fs_anyhow::read_to_string(&original_config_path)?;
@@ -288,10 +288,10 @@ files = ["a.py"]
     fn test_run_pyproject_pyright() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let original_config_path = tmp.path().join("pyproject.toml");
-        let pyproject = br#"[tool.pyright]
+        let pyproject = r#"[tool.pyright]
 include = ["a.py"]
 "#;
-        fs_anyhow::write(&original_config_path, pyproject)?;
+        fs_anyhow::write(&original_config_path, pyproject.as_bytes())?;
         config_migration(&original_config_path)?;
         let pyproject = fs_anyhow::read_to_string(&original_config_path)?;
         assert_eq!(pyproject.lines().next().unwrap(), "[tool.pyright]");
@@ -304,15 +304,15 @@ include = ["a.py"]
     fn test_run_pyproject_without_tools() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let original_config_path = tmp.path().join("pyproject.toml");
-        let pyproject = br#"[project]
+        let pyproject = r#"[project]
 name = "test-project"
 version = "0.1.0"
 description = "A test project"
 "#;
-        fs_anyhow::write(&original_config_path, pyproject)?;
+        fs_anyhow::write(&original_config_path, pyproject.as_bytes())?;
         assert!(config_migration(&original_config_path).is_err());
         let content = fs_anyhow::read_to_string(&original_config_path)?;
-        assert_eq!(content, std::str::from_utf8(pyproject)?);
+        assert_eq!(content, pyproject);
         Ok(())
     }
 
@@ -320,13 +320,13 @@ description = "A test project"
     fn test_run_pyproject_bad_mypy_into_pyright() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let original_config_path = tmp.path().join("pyproject.toml");
-        let pyproject = br#"[tool.pyright]
+        let pyproject = r#"[tool.pyright]
 include = ["a.py"]
 
 [tool.mypy]
 files = 1
 "#;
-        fs_anyhow::write(&original_config_path, pyproject)?;
+        fs_anyhow::write(&original_config_path, pyproject.as_bytes())?;
         config_migration(&original_config_path)?;
         Ok(())
     }
@@ -337,13 +337,13 @@ files = 1
         // However, we may want to change this in the future, so it's OK to break this test.
         let tmp = tempfile::tempdir()?;
         let original_config_path = tmp.path().join("pyproject.toml");
-        let pyproject = br#"[tool.pyright]
+        let pyproject = r#"[tool.pyright]
 include = ["pyright.py"]
 
 [tool.mypy]
 files = ["mypy.py"]
 "#;
-        fs_anyhow::write(&original_config_path, pyproject)?;
+        fs_anyhow::write(&original_config_path, pyproject.as_bytes())?;
         let cfg = Args::load_from_pyproject(&original_config_path)?;
         assert_eq!(cfg.project_includes, Globs::new(vec!["mypy.py".to_owned()]));
         Ok(())
