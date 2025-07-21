@@ -336,4 +336,22 @@ executionEnvironments = [
 "#;
         parse_pyproject_toml(src).map(|_| ())
     }
+
+    #[test]
+    fn test_report_trailing_commas() -> anyhow::Result<()> {
+        let raw_file = r#"
+            {
+                "include": [
+                    "src/**/*.py",
+                    "test/**/*.py",
+                ],
+                "pythonVersion": "3.11",
+                "reportMissingImports": "none"
+            }
+            "#;
+        let pyr = serde_jsonrc::from_str::<PyrightConfig>(raw_file)?;
+        let config = pyr.convert();
+        assert!(!config.project_includes.is_empty());
+        Ok(())
+    }
 }

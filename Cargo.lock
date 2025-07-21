@@ -2097,6 +2097,7 @@ dependencies = [
  "regex-syntax 0.7.5",
  "serde",
  "serde_json",
+ "serde_jsonrc",
  "serde_with",
  "starlark_map",
  "tempfile",

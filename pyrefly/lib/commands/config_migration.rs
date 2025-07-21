@@ -501,24 +501,6 @@ files = ["mypy.py"]
     }
 
     #[test]
-    fn test_report_trailing_commas() -> anyhow::Result<()> {
-        let raw_file = r#"
-            {
-                "include": [
-                    "src/**/*.py",
-                    "test/**/*.py",
-                ],
-                "pythonVersion": "3.11",
-                "reportMissingImports": "none"
-            }
-            "#;
-        let pyr = serde_jsonrc::from_str::<PyrightConfig>(raw_file)?;
-        let config = pyr.convert();
-        assert!(!config.project_includes.is_empty());
-        Ok(())
-    }
-
-    #[test]
     fn test_replace_existing_pyrefly_config() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let pyproject_path = tmp.path().join("pyproject.toml");
