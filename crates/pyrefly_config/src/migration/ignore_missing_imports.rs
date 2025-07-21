@@ -10,7 +10,7 @@ use configparser::ini::Ini;
 use crate::config::ConfigFile;
 use crate::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::migration::pyright::PyrightConfig;
-use crate::migration::utils;
+use crate::migration::util;
 use crate::module_wildcard::ModuleWildcard;
 
 /// Configuration option for ignoring missing imports
@@ -19,7 +19,7 @@ pub struct IgnoreMissingImports;
 impl IgnoreMissingImports {
     /// Helper function to check if a section has ignore_missing_imports=true or follow_imports=skip
     fn should_ignore_imports(&self, ini: &Ini, section_name: &str) -> bool {
-        utils::get_bool_or_default(ini, section_name, "ignore_missing_imports")
+        util::get_bool_or_default(ini, section_name, "ignore_missing_imports")
             || ini
                 .get(section_name, "follow_imports")
                 .is_some_and(|val| val == "skip")
@@ -41,7 +41,7 @@ impl ConfigOptionMigrater for IgnoreMissingImports {
         }
 
         // Check all sections for ignore_missing_imports or follow_imports=skip
-        utils::visit_ini_sections(
+        util::visit_ini_sections(
             mypy_cfg,
             |section_name| section_name.starts_with("mypy-"),
             |section_name, ini| {

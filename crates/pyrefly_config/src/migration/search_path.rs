@@ -10,7 +10,7 @@ use configparser::ini::Ini;
 use crate::config::ConfigFile;
 use crate::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::migration::pyright::PyrightConfig;
-use crate::migration::utils;
+use crate::migration::util;
 
 /// Configuration option for search path
 pub struct SearchPath;
@@ -28,7 +28,7 @@ impl ConfigOptionMigrater for SearchPath {
             None => return Err(anyhow::anyhow!("No mypy_path found in mypy config")),
         };
 
-        let paths = utils::string_to_paths(&mypy_path);
+        let paths = util::string_to_paths(&mypy_path);
         if paths.is_empty() {
             return Err(anyhow::anyhow!("Empty search paths found in mypy config"));
         }

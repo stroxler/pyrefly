@@ -14,7 +14,7 @@ use crate::config::SubConfig;
 use crate::error::ErrorDisplayConfig;
 use crate::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::migration::pyright::PyrightConfig;
-use crate::migration::utils;
+use crate::migration::util;
 /// Configuration option for sub-configs (per-module options)
 pub struct SubConfigs;
 
@@ -27,23 +27,23 @@ impl ConfigOptionMigrater for SubConfigs {
         let mut sub_configs: Vec<(String, ErrorDisplayConfig)> = vec![];
 
         // Check all sections for per-module options
-        utils::visit_ini_sections(
+        util::visit_ini_sections(
             mypy_cfg,
             |section_name| section_name.starts_with("mypy-"),
             |section_name, ini| {
                 if let Some(stripped) = section_name.strip_prefix("mypy-") {
                     // For subconfigs, the only config that needs to be extracted is enable/disable error codes.
                     let disable_error_code =
-                        utils::string_to_array(&ini.get(section_name, "disable_error_code"));
+                        util::string_to_array(&ini.get(section_name, "disable_error_code"));
                     let enable_error_code =
-                        utils::string_to_array(&ini.get(section_name, "enable_error_code"));
+                        util::string_to_array(&ini.get(section_name, "enable_error_code"));
 
                     if disable_error_code.is_empty() && enable_error_code.is_empty() {
                         return;
                     }
 
                     if let Some(error_config) =
-                        utils::make_error_config(disable_error_code, enable_error_code)
+                        util::make_error_config(disable_error_code, enable_error_code)
                     {
                         sub_configs.push((stripped.to_owned(), error_config));
                     }

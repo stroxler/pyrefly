@@ -11,7 +11,7 @@ use pyrefly_util::globs::Globs;
 use crate::config::ConfigFile;
 use crate::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::migration::pyright::PyrightConfig;
-use crate::migration::utils;
+use crate::migration::util;
 
 /// Configuration option for project includes (files, packages, modules)
 pub struct ProjectIncludes;
@@ -24,9 +24,9 @@ impl ConfigOptionMigrater for ProjectIncludes {
     ) -> anyhow::Result<()> {
         // https://mypy.readthedocs.io/en/latest/config_file.html#import-discovery
         // files, packages, modules can only be set in the top level `[mypy]` global section
-        let files = utils::string_to_array(&mypy_cfg.get("mypy", "files"));
-        let packages = utils::string_to_array(&mypy_cfg.get("mypy", "packages"));
-        let modules = utils::string_to_array(&mypy_cfg.get("mypy", "modules"));
+        let files = util::string_to_array(&mypy_cfg.get("mypy", "files"));
+        let packages = util::string_to_array(&mypy_cfg.get("mypy", "packages"));
+        let modules = util::string_to_array(&mypy_cfg.get("mypy", "modules"));
 
         let includes: Vec<String> = [files, packages, modules].into_iter().flatten().collect();
 

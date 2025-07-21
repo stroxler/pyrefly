@@ -10,7 +10,7 @@ use configparser::ini::Ini;
 use crate::config::ConfigFile;
 use crate::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::migration::pyright::PyrightConfig;
-use crate::migration::utils;
+use crate::migration::util;
 
 /// Configuration option for error codes
 pub struct ErrorCodes;
@@ -22,11 +22,10 @@ impl ConfigOptionMigrater for ErrorCodes {
         pyrefly_cfg: &mut ConfigFile,
     ) -> anyhow::Result<()> {
         // Get disable_error_code and enable_error_code from the mypy.ini file
-        let disable_error_code =
-            utils::string_to_array(&mypy_cfg.get("mypy", "disable_error_code"));
-        let enable_error_code = utils::string_to_array(&mypy_cfg.get("mypy", "enable_error_code"));
+        let disable_error_code = util::string_to_array(&mypy_cfg.get("mypy", "disable_error_code"));
+        let enable_error_code = util::string_to_array(&mypy_cfg.get("mypy", "enable_error_code"));
 
-        let error_config = utils::make_error_config(disable_error_code, enable_error_code)
+        let error_config = util::make_error_config(disable_error_code, enable_error_code)
             .ok_or_else(|| anyhow::anyhow!("Failed to create error config"))?;
         pyrefly_cfg.root.errors = Some(error_config);
         Ok(())

@@ -20,7 +20,7 @@ pub(crate) mod search_path;
 pub(crate) mod sub_configs;
 pub(crate) mod untyped_def_behavior;
 pub(crate) mod use_untyped_imports;
-pub(crate) mod utils;
+pub(crate) mod util;
 
 #[cfg(test)]
 pub(crate) mod test_utils;
