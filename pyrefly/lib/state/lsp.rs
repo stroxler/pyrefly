@@ -19,6 +19,7 @@ use lsp_types::SignatureHelp;
 use lsp_types::SignatureInformation;
 use lsp_types::TextEdit;
 use pyrefly_python::ast::Ast;
+use pyrefly_python::keywords::get_keywords;
 use pyrefly_python::module::Module;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
@@ -1562,6 +1563,18 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    fn add_keyword_completions(&self, handle: &Handle, completions: &mut Vec<CompletionItem>) {
+        get_keywords(handle.sys_info().version())
+            .iter()
+            .for_each(|name| {
+                completions.push(CompletionItem {
+                    label: (*name).to_owned(),
+                    kind: Some(CompletionItemKind::KEYWORD),
+                    ..Default::default()
+                })
+            });
+    }
+
     pub fn completion(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
         let mut results = self.completion_unsorted_opt(handle, position);
         for item in &mut results {
@@ -1584,6 +1597,7 @@ impl<'a> Transaction<'a> {
 
     fn completion_unsorted_opt(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
         let mut result = Vec::new();
+        self.add_keyword_completions(handle, &mut result);
         self.add_kwargs_completions(handle, position, &mut result);
 
         match self.identifier_at(handle, position) {

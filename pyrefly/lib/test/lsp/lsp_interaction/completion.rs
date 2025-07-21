@@ -10,18 +10,43 @@ use lsp_server::Notification;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
+use lsp_types::CompletionItem;
+use lsp_types::CompletionItemKind;
 use lsp_types::Url;
+use pyrefly_python::keywords::get_keywords;
 
 use crate::commands::lsp::IndexingMode;
+use crate::config::environment::environment::PythonEnvironment;
 use crate::test::lsp::lsp_interaction::util::TestCase;
 use crate::test::lsp::lsp_interaction::util::build_did_open_notification;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
 use crate::test::lsp::lsp_interaction::util::run_test_lsp;
 
+fn get_all_builtin_completions() -> Vec<CompletionItem> {
+    get_keywords(
+        PythonEnvironment::get_default_interpreter_env()
+            .python_version
+            .unwrap(),
+    )
+    .into_iter()
+    .map(|kw| CompletionItem {
+        label: (*kw).to_owned(),
+        kind: Some(CompletionItemKind::KEYWORD),
+        sort_text: Some("0".to_owned()),
+        ..Default::default()
+    })
+    .collect()
+}
+
 /// Creates a completion response message
 /// completion_items is a serde_json value containing completion items to include in the response
 pub fn make_completion_result(request_id: i32, completion_items: serde_json::Value) -> Message {
     let mut all_items = Vec::new();
+
+    for builtin in get_all_builtin_completions() {
+        all_items.push(serde_json::to_value(builtin).unwrap());
+    }
+
     if let Some(items) = completion_items.as_array() {
         for item in items {
             all_items.push(item.clone());

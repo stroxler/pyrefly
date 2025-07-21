@@ -23,6 +23,7 @@ pub mod ast;
 pub mod display;
 pub mod dunder;
 pub mod ignore;
+pub mod keywords;
 pub mod module;
 pub mod module_name;
 pub mod module_path;
