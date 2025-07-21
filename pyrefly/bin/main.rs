@@ -17,7 +17,7 @@ use library::CheckArgs;
 use library::InitArgs;
 use library::LspArgs;
 use library::dump_config;
-use library::globs_and_config_getter;
+use library::files;
 use library::util::CommandExitStatus;
 use library::util::CommonGlobalArgs;
 use pyrefly::library::library::library::library;
@@ -147,12 +147,8 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             args,
         }) => {
             args.config_override.validate()?;
-            let (files_to_check, config_finder) = globs_and_config_getter::get(
-                files,
-                project_excludes,
-                config,
-                &args.config_override,
-            )?;
+            let (files_to_check, config_finder) =
+                files::get(files, project_excludes, config, &args.config_override)?;
             run_check(args, watch, files_to_check, config_finder, allow_forget).await
         }
         Command::BuckCheck(args) => args.run(),
@@ -166,12 +162,8 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             args,
         }) => {
             args.config_override.validate()?;
-            let (files_to_check, config_finder) = globs_and_config_getter::get(
-                files,
-                project_excludes,
-                config,
-                &args.config_override,
-            )?;
+            let (files_to_check, config_finder) =
+                files::get(files, project_excludes, config, &args.config_override)?;
             run_autotype(AutotypeArgs::new(), files_to_check, config_finder).await
         }
         // We intentionally make DumpConfig take the same arguments as Check so that dumping the
@@ -184,12 +176,8 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
             ..
         }) => {
             args.config_override.validate()?;
-            let (files_to_check, config_finder) = globs_and_config_getter::get(
-                files,
-                project_excludes,
-                config,
-                &args.config_override,
-            )?;
+            let (files_to_check, config_finder) =
+                files::get(files, project_excludes, config, &args.config_override)?;
             dump_config(files_to_check, config_finder, args)
         }
     }
