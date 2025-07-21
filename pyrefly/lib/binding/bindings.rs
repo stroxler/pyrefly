@@ -761,7 +761,7 @@ impl<'a> BindingsBuilder<'a> {
         name: Hashed<&Name>,
         kind: LookupKind,
     ) -> Result<Idx<Key>, LookupError> {
-        self.lookup_name_impl(name, kind, &mut Usage::StaticTypeInformation)
+        self.lookup_name_impl(name, kind, &mut Usage::MutableLookup)
     }
 
     pub fn lookup_name_usage(
@@ -853,13 +853,17 @@ impl<'a> BindingsBuilder<'a> {
     ) -> (Idx<Key>, Option<Idx<Key>>) {
         match self.table.types.1.get(flow_idx) {
             Some(Binding::Pin(unpinned_idx, FirstUse::Undetermined)) => match usage {
-                Usage::StaticTypeInformation | Usage::Narrowing => (flow_idx, Some(flow_idx)),
+                Usage::StaticTypeInformation | Usage::Narrowing | Usage::MutableLookup => {
+                    (flow_idx, Some(flow_idx))
+                }
                 Usage::CurrentIdx(..) => (*unpinned_idx, Some(flow_idx)),
             },
             Some(Binding::Pin(unpinned_idx, first_use)) => match first_use {
                 FirstUse::DoesNotPin => (flow_idx, None),
                 FirstUse::Undetermined => match usage {
-                    Usage::StaticTypeInformation | Usage::Narrowing => (flow_idx, Some(flow_idx)),
+                    Usage::StaticTypeInformation | Usage::Narrowing | Usage::MutableLookup => {
+                        (flow_idx, Some(flow_idx))
+                    }
                     Usage::CurrentIdx(..) => (*unpinned_idx, Some(flow_idx)),
                 },
                 FirstUse::UsedBy(usage_idx) => {
@@ -867,7 +871,9 @@ impl<'a> BindingsBuilder<'a> {
                     // sure they all use the raw binding rather than the `Pin`.
                     let currently_in_first_use = match usage {
                         Usage::CurrentIdx(idx, ..) => idx == usage_idx,
-                        Usage::Narrowing | Usage::StaticTypeInformation => false,
+                        Usage::Narrowing | Usage::StaticTypeInformation | Usage::MutableLookup => {
+                            false
+                        }
                     };
                     if currently_in_first_use {
                         (*unpinned_idx, None)
@@ -889,7 +895,9 @@ impl<'a> BindingsBuilder<'a> {
                         first_uses_of.insert(used);
                         FirstUse::UsedBy(*use_idx)
                     }
-                    Usage::StaticTypeInformation | Usage::Narrowing => FirstUse::DoesNotPin,
+                    Usage::StaticTypeInformation | Usage::Narrowing | Usage::MutableLookup => {
+                        FirstUse::DoesNotPin
+                    }
                 };
             }
             b => {
