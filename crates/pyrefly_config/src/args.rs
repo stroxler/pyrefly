@@ -212,13 +212,13 @@ impl ConfigOverrideArgs {
         }
         let apply_error_settings = |error_config: &mut ErrorDisplayConfig| {
             for error_kind in &self.error {
-                error_config.with_error_setting(*error_kind, Severity::Error);
+                error_config.set_error_severity(*error_kind, Severity::Error);
             }
             for error_kind in &self.warn {
-                error_config.with_error_setting(*error_kind, Severity::Warn);
+                error_config.set_error_severity(*error_kind, Severity::Warn);
             }
             for error_kind in &self.ignore {
-                error_config.with_error_setting(*error_kind, Severity::Ignore);
+                error_config.set_error_severity(*error_kind, Severity::Ignore);
             }
         };
         let root_errors = config.root.errors.get_or_insert_default();

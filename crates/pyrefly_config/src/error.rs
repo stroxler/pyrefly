@@ -36,7 +36,7 @@ impl ErrorDisplayConfig {
             .unwrap_or_else(|| kind.default_severity())
     }
 
-    pub fn with_error_setting(&mut self, kind: ErrorKind, severity: Severity) {
+    pub(crate) fn set_error_severity(&mut self, kind: ErrorKind, severity: Severity) {
         self.0.insert(kind, severity);
     }
 }
