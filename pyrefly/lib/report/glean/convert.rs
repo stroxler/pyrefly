@@ -369,6 +369,12 @@ impl Facts {
         decl_infos
     }
 
+    fn arg_string_lit(&self, argument: &Expr) -> Option<python::Argument> {
+        argument.as_string_literal_expr().map(|str_lit| {
+            python::Argument::lit(python::StringLiteral::new(str_lit.value.to_string()))
+        })
+    }
+
     fn file_call_facts(&mut self, call: &ExprCall) {
         let callee_span = to_span(call.func.range());
         // TODO(@rubmary) Generate `argument` value for CallArgument predicate
@@ -379,7 +385,7 @@ impl Facts {
             .map(|arg| python::CallArgument {
                 label: None,
                 span: to_span(arg.range()),
-                argument: None,
+                argument: self.arg_string_lit(arg),
             })
             .collect();
 
@@ -393,7 +399,7 @@ impl Facts {
                     .as_ref()
                     .map(|id| self.make_fq_name(id.id(), None)),
                 span: to_span(keyword.range()),
-                argument: None,
+                argument: self.arg_string_lit(&keyword.value),
             });
 
         call_args.extend(keyword_args);
