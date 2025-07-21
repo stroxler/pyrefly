@@ -74,6 +74,14 @@ impl Display for Interpreters {
 impl Interpreters {
     const DEFAULT_INTERPRETERS: &[&str] = &["python3", "python"];
 
+    pub fn is_empty(&self) -> bool {
+        self.python_interpreter.is_none() && self.conda_environment.is_none()
+    }
+
+    pub fn set_python_interpreter(&mut self, interpreter: PathBuf) {
+        self.python_interpreter = Some(ConfigOrigin::auto(interpreter));
+    }
+
     /// Finds interpreters by searching in prioritized locations for the given project
     /// and interpreter settings.
     ///
