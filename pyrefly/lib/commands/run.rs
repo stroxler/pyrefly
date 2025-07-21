@@ -29,7 +29,7 @@ pub struct CommonGlobalArgs {
     /// Setting the value to 1 implies sequential execution without any parallelism.
     /// Setting the value to 0 means to pick the number of threads automatically using default heuristics.
     #[arg(long, short = 'j', default_value = "0", global = true, env = clap_env("THREADS"))]
-    pub threads: ThreadCount,
+    threads: ThreadCount,
 
     /// Control whether colored output is used.
     #[arg(long, default_value = "auto", global = true, env = clap_env("COLOR"))]
@@ -37,7 +37,7 @@ pub struct CommonGlobalArgs {
 
     /// Enable verbose logging.
     #[arg(long = "verbose", short = 'v', global = true, env = clap_env("VERBOSE"))]
-    pub verbose: bool,
+    verbose: bool,
 }
 
 fn init_color(color: ColorChoice) {
