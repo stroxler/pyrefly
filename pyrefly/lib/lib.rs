@@ -33,7 +33,6 @@ mod alt;
 mod binding;
 #[cfg(not(target_arch = "wasm32"))]
 mod commands;
-mod common;
 mod error;
 mod export;
 mod graph;

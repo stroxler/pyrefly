@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use itertools::Itertools;
+use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::arc_id::WeakArcId;
 use pyrefly_util::lock::Mutex;
@@ -21,7 +22,6 @@ use starlark_map::small_set::SmallSet;
 use tracing::error;
 
 use crate::commands::config_finder::standard_config_finder;
-use crate::common::files::PYTHON_FILE_SUFFIXES_TO_WATCH;
 use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::config::environment::environment::PythonEnvironment;
@@ -134,7 +134,7 @@ impl WeakConfigCache {
         config
             .search_path()
             .chain(config.site_package_path())
-            .cartesian_product(PYTHON_FILE_SUFFIXES_TO_WATCH)
+            .cartesian_product(PYTHON_EXTENSIONS)
             .for_each(|(s, suffix)| {
                 result.push((s.to_owned(), format!("**/*.{suffix}")));
             });

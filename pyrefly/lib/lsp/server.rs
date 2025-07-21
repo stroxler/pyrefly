@@ -142,6 +142,7 @@ use lsp_types::request::SignatureHelpRequest;
 use lsp_types::request::UnregisterCapability;
 use lsp_types::request::WorkspaceConfiguration;
 use lsp_types::request::WorkspaceSymbolRequest;
+use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -164,7 +165,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::commands::lsp::IndexingMode;
 use crate::commands::lsp::LspArgs;
-use crate::common::files::PYTHON_FILE_SUFFIXES_TO_WATCH;
 use crate::config::config::ConfigFile;
 use crate::config::error_kind::Severity;
 use crate::error::error::Error;
@@ -1624,7 +1624,7 @@ impl Server {
                 // preferably by figuring out if they're under another wildcard pattern with the same suffix
                 let mut glob_patterns = Vec::new();
                 for root in roots {
-                    PYTHON_FILE_SUFFIXES_TO_WATCH.iter().for_each(|suffix| {
+                    PYTHON_EXTENSIONS.iter().for_each(|suffix| {
                         glob_patterns.push(Self::get_pattern_to_watch(
                             root,
                             format!("**/*.{suffix}"),
