@@ -220,4 +220,15 @@ impl ConfigFinder {
             ModulePathDetails::BundledTypeshed(_) => f(None),
         }
     }
+
+    /// If we have an error, print all the errors that the config finder has accumulated. This is used
+    /// to ensure that config errors are still surfaced if we exit early.
+    pub fn checkpoint<R, E>(&self, result: Result<R, E>) -> Result<R, E> {
+        if result.is_err() {
+            for error in self.errors() {
+                error.print();
+            }
+        }
+        result
+    }
 }

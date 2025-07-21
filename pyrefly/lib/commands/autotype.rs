@@ -15,7 +15,6 @@ use pyrefly_util::globs::FilteredGlobs;
 use ruff_text_size::TextSize;
 
 use crate::commands::check::Handles;
-use crate::commands::check::checkpoint;
 use crate::commands::util::CommandExitStatus;
 use crate::config::finder::ConfigFinder;
 use crate::state::lsp::AnnotationKind;
@@ -114,7 +113,7 @@ impl AutotypeArgs {
         files_to_check: FilteredGlobs,
         config_finder: ConfigFinder,
     ) -> anyhow::Result<CommandExitStatus> {
-        let expanded_file_list = checkpoint(files_to_check.files(), &config_finder)?;
+        let expanded_file_list = config_finder.checkpoint(files_to_check.files())?;
         let state = State::new(config_finder);
         let holder = Forgetter::new(state, false);
         let handles = Handles::new(expanded_file_list, holder.as_ref().config_finder());
