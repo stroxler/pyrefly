@@ -11,20 +11,6 @@ use std::ops::DerefMut;
 
 use serde::Deserialize;
 use serde::Serialize;
-use toml::Table;
-
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
-#[serde(transparent)]
-pub(crate) struct ExtraConfigs(pub(crate) Table);
-
-// `Value` types in `Table` might not be `Eq`, but we don't actually care about that w.r.t. `ConfigFile`
-impl Eq for ExtraConfigs {}
-
-impl PartialEq for ExtraConfigs {
-    fn eq(&self, _other: &Self) -> bool {
-        true
-    }
-}
 
 /// Used in serde's skip_serializing_if attribute to skip serializing a boolean field that defaults to true.
 #[allow(clippy::trivially_copy_pass_by_ref)]

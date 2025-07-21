@@ -8,10 +8,10 @@
 use clap::ValueEnum;
 use serde::Deserialize;
 use serde::Serialize;
+use toml::Table;
 
 use crate::error::ErrorDisplayConfig;
 use crate::module_wildcard::ModuleWildcard;
-use crate::util::ExtraConfigs;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Copy, Default)]
 #[derive(ValueEnum)]
@@ -74,6 +74,19 @@ pub struct ConfigBase {
     /// Any unknown config items
     #[serde(default, flatten)]
     pub(crate) extras: ExtraConfigs,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(transparent)]
+pub(crate) struct ExtraConfigs(pub(crate) Table);
+
+// `Value` types in `Table` might not be `Eq`, but we don't actually care about that w.r.t. `ConfigFile`
+impl Eq for ExtraConfigs {}
+
+impl PartialEq for ExtraConfigs {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
 }
 
 impl ConfigBase {
