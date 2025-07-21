@@ -18,6 +18,7 @@ use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprBoolOp;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprLambda;
+use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprNoneLiteral;
 use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::ExprYield;
@@ -259,6 +260,18 @@ impl<'a> BindingsBuilder<'a> {
                 self.insert_binding(key, Binding::Type(Type::any_error()))
             }
         }
+    }
+
+    pub fn ensure_mutable_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
+        let name = Ast::expr_name_identifier(x.clone());
+        let binding = self
+            .lookup_name(Hashed::new(&name.id), LookupKind::Mutable)
+            .map(Binding::Forward);
+        self.ensure_name(
+            &name,
+            binding,
+            matches!(usage, Usage::StaticTypeInformation),
+        )
     }
 
     fn bind_comprehensions(

@@ -35,7 +35,6 @@ use crate::binding::binding::KeyExpect;
 use crate::binding::binding::LinkedKey;
 use crate::binding::binding::RaisedException;
 use crate::binding::bindings::BindingsBuilder;
-use crate::binding::bindings::LookupKind;
 use crate::binding::bindings::MutableCaptureLookupKind;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
@@ -151,18 +150,6 @@ impl<'a> BindingsBuilder<'a> {
                 Box::new(call.clone()),
             )
         })
-    }
-
-    pub fn ensure_mutable_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
-        let name = Ast::expr_name_identifier(x.clone());
-        let binding = self
-            .lookup_name(Hashed::new(&name.id), LookupKind::Mutable)
-            .map(Binding::Forward);
-        self.ensure_name(
-            &name,
-            binding,
-            matches!(usage, Usage::StaticTypeInformation),
-        )
     }
 
     fn define_nonlocal_name(&mut self, name: &Identifier) {
