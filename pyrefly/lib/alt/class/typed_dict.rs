@@ -211,7 +211,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> ClassSynthesizedField {
         let mut params = vec![self.class_self_param(cls, false)];
         for (name, field) in self.names_to_fields(cls, fields) {
-            params.push(Param::Pos(
+            params.push(Param::KwOnly(
                 name.clone(),
                 field.ty,
                 if field.required {
