@@ -11,7 +11,6 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use clap::Subcommand;
-use library::finder::ConfigFinder;
 use library::globs_and_config_getter;
 use library::run::AutotypeArgs;
 use library::run::BuckCheckArgs;
@@ -22,6 +21,7 @@ use library::run::InitArgs;
 use library::run::LspArgs;
 use library::run::dump_config;
 use pyrefly::library::library::library::library;
+use pyrefly_config::finder::ConfigFinder;
 use pyrefly_util::args::get_args_expanded;
 use pyrefly_util::globs::FilteredGlobs;
 use pyrefly_util::panic::exit_on_panic;

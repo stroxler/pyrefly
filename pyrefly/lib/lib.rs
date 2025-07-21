@@ -68,13 +68,6 @@ pub mod library {
                 pub use crate::commands::globs_and_config_getter;
                 #[cfg(not(target_arch = "wasm32"))]
                 pub use crate::commands::run;
-                pub use crate::config::base::ConfigBase;
-                pub use crate::config::config::ConfigFile;
-                pub use crate::config::config::ConfigSource;
-                pub use crate::config::config::ProjectLayout;
-                pub use crate::config::environment::environment::PythonEnvironment;
-                pub use crate::config::error_kind::Severity;
-                pub use crate::config::finder;
             }
         }
     }
