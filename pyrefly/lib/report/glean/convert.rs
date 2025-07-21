@@ -13,6 +13,8 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
+use ruff_python_ast::Parameter;
+use ruff_python_ast::ParameterWithDefault;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::StmtFunctionDef;
@@ -55,6 +57,7 @@ struct DeclarationInfo {
     decl_span: src::ByteSpan,
     definition: Option<python::Definition>,
     def_span: Option<src::ByteSpan>,
+    top_level_decl: Option<python::Declaration>,
 }
 
 impl Facts {
@@ -90,12 +93,14 @@ impl Facts {
     fn declaration_facts(
         &mut self,
         decl_info: DeclarationInfo,
-        top_level_decl: &python::Declaration,
+        default_top_level_decl: &python::Declaration,
     ) {
         self.containing_top_level_declarations
             .push(python::ContainingTopLevelDeclaration::new(
                 decl_info.declaration.clone(),
-                top_level_decl.clone(),
+                decl_info
+                    .top_level_decl
+                    .unwrap_or(default_top_level_decl.clone()),
             ));
 
         self.decl_locations.push(python::DeclarationLocation::new(
@@ -155,7 +160,77 @@ impl Facts {
             decl_span: to_span(cls.range),
             definition: Some(python::Definition::cls(cls_definition)),
             def_span: Some(to_span(cls.range)),
+            top_level_decl: None,
         }
+    }
+
+    fn type_info(&self, _annotation: Option<&Expr>) -> Option<python::TypeInfo> {
+        // TODO(@rubmary) generate type info
+        None
+    }
+
+    fn variable_info(
+        &self,
+        name: &Name,
+        range: TextRange,
+        container: Option<&python::DeclarationContainer>,
+        type_info: Option<python::TypeInfo>,
+        top_level_decl: Option<python::Declaration>,
+    ) -> DeclarationInfo {
+        let fqname = self.make_fq_name(name, None);
+        let variable_declaration = python::VariableDeclaration::new(fqname);
+        let variable_definition = python::VariableDefinition::new(
+            variable_declaration.clone(),
+            type_info,
+            container.cloned(),
+        );
+
+        DeclarationInfo {
+            declaration: python::Declaration::variable(variable_declaration),
+            decl_span: to_span(range),
+            definition: Some(python::Definition::variable(variable_definition)),
+            def_span: Some(to_span(range)),
+            top_level_decl,
+        }
+    }
+
+    fn parameter_info(
+        &self,
+        param: &Parameter,
+        value: Option<String>,
+        top_level_declaration: Option<&python::Declaration>,
+        decl_infos: &mut Vec<DeclarationInfo>,
+    ) -> python::Parameter {
+        let type_info: Option<python::TypeInfo> = self.type_info(param.annotation());
+
+        decl_infos.push(self.variable_info(
+            param.name.id(),
+            param.range(),
+            None,
+            type_info.clone(),
+            top_level_declaration.cloned(),
+        ));
+        python::Parameter {
+            name: python::Name::new(param.name().to_string()),
+            typeInfo: type_info,
+            value,
+        }
+    }
+
+    fn parameter_with_default_info(
+        &self,
+        parameter_with_default: &ParameterWithDefault,
+        top_level_declaration: Option<&python::Declaration>,
+        decl_infos: &mut Vec<DeclarationInfo>,
+    ) -> python::Parameter {
+        // TODO(@rubmary) generate `value` for ParameterInfo
+        let value = None;
+        self.parameter_info(
+            &parameter_with_default.parameter,
+            value,
+            top_level_declaration,
+            decl_infos,
+        )
     }
 
     fn function_facts(
@@ -163,54 +238,80 @@ impl Facts {
         func: &StmtFunctionDef,
         func_declaration: python::FunctionDeclaration,
         container: python::DeclarationContainer,
-    ) -> DeclarationInfo {
+        params_top_level_decl: Option<&python::Declaration>,
+    ) -> Vec<DeclarationInfo> {
+        let params = &func.parameters;
+
+        let mut decl_infos = vec![];
+        let args = params
+            .args
+            .iter()
+            .map(|x| self.parameter_with_default_info(x, params_top_level_decl, &mut decl_infos))
+            .collect();
+
+        let pos_only_args = params
+            .posonlyargs
+            .iter()
+            .map(|x| self.parameter_with_default_info(x, params_top_level_decl, &mut decl_infos))
+            .collect();
+
+        let kwonly_args = params
+            .kwonlyargs
+            .iter()
+            .map(|x| self.parameter_with_default_info(x, params_top_level_decl, &mut decl_infos))
+            .collect();
+
+        let star_arg = params
+            .vararg
+            .as_ref()
+            .map(|x| self.parameter_info(x.as_ref(), None, params_top_level_decl, &mut decl_infos));
+
+        let star_kwarg = params
+            .kwarg
+            .as_ref()
+            .map(|x| self.parameter_info(x.as_ref(), None, params_top_level_decl, &mut decl_infos));
+
         let func_definition = python::FunctionDefinition::new(
             func_declaration.clone(),
             func.is_async,
-            // TODO(@rubmary) generate additional fields
-            None,
-            vec![],
-            None,
-            None,
-            None,
-            None,
-            None,
+            self.type_info(func.returns.as_ref().map(|x| x.as_ref())),
+            args,
+            Some(pos_only_args),
+            Some(kwonly_args),
+            star_arg,
+            star_kwarg,
+            None, // TODO(@rubmary) generate decorator
             Some(container),
         );
 
-        DeclarationInfo {
+        decl_infos.push(DeclarationInfo {
             declaration: python::Declaration::func(func_declaration),
             decl_span: to_span(func.range),
             definition: Some(python::Definition::func(func_definition)),
             def_span: Some(to_span(func.range)),
-        }
+            top_level_decl: None,
+        });
+
+        decl_infos
     }
 
     fn variable_facts(
         &mut self,
         expr: &Expr,
-        _type_info: Option<&Expr>,
+        annotation: Option<&Expr>,
         container: &python::DeclarationContainer,
         def_infos: &mut Vec<DeclarationInfo>,
     ) {
-        // TODO(@rubmary) add type_info
         if let Some(name) = expr.as_name_expr() {
-            let fqname = self.make_fq_name(&name.id, None);
-            let variable_declaration = python::VariableDeclaration::new(fqname);
-            let variable_definition = python::VariableDefinition::new(
-                variable_declaration.clone(),
+            def_infos.push(self.variable_info(
+                &name.id,
+                name.range,
+                Some(container),
+                self.type_info(annotation),
                 None,
-                Some(container.clone()),
-            );
-
-            def_infos.push(DeclarationInfo {
-                declaration: python::Declaration::variable(variable_declaration),
-                decl_span: to_span(name.range),
-                definition: Some(python::Definition::variable(variable_definition)),
-                def_span: Some(to_span(name.range)),
-            });
+            ));
         }
-        expr.recurse(&mut |expr| self.variable_facts(expr, _type_info, container, def_infos));
+        expr.recurse(&mut |expr| self.variable_facts(expr, annotation, container, def_infos));
     }
 
     fn import_facts(
@@ -250,6 +351,7 @@ impl Facts {
                     decl_span: to_span(import.range()),
                     definition: None,
                     def_span: None,
+                    top_level_decl: None,
                 });
             }
         }
@@ -348,17 +450,21 @@ impl Facts {
             Stmt::FunctionDef(func) => {
                 let func_declaration =
                     python::FunctionDeclaration::new(self.make_fq_name(&func.name.id, None));
-                let decl_info =
-                    self.function_facts(func, func_declaration.clone(), container.clone());
+                if let python::Declaration::module(_) = top_level_decl {
+                    new_top_level_decl = Some(python::Declaration::func(func_declaration.clone()));
+                }
+                let mut func_decl_infos = self.function_facts(
+                    func,
+                    func_declaration.clone(),
+                    container.clone(),
+                    new_top_level_decl.as_ref(),
+                );
                 self.visit_exprs(&func.decorator_list, container);
                 self.visit_exprs(&func.type_params, container);
                 self.visit_exprs(&func.parameters, container);
                 self.visit_exprs(&func.returns, container);
-                if let python::Declaration::module(_) = top_level_decl {
-                    new_top_level_decl = Some(decl_info.declaration.clone());
-                }
                 new_container = Some(python::DeclarationContainer::func(func_declaration));
-                decl_infos.push(decl_info);
+                decl_infos.append(&mut func_decl_infos);
             }
             Stmt::Assign(assign) => {
                 assign.targets.visit(&mut |target| {
@@ -466,6 +572,7 @@ impl Glean {
                 module_fact.clone(),
             ))),
             def_span: Some(to_span(ast.range)),
+            top_level_decl: None,
         };
 
         facts.declaration_facts(mod_decl_info, &top_level_decl);
