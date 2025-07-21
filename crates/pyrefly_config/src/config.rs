@@ -38,7 +38,6 @@ use crate::environment::interpreters::Interpreters;
 use crate::error::ErrorConfig;
 use crate::error::ErrorDisplayConfig;
 use crate::finder::ConfigError;
-use crate::module_wildcard::ModuleWildcard;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct SubConfig {
@@ -433,24 +432,28 @@ impl ConfigFile {
                  self.root.errors.as_ref().unwrap())
     }
 
-    pub fn replace_imports_with_any(&self, path: Option<&Path>) -> &[ModuleWildcard] {
-        path.and_then(|path| {
-            self.get_from_sub_configs(ConfigBase::get_replace_imports_with_any, path)
-        })
-        .unwrap_or_else(||
+    pub fn replace_imports_with_any(&self, path: Option<&Path>, module: ModuleName) -> bool {
+        let wildcards = path
+            .and_then(|path| {
+                self.get_from_sub_configs(ConfigBase::get_replace_imports_with_any, path)
+            })
+            .unwrap_or_else(||
              // we can use unwrap here, because the value in the root config must
              // be set in `ConfigFile::configure()`.
-             self.root.replace_imports_with_any.as_deref().unwrap())
+             self.root.replace_imports_with_any.as_deref().unwrap());
+        wildcards.iter().any(|p| p.matches(module))
     }
 
-    pub fn ignore_missing_imports(&self, path: Option<&Path>) -> &[ModuleWildcard] {
-        path.and_then(|path| {
-            self.get_from_sub_configs(ConfigBase::get_ignore_missing_imports, path)
-        })
-        .unwrap_or_else(||
+    pub fn ignore_missing_imports(&self, path: Option<&Path>, module: ModuleName) -> bool {
+        let wildcards = path
+            .and_then(|path| {
+                self.get_from_sub_configs(ConfigBase::get_ignore_missing_imports, path)
+            })
+            .unwrap_or_else(||
              // we can use unwrap here, because the value in the root config must
              // be set in `ConfigFile::configure()`.
-             self.root.ignore_missing_imports.as_deref().unwrap())
+             self.root.ignore_missing_imports.as_deref().unwrap());
+        wildcards.iter().any(|p| p.matches(module))
     }
 
     pub fn untyped_def_behavior(&self, path: &Path) -> UntypedDefBehavior {
@@ -763,6 +766,7 @@ mod tests {
     use super::*;
     use crate::error_kind::ErrorKind;
     use crate::error_kind::Severity;
+    use crate::module_wildcard::ModuleWildcard;
     use crate::util::ConfigOrigin;
 
     #[test]
@@ -1218,31 +1222,28 @@ mod tests {
         };
 
         // test precedence (two configs match, one higher priority)
-        assert_eq!(
-            config.replace_imports_with_any(Some(Path::new("this/is/highest/priority"))),
-            &[ModuleWildcard::new("highest").unwrap()]
-        );
+        assert!(config.replace_imports_with_any(
+            Some(Path::new("this/is/highest/priority")),
+            ModuleName::from_str("highest")
+        ));
 
         // test find fallback match
-        assert_eq!(
-            config.replace_imports_with_any(Some(Path::new("this/is/second/priority"))),
-            &[ModuleWildcard::new("second").unwrap()]
-        );
+        assert!(config.replace_imports_with_any(
+            Some(Path::new("this/is/second/priority")),
+            ModuleName::from_str("second")
+        ));
 
         // test empty value falls back to next
         assert!(config.ignore_errors_in_generated_code(Path::new("this/is/highest/priority")));
 
         // test no pattern match
-        assert_eq!(
-            config.replace_imports_with_any(Some(Path::new("this/does/not/match/any"))),
-            &[ModuleWildcard::new("root").unwrap()],
-        );
+        assert!(config.replace_imports_with_any(
+            Some(Path::new("this/does/not/match/any")),
+            ModuleName::from_str("root")
+        ));
 
         // test replace_imports_with_any special case None path
-        assert_eq!(
-            config.replace_imports_with_any(None),
-            &[ModuleWildcard::new("root").unwrap()],
-        )
+        assert!(config.replace_imports_with_any(None, ModuleName::from_str("root")));
     }
 
     #[test]

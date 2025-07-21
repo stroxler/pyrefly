@@ -415,12 +415,7 @@ pub fn find_import(
 ) -> Result<ModulePath, FindError> {
     if let Some(path) = config.custom_module_paths.get(&module) {
         Ok(path.clone())
-    } else if module != ModuleName::builtins()
-        && config
-            .replace_imports_with_any(path)
-            .iter()
-            .any(|p| p.matches(module))
-    {
+    } else if module != ModuleName::builtins() && config.replace_imports_with_any(path, module) {
         Err(FindError::Ignored)
     } else if let Some(path) = find_module_in_search_path(module, config.search_path())? {
         Ok(path)
@@ -447,11 +442,7 @@ pub fn find_import(
         config.ignore_missing_source,
     )? {
         Ok(path)
-    } else if config
-        .ignore_missing_imports(path)
-        .iter()
-        .any(|p| p.matches(module))
-    {
+    } else if config.ignore_missing_imports(path, module) {
         Err(FindError::Ignored)
     } else {
         Err(FindError::import_lookup_path(

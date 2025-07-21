@@ -157,8 +157,8 @@ ignore_missing_imports = True
             "**/src/specific/bad/file.py".to_owned(),
         ]);
         assert_eq!(cfg.project_excludes, expected_excludes);
-        assert_eq!(cfg.ignore_missing_imports(None).len(), 5);
-        assert_eq!(cfg.replace_imports_with_any(None).len(), 0);
+        assert_eq!(cfg.root.ignore_missing_imports.unwrap().len(), 5);
+        assert_eq!(cfg.root.replace_imports_with_any.unwrap().len(), 0);
         assert!(cfg.use_untyped_imports);
         Ok(())
     }
