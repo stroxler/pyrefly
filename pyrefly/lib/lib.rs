@@ -63,6 +63,7 @@ pub mod library {
     pub mod library {
         pub mod library {
             pub mod library {
+                pub use crate::commands::all::Command;
                 pub use crate::commands::autotype::AutotypeArgs;
                 pub use crate::commands::buck_check::BuckCheckArgs;
                 pub use crate::commands::check::CheckArgs;

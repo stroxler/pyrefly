@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+pub mod all;
 pub mod autotype;
 pub mod buck_check;
 pub mod check;
