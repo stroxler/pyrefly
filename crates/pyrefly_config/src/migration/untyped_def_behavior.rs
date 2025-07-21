@@ -25,8 +25,9 @@ impl ConfigOptionMigrater for UntypedDefBehaviorConfig {
         // We handle this by only checking for the global config.
         let value = mypy_cfg.getboolcoerce("mypy", "check_untyped_defs");
         if !matches!(value, Ok(Some(_))) {
+            pyrefly_cfg.root.untyped_def_behavior = Some(UntypedDefBehavior::SkipAndInferReturnAny);
             return Err(anyhow::anyhow!(
-                "No check_untyped_defs found in mypy config"
+                "No check_untyped_defs found in mypy config, setting default to `skip-and-infer-return-any`"
             ));
         }
 
@@ -100,7 +101,10 @@ mod tests {
         let result = untyped_def_behavior.migrate_from_mypy(&mypy_cfg, &mut pyrefly_cfg);
 
         assert!(result.is_err());
-        assert_eq!(pyrefly_cfg.root.untyped_def_behavior, None);
+        assert_eq!(
+            pyrefly_cfg.root.untyped_def_behavior,
+            Some(UntypedDefBehavior::SkipAndInferReturnAny)
+        );
     }
 
     #[test]

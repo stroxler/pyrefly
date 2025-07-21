@@ -380,7 +380,10 @@ files = ["mypy.py"]
         fs_anyhow::write(&original_config_path, b"[mypy]\nfake_option = True\n")?;
         config_migration(&original_config_path)?;
         let output = fs_anyhow::read_to_string(&pyrefly_config_path)?;
-        assert_eq!(output, "");
+        assert_eq!(
+            output.trim(),
+            r#"untyped-def-behavior = "skip-and-infer-return-any""#
+        );
         Ok(())
     }
 
