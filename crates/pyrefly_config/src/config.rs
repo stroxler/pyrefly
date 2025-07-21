@@ -38,6 +38,7 @@ use crate::environment::interpreters::Interpreters;
 use crate::error::ErrorConfig;
 use crate::error::ErrorDisplayConfig;
 use crate::finder::ConfigError;
+use crate::pyproject::PyProject;
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
 pub struct SubConfig {
@@ -705,7 +706,7 @@ impl ConfigFile {
     }
 
     fn parse_pyproject_toml(config_str: &str) -> anyhow::Result<Option<ConfigFile>> {
-        Ok(toml::from_str::<super::util::PyProject>(config_str)
+        Ok(toml::from_str::<PyProject>(config_str)
             .map_err(|err| anyhow::Error::msg(err.to_string()))?
             .pyrefly())
     }

@@ -14,4 +14,5 @@ pub mod error_kind;
 pub mod finder;
 pub mod migration;
 pub(crate) mod module_wildcard;
-pub mod util;
+pub mod pyproject;
+pub(crate) mod util;

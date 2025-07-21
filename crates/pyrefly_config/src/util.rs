@@ -13,8 +13,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use toml::Table;
 
-use crate::config::ConfigFile;
-
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(transparent)]
 pub(crate) struct ExtraConfigs(pub(crate) Table);
@@ -25,33 +23,6 @@ impl Eq for ExtraConfigs {}
 impl PartialEq for ExtraConfigs {
     fn eq(&self, _other: &Self) -> bool {
         true
-    }
-}
-
-/// Wrapper used to (de)serialize pyrefly configs from pyproject.toml files.
-#[derive(Debug, Serialize, Deserialize)]
-struct Tool {
-    #[serde(default)]
-    pyrefly: Option<ConfigFile>,
-}
-
-/// Wrapper used to (de)serialize pyrefly configs from pyproject.toml files.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PyProject {
-    #[serde(default)]
-    tool: Option<Tool>,
-}
-
-impl PyProject {
-    /// Wrap the given ConfigFile in a `PyProject { Tool { ... }}`
-    pub fn new(cfg: ConfigFile) -> Self {
-        Self {
-            tool: Some(Tool { pyrefly: Some(cfg) }),
-        }
-    }
-
-    pub(crate) fn pyrefly(self) -> Option<ConfigFile> {
-        self.tool.and_then(|t| t.pyrefly)
     }
 }
 

@@ -17,6 +17,7 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use clap::Parser;
+use pyrefly_config::pyproject::PyProject;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::upward_search::UpwardSearch;
 use tracing::error;
@@ -29,7 +30,6 @@ use crate::config::migration::mypy;
 use crate::config::migration::mypy::MypyConfig;
 use crate::config::migration::pyright;
 use crate::config::migration::pyright::PyrightConfig;
-use crate::config::util::PyProject;
 
 /// Arguments for configuration migration from other type checkers
 #[deny(clippy::missing_docs_in_private_items)]
