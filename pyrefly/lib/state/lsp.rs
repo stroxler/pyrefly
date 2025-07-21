@@ -902,9 +902,9 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         key: &Key,
         jump_through_renamed_import: bool,
-        mut gas: Gas,
     ) -> Option<(Handle, Export)> {
         let bindings = self.get_bindings(handle)?;
+        let mut gas = INITIAL_GAS;
         let intermediate_definition = key_to_intermediate_definition(&bindings, key, &mut gas)?;
         self.resolve_intermediate_definition(
             handle,
@@ -947,7 +947,7 @@ impl<'a> Transaction<'a> {
                 symbol_kind,
                 docstring_range,
             },
-        ) = self.key_to_export(handle, &def_key, jump_through_renamed_import, INITIAL_GAS)?;
+        ) = self.key_to_export(handle, &def_key, jump_through_renamed_import)?;
         let module_info = self.get_module_info(&handle)?;
         let name = Name::new(module_info.code_at(location));
         Some(FindDefinitionItemWithDocstring {
@@ -975,7 +975,7 @@ impl<'a> Transaction<'a> {
                 symbol_kind,
                 docstring_range,
             },
-        ) = self.key_to_export(handle, &use_key, jump_through_renamed_import, INITIAL_GAS)?;
+        ) = self.key_to_export(handle, &use_key, jump_through_renamed_import)?;
         Some(FindDefinitionItemWithDocstring {
             metadata: DefinitionMetadata::Variable(symbol_kind),
             definition_range: location,
@@ -1486,7 +1486,7 @@ impl<'a> Transaction<'a> {
                 continue;
             }
             if let Some((definition_handle, definition_export)) =
-                self.key_to_export(handle, key, false, INITIAL_GAS)
+                self.key_to_export(handle, key, false)
             {
                 named_bindings.push(NamedBinding {
                     definition_handle,
