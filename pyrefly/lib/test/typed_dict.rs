@@ -908,6 +908,16 @@ C(0)  # E: Expected argument `x` to be passed by name in function `C.__init__`
 );
 
 testcase!(
+    test_attribute_named_self,
+    r#"
+from typing import TypedDict
+class C(TypedDict):
+    self: int
+C(self=0)
+    "#,
+);
+
+testcase!(
     test_required_and_notrequired_conflict,
     r#"
 from typing import TypedDict, Required, NotRequired

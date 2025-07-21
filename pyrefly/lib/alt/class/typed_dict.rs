@@ -209,7 +209,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         fields: &SmallMap<Name, bool>,
     ) -> ClassSynthesizedField {
-        let mut params = vec![self.class_self_param(cls, false)];
+        let mut params = vec![self.class_self_param(cls, true)];
         for (name, field) in self.names_to_fields(cls, fields) {
             params.push(Param::KwOnly(
                 name.clone(),
