@@ -64,15 +64,9 @@ pub mod library {
         pub mod library {
             pub mod library {
                 pub use crate::commands::all::Command;
-                pub use crate::commands::autotype::AutotypeArgs;
-                pub use crate::commands::buck_check::BuckCheckArgs;
                 pub use crate::commands::check::CheckArgs;
                 pub use crate::commands::check::FullCheckArgs;
                 pub use crate::commands::config_finder::standard_config_finder;
-                pub use crate::commands::dump_config::DumpConfigArgs;
-                pub use crate::commands::files;
-                pub use crate::commands::init::InitArgs;
-                pub use crate::commands::lsp::LspArgs;
                 pub use crate::commands::util;
             }
         }

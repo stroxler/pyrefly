@@ -29,6 +29,7 @@ use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::config::finder::debug_log;
 
+/// Arguments regarding which files to pick.
 #[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Parser)]
 pub struct FilesArgs {
