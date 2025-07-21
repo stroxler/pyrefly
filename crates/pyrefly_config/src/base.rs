@@ -73,7 +73,7 @@ pub struct ConfigBase {
 
     /// Any unknown config items
     #[serde(default, flatten)]
-    pub extras: ExtraConfigs,
+    pub(crate) extras: ExtraConfigs,
 }
 
 impl ConfigBase {

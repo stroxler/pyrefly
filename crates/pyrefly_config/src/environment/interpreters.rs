@@ -33,10 +33,10 @@ pub struct Interpreters {
                 // alias while we migrate existing fields from snake case to kebab case.
                 alias = "python_interpreter"
             )]
-    pub python_interpreter: Option<ConfigOrigin<PathBuf>>,
+    pub(crate) python_interpreter: Option<ConfigOrigin<PathBuf>>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub conda_environment: Option<ConfigOrigin<String>>,
+    pub(crate) conda_environment: Option<ConfigOrigin<String>>,
 
     /// Should we do any querying of an interpreter?
     #[serde(default, skip_serializing_if = "crate::util::skip_default_false")]
@@ -93,7 +93,10 @@ impl Interpreters {
     /// 5. Check for a `venv` in the current project
     /// 6. Use an interpreter we can find on the `$PATH`
     /// 7. Give up and return an error
-    pub fn find_interpreter(&self, path: Option<&Path>) -> anyhow::Result<ConfigOrigin<PathBuf>> {
+    pub(crate) fn find_interpreter(
+        &self,
+        path: Option<&Path>,
+    ) -> anyhow::Result<ConfigOrigin<PathBuf>> {
         if let Some(interpreter @ ConfigOrigin::CommandLine(_)) = &self.python_interpreter {
             return Ok(interpreter.clone());
         }
