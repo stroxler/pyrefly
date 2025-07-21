@@ -361,6 +361,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         keywords: &[CallKeyword],
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
+        hint: Option<&Type>,
     ) -> Option<Type> {
         let dunder_call = self.get_metaclass_dunder_call(cls)?;
         Some(self.call_infer(
@@ -376,7 +377,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
             context,
-            None,
+            hint,
         ))
     }
 
@@ -388,11 +389,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
+        hint: Option<&Type>,
     ) -> Type {
         // Based on https://typing.readthedocs.io/en/latest/spec/constructors.html.
         let instance_ty = Type::ClassType(cls.clone());
         let mut overall_ret = None;
-        if let Some(ret) = self.call_metaclass(&cls, range, args, keywords, errors, context) {
+        if let Some(ret) = self.call_metaclass(&cls, range, args, keywords, errors, context, hint) {
             if self.is_compatible_constructor_return(&ret, cls.class_object()) {
                 overall_ret = Some(ret);
             } else {
@@ -420,7 +422,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     &dunder_new_errors,
                     context,
-                    None,
+                    hint,
                 );
                 let has_errors = !dunder_new_errors.is_empty();
                 errors.extend(dunder_new_errors);
@@ -458,7 +460,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 &dunder_init_errors,
                 context,
-                None,
+                hint,
             );
             // Report `__init__` errors only when there are no `__new__` errors, to avoid redundant errors.
             if !dunder_new_has_errors {
@@ -481,6 +483,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
+        hint: Option<&Type>,
     ) -> Type {
         // We know `__init__` exists because we synthesize it.
         let init_method = self.get_typed_dict_dunder_init(&typed_dict).unwrap();
@@ -497,7 +500,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
             context,
-            None,
+            hint,
         );
         Type::TypedDict(typed_dict)
     }
@@ -577,10 +580,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Some(ty) => self.check_dunder_bool_is_callable(&ty, range, errors),
                     }
                 };
-                self.construct_class(cls, args, keywords, range, errors, context)
+                self.construct_class(cls, args, keywords, range, errors, context, hint)
             }
             Target::TypedDict(td) => {
-                self.construct_typed_dict(td, args, keywords, range, errors, context)
+                self.construct_typed_dict(td, args, keywords, range, errors, context, hint)
             }
             Target::BoundMethod(
                 obj,
@@ -600,10 +603,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     errors,
                     errors,
                     context,
+                    hint,
                 )
             }
             Target::Callable(callable) => self.callable_infer(
-                callable, None, None, args, keywords, range, errors, errors, context,
+                callable, None, None, args, keywords, range, errors, errors, context, hint,
             ),
             Target::Function(Function {
                 signature: mut callable,
@@ -637,11 +641,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     errors,
                     errors,
                     context,
+                    hint,
                 )
             }
             Target::FunctionOverload(overloads, meta) => {
                 self.call_overloads(
-                    overloads, meta, None, args, keywords, range, errors, context,
+                    overloads, meta, None, args, keywords, range, errors, context, hint,
                 )
                 .0
             }
@@ -655,6 +660,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     errors,
                     context,
+                    hint,
                 )
                 .0
             }
@@ -668,7 +674,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         errors,
                         context,
-                        None,
+                        hint,
                     )
                 }))
             }
@@ -716,6 +722,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
+        hint: Option<&Type>,
     ) -> (Type, Callable) {
         // There may be Expr values in self_arg, args and keywords.
         // If we infer them for each overload, we may end up infering them multiple times.
@@ -755,6 +762,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // and if there are any call errors, we'll log a "No matching overloads"
                 // error with the necessary context.
                 None,
+                hint,
             );
             if arg_errors.is_empty() && call_errors.is_empty() {
                 // An overload is chosen, we should record it to power IDE services.

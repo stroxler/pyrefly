@@ -906,6 +906,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         arg_errors: &ErrorCollector,
         call_errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
+        _hint: Option<&Type>,
     ) -> Type {
         match callable.params {
             Params::List(params) => {
