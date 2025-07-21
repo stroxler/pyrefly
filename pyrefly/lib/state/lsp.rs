@@ -813,9 +813,9 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module_name: ModuleName,
         name: Name,
-        gas: &mut Gas,
     ) -> Option<(Handle, Export)> {
         let mut m = module_name;
+        let mut gas = INITIAL_GAS;
         while !gas.stop() {
             let handle = self.import_handle(handle, m, None).ok()?;
             match self.get_exports(&handle).get(&name) {
@@ -837,7 +837,6 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         intermediate_definition: IntermediateDefinition,
         jump_through_renamed_import: bool,
-        mut gas: Gas,
     ) -> Option<(Handle, Export)> {
         match intermediate_definition {
             IntermediateDefinition::Local(export) => Some((handle.dupe(), export)),
@@ -847,8 +846,7 @@ impl<'a> Transaction<'a> {
                 name,
                 original_name_range,
             ) => {
-                let (def_handle, export) =
-                    self.resolve_named_import(handle, module_name, name, &mut gas)?;
+                let (def_handle, export) = self.resolve_named_import(handle, module_name, name)?;
                 if !jump_through_renamed_import && original_name_range.is_some() {
                     Some((
                         handle.dupe(),
@@ -888,9 +886,8 @@ impl<'a> Transaction<'a> {
                 Some((text_range_with_module_info, None))
             }
             AttrDefinition::PartiallyResolvedImportedModuleAttribute { module_name } => {
-                let mut gas = INITIAL_GAS;
                 let (handle, export) =
-                    self.resolve_named_import(handle, module_name, attr_name.clone(), &mut gas)?;
+                    self.resolve_named_import(handle, module_name, attr_name.clone())?;
                 let module_info = self.get_module_info(&handle)?;
                 Some((
                     TextRangeWithModule::new(module_info, export.location),
@@ -913,7 +910,6 @@ impl<'a> Transaction<'a> {
             handle,
             intermediate_definition,
             jump_through_renamed_import,
-            gas,
         )
     }
 
@@ -1348,13 +1344,9 @@ impl<'a> Transaction<'a> {
                 .iter()
                 .chain(&index.renamed_imports)
             {
-                let mut gas = INITIAL_GAS;
-                if let Some((imported_handle, export)) = self.resolve_named_import(
-                    handle,
-                    *imported_module_name,
-                    imported_name.clone(),
-                    &mut gas,
-                ) && imported_handle.path().as_path() == module.path().as_path()
+                if let Some((imported_handle, export)) =
+                    self.resolve_named_import(handle, *imported_module_name, imported_name.clone())
+                    && imported_handle.path().as_path() == module.path().as_path()
                     && export.location == definition_range
                 {
                     references.extend(ranges.iter().copied());
