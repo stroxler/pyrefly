@@ -578,7 +578,7 @@ impl CheckArgs {
         }
         let mut shown_errors_count = config_errors_count;
         for error in &errors.shown {
-            if error.severity() >= Severity::Warn {
+            if error.severity() >= Severity::Error {
                 shown_errors_count += 1;
             }
         }
