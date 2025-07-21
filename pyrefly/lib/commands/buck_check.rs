@@ -22,12 +22,12 @@ use pyrefly_util::prelude::VecExt;
 use serde::Deserialize;
 use tracing::info;
 
+use crate::buck::source_db::BuckSourceDatabase;
 use crate::commands::util::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;
 use crate::error::legacy::LegacyErrors;
-use crate::module::source_db::BuckSourceDatabase;
 use crate::state::handle::Handle;
 use crate::state::require::Require;
 use crate::state::state::State;

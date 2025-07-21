@@ -8,7 +8,6 @@
 pub mod finder;
 pub mod from_path;
 pub mod parse;
-pub mod source_db;
 pub mod typeshed;
 
 // Temporary reexports. Given these are such central types going
