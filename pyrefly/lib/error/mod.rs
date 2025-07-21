@@ -13,3 +13,4 @@ pub mod expectation;
 pub mod legacy;
 pub mod style;
 pub mod summarise;
+pub mod suppress;
