@@ -19,7 +19,6 @@ use anyhow::Context as _;
 use pyrefly_config::pyproject::PyProject;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::upward_search::UpwardSearch;
-use tracing::error;
 use tracing::info;
 use tracing::warn;
 
@@ -101,11 +100,10 @@ impl Args {
     /// It returns the config and the path to the original config file.
     fn load_config(&self) -> anyhow::Result<(ConfigFile, PathBuf)> {
         if !self.original_config_path.exists() {
-            error!(
-                "Could not find or cannot access `{}`",
+            return Err(anyhow::anyhow!(
+                "Could not find or access config file `{}`",
                 self.original_config_path.display()
-            );
-            return Err(anyhow::anyhow!("Could not find or access config file"));
+            ));
         }
 
         let original_config_path = if self.original_config_path.is_file() {
@@ -129,22 +127,13 @@ impl Args {
             );
             MypyConfig::parse_mypy_config(&original_config_path)?
         } else if original_config_path.file_name() == Some("pyproject.toml".as_ref()) {
-            match Self::load_from_pyproject(&original_config_path) {
-                Ok(config) => config,
-                Err(e) => {
-                    error!("Failed to load config from pyproject.toml: {}", e);
-                    return Err(anyhow::anyhow!(
-                        "Failed to load config from pyproject.toml: {}",
-                        e
-                    ));
-                }
-            }
+            Self::load_from_pyproject(&original_config_path)
+                .context("Failed to load config from pyproject.toml")?
         } else {
-            error!(
+            return Err(anyhow::anyhow!(
                 "Currently only migration from pyrightconfig.json, mypy.ini, and pyproject.toml is supported, not `{}`",
                 original_config_path.display(),
-            );
-            return Err(anyhow::anyhow!("Unsupported config file format"));
+            ));
         };
 
         Self::check_and_warn(&config);
