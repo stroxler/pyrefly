@@ -11,15 +11,15 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use clap::Subcommand;
+use library::AutotypeArgs;
+use library::BuckCheckArgs;
+use library::CheckArgs;
+use library::InitArgs;
+use library::LspArgs;
+use library::dump_config;
 use library::globs_and_config_getter;
-use library::run::AutotypeArgs;
-use library::run::BuckCheckArgs;
-use library::run::CheckArgs;
 use library::run::CommandExitStatus;
 use library::run::CommonGlobalArgs;
-use library::run::InitArgs;
-use library::run::LspArgs;
-use library::run::dump_config;
 use pyrefly::library::library::library::library;
 use pyrefly_config::finder::ConfigFinder;
 use pyrefly_util::args::get_args_expanded;
@@ -110,7 +110,7 @@ enum Command {
 }
 
 async fn run_autotype(
-    args: library::run::AutotypeArgs,
+    args: library::AutotypeArgs,
     files_to_check: FilteredGlobs,
     config_finder: ConfigFinder,
 ) -> anyhow::Result<CommandExitStatus> {
@@ -118,7 +118,7 @@ async fn run_autotype(
 }
 
 async fn run_check(
-    args: library::run::CheckArgs,
+    args: library::CheckArgs,
     watch: bool,
     files_to_check: FilteredGlobs,
     config_finder: ConfigFinder,

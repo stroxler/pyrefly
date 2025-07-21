@@ -14,13 +14,6 @@ use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::init_thread_pool;
 use pyrefly_util::trace::init_tracing;
 
-pub use crate::commands::autotype::AutotypeArgs;
-pub use crate::commands::buck_check::BuckCheckArgs;
-pub use crate::commands::check::CheckArgs;
-pub use crate::commands::dump_config::dump_config;
-pub use crate::commands::init::InitArgs;
-pub use crate::commands::lsp::LspArgs;
-
 /// Arguments shared between all commands.
 #[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Parser, Clone)]
