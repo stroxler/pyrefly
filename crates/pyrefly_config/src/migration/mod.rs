@@ -23,4 +23,4 @@ pub(crate) mod use_untyped_imports;
 pub(crate) mod util;
 
 #[cfg(test)]
-pub(crate) mod test_utils;
+pub(crate) mod test_util;

@@ -117,7 +117,7 @@ mod tests {
     use crate::error_kind::Severity;
     use crate::migration::pyright::ExecEnv;
     use crate::migration::pyright::RuleOverrides;
-    use crate::migration::test_utils::default_pyright_config;
+    use crate::migration::test_util::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy_with_single_module() {

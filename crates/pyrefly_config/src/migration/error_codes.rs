@@ -54,7 +54,7 @@ mod tests {
     use super::*;
     use crate::error_kind::ErrorKind;
     use crate::error_kind::Severity;
-    use crate::migration::test_utils::default_pyright_config;
+    use crate::migration::test_util::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy_with_both_error_codes() {

@@ -53,7 +53,7 @@ impl ConfigOptionMigrater for PythonInterpreter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::migration::test_utils::default_pyright_config;
+    use crate::migration::test_util::default_pyright_config;
 
     #[test]
     fn test_migrate_from_mypy() {

@@ -62,7 +62,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::migration::test_utils::default_pyright_config;
+    use crate::migration::test_util::default_pyright_config;
 
     // Constants for test paths
     const FILE_PATH1: &str = "/path/to/stubs";
