@@ -85,6 +85,26 @@ Docstring Result: `Test docstring`
 }
 
 #[test]
+fn raw_quotes_test() {
+    let code = r#"
+def f():
+#   ^
+    r"""Test docstring"""
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], test_report_factory(code));
+    assert_eq!(
+        r#"
+# main.py
+2 | def f():
+        ^
+Docstring Result: `Test docstring`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn class_itself_test() {
     let code = r#"
 class Foo:
