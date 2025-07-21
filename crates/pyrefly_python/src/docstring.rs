@@ -44,9 +44,7 @@ impl Docstring {
 
         let mut result = result;
         for (prefix, suffix) in patterns {
-            if result.starts_with(prefix)
-                && result.ends_with(suffix)
-                && let Some(x) = result.strip_prefix(prefix)
+            if let Some(x) = result.strip_prefix(prefix)
                 && let Some(x) = x.strip_suffix(suffix)
             {
                 result = x.to_owned();
