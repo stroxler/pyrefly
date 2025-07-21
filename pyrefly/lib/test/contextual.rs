@@ -351,6 +351,21 @@ x: C[list[A]] = C([B()])
 );
 
 testcase!(
+    test_context_typeddict_ctor_return,
+    r#"
+from typing import TypedDict
+
+class A: ...
+class B(A): ...
+
+class TD[T](TypedDict):
+    x: list[T]
+
+x: TD[A] = TD(x = [B()])
+"#,
+);
+
+testcase!(
     test_context_in_multi_target_assign,
     r#"
 class A: ...

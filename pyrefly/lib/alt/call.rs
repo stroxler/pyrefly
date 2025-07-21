@@ -583,6 +583,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.construct_class(cls, args, keywords, range, errors, context, hint)
             }
             Target::TypedDict(td) => {
+                if let Some(hint) = hint {
+                    // If a hint is provided, use it to bind any variables in the return type
+                    // We only care about the side effect here, not the result
+                    self.is_subset_eq(&Type::TypedDict(td.clone()), hint);
+                }
                 self.construct_typed_dict(td, args, keywords, range, errors, context, hint)
             }
             Target::BoundMethod(
