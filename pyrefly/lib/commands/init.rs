@@ -21,7 +21,7 @@ use tracing::info;
 use tracing::warn;
 
 use crate::commands::check;
-use crate::commands::files;
+use crate::commands::files::FilesArgs;
 use crate::commands::util::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::error::summarise;
@@ -110,7 +110,7 @@ impl InitArgs {
 
         // Use get to get the filtered globs and config finder
         let (filtered_globs, config_finder) =
-            files::get(Vec::new(), None, config_path, &check_args.config_override)?;
+            FilesArgs::get(Vec::new(), config_path, &check_args.config_override)?;
 
         // Run the check directly
         match check_args.run_once(filtered_globs, config_finder, true) {
@@ -143,12 +143,8 @@ impl InitArgs {
             ]);
 
             // Use get to get the filtered globs and config finder
-            let (suppress_globs, suppress_config_finder) = files::get(
-                Vec::new(),
-                None,
-                config_path,
-                &suppress_args.config_override,
-            )?;
+            let (suppress_globs, suppress_config_finder) =
+                FilesArgs::get(Vec::new(), config_path, &suppress_args.config_override)?;
 
             // Run the check with suppress-errors flag
             match suppress_args.run_once(suppress_globs, suppress_config_finder, true) {
@@ -320,9 +316,8 @@ impl InitArgs {
         }
 
         // Use get to get the filtered globs and config finder, passing the files to check
-        let (suppress_globs, suppress_config_finder) = files::get(
+        let (suppress_globs, suppress_config_finder) = FilesArgs::get(
             files_to_check,
-            None,
             config_path.clone(),
             &suppress_args.config_override,
         )?;

@@ -6,7 +6,6 @@
  */
 
 use std::env::args_os;
-use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::Parser;
@@ -17,10 +16,10 @@ use library::CheckArgs;
 use library::InitArgs;
 use library::LspArgs;
 use library::dump_config;
-use library::files;
 use library::util::CommandExitStatus;
 use library::util::CommonGlobalArgs;
 use pyrefly::library::library::library::library;
+use pyrefly::library::library::library::library::files::FilesArgs;
 use pyrefly_config::finder::ConfigFinder;
 use pyrefly_util::args::get_args_expanded;
 use pyrefly_util::globs::FilteredGlobs;
@@ -57,28 +56,13 @@ struct Args {
 #[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Parser)]
 struct FullCheckArgs {
-    /// Files to check (glob supported).
-    /// If no file is specified, switch to project-checking mode where the files to
-    /// check are determined from the closest configuration file.
-    /// When supplied, `project_excludes` in any config files loaded for these files to check
-    /// are ignored, and we use the default excludes unless overridden with the `--project-excludes` flag.
-    files: Vec<String>,
-    /// Files to exclude when type checking.
-    #[arg(long)]
-    project_excludes: Option<Vec<String>>,
+    /// Which files to check.
+    #[command(flatten)]
+    files: FilesArgs,
+
     /// Watch for file changes and re-check them.
     #[arg(long, conflicts_with = "check_all")]
     watch: bool,
-
-    /// Explicitly set the Pyrefly configuration to use when type checking or starting a language server.
-    /// In "single-file checking mode," this config is applied to all files being checked, ignoring
-    /// the config's `project_includes` and `project_excludes` and ignoring any config-finding approach
-    /// that would otherwise be used.
-    /// When not set, Pyrefly will perform an upward-filesystem-walk approach to find the nearest
-    /// pyrefly.toml or pyproject.toml with `tool.pyrefly` section'. If no config is found, Pyrefly exits with error.
-    /// If both a pyrefly.toml and valid pyproject.toml are found, pyrefly.toml takes precedence.
-    #[arg(long, short, value_name = "FILE")]
-    config: Option<PathBuf>,
 
     /// Type checking arguments and configuration
     #[command(flatten)]
@@ -139,16 +123,9 @@ async fn run_check(
 
 async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<CommandExitStatus> {
     match command {
-        Command::Check(FullCheckArgs {
-            files,
-            project_excludes,
-            watch,
-            config,
-            args,
-        }) => {
+        Command::Check(FullCheckArgs { files, watch, args }) => {
             args.config_override.validate()?;
-            let (files_to_check, config_finder) =
-                files::get(files, project_excludes, config, &args.config_override)?;
+            let (files_to_check, config_finder) = files.resolve(&args.config_override)?;
             run_check(args, watch, files_to_check, config_finder, allow_forget).await
         }
         Command::BuckCheck(args) => args.run(),
@@ -156,28 +133,18 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
         Command::Init(args) => args.run(),
         Command::Autotype(FullCheckArgs {
             files,
-            project_excludes,
-            config,
             watch: _,
             args,
         }) => {
             args.config_override.validate()?;
-            let (files_to_check, config_finder) =
-                files::get(files, project_excludes, config, &args.config_override)?;
+            let (files_to_check, config_finder) = files.resolve(&args.config_override)?;
             run_autotype(AutotypeArgs::new(), files_to_check, config_finder).await
         }
         // We intentionally make DumpConfig take the same arguments as Check so that dumping the
         // config is as easy as changing the command name.
-        Command::DumpConfig(FullCheckArgs {
-            files,
-            project_excludes,
-            config,
-            args,
-            ..
-        }) => {
+        Command::DumpConfig(FullCheckArgs { files, args, .. }) => {
             args.config_override.validate()?;
-            let (files_to_check, config_finder) =
-                files::get(files, project_excludes, config, &args.config_override)?;
+            let (files_to_check, config_finder) = files.resolve(&args.config_override)?;
             dump_config(files_to_check, config_finder, args)
         }
     }

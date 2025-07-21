@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use clap::Parser;
 use dupe::Dupe;
 use path_absolutize::Absolutize;
 use pyrefly_config::args::ConfigOverrideArgs;
@@ -27,6 +28,30 @@ use crate::config::error_kind::Severity;
 use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::config::finder::debug_log;
+
+#[deny(clippy::missing_docs_in_private_items)]
+#[derive(Debug, Clone, Parser)]
+pub struct FilesArgs {
+    /// Files to check (glob supported).
+    /// If no file is specified, switch to project-checking mode where the files to
+    /// check are determined from the closest configuration file.
+    /// When supplied, `project_excludes` in any config files loaded for these files to check
+    /// are ignored, and we use the default excludes unless overridden with the `--project-excludes` flag.
+    files: Vec<String>,
+    /// Files to exclude when type checking.
+    #[arg(long)]
+    project_excludes: Option<Vec<String>>,
+
+    /// Explicitly set the Pyrefly configuration to use when type checking or starting a language server.
+    /// In "single-file checking mode," this config is applied to all files being checked, ignoring
+    /// the config's `project_includes` and `project_excludes` and ignoring any config-finding approach
+    /// that would otherwise be used.
+    /// When not set, Pyrefly will perform an upward-filesystem-walk approach to find the nearest
+    /// pyrefly.toml or pyproject.toml with `tool.pyrefly` section'. If no config is found, Pyrefly exits with error.
+    /// If both a pyrefly.toml and valid pyproject.toml are found, pyrefly.toml takes precedence.
+    #[arg(long, short, value_name = "FILE")]
+    config: Option<PathBuf>,
+}
 
 fn config_finder(args: ConfigOverrideArgs) -> ConfigFinder {
     standard_config_finder(Arc::new(move |_, x| args.override_config(x)))
@@ -150,20 +175,38 @@ fn get_globs_and_config_for_files(
     ))
 }
 
-pub fn get(
-    files: Vec<String>,
-    project_excludes: Option<Vec<String>>,
-    config: Option<PathBuf>,
-    args: &ConfigOverrideArgs,
-) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
-    let project_excludes = if let Some(project_excludes) = project_excludes {
-        Some(absolutize(Globs::new(project_excludes))?)
-    } else {
-        None
-    };
-    if files.is_empty() {
-        get_globs_and_config_for_project(config, project_excludes, args)
-    } else {
-        get_globs_and_config_for_files(config, Globs::new(files), project_excludes, args)
+impl FilesArgs {
+    pub fn resolve(
+        self,
+        config_override: &ConfigOverrideArgs,
+    ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
+        let project_excludes = if let Some(project_excludes) = self.project_excludes {
+            Some(absolutize(Globs::new(project_excludes))?)
+        } else {
+            None
+        };
+        if self.files.is_empty() {
+            get_globs_and_config_for_project(self.config, project_excludes, config_override)
+        } else {
+            get_globs_and_config_for_files(
+                self.config,
+                Globs::new(self.files),
+                project_excludes,
+                config_override,
+            )
+        }
+    }
+
+    pub fn get(
+        files: Vec<String>,
+        config: Option<PathBuf>,
+        args: &ConfigOverrideArgs,
+    ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
+        FilesArgs {
+            files,
+            config,
+            project_excludes: None,
+        }
+        .resolve(args)
     }
 }
