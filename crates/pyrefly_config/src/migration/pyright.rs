@@ -77,6 +77,10 @@ use crate::migration::sub_configs::SubConfigs;
 use crate::migration::use_untyped_imports::UseUntypedImports;
 
 impl PyrightConfig {
+    pub fn parse(text: &str) -> anyhow::Result<Self> {
+        Ok(serde_jsonrc::from_str::<Self>(text)?)
+    }
+
     pub fn convert(self) -> ConfigFile {
         let mut cfg = ConfigFile::default();
 

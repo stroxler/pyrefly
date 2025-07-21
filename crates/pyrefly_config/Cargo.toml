@@ -24,6 +24,7 @@ regex = "1.11.1"
 regex-syntax = "0.7.5"
 serde = { version = "1.0.185", features = ["derive", "rc"] }
 serde_json = { version = "1.0.140", features = ["alloc", "float_roundtrip", "unbounded_depth"] }
+serde_jsonrc = "0.1"
 serde_with = { version = "3", features = ["hex", "json"] }
 starlark_map = "0.13.0"
 thiserror = "2.0.12"
@@ -36,7 +37,6 @@ yansi = { version = "1.0.0-rc.1", features = ["hyperlink"] }
 [dev-dependencies]
 pretty_assertions = { version = "1.2", features = ["alloc"], default-features = false }
 pulldown-cmark = "0.9.1"
-serde_jsonrc = "0.1"
 tempfile = "3.15"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

@@ -110,12 +110,12 @@ impl Args {
         };
 
         let config = if original_config_path.file_name() == Some("pyrightconfig.json".as_ref()) {
-            let raw_file = fs_anyhow::read_to_string(&original_config_path)?;
             info!(
                 "Migrating pyright config file from: `{}`",
                 original_config_path.display()
             );
-            let pyr = serde_jsonrc::from_str::<PyrightConfig>(&raw_file)?;
+            let raw_file = fs_anyhow::read_to_string(&original_config_path)?;
+            let pyr = PyrightConfig::parse(&raw_file)?;
             pyr.convert()
         } else if original_config_path.file_name() == Some("mypy.ini".as_ref()) {
             info!(

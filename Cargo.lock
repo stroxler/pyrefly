@@ -2053,7 +2053,6 @@ dependencies = [
  "ruff_text_size",
  "serde",
  "serde_json",
- "serde_jsonrc",
  "starlark_map",
  "static_assertions",
  "tempfile",
