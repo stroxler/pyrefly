@@ -36,11 +36,6 @@ impl ErrorDisplayConfig {
             .unwrap_or_else(|| kind.default_severity())
     }
 
-    pub fn is_enabled(&self, kind: ErrorKind) -> bool {
-        !matches!(self.0.get(&kind), Some(Severity::Ignore))
-            && kind.default_severity() != Severity::Ignore
-    }
-
     pub fn with_error_setting(&mut self, kind: ErrorKind, severity: Severity) {
         self.0.insert(kind, severity);
     }

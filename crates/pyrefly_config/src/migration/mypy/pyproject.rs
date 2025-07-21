@@ -257,6 +257,7 @@ mod tests {
 
     use super::*;
     use crate::error_kind::ErrorKind;
+    use crate::error_kind::Severity;
     use crate::module_wildcard::ModuleWildcard;
 
     #[test]
@@ -321,7 +322,10 @@ disable_error_code = ["union-attr"]
         let mut cfg = parse_pyproject_config(src)?;
         cfg.configure();
         let errors = cfg.errors(Path::new("."));
-        assert!(!errors.is_enabled(ErrorKind::MissingAttribute));
+        assert_eq!(
+            errors.severity(ErrorKind::MissingAttribute),
+            Severity::Ignore
+        );
         Ok(())
     }
 
@@ -403,21 +407,25 @@ follow_imports = "silent"
 "#;
         let mut cfg = parse_pyproject_config(src)?;
         cfg.configure();
-        assert!(
+        assert_eq!(
             cfg.errors(Path::new("src"))
-                .is_enabled(ErrorKind::MissingAttribute)
+                .severity(ErrorKind::MissingAttribute),
+            Severity::Error
         );
-        assert!(
-            !cfg.errors(Path::new("src/linux"))
-                .is_enabled(ErrorKind::MissingAttribute)
+        assert_eq!(
+            cfg.errors(Path::new("src/linux"))
+                .severity(ErrorKind::MissingAttribute),
+            Severity::Ignore
         );
-        assert!(
-            !cfg.errors(Path::new("src/down/the/tree/linux"))
-                .is_enabled(ErrorKind::MissingAttribute)
+        assert_eq!(
+            cfg.errors(Path::new("src/down/the/tree/linux"))
+                .severity(ErrorKind::MissingAttribute),
+            Severity::Ignore
         );
-        assert!(
-            !cfg.errors(Path::new("src/foo"))
-                .is_enabled(ErrorKind::MissingAttribute)
+        assert_eq!(
+            cfg.errors(Path::new("src/foo"))
+                .severity(ErrorKind::MissingAttribute),
+            Severity::Ignore
         );
         Ok(())
     }
