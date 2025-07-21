@@ -78,15 +78,13 @@ impl PyProject {
                     }
                 }
             }
-            fs_anyhow::write(pyproject_path, doc.to_string().as_bytes())
-                .with_context(|| ERR_WRITE_CONFIG)
+            fs_anyhow::write(pyproject_path, doc.to_string()).with_context(|| ERR_WRITE_CONFIG)
         } else {
             let mut serialized_toml = toml::to_string_pretty(&config_pyproject)?;
             if !serialized_toml.contains("[tool.pyrefly]") {
                 serialized_toml = String::from("[tool.pyrefly]\n");
             }
-            fs_anyhow::write(pyproject_path, serialized_toml.as_bytes())
-                .with_context(|| ERR_WRITE_CONFIG)
+            fs_anyhow::write(pyproject_path, serialized_toml).with_context(|| ERR_WRITE_CONFIG)
         }
     }
 }
@@ -116,7 +114,7 @@ project_excludes = ["should/be/removed.py"]
 [tool.black]
 line-length = 88
 "#;
-        fs_anyhow::write(&pyproject_path, existing_content.as_bytes())?;
+        fs_anyhow::write(&pyproject_path, existing_content)?;
 
         let config = ConfigFile {
             project_includes: Globs::new(vec!["new/path/**/*.py".to_owned()]),
@@ -164,7 +162,7 @@ line-length = 88
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 "#;
-        fs_anyhow::write(&ordering_path, existing_content.as_bytes())?;
+        fs_anyhow::write(&ordering_path, existing_content)?;
 
         let config = ConfigFile {
             project_includes: Globs::new(vec!["ordering_test.py".to_owned()]),

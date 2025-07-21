@@ -175,7 +175,7 @@ impl AutotypeArgs {
                 result.insert_str(offset, &hint);
             }
         }
-        fs_anyhow::write(file_path, result.as_bytes())
+        fs_anyhow::write(file_path, result)
     }
 }
 
@@ -191,7 +191,7 @@ mod test {
     fn assert_annotations(input: &str, output: &str) {
         let tdir = tempfile::tempdir().unwrap();
         let path = tdir.path().join("test.py");
-        fs_anyhow::write(&path, input.as_bytes()).unwrap();
+        fs_anyhow::write(&path, input).unwrap();
         let mut t = TestEnv::new();
         t.add(&path.display().to_string(), input);
         let includes = Globs::new(vec![format!("{}/**/*", tdir.path().display()).to_owned()]);

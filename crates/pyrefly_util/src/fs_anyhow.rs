@@ -19,7 +19,7 @@ pub fn read(path: &Path) -> anyhow::Result<Vec<u8>> {
     fs::read(path).with_context(|| format!("When reading file `{}`", path.display()))
 }
 
-pub fn write(path: &Path, contents: &[u8]) -> Result<(), anyhow::Error> {
+pub fn write(path: &Path, contents: impl AsRef<[u8]>) -> Result<(), anyhow::Error> {
     fs::write(path, contents).with_context(|| format!("When writing file `{}`", path.display()))
 }
 

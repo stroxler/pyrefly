@@ -91,7 +91,7 @@ fn add_suppressions(
             buf.push_str(line);
             buf.push('\n');
         }
-        if let Err(e) = fs_anyhow::write(path, buf.as_bytes()) {
+        if let Err(e) = fs_anyhow::write(path, buf) {
             failures.push((path, e));
         } else {
             successes.push(path);
@@ -168,7 +168,7 @@ pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<LineNumbe
                 buf.push_str(line);
                 buf.push('\n');
             }
-            if let Err(e) = fs_anyhow::write(path, buf.as_bytes()) {
+            if let Err(e) = fs_anyhow::write(path, buf) {
                 error!("Failed to remove unused error suppressions in {} files:", e);
             } else if unused_ignore_count > 0 {
                 removed_ignores.insert(path, unused_ignore_count);
@@ -226,7 +226,7 @@ mod tests {
     fn test_remove_suppressions(lines: SmallSet<LineNumber>, input: &str, want: &str) {
         let tdir = tempfile::tempdir().unwrap();
         let path = tdir.path().join("test.py");
-        fs_anyhow::write(&path, input.as_bytes()).unwrap();
+        fs_anyhow::write(&path, input).unwrap();
         let map = SmallMap::from_iter([(&path, lines)]);
         remove_unused_ignores(map);
         let got_file = fs_anyhow::read_to_string(&path).unwrap();
@@ -240,7 +240,7 @@ mod tests {
     ) {
         let tdir = tempfile::tempdir().unwrap();
         let path = tdir.path().join("test.py");
-        fs_anyhow::write(&path, input.as_bytes()).unwrap();
+        fs_anyhow::write(&path, input).unwrap();
         let errors = {
             let mut e = SmallMap::new();
             e.insert(
@@ -266,7 +266,7 @@ mod tests {
     ) {
         let tdir = tempfile::tempdir().unwrap();
         let path = tdir.path().join("test.py");
-        fs_anyhow::write(&path, input.as_bytes()).unwrap();
+        fs_anyhow::write(&path, input).unwrap();
         let errors = {
             let mut e = SmallMap::new();
             e.insert(

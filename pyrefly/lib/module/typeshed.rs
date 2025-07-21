@@ -105,7 +105,7 @@ impl BundledTypeshed {
                 fs_anyhow::create_dir_all(parent)?;
             }
 
-            fs_anyhow::write(&file_path, (*contents).as_bytes())?;
+            fs_anyhow::write(&file_path, contents.as_bytes())?;
         }
 
         BundledTypeshed::config()

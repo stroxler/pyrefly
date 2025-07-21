@@ -273,7 +273,7 @@ impl InitArgs {
             } else {
                 // For pyrefly.toml, write the updated config back to the file
                 let serialized = toml::to_string_pretty(&existing_config)?;
-                fs_anyhow::write(root_config_path, serialized.as_bytes())?;
+                fs_anyhow::write(root_config_path, serialized)?;
                 info!("Updated pyrefly.toml to focus typechecking on selected directories");
             }
 
@@ -482,7 +482,7 @@ impl InitArgs {
             return Ok((CommandExitStatus::UserError, None));
         };
         let serialized = toml::to_string_pretty(&cfg)?;
-        fs_anyhow::write(&config_path, serialized.as_bytes())?;
+        fs_anyhow::write(&config_path, serialized)?;
         info!("New config written to `{}`", config_path.display());
         Ok((CommandExitStatus::Success, Some(config_path)))
     }

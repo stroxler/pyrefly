@@ -1460,7 +1460,7 @@ impl<'a> Transaction<'a> {
         let mut lines = contents.lines().collect::<Vec<_>>();
         lines.sort_by_cached_key(|x| line_key(x));
         lines.reverse();
-        fs_anyhow::write(path, (lines.join("\n") + "\n").as_bytes())?;
+        fs_anyhow::write(path, lines.join("\n") + "\n")?;
 
         for (step, duration) in timings {
             info!("Step {step} took {duration:.3} seconds");

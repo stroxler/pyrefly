@@ -105,7 +105,7 @@ mod tests {
         let tmp = tempfile::tempdir()?;
         let input_path = tmp.path().join("mypy.ini");
         // This config is derived from the pytorch mypy.ini.
-        let mypy = br#"[mypy]
+        let mypy = r#"[mypy]
 files =
     src,
     other_src,
@@ -168,7 +168,7 @@ ignore_missing_imports = True
         let tmp = tempfile::tempdir()?;
         let input_path = tmp.path().join("mypy.ini");
         // This config is derived from the pytorch mypy.ini.
-        let mypy = br#"[mypy]
+        let mypy = r#"[mypy]
 unknown_option = True
 "#;
         fs_anyhow::write(&input_path, mypy)?;

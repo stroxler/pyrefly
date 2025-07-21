@@ -556,8 +556,7 @@ impl CheckArgs {
                     transaction,
                     &handles.map(|x| x.0.dupe()),
                     is_javascript,
-                )
-                .as_bytes(),
+                ),
             )?;
         }
         if let Some(glean) = &self.output.report_glean {
@@ -565,7 +564,7 @@ impl CheckArgs {
             for (handle, _) in handles {
                 fs_anyhow::write(
                     &glean.join(format!("{}.json", handle.module())),
-                    report::glean::glean(transaction, handle).as_bytes(),
+                    report::glean::glean(transaction, handle),
                 )?;
             }
         }
@@ -573,13 +572,10 @@ impl CheckArgs {
             report::pysa::write_results(pysa_directory, transaction)?;
         }
         if let Some(path) = &self.output.report_binding_memory {
-            fs_anyhow::write(
-                path,
-                report::binding_memory::binding_memory(transaction).as_bytes(),
-            )?;
+            fs_anyhow::write(path, report::binding_memory::binding_memory(transaction))?;
         }
         if let Some(path) = &self.output.report_trace {
-            fs_anyhow::write(path, report::trace::trace(transaction).as_bytes())?;
+            fs_anyhow::write(path, report::trace::trace(transaction))?;
         }
         if self.behavior.suppress_errors {
             let mut errors_to_suppress: SmallMap<PathBuf, Vec<Error>> = SmallMap::new();

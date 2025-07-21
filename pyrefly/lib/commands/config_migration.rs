@@ -169,7 +169,7 @@ impl Args {
             info!("Config written to `{}`", pyrefly_config_path.display());
         } else {
             let serialized = toml::to_string_pretty(&config)?;
-            fs_anyhow::write(&pyrefly_config_path, serialized.as_bytes())?;
+            fs_anyhow::write(&pyrefly_config_path, serialized)?;
             info!("New config written to `{}`", pyrefly_config_path.display());
         }
         Ok(pyrefly_config_path)
@@ -207,7 +207,7 @@ mod tests {
     "include": ["src/**/*.py"]
 }
 "#;
-        fs_anyhow::write(&original_config_path, pyr.as_bytes())?;
+        fs_anyhow::write(&original_config_path, pyr)?;
 
         let pyrefly_config_path = config_migration(&original_config_path)?;
         let output = fs_anyhow::read_to_string(&pyrefly_config_path)?; // We're not going to check the whole output because most of it will be default values, which may change.
@@ -243,7 +243,7 @@ ignore_missing_imports = True
 [mypy-stricter.on.this.*]
 check_untyped_defs = True
 "#;
-        fs_anyhow::write(&original_config_path, mypy.as_bytes())?;
+        fs_anyhow::write(&original_config_path, mypy)?;
 
         let pyrefly_config_path = config_migration(&original_config_path)?;
 
@@ -275,7 +275,7 @@ check_untyped_defs = True
         let pyproject = r#"[tool.mypy]
 files = ["a.py"]
 "#;
-        fs_anyhow::write(&original_config_path, pyproject.as_bytes())?;
+        fs_anyhow::write(&original_config_path, pyproject)?;
         let pyrefly_config_path = config_migration(&original_config_path)?;
         assert_eq!(pyrefly_config_path, original_config_path);
         let pyproject = fs_anyhow::read_to_string(&original_config_path)?;
@@ -291,7 +291,7 @@ files = ["a.py"]
         let pyproject = r#"[tool.pyright]
 include = ["a.py"]
 "#;
-        fs_anyhow::write(&original_config_path, pyproject.as_bytes())?;
+        fs_anyhow::write(&original_config_path, pyproject)?;
         config_migration(&original_config_path)?;
         let pyproject = fs_anyhow::read_to_string(&original_config_path)?;
         assert_eq!(pyproject.lines().next().unwrap(), "[tool.pyright]");
@@ -309,7 +309,7 @@ name = "test-project"
 version = "0.1.0"
 description = "A test project"
 "#;
-        fs_anyhow::write(&original_config_path, pyproject.as_bytes())?;
+        fs_anyhow::write(&original_config_path, pyproject)?;
         assert!(config_migration(&original_config_path).is_err());
         let content = fs_anyhow::read_to_string(&original_config_path)?;
         assert_eq!(content, pyproject);
@@ -326,7 +326,7 @@ include = ["a.py"]
 [tool.mypy]
 files = 1
 "#;
-        fs_anyhow::write(&original_config_path, pyproject.as_bytes())?;
+        fs_anyhow::write(&original_config_path, pyproject)?;
         config_migration(&original_config_path)?;
         Ok(())
     }
@@ -343,7 +343,7 @@ include = ["pyright.py"]
 [tool.mypy]
 files = ["mypy.py"]
 "#;
-        fs_anyhow::write(&original_config_path, pyproject.as_bytes())?;
+        fs_anyhow::write(&original_config_path, pyproject)?;
         let cfg = Args::load_from_pyproject(&original_config_path)?;
         assert_eq!(cfg.project_includes, Globs::new(vec!["mypy.py".to_owned()]));
         Ok(())

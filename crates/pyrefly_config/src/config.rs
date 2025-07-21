@@ -350,7 +350,7 @@ impl ConfigFile {
         let config_str =
             toml::to_string_pretty(&self).context("Failed to serialize config to TOML")?;
 
-        fs_anyhow::write(&directory.join("pyrefly.toml"), config_str.as_bytes())
+        fs_anyhow::write(&directory.join("pyrefly.toml"), config_str)
             .with_context(|| format!("Failed to write config to {}", directory.display()))?;
 
         Ok(())
