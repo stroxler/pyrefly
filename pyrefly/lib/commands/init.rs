@@ -440,10 +440,10 @@ impl InitArgs {
         // 2. Migrate existing configuration to Pyrefly configuration
         if found_mypy || found_pyright {
             info!("Found an existing type checking configuration - setting up pyrefly ...");
-            let args = config_migration::Args {
-                original_config_path: path.clone(),
-            };
-            return Ok((CommandExitStatus::Success, Some(args.run()?)));
+            return Ok((
+                CommandExitStatus::Success,
+                Some(config_migration::config_migration(&path)?),
+            ));
         }
 
         // Generate a basic config with a couple sensible defaults.
