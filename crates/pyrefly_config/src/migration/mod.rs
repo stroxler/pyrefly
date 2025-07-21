@@ -5,21 +5,21 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-pub mod config_option_migrater;
-pub mod error_codes;
-pub mod ignore_missing_imports;
+pub(crate) mod config_option_migrater;
+pub(crate) mod error_codes;
+pub(crate) mod ignore_missing_imports;
 pub mod mypy;
-pub mod project_excludes;
-pub mod project_includes;
+pub(crate) mod project_excludes;
+pub(crate) mod project_includes;
 pub mod pyright;
-pub mod python_interpreter;
-pub mod python_platform;
-pub mod python_version;
-pub mod search_path;
-pub mod sub_configs;
-pub mod untyped_def_behavior;
-pub mod use_untyped_imports;
-pub mod utils;
+pub(crate) mod python_interpreter;
+pub(crate) mod python_platform;
+pub(crate) mod python_version;
+pub(crate) mod search_path;
+pub(crate) mod sub_configs;
+pub(crate) mod untyped_def_behavior;
+pub(crate) mod use_untyped_imports;
+pub(crate) mod utils;
 
 #[cfg(test)]
-pub mod test_utils;
+pub(crate) mod test_utils;
