@@ -2018,7 +2018,7 @@ dependencies = [
 
 [[package]]
 name = "pyrefly"
-version = "0.24.2"
+version = "0.25.0"
 dependencies = [
  "anstream",
  "anyhow",
@@ -2066,7 +2066,7 @@ dependencies = [
 
 [[package]]
 name = "pyrefly_bundled"
-version = "0.24.2"
+version = "0.25.0"
 dependencies = [
  "anyhow",
  "starlark_map",
@@ -2076,7 +2076,7 @@ dependencies = [
 
 [[package]]
 name = "pyrefly_config"
-version = "0.24.2"
+version = "0.25.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2110,7 +2110,7 @@ dependencies = [
 
 [[package]]
 name = "pyrefly_derive"
-version = "0.24.2"
+version = "0.25.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2119,7 +2119,7 @@ dependencies = [
 
 [[package]]
 name = "pyrefly_python"
-version = "0.24.2"
+version = "0.25.0"
 dependencies = [
  "anyhow",
  "dupe",
@@ -2141,7 +2141,7 @@ dependencies = [
 
 [[package]]
 name = "pyrefly_types"
-version = "0.24.2"
+version = "0.25.0"
 dependencies = [
  "dupe",
  "itertools 0.14.0",
@@ -2160,7 +2160,7 @@ dependencies = [
 
 [[package]]
 name = "pyrefly_util"
-version = "0.24.2"
+version = "0.25.0"
 dependencies = [
  "anstream",
  "anyhow",
