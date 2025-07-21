@@ -1695,6 +1695,10 @@ impl<'a> Transaction<'a> {
                         for (handle_to_import_from, name, export) in
                             self.search_exports_fuzzy(identifier.as_str())
                         {
+                            // Using handle itself doesn't always work because handles can be made separately and have different hashes
+                            if handle_to_import_from.module() == handle.module() {
+                                continue;
+                            }
                             let (insert_text, additional_text_edits) =
                                 match handle_to_import_from.module().as_str() {
                                     "builtins" => (None, None),

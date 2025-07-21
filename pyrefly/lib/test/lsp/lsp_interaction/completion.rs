@@ -236,6 +236,7 @@ fn test_completion_with_autoimport_in_defined_module() {
                 }),
             }),
         ],
+        // This response should contain no textedits because it's defined locally in the module
         expected_messages_from_language_server: vec![make_completion_result(
             2,
             serde_json::json!([
@@ -245,17 +246,6 @@ fn test_completion_with_autoimport_in_defined_module() {
                     "label":"this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search",
                     "sortText":"0"
                 },
-                {
-                    "additionalTextEdits":[
-                    {
-                        "newText":"from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n",
-                        "range":{"end":{"character":0,"line":6},"start":{"character":0,"line":6}}
-                    }],
-                    "detail":"from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n",
-                    "kind":3,
-                    "label":"this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search",
-                    "sortText":"3"
-                    },
             ]),
         )],
         indexing_mode: IndexingMode::LazyBlocking,
