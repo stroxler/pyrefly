@@ -13,6 +13,7 @@ use anyhow::Context as _;
 use clap::Parser;
 use parse_display::Display;
 use path_absolutize::Absolutize;
+use pyrefly_config::pyproject::PyProject;
 use pyrefly_util::display;
 use pyrefly_util::fs_anyhow;
 use tracing::error;
@@ -21,7 +22,6 @@ use tracing::warn;
 
 use crate::commands::check;
 use crate::commands::config_migration;
-use crate::commands::config_migration::write_pyproject;
 use crate::commands::globs_and_config_getter;
 use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
@@ -266,7 +266,7 @@ impl InitArgs {
             if root_config_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
                 // For pyproject.toml, use write_pyproject to update only the pyrefly section
                 // This preserves other tool configurations in the file
-                write_pyproject(root_config_path, existing_config)?;
+                PyProject::update(root_config_path, existing_config)?;
                 info!(
                     "Updated pyrefly section in pyproject.toml to focus typechecking on selected directories"
                 );
@@ -465,7 +465,7 @@ impl InitArgs {
             } else {
                 path.join(ConfigFile::PYPROJECT_FILE_NAME)
             };
-            write_pyproject(&config_path, cfg)?;
+            PyProject::update(&config_path, cfg)?;
             info!("Config written to `{}`", config_path.display());
             return Ok((CommandExitStatus::Success, Some(config_path)));
         }
