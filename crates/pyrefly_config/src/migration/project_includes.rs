@@ -10,8 +10,8 @@ use pyrefly_util::globs::Globs;
 
 use crate::config::ConfigFile;
 use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::mypy::util;
 use crate::migration::pyright::PyrightConfig;
-use crate::migration::util;
 
 /// Configuration option for project includes (files, packages, modules)
 pub struct ProjectIncludes;

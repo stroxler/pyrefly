@@ -13,8 +13,9 @@ use crate::config::ConfigFile;
 use crate::config::SubConfig;
 use crate::error::ErrorDisplayConfig;
 use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::mypy::util;
 use crate::migration::pyright::PyrightConfig;
-use crate::migration::util;
+
 /// Configuration option for sub-configs (per-module options)
 pub struct SubConfigs;
 

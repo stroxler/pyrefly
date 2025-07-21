@@ -9,8 +9,8 @@ use configparser::ini::Ini;
 
 use crate::config::ConfigFile;
 use crate::migration::config_option_migrater::ConfigOptionMigrater;
+use crate::migration::mypy::util;
 use crate::migration::pyright::PyrightConfig;
-use crate::migration::util;
 use crate::module_wildcard::ModuleWildcard;
 
 /// Configuration option for ignoring missing imports
