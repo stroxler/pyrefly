@@ -93,15 +93,6 @@ impl CallWithTypes {
         }
     }
 
-    pub fn opt_call_arg<'a, 'b: 'a, Ans: LookupAnswer>(
-        &'a self,
-        x: Option<&CallArg<'b>>,
-        solver: &AnswersSolver<Ans>,
-        errors: &ErrorCollector,
-    ) -> Option<CallArg<'a>> {
-        x.map(|x| self.call_arg(x, solver, errors))
-    }
-
     pub fn vec_call_arg<'a, 'b: 'a, Ans: LookupAnswer>(
         &'a self,
         xs: &[CallArg<'b>],
@@ -899,7 +890,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         callable: Callable,
         callable_name: Option<FuncId>,
-        self_arg: Option<CallArg>,
+        self_obj: Option<Type>,
         args: &[CallArg],
         keywords: &[CallKeyword],
         range: TextRange,
@@ -908,6 +899,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         _hint: Option<&Type>,
     ) -> Type {
+        let self_arg = self_obj.as_ref().map(|ty| CallArg::ty(ty, range));
         match callable.params {
             Params::List(params) => {
                 self.callable_infer_params(

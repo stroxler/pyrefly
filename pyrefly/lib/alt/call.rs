@@ -22,7 +22,6 @@ use crate::alt::attr::DescriptorBase;
 use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
 use crate::alt::callable::CallWithTypes;
-use crate::alt::expr::TypeOrExpr;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -596,21 +595,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     signature,
                     metadata,
                 },
-            ) => {
-                let first_arg = CallArg::ty(&obj, range);
-                self.callable_infer(
-                    signature,
-                    Some(metadata.kind.as_func_id()),
-                    Some(first_arg),
-                    args,
-                    keywords,
-                    range,
-                    errors,
-                    errors,
-                    context,
-                    hint,
-                )
-            }
+            ) => self.callable_infer(
+                signature,
+                Some(metadata.kind.as_func_id()),
+                Some(obj),
+                args,
+                keywords,
+                range,
+                errors,
+                errors,
+                context,
+                hint,
+            ),
             Target::Callable(callable) => self.callable_infer(
                 callable, None, None, args, keywords, range, errors, errors, context, hint,
             ),
@@ -659,7 +655,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.call_overloads(
                     overloads,
                     meta,
-                    Some(CallArg::ty(&obj, range)),
+                    Some(obj),
                     args,
                     keywords,
                     range,
@@ -721,7 +717,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         overloads: Vec1<Callable>,
         metadata: FuncMetadata,
-        self_arg: Option<CallArg>,
+        self_obj: Option<Type>,
         args: &[CallArg],
         keywords: &[CallKeyword],
         range: TextRange,
@@ -729,19 +725,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<&Type>,
     ) -> (Type, Callable) {
-        // There may be Expr values in self_arg, args and keywords.
+        // There may be Expr values in args and keywords.
         // If we infer them for each overload, we may end up infering them multiple times.
         // If those overloads contain nested overloads, then we can easily end up with O(2^n) perf.
         // Therefore, flatten all TypeOrExpr's into Type before we start
         let call = CallWithTypes::new();
-        let self_arg = call.opt_call_arg(self_arg.as_ref(), self, errors);
         let method_name = metadata.kind.as_func_id().func;
         // If this is an TypedDict "update" method, then preserve argument expressions so we can
         // contextually type them using the parameter types.
         // Specifically, skipping vec_call_arg in the `update` case means we will not turn expressions into types here
         // We will instead turn them into types as we evaluate them against the type hints that we synthesized for the update method.
 
-        let args = if let Some(CallArg::Arg(TypeOrExpr::Type(Type::TypedDict(_), _))) = &self_arg
+        let args = if let Some(Type::TypedDict(_)) = &self_obj
             && method_name == "update"
         {
             args
@@ -757,7 +752,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let res = self.callable_infer(
                 callable.clone(),
                 Some(metadata.kind.as_func_id()),
-                self_arg.clone(),
+                self_obj.clone(),
                 args,
                 &keywords,
                 range,
@@ -829,7 +824,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     ""
                 };
-                let signature = match self_arg {
+                let signature = match self_obj {
                     Some(_) => overload.drop_first_param().unwrap_or(overload),
                     None => overload,
                 };
