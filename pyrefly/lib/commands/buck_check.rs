@@ -22,7 +22,7 @@ use pyrefly_util::prelude::VecExt;
 use serde::Deserialize;
 use tracing::info;
 
-use crate::commands::run::CommandExitStatus;
+use crate::commands::util::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;

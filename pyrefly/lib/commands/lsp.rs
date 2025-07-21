@@ -14,7 +14,7 @@ use crossbeam_channel::Select;
 use dupe::Dupe;
 use lsp_server::Connection;
 
-use crate::commands::run::CommandExitStatus;
+use crate::commands::util::CommandExitStatus;
 use crate::lsp::server::ProcessEvent;
 use crate::lsp::server::Server;
 use crate::lsp::server::dispatch_lsp_events;

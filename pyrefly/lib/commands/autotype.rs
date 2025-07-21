@@ -16,7 +16,7 @@ use ruff_text_size::TextSize;
 
 use crate::commands::check::Handles;
 use crate::commands::check::checkpoint;
-use crate::commands::run::CommandExitStatus;
+use crate::commands::util::CommandExitStatus;
 use crate::config::finder::ConfigFinder;
 use crate::state::lsp::AnnotationKind;
 use crate::state::lsp::ParameterAnnotation;

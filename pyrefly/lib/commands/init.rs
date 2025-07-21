@@ -22,7 +22,7 @@ use tracing::warn;
 
 use crate::commands::check;
 use crate::commands::globs_and_config_getter;
-use crate::commands::run::CommandExitStatus;
+use crate::commands::util::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::error::summarise;
 

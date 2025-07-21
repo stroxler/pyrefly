@@ -71,7 +71,7 @@ pub mod library {
                 pub use crate::commands::globs_and_config_getter;
                 pub use crate::commands::init::InitArgs;
                 pub use crate::commands::lsp::LspArgs;
-                pub use crate::commands::run;
+                pub use crate::commands::util;
             }
         }
     }

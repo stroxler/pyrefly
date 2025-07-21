@@ -11,7 +11,7 @@ use pyrefly_util::globs::FilteredGlobs;
 use starlark_map::small_map::SmallMap;
 
 use crate::commands::check::CheckArgs;
-use crate::commands::run::CommandExitStatus;
+use crate::commands::util::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::config::finder::ConfigFinder;

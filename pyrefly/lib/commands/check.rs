@@ -42,7 +42,7 @@ use starlark_map::small_set::SmallSet;
 use tracing::debug;
 use tracing::info;
 
-use crate::commands::run::CommandExitStatus;
+use crate::commands::util::CommandExitStatus;
 use crate::config::error_kind::Severity;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;
