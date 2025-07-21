@@ -138,7 +138,7 @@ impl<T> ConfigOrigin<T> {
         }
     }
 
-    /// Determine if this [`Option<ConfigOrigin>`] should bee output when serializing.
+    /// Determine if this [`Option<ConfigOrigin>`] should be output when serializing.
     /// We only serialize if the value is `Some(ConfigFile)`. All other
     /// [`Option`] and [`ConfigOrigin`] variants are not serialized.
     pub(crate) fn should_skip_serializing_option(origin: &Option<Self>) -> bool {
