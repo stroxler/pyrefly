@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use configparser::ini::Ini;
 
 use crate::error::ErrorDisplayConfig;
+use crate::error_kind::ErrorKind;
 use crate::error_kind::Severity;
 
 /// Iterate over INI sections and apply a function to each section
@@ -89,5 +90,38 @@ pub fn make_error_config(
     for error_code in enables {
         errors.insert(error_code, Severity::Error);
     }
-    crate::migration::mypy::code_to_kind(errors)
+    code_to_kind(errors)
+}
+
+/// Convert mypy error codes to pyrefly ErrorKinds. This consumes the input map.
+// One or more error codes can map to the same ErrorKind, and this must be taken into consideration when adding a new error code.
+// If the error code is the only one that maps to a specific ErrorKind:
+//     if let Some(value) = errors.remove("error-thing") {
+//       map.insert(ErrorKind::Unknown, value);
+//     }
+// If multiple error codes map to the same ErrorKind:
+//     if let Some(import_error) = [
+//         error.remove("error-thing"),
+//         error.remove("other-thing"),
+//     ]
+//     .into_iter()
+//     .flatten()  // get rid of the ones that are None
+//     .reduce(|acc, x| acc | x)  // OR them together
+//     {
+//         map.insert(ErrorKind::Unknown, import_error);
+//     }
+fn code_to_kind(mut errors: HashMap<String, Severity>) -> Option<ErrorDisplayConfig> {
+    let mut map = HashMap::new();
+    if let Some(value) = [errors.remove("union-attr"), errors.remove("attr-defined")]
+        .into_iter()
+        .flatten()
+        .max()
+    {
+        map.insert(ErrorKind::MissingAttribute, value);
+    }
+    if map.is_empty() {
+        None
+    } else {
+        Some(ErrorDisplayConfig::new(map))
+    }
 }

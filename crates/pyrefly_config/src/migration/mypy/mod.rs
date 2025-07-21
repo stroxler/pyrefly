@@ -9,45 +9,5 @@ pub(crate) mod ini;
 mod pyproject;
 pub(crate) mod regex_converter;
 
-use std::collections::HashMap;
-
 pub use ini::MypyConfig;
 pub use pyproject::parse_pyproject_config;
-
-use crate::error::ErrorDisplayConfig;
-// These imports are used in the code
-use crate::error_kind::ErrorKind;
-use crate::error_kind::Severity;
-
-/// Convert mypy error codes to pyrefly ErrorKinds. This consumes the input map.
-// One or more error codes can map to the same ErrorKind, and this must be taken into consideration when adding a new error code.
-// If the error code is the only one that maps to a specific ErrorKind:
-//     if let Some(value) = errors.remove("error-thing") {
-//       map.insert(ErrorKind::Unknown, value);
-//     }
-// If multiple error codes map to the same ErrorKind:
-//     if let Some(import_error) = [
-//         error.remove("error-thing"),
-//         error.remove("other-thing"),
-//     ]
-//     .into_iter()
-//     .flatten()  // get rid of the ones that are None
-//     .reduce(|acc, x| acc | x)  // OR them together
-//     {
-//         map.insert(ErrorKind::Unknown, import_error);
-//     }
-pub(crate) fn code_to_kind(mut errors: HashMap<String, Severity>) -> Option<ErrorDisplayConfig> {
-    let mut map = HashMap::new();
-    if let Some(value) = [errors.remove("union-attr"), errors.remove("attr-defined")]
-        .into_iter()
-        .flatten()
-        .max()
-    {
-        map.insert(ErrorKind::MissingAttribute, value);
-    }
-    if map.is_empty() {
-        None
-    } else {
-        Some(ErrorDisplayConfig::new(map))
-    }
-}
