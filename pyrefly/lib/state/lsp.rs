@@ -78,7 +78,7 @@ use crate::types::module::ModuleType;
 use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
 
-const INITIAL_GAS: Gas = Gas::new(100);
+const RESOLVE_EXPORT_INITIAL_GAS: Gas = Gas::new(100);
 const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 
 #[derive(Clone, Debug)]
@@ -815,7 +815,7 @@ impl<'a> Transaction<'a> {
         name: Name,
     ) -> Option<(Handle, Export)> {
         let mut m = module_name;
-        let mut gas = INITIAL_GAS;
+        let mut gas = RESOLVE_EXPORT_INITIAL_GAS;
         while !gas.stop() {
             let handle = self.import_handle(handle, m, None).ok()?;
             match self.get_exports(&handle).get(&name) {
@@ -904,8 +904,7 @@ impl<'a> Transaction<'a> {
         jump_through_renamed_import: bool,
     ) -> Option<(Handle, Export)> {
         let bindings = self.get_bindings(handle)?;
-        let mut gas = INITIAL_GAS;
-        let intermediate_definition = key_to_intermediate_definition(&bindings, key, &mut gas)?;
+        let intermediate_definition = key_to_intermediate_definition(&bindings, key)?;
         self.resolve_intermediate_definition(
             handle,
             intermediate_definition,

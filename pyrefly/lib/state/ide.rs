@@ -25,6 +25,8 @@ use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::export::exports::Export;
 use crate::state::handle::Handle;
 
+const KEY_TO_DEFINITION_INITIAL_GAS: Gas = Gas::new(100);
+
 pub enum IntermediateDefinition {
     Local(Export),
     NamedImport(TextRange, ModuleName, Name, Option<TextRange>),
@@ -32,6 +34,14 @@ pub enum IntermediateDefinition {
 }
 
 pub fn key_to_intermediate_definition(
+    bindings: &Bindings,
+    key: &Key,
+) -> Option<IntermediateDefinition> {
+    let mut gas = KEY_TO_DEFINITION_INITIAL_GAS;
+    key_to_intermediate_definition_inner(bindings, key, &mut gas)
+}
+
+fn key_to_intermediate_definition_inner(
     bindings: &Bindings,
     key: &Key,
     gas: &mut Gas,
@@ -69,13 +79,13 @@ fn binding_to_intermediate_definition(
 
     let mut resolve_assign_to_expr = |expr: &Expr| {
         if let Some((id, _)) = identifier_and_chain_for_expr(expr) {
-            key_to_intermediate_definition(
+            key_to_intermediate_definition_inner(
                 bindings,
                 &Key::BoundName(ShortIdentifier::new(&id)),
                 gas,
             )
         } else if let Some((id, _)) = identifier_and_chain_prefix_for_expr(expr) {
-            key_to_intermediate_definition(
+            key_to_intermediate_definition_inner(
                 bindings,
                 &Key::BoundName(ShortIdentifier::new(&id)),
                 gas,
@@ -86,12 +96,12 @@ fn binding_to_intermediate_definition(
     };
     match binding {
         Binding::Forward(k) | Binding::Narrow(k, _, _) | Binding::Pin(k, ..) => {
-            key_to_intermediate_definition(bindings, bindings.idx_to_key(*k), gas)
+            key_to_intermediate_definition_inner(bindings, bindings.idx_to_key(*k), gas)
         }
         Binding::Default(k, m) => {
             binding_to_intermediate_definition(bindings, m, bindings.idx_to_key(*k), gas)
         }
-        Binding::Phi(ks) if !ks.is_empty() => key_to_intermediate_definition(
+        Binding::Phi(ks) if !ks.is_empty() => key_to_intermediate_definition_inner(
             bindings,
             bindings.idx_to_key(*ks.iter().next().unwrap()),
             gas,
@@ -105,7 +115,7 @@ fn binding_to_intermediate_definition(
         Binding::Module(name, _, _) => Some(IntermediateDefinition::Module(*name)),
         Binding::CheckLegacyTypeParam(k, _) => {
             let binding = bindings.get(*k);
-            key_to_intermediate_definition(bindings, bindings.idx_to_key(binding.0), gas)
+            key_to_intermediate_definition_inner(bindings, bindings.idx_to_key(binding.0), gas)
         }
         Binding::AssignToSubscript(subscript, _) => {
             let expr = Expr::Subscript(subscript.clone());

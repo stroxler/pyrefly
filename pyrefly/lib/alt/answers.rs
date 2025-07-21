@@ -18,7 +18,6 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::display::DisplayWith;
 use pyrefly_util::display::DisplayWithCtx;
-use pyrefly_util::gas::Gas;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::recurser::Recurser;
 use pyrefly_util::uniques::UniqueFactory;
@@ -453,7 +452,7 @@ impl Answers {
             for idx in bindings.keys::<Key>() {
                 let key = bindings.idx_to_key(idx);
                 let (imported_module_name, imported_name) =
-                    match key_to_intermediate_definition(bindings, key, &mut Gas::new(20)) {
+                    match key_to_intermediate_definition(bindings, key) {
                         None => continue,
                         Some(IntermediateDefinition::Local(_)) => continue,
                         Some(IntermediateDefinition::Module(_)) => continue,
