@@ -9,10 +9,9 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::Context as _;
 use clap::Parser;
-use parse_display::Display;
 use path_absolutize::Absolutize;
+use pyrefly_config::file_kind::ConfigFileKind;
 use pyrefly_config::migration::run::config_migration;
 use pyrefly_config::pyproject::PyProject;
 use pyrefly_util::display;
@@ -28,35 +27,6 @@ use crate::config::config::ConfigFile;
 use crate::error::summarise;
 
 const MAX_ERRORS_TO_PROMPT_SUPPRESSION: usize = 100;
-
-// This should likely be moved into config.rs
-/// Types of configuration files that can be detected or created.
-#[derive(Clone, Debug, Parser, Copy, Display)]
-pub enum ConfigFileKind {
-    MyPy,
-    Pyright,
-    Pyrefly,
-    Pyproject,
-}
-
-impl ConfigFileKind {
-    fn file_name(&self) -> &str {
-        match self {
-            Self::MyPy => "mypy.ini",
-            Self::Pyright => "pyrightconfig.json",
-            Self::Pyrefly => "pyrefly.toml",
-            Self::Pyproject => "pyproject.toml",
-        }
-    }
-
-    fn toml_identifier(self) -> String {
-        match self {
-            // This makes me question if pyproject should be a part of the enum at all
-            Self::Pyproject => "".to_owned(),
-            _ => format!("[tool.{self}]").to_lowercase(),
-        }
-    }
-}
 
 /// Initialize a new pyrefly config in the given directory. Can also be used to run pyrefly config-migration on a given project.
 #[deny(clippy::missing_docs_in_private_items)]
@@ -86,33 +56,6 @@ impl InitArgs {
         }
         let pyproject_path = &path.join(ConfigFile::PYPROJECT_FILE_NAME);
         pyproject_path.exists()
-    }
-
-    fn check_for_existing_config(path: &Path, kind: ConfigFileKind) -> anyhow::Result<bool> {
-        let file_name = kind.file_name();
-        if path.ends_with(file_name) && path.exists() {
-            return Ok(true);
-        }
-        if path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) && path.exists() {
-            let raw_pyproject = fs_anyhow::read_to_string(path).with_context(|| {
-                format!(
-                    "While trying to check for an existing {} config in `{}`",
-                    kind,
-                    path.display()
-                )
-            })?;
-            return Ok(raw_pyproject.contains(&kind.toml_identifier()));
-        }
-        if path.is_dir() {
-            let custom_file = InitArgs::check_for_existing_config(&path.join(file_name), kind);
-
-            let pyproject = InitArgs::check_for_existing_config(
-                &path.join(ConfigFile::PYPROJECT_FILE_NAME),
-                kind,
-            );
-            return Ok(custom_file? || pyproject?);
-        }
-        Ok(false)
     }
 
     fn prompt_user_confirmation(prompt: &str) -> bool {
@@ -422,7 +365,7 @@ impl InitArgs {
             path.parent()
         };
         if let Some(dir) = dir
-            && InitArgs::check_for_existing_config(dir, ConfigFileKind::Pyrefly)?
+            && ConfigFileKind::Pyrefly.check_for_existing_config(dir)?
         {
             let prompt = format!(
                 "The project at `{}` has already been initialized for pyrefly. Run `pyrefly check` to see type errors. Re-initialize and write a new section? (y/N): ",
@@ -434,8 +377,8 @@ impl InitArgs {
         }
 
         // 1. Check for mypy or pyright configuration
-        let found_mypy = InitArgs::check_for_existing_config(&path, ConfigFileKind::MyPy)?;
-        let found_pyright = InitArgs::check_for_existing_config(&path, ConfigFileKind::Pyright)?;
+        let found_mypy = ConfigFileKind::MyPy.check_for_existing_config(&path)?;
+        let found_pyright = ConfigFileKind::Pyright.check_for_existing_config(&path)?;
 
         // 2. Migrate existing configuration to Pyrefly configuration
         if found_mypy || found_pyright {
@@ -859,13 +802,6 @@ k = [\"v\"]
         create_file_in(tmp.path(), "pyproject.toml", Some(b"[tool.pyrefly]"))?;
         let status = run_init_on_file(&tmp, "pyproject.toml")?;
         assert_user_error(status);
-        Ok(())
-    }
-
-    #[test]
-    fn test_config_file_kinds() -> anyhow::Result<()> {
-        let kind = ConfigFileKind::MyPy;
-        assert_eq!(kind.toml_identifier(), "[tool.mypy]".to_owned());
         Ok(())
     }
 
