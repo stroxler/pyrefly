@@ -144,11 +144,8 @@ impl Args {
         Ok((config, original_config_path))
     }
 
-    pub fn run(&self) -> anyhow::Result<Option<PathBuf>> {
-        let (config, original_config_path) = match self.load_config() {
-            Ok(result) => result,
-            Err(_) => return Ok(None),
-        };
+    pub fn run(&self) -> anyhow::Result<PathBuf> {
+        let (config, original_config_path) = self.load_config()?;
 
         let pyrefly_config_path = {
             if original_config_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
@@ -178,7 +175,7 @@ impl Args {
             fs_anyhow::write(&pyrefly_config_path, serialized.as_bytes())?;
             info!("New config written to `{}`", pyrefly_config_path.display());
         }
-        Ok(Some(pyrefly_config_path.clone()))
+        Ok(pyrefly_config_path)
     }
 }
 
@@ -219,15 +216,12 @@ mod tests {
             original_config_path: Some(original_config_path),
         };
         let pyrefly_config_path = args.run()?;
-
-        assert!(pyrefly_config_path.is_some());
-        let pyrefly_config_path_unwrapped = pyrefly_config_path.unwrap();
-        let output = fs_anyhow::read_to_string(&(pyrefly_config_path_unwrapped))?;
+        let output = fs_anyhow::read_to_string(&pyrefly_config_path)?;
         // We're not going to check the whole output because most of it will be default values, which may change.
         // We only actually care about the includes.
         let output_lines = output.lines().collect::<Vec<_>>();
         assert_eq!(output_lines[0], r#"project-includes = ["src/**/*.py"]"#);
-        from_file(&pyrefly_config_path_unwrapped)
+        from_file(&pyrefly_config_path)
     }
 
     #[test]
@@ -262,8 +256,6 @@ check_untyped_defs = True
             original_config_path: Some(original_config_path),
         };
         let pyrefly_config_path = args.run()?;
-        assert!(pyrefly_config_path.is_some());
-        let pyrefly_config_path_unwrapped = pyrefly_config_path.unwrap();
 
         // We care about the config getting serialized in a way that can be checked-in to a repo,
         // i.e. without absolutized paths. So we need to check the raw file.
@@ -273,7 +265,7 @@ check_untyped_defs = True
             project_includes: Vec<String>,
             search_path: Vec<String>,
         }
-        let raw_output = fs_anyhow::read_to_string(&pyrefly_config_path_unwrapped)?;
+        let raw_output = fs_anyhow::read_to_string(&pyrefly_config_path)?;
         let CheckConfig {
             project_includes,
             search_path,
@@ -298,7 +290,7 @@ files = ["a.py"]
             original_config_path: Some(original_config_path.clone()),
         };
         let pyrefly_config_path = args.run()?;
-        assert_eq!(pyrefly_config_path.unwrap(), original_config_path);
+        assert_eq!(pyrefly_config_path, original_config_path);
         let pyproject = fs_anyhow::read_to_string(&original_config_path)?;
         assert_eq!(pyproject.lines().next().unwrap(), "[tool.mypy]");
         assert!(pyproject.contains("[tool.pyrefly]"));
@@ -316,8 +308,7 @@ include = ["a.py"]
         let args = Args {
             original_config_path: Some(original_config_path.clone()),
         };
-        let pyrefly_config_path = args.run()?;
-        assert_eq!(pyrefly_config_path.unwrap(), original_config_path);
+        args.run()?;
         let pyproject = fs_anyhow::read_to_string(&original_config_path)?;
         assert_eq!(pyproject.lines().next().unwrap(), "[tool.pyright]");
         assert!(pyproject.contains("[tool.pyrefly]"));
@@ -338,8 +329,7 @@ description = "A test project"
         let args = Args {
             original_config_path: Some(original_config_path.clone()),
         };
-        let result = args.run();
-        assert!(result.unwrap().is_none());
+        assert!(args.run().is_err());
         let content = fs_anyhow::read_to_string(&original_config_path)?;
         assert_eq!(content, std::str::from_utf8(pyproject)?);
         Ok(())
@@ -359,8 +349,7 @@ files = 1
         let args = Args {
             original_config_path: Some(original_config_path),
         };
-        let res = args.run()?;
-        assert!(res.is_some());
+        args.run()?;
         Ok(())
     }
 
@@ -400,11 +389,10 @@ files = ["mypy.py"]
         let bottom = tmp.path().join("a/b/c/");
         std::fs::create_dir_all(&bottom)?;
         fs_anyhow::write(&tmp.path().join("a/mypy.ini"), b"[mypy]\n")?;
-        let res = Args {
+        Args {
             original_config_path: Some(bottom),
         }
         .run()?;
-        assert!(res.is_some());
         assert!(tmp.path().join("a/pyrefly.toml").try_exists()?);
         Ok(())
     }
@@ -418,8 +406,7 @@ files = ["mypy.py"]
         let args = Args {
             original_config_path: Some(original_config_path),
         };
-        let res = args.run()?;
-        assert!(res.is_some());
+        args.run()?;
         let output = fs_anyhow::read_to_string(&pyrefly_config_path)?;
         assert_eq!(output, "");
         Ok(())
@@ -434,8 +421,7 @@ files = ["mypy.py"]
         let args = Args {
             original_config_path: Some(original_config_path),
         };
-        let res = args.run()?;
-        assert!(res.is_some());
+        args.run()?;
         let output = fs_anyhow::read_to_string(&pyrefly_config_path)?;
         assert_eq!(output, "");
         Ok(())

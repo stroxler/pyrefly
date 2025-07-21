@@ -443,13 +443,7 @@ impl InitArgs {
             let args = config_migration::Args {
                 original_config_path: Some(path.clone()),
             };
-            match args.run() {
-                Ok(Some(config_path)) => {
-                    return Ok((CommandExitStatus::Success, Some(config_path)));
-                }
-                Ok(None) => return Ok((CommandExitStatus::UserError, None)),
-                Err(e) => return Err(e),
-            }
+            return Ok((CommandExitStatus::Success, Some(args.run()?)));
         }
 
         // Generate a basic config with a couple sensible defaults.
