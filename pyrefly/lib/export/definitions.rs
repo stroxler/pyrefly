@@ -67,7 +67,7 @@ pub struct Definition {
     pub count: usize,
     /// If the first statement in a definition (class, function) is a string literal, PEP 257 convention
     /// states that is is the docstring.
-    pub docstring: Option<Docstring>,
+    pub docstring_range: Option<TextRange>,
 }
 
 /// Find the definitions available in a scope. Does not traverse inside classes/functions,
@@ -180,7 +180,7 @@ impl Definitions {
                     style: DefinitionStyle::Global,
                     annot: None,
                     count: 1,
-                    docstring: None,
+                    docstring_range: None,
                 },
             );
         }
@@ -251,7 +251,7 @@ impl<'a> DefinitionsBuilder<'a> {
                     style,
                     annot,
                     count: 1,
-                    docstring: body.and_then(Docstring::from_stmts),
+                    docstring_range: body.and_then(Docstring::range_from_stmts),
                 });
             }
         }

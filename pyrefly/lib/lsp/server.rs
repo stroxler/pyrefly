@@ -1301,7 +1301,7 @@ impl Server {
             metadata,
             definition_range,
             module,
-            docstring: _,
+            docstring_range: _,
         }) = transaction
             .find_definition(&handle, position, false)
             // TODO: handle more than 1 definition

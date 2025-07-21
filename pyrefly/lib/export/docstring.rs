@@ -6,16 +6,28 @@
  */
 
 use std::cmp::min;
-use std::sync::Arc;
 
-use dupe::Dupe;
+use pyrefly_python::module::Module;
 use ruff_python_ast::Stmt;
+use ruff_text_size::Ranged;
+use ruff_text_size::TextRange;
 
-#[derive(Debug, Clone, Dupe)]
-pub struct Docstring(Arc<String>);
+#[derive(Debug, Clone)]
+pub struct Docstring(pub TextRange, pub Module);
 
 impl Docstring {
-    fn new(docstring: &str) -> Self {
+    pub fn range_from_stmts(xs: &[Stmt]) -> Option<TextRange> {
+        if let Some(stmt) = xs.first()
+            && let Stmt::Expr(expr_stmt) = stmt
+            && let ruff_python_ast::Expr::StringLiteral(_) = &*expr_stmt.value
+        {
+            return Some(stmt.range());
+        }
+        None
+    }
+
+    /// Clean a string literal ("""...""") and turn it into a docstring.
+    pub fn clean(docstring: &str) -> String {
         let result = docstring.replace("\r", "").replace("\t", "    ");
 
         // Remove any string literal prefixes and suffixes
@@ -57,28 +69,16 @@ impl Docstring {
             .min()
             .unwrap_or(0);
 
-        Self(Arc::new(
-            result
-                .lines()
-                .map(|line| &line[min(min_indent, line.len())..])
-                .collect::<Vec<_>>()
-                .join("\n"),
-        ))
+        result
+            .lines()
+            .map(|line| &line[min(min_indent, line.len())..])
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
-    pub fn from_stmts(xs: &[Stmt]) -> Option<Self> {
-        xs.first().and_then(|stmt| {
-            if let Stmt::Expr(expr_stmt) = stmt
-                && let ruff_python_ast::Expr::StringLiteral(string_lit) = &*expr_stmt.value
-            {
-                return Some(Docstring::new(string_lit.value.to_str()));
-            }
-            None
-        })
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
+    /// Resolve the docstring to a string. This involves parsing the file to get the contents of the docstring and then cleaning it.
+    pub fn resolve(&self) -> String {
+        Self::clean(self.1.code_at(self.0))
     }
 }
 
@@ -89,14 +89,14 @@ mod tests {
     #[test]
     fn test_clean_removes_double_multiline_double_quotes() {
         assert_eq!(
-            Docstring::new("\"\"\"test docstring\"\"\"").as_str(),
+            Docstring::clean("\"\"\"test docstring\"\"\"").as_str(),
             "test docstring"
         );
     }
     #[test]
     fn test_clean_removes_multiline_single_quotes() {
         assert_eq!(
-            Docstring::new("\"\"\"test docstring\"\"\"").as_str(),
+            Docstring::clean("\"\"\"test docstring\"\"\"").as_str(),
             "test docstring"
         );
     }
@@ -104,7 +104,7 @@ mod tests {
     #[test]
     fn test_clean_removes_single_quotes() {
         assert_eq!(
-            Docstring::new("\'test docstring\'").as_str(),
+            Docstring::clean("\'test docstring\'").as_str(),
             "test docstring"
         );
     }
@@ -112,7 +112,7 @@ mod tests {
     #[test]
     fn test_clean_removes_raw_multiline_double_quotes() {
         assert_eq!(
-            Docstring::new("r\"\"\"test docstring\"\"\"").as_str(),
+            Docstring::clean("r\"\"\"test docstring\"\"\"").as_str(),
             "test docstring"
         );
     }
@@ -120,7 +120,7 @@ mod tests {
     #[test]
     fn test_clean_removes_raw_multiline_single_quotes() {
         assert_eq!(
-            Docstring::new("r\"\"\"test docstring\"\"\"").as_str(),
+            Docstring::clean("r\"\"\"test docstring\"\"\"").as_str(),
             "test docstring"
         );
     }
@@ -128,31 +128,31 @@ mod tests {
     #[test]
     fn test_clean_removes_double_quotes() {
         assert_eq!(
-            Docstring::new("\"test docstring\"").as_str(),
+            Docstring::clean("\"test docstring\"").as_str(),
             "test docstring"
         );
     }
 
     #[test]
     fn test_clean_removes_carriage_returns() {
-        assert_eq!(Docstring::new("hello\rworld").as_str(), "helloworld");
+        assert_eq!(Docstring::clean("hello\rworld").as_str(), "helloworld");
     }
 
     #[test]
     fn test_clean_replaces_tabs_with_spaces() {
-        assert_eq!(Docstring::new("hello\tworld").as_str(), "hello    world");
+        assert_eq!(Docstring::clean("hello\tworld").as_str(), "hello    world");
     }
 
     #[test]
     fn test_clean_trims_shortest_whitespace() {
         assert_eq!(
-            Docstring::new("  hello\n    world\n  test").as_str(),
+            Docstring::clean("  hello\n    world\n  test").as_str(),
             "hello\n  world\ntest"
         );
     }
 
     #[test]
     fn test_docstring_panic() {
-        Docstring::new(" F\n\u{85}");
+        Docstring::clean(" F\n\u{85}");
     }
 }

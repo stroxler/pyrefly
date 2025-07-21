@@ -120,7 +120,7 @@ impl<'a> BindingsBuilder<'a> {
         let (mut class_object, class_indices) = self.class_object_and_indices(&x.name);
         let mut key_class_fields: SmallSet<Idx<KeyClassField>> = SmallSet::new();
 
-        let docstring = Docstring::from_stmts(x.body.as_slice());
+        let docstring_range = Docstring::range_from_stmts(x.body.as_slice());
         let body = mem::take(&mut x.body);
         let decorators_with_ranges = self.ensure_and_bind_decorators_with_ranges(
             mem::take(&mut x.decorator_list),
@@ -344,7 +344,7 @@ impl<'a> BindingsBuilder<'a> {
                 def: x,
                 fields,
                 tparams_require_binding,
-                docstring,
+                docstring_range,
             }),
         );
 

@@ -48,7 +48,7 @@ pub fn key_to_intermediate_definition(
                 Some(IntermediateDefinition::Local(Export {
                     location: x.range(),
                     symbol_kind: binding.symbol_kind(),
-                    docstring: None,
+                    docstring_range: None,
                 }))
             } else {
                 None
@@ -120,18 +120,20 @@ fn binding_to_intermediate_definition(
             Some(IntermediateDefinition::Local(Export {
                 location: func.def.name.range,
                 symbol_kind: binding.symbol_kind(),
-                docstring: func.docstring.clone(),
+                docstring_range: func.docstring_range,
             }))
         }
         Binding::ClassDef(idx, _decorators) => match bindings.get(*idx) {
             BindingClass::FunctionalClassDef(..) => None,
-            BindingClass::ClassDef(ClassBinding { def, docstring, .. }) => {
-                Some(IntermediateDefinition::Local(Export {
-                    location: def.name.range,
-                    symbol_kind: binding.symbol_kind(),
-                    docstring: docstring.clone(),
-                }))
-            }
+            BindingClass::ClassDef(ClassBinding {
+                def,
+                docstring_range,
+                ..
+            }) => Some(IntermediateDefinition::Local(Export {
+                location: def.name.range,
+                symbol_kind: binding.symbol_kind(),
+                docstring_range: *docstring_range,
+            })),
         },
 
         _ => None,

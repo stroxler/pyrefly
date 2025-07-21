@@ -522,7 +522,7 @@ impl<'a> BindingsBuilder<'a> {
 
         let decorators = self.decorators(mem::take(&mut x.decorator_list), def_idx.usage());
 
-        let docstring = Docstring::from_stmts(x.body.as_slice());
+        let docstring_range = Docstring::range_from_stmts(x.body.as_slice());
         let (stub_or_impl, self_assignments) = self.function_body(
             &mut x.parameters,
             mem::take(&mut x.body),
@@ -549,7 +549,7 @@ impl<'a> BindingsBuilder<'a> {
                 decorators: decorators.decorators,
                 legacy_tparams: legacy_tparams.into_boxed_slice(),
                 successor: None,
-                docstring,
+                docstring_range,
             },
         );
 

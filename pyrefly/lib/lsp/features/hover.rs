@@ -58,9 +58,14 @@ impl HoverValue {
     }
 
     pub fn format(&self) -> Hover {
-        let docstring_formatted = self.docstring.clone().map_or("".to_owned(), |docstring| {
-            format!("\n---\n{}", docstring.as_str().trim())
-        });
+        let docstring_formatted = self
+            .docstring
+            .as_ref()
+            .map(|docstring| docstring.resolve())
+            .map_or_else(
+                || "".to_owned(),
+                |content| format!("\n---\n{}", content.trim()),
+            );
         let kind_formatted = self.kind.map_or("".to_owned(), |kind| {
             format!("{} ", kind.display_for_hover())
         });
@@ -94,11 +99,11 @@ pub fn get_hover(
     position: TextSize,
 ) -> Option<Hover> {
     let type_ = transaction.get_type_at(handle, position)?;
-    let (kind, name, docstring) = if let Some(FindDefinitionItemWithDocstring {
+    let (kind, name, docstring_range, module) = if let Some(FindDefinitionItemWithDocstring {
         metadata,
         definition_range: definition_location,
         module,
-        docstring,
+        docstring_range,
     }) = transaction
         .find_definition(handle, position, true)
         // TODO: handle more than 1 definition
@@ -108,10 +113,17 @@ pub fn get_hover(
         (
             metadata.symbol_kind(),
             Some(module.code_at(definition_location).to_owned()),
-            docstring,
+            docstring_range,
+            Some(module),
         )
     } else {
-        (None, None, None)
+        (None, None, None, None)
+    };
+
+    let docstring = if let (Some(docstring), Some(module)) = (docstring_range, module) {
+        Some(Docstring(docstring, module))
+    } else {
+        None
     };
 
     Some(
