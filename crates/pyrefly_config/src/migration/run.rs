@@ -16,17 +16,17 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context as _;
-use pyrefly_config::pyproject::PyProject;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::upward_search::UpwardSearch;
 use tracing::info;
 use tracing::warn;
 
-use crate::config::config::ConfigFile;
-use crate::config::migration::mypy;
-use crate::config::migration::mypy::MypyConfig;
-use crate::config::migration::pyright;
-use crate::config::migration::pyright::PyrightConfig;
+use crate::config::ConfigFile;
+use crate::migration::mypy;
+use crate::migration::mypy::MypyConfig;
+use crate::migration::pyright;
+use crate::migration::pyright::PyrightConfig;
+use crate::pyproject::PyProject;
 
 /// Migrate the config file at a given location (pyproject, mypy, pyright etc), producing a new file.
 /// In some cases, e.g. pyproject, we will modify the original file in-place.

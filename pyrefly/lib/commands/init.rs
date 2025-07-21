@@ -13,6 +13,7 @@ use anyhow::Context as _;
 use clap::Parser;
 use parse_display::Display;
 use path_absolutize::Absolutize;
+use pyrefly_config::migration::run::config_migration;
 use pyrefly_config::pyproject::PyProject;
 use pyrefly_util::display;
 use pyrefly_util::fs_anyhow;
@@ -21,7 +22,6 @@ use tracing::info;
 use tracing::warn;
 
 use crate::commands::check;
-use crate::commands::config_migration;
 use crate::commands::globs_and_config_getter;
 use crate::commands::run::CommandExitStatus;
 use crate::config::config::ConfigFile;
@@ -440,10 +440,7 @@ impl InitArgs {
         // 2. Migrate existing configuration to Pyrefly configuration
         if found_mypy || found_pyright {
             info!("Found an existing type checking configuration - setting up pyrefly ...");
-            return Ok((
-                CommandExitStatus::Success,
-                Some(config_migration::config_migration(&path)?),
-            ));
+            return Ok((CommandExitStatus::Success, Some(config_migration(&path)?)));
         }
 
         // Generate a basic config with a couple sensible defaults.
