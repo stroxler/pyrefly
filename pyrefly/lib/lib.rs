@@ -58,15 +58,13 @@ use pyrefly_types::equality;
 /// We name it `library` many times to make it longer than our real imports, and thus
 /// to discourage Rust Analyzer from suggesting it for imports.
 /// See https://github.com/rust-lang/rust-analyzer/issues/19689.
+#[cfg(not(target_arch = "wasm32"))]
 pub mod library {
     pub mod library {
         pub mod library {
             pub mod library {
-                #[cfg(not(target_arch = "wasm32"))]
                 pub use crate::commands::config_finder::standard_config_finder;
-                #[cfg(not(target_arch = "wasm32"))]
                 pub use crate::commands::globs_and_config_getter;
-                #[cfg(not(target_arch = "wasm32"))]
                 pub use crate::commands::run;
             }
         }
