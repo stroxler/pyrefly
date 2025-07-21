@@ -200,6 +200,71 @@ fn test_completion_with_autoimport() {
 }
 
 #[test]
+fn test_completion_with_autoimport_in_defined_module() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("tests_requiring_config");
+    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+    let file = root_path.join("autoimport_provider.py");
+
+    run_test_lsp(TestCase {
+        messages_from_language_client: vec![
+            Message::from(build_did_open_notification(file.clone())),
+            Message::from(Notification {
+                method: "textDocument/didChange".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(&file).unwrap().to_string(),
+                        "languageId": "python",
+                        "version": 2
+                    },
+                    "contentChanges": [{
+                        "text": format!("{}\n{}", std::fs::read_to_string(&file).unwrap(), "this_is_a_very_long_function_name_so_we_can")
+                    }],
+                }),
+            }),
+            Message::from(Request {
+                id: RequestId::from(2),
+                method: "textDocument/completion".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(&file).unwrap().to_string()
+                    },
+                    "position": {
+                        "line": 12,
+                        "character": 95
+                    }
+                }),
+            }),
+        ],
+        expected_messages_from_language_server: vec![make_completion_result(
+            2,
+            serde_json::json!([
+                {
+                    "detail":"() -> None",
+                    "kind":3,
+                    "label":"this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search",
+                    "sortText":"0"
+                },
+                {
+                    "additionalTextEdits":[
+                    {
+                        "newText":"from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n",
+                        "range":{"end":{"character":0,"line":6},"start":{"character":0,"line":6}}
+                    }],
+                    "detail":"from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n",
+                    "kind":3,
+                    "label":"this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search",
+                    "sortText":"3"
+                    },
+            ]),
+        )],
+        indexing_mode: IndexingMode::LazyBlocking,
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        ..Default::default()
+    });
+}
+
+#[test]
 fn test_module_completion() {
     let root = get_test_files_root();
     let foo = root.path().join("tests_requiring_config").join("foo.py");
