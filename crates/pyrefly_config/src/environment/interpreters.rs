@@ -142,7 +142,7 @@ impl Interpreters {
 
     /// Get the first interpreter available on the path by using `which`
     /// and querying for [`Self::DEFAULT_INTERPRETERS`] in order.
-    pub fn get_default_interpreter() -> Option<&'static Path> {
+    pub(crate) fn get_default_interpreter() -> Option<&'static Path> {
         static SYSTEM_INTERP: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
             // disable query with `which` on wasm
             #[cfg(not(target_arch = "wasm32"))]
