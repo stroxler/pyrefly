@@ -453,3 +453,14 @@ class C(B):
         self.x = ["hello world"]
     "#,
 );
+
+testcase!(
+    test_context_special_methods,
+    r#"
+from typing import assert_type, reveal_type
+class A: ...
+class B(A): ...
+x1: list[A] = reveal_type([B()]) # E: revealed type: list[A]
+x2: list[A] = assert_type([B()], list[A])
+    "#,
+);

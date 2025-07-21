@@ -667,6 +667,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.expr_infer_type_info(x, errors).into_ty()
     }
 
+    pub fn expr_infer_with_hint(
+        &self,
+        x: &Expr,
+        hint: Option<&Type>,
+        errors: &ErrorCollector,
+    ) -> Type {
+        self.expr_infer_type_info_with_hint(x, hint, errors)
+            .into_ty()
+    }
+
     pub fn expr_infer_type_info(&self, x: &Expr, errors: &ErrorCollector) -> TypeInfo {
         self.expr_infer_type_info_with_hint(x, None, errors)
     }
@@ -737,7 +747,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn expr_infer_type_info_with_hint(
+    pub fn expr_infer_type_info_with_hint(
         &self,
         x: &Expr,
         hint: Option<&Type>,
@@ -1341,6 +1351,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 &x.arguments.args,
                                 &x.arguments.keywords,
                                 x.arguments.range,
+                                hint,
                                 errors,
                             ),
                         Some(CalleeKind::Function(FunctionKind::RevealType)) => self
@@ -1348,6 +1359,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 &x.arguments.args,
                                 &x.arguments.keywords,
                                 x.arguments.range,
+                                hint,
                                 errors,
                             ),
                         Some(CalleeKind::Function(FunctionKind::Cast)) => {
@@ -1367,6 +1379,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 &x.arguments.args,
                                 &x.arguments.keywords,
                                 x.arguments.range,
+                                hint,
                                 errors,
                             ),
                         None if ty.is_error() && is_special_name(&x.func, "reveal_type") => self
@@ -1374,6 +1387,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 &x.arguments.args,
                                 &x.arguments.keywords,
                                 x.arguments.range,
+                                hint,
                                 errors,
                             ),
                         Some(CalleeKind::Function(FunctionKind::IsInstance))

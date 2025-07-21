@@ -41,12 +41,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         args: &[Expr],
         keywords: &[Keyword],
         range: TextRange,
+        hint: Option<&Type>,
         errors: &ErrorCollector,
     ) -> Type {
         let ret = if args.len() == 2 {
             let expr_a = &args[0];
             let expr_b = &args[1];
-            let a = self.expr_infer(expr_a, errors);
+            let a = self.expr_infer_with_hint(expr_a, hint, errors);
             let b = self.expr_untype(expr_b, TypeFormContext::FunctionArgument, errors);
             let mut a = self
                 .canonicalize_all_class_types(self.solver().deep_force(a), expr_a.range())
@@ -113,10 +114,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         args: &[Expr],
         keywords: &[Keyword],
         range: TextRange,
+        hint: Option<&Type>,
         errors: &ErrorCollector,
     ) -> Type {
         let ret = if args.len() == 1 {
-            let mut type_info = self.expr_infer_type_info(&args[0], errors);
+            let mut type_info = self.expr_infer_type_info_with_hint(&args[0], hint, errors);
             let ret = type_info.ty().clone();
             type_info.visit_mut(&mut |ty| {
                 *ty = self.for_display(ty.clone());
