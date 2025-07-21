@@ -6,23 +6,26 @@
  */
 
 use dupe::Dupe;
+use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::arc_id::ArcId;
-use pyrefly_util::globs::FilteredGlobs;
 use pyrefly_util::prelude::SliceExt;
 use starlark_map::small_map::SmallMap;
 
 use crate::commands::check::Handles;
+use crate::commands::files::FilesArgs;
 use crate::commands::util::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
-use crate::config::finder::ConfigFinder;
 use crate::state::require::Require;
 
 pub fn dump_config(
-    files_to_check: FilteredGlobs,
-    config_finder: ConfigFinder,
+    files: FilesArgs,
+    config_override: ConfigOverrideArgs,
 ) -> anyhow::Result<CommandExitStatus> {
+    config_override.validate()?;
+    let (files_to_check, config_finder) = files.resolve(&config_override)?;
+
     let mut configs_to_files: SmallMap<ArcId<ConfigFile>, Vec<ModulePath>> = SmallMap::new();
     let handles = Handles::new(
         config_finder.checkpoint(files_to_check.files())?,

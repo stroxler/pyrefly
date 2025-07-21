@@ -143,9 +143,7 @@ async fn run_command(command: Command, allow_forget: bool) -> anyhow::Result<Com
         // We intentionally make DumpConfig take the same arguments as Check so that dumping the
         // config is as easy as changing the command name.
         Command::DumpConfig(FullCheckArgs { files, args, .. }) => {
-            args.config_override.validate()?;
-            let (files_to_check, config_finder) = files.resolve(&args.config_override)?;
-            dump_config(files_to_check, config_finder)
+            dump_config(files, args.config_override)
         }
     }
 }
