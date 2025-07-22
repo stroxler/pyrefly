@@ -28,6 +28,7 @@ use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::display;
+use pyrefly_util::display::count;
 use pyrefly_util::display::number_thousands;
 use pyrefly_util::events::CategorizedEvents;
 use pyrefly_util::forgetter::Forgetter;
@@ -188,9 +189,26 @@ struct OutputArgs {
         value_name = "INDEX",
     )]
     summarize_errors: Option<usize>,
-    /// Omit the summary in the last line of the output.
-    #[arg(long)]
-    no_summary: bool,
+
+    /// By default show the number of errors. Pass `--summary` to show information about lines checked and time/memory,
+    /// or `--summary=none` to hide the summary line entirely.
+    #[arg(
+        long,
+        default_missing_value = "full",
+        require_equals = true,
+        num_args = 0..=1,
+        value_enum,
+        default_value_t
+    )]
+    summary: Summary,
+}
+
+#[derive(Clone, Debug, ValueEnum, Default, PartialEq, Eq)]
+enum Summary {
+    None,
+    #[default]
+    Default,
+    Full,
 }
 
 /// non-config type checker behavior
@@ -374,7 +392,7 @@ struct Timings {
 
 impl Display for Timings {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        const THRESHOLD: Duration = Duration::from_millis(300);
+        const THRESHOLD: Duration = Duration::from_millis(100);
         let total = self.start.elapsed();
         write!(f, "{}", Self::show(total))?;
 
@@ -396,7 +414,7 @@ impl Display for Timings {
             write!(
                 f,
                 " ({})",
-                display::intersperse_iter("; ", || steps
+                display::intersperse_iter(", ", || steps
                     .iter()
                     .rev()
                     .map(|(lbl, dur)| format!("{lbl} {}", Self::show(*dur))))
@@ -584,14 +602,27 @@ impl CheckArgs {
         }
         timings.report_errors = report_errors_start.elapsed();
 
-        if !self.output.no_summary {
+        if self.output.summary != Summary::None {
+            let ignored = errors.disabled.len() + errors.suppressed.len();
+            if ignored == 0 {
+                info!("{}", count(shown_errors_count, "error"))
+            } else {
+                info!(
+                    "{} ({} ignored)",
+                    count(shown_errors_count, "error"),
+                    number_thousands(ignored)
+                )
+            };
+        }
+        if self.output.summary == Summary::Full {
             info!(
-                "errors shown: {}, errors ignored: {}, modules: {}, transitive dependencies: {}, lines: {}, time: {timings}, peak memory: {}",
-                number_thousands(shown_errors_count),
-                number_thousands(errors.disabled.len() + errors.suppressed.len()),
-                number_thousands(handles.len()),
-                number_thousands(transaction.module_count() - handles.len()),
-                number_thousands(transaction.line_count()),
+                "{} ({}, {}); took {timings}; memory ({})",
+                count(handles.len(), "module"),
+                count(
+                    transaction.module_count() - handles.len(),
+                    "dependent module"
+                ),
+                count(transaction.line_count(), "line"),
                 memory_trace.peak()
             );
         }
