@@ -607,9 +607,10 @@ pub enum Type {
     /// that TypedDict class definitions are still represented as `ClassDef(TD)`, just
     /// like regular classes.
     TypedDict(TypedDict),
-    /// Represents a "partial" version of a TypedDict.
-    /// For a TypedDict type `C`, `Partial[C]` represents an object with any subset of keys from `C`,
-    /// where each present key has the same value type as in `C`.
+    /// Represents a "partial" version of a TypedDict that can be merged into the TypedDict
+    /// (e.g., via its `update` method).
+    /// For a TypedDict type `C`, `Partial[C]` represents an object with any subset of read-write
+    /// keys from `C`, where each present key has the same value type as in `C`.
     PartialTypedDict(TypedDict),
     Tuple(Tuple),
     Module(ModuleType),

@@ -61,7 +61,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         dict_items: Vec<&DictItem>,
         typed_dict: &TypedDict,
-        is_partial: bool,
+        // Check whether `typed_dict` can be updated with `dict_items`
+        is_update: bool,
         range: TextRange,
         errors: &ErrorCollector,
     ) {
@@ -73,27 +74,38 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let key_type = self.expr_infer(key, errors);
                 if let Type::Literal(Lit::Str(name)) = key_type {
                     let key_name = Name::new(name);
-                    if let Some(field) = fields.get(&key_name) {
-                        self.expr(
-                            &x.value,
-                            Some((&field.ty, &|| {
-                                TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
-                                    key_name.clone(),
-                                ))
-                            })),
-                            errors,
-                        );
-                    } else {
-                        self.error(
-                            errors,
-                            key.range(),
-                            ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
-                            format!(
-                                "Key `{}` is not defined in TypedDict `{}`",
-                                key_name,
-                                typed_dict.name()
-                            ),
-                        );
+                    match fields.get(&key_name) {
+                        Some(field) if is_update && field.is_read_only() => {
+                            self.error(
+                                errors,
+                                key.range(),
+                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                                format!("Cannot update read-only field `{key_name}`"),
+                            );
+                        }
+                        Some(field) => {
+                            self.expr(
+                                &x.value,
+                                Some((&field.ty, &|| {
+                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
+                                        key_name.clone(),
+                                    ))
+                                })),
+                                errors,
+                            );
+                        }
+                        None => {
+                            self.error(
+                                errors,
+                                key.range(),
+                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                                format!(
+                                    "Key `{}` is not defined in TypedDict `{}`",
+                                    key_name,
+                                    typed_dict.name()
+                                ),
+                            );
+                        }
                     }
                     keys.insert(key_name);
                 } else {
@@ -119,8 +131,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             }
         });
-        // If the TypedDict is not partial, then all required fields must be present.
-        if !has_expansion && !is_partial {
+        // You can update a TypedDict with a subset of its items. Otherwise, all required fields must be present.
+        if !has_expansion && !is_update {
             for (key, field) in &fields {
                 if field.required && !keys.contains(key) {
                     self.error(
