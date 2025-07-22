@@ -60,6 +60,12 @@ impl CallWithTypes {
         errors: &ErrorCollector,
     ) -> TypeOrExpr<'a> {
         match x {
+            TypeOrExpr::Expr(e @ (Expr::Dict(_) | Expr::List(_) | Expr::Set(_))) => {
+                // Hack: don't flatten mutable builtin containers into types before calling a
+                // function, as we know these containers often need to be contextually typed using
+                // the function's parameter types.
+                TypeOrExpr::Expr(e)
+            }
             TypeOrExpr::Expr(e) => {
                 let t = solver.expr_infer(e, errors);
                 TypeOrExpr::Type(self.0.push(t), e.range())

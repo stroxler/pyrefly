@@ -402,14 +402,13 @@ xs: list[A] = []
 );
 
 testcase!(
-    bug = "Would be nice if this worked, but requires contextual typing on overloads",
     test_context_assign_subscript,
     r#"
 class A: ...
 class B(A): ...
 
 xs: list[list[A]] = [[]]
-xs[0] = [B()] # E: No matching overload found
+xs[0] = [B()]
 "#,
 );
 
