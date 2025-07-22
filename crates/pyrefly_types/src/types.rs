@@ -1341,6 +1341,7 @@ impl Type {
             Type::ClassDef(cls) => Some(cls.qname()),
             Type::ClassType(c) => Some(c.qname()),
             Type::TypedDict(c) => Some(c.qname()),
+            Type::PartialTypedDict(c) => Some(c.qname()),
             Type::TypeVar(t) => Some(t.qname()),
             Type::TypeVarTuple(t) => Some(t.qname()),
             Type::ParamSpec(t) => Some(t.qname()),
