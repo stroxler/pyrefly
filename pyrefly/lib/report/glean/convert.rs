@@ -174,9 +174,16 @@ impl Facts {
         }
     }
 
-    fn type_info(&self, _annotation: Option<&Expr>) -> Option<python::TypeInfo> {
-        // TODO(@rubmary) generate type info
-        None
+    fn type_info(&self, annotation: Option<&Expr>) -> Option<python::TypeInfo> {
+        annotation.map(|type_annotation| {
+            let lined_buffer = self.module_info.lined_buffer();
+            python::TypeInfo {
+                displayType: python::Type::new(
+                    lined_buffer.code_at(type_annotation.range()).to_owned(),
+                ),
+                xrefs: vec![], // TODO(@rubmary) generate xrefs
+            }
+        })
     }
 
     fn variable_info(
@@ -233,8 +240,11 @@ impl Facts {
         top_level_declaration: Option<&python::Declaration>,
         decl_infos: &mut Vec<DeclarationInfo>,
     ) -> python::Parameter {
-        // TODO(@rubmary) generate `value` for ParameterInfo
-        let value = None;
+        let lined_buffer = self.module_info.lined_buffer();
+        let value = parameter_with_default
+            .default
+            .as_ref()
+            .map(|x| lined_buffer.code_at(x.range()).to_owned());
         self.parameter_info(
             &parameter_with_default.parameter,
             value,
@@ -377,7 +387,6 @@ impl Facts {
 
     fn file_call_facts(&mut self, call: &ExprCall) {
         let callee_span = to_span(call.func.range());
-        // TODO(@rubmary) Generate `argument` value for CallArgument predicate
         let mut call_args: Vec<python::CallArgument> = call
             .arguments
             .args
