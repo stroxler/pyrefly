@@ -74,12 +74,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // This is the last definition in the chain. We should produce an overload type.
                 let last_range = def.id_range;
                 let has_impl = def.stub_or_impl == FunctionStubOrImpl::Impl;
-                let mut acc = Vec1::new((last_range, ty));
+                let mut acc = Vec1::new((last_range, ty, def.metadata.clone()));
                 let mut first = def;
                 let mut impl_before_overload_range = None;
                 while let Some(def) = self.step_pred(predecessor) {
                     if def.metadata.flags.is_overload {
-                        acc.push((def.id_range, def.ty.clone()));
+                        acc.push((def.id_range, def.ty.clone(), def.metadata.clone()));
                         first = def;
                     } else {
                         impl_before_overload_range = Some(def.id_range);
@@ -141,7 +141,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             while let Some(def) = self.step_pred(predecessor)
                 && def.metadata.flags.is_overload
             {
-                acc.push((def.id_range, def.ty.clone()));
+                acc.push((def.id_range, def.ty.clone(), def.metadata.clone()));
                 first = def;
             }
             acc.reverse();
@@ -651,12 +651,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn extract_signatures(
         &self,
         func: Name,
-        ts: Vec1<(TextRange, Type)>,
+        ts: Vec1<(TextRange, Type, FuncMetadata /* is_deprecated */)>,
         errors: &ErrorCollector,
     ) -> Vec1<OverloadType> {
-        ts.mapped(|(range, t)| match t {
-            Type::Callable(callable) => OverloadType::Callable(*callable),
-            Type::Function(function) => OverloadType::Callable(function.signature),
+        ts.mapped(|(range, t, metadata)| match t {
+            Type::Callable(callable) => OverloadType::Callable(Function {
+                signature: *callable,
+                metadata,
+            }),
+            Type::Function(function) => OverloadType::Callable(*function),
             Type::Forall(box Forall {
                 tparams,
                 body: Forallable::Function(func),
@@ -664,9 +667,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 tparams,
                 body: func,
             }),
-            Type::Any(any_style) => {
-                OverloadType::Callable(Callable::ellipsis(any_style.propagate()))
-            }
+            Type::Any(any_style) => OverloadType::Callable(Function {
+                signature: Callable::ellipsis(any_style.propagate()),
+                metadata,
+            }),
             _ => {
                 self.error(
                     errors,
@@ -678,7 +682,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.for_display(t)
                     ),
                 );
-                OverloadType::Callable(Callable::ellipsis(Type::any_error()))
+                OverloadType::Callable(Function {
+                    signature: Callable::ellipsis(Type::any_error()),
+                    metadata,
+                })
             }
         })
     }

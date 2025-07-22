@@ -455,14 +455,14 @@ impl Overload {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub enum OverloadType {
-    Callable(Callable),
+    Callable(Function),
     Forall(Forall<Function>),
 }
 
 impl OverloadType {
     pub fn as_type(&self) -> Type {
         match self {
-            Self::Callable(c) => Type::Callable(Box::new(c.clone())),
+            Self::Callable(f) => Type::Callable(Box::new(f.signature.clone())),
             Self::Forall(forall) => {
                 Forallable::Function(forall.body.clone()).forall(forall.tparams.clone())
             }
@@ -475,7 +475,7 @@ impl OverloadType {
         is_subset: &dyn Fn(&Type, &Type) -> bool,
     ) {
         match self {
-            Self::Callable(c) => c.subst_self_type_mut(replacement, is_subset),
+            Self::Callable(f) => f.signature.subst_self_type_mut(replacement, is_subset),
             Self::Forall(forall) => forall
                 .body
                 .signature
@@ -485,14 +485,14 @@ impl OverloadType {
 
     fn is_typeguard(&self) -> bool {
         match self {
-            Self::Callable(c) => c.is_typeguard(),
+            Self::Callable(f) => f.signature.is_typeguard(),
             Self::Forall(forall) => forall.body.signature.is_typeguard(),
         }
     }
 
     fn is_typeis(&self) -> bool {
         match self {
-            Self::Callable(c) => c.is_typeis(),
+            Self::Callable(f) => f.signature.is_typeis(),
             Self::Forall(forall) => forall.body.signature.is_typeis(),
         }
     }
@@ -904,7 +904,12 @@ impl Type {
             Type::Overload(overload) => overload
                 .signatures
                 .try_mapped_ref(|x| match x {
-                    OverloadType::Callable(c) => c.drop_first_param().ok_or(()),
+                    OverloadType::Callable(f) => {
+                        f.signature.drop_first_param().ok_or(()).map(|c| Function {
+                            signature: c,
+                            metadata: f.metadata.clone(),
+                        })
+                    }
                     _ => Err(()),
                 })
                 .ok()
@@ -1096,7 +1101,7 @@ impl Type {
             }) => {
                 for x in overload.signatures.iter() {
                     match x {
-                        OverloadType::Callable(callable) => f(callable),
+                        OverloadType::Callable(function) => f(&function.signature),
                         OverloadType::Forall(forall) => f(&forall.body.signature),
                     }
                 }
@@ -1130,7 +1135,7 @@ impl Type {
             }) => {
                 for x in overload.signatures.iter_mut() {
                     match x {
-                        OverloadType::Callable(callable) => f(callable),
+                        OverloadType::Callable(function) => f(&mut function.signature),
                         OverloadType::Forall(forall) => f(&mut forall.body.signature),
                     }
                 }

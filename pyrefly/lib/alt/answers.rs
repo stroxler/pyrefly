@@ -621,7 +621,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn record_overload_trace(
         &self,
         loc: TextRange,
-        all_overloads: &[Callable],
+        all_overloads: Vec<&Callable>,
         closest_overload: &Callable,
         is_closest_overload_chosen: bool,
     ) {
@@ -629,7 +629,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             trace.lock().overloaded_callees.insert(
                 loc,
                 OverloadedCallee {
-                    all_overloads: all_overloads.to_vec(),
+                    all_overloads: all_overloads
+                        .into_iter()
+                        .map(|func| (*func).clone())
+                        .collect(),
                     closest_overload: closest_overload.clone(),
                     is_closest_overload_chosen,
                 },
