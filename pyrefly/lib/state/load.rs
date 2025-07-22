@@ -10,6 +10,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
@@ -21,15 +22,14 @@ use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
 use crate::error::style::ErrorStyle;
-use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
 use crate::state::memory::MemoryFilesLookup;
 
-/// The result of loading a module, including its `ModuleInfo` and `ErrorCollector`.
+/// The result of loading a module, including its `Module` and `ErrorCollector`.
 #[derive(Debug)]
 pub struct Load {
     pub errors: ErrorCollector,
-    pub module_info: ModuleInfo,
+    pub module_info: Module,
 }
 
 impl Load {
@@ -63,7 +63,7 @@ impl Load {
         code: Arc<String>,
         self_error: Option<anyhow::Error>,
     ) -> Self {
-        let module_info = ModuleInfo::new(name, path, code);
+        let module_info = Module::new(name, path, code);
         let errors = ErrorCollector::new(module_info.dupe(), error_style);
         if let Some(err) = self_error {
             errors.add(

@@ -62,7 +62,6 @@ use crate::config::error_kind::ErrorKind;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::graph::index::Idx;
-use crate::module::module_info::ModuleInfo;
 use crate::state::handle::Handle;
 use crate::state::ide::IntermediateDefinition;
 use crate::state::ide::insert_import_edit;
@@ -1058,7 +1057,7 @@ impl<'a> Transaction<'a> {
         // Group all locations by their containing module, so later we could avoid reparsing
         // the same module multiple times.
         let location_count = callee_locations.len();
-        let mut modules_to_ranges: SmallMap<ModuleInfo, Vec<TextRange>> =
+        let mut modules_to_ranges: SmallMap<Module, Vec<TextRange>> =
             SmallMap::with_capacity(location_count);
         for TextRangeWithModule { module, range } in callee_locations.into_iter() {
             modules_to_ranges.entry(module).or_default().push(range)
@@ -1270,7 +1269,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         range: TextRange,
-    ) -> Option<Vec<(String, ModuleInfo, TextRange, String)>> {
+    ) -> Option<Vec<(String, Module, TextRange, String)>> {
         let module_info = self.get_module_info(handle)?;
         let ast = self.get_ast(handle)?;
         let errors = self.get_errors(vec![handle]).collect_errors().shown;
@@ -1771,7 +1770,7 @@ impl<'a> Transaction<'a> {
         idx: Idx<Key>,
         bindings: Bindings,
         transaction: &mut CancellableTransaction,
-    ) -> Vec<(ModuleInfo, Vec<TextRange>)> {
+    ) -> Vec<(Module, Vec<TextRange>)> {
         if let Key::Definition(id) = bindings.idx_to_key(idx)
             && let Some(module_info) = self.get_module_info(handle)
         {
@@ -2011,7 +2010,7 @@ impl<'a> Transaction<'a> {
         fn recurse_stmt_adding_symbols<'a>(
             stmt: &'a Stmt,
             symbols: &'a mut Vec<DocumentSymbol>,
-            module_info: &ModuleInfo,
+            module_info: &Module,
         ) {
             let mut recursed_symbols = Vec::new();
             stmt.recurse(&mut |stmt| {
@@ -2106,7 +2105,7 @@ impl<'a> CancellableTransaction<'a> {
         sys_info: &SysInfo,
         definition_kind: DefinitionMetadata,
         definition: TextRangeWithModule,
-    ) -> Result<Vec<(ModuleInfo, Vec<TextRange>)>, Cancelled> {
+    ) -> Result<Vec<(Module, Vec<TextRange>)>, Cancelled> {
         // General strategy:
         // 1: Compute the set of transitive rdeps.
         // 2. Find references in each one of them using the index computed during earlier checking

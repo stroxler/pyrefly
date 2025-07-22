@@ -30,7 +30,7 @@ pub trait Subscriber: Sync {
 
     /// We have finished work on a `Handle`, having computed its solutions.
     /// While we have computed the solutions, we return the `Load` as that contains
-    /// the `ErrorCollector` and `ModuleInfo` which are useful context for the completion.
+    /// the `ErrorCollector` and `Module` which are useful context for the completion.
     fn finish_work(&self, handle: Handle, result: Arc<Load>);
 }
 
