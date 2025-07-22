@@ -1446,10 +1446,24 @@ testcase!(
     test_union_function_exponential,
     r#"
 # This used to take an exponential amount of time to type check
-from typing import Any, Callable, reveal_type
+from typing import Any, Callable
 
 def check(f: Callable[[int], bool] | Callable[[str], bool]) -> Any:
     f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(True)))))))))))))))))))))))) # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E:
+"#,
+);
+
+testcase!(
+    test_union_function_exponential2,
+    r#"
+# This used to take an exponential amount of time to type check
+from typing import Callable, TypeVar
+
+T = TypeVar('T', bound=Callable[[int], bool] | Callable[[str], bool])
+
+def check(f: T) -> T:
+    f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(True)))))))))))))))))))))))) # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E:
+    return f
 "#,
 );
 

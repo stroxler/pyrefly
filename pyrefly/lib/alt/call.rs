@@ -669,11 +669,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Target::Union(targets) => {
                 let call = CallWithTypes::new();
+                let args = call.vec_call_arg(args, self, errors);
+                let keywords = call.vec_call_keyword(keywords, self, errors);
                 self.unions(targets.into_map(|t| {
                     self.call_infer(
                         CallTarget::new(t),
-                        &call.vec_call_arg(args, self, errors),
-                        &call.vec_call_keyword(keywords, self, errors),
+                        &args,
+                        &keywords,
                         range,
                         errors,
                         context,
