@@ -10225,13 +10225,13 @@
   "typeddicts_readonly_update.py": [
     {
       "code": -2,
-      "column": 13,
+      "column": 10,
       "concise_description": "No matching overload found for function `A.update`",
       "description": "No matching overload found for function `A.update`\n  Possible overloads:\n  (__m: Partial[A], /) -> None [closest match]\n  (__m: Iterable[tuple[Literal['y'], int]], /) -> None\n  (*, y: int) -> None",
-      "line": 34,
+      "line": 23,
       "name": "no-matching-overload",
-      "stop_column": 16,
-      "stop_line": 34
+      "stop_column": 14,
+      "stop_line": 23
     }
   ],
   "typeddicts_required.py": [

@@ -737,8 +737,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 };
                 args_subset && self.is_subset_eq(&l.ret, &u.ret)
             }
-            (Type::TypedDict(got), Type::TypedDict(want))
-            | (Type::TypedDict(got), Type::PartialTypedDict(want)) => {
+            (Type::TypedDict(got), Type::TypedDict(want)) => {
                 // For each key in `want`, `got` has the corresponding key
                 // and the corresponding value type in `got` is consistent with the value type in `want`.
                 // For each required key in `got`, the corresponding key is required in `want`.
@@ -761,6 +760,20 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     want_fields
                         .get(k)
                         .is_none_or(|want_v| got_v.required == want_v.required)
+                })
+            }
+            (Type::TypedDict(got), Type::PartialTypedDict(want)) => {
+                let got_fields = self.type_order.typed_dict_fields(got);
+                let want_fields = self.type_order.typed_dict_fields(want);
+                want_fields.iter().all(|(k, want_v)| {
+                    got_fields.get(k).is_some_and(|got_v| {
+                        if want_v.is_read_only() {
+                            // ReadOnly can only be updated with Never (i.e., no update)
+                            self.is_subset_eq(&got_v.ty, &Type::never())
+                        } else {
+                            self.is_subset_eq(&got_v.ty, &want_v.ty)
+                        }
+                    })
                 })
             }
             (Type::TypedDict(_), Type::SelfType(cls))

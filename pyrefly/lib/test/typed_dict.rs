@@ -123,7 +123,6 @@ def f(c: C | Any):
 );
 
 testcase!(
-    bug = "a1.update(a2) should be an error and a.update(b) should not be",
     test_typed_dict_readonly_partial_update,
     r#"
 from typing import Never, NotRequired, TypedDict, ReadOnly
@@ -135,14 +134,14 @@ class A(TypedDict):
 
 a1: A = {"x": 1, "y": 2}
 a2: A = {"x": 3, "y": 4}
-a1.update(a2) 
+a1.update(a2) # E: No matching overload 
 
 class B(TypedDict):
     x: NotRequired[Never]
     y: ReadOnly[int]
 
 def update_a(a: A, b: B) -> None:
-    a.update(b) # E: No matching overload found for function `A.update` 
+    a.update(b)
     "#,
 );
 
