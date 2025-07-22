@@ -217,11 +217,24 @@ impl<'a> BindingsBuilder<'a> {
     /// record an error and fall back to `Any`.
     ///
     /// This function is the core scope lookup logic for binding creation.
+    ///
+    /// To do the ensure, we need:
+    /// - Information about what binding it is being used in, which is used both
+    ///   - to track first-use to get deterministic inference of placeholder
+    ///     types like empty list
+    ///   - to determin when we are in a static typing usage
+    /// - The lookup kind, which is used to distinguish between normal lookups,
+    ///   which allow uses of nonlocals, versus mutable lookups that do not
+    ///   (unless the nonlocal was explicitly mutably captured by a `global`
+    ///   or `nonlocal` statement).
+    /// - An optional `tparams_builder`, which intercepts names - but only
+    ///   in static type contexts - that map to legacy type variables.
     pub fn ensure_name(
         &mut self,
         name: &Identifier,
-        value: Result<Binding, LookupError>,
-        used_in_static_type: bool,
+        lookup_kind: LookupKind,
+        usage: &mut Usage,
+        tparams_builder: &mut Option<LegacyTParamBuilder>,
     ) -> Idx<Key> {
         let key = Key::BoundName(ShortIdentifier::new(name));
         if name.is_empty() {
@@ -235,6 +248,15 @@ impl<'a> BindingsBuilder<'a> {
             // in an IDE setting if we don't ensure this is the case.
             return self.insert_binding_overwrite(key, Binding::Type(Type::any_error()));
         }
+        let used_in_static_type = matches!(usage, Usage::StaticTypeInformation);
+        let value = if used_in_static_type && let Some(tparams_builder) = tparams_builder {
+            tparams_builder
+                .intercept_lookup(self, name)
+                .ok_or(LookupError::NotFound)
+        } else {
+            self.lookup_name(Hashed::new(&name.id), lookup_kind, usage)
+                .map(Binding::Forward)
+        };
         match value {
             Ok(value) => {
                 if !self.module_info.path().is_interface() {
@@ -267,18 +289,7 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn ensure_mutable_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
         let name = Ast::expr_name_identifier(x.clone());
-        let binding = self
-            .lookup_name(
-                Hashed::new(&name.id),
-                LookupKind::Mutable,
-                &mut Usage::MutableLookup,
-            )
-            .map(Binding::Forward);
-        self.ensure_name(
-            &name,
-            binding,
-            matches!(usage, Usage::StaticTypeInformation),
-        )
+        self.ensure_name(&name, LookupKind::Mutable, usage, &mut None)
     }
 
     fn bind_comprehensions(
@@ -654,14 +665,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
-                let binding = self
-                    .lookup_name(Hashed::new(&name.id), LookupKind::Regular, usage)
-                    .map(Binding::Forward);
-                self.ensure_name(
-                    &name,
-                    binding,
-                    matches!(usage, Usage::StaticTypeInformation),
-                );
+                self.ensure_name(&name, LookupKind::Regular, usage, &mut None);
             }
             Expr::Yield(x) => {
                 self.record_yield(x.clone());
@@ -690,19 +694,12 @@ impl<'a> BindingsBuilder<'a> {
         match x {
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
-                let binding = match tparams_builder {
-                    Some(legacy) => legacy
-                        .intercept_lookup(self, &name)
-                        .ok_or(LookupError::NotFound),
-                    None => self
-                        .lookup_name(
-                            Hashed::new(&name.id),
-                            LookupKind::Regular,
-                            static_type_usage,
-                        )
-                        .map(Binding::Forward),
-                };
-                self.ensure_name(&name, binding, true);
+                self.ensure_name(
+                    &name,
+                    LookupKind::Regular,
+                    static_type_usage,
+                    tparams_builder,
+                );
             }
             Expr::Subscript(ExprSubscript { value, .. })
                 if self.as_special_export(value) == Some(SpecialExport::Literal) =>
