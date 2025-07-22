@@ -268,7 +268,11 @@ impl<'a> BindingsBuilder<'a> {
     pub fn ensure_mutable_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
         let name = Ast::expr_name_identifier(x.clone());
         let binding = self
-            .lookup_name(Hashed::new(&name.id), LookupKind::Mutable)
+            .lookup_name(
+                Hashed::new(&name.id),
+                LookupKind::Mutable,
+                &mut Usage::MutableLookup,
+            )
             .map(Binding::Forward);
         self.ensure_name(
             &name,
@@ -651,7 +655,7 @@ impl<'a> BindingsBuilder<'a> {
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
                 let binding = self
-                    .lookup_name_usage(Hashed::new(&name.id), usage)
+                    .lookup_name(Hashed::new(&name.id), LookupKind::Regular, usage)
                     .map(Binding::Forward);
                 self.ensure_name(
                     &name,
@@ -691,7 +695,11 @@ impl<'a> BindingsBuilder<'a> {
                         .intercept_lookup(self, &name)
                         .ok_or(LookupError::NotFound),
                     None => self
-                        .lookup_name(Hashed::new(&name.id), LookupKind::Regular)
+                        .lookup_name(
+                            Hashed::new(&name.id),
+                            LookupKind::Regular,
+                            static_type_usage,
+                        )
                         .map(Binding::Forward),
                 };
                 self.ensure_name(&name, binding, true);

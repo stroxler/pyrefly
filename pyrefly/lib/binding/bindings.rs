@@ -760,22 +760,6 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: Hashed<&Name>,
         kind: LookupKind,
-    ) -> Result<Idx<Key>, LookupError> {
-        self.lookup_name_impl(name, kind, &mut Usage::MutableLookup)
-    }
-
-    pub fn lookup_name_usage(
-        &mut self,
-        name: Hashed<&Name>,
-        usage: &mut Usage,
-    ) -> Result<Idx<Key>, LookupError> {
-        self.lookup_name_impl(name, LookupKind::Regular, usage)
-    }
-
-    fn lookup_name_impl(
-        &mut self,
-        name: Hashed<&Name>,
-        kind: LookupKind,
         usage: &mut Usage,
     ) -> Result<Idx<Key>, LookupError> {
         self.lookup_name_inner(name, kind, usage)
@@ -925,7 +909,11 @@ impl<'a> BindingsBuilder<'a> {
         name: &Identifier,
     ) -> Either<Idx<KeyLegacyTypeParam>, Option<Idx<Key>>> {
         let found = self
-            .lookup_name(Hashed::new(&name.id), LookupKind::Regular)
+            .lookup_name(
+                Hashed::new(&name.id),
+                LookupKind::Regular,
+                &mut Usage::StaticTypeInformation,
+            )
             .ok();
         if let Some(idx) = found {
             match self.lookup_legacy_tparam_from_idx(name, idx) {
@@ -1115,7 +1103,8 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn bind_narrow_ops(&mut self, narrow_ops: &NarrowOps, use_range: TextRange) {
         for (name, (op, op_range)) in narrow_ops.0.iter_hashed() {
-            if let Ok(name_key) = self.lookup_name(name, LookupKind::Regular) {
+            if let Ok(name_key) = self.lookup_name(name, LookupKind::Regular, &mut Usage::Narrowing)
+            {
                 let binding_key = self.insert_binding(
                     Key::Narrow(name.into_key().clone(), *op_range, use_range),
                     Binding::Narrow(name_key, Box::new(op.clone()), use_range),
