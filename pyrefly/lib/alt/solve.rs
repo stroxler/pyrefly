@@ -1735,86 +1735,88 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Type {
         let base = self.expr_infer(&subscript.value, errors);
         let slice_ty = self.expr_infer(&subscript.slice, errors);
-        match (&base, &slice_ty) {
-            (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
-                let field_name = Name::new(field_name);
-                if let Some(field) = self.typed_dict_field(typed_dict, &field_name) {
-                    if field.is_read_only() {
+        self.distribute_over_union(&base, |base| {
+            match (base, &slice_ty) {
+                (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
+                    let field_name = Name::new(field_name);
+                    if let Some(field) = self.typed_dict_field(typed_dict, &field_name) {
+                        if field.is_read_only() {
+                            self.error(
+                                errors,
+                                subscript.slice.range(),
+                                ErrorInfo::Kind(ErrorKind::ReadOnly),
+                                format!(
+                                    "Key `{}` in TypedDict `{}` is read-only",
+                                    field_name,
+                                    typed_dict.name(),
+                                ),
+                            )
+                        } else {
+                            let context = &|| {
+                                TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
+                                    field_name.clone(),
+                                ))
+                            };
+                            match value {
+                                ExprOrBinding::Expr(e) => {
+                                    self.expr(e, Some((&field.ty, context)), errors)
+                                }
+                                ExprOrBinding::Binding(b) => {
+                                    let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
+                                    self.check_and_return_type(
+                                        &field.ty,
+                                        binding_ty,
+                                        subscript.range(),
+                                        errors,
+                                        context,
+                                    )
+                                }
+                            }
+                        }
+                    } else {
                         self.error(
                             errors,
                             subscript.slice.range(),
-                            ErrorInfo::Kind(ErrorKind::ReadOnly),
+                            ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
                             format!(
-                                "Key `{}` in TypedDict `{}` is read-only",
-                                field_name,
+                                "TypedDict `{}` does not have key `{}`",
                                 typed_dict.name(),
+                                field_name
                             ),
                         )
-                    } else {
-                        let context = &|| {
-                            TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
-                                field_name.clone(),
-                            ))
-                        };
-                        match value {
-                            ExprOrBinding::Expr(e) => {
-                                self.expr(e, Some((&field.ty, context)), errors)
-                            }
-                            ExprOrBinding::Binding(b) => {
-                                let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
-                                self.check_and_return_type(
-                                    &field.ty,
-                                    binding_ty,
-                                    subscript.range(),
-                                    errors,
-                                    context,
-                                )
-                            }
+                    }
+                }
+                (_, _) => {
+                    let call_setitem = |value_arg| {
+                        self.call_method_or_error(
+                            base,
+                            &dunder::SETITEM,
+                            subscript.range,
+                            &[CallArg::ty(&slice_ty, subscript.slice.range()), value_arg],
+                            &[],
+                            errors,
+                            Some(&|| ErrorContext::SetItem(self.for_display(base.clone()))),
+                        )
+                    };
+                    match value {
+                        ExprOrBinding::Expr(e) => {
+                            call_setitem(CallArg::expr(e));
+                            // We already emit errors for `e` during `call_method_or_error`
+                            self.expr_infer(
+                                e,
+                                &ErrorCollector::new(errors.module().clone(), ErrorStyle::Never),
+                            )
+                        }
+                        ExprOrBinding::Binding(b) => {
+                            let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
+                            // Use the subscript's location
+                            call_setitem(CallArg::ty(&binding_ty, subscript.range));
+                            binding_ty
                         }
                     }
-                } else {
-                    self.error(
-                        errors,
-                        subscript.slice.range(),
-                        ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
-                        format!(
-                            "TypedDict `{}` does not have key `{}`",
-                            typed_dict.name(),
-                            field_name
-                        ),
-                    )
                 }
             }
-            (_, _) => {
-                let call_setitem = |value_arg| {
-                    self.call_method_or_error(
-                        &base,
-                        &dunder::SETITEM,
-                        subscript.range,
-                        &[CallArg::ty(&slice_ty, subscript.slice.range()), value_arg],
-                        &[],
-                        errors,
-                        Some(&|| ErrorContext::SetItem(self.for_display(base.clone()))),
-                    )
-                };
-                match value {
-                    ExprOrBinding::Expr(e) => {
-                        call_setitem(CallArg::expr(e));
-                        // We already emit errors for `e` during `call_method_or_error`
-                        self.expr_infer(
-                            e,
-                            &ErrorCollector::new(errors.module().clone(), ErrorStyle::Never),
-                        )
-                    }
-                    ExprOrBinding::Binding(b) => {
-                        let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
-                        // Use the subscript's location
-                        call_setitem(CallArg::ty(&binding_ty, subscript.range));
-                        binding_ty
-                    }
-                }
-            }
-        }
+        })
     }
 
     fn check_implicit_return_against_annotation(

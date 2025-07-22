@@ -112,6 +112,17 @@ def foo(c: Coord) -> None:
 );
 
 testcase!(
+    test_setitem_union,
+    r#"
+from typing import Any, TypedDict
+class C(TypedDict):
+    x: int
+def f(c: C | Any):
+    c["x"] = 0
+    "#,
+);
+
+testcase!(
     bug = "a1.update(a2) should be an error and a.update(b) should not be",
     test_typed_dict_readonly_partial_update,
     r#"
