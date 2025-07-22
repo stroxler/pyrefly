@@ -122,7 +122,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Infer a type for an expression.
     pub fn expr_infer(&self, x: &Expr, errors: &ErrorCollector) -> Type {
-        self.expr_infer_type_info(x, errors).into_ty()
+        self.expr_infer_type_info_with_hint(x, None, errors)
+            .into_ty()
     }
 
     /// Infer a type for an expression, with an optional type hint that influences the inferred type.
@@ -152,7 +153,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .get(&Key::BoundName(ShortIdentifier::expr_name(x)))
                 .arc_clone(),
             Expr::Attribute(x) => {
-                let base = self.expr_infer_type_info(&x.value, errors);
+                let base = self.expr_infer_type_info_with_hint(&x.value, None, errors);
                 self.record_external_attribute_definition_index(
                     base.ty(),
                     x.attr.id(),
@@ -162,7 +163,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Expr::Subscript(x) => {
                 // TODO: We don't deal properly with hint here, we should.
-                let base = self.expr_infer_type_info(&x.value, errors);
+                let base = self.expr_infer_type_info_with_hint(&x.value, None, errors);
                 self.subscript_infer(&base, &x.slice, x.range(), errors)
             }
             Expr::Named(x) => match &*x.target {
@@ -204,12 +205,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let got = self.expr_infer_type_info_with_hint(x, Some(want), errors);
                 self.check_and_return_type_info(want, got, x.range(), check_errors, tcc)
             }
-            _ => self.expr_infer_type_info(x, errors),
+            _ => self.expr_infer_type_info_with_hint(x, None, errors),
         }
-    }
-
-    fn expr_infer_type_info(&self, x: &Expr, errors: &ErrorCollector) -> TypeInfo {
-        self.expr_infer_type_info_with_hint(x, None, errors)
     }
 
     /// This function should not be used directly: we want every expression to record a type trace,
