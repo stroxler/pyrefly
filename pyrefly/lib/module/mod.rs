@@ -13,5 +13,5 @@ pub mod typeshed;
 // Temporary reexports. Given these are such central types going
 // to land the move with forwards, then clean up the forwards separately.
 pub mod module_info {
-    pub type ModuleInfo = pyrefly_python::module::Module;
+    pub(crate) use crate::compat::ModuleInfo;
 }

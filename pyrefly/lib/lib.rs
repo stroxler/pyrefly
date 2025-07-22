@@ -34,6 +34,7 @@ mod binding;
 mod buck;
 #[cfg(not(target_arch = "wasm32"))]
 mod commands;
+mod compat;
 mod error;
 mod export;
 mod graph;
@@ -47,10 +48,7 @@ mod solver;
 mod state;
 mod test;
 
-// TODO: Remove. For now, make things compatible.
-use pyrefly_config as config;
-use pyrefly_types as types;
-use pyrefly_types::equality;
+pub(crate) use compat::*;
 
 /// This interface is NOT stable and should not be relied upon.
 /// It will change during minor version increments.
