@@ -136,11 +136,11 @@ impl<'a> BindingsBuilder<'a> {
         .is_ok()
     }
 
-    // Create a binding to verify that an attribute assignment is valid and
-    // potentially narrow (or invalidate narrows on) the name assigned to.
-    //
-    // Return the value of the attribute assignment (as an ExprOrBinding);
-    // this might be used to record self-attribute assignments.
+    /// Create a binding to verify that an attribute assignment is valid and
+    /// potentially narrow (or invalidate narrows on) the name assigned to.
+    ///
+    /// Return the value of the attribute assignment (as an ExprOrBinding);
+    /// this might be used to record self-attribute assignments.
     pub fn bind_attr_assign_impl(
         &mut self,
         mut attr: ExprAttribute,
@@ -191,8 +191,8 @@ impl<'a> BindingsBuilder<'a> {
         )
     }
 
-    // Create a binding to verify that a subscript assignment is valid and
-    // potentially narrow (or invalidate narrows on) the name assigned to.
+    /// Create a binding to verify that a subscript assignment is valid and
+    /// potentially narrow (or invalidate narrows on) the name assigned to.
     pub fn bind_subscript_assign_impl(
         &mut self,
         mut subscript: ExprSubscript,
