@@ -224,7 +224,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if matches!(&*x.left, Expr::List(_)) && x.op == Operator::Mult {
             rhs = self.expr_infer(&x.right, errors);
             if self.is_subset_eq(&rhs, &self.stdlib.int().clone().to_type()) {
-                lhs = self.expr_infer_with_hint_promote(&x.left, hint, errors);
+                lhs = self.expr_infer_with_hint(&x.left, hint, errors);
             } else {
                 lhs = self.expr_infer(&x.left, errors);
             }

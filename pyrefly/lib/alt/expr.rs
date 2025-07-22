@@ -1481,7 +1481,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn expr_infer_with_hint_promote(
+    fn expr_infer_with_hint_promote(
         &self,
         x: &Expr,
         hint: Option<&Type>,
