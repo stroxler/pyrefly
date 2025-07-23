@@ -33,6 +33,7 @@ pub fn exit_on_panic() {
                 eprintln!("Please report the bug at https://github.com/facebook/pyrefly/issues/new")
             }
         });
-        std::process::exit(1);
+        // Rust uses code 101 for panics by default.
+        std::process::exit(101);
     }));
 }
