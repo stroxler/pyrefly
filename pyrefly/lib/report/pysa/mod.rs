@@ -56,9 +56,6 @@ struct ModuleId(u32);
 struct ClassId(u32);
 
 impl ClassId {
-    fn from_index(index: ClassDefIndex) -> ClassId {
-        ClassId(index.0)
-    }
     fn from_class(class: &Class) -> ClassId {
         ClassId(class.index().0)
     }
