@@ -1,11 +1,12 @@
 {
   "total": 136,
-  "pass": 73,
-  "fail": 63,
+  "pass": 74,
+  "fail": 62,
   "pass_rate": 0.54,
-  "differences": 278,
+  "differences": 277,
   "passing": [
     "aliases_explicit.py",
+    "aliases_newtype.py",
     "annotations_coroutines.py",
     "annotations_methods.py",
     "annotations_typeexpr.py",
@@ -81,7 +82,6 @@
   ],
   "failing": {
     "aliases_implicit.py": 6,
-    "aliases_newtype.py": 1,
     "aliases_recursive.py": 17,
     "aliases_type_statement.py": 8,
     "aliases_typealiastype.py": 26,

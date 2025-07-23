@@ -417,6 +417,16 @@
     },
     {
       "code": -2,
+      "column": 11,
+      "concise_description": "`type[UserId]` is not assignable to `type`",
+      "description": "`type[UserId]` is not assignable to `type`",
+      "line": 18,
+      "name": "bad-assignment",
+      "stop_column": 17,
+      "stop_line": 18
+    },
+    {
+      "code": -2,
       "column": 16,
       "concise_description": "NewType `UserId` not allowed in isinstance()",
       "description": "NewType `UserId` not allowed in isinstance()",
