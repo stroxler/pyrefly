@@ -1026,7 +1026,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Check the __new__ method and whether it comes from object or has been overridden
         let (new_attr_ty, overrides_new) = if let Some(t) = self
             .get_dunder_new(cls)
-            .and_then(|t| t.to_unbound_callable())
+            .and_then(|t| t.drop_first_param_of_unbound_callable())
         {
             if t.callable_return_type()
                 .is_some_and(|ret| !self.is_compatible_constructor_return(&ret, cls.class_object()))

@@ -364,7 +364,8 @@ pub struct BoundMethod {
 
 impl BoundMethod {
     pub fn to_callable(&self) -> Option<Type> {
-        self.as_bound_function().to_unbound_callable()
+        self.as_bound_function()
+            .drop_first_param_of_unbound_callable()
     }
 
     pub fn as_bound_function(&self) -> Type {
@@ -889,9 +890,9 @@ impl Type {
         }
     }
 
-    /// Convert a bound method into a callable by stripping the first argument.
+    /// If this is an unbound callable (i.e., a callable that is not BoundMethod), strip the first parameter.
     /// TODO: Does not handle generics.
-    pub fn to_unbound_callable(&self) -> Option<Type> {
+    pub fn drop_first_param_of_unbound_callable(&self) -> Option<Type> {
         match self {
             Type::Callable(callable) => callable
                 .drop_first_param()
