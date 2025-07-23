@@ -9,10 +9,10 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use lsp_types::Url;
-use path_absolutize::Absolutize;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
+use pyrefly_util::absolutize::Absolutize as _;
 use tracing::warn;
 
 use crate::module::from_path::module_from_path;
@@ -45,7 +45,6 @@ pub fn to_real_path(path: &ModulePath) -> Option<PathBuf> {
 pub fn module_info_to_uri(module_info: &ModuleInfo) -> Option<Url> {
     let path = to_real_path(module_info.path())?;
     let abs_path = path.absolutize();
-    let abs_path = abs_path.as_deref().unwrap_or(&path);
     Some(Url::from_file_path(abs_path).unwrap())
 }
 

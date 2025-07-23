@@ -10,10 +10,10 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use clap::Parser;
-use path_absolutize::Absolutize;
 use pyrefly_config::file_kind::ConfigFileKind;
 use pyrefly_config::migration::run::config_migration;
 use pyrefly_config::pyproject::PyProject;
+use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::display;
 use pyrefly_util::fs_anyhow;
 use tracing::error;
@@ -347,7 +347,7 @@ impl InitArgs {
     }
 
     fn create_config(&self) -> anyhow::Result<(CommandExitStatus, Option<PathBuf>)> {
-        let path = self.path.absolutize()?.to_path_buf();
+        let path = self.path.absolutize();
 
         let dir: Option<&Path> = if path.is_dir() {
             Some(&path)

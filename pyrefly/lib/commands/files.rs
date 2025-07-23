@@ -12,8 +12,8 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use clap::Parser;
 use dupe::Dupe;
-use path_absolutize::Absolutize;
 use pyrefly_config::args::ConfigOverrideArgs;
+use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::globs::FilteredGlobs;
 use pyrefly_util::globs::Globs;
@@ -59,7 +59,7 @@ fn config_finder(args: ConfigOverrideArgs) -> ConfigFinder {
 }
 
 fn absolutize(globs: Globs) -> anyhow::Result<Globs> {
-    Ok(globs.from_root(PathBuf::new().absolutize()?.as_ref()))
+    Ok(globs.from_root(&PathBuf::new().absolutize()))
 }
 
 fn get_explicit_config(

@@ -15,12 +15,12 @@ use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
 use itertools::Itertools;
-use path_absolutize::Absolutize;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_python::sys_info::SysInfo;
+use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::globs::FilteredGlobs;
 use pyrefly_util::globs::Glob;
@@ -704,16 +704,8 @@ impl ConfigFile {
             }
             (config, errors)
         }
-        let ((config, errors), config_path) = match config_path
-            .absolutize()
-            .with_context(|| format!("Path `{}` cannot be absolutized", config_path.display()))
-        {
-            Ok(config_path) => (f(&config_path), config_path.into_owned()),
-            Err(e) => (
-                (ConfigFile::default(), vec![ConfigError::error(e)]),
-                config_path.to_path_buf(),
-            ),
-        };
+        let config_path = config_path.absolutize();
+        let (config, errors) = f(&config_path);
         let errors = errors.into_map(|err| err.context(format!("{}", config_path.display())));
         (config, errors)
     }

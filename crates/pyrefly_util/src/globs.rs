@@ -19,7 +19,6 @@ use anyhow::Context;
 use bstr::ByteSlice;
 use glob::Pattern;
 use itertools::Itertools;
-use path_absolutize::Absolutize;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de;
@@ -27,6 +26,7 @@ use serde::de::Visitor;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
 
+use crate::absolutize::Absolutize as _;
 use crate::fs_anyhow;
 use crate::prelude::SliceExt;
 use crate::prelude::VecExt;
@@ -70,11 +70,7 @@ impl Glob {
     }
 
     fn pattern_relative_to_root(root: &Path, pattern: &Path) -> PathBuf {
-        // absolutize_from always returns `Ok()`
-        pattern
-            .absolutize_from(Pattern::escape(root.to_string_lossy().as_ref()))
-            .unwrap()
-            .into_owned()
+        pattern.absolutize_from(Path::new(&Pattern::escape(root.to_string_lossy().as_ref())))
     }
 
     fn get_glob_root(&self) -> PathBuf {
@@ -675,7 +671,7 @@ mod tests {
     fn test_globs_match_file() {
         fn glob_matches(pattern: &str, equal: bool) {
             let root = std::env::current_dir().unwrap();
-            let root = root.absolutize().unwrap();
+            let root = root.absolutize();
             let escaped_root = Pattern::escape(root.to_string_lossy().as_ref());
             let escaped_root = Path::new(&escaped_root);
 

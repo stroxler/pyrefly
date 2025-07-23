@@ -10,9 +10,9 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use clap::Parser;
-use path_absolutize::Absolutize;
 use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
+use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::display;
 
@@ -29,10 +29,7 @@ use crate::util::ConfigOrigin;
 /// Parser function to convert paths to absolute paths
 fn absolute_path_parser(s: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(s);
-    match path.absolutize() {
-        Ok(abs_path) => Ok(abs_path.into_owned()),
-        Err(_) => Ok(path),
-    }
+    Ok(path.absolutize())
 }
 
 /// config overrides

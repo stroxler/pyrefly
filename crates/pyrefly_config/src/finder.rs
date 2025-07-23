@@ -11,10 +11,10 @@ use std::path::Path;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use path_absolutize::Absolutize;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
+use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::upward_search::UpwardSearch;
@@ -213,10 +213,10 @@ impl ConfigFinder {
 
         match path.details() {
             ModulePathDetails::FileSystem(x) | ModulePathDetails::Memory(x) => {
-                let absolute = x.absolutize().ok();
-                f(absolute.as_ref().and_then(|x| x.parent()))
+                let absolute = x.absolutize();
+                f(absolute.parent())
             }
-            ModulePathDetails::Namespace(x) => f(x.absolutize().ok().as_deref()),
+            ModulePathDetails::Namespace(x) => f(Some(&x.absolutize())),
             ModulePathDetails::BundledTypeshed(_) => f(None),
         }
     }
