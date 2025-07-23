@@ -339,7 +339,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let callable = self.constructor_to_callable(&instance);
                 &self.distribute_over_union(&callable, |ty| {
                     if let Type::BoundMethod(m) = ty {
-                        m.to_callable().unwrap_or_else(|| ty.clone())
+                        m.drop_self().unwrap_or_else(|| ty.clone())
                     } else {
                         ty.clone()
                     }

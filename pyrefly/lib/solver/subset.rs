@@ -374,7 +374,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     .try_lookup_instance_method(protocol.clone(), &dunder::CALL)
             {
                 if let Type::BoundMethod(method) = &want
-                    && let Some(want_no_self) = method.to_callable()
+                    && let Some(want_no_self) = method.drop_self()
                 {
                     if !self.is_subset_eq(&got, &want_no_self) {
                         return false;
@@ -673,18 +673,18 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 .iter()
                 .any(|l| self.is_subset_eq(&l.as_type(), u)),
             (Type::BoundMethod(method), Type::Callable(_) | Type::Function(_))
-                if let Some(l_no_self) = method.to_callable() =>
+                if let Some(l_no_self) = method.drop_self() =>
             {
                 self.is_subset_eq_impl(&l_no_self, want)
             }
             (Type::Callable(_) | Type::Function(_), Type::BoundMethod(method))
-                if let Some(u_no_self) = method.to_callable() =>
+                if let Some(u_no_self) = method.drop_self() =>
             {
                 self.is_subset_eq_impl(got, &u_no_self)
             }
             (Type::BoundMethod(l), Type::BoundMethod(u))
-                if let Some(l_no_self) = l.to_callable()
-                    && let Some(u_no_self) = u.to_callable() =>
+                if let Some(l_no_self) = l.drop_self()
+                    && let Some(u_no_self) = u.drop_self() =>
             {
                 self.is_subset_eq_impl(&l_no_self, &u_no_self)
             }

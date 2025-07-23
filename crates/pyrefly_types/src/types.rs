@@ -363,7 +363,7 @@ pub struct BoundMethod {
 }
 
 impl BoundMethod {
-    pub fn to_callable(&self) -> Option<Type> {
+    pub fn drop_self(&self) -> Option<Type> {
         self.as_bound_function()
             .drop_first_param_of_unbound_callable()
     }
