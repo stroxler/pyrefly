@@ -54,6 +54,29 @@ class A:
 );
 
 testcase!(
+    test_super_object_bad_assignment,
+    r#"
+class A:
+    a: int = 3
+
+class B(A): pass
+
+super(B, B()).a = 3  # E: Cannot set field `a`
+    "#,
+);
+
+testcase!(
+    test_super_object_delete_error,
+    r#"
+class A:
+    a: int = 3
+
+class B(A): pass
+del super(B, B()).a # E: Cannot delete field `a`
+    "#,
+);
+
+testcase!(
     test_self_attribute_assign_twice,
     r#"
 from typing import assert_type
@@ -245,8 +268,8 @@ class A:
     x: int
     y: str
     def __init__(self):
-        self.x: Literal[1] = 1  
-        self.y: Final = "y"  
+        self.x: Literal[1] = 1
+        self.y: Final = "y"
 def f(a: A):
     assert_type(a.x, int)
     "#,
@@ -842,7 +865,7 @@ class C:
         self.prev = False
     def __new__(cls, orig_func=None):
         if orig_func is None:
-            return super().__new__(cls) 
+            return super().__new__(cls)
 def f():
     with C():  # E: `NoneType` has no attribute `__enter__`  # E: `NoneType` has no attribute `__exit__`
         pass
@@ -1183,10 +1206,10 @@ from typing import Self, cast, Any, assert_type
 class C:
     outputs: list[Any]
     def f(self, other):
-        other = cast(Self, other)  
+        other = cast(Self, other)
         assert_type(other, Self)
         assert_type(other.outputs, Any) # E: TODO: Expr::attr_infer_for_type
-        len(self.outputs) == len(other.outputs) # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: Self 
+        len(self.outputs) == len(other.outputs) # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: Self
     "#,
 );
 
@@ -1208,7 +1231,7 @@ testcase!(
     r#"
 def f(obj, g, field_type, my_type,):
     assert issubclass(obj, tuple) and hasattr(obj, "_fields")
-    for f in obj._fields: # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: type[tuple[Unknown, ...]] 
+    for f in obj._fields: # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: type[tuple[Unknown, ...]]
         if isinstance(field_type, my_type) and g is not None:
             if g is None:
                 raise ValueError(

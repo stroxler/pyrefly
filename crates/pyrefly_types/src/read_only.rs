@@ -23,6 +23,8 @@ pub enum ReadOnlyReason {
     ClassVar,
     /// Field is has a type like `type[X]` and is initialized on the body (this includes nested class defs)
     ClassObjectInitializedOnBody,
+    /// Field is on a Super instance
+    Super,
 }
 
 impl ReadOnlyReason {
@@ -37,6 +39,9 @@ impl ReadOnlyReason {
             }
             ReadOnlyReason::ClassObjectInitializedOnBody => {
                 "A class object initialized in the class body is considered read-only".to_owned()
+            }
+            ReadOnlyReason::Super => {
+                "A field accessed through `super()` is considered read-only".to_owned()
             }
         }
     }

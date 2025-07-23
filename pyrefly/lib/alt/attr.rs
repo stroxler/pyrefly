@@ -299,6 +299,20 @@ impl Attribute {
         }
     }
 
+    pub fn read_only_equivalent(attr: Attribute, reason: ReadOnlyReason) -> Self {
+        match attr.inner {
+            AttributeInner::Simple(ty, Visibility::ReadWrite) => Attribute::read_only(ty, reason),
+            AttributeInner::Property(getter, _, cls) => Attribute::property(getter, None, cls),
+            AttributeInner::Descriptor(descriptor) => Attribute::descriptor(
+                descriptor.descriptor_ty,
+                descriptor.base,
+                descriptor.getter,
+                None,
+            ),
+            inner => Attribute { inner },
+        }
+    }
+
     pub fn property(getter: Type, setter: Option<Type>, cls: Class) -> Self {
         Attribute {
             inner: AttributeInner::Property(getter, setter, cls),
@@ -374,6 +388,10 @@ impl LookupResult {
     /// need to prioiritize the class logic first.
     fn found_type(ty: Type) -> Self {
         Self::Found(Attribute::read_write(ty))
+    }
+
+    fn found_type_read_only(ty: Type, reason: ReadOnlyReason) -> Self {
+        Self::Found(Attribute::read_only(ty, reason))
     }
 }
 
@@ -1354,16 +1372,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AttributeBase::SuperInstance(cls, obj) => {
                 match self.get_super_attribute(&cls, &obj, attr_name) {
-                    Some(attr) => LookupResult::Found(attr),
+                    Some(attr) => LookupResult::Found(Attribute::read_only_equivalent(
+                        attr,
+                        ReadOnlyReason::Super,
+                    )),
                     None if let SuperObj::Instance(cls) = &obj
                         && self.extends_any(cls.class_object()) =>
                     {
-                        LookupResult::found_type(Type::Any(AnyStyle::Implicit))
+                        LookupResult::found_type_read_only(
+                            Type::Any(AnyStyle::Implicit),
+                            ReadOnlyReason::Super,
+                        )
                     }
                     None if let SuperObj::Class(cls) = &obj
                         && self.extends_any(cls) =>
                     {
-                        LookupResult::found_type(Type::Any(AnyStyle::Implicit))
+                        LookupResult::found_type_read_only(
+                            Type::Any(AnyStyle::Implicit),
+                            ReadOnlyReason::Super,
+                        )
                     }
                     None => LookupResult::NotFound(NotFound::Attribute(cls.class_object().dupe())),
                 }
