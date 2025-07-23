@@ -1581,7 +1581,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn try_lookup_attr_from_class_type(
+    fn try_lookup_attr_from_class_type(
         &self,
         cls: ClassType,
         attr_name: &Name,
@@ -1592,7 +1592,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn try_lookup_attr(&self, base: &Type, attr_name: &Name) -> Vec<Attribute> {
+    fn try_lookup_attr(&self, base: &Type, attr_name: &Name) -> Vec<Attribute> {
         let mut result = Vec::new();
         let bases = self.get_possible_attribute_bases(base);
         for attr_base in bases {
