@@ -382,23 +382,12 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 } else if !self.is_subset_eq(&got, &want) {
                     return false;
                 }
-            } else if let got_attrs = self.type_order.try_lookup_attr(&got, &name)
-                && !got_attrs.is_empty()
-                && let Some(want) = self
-                    .type_order
-                    .try_lookup_attr_from_class_type(protocol.clone(), &name)
-            {
-                for got in got_attrs {
-                    if !self
-                        .type_order
-                        .is_attribute_subset(&got, &want, &mut |got, want| {
-                            self.is_subset_eq(got, want)
-                        })
-                    {
-                        return false;
-                    }
-                }
-            } else {
+            } else if !self.type_order.is_protocol_subset_at_attr(
+                &got,
+                &protocol,
+                &name,
+                &mut |got, want| self.is_subset_eq(got, want),
+            ) {
                 return false;
             }
         }

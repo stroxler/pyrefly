@@ -966,6 +966,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Predicate for whether a specific attribute name matches a protocol during structural
+    /// subtyping checks.
+    ///
+    /// The `is_subset` function (which in most cases will just behave as the
+    /// usual subset function) is provided as a callback because we need a way
+    /// to track the recursive hypthothesis.
+    pub fn is_protocol_subset_at_attr(
+        &self,
+        got: &Type,
+        protocol: &ClassType,
+        name: &Name,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
+    ) -> bool {
+        let got_attrs = self.try_lookup_attr(got, name);
+        if (!got_attrs.is_empty())
+            && let Some(want) = self.try_lookup_attr_from_class_type(protocol.clone(), name)
+        {
+            for got in got_attrs {
+                if self
+                    .is_attribute_subset(&got, &want, &mut |got, want| is_subset(got, want))
+                    .is_err()
+                {
+                    return false;
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn is_attribute_subset(
         &self,
         got: &Attribute,

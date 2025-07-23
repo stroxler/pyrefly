@@ -16,7 +16,6 @@ use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::attr::Attribute;
 use crate::alt::class::variance_inference::VarianceMap;
 use crate::binding::binding::KeyVariance;
 use crate::types::callable::Required;
@@ -100,25 +99,15 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0.try_lookup_instance_method(class_type, name)
     }
 
-    pub fn try_lookup_attr_from_class_type(
+    pub fn is_protocol_subset_at_attr(
         self,
-        cls: ClassType,
-        attr_name: &Name,
-    ) -> Option<Attribute> {
-        self.0.try_lookup_attr_from_class_type(cls, attr_name)
-    }
-
-    pub fn try_lookup_attr(self, base: &Type, attr_name: &Name) -> Vec<Attribute> {
-        self.0.try_lookup_attr(base, attr_name)
-    }
-
-    pub fn is_attribute_subset(
-        self,
-        got: &Attribute,
-        want: &Attribute,
+        got: &Type,
+        protocol: &ClassType,
+        name: &Name,
         is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
     ) -> bool {
-        self.0.is_attribute_subset(got, want, is_subset).is_ok()
+        self.0
+            .is_protocol_subset_at_attr(got, protocol, name, is_subset)
     }
 
     pub fn as_tuple_type(self, cls: &ClassType) -> Option<Type> {
