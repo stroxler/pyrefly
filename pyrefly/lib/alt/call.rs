@@ -395,13 +395,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Based on https://typing.readthedocs.io/en/latest/spec/constructors.html.
         let instance_ty = Type::ClassType(cls.clone());
         let mut overall_ret = None;
-        if let Some(ret) = self.call_metaclass(&cls, range, args, keywords, errors, context, hint) {
-            if self.is_compatible_constructor_return(&ret, cls.class_object()) {
-                overall_ret = Some(ret);
-            } else {
-                // Got something other than an instance of the class under construction.
-                return ret;
-            }
+        if let Some(ret) = self.call_metaclass(&cls, range, args, keywords, errors, context, hint)
+            && !self.is_compatible_constructor_return(&ret, cls.class_object())
+        {
+            // Got something other than an instance of the class under construction.
+            return ret;
         }
         let (overrides_new, dunder_new_has_errors) =
             if let Some(new_method) = self.get_dunder_new(&cls) {

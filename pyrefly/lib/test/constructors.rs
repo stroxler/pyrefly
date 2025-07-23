@@ -176,6 +176,53 @@ assert_type(x, int)
 );
 
 testcase!(
+    bug = "Generic metaclasses are not allowed, should error on `C` classdef.",
+    test_metaclass_invalid_generic,
+    r#"
+from typing import Any, assert_type
+class Meta[T](type):
+    def __call__(cls, x: T): ...
+class C[T](metaclass=Meta[T]): # TODO: error here (or possibly on Meta classdef)
+    pass
+assert_type(C(), C[Any]) # Correct, because invalid metaclass.
+    "#,
+);
+
+// Test reflects behavior of existing type checkers, but is probably worth revisiting with
+// the typing council. Two reasons: (1) `class Meta(type)` is almost certainly a metaclass,
+// and metaclass __call__ cls param is not actually `type[Self]`; (2) instantiating `T=str`
+// may be reasonable here.
+testcase!(
+    bug = "Missing check that self/cls param is a supertype of the defining class",
+    test_metaclass_call_cls_param_does_not_instantiate,
+    r#"
+from typing import assert_type
+class Meta(type):
+    def __call__(cls: 'type[C[str]]', *args, **kwargs): ... # TODO: error because annot is not supertype of Meta
+class C[T](metaclass=Meta):
+    def __init__(self, x: T):
+        pass
+assert_type(C(0), C[int]) # Correct, because metaclass call does not instantiate T=str
+    "#,
+);
+
+// Test reflects behavior of existing type checkers, but is probably worth revisiting with
+// the typing council. I think instantiating `T=str` may be reasonable here.
+testcase!(
+    test_metaclass_call_does_not_instantiate,
+    r#"
+from typing import assert_type
+class Meta(type):
+    def __call__(cls, *args, **kwargs) -> 'C[str]':
+        ...
+class C[T](metaclass=Meta):
+    def __init__(self, x: T):
+        pass
+assert_type(C(0), C[int])
+    "#,
+);
+
+testcase!(
     test_new,
     r#"
 class C:
