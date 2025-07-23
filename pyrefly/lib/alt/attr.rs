@@ -178,14 +178,13 @@ impl AttrSubsetError {
     }
 }
 
-/// The result of a read for narrowing purposes. We track whether we are narrowing
-/// a property or descriptor that might not be idempotent, and if so we also
-/// indicate when this came through a union (so that error messages can be clearer).
+/// The result of a read for narrowing purposes.
+///
+/// TODO(stroxler) Eliminate this, we are allowing narrowing to assume
+/// idempotence.
 #[derive(Debug)]
 pub enum Narrowable {
     Simple(Type),
-    PropertyOrDescriptor(Type),
-    UnionPropertyOrDescriptor(Type),
 }
 
 /// The result of looking up an attribute. We can analyze get and set actions
@@ -1747,20 +1746,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     /// Compute the get (i.e. read) type information of an attribute for narrowing.
-    /// - If the attribute is a descriptor that cannot be narrowed, return `PropertyOrDescriptor({read_type})`,
-    ///   where the `read_type` is the type of a fetch (which can be narrowed under the unchecked
-    ///   assumption that the descriptor return type is consistent).
-    /// - If the base type is a union and at least one case has a descriptor that cannot be narrowed,
-    ///   return UnionPropertyOrDescriptor({read_type}), which will allow us to make error messages
-    ///   clearer for this case.
-    /// - If the attribute is safely narrowable (up to data races, which we do not currently attempt
-    ///   to model) - which is true for normal attributes and may eventually for known-to-be-sound
-    ///   built-in descriptors, return `Simple({read_type})`
-    /// - If the attribute comes from `__getattr__`, treat it as safely narrowable. This is unsound but
-    ///   pragmatic, because `__getattr__` stubs are often used to indicate gradual typing.
-    /// - If the attribute cannot be found or read return `Simple(ClassType({object}))`. There will
-    ///   still be a type error on the narrow, but we should treat it as a valid narrow starting
-    ///   from `object` in downstream code.
+    ///
+    /// We assume that any attribute read coming from a method call (be it a descriptor
+    /// of some sort, including property, or `__getattr__` / `__getattribute__`)
+    /// is idempotent, and allow narrowing that will be unsound if it is not.
     pub fn narrowable_for_attr(
         &self,
         base: &Type,
@@ -1770,7 +1759,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Narrowable {
         match base {
             Type::Union(base_tys) => {
-                let mut has_property_or_descriptor = false;
                 let ty = self.unions(
                     base_tys
                         .iter()
@@ -1779,21 +1767,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 .narrowable_for_attr_no_union(base_ty, attr_name, range, errors)
                             {
                                 Narrowable::Simple(ty) => ty,
-                                // UnionPropertyOrDescriptor shouldn't happen in practice
-                                Narrowable::PropertyOrDescriptor(ty)
-                                | Narrowable::UnionPropertyOrDescriptor(ty) => {
-                                    has_property_or_descriptor = true;
-                                    ty
-                                }
                             }
                         })
                         .collect(),
                 );
-                if has_property_or_descriptor {
-                    Narrowable::UnionPropertyOrDescriptor(ty)
-                } else {
-                    Narrowable::Simple(ty)
-                }
+                Narrowable::Simple(ty)
             }
             _ => self.narrowable_for_attr_no_union(base, attr_name, range, errors),
         }
@@ -1812,25 +1790,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             LookupResult::InternalError(..) | LookupResult::NotFound(..) => {
                 fall_back_to_object_narrowable()
             }
-            LookupResult::Found(attr) => {
-                let is_property_or_descriptor = match &attr.inner {
-                    AttributeInner::Simple(..)
-                    | AttributeInner::NoAccess(..)
-                    | AttributeInner::GetAttr(..)
-                    | AttributeInner::ModuleFallback(..) => false,
-                    AttributeInner::Property(..) | AttributeInner::Descriptor(..) => true,
-                };
-                match self.resolve_get_access(attr, range, errors, None) {
-                    Err(..) => fall_back_to_object_narrowable(),
-                    Ok(ty) => {
-                        if is_property_or_descriptor {
-                            Narrowable::PropertyOrDescriptor(ty)
-                        } else {
-                            Narrowable::Simple(ty)
-                        }
-                    }
-                }
-            }
+            LookupResult::Found(attr) => match self.resolve_get_access(attr, range, errors, None) {
+                Err(..) => fall_back_to_object_narrowable(),
+                Ok(ty) => Narrowable::Simple(ty),
+            },
         }
     }
 

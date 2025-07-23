@@ -585,14 +585,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &ignore_errors,
         ) {
             Narrowable::Simple(ty) => ty,
-            Narrowable::PropertyOrDescriptor(ty) => {
-                // TODO(stroxler): Implement plumbing to warn on downstream reads.
-                ty
-            }
-            Narrowable::UnionPropertyOrDescriptor(ty) => {
-                // TODO(stroxler): Implement plumbing to warn on downstream reads.
-                ty
-            }
         }
     }
 
