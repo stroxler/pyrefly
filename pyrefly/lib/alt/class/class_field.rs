@@ -895,19 +895,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             && annotation.is_none_or(|a| a.ty.is_none())
             && value_ty.is_literal()
         {
-            value_ty.clone().promote_literals(self.stdlib)
+            value_ty.promote_literals(self.stdlib)
         } else {
-            value_ty.clone()
+            value_ty
         };
 
         // Types provided in annotations shadow inferred types
         let ty = if let Some(ann) = annotation {
             match &ann.ty {
                 Some(ty) => ty.clone(),
-                None => value_ty.clone(),
+                None => value_ty,
             }
         } else {
-            value_ty.clone()
+            value_ty
         };
 
         let ty = match initial_value {
