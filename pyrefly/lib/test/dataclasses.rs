@@ -1186,3 +1186,21 @@ class Bad2:
     def __post_init__(self, *, y: str, z: bytes): ...  # E: `__post_init__` type
     "#,
 );
+
+testcase!(
+    test_descriptor,
+    r#"
+from dataclasses import dataclass
+from typing import assert_type
+class Desc:
+    def __get__(self, obj, classobj) -> int: ...
+    def __set__(self, obj, value: str) -> None: ...
+@dataclass
+class C:
+    x: Desc = Desc()
+c = C('')
+assert_type(c.x, int)
+c.x = 'cat'
+c.x = 42  # E: `Literal[42]` is not assignable to parameter `value` with type `str` in function `Desc.__set__`
+    "#,
+);

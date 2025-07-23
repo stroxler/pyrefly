@@ -14,6 +14,8 @@ use itertools::Itertools;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
+use pyrefly_types::callable::Params;
+use pyrefly_types::simplify::unions;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::ResultExt;
 use ruff_python_ast::Expr;
@@ -276,6 +278,23 @@ impl ClassField {
         }
     }
 
+    /// Given a `__set__(self, instance, value)` function, gets the type of `value`.
+    fn get_descriptor_setter_value(setter: &Type) -> Type {
+        let mut values = Vec::new();
+        setter.visit_toplevel_callable(|callable| match &callable.params {
+            Params::List(params) => match params.items().get(2) {
+                Some(Param::Pos(_, t, _) | Param::PosOnly(_, t, _)) => values.push(t.clone()),
+                _ => {}
+            },
+            _ => {}
+        });
+        if values.is_empty() {
+            Type::any_implicit()
+        } else {
+            unions(values)
+        }
+    }
+
     pub fn as_param(
         self,
         name: &Name,
@@ -283,8 +302,18 @@ impl ClassField {
         kw_only: bool,
         converter_param: Option<Type>,
     ) -> Param {
-        let ClassField(ClassFieldInner::Simple { ty, .. }) = self;
-        let param_ty = converter_param.unwrap_or(ty);
+        let ClassField(ClassFieldInner::Simple {
+            ty,
+            descriptor_setter,
+            ..
+        }) = self;
+        let param_ty = if let Some(converter_param) = converter_param {
+            converter_param
+        } else if let Some(descriptor_setter) = descriptor_setter {
+            Self::get_descriptor_setter_value(&descriptor_setter)
+        } else {
+            ty
+        };
         let required = match default {
             true => Required::Optional(None),
             false => Required::Required,

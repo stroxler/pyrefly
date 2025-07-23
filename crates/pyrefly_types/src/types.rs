@@ -1079,7 +1079,7 @@ impl Type {
 
     /// Apply `f` to this type if it is a callable. Note that we do *not* recurse into the type to
     /// find nested callable types.
-    fn visit_toplevel_callable<'a>(&'a self, mut f: impl FnMut(&'a Callable)) {
+    pub fn visit_toplevel_callable<'a>(&'a self, mut f: impl FnMut(&'a Callable)) {
         match self {
             Type::Callable(callable) => f(callable),
             Type::Function(box func)

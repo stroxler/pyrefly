@@ -3115,18 +3115,7 @@
     }
   ],
   "constructors_consistency.py": [],
-  "dataclasses_descriptors.py": [
-    {
-      "code": -2,
-      "column": 11,
-      "concise_description": "Argument `Literal[3]` is not assignable to parameter `y` with type `Desc1` in function `DC1.__init__`",
-      "description": "Argument `Literal[3]` is not assignable to parameter `y` with type `Desc1` in function `DC1.__init__`",
-      "line": 35,
-      "name": "bad-argument-type",
-      "stop_column": 12,
-      "stop_line": 35
-    }
-  ],
+  "dataclasses_descriptors.py": [],
   "dataclasses_final.py": [
     {
       "code": -2,

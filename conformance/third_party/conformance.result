@@ -132,9 +132,7 @@
     "Line 194: Unexpected errors ['assert_type(Any, Class9) failed']"
   ],
   "constructors_consistency.py": [],
-  "dataclasses_descriptors.py": [
-    "Line 35: Unexpected errors ['Argument `Literal[3]` is not assignable to parameter `y` with type `Desc1` in function `DC1.__init__`']"
-  ],
+  "dataclasses_descriptors.py": [],
   "dataclasses_final.py": [
     "Line 35: Expected 1 errors"
   ],
