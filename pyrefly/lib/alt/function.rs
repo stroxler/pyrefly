@@ -521,7 +521,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 {
                     let call_attr = self.instance_to_method(&cls).and_then(|call_attr| {
                         if let Type::BoundMethod(m) = call_attr {
-                            let func = m.as_bound_function();
+                            let func = m.as_function();
                             Some(func.drop_first_param_of_unbound_callable().unwrap_or(func))
                         } else {
                             None
