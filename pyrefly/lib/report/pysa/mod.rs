@@ -20,7 +20,6 @@ use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_types::class::Class;
-use pyrefly_types::class::ClassDefIndex;
 use pyrefly_types::types::Type;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::lined_buffer::DisplayRange;
