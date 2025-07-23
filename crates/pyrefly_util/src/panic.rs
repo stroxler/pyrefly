@@ -8,14 +8,25 @@
 use std::backtrace::Backtrace;
 use std::panic::PanicHookInfo;
 use std::sync::Once;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 use tracing::error;
 use yansi::Paint;
+
+static HAS_PANICKED: AtomicBool = AtomicBool::new(false);
+
+/// Returns true if Pyrefly has panicked up to this point.
+pub fn has_panicked() -> bool {
+    HAS_PANICKED.load(Ordering::Relaxed)
+}
 
 /// The code that Rust uses for panics.
 pub const PANIC_EXIT_CODE: u8 = 101;
 
 pub fn print_panic(info: &PanicHookInfo<'_>) {
+    HAS_PANICKED.store(true, Ordering::Relaxed);
+
     // Sometimes we get two simultaneous panics, and there output gets co-mingled.
     // Make sure we only report one panic.
     static PANIC_LOCK: Once = Once::new();

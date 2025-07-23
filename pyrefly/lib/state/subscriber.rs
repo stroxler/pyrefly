@@ -12,6 +12,7 @@ use dupe::Dupe;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use pyrefly_util::lock::Mutex;
+use pyrefly_util::panic::has_panicked;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 
@@ -116,6 +117,11 @@ struct ProgressBarState {
 
 impl ProgressBarSubscriber {
     fn event(&self, f: impl FnOnce(&mut ProgressBarState)) {
+        if has_panicked() {
+            // If we have panicked, and are exiting, don't put the progress bar on stderr afresh.
+            return;
+        }
+
         let millis = self.progress_bar.elapsed().as_millis();
 
         // Do as little as possible with the lock held.
