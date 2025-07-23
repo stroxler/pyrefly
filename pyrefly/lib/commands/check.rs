@@ -201,6 +201,11 @@ struct OutputArgs {
         default_value_t
     )]
     summary: Summary,
+
+    /// Omit the summary in the last line of the output.
+    /// Deprecated: will be removed in the next release. Use `--summary=none` instead.
+    #[arg(long)]
+    no_summary: bool,
 }
 
 #[derive(Clone, Debug, ValueEnum, Default, PartialEq, Eq)]
@@ -602,7 +607,7 @@ impl CheckArgs {
         }
         timings.report_errors = report_errors_start.elapsed();
 
-        if self.output.summary != Summary::None {
+        if self.output.summary != Summary::None && !self.output.no_summary {
             let ignored = errors.disabled.len() + errors.suppressed.len();
             if ignored == 0 {
                 info!("{}", count(shown_errors_count, "error"))
