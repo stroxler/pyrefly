@@ -10,6 +10,7 @@ use std::panic::PanicHookInfo;
 use std::sync::Once;
 
 use tracing::error;
+use yansi::Paint;
 
 /// The code that Rust uses for panics.
 pub const PANIC_EXIT_CODE: u8 = 101;
@@ -24,11 +25,14 @@ pub fn print_panic(info: &PanicHookInfo<'_>) {
             "Thread panicked, shutting down: {info}\nBacktrace:\n{}",
             Backtrace::force_capture()
         );
-        eprintln!("Sorry, Pyrefly crashed, this is always a bug in Pyrefly itself.");
+
+        let out = |x: &str| anstream::eprintln!("{} {x}", Paint::magenta("PANIC"));
+
+        out("Sorry, Pyrefly crashed, this is always a bug in Pyrefly itself.");
         if cfg!(fbcode_build) {
-            eprintln!("Please report the bug at https://fb.workplace.com/groups/pyreqa");
+            out("Please report the bug at https://fb.workplace.com/groups/pyreqa");
         } else {
-            eprintln!("Please report the bug at https://github.com/facebook/pyrefly/issues/new")
+            out("Please report the bug at https://github.com/facebook/pyrefly/issues/new")
         }
     });
 }

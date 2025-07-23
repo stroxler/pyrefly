@@ -2193,6 +2193,7 @@ dependencies = [
  "tracing-subscriber",
  "vec1",
  "watchman_client",
+ "yansi 1.0.1",
 ]
 
 [[package]]
