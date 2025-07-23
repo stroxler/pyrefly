@@ -6,6 +6,7 @@
  */
 
 use std::backtrace::Backtrace;
+use std::panic::PanicHookInfo;
 use std::sync::Once;
 
 use tracing::error;
@@ -13,29 +14,33 @@ use tracing::error;
 /// The code that Rust uses for panics.
 pub const PANIC_EXIT_CODE: u8 = 101;
 
+pub fn print_panic(info: &PanicHookInfo<'_>) {
+    // Sometimes we get two simultaneous panics, and there output gets co-mingled.
+    // Make sure we only report one panic.
+    static PANIC_LOCK: Once = Once::new();
+
+    PANIC_LOCK.call_once(|| {
+        error!(
+            "Thread panicked, shutting down: {info}\nBacktrace:\n{}",
+            Backtrace::force_capture()
+        );
+        eprintln!("Sorry, Pyrefly crashed, this is always a bug in Pyrefly itself.");
+        if cfg!(fbcode_build) {
+            eprintln!("Please report the bug at https://fb.workplace.com/groups/pyreqa");
+        } else {
+            eprintln!("Please report the bug at https://github.com/facebook/pyrefly/issues/new")
+        }
+    });
+}
+
 /// When Pyrefly panics, we want to print a backtrace and exit.
 ///
 /// We want to exit immediately because otherwise we'd have to ensure all our thread/lock code
 /// properly bubbled up the panic, without producing a deadlock, or another panic, which is
 /// a) a lot of work, and b) almost impossible to test.
 pub fn exit_on_panic() {
-    // Sometimes we get two simultaneous panics, and there output gets co-mingled.
-    // Make sure we only report one panic.
-    static PANIC_LOCK: Once = Once::new();
-
     std::panic::set_hook(Box::new(move |info| {
-        PANIC_LOCK.call_once(|| {
-            error!(
-                "Thread panicked, shutting down: {info}\nBacktrace:\n{}",
-                Backtrace::force_capture()
-            );
-            eprintln!("Sorry, Pyrefly crashed, this is always a bug in Pyrefly itself.");
-            if cfg!(fbcode_build) {
-                eprintln!("Please report the bug at https://fb.workplace.com/groups/pyreqa");
-            } else {
-                eprintln!("Please report the bug at https://github.com/facebook/pyrefly/issues/new")
-            }
-        });
+        print_panic(info);
         std::process::exit(PANIC_EXIT_CODE as i32);
     }));
 }
