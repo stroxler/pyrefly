@@ -10,6 +10,11 @@ use std::sync::Once;
 
 use tracing::error;
 
+/// When Pyrefly panics, we want to print a backtrace and exit.
+///
+/// We want to exit immediately because otherwise we'd have to ensure all our thread/lock code
+/// properly bubbled up the panic, without producing a deadlock, or another panic, which is
+/// a) a lot of work, and b) almost impossible to test.
 pub fn exit_on_panic() {
     // Sometimes we get two simultaneous panics, and there output gets co-mingled.
     // Make sure we only report one panic.
