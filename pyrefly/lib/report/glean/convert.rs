@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::HashMap;
+
 use num_traits::ToPrimitive;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Alias;
@@ -39,12 +41,15 @@ struct Facts {
     module: python::Module,
     module_name: String,
     module_info: ModuleInfo,
+    none_name: Name,
     decl_locations: Vec<python::DeclarationLocation>,
     def_locations: Vec<python::DefinitionLocation>,
     import_star_locations: Vec<python::ImportStarLocation>,
     file_calls: Vec<python::FileCall>,
     callee_to_callers: Vec<python::CalleeToCaller>,
     containing_top_level_declarations: Vec<python::ContainingTopLevelDeclaration>,
+    xrefs_via_name: Vec<python::XRefViaName>,
+    xrefs_by_target: HashMap<python::Name, Vec<src::ByteSpan>>,
 }
 
 fn to_span(range: TextRange) -> src::ByteSpan {
@@ -69,12 +74,15 @@ impl Facts {
             module,
             module_name: module_info.name().to_string(),
             module_info,
+            none_name: "None".into(),
             decl_locations: vec![],
             def_locations: vec![],
             import_star_locations: vec![],
             file_calls: vec![],
             callee_to_callers: vec![],
             containing_top_level_declarations: vec![],
+            xrefs_via_name: vec![],
+            xrefs_by_target: HashMap::new(),
         }
     }
 
@@ -174,14 +182,40 @@ impl Facts {
         }
     }
 
+    fn make_xref(&self, expr: &Expr) -> Option<python::XRefViaName> {
+        let xref_info = match expr {
+            Expr::Attribute(attr) => Some((attr.attr.id(), attr.attr.range(), Some(attr.ctx))),
+            Expr::Name(name) => Some((name.id(), name.range, Some(name.ctx))),
+            Expr::NoneLiteral(none) => Some((&self.none_name, none.range(), None)),
+            _ => None,
+        };
+
+        xref_info
+            .filter(|(_, _, ctx)| ctx.is_none_or(|x| x.is_load()))
+            .map(|(name, range, _)| python::XRefViaName {
+                target: self.make_fq_name(name, None),
+                source: to_span(range),
+            })
+    }
+
+    fn xrefs_for_type_info(&self, expr: &Expr, xrefs: &mut Vec<python::XRefViaName>) {
+        if let Some(xref) = self.make_xref(expr) {
+            xrefs.push(xref)
+        }
+
+        expr.recurse(&mut |x| self.xrefs_for_type_info(x, xrefs));
+    }
+
     fn type_info(&self, annotation: Option<&Expr>) -> Option<python::TypeInfo> {
         annotation.map(|type_annotation| {
             let lined_buffer = self.module_info.lined_buffer();
+            let mut xrefs = vec![];
+            type_annotation.visit(&mut |expr| self.xrefs_for_type_info(expr, &mut xrefs));
             python::TypeInfo {
                 displayType: python::Type::new(
                     lined_buffer.code_at(type_annotation.range()).to_owned(),
                 ),
-                xrefs: vec![], // TODO(@rubmary) generate xrefs
+                xrefs,
             }
         })
     }
@@ -440,6 +474,15 @@ impl Facts {
             if let python::DeclarationContainer::func(caller) = container {
                 self.callee_to_caller_facts(call, caller);
             }
+        };
+        if let Some(xref) = self.make_xref(expr) {
+            if let Some(spans) = self.xrefs_by_target.get_mut(&xref.target) {
+                spans.push(xref.source.clone());
+            } else {
+                self.xrefs_by_target
+                    .insert(xref.target.clone(), vec![xref.source.clone()]);
+            }
+            self.xrefs_via_name.push(xref);
         }
         expr.recurse(&mut |s| self.generate_facts_from_exprs(s, container));
     }
@@ -601,6 +644,21 @@ impl Glean {
         ast.body
             .visit(&mut |stmt: &Stmt| facts.generate_facts(stmt, &container, &top_level_decl));
 
+        let xrefs_via_name_by_file_fact =
+            python::XRefsViaNameByFile::new(file_fact.clone(), facts.xrefs_via_name.to_owned());
+
+        let xrefs_by_target: Vec<python::XRefsViaNameByTarget> = facts
+            .xrefs_by_target
+            .into_iter()
+            .map(|(target, spans)| {
+                python::XRefsViaNameByTarget::new(
+                    target.to_owned(),
+                    file_fact.clone(),
+                    spans.to_owned(),
+                )
+            })
+            .collect();
+
         let digest = digest::Digest {
             hash: hash(module_info.contents().as_bytes()),
             size: module_info.contents().len() as u64,
@@ -659,9 +717,18 @@ impl Glean {
                     .map(json)
                     .collect(),
             },
+            GleanEntry::Predicate {
+                predicate: python::XRefsViaNameByFile::GLEAN_name(),
+                facts: vec![json(xrefs_via_name_by_file_fact)],
+            },
+            GleanEntry::Predicate {
+                predicate: python::XRefsViaNameByTarget::GLEAN_name(),
+                facts: xrefs_by_target.into_iter().map(json).collect(),
+            },
         ];
 
-        // TODO: Add many more predicates here.
+        // TODO(@aahanaggarwal) Add DeclarationDocstring predicate
+        // TODO(@rubmary) Add SName and NameToSName predicates
 
         Glean { entries }
     }
