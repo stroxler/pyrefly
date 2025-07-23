@@ -244,7 +244,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         fields: &SmallMap<Name, bool>,
-    ) -> Option<ClassSynthesizedField> {
+    ) -> ClassSynthesizedField {
         let metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), UPDATE_METHOD);
 
         let self_param = self.class_self_param(cls, true);
@@ -320,10 +320,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let signatures = vec1![partial_overload, tuple_overload, overload_kwargs];
 
-        Some(ClassSynthesizedField::new(Type::Overload(Overload {
+        ClassSynthesizedField::new(Type::Overload(Overload {
             signatures,
             metadata: Box::new(metadata),
-        })))
+        }))
     }
 
     fn get_typed_dict_get(
@@ -589,20 +589,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut fields = smallmap! {
             dunder::INIT => self.get_typed_dict_init(cls, &td.fields),
             GET_METHOD => self.get_typed_dict_get(cls, &td.fields),
+            UPDATE_METHOD => self.get_typed_dict_update(cls, &td.fields),
         };
-
         if let Some(m) = self.get_typed_dict_pop(cls, &td.fields) {
             fields.insert(POP_METHOD, m);
         }
-
         if let Some(m) = self.get_typed_dict_delitem(cls, &td.fields) {
             fields.insert(dunder::DELITEM, m);
         }
-
-        if let Some(m) = self.get_typed_dict_update(cls, &td.fields) {
-            fields.insert(UPDATE_METHOD, m);
-        }
-
         if let Some(m) = self.get_typed_dict_setdefault(cls, &td.fields) {
             fields.insert(SETDEFAULT_METHOD, m);
         }
