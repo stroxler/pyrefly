@@ -10,6 +10,9 @@ use std::sync::Once;
 
 use tracing::error;
 
+/// The code that Rust uses for panics.
+pub const PANIC_EXIT_CODE: u8 = 101;
+
 /// When Pyrefly panics, we want to print a backtrace and exit.
 ///
 /// We want to exit immediately because otherwise we'd have to ensure all our thread/lock code
@@ -33,7 +36,6 @@ pub fn exit_on_panic() {
                 eprintln!("Please report the bug at https://github.com/facebook/pyrefly/issues/new")
             }
         });
-        // Rust uses code 101 for panics by default.
-        std::process::exit(101);
+        std::process::exit(PANIC_EXIT_CODE as i32);
     }));
 }
