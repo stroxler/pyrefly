@@ -1229,11 +1229,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn resolve_named_tuple_element(&self, attr: Attribute) -> Option<Type> {
-        // NamedTuples are immutable, so their attributes are always read-only
-        // NOTE(grievejia): We do not use `__getattr__` here because this lookup is expected to be invoked
-        // on NamedTuple attributes with known names.
-        match attr.inner {
+    pub fn resolve_named_tuple_element(&self, cls: ClassType, name: &Name) -> Option<Type> {
+        match self
+            .try_lookup_attr_from_class_type(cls.clone(), name)?
+            .inner
+        {
+            // NamedTuples are immutable, so their attributes are always read-only
+            // NOTE(grievejia): We do not use `__getattr__` here because this lookup is expected to be invoked
+            // on NamedTuple attributes with known names.
             AttributeInner::Simple(ty, Visibility::ReadOnly(_)) => Some(ty),
             AttributeInner::Simple(_, Visibility::ReadWrite)
             | AttributeInner::NoAccess(_)

@@ -69,8 +69,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .elements
                 .iter()
                 .map(|name| {
-                    self.try_lookup_attr_from_class_type(cls.clone(), name)
-                        .and_then(|attr| self.resolve_named_tuple_element(attr))
+                    self.resolve_named_tuple_element(cls.clone(), name)
                         .unwrap_or_else(Type::any_implicit)
                 })
                 .collect(),
