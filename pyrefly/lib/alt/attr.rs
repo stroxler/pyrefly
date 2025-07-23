@@ -178,15 +178,6 @@ impl AttrSubsetError {
     }
 }
 
-/// The result of a read for narrowing purposes.
-///
-/// TODO(stroxler) Eliminate this, we are allowing narrowing to assume
-/// idempotence.
-#[derive(Debug)]
-pub enum Narrowable {
-    Simple(Type),
-}
-
 /// The result of looking up an attribute. We can analyze get and set actions
 /// on an attribute, each of which can be allowed with some type or disallowed.
 #[derive(Debug)]
@@ -1756,23 +1747,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         attr_name: &Name,
         range: TextRange,
         errors: &ErrorCollector,
-    ) -> Narrowable {
+    ) -> Type {
         match base {
-            Type::Union(base_tys) => {
-                let ty = self.unions(
-                    base_tys
-                        .iter()
-                        .map(|base_ty| {
-                            match self
-                                .narrowable_for_attr_no_union(base_ty, attr_name, range, errors)
-                            {
-                                Narrowable::Simple(ty) => ty,
-                            }
-                        })
-                        .collect(),
-                );
-                Narrowable::Simple(ty)
-            }
+            Type::Union(base_tys) => self.unions(
+                base_tys
+                    .iter()
+                    .map(|base_ty| {
+                        self.narrowable_for_attr_no_union(base_ty, attr_name, range, errors)
+                    })
+                    .collect(),
+            ),
             _ => self.narrowable_for_attr_no_union(base, attr_name, range, errors),
         }
     }
@@ -1783,16 +1767,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         attr_name: &Name,
         range: TextRange,
         errors: &ErrorCollector,
-    ) -> Narrowable {
-        let fall_back_to_object_narrowable =
-            || Narrowable::Simple(Type::ClassType(self.stdlib.object().clone()));
+    ) -> Type {
+        let fall_back_to_object = || Type::ClassType(self.stdlib.object().clone());
         match self.lookup_attr_no_union(base, attr_name) {
-            LookupResult::InternalError(..) | LookupResult::NotFound(..) => {
-                fall_back_to_object_narrowable()
-            }
+            LookupResult::InternalError(..) | LookupResult::NotFound(..) => fall_back_to_object(),
             LookupResult::Found(attr) => match self.resolve_get_access(attr, range, errors, None) {
-                Err(..) => fall_back_to_object_narrowable(),
-                Ok(ty) => Narrowable::Simple(ty),
+                Err(..) => fall_back_to_object(),
+                Ok(ty) => ty,
             },
         }
     }
