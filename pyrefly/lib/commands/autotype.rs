@@ -54,6 +54,13 @@ impl ParameterAnnotation {
     }
 }
 
+fn is_container(hint: &Type) -> bool {
+    match hint {
+        Type::ClassType(c) => c.name().eq("list") || c.name().eq("dict"),
+        _ => false,
+    }
+}
+
 fn format_hints(
     inlay_hints: Vec<(ruff_text_size::TextSize, Type, AnnotationKind)>,
     stdlib: &Stdlib,
@@ -61,6 +68,7 @@ fn format_hints(
 ) -> Vec<(ruff_text_size::TextSize, String)> {
     let mut qualified_hints = Vec::new();
     for (position, hint, kind) in inlay_hints {
+        let is_container = is_container(&hint);
         let formatted_hint = hint_to_string(hint, stdlib, enum_members);
         // TODO: Put these behind a flag
         if formatted_hint.contains("Any") {
@@ -78,12 +86,18 @@ fn format_hints(
         if formatted_hint == "None" && kind == AnnotationKind::Parameter {
             continue;
         }
+        if !is_container && kind == AnnotationKind::Variable {
+            continue;
+        }
         match kind {
             AnnotationKind::Parameter => {
                 qualified_hints.push((position, format!(": {formatted_hint}")));
             }
             AnnotationKind::Return => {
                 qualified_hints.push((position, format!(" -> {formatted_hint}")));
+            }
+            AnnotationKind::Variable => {
+                qualified_hints.push((position, format!(": {formatted_hint}")));
             }
         }
     }
@@ -392,6 +406,57 @@ def foo() -> str:
             r#"
     def foo(a: int=2) -> None:
         pass
+    "#,
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_container() -> anyhow::Result<()> {
+        assert_annotations(
+            r#"
+    def foo() -> None:
+        x = [] 
+        x.append(1)
+    "#,
+            r#"
+    def foo() -> None:
+        x: list[int] = [] 
+        x.append(1)
+    "#,
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_dictionary() -> anyhow::Result<()> {
+        assert_annotations(
+            r#"
+    def foo() -> None:
+        x = {}
+        x["a"] = 1
+    "#,
+            r#"
+    def foo() -> None:
+        x: dict[str, int] = {}
+        x["a"] = 1
+    "#,
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_non_empty_dictionary() -> anyhow::Result<()> {
+        assert_annotations(
+            r#"
+    def foo() -> None:
+        x = {"a": 1}
+        x["a"] = 1
+    "#,
+            r#"
+    def foo() -> None:
+        x = {"a": 1}
+        x["a"] = 1
     "#,
         );
         Ok(())

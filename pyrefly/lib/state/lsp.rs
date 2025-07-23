@@ -40,6 +40,8 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprContext;
+use ruff_python_ast::ExprDict;
+use ruff_python_ast::ExprList;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
@@ -203,6 +205,7 @@ pub enum AnnotationKind {
     #[allow(dead_code)]
     Parameter,
     Return,
+    Variable,
 }
 
 #[derive(Debug)]
@@ -1900,7 +1903,7 @@ impl<'a> Transaction<'a> {
 
     pub fn inferred_types(&self, handle: &Handle) -> Option<Vec<(TextSize, Type, AnnotationKind)>> {
         let is_interesting_type = |x: &Type| !x.is_error();
-
+        let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
         let bindings = self.get_bindings(handle)?;
         let mut res = Vec::new();
         for idx in bindings.keys::<Key>() {
@@ -1922,6 +1925,35 @@ impl<'a> Transaction<'a> {
                             }
                         }
                         _ => {}
+                    }
+                }
+                // Only annotate empty containers for now
+                key @ Key::Definition(_) if let Some(ty) = self.get_type(handle, key) => {
+                    let e = match bindings.get(idx) {
+                        Binding::NameAssign(_, None, e) => match &**e {
+                            Expr::List(ExprList { elts, .. }) => {
+                                if elts.is_empty() {
+                                    Some(&**e)
+                                } else {
+                                    None
+                                }
+                            }
+                            Expr::Dict(ExprDict { items, .. }) => {
+                                if items.is_empty() {
+                                    Some(&**e)
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None,
+                        },
+                        _ => None,
+                    };
+                    if let Some(e) = e
+                        && is_interesting_expr(e)
+                        && is_interesting_type(&ty)
+                    {
+                        res.push((key.range().end(), ty, AnnotationKind::Variable));
                     }
                 }
                 _ => {}
