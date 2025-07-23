@@ -966,7 +966,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn check_attr_subset(
+    pub fn is_attribute_subset(
         &self,
         got: &Attribute,
         want: &Attribute,

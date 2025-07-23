@@ -1463,10 +1463,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &Instance::of_class(&self.as_class_type_unchecked(class)),
                 ));
             }
-            let attr_check =
-                self.check_attr_subset(got_attr.as_ref().unwrap(), &want_attr, &mut |got, want| {
-                    self.is_subset_eq(got, want)
-                });
+            let attr_check = self.is_attribute_subset(
+                got_attr.as_ref().unwrap(),
+                &want_attr,
+                &mut |got, want| self.is_subset_eq(got, want),
+            );
             if let Err(error) = attr_check {
                 let msg = vec1![
                     format!(

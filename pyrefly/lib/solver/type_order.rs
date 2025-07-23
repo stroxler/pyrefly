@@ -112,13 +112,13 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0.try_lookup_attr(base, attr_name)
     }
 
-    pub fn is_attr_subset(
+    pub fn is_attribute_subset(
         self,
         got: &Attribute,
         want: &Attribute,
         is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
     ) -> bool {
-        self.0.check_attr_subset(got, want, is_subset).is_ok()
+        self.0.is_attribute_subset(got, want, is_subset).is_ok()
     }
 
     pub fn as_tuple_type(self, cls: &ClassType) -> Option<Type> {

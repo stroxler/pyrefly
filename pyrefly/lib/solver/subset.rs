@@ -391,7 +391,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 for got in got_attrs {
                     if !self
                         .type_order
-                        .is_attr_subset(&got, &want, &mut |got, want| self.is_subset_eq(got, want))
+                        .is_attribute_subset(&got, &want, &mut |got, want| {
+                            self.is_subset_eq(got, want)
+                        })
                     {
                         return false;
                     }
