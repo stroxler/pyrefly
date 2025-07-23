@@ -1524,7 +1524,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn get_non_synthesized_field_from_current_class_only(
+    pub fn get_non_synthesized_field_from_current_class_only(
         &self,
         cls: &Class,
         name: &Name,
