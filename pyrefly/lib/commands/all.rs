@@ -10,6 +10,7 @@ use clap::Subcommand;
 use crate::commands::autotype::AutotypeArgs;
 use crate::commands::buck_check::BuckCheckArgs;
 use crate::commands::check::FullCheckArgs;
+use crate::commands::check::SnippetCheckArgs;
 use crate::commands::dump_config::DumpConfigArgs;
 use crate::commands::init::InitArgs;
 use crate::commands::lsp::LspArgs;
@@ -21,6 +22,9 @@ use crate::commands::util::CommandExitStatus;
 pub enum Command {
     /// Full type checking on a file or a project
     Check(FullCheckArgs),
+
+    /// Check a Python code snippet
+    Snippet(SnippetCheckArgs),
 
     /// Dump info about pyrefly's configuration. Use by replacing `check` with `dump-config` in your pyrefly invocation.
     DumpConfig(DumpConfigArgs),
@@ -43,6 +47,7 @@ impl Command {
     pub async fn run(self, allow_forget: bool) -> anyhow::Result<CommandExitStatus> {
         match self {
             Command::Check(args) => args.run(allow_forget).await,
+            Command::Snippet(args) => args.run(allow_forget).await,
             Command::BuckCheck(args) => args.run(),
             Command::Lsp(args) => args.run(),
             Command::Init(args) => args.run(),
