@@ -1003,3 +1003,16 @@ class TD3(TypedDict, bar="test", baz=False):  # E: TypedDict does not support ke
     x: int
 "#,
 );
+
+testcase!(
+    test_nonrequired_readonly,
+    r#"
+from typing import NotRequired, ReadOnly, Required, TypedDict
+class A(TypedDict):
+    x: NotRequired[ReadOnly[str]]
+class B(TypedDict):
+    x: Required[str]
+b: B = {'x': ''}
+a: A = b
+    "#,
+);

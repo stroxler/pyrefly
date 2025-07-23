@@ -10090,16 +10090,6 @@
     {
       "code": -2,
       "column": 14,
-      "concise_description": "`TypedDict[C2]` is not assignable to `TypedDict[A2]`",
-      "description": "`TypedDict[C2]` is not assignable to `TypedDict[A2]`",
-      "line": 79,
-      "name": "bad-assignment",
-      "stop_column": 15,
-      "stop_line": 79
-    },
-    {
-      "code": -2,
-      "column": 14,
       "concise_description": "`TypedDict[A2]` is not assignable to `TypedDict[B2]`",
       "description": "`TypedDict[A2]` is not assignable to `TypedDict[B2]`",
       "line": 81,

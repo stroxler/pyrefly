@@ -740,8 +740,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::TypedDict(got), Type::TypedDict(want)) => {
                 // For each key in `want`, `got` has the corresponding key
                 // and the corresponding value type in `got` is consistent with the value type in `want`.
-                // For each required key in `got`, the corresponding key is required in `want`.
-                // For each non-required key in `got`, the corresponding key is not required in `want`.
+                // For each required key in `want`, the corresponding key is required in `got`.
+                // For each non-required, non-readonly key in `want`, the corresponding key is not required in `got`.
                 let got_fields = self.type_order.typed_dict_fields(got);
                 let want_fields = self.type_order.typed_dict_fields(want);
 
@@ -757,9 +757,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         }
                     })
                 }) && got_fields.iter().all(|(k, got_v)| {
-                    want_fields
-                        .get(k)
-                        .is_none_or(|want_v| got_v.required == want_v.required)
+                    want_fields.get(k).is_none_or(|want_v| {
+                        if want_v.required {
+                            got_v.required
+                        } else {
+                            want_v.is_read_only() || !got_v.required
+                        }
+                    })
                 })
             }
             (Type::TypedDict(got), Type::PartialTypedDict(want)) => {
