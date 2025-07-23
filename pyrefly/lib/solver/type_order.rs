@@ -96,6 +96,10 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         }
     }
 
+    pub fn try_lookup_instance_method(self, class_type: ClassType, name: &Name) -> Option<Type> {
+        self.0.try_lookup_instance_method(class_type, name)
+    }
+
     pub fn try_lookup_attr_from_class_type(
         self,
         cls: ClassType,
@@ -106,10 +110,6 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
 
     pub fn try_lookup_attr(self, base: &Type, attr_name: &Name) -> Vec<Attribute> {
         self.0.try_lookup_attr(base, attr_name)
-    }
-
-    pub fn resolve_as_instance_method(self, attr: Attribute) -> Option<Type> {
-        self.0.resolve_as_instance_method(attr)
     }
 
     pub fn is_attr_subset(

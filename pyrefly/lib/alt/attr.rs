@@ -1816,6 +1816,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
         }
     }
+
+    pub fn try_lookup_instance_method(&self, class_type: ClassType, name: &Name) -> Option<Type> {
+        self.try_lookup_attr_from_class_type(class_type, name)
+            .and_then(|attr| self.resolve_as_instance_method(attr))
+    }
 }
 
 #[derive(Debug)]

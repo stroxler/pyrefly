@@ -13,7 +13,6 @@ use itertools::EitherOrBoth;
 use itertools::Itertools;
 use itertools::izip;
 use pyrefly_python::dunder;
-use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
@@ -352,12 +351,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         true
     }
 
-    fn try_lookup_attr_from_class(&mut self, cls: &ClassType, name: &Name) -> Option<Type> {
-        self.type_order
-            .try_lookup_attr_from_class_type(cls.clone(), name)
-            .and_then(|attr| self.type_order.resolve_as_instance_method(attr))
-    }
-
     fn is_subset_protocol(&mut self, got: Type, protocol: ClassType) -> bool {
         let recursive_check = (got.clone(), Type::ClassType(protocol.clone()));
         if !self.recursive_assumptions.insert(recursive_check) {
@@ -376,7 +369,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 got,
                 Type::Callable(_) | Type::Function(_) | Type::BoundMethod(_)
             ) && name == dunder::CALL
-                && let Some(want) = self.try_lookup_attr_from_class(&protocol, &dunder::CALL)
+                && let Some(want) = self
+                    .type_order
+                    .try_lookup_instance_method(protocol.clone(), &dunder::CALL)
             {
                 if let Type::BoundMethod(method) = &want
                     && let Some(want_no_self) = method.to_callable()
@@ -861,7 +856,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (
                 Type::ClassType(got),
                 Type::BoundMethod(_) | Type::Callable(_) | Type::Function(_),
-            ) if let Some(call_ty) = self.try_lookup_attr_from_class(got, &dunder::CALL) => {
+            ) if let Some(call_ty) = self
+                .type_order
+                .try_lookup_instance_method(got.clone(), &dunder::CALL) =>
+            {
                 self.is_subset_eq(&call_ty, want)
             }
             // Constructors as callables
