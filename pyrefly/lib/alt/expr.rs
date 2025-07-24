@@ -1558,11 +1558,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 t => self.error(
                     errors,
                     range,
-                    ErrorInfo::Kind(ErrorKind::BadSpecialization),
-                    format!(
-                        "Can't apply arguments to non-class, got {}",
-                        self.for_display(t)
-                    ),
+                    ErrorInfo::Kind(ErrorKind::UnsupportedOperation),
+                    format!("`{}` is not subscriptable", self.for_display(t)),
                 ),
             }
         })

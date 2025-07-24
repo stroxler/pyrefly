@@ -1001,7 +1001,7 @@ testcase!(
 def f(x: None):
     if x.nonsense:  # E: Object of class `NoneType` has no attribute `nonsense`
         pass
-    while x['nonsense']:  # E: Can't apply arguments to non-class
+    while x['nonsense']:  # E: `None` is not subscriptable
         pass
     "#,
 );
