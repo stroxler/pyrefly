@@ -1289,20 +1289,20 @@ else:
 );
 
 testcase!(
-    test_suspicious_condition_func,
+    test_redundant_condition_func,
     r#"
 def foo() -> bool: ...
 
-if foo:  # E: Function object used as condition
+if foo:  # E: Function object `foo` used as condition
     ...
-while foo:  # E: Function object used as condition
+while foo:  # E: Function object `foo` used as condition
     ...
-[x for x in range(42) if foo]  # E: Function object used as condition
+[x for x in range(42) if foo]  # E: Function object `foo` used as condition
     "#,
 );
 
 testcase!(
-    test_suspicious_condition_class,
+    test_redundant_condition_class,
     r#"
 class Foo:
     def __bool__(self) -> bool: ...

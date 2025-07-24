@@ -100,24 +100,42 @@ impl<'a> TypeOrExpr<'a> {
 }
 
 #[derive(Debug, Clone)]
-enum ConditionSuspiciousReason {
+enum ConditionRedundantReason {
     Function(ModuleName, FuncId),
     Class(Name),
 }
 
-impl ConditionSuspiciousReason {
-    fn to_error_message(&self) -> String {
+impl ConditionRedundantReason {
+    fn equivalent_boolean(&self) -> bool {
         match self {
-            ConditionSuspiciousReason::Function(module_name, func_id) => {
+            ConditionRedundantReason::Function(..) | ConditionRedundantReason::Class(..) => true,
+        }
+    }
+
+    fn description(&self) -> String {
+        match self {
+            ConditionRedundantReason::Function(module_name, func_id) => {
                 format!(
-                    "Function object used as condition; did you mean to call it? (e.g. {}())",
+                    "Function object `{}` used as condition",
                     func_id.format(module_name.dupe())
                 )
             }
-            ConditionSuspiciousReason::Class(name) => format!(
-                "Class name `{name}` used as condition; did you mean to instantiate the class?"
-            ),
+            ConditionRedundantReason::Class(name) => {
+                format!("Class name `{name}` used as condition")
+            }
         }
+    }
+
+    fn to_error_message(&self) -> String {
+        format!(
+            "{}. It's equivalent to `{}`",
+            self.description(),
+            if self.equivalent_boolean() {
+                "True"
+            } else {
+                "False"
+            }
+        )
     }
 }
 
@@ -254,7 +272,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let body_type = self.expr_infer_type_no_trace(&x.body, hint, errors);
                 let orelse_type = self.expr_infer_type_no_trace(&x.orelse, hint, errors);
                 self.check_dunder_bool_is_callable(&condition_type, x.range(), errors);
-                self.check_suspicious_condition(&condition_type, x.range(), errors);
+                self.check_redundant_condition(&condition_type, x.range(), errors);
                 match condition_type.as_bool() {
                     Some(true) => body_type,
                     Some(false) => orelse_type,
@@ -783,7 +801,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         for comp in comps {
             for if_clause in comp.ifs.iter() {
                 let ty = self.expr_infer(if_clause, errors);
-                self.check_suspicious_condition(&ty, if_clause.range(), errors);
+                self.check_redundant_condition(&ty, if_clause.range(), errors);
             }
         }
     }
@@ -1684,36 +1702,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     /// Return the reason why we think `ty` is suspicious to use as a branching condition
-    fn get_condition_suspicious_reason(&self, ty: &Type) -> Option<ConditionSuspiciousReason> {
+    fn get_condition_redundant_reason(&self, ty: &Type) -> Option<ConditionRedundantReason> {
         match ty {
-            Type::Function(f) => Some(ConditionSuspiciousReason::Function(
+            Type::Function(f) => Some(ConditionRedundantReason::Function(
                 self.module().name(),
                 f.metadata.kind.as_func_id(),
             )),
-            Type::Overload(f) => Some(ConditionSuspiciousReason::Function(
+            Type::Overload(f) => Some(ConditionRedundantReason::Function(
                 self.module().name(),
                 f.metadata.kind.as_func_id(),
             )),
-            Type::BoundMethod(f) => Some(ConditionSuspiciousReason::Function(
+            Type::BoundMethod(f) => Some(ConditionRedundantReason::Function(
                 self.module().name(),
                 f.func.metadata().kind.as_func_id(),
             )),
-            Type::ClassDef(cls) => Some(ConditionSuspiciousReason::Class(cls.name().clone())),
+            Type::ClassDef(cls) => Some(ConditionRedundantReason::Class(cls.name().clone())),
             _ => None,
         }
     }
 
-    pub fn check_suspicious_condition(
+    pub fn check_redundant_condition(
         &self,
         condition_type: &Type,
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        if let Some(reason) = self.get_condition_suspicious_reason(condition_type) {
+        if let Some(reason) = self.get_condition_redundant_reason(condition_type) {
             self.error(
                 errors,
                 range,
-                ErrorInfo::Kind(ErrorKind::SuspiciousCondition),
+                ErrorInfo::Kind(ErrorKind::RedundantCondition),
                 reason.to_error_message(),
             );
         }

@@ -197,10 +197,10 @@ pub enum ErrorKind {
     ParseError,
     /// The attribute exists but cannot be modified.
     ReadOnly,
+    /// Attempting to use value that is equivalent to True or always False in boolean context.
+    RedundantCondition,
     /// Raised by a call to reveal_type().
     RevealType,
-    /// Attempting to use value that is always True or always False in boolean context.
-    SuspiciousCondition,
     /// An error related to type alias usage or definition.
     TypeAliasError,
     /// An error related to TypedDict keys.
