@@ -1722,6 +1722,7 @@ impl State {
     }
 
     pub fn commit_transaction(&self, transaction: CommittingTransaction) {
+        debug!("Committing transaction");
         let CommittingTransaction {
             transaction:
                 Transaction {
