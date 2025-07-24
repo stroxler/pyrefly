@@ -1105,7 +1105,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .ancestors(self.stdlib)
             .find_map(|parent| {
                 let parent_field =
-                    self.get_field_from_current_class_only(parent.class_object(), name, true)?;
+                    self.get_field_from_current_class_only(parent.class_object(), name)?;
                 found_field = true;
                 let ClassField(ClassFieldInner::Simple { annotation, .. }) = &*parent_field;
                 annotation.clone()
@@ -1166,7 +1166,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_dataclass_member(&self, cls: &Class, name: &Name) -> DataclassMember {
         // Even though we check that the class member exists before calling this function,
         // it can be None if the class has an invalid MRO.
-        let Some(member) = self.get_class_member_impl(cls, name, true) else {
+        let Some(member) = self.get_class_member_impl(cls, name) else {
             return DataclassMember::NotAField;
         };
         let field = &*member.value;
@@ -1544,11 +1544,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         name: &Name,
-        include_initvar: bool,
     ) -> Option<Arc<ClassField>> {
-        if let Some(field) = self.get_non_synthesized_field_from_current_class_only(cls, name)
-            && (include_initvar || !field.is_init_var())
-        {
+        if let Some(field) = self.get_non_synthesized_field_from_current_class_only(cls, name) {
             Some(field)
         } else {
             Some(
@@ -1564,9 +1561,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         name: &Name,
-        include_initvar: bool,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
-        if let Some(field) = self.get_field_from_current_class_only(cls, name, include_initvar) {
+        if let Some(field) = self.get_field_from_current_class_only(cls, name) {
             Some(WithDefiningClass {
                 value: field,
                 defining_class: cls.dupe(),
@@ -1575,15 +1571,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.get_mro_for_class(cls)
                 .ancestors(self.stdlib)
                 .find_map(|ancestor| {
-                    self.get_field_from_current_class_only(
-                        ancestor.class_object(),
-                        name,
-                        include_initvar,
-                    )
-                    .map(|field| WithDefiningClass {
-                        value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
-                        defining_class: ancestor.class_object().dupe(),
-                    })
+                    self.get_field_from_current_class_only(ancestor.class_object(), name)
+                        .map(|field| WithDefiningClass {
+                            value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
+                            defining_class: ancestor.class_object().dupe(),
+                        })
                 })
         }
     }
@@ -1593,7 +1585,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         name: &Name,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
-        self.get_class_member_impl(cls, name, false)
+        if let Some(member) = self.get_class_member_impl(cls, name)
+            && !member.value.is_init_var()
+        {
+            Some(member)
+        } else {
+            None
+        }
     }
 
     pub fn get_instance_attribute(&self, cls: &ClassType, name: &Name) -> Option<Attribute> {
@@ -1641,14 +1639,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .ancestors(self.stdlib)
             .skip_while(|ancestor| *ancestor != start_lookup_cls);
         for ancestor in ancestors {
-            if let Some(found) = self
-                .get_field_from_current_class_only(ancestor.class_object(), name, false)
-                .map(|field| WithDefiningClass {
+            if let Some(field) =
+                self.get_field_from_current_class_only(ancestor.class_object(), name)
+                && !field.is_init_var()
+            {
+                return Some(WithDefiningClass {
                     value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
                     defining_class: ancestor.class_object().dupe(),
-                })
-            {
-                return Some(found);
+                });
             }
         }
         None
