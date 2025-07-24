@@ -168,12 +168,10 @@ fn find_one_part_prefix<'a>(
                                 }
                             }
 
-                            if path.is_dir()
-                                && !results.iter().any(|r| match r {
-                                    (FindResult::RegularPackage(_, p), _) => p == &path,
-                                    _ => false,
-                                })
-                            {
+                            if !results.iter().any(|r| match r {
+                                (FindResult::RegularPackage(_, p), _) => p == &path,
+                                _ => false,
+                            }) {
                                 namespace_roots
                                     .entry(ModuleName::from_str(name))
                                     .or_default()
