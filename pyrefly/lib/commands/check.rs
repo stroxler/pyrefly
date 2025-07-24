@@ -103,7 +103,12 @@ async fn run_check(
     allow_forget: bool,
 ) -> anyhow::Result<CommandExitStatus> {
     if watch {
-        let watcher = Watcher::notify(&files_to_check.roots())?;
+        let roots = files_to_check.roots();
+        info!(
+            "Watching for files in {}",
+            display::intersperse_iter(";", || roots.iter().map(|p| p.display()))
+        );
+        let watcher = Watcher::notify(&roots)?;
         args.run_watch(watcher, files_to_check, config_finder)
             .await?;
         Ok(CommandExitStatus::Success)
