@@ -318,7 +318,7 @@ impl Display for Globs {
 const USE_EDEN: bool = cfg!(fbcode_build);
 
 impl Globs {
-    pub fn files_eden(&self) -> anyhow::Result<Vec<PathBuf>> {
+    pub fn files_eden(&self, filter: &Globs) -> anyhow::Result<Vec<PathBuf>> {
         fn hg_root() -> anyhow::Result<PathBuf> {
             let output = Command::new("hg")
                 .arg("root")
@@ -364,12 +364,14 @@ impl Globs {
 
         let root = hg_root()?;
         let globs = self.0.try_map(|g| g.0.strip_prefix(&root))?;
-        eden_glob(root, globs)
+        let mut result = eden_glob(root, globs)?;
+        result.retain(|p| filter.matches(p).is_ok_and(|matches| !matches));
+        Ok(result)
     }
 
     fn filtered_files(&self, filter: &Globs) -> anyhow::Result<Vec<PathBuf>> {
         if USE_EDEN {
-            match self.files_eden() {
+            match self.files_eden(filter) {
                 Ok(files) if files.is_empty() => {
                     return Err(anyhow::anyhow!(
                         "No Python files matched pattern(s) {}",
