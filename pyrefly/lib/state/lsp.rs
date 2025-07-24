@@ -8,6 +8,8 @@
 use std::sync::Arc;
 
 use dupe::Dupe;
+use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
@@ -1664,14 +1666,19 @@ impl<'a> Transaction<'a> {
                     && let Some(module_info) = self.get_module_info(handle)
                 {
                     let mut has_local_variable_results = false;
+                    let matcher = SkimMatcherV2::default().smart_case();
                     for idx in bindings.available_definitions(position) {
                         let key = bindings.idx_to_key(idx);
                         if let Key::Definition(id) = key {
+                            let label = module_info.code_at(id.range());
+                            if matcher.fuzzy_match(label, identifier.as_str()).is_none() {
+                                continue;
+                            }
                             let binding = bindings.get(idx);
                             let detail = self.get_type(handle, key).map(|t| t.to_string());
                             has_local_variable_results = true;
                             result.push(CompletionItem {
-                                label: module_info.code_at(id.range()).to_owned(),
+                                label: label.to_owned(),
                                 detail,
                                 kind: binding
                                     .symbol_kind()

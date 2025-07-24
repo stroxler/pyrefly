@@ -145,9 +145,21 @@ def foo():
   xxxx = 3
   x
 # ^
+  y
+# ^
+  f
+# ^
+  b
+# ^
   def bar():
     yyyy = 4;
+    x
+#   ^
     y
+#   ^
+    f
+#   ^
+    b
 #   ^
 "#;
     let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
@@ -157,17 +169,41 @@ def foo():
 4 |   x
       ^
 Completion Results:
-- (Function) bar: () -> None
-- (Function) foo: () -> None
 - (Variable) xxxx: Literal[3]
 
-8 |     y
-        ^
+6 |   y
+      ^
+Completion Results:
+
+8 |   f
+      ^
+Completion Results:
+- (Function) foo: () -> None
+
+10 |   b
+       ^
 Completion Results:
 - (Function) bar: () -> None
-- (Function) foo: () -> None
+
+14 |     x
+         ^
+Completion Results:
 - (Variable) xxxx: Literal[3]
+
+16 |     y
+         ^
+Completion Results:
 - (Variable) yyyy: Literal[4]
+
+18 |     f
+         ^
+Completion Results:
+- (Function) foo: () -> None
+
+20 |     b
+         ^
+Completion Results:
+- (Function) bar: () -> None
 "#
         .trim(),
         report.trim(),
@@ -393,7 +429,6 @@ foo(x
 Completion Results:
 - (Variable) a=: int
 - (Variable) b=: str
-- (Function) foo: (a: int, b: str) -> None
 - (Variable) xyz: Literal[5]
 "#
         .trim(),
