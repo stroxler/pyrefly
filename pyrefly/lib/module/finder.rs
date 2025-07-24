@@ -100,6 +100,10 @@ impl FindResult {
 /// name: module name
 /// roots: search roots
 fn find_one_part<'a>(name: &Name, roots: impl Iterator<Item = &'a PathBuf>) -> Option<FindResult> {
+    // skip looking in `__pycache__`, since those modules are not accessible
+    if name == &Name::new_static("__pycache__") {
+        return None;
+    }
     let mut namespace_roots = Vec::new();
     for root in roots {
         let candidate_dir = root.join(name.as_str());
