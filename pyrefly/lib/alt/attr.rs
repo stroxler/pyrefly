@@ -1001,15 +1001,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if (!got_attrs.is_empty())
             && let Some(want) = self.try_lookup_attr_from_class_type(protocol.clone(), name)
         {
-            for got in got_attrs {
-                if self
-                    .is_attribute_subset(&got, &want, &mut |got, want| is_subset(got, want))
-                    .is_err()
-                {
-                    return false;
-                }
-            }
-            true
+            got_attrs.iter().all(|got_attr| {
+                self.is_attribute_subset(got_attr, &want, &mut |got, want| is_subset(got, want))
+                    .is_ok()
+            })
         } else {
             false
         }
