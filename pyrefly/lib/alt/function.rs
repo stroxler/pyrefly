@@ -183,18 +183,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Arc<DecoratedFunction> {
         let defining_cls = class_key.and_then(|k| self.get_idx(*k).0.dupe());
-        let mut self_type = if def.name.id == dunder::NEW || def.name.id == dunder::INIT_SUBCLASS {
-            // __new__ and __init_subclass__ are staticmethods, and do not take a self parameter.
-            None
-        } else {
-            defining_cls
-                .as_ref()
-                .map(|cls| Type::SelfType(self.as_class_type_unchecked(cls)))
-        };
+        let mut self_type = defining_cls
+            .as_ref()
+            .map(|cls| Type::SelfType(self.as_class_type_unchecked(cls)));
+
+        // __new__ is an implicit staticmethod, __init_subclass__ is an implicit classmethod
+        // __new__, unlike decorated staticmethods, uses Self
+        let is_dunder_new = defining_cls.is_some() && def.name.as_str() == dunder::NEW;
+        let is_dunder_init_subclass =
+            defining_cls.is_some() && def.name.as_str() == dunder::INIT_SUBCLASS;
 
         let mut is_overload = false;
-        let mut is_staticmethod = false;
-        let mut is_classmethod = false;
+        let mut is_staticmethod = is_dunder_new;
+        let mut is_classmethod = is_dunder_init_subclass;
         let mut is_deprecated = false;
         let mut is_property_getter = false;
         let mut is_property_setter_with_getter = None;
@@ -259,10 +260,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Look for a @classmethod or @staticmethod decorator and change the "self" type
         // accordingly. This is not totally correct, since it doesn't account for chaining
         // decorators, or weird cases like both decorators existing at the same time.
-        if is_staticmethod {
-            self_type = None;
-        } else if is_classmethod {
+        if is_classmethod || is_dunder_new {
             self_type = self_type.map(Type::type_form);
+        } else if is_staticmethod {
+            self_type = None;
         }
 
         let get_requiredness =

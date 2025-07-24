@@ -74,7 +74,22 @@ testcase!(
     r#"
 from typing import Self, assert_type
 class A:
-    def f(self: Self) -> Self:
+    def __new__(cls, *args, **kwargs):
+        assert_type(cls, type[Self])
+        super().__new__(cls, *args, **kwargs)
+
+    def __init_subclass__(cls, **kwargs):
+        assert_type(cls, type[Self])
+        super().__init_subclass__(**kwargs)
+
+    @classmethod
+    def f1(cls):
+        assert_type(cls, type[Self])
+
+    def f2(self):
+        assert_type(self, Self)
+    
+    def f3(self: Self) -> Self:
         assert_type(self, Self)
         return self
     "#,

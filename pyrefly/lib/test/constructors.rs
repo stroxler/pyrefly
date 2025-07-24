@@ -372,24 +372,25 @@ assert_type(MyClass(), Any)
 );
 
 testcase!(
+    bug = "We should specialize `type[Self@A]` to `type[A]` in the call to `A.__new__`",
     test_cls_type_in_new_annotated,
     r#"
 from typing import Self
 class A:
     def __new__(cls: type[Self]): ...
 A.__new__(A)  # OK
-A.__new__(int)  # E: `type[int]` is not assignable to parameter `cls`
+A.__new__(int) # E: Argument `type[int]` is not assignable to parameter `cls` with type `type[Self@A]` in function `A.__new__`
     "#,
 );
 
 testcase!(
-    bug = "We should give the first parameter of `__new__` a type of `type[Self]` even when unannotated",
+    bug = "We should specialize `type[Self@A]` to `type[A]` in the call to `A.__new__`",
     test_cls_type_in_new_unannotated,
     r#"
 class A:
     def __new__(cls): ...
 A.__new__(A)  # OK
-A.__new__(int)  # Should be an error
+A.__new__(int)  # E: Argument `type[int]` is not assignable to parameter `cls` with type `type[Self@A]` in function `A.__new__`
     "#,
 );
 
