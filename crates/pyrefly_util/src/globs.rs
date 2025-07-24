@@ -35,8 +35,8 @@ use crate::prelude::VecExt;
 
 /// A glob pattern for matching files.
 ///
-/// Only matches Python files (.py, .pyi) and automatically excludes:
-/// - Files that don't have .py or .pyi extensions
+/// Only matches Python files (.py, .pyi, .pyw) and automatically excludes:
+/// - Files that don't have .py, .pyi, or .pyw extensions
 /// - Files whose names start with '.' (dot files)
 pub struct Glob(PathBuf);
 
@@ -99,7 +99,7 @@ impl Glob {
     }
 
     fn is_python_extension(ext: Option<&OsStr>) -> bool {
-        ext.is_some_and(|e| e == "py" || e == "pyi")
+        ext.is_some_and(|e| e == "py" || e == "pyi" || e == "pyw")
     }
 
     /// Returns true if the given file should be included in results.
