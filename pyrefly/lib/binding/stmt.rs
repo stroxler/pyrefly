@@ -50,12 +50,17 @@ use crate::types::special_form::SpecialForm;
 use crate::types::types::Type;
 
 impl<'a> BindingsBuilder<'a> {
-    fn bind_unimportable_names(&mut self, x: &StmtImportFrom) {
+    fn bind_unimportable_names(&mut self, x: &StmtImportFrom, as_error: bool) {
+        let any = if as_error {
+            Type::any_error()
+        } else {
+            Type::any_explicit()
+        };
         for x in &x.names {
             if &x.name != "*" {
                 let asname = x.asname.as_ref().unwrap_or(&x.name);
                 // We pass None as imported_from, since we are really faking up a local error definition
-                self.bind_definition(asname, Binding::Type(Type::any_error()), FlowStyle::Other);
+                self.bind_definition(asname, Binding::Type(any.clone()), FlowStyle::Other);
             }
         }
     }
@@ -880,22 +885,28 @@ impl<'a> BindingsBuilder<'a> {
                                         Binding::Import(m, x.name.id.clone(), original_name_range)
                                     } else {
                                         let x_as_module_name = m.append(&x.name.id);
-                                        if self.lookup.get(x_as_module_name).is_ok() {
-                                            Binding::Module(
+                                        match self.lookup.get(x_as_module_name) {
+                                            Ok(_) => Binding::Module(
                                                 x_as_module_name,
                                                 x_as_module_name.components(),
                                                 None,
-                                            )
-                                        } else {
-                                            self.error(
-                                                x.range,
-                                                ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
-                                                format!(
-                                                    "Could not import `{}` from `{m}`",
-                                                    x.name.id
-                                                ),
-                                            );
-                                            Binding::Type(Type::any_error())
+                                            ),
+                                            Err(FindError::Ignored) => {
+                                                Binding::Type(Type::any_explicit())
+                                            }
+                                            _ => {
+                                                self.error(
+                                                    x.range,
+                                                    ErrorInfo::Kind(
+                                                        ErrorKind::MissingModuleAttribute,
+                                                    ),
+                                                    format!(
+                                                        "Could not import `{}` from `{m}`",
+                                                        x.name.id
+                                                    ),
+                                                );
+                                                Binding::Type(Type::any_error())
+                                            }
                                         }
                                     };
                                     self.bind_definition(
@@ -906,7 +917,7 @@ impl<'a> BindingsBuilder<'a> {
                                 }
                             }
                         }
-                        Err(FindError::Ignored) => self.bind_unimportable_names(&x),
+                        Err(FindError::Ignored) => self.bind_unimportable_names(&x, false),
                         Err(
                             err @ (FindError::NoPyTyped
                             | FindError::NoSource(_)
@@ -918,7 +929,7 @@ impl<'a> BindingsBuilder<'a> {
                                 ErrorInfo::new(ErrorKind::ImportError, ctx.as_deref()),
                                 msg,
                             );
-                            self.bind_unimportable_names(&x);
+                            self.bind_unimportable_names(&x, true);
                         }
                     }
                 } else {
@@ -930,7 +941,7 @@ impl<'a> BindingsBuilder<'a> {
                             ".".repeat(x.level as usize)
                         ),
                     );
-                    self.bind_unimportable_names(&x);
+                    self.bind_unimportable_names(&x, true);
                 }
             }
             Stmt::Global(x) => {
