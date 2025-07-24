@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 
 use num_traits::ToPrimitive;
+use pyrefly_python::docstring::Docstring;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Alias;
 use ruff_python_ast::Decorator;
@@ -15,7 +16,6 @@ use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::Identifier;
-use ruff_python_ast::ModModule;
 use ruff_python_ast::Parameter;
 use ruff_python_ast::ParameterWithDefault;
 use ruff_python_ast::Stmt;
@@ -25,11 +25,16 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
-use crate::alt::answers::Answers;
+use crate::binding::binding::Binding;
+use crate::binding::binding::BindingClass;
+use crate::binding::binding::BindingFunction;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::report::glean::facts::*;
+use crate::report::glean::schema::python::Declaration;
 use crate::report::glean::schema::*;
+use crate::state::handle::Handle;
+use crate::state::state::Transaction;
 
 fn hash(x: &[u8]) -> String {
     // Glean uses blake3
@@ -42,6 +47,7 @@ struct Facts {
     module_name: String,
     module_info: ModuleInfo,
     none_name: Name,
+    bindings: Bindings,
     decl_locations: Vec<python::DeclarationLocation>,
     def_locations: Vec<python::DefinitionLocation>,
     import_star_locations: Vec<python::ImportStarLocation>,
@@ -50,6 +56,7 @@ struct Facts {
     containing_top_level_declarations: Vec<python::ContainingTopLevelDeclaration>,
     xrefs_via_name: Vec<python::XRefViaName>,
     xrefs_by_target: HashMap<python::Name, Vec<src::ByteSpan>>,
+    declaration_docstrings: Vec<python::DeclarationDocstring>,
 }
 
 fn to_span(range: TextRange) -> src::ByteSpan {
@@ -59,22 +66,37 @@ fn to_span(range: TextRange) -> src::ByteSpan {
     }
 }
 
+fn docstring_fact(
+    docstring: &str,
+    range: TextRange,
+    declaration: Declaration,
+) -> python::DeclarationDocstring {
+    python::DeclarationDocstring::new(declaration, to_span(range), Docstring::clean(docstring))
+}
+
 struct DeclarationInfo {
     declaration: python::Declaration,
     decl_span: src::ByteSpan,
     definition: Option<python::Definition>,
     def_span: Option<src::ByteSpan>,
     top_level_decl: Option<python::Declaration>,
+    docstring: Option<python::DeclarationDocstring>,
 }
 
 impl Facts {
-    fn new(file: src::File, module: python::Module, module_info: ModuleInfo) -> Facts {
+    fn new(
+        file: src::File,
+        module: python::Module,
+        module_info: ModuleInfo,
+        bindings: Bindings,
+    ) -> Facts {
         Facts {
             file,
             module,
             module_name: module_info.name().to_string(),
             module_info,
             none_name: "None".into(),
+            bindings,
             decl_locations: vec![],
             def_locations: vec![],
             import_star_locations: vec![],
@@ -83,7 +105,20 @@ impl Facts {
             containing_top_level_declarations: vec![],
             xrefs_via_name: vec![],
             xrefs_by_target: HashMap::new(),
+            declaration_docstrings: vec![],
         }
+    }
+
+    fn get_binding_key_at_position(
+        &self,
+        position: ruff_text_size::TextSize,
+    ) -> crate::binding::binding::Key {
+        self.bindings
+            .definition_at_position(position)
+            .unwrap_or_else(|| {
+                panic!("Glean error: Could not find binding at position {position:?}")
+            })
+            .clone()
     }
 
     fn file_lines_fact(&self, module_info: &ModuleInfo) -> src::FileLines {
@@ -126,6 +161,10 @@ impl Facts {
                 decl_info.def_span.unwrap(),
             ));
         }
+
+        if let Some(declaration_docstring) = decl_info.docstring {
+            self.declaration_docstrings.push(declaration_docstring);
+        }
     }
 
     fn make_fq_name(&self, name: &Name, module_name: Option<&str>) -> python::Name {
@@ -149,6 +188,7 @@ impl Facts {
     fn class_facts(
         &mut self,
         cls: &StmtClassDef,
+        cls_binding: BindingClass,
         cls_declaration: python::ClassDeclaration,
         container: python::DeclarationContainer,
     ) -> DeclarationInfo {
@@ -165,6 +205,21 @@ impl Facts {
             vec![]
         };
 
+        let declaration = python::Declaration::cls(cls_declaration.clone());
+
+        let cls_docstring_fact = match cls_binding {
+            BindingClass::ClassDef(class_binding) => {
+                class_binding.docstring_range.map(|docstring_range| {
+                    docstring_fact(
+                        self.module_info.code_at(docstring_range),
+                        docstring_range,
+                        declaration.clone(),
+                    )
+                })
+            }
+            BindingClass::FunctionalClassDef(_, _, _) => None,
+        };
+
         let cls_definition = python::ClassDefinition::new(
             cls_declaration.clone(),
             Some(bases),
@@ -174,11 +229,12 @@ impl Facts {
         );
 
         DeclarationInfo {
-            declaration: python::Declaration::cls(cls_declaration),
+            declaration,
             decl_span: to_span(cls.range),
             definition: Some(python::Definition::cls(cls_definition)),
             def_span: Some(to_span(cls.range)),
             top_level_decl: None,
+            docstring: cls_docstring_fact,
         }
     }
 
@@ -252,6 +308,7 @@ impl Facts {
             definition: Some(python::Definition::variable(variable_definition)),
             def_span: Some(to_span(range)),
             top_level_decl,
+            docstring: None,
         }
     }
 
@@ -300,10 +357,21 @@ impl Facts {
     fn function_facts(
         &mut self,
         func: &StmtFunctionDef,
+        binding_func: &BindingFunction,
         func_declaration: python::FunctionDeclaration,
         container: python::DeclarationContainer,
         params_top_level_decl: Option<&python::Declaration>,
     ) -> Vec<DeclarationInfo> {
+        let declaration = python::Declaration::func(func_declaration.clone());
+
+        let function_docstring_fact = binding_func.docstring_range.map(|docstring_range| {
+            docstring_fact(
+                self.module_info.code_at(docstring_range),
+                docstring_range,
+                declaration.clone(),
+            )
+        });
+
         let params = &func.parameters;
 
         let mut decl_infos = vec![];
@@ -336,7 +404,7 @@ impl Facts {
             .map(|x| self.parameter_info(x.as_ref(), None, params_top_level_decl, &mut decl_infos));
 
         let func_definition = python::FunctionDefinition::new(
-            func_declaration.clone(),
+            func_declaration,
             func.is_async,
             self.type_info(func.returns.as_ref().map(|x| x.as_ref())),
             args,
@@ -349,11 +417,12 @@ impl Facts {
         );
 
         decl_infos.push(DeclarationInfo {
-            declaration: python::Declaration::func(func_declaration),
+            declaration,
             decl_span: to_span(func.range),
             definition: Some(python::Definition::func(func_definition)),
             def_span: Some(to_span(func.range)),
             top_level_decl: None,
+            docstring: function_docstring_fact,
         });
 
         decl_infos
@@ -430,6 +499,7 @@ impl Facts {
                     definition: None,
                     def_span: None,
                     top_level_decl: None,
+                    docstring: None,
                 });
             }
         }
@@ -523,13 +593,22 @@ impl Facts {
                 let cls_declaration =
                     python::ClassDeclaration::new(self.make_fq_name(&cls.name.id, None), None);
 
-                let decl_info = self.class_facts(cls, cls_declaration.clone(), container.clone());
+                let class_key = self.get_binding_key_at_position(cls.name.range.start());
+                let key_cls_idx = match self.bindings.get(self.bindings.key_to_idx(&class_key)) {
+                    Binding::ClassDef(key_cls_idx, _) => *key_cls_idx,
+                    _ => panic!("Glean error: Expected class binding for key: {class_key:?}"),
+                };
+                let cls_binding = self.bindings.get(key_cls_idx).clone();
+
+                let decl_info =
+                    self.class_facts(cls, cls_binding, cls_declaration.clone(), container.clone());
                 self.visit_exprs(&cls.decorator_list, container);
                 self.visit_exprs(&cls.type_params, container);
                 self.visit_exprs(&cls.arguments, container);
                 if let python::Declaration::module(_) = top_level_decl {
                     new_top_level_decl = Some(decl_info.declaration.clone());
                 }
+
                 new_container = Some(python::DeclarationContainer::cls(cls_declaration));
                 decl_infos.push(decl_info);
             }
@@ -539,8 +618,19 @@ impl Facts {
                 if let python::Declaration::module(_) = top_level_decl {
                     new_top_level_decl = Some(python::Declaration::func(func_declaration.clone()));
                 }
+
+                let function_key = self.get_binding_key_at_position(func.name.range.start());
+
+                let key_function_idx =
+                    match self.bindings.get(self.bindings.key_to_idx(&function_key)) {
+                        Binding::Function(key_function_idx, _, _) => *key_function_idx,
+                        _ => panic!("Expected function binding for key: {function_key:?}"),
+                    };
+                let func_binding = self.bindings.get(key_function_idx).clone();
+
                 let mut func_decl_infos = self.function_facts(
                     func,
+                    &func_binding,
                     func_declaration.clone(),
                     container.clone(),
                     new_top_level_decl.as_ref(),
@@ -630,12 +720,11 @@ impl Facts {
 
 impl Glean {
     #[allow(unused_variables)]
-    pub fn new(
-        module_info: &ModuleInfo,
-        ast: &ModModule,
-        bindings: &Bindings,
-        answers: &Answers,
-    ) -> Self {
+    pub fn new(transaction: &Transaction, handle: &Handle) -> Self {
+        let module_info = &transaction.get_module_info(handle).unwrap();
+        let ast = &*transaction.get_ast(handle).unwrap();
+        let bindings = &transaction.get_bindings(handle).unwrap();
+
         let module_name = python::Name::new(module_info.name().as_str().to_owned());
         let module_fact = python::Module::new(module_name);
         let file_fact = src::File::new(module_info.path().to_string());
@@ -643,18 +732,36 @@ impl Glean {
         let top_level_decl = python::Declaration::module(module_fact.clone());
         let file_language_fact = src::FileLanguage::new(file_fact.clone(), src::Language::Python);
 
-        let mut facts = Facts::new(file_fact.clone(), module_fact.clone(), module_info.clone());
+        let mut facts = Facts::new(
+            file_fact.clone(),
+            module_fact.clone(),
+            module_info.clone(),
+            bindings.clone(),
+        );
 
         let file_lines = facts.file_lines_fact(module_info);
 
+        let module_decl = python::Declaration::module(module_fact.clone());
+        let module_docstring_fact =
+            transaction
+                .get_module_docstring_range(handle)
+                .map(|docstring_range| {
+                    docstring_fact(
+                        module_info.lined_buffer().code_at(docstring_range),
+                        docstring_range,
+                        module_decl.clone(),
+                    )
+                });
+
         let mod_decl_info = DeclarationInfo {
-            declaration: python::Declaration::module(module_fact.clone()),
+            declaration: module_decl,
             decl_span: to_span(ast.range),
             definition: Some(python::Definition::module(python::ModuleDefinition::new(
                 module_fact.clone(),
             ))),
             def_span: Some(to_span(ast.range)),
             top_level_decl: None,
+            docstring: module_docstring_fact,
         };
 
         facts.declaration_facts(mod_decl_info, &top_level_decl);
@@ -742,6 +849,10 @@ impl Glean {
             GleanEntry::Predicate {
                 predicate: python::XRefsViaNameByTarget::GLEAN_name(),
                 facts: xrefs_by_target.into_iter().map(json).collect(),
+            },
+            GleanEntry::Predicate {
+                predicate: python::DeclarationDocstring::GLEAN_name(),
+                facts: facts.declaration_docstrings.into_iter().map(json).collect(),
             },
         ];
 
