@@ -64,6 +64,7 @@ use starlark_map::small_set::SmallSet;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
+use tracing::trace;
 use vec1::vec1;
 
 use crate::alt::answers::AnswerEntry;
@@ -779,10 +780,8 @@ impl<'a> Transaction<'a> {
                         && let Some(new) = writer.steps.solutions.as_ref()
                         && let Some(difference) = old.first_difference(new)
                     {
-                        debug!(
-                            "Exports changed for `{}`: {difference}",
-                            module_data.handle.module(),
-                        );
+                        debug!("Exports changed for `{}`", module_data.handle.module());
+                        trace!("Difference: {difference}");
                         changed = true;
                     }
                     if !require.keep_bindings() && !require.keep_answers() {
