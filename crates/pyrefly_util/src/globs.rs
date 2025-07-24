@@ -273,7 +273,11 @@ impl Globs {
 
     /// Given a glob pattern, return the directories that can contain files that match the pattern.
     pub fn roots(&self) -> Vec<PathBuf> {
-        self.0.map(|s| s.get_glob_root())
+        let mut res = self.0.map(|s| s.get_glob_root());
+        res.sort();
+        res.dedup();
+        // We could dedup more in future, if there is `/foo` and `/foo/bar` then the second is redundant.
+        res
     }
 
     /// Returns true if the given file matches any of the contained globs.
