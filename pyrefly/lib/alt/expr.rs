@@ -230,6 +230,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let body_type = self.expr_infer_type_no_trace(&x.body, hint, errors);
                 let orelse_type = self.expr_infer_type_no_trace(&x.orelse, hint, errors);
                 self.check_dunder_bool_is_callable(&condition_type, x.range(), errors);
+                self.check_suspicious_condition(&condition_type, x.range(), errors);
                 match condition_type.as_bool() {
                     Some(true) => body_type,
                     Some(false) => orelse_type,
@@ -757,7 +758,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn ifs_infer(&self, comps: &[Comprehension], errors: &ErrorCollector) {
         for comp in comps {
             for if_clause in comp.ifs.iter() {
-                self.expr_infer(if_clause, errors);
+                let ty = self.expr_infer(if_clause, errors);
+                self.check_suspicious_condition(&ty, if_clause.range(), errors);
             }
         }
     }
@@ -1654,6 +1656,49 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
                 context,
             ),
+        }
+    }
+
+    /// Return the reason why we think `ty` is suspicious to use as a branching condition
+    fn get_condition_suspicious_reason(&self, ty: &Type) -> Option<String> {
+        match ty {
+            Type::Function(f) => Some(format!(
+                "Function object used as condition; did you mean to call it? (e.g. {}())",
+                f.metadata.kind.as_func_id().format(self.module().name())
+            )),
+            Type::Overload(f) => Some(format!(
+                "Function object used as condition; did you mean to call it? (e.g. {}())",
+                f.metadata.kind.as_func_id().format(self.module().name())
+            )),
+            Type::BoundMethod(f) => Some(format!(
+                "Bound method object used as condition; did you mean to call it? (e.g. {}())",
+                f.func
+                    .metadata()
+                    .kind
+                    .as_func_id()
+                    .format(self.module().name())
+            )),
+            Type::ClassDef(cls) => Some(format!(
+                "Class name `{}` used as condition; did you mean to instantiate the class?",
+                cls.name()
+            )),
+            _ => None,
+        }
+    }
+
+    pub fn check_suspicious_condition(
+        &self,
+        condition_type: &Type,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        if let Some(error_message) = self.get_condition_suspicious_reason(condition_type) {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::SuspiciousCondition),
+                error_message,
+            );
         }
     }
 }

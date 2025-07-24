@@ -199,6 +199,8 @@ pub enum ErrorKind {
     ReadOnly,
     /// Raised by a call to reveal_type().
     RevealType,
+    /// Attempting to use value that is always True or always False in boolean context.
+    SuspiciousCondition,
     /// An error related to type alias usage or definition.
     TypeAliasError,
     /// An error related to TypedDict keys.

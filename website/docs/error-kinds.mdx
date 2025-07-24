@@ -739,6 +739,19 @@ x.meaning = 0
 
 Pyrefly uses this error to communicate the output of the [`reveal_type`](https://typing.python.org/en/latest/spec/directives.html#reveal-type) function.
 
+## suspicious-condition
+
+This error is used to indicate a suspicious type is used as a boolean condition (e.g. an uncalled function)
+
+```python
+def f() -> bool:
+  ...
+
+# This will throw error, as it's likely that the function needs to be invoked.
+if f:
+  ...
+```
+
 ## type-alias-error
 
 An error related to the definition or usage of a `typing.TypeAlias`. Many of these cases are covered by [`invalid-annotation`](#invalid-annotation), so this error

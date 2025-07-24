@@ -1144,6 +1144,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BindingExpect::Bool(x) => {
                 let ty = self.expr_infer(x, errors);
                 self.check_dunder_bool_is_callable(&ty, x.range(), errors);
+                self.check_suspicious_condition(&ty, x.range(), errors);
             }
             BindingExpect::Delete(x) => match x {
                 Expr::Name(_) => {
