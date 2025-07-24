@@ -9,6 +9,7 @@ use std::collections::HashMap;
 
 use num_traits::ToPrimitive;
 use pyrefly_python::docstring::Docstring;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Alias;
 use ruff_python_ast::Decorator;
@@ -47,6 +48,7 @@ struct Facts {
     module_info: ModuleInfo,
     none_name: Name,
     bindings: Bindings,
+    modules: Vec<python::Module>,
     decl_locations: Vec<python::DeclarationLocation>,
     def_locations: Vec<python::DefinitionLocation>,
     import_star_locations: Vec<python::ImportStarLocation>,
@@ -88,6 +90,7 @@ impl Facts {
             module_info,
             none_name: "None".into(),
             bindings,
+            modules: vec![],
             decl_locations: vec![],
             def_locations: vec![],
             import_star_locations: vec![],
@@ -110,6 +113,40 @@ impl Facts {
                 panic!("Glean error: Could not find binding at position {position:?}")
             })
             .clone()
+    }
+
+    fn module_facts(
+        &mut self,
+        module_name: ModuleName,
+        module_fact: &python::Module,
+        range: TextRange,
+        top_level_decl: &python::Declaration,
+        module_docstring_range: Option<TextRange>,
+    ) {
+        let components = module_name.components();
+        let mut module = None;
+
+        for component in components.into_iter() {
+            let name = module.map_or(ModuleName::from_name(&component), |x: ModuleName| {
+                x.append(&component)
+            });
+            self.modules
+                .push(python::Module::new(python::Name::new(name.to_string())));
+            module = Some(name);
+        }
+
+        let mod_decl_info = DeclarationInfo {
+            declaration: python::Declaration::module(module_fact.clone()),
+            decl_span: to_span(range),
+            definition: Some(python::Definition::module(python::ModuleDefinition::new(
+                module_fact.clone(),
+            ))),
+            def_span: Some(to_span(range)),
+            top_level_decl: None,
+            docstring_range: module_docstring_range,
+        };
+
+        self.declaration_facts(mod_decl_info, top_level_decl);
     }
 
     fn file_lines_fact(&self, module_info: &ModuleInfo) -> src::FileLines {
@@ -707,8 +744,8 @@ impl Glean {
         let ast = &*transaction.get_ast(handle).unwrap();
         let bindings = &transaction.get_bindings(handle).unwrap();
 
-        let module_name = python::Name::new(module_info.name().as_str().to_owned());
-        let module_fact = python::Module::new(module_name);
+        let module_name = module_info.name();
+        let module_fact = python::Module::new(python::Name::new(module_name.to_string()));
         let file_fact = src::File::new(module_info.path().to_string());
         let container = python::DeclarationContainer::module(module_fact.clone());
         let top_level_decl = python::Declaration::module(module_fact.clone());
@@ -726,18 +763,13 @@ impl Glean {
         let module_decl = python::Declaration::module(module_fact.clone());
         let module_docstring_range = transaction.get_module_docstring_range(handle);
 
-        let mod_decl_info = DeclarationInfo {
-            declaration: module_decl,
-            decl_span: to_span(ast.range),
-            definition: Some(python::Definition::module(python::ModuleDefinition::new(
-                module_fact.clone(),
-            ))),
-            def_span: Some(to_span(ast.range)),
-            top_level_decl: None,
-            docstring_range: module_docstring_range,
-        };
-
-        facts.declaration_facts(mod_decl_info, &top_level_decl);
+        facts.module_facts(
+            module_name,
+            &module_fact,
+            ast.range,
+            &top_level_decl,
+            module_docstring_range,
+        );
 
         ast.body
             .visit(&mut |stmt: &Stmt| facts.generate_facts(stmt, &container, &top_level_decl));
@@ -773,7 +805,7 @@ impl Glean {
             },
             GleanEntry::Predicate {
                 predicate: python::Module::GLEAN_name(),
-                facts: vec![json(module_fact)],
+                facts: vec![facts.modules.into_iter().map(json).collect()],
             },
             GleanEntry::Predicate {
                 predicate: src::FileLanguage::GLEAN_name(),
