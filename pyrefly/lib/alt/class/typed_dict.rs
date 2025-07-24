@@ -208,7 +208,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // have the typed dict think a field exists that cannot be converted to a `TypedDictField`
         // (this can happen for any unannotated field - e.g. a classmethod or staticmethod).
         fields.iter().filter_map(|(name, is_total)| {
-            self.get_non_synthesized_field_from_current_class_only(cls, name, false)
+            self.get_non_synthesized_field_from_current_class_only(cls, name)
+                .filter(|field| !field.is_init_var())
                 .or_else(|| {
                     self.get_mro_for_class(cls)
                         .ancestors(self.stdlib)
@@ -217,8 +218,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.get_non_synthesized_field_from_current_class_only(
                                 ancestor.class_object(),
                                 name,
-                                false,
                             )
+                            .filter(|field| !field.is_init_var())
                         })
                 })
                 .and_then(|member| {

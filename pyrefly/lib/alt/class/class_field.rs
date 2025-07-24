@@ -1203,7 +1203,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         if let Some(method_field) =
-            self.get_non_synthesized_field_from_current_class_only(class, method_name, false)
+            self.get_non_synthesized_field_from_current_class_only(class, method_name)
+            && !method_field.is_init_var()
         {
             match &method_field.raw_type() {
                 Type::Forall(box Forall { tparams, .. }) => {
@@ -1528,11 +1529,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         name: &Name,
-        include_initvar: bool,
     ) -> Option<Arc<ClassField>> {
         if cls.contains(name)
             && let Some(field) = self.get_from_class(cls, &KeyClassField(cls.index(), name.clone()))
-            && (include_initvar || !field.is_init_var())
         {
             Some(field)
         } else {
@@ -1547,8 +1546,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         include_initvar: bool,
     ) -> Option<Arc<ClassField>> {
-        if let Some(field) =
-            self.get_non_synthesized_field_from_current_class_only(cls, name, include_initvar)
+        if let Some(field) = self.get_non_synthesized_field_from_current_class_only(cls, name)
+            && (include_initvar || !field.is_init_var())
         {
             Some(field)
         } else {
