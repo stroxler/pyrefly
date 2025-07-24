@@ -5,6 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::fmt;
+use std::fmt::Display;
+
 use dupe::Dupe;
 use num_traits::ToPrimitive;
 use pyrefly_python::ast::Ast;
@@ -141,9 +144,12 @@ impl ConditionRedundantReason {
             }
         }
     }
+}
 
-    fn to_error_message(&self) -> String {
-        format!(
+impl Display for ConditionRedundantReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
             "{}. It's equivalent to `{}`",
             self.description(),
             if self.equivalent_boolean() {
@@ -1754,7 +1760,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
                 range,
                 ErrorInfo::Kind(ErrorKind::RedundantCondition),
-                reason.to_error_message(),
+                format!("{reason}"),
             );
         }
     }
