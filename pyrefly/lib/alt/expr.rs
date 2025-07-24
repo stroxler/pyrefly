@@ -9,7 +9,9 @@ use dupe::Dupe;
 use num_traits::ToPrimitive;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_types::callable::FuncId;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
@@ -93,6 +95,28 @@ impl<'a> TypeOrExpr<'a> {
         match self {
             TypeOrExpr::Type(ty, _) => ty.clone(),
             TypeOrExpr::Expr(x) => solver.expr_infer(x, errors),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ConditionSuspiciousReason {
+    Function(ModuleName, FuncId),
+    Class(Name),
+}
+
+impl ConditionSuspiciousReason {
+    fn to_error_message(&self) -> String {
+        match self {
+            ConditionSuspiciousReason::Function(module_name, func_id) => {
+                format!(
+                    "Function object used as condition; did you mean to call it? (e.g. {}())",
+                    func_id.format(module_name.dupe())
+                )
+            }
+            ConditionSuspiciousReason::Class(name) => format!(
+                "Class name `{name}` used as condition; did you mean to instantiate the class?"
+            ),
         }
     }
 }
@@ -1660,28 +1684,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     /// Return the reason why we think `ty` is suspicious to use as a branching condition
-    fn get_condition_suspicious_reason(&self, ty: &Type) -> Option<String> {
+    fn get_condition_suspicious_reason(&self, ty: &Type) -> Option<ConditionSuspiciousReason> {
         match ty {
-            Type::Function(f) => Some(format!(
-                "Function object used as condition; did you mean to call it? (e.g. {}())",
-                f.metadata.kind.as_func_id().format(self.module().name())
+            Type::Function(f) => Some(ConditionSuspiciousReason::Function(
+                self.module().name(),
+                f.metadata.kind.as_func_id(),
             )),
-            Type::Overload(f) => Some(format!(
-                "Function object used as condition; did you mean to call it? (e.g. {}())",
-                f.metadata.kind.as_func_id().format(self.module().name())
+            Type::Overload(f) => Some(ConditionSuspiciousReason::Function(
+                self.module().name(),
+                f.metadata.kind.as_func_id(),
             )),
-            Type::BoundMethod(f) => Some(format!(
-                "Bound method object used as condition; did you mean to call it? (e.g. {}())",
-                f.func
-                    .metadata()
-                    .kind
-                    .as_func_id()
-                    .format(self.module().name())
+            Type::BoundMethod(f) => Some(ConditionSuspiciousReason::Function(
+                self.module().name(),
+                f.func.metadata().kind.as_func_id(),
             )),
-            Type::ClassDef(cls) => Some(format!(
-                "Class name `{}` used as condition; did you mean to instantiate the class?",
-                cls.name()
-            )),
+            Type::ClassDef(cls) => Some(ConditionSuspiciousReason::Class(cls.name().clone())),
             _ => None,
         }
     }
@@ -1692,12 +1709,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        if let Some(error_message) = self.get_condition_suspicious_reason(condition_type) {
+        if let Some(reason) = self.get_condition_suspicious_reason(condition_type) {
             self.error(
                 errors,
                 range,
                 ErrorInfo::Kind(ErrorKind::SuspiciousCondition),
-                error_message,
+                reason.to_error_message(),
             );
         }
     }
