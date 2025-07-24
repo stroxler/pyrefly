@@ -177,7 +177,7 @@ fn test_completion_with_autoimport() {
                         "version": 2
                     },
                     "contentChanges": [{
-                        "text": format!("{}\n{}", std::fs::read_to_string(root_path.join("foo.py")).unwrap(), "this_is_a_very_long_function_name_so_we_can")
+                        "text": "this_is_a_very_long_function_name_so_we_can".to_owned()
                     }],
                 }),
             }),
@@ -189,7 +189,7 @@ fn test_completion_with_autoimport() {
                         "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string()
                     },
                     "position": {
-                        "line": 11,
+                        "line": 0,
                         "character": 43
                     }
                 }),
@@ -199,13 +199,6 @@ fn test_completion_with_autoimport() {
             2,
             vec![
                 CompletionItem {
-                    label: "Bar".to_owned(),
-                    detail: Some("type[Bar]".to_owned()),
-                    kind: Some(CompletionItemKind::VARIABLE),
-                    sort_text: Some("0".to_owned()),
-                    ..Default::default()
-                },
-                CompletionItem {
                     label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
                     detail: Some("from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned()),
                     kind: Some(CompletionItemKind::FUNCTION),
@@ -213,11 +206,11 @@ fn test_completion_with_autoimport() {
                     additional_text_edits: Some(vec![lsp_types::TextEdit {
                         range: lsp_types::Range {
                             start: lsp_types::Position {
-                                line: 5,
+                                line: 0,
                                 character: 0,
                             },
                             end: lsp_types::Position {
-                                line: 5,
+                                line: 0,
                                 character: 0,
                             },
                         },

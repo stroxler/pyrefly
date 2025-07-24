@@ -1663,29 +1663,31 @@ impl<'a> Transaction<'a> {
                 if let Some(bindings) = self.get_bindings(handle)
                     && let Some(module_info) = self.get_module_info(handle)
                 {
-                    bindings
-                        .available_definitions(position)
-                        .into_iter()
-                        .for_each(|idx| {
-                            let key = bindings.idx_to_key(idx);
-                            if let Key::Definition(id) = key {
-                                let binding = bindings.get(idx);
-                                let detail = self.get_type(handle, key).map(|t| t.to_string());
-                                result.push(CompletionItem {
-                                    label: module_info.code_at(id.range()).to_owned(),
-                                    detail,
-                                    kind: binding
-                                        .symbol_kind()
-                                        .map_or(Some(CompletionItemKind::VARIABLE), |k| {
-                                            Some(k.to_lsp_completion_item_kind())
-                                        }),
-                                    ..Default::default()
-                                })
-                            }
-                        });
+                    let mut has_local_variable_results = false;
+                    for idx in bindings.available_definitions(position) {
+                        let key = bindings.idx_to_key(idx);
+                        if let Key::Definition(id) = key {
+                            let binding = bindings.get(idx);
+                            let detail = self.get_type(handle, key).map(|t| t.to_string());
+                            has_local_variable_results = true;
+                            result.push(CompletionItem {
+                                label: module_info.code_at(id.range()).to_owned(),
+                                detail,
+                                kind: binding
+                                    .symbol_kind()
+                                    .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                                        Some(k.to_lsp_completion_item_kind())
+                                    }),
+                                ..Default::default()
+                            })
+                        }
+                    }
+                    // Auto-import can be slow. Let's only return results if there are no local
+                    // results for now. TODO: re-enable it once we no longer have perf issues.
                     // We should not try to generate autoimport when the user has typed very few
                     // characters. It's unhelpful to narrow down suggestions.
-                    if identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
+                    if !has_local_variable_results
+                        && identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
                         && let Some(ast) = self.get_ast(handle)
                     {
                         for (handle_to_import_from, name, export) in
