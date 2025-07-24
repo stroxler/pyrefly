@@ -1262,8 +1262,8 @@ def f():
     class X:
         pass
 
-    while 3:
-        z = "" if 3 else ""
+    while True:
+        z = "" if True else ""
         break
     else:
         exit(1)
@@ -1280,7 +1280,7 @@ from typing import *
 
 x = 1
 
-while 3:
+while True:
     reveal_type(x) # E: revealed type: Literal[1]
     break
 else:
@@ -1312,5 +1312,27 @@ if Foo:  # E: Class name `Foo` used as condition
 while Foo:  # E: Class name `Foo` used as condition
     ...
 [x for x in range(42) if Foo]  # E: Class name `Foo` used as condition
+    "#,
+);
+
+testcase!(
+    test_redundant_condition_int,
+    r#"
+if 42:  # E: Integer literal used as condition. It's equivalent to `True`
+    ...
+while 0:  # E: Integer literal used as condition. It's equivalent to `False`
+    ...
+[x for x in range(42) if 42]  # E: Integer literal used as condition
+    "#,
+);
+
+testcase!(
+    test_redundant_condition_str_bytes,
+    r#"
+if "test":  # E: String literal used as condition. It's equivalent to `True`
+    ...
+while "":  # E: String literal used as condition. It's equivalent to `False`
+    ...
+[x for x in range(42) if b"test"]  # E: Bytes literal used as condition
     "#,
 );

@@ -101,6 +101,10 @@ impl<'a> TypeOrExpr<'a> {
 
 #[derive(Debug, Clone)]
 enum ConditionRedundantReason {
+    /// The boolean indicates whether it's equivalent to True
+    IntLiteral(bool),
+    StrLiteral(bool),
+    BytesLiteral(bool),
     Function(ModuleName, FuncId),
     Class(Name),
 }
@@ -109,11 +113,23 @@ impl ConditionRedundantReason {
     fn equivalent_boolean(&self) -> bool {
         match self {
             ConditionRedundantReason::Function(..) | ConditionRedundantReason::Class(..) => true,
+            ConditionRedundantReason::IntLiteral(b)
+            | ConditionRedundantReason::StrLiteral(b)
+            | ConditionRedundantReason::BytesLiteral(b) => *b,
         }
     }
 
     fn description(&self) -> String {
         match self {
+            ConditionRedundantReason::IntLiteral(..) => {
+                "Integer literal used as condition".to_owned()
+            }
+            ConditionRedundantReason::StrLiteral(..) => {
+                "String literal used as condition".to_owned()
+            }
+            ConditionRedundantReason::BytesLiteral(..) => {
+                "Bytes literal used as condition".to_owned()
+            }
             ConditionRedundantReason::Function(module_name, func_id) => {
                 format!(
                     "Function object `{}` used as condition",
@@ -1704,6 +1720,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Return the reason why we think `ty` is suspicious to use as a branching condition
     fn get_condition_redundant_reason(&self, ty: &Type) -> Option<ConditionRedundantReason> {
         match ty {
+            Type::Literal(Lit::Bool(_)) => None,
+            Type::Literal(Lit::Int(i)) => Some(ConditionRedundantReason::IntLiteral(i.as_bool())),
+            Type::Literal(Lit::Str(s)) => Some(ConditionRedundantReason::StrLiteral(!s.is_empty())),
+            Type::Literal(Lit::Bytes(s)) => {
+                Some(ConditionRedundantReason::BytesLiteral(!s.is_empty()))
+            }
             Type::Function(f) => Some(ConditionRedundantReason::Function(
                 self.module().name(),
                 f.metadata.kind.as_func_id(),
