@@ -1539,22 +1539,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn get_synthesized_field_from_current_class_only(
+        &self,
+        cls: &Class,
+        name: &Name,
+    ) -> Option<Arc<ClassField>> {
+        Some(
+            self.get_from_class(cls, &KeyClassSynthesizedFields(cls.index()))?
+                .get(name)?
+                .inner
+                .dupe(),
+        )
+    }
+
     /// This function does not return fields defined in parent classes
     pub fn get_field_from_current_class_only(
         &self,
         cls: &Class,
         name: &Name,
     ) -> Option<Arc<ClassField>> {
-        if let Some(field) = self.get_non_synthesized_field_from_current_class_only(cls, name) {
-            Some(field)
-        } else {
-            Some(
-                self.get_from_class(cls, &KeyClassSynthesizedFields(cls.index()))?
-                    .get(name)?
-                    .inner
-                    .dupe(),
-            )
-        }
+        self.get_non_synthesized_field_from_current_class_only(cls, name)
+            .or_else(|| self.get_synthesized_field_from_current_class_only(cls, name))
     }
 
     fn get_class_member_impl(
