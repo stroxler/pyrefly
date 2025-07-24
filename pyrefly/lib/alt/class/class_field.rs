@@ -24,7 +24,6 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
-use tracing::field;
 use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
