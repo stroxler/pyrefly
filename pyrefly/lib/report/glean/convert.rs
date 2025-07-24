@@ -198,6 +198,16 @@ impl Facts {
             })
     }
 
+    fn add_xref(&mut self, xref: python::XRefViaName) {
+        if let Some(spans) = self.xrefs_by_target.get_mut(&xref.target) {
+            spans.push(xref.source.clone());
+        } else {
+            self.xrefs_by_target
+                .insert(xref.target.clone(), vec![xref.source.clone()]);
+        }
+        self.xrefs_via_name.push(xref);
+    }
+
     fn xrefs_for_type_info(&self, expr: &Expr, xrefs: &mut Vec<python::XRefViaName>) {
         if let Some(xref) = self.make_xref(expr) {
             xrefs.push(xref)
@@ -375,17 +385,25 @@ impl Facts {
     ) -> Vec<DeclarationInfo> {
         //TODO(@rubmary) Handle level for imports. Ex from ..a import A
 
+        let from_module = from_module_id.as_ref().map(|module| module.id());
+        let from_module_fact = from_module.map_or(python::Name::new("".to_owned()), |module| {
+            self.make_fq_name(module, None)
+        });
+        if let Some(module) = from_module_id {
+            self.add_xref(python::XRefViaName {
+                target: from_module_fact.clone(),
+                source: to_span(module.range()),
+            });
+        }
+
         let mut decl_infos = vec![];
         for import in imports {
-            let from_module = from_module_id.as_ref().map(|module| module.as_str());
             let from_name = &import.name.id;
             let star_import = "*";
 
             if *from_name.as_str() == *star_import {
-                let import_star = python::ImportStarStatement::new(
-                    python::Name::new(from_module.unwrap_or_default().to_owned()),
-                    self.module.clone(),
-                );
+                let import_star =
+                    python::ImportStarStatement::new(from_module_fact.clone(), self.module.clone());
                 self.import_star_locations
                     .push(python::ImportStarLocation::new(
                         import_star,
@@ -395,8 +413,14 @@ impl Facts {
             } else {
                 let as_name = import.asname.as_ref().map_or(from_name, |x| &x.id);
 
+                let from_name_fact = self.make_fq_name(from_name, from_module.map(|x| x.as_str()));
+                self.add_xref(python::XRefViaName {
+                    target: from_name_fact.clone(),
+                    source: to_span(import.name.range()),
+                });
+
                 let import_fact = python::ImportStatement::new(
-                    self.make_fq_name(from_name, from_module),
+                    from_name_fact,
                     self.make_fq_name(as_name, Some(&self.module_name)),
                 );
 
@@ -476,13 +500,7 @@ impl Facts {
             }
         };
         if let Some(xref) = self.make_xref(expr) {
-            if let Some(spans) = self.xrefs_by_target.get_mut(&xref.target) {
-                spans.push(xref.source.clone());
-            } else {
-                self.xrefs_by_target
-                    .insert(xref.target.clone(), vec![xref.source.clone()]);
-            }
-            self.xrefs_via_name.push(xref);
+            self.add_xref(xref);
         }
         expr.recurse(&mut |s| self.generate_facts_from_exprs(s, container));
     }
