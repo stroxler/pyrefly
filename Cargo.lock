@@ -169,9 +169,9 @@ checksum = "5608767d94038891df4c7bb82f6b1beb55fe3d204735985e20de329bc35d5fee"
 
 [[package]]
 name = "argfile"
-version = "0.1.6"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1287c4f82a41c5085e65ee337c7934d71ab43d5187740a81fb69129013f6a5f6"
+checksum = "0a1cc0ba69de57db40674c66f7cf2caee3981ddef084388482c95c0e2133e5e8"
 dependencies = [
  "fs-err",
  "os_str_bytes",
@@ -1759,9 +1759,9 @@ checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "os_str_bytes"
-version = "6.6.0"
+version = "7.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b7ebac344522a099ad6b4ec72b21e428bdcd5ee390b277bd858a464fbca5ac8"
+checksum = "63eceb7b5d757011a87d08eb2123db15d87fb0c281f65d101ce30a1e96c3ad5c"
 dependencies = [
  "memchr",
 ]
