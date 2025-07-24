@@ -45,8 +45,10 @@ enum FindResult {
     /// The path component indicates where to continue search next. It may contain more than one directories as the namespace package
     /// may span across multiple search roots.
     NamespacePackage(Vec1<PathBuf>),
-    /// Found a compiled Python file (.pyc). Represents a module compiled to bytecode, lacking source and type info.
-    /// Treated as `typing.Any` to handle imports without type errors.
+    /// Found a compiled Python file (.pyc, .pyx, .pyd). Represents some kind of
+    /// compiled module, whether that's bytecode, C extension, or DLL.
+    /// Compiled modules lack source and type info, and are
+    /// treated as `typing.Any` to handle imports without type errors.
     CompiledModule(PathBuf),
 }
 
@@ -116,9 +118,11 @@ fn find_one_part<'a>(name: &Name, roots: impl Iterator<Item = &'a PathBuf>) -> O
             }
         }
         // Check if `name` corresponds to a compiled module.
-        let candidate_pyc_path = root.join(format!("{name}.pyc"));
-        if candidate_pyc_path.exists() {
-            return Some(FindResult::CompiledModule(candidate_pyc_path));
+        for candidate_compiled_suffix in ["pyc", "pyx", "pyd"] {
+            let candidate_path = root.join(format!("{name}.{candidate_compiled_suffix}"));
+            if candidate_path.exists() {
+                return Some(FindResult::CompiledModule(candidate_path));
+            }
         }
         // Finally check if `name` corresponds to a namespace package.
         if candidate_dir.is_dir() {
@@ -1207,29 +1211,36 @@ mod tests {
         let root = tempdir.path();
         TestPath::setup_test_directory(
             root,
-            vec![TestPath::dir(
-                "subdir",
-                vec![
-                    TestPath::file("nested_module.pyc"),
-                    TestPath::file("another_nested_module.py"),
-                ],
-            )],
+            vec![
+                TestPath::file("nested_module.pyc"),
+                TestPath::file("another_nested_module.py"),
+                TestPath::file("cython_module.pyx"),
+                TestPath::file("windows_dll.pyd"),
+            ],
         );
-        let result = find_one_part(&Name::new("nested_module"), [root.join("subdir")].iter());
+        let result = find_one_part(&Name::new("nested_module"), [root.to_path_buf()].iter());
         assert_eq!(
             result,
-            Some(FindResult::CompiledModule(
-                root.join("subdir/nested_module.pyc")
-            ))
+            Some(FindResult::CompiledModule(root.join("nested_module.pyc")))
+        );
+        let result = find_one_part(&Name::new("cython_module"), [root.to_path_buf()].iter());
+        assert_eq!(
+            result,
+            Some(FindResult::CompiledModule(root.join("cython_module.pyx")))
+        );
+        let result = find_one_part(&Name::new("windows_dll"), [root.to_path_buf()].iter());
+        assert_eq!(
+            result,
+            Some(FindResult::CompiledModule(root.join("windows_dll.pyd")))
         );
         let result = find_one_part(
             &Name::new("another_nested_module"),
-            [root.join("subdir")].iter(),
+            [root.to_path_buf()].iter(),
         );
         assert_eq!(
             result,
             Some(FindResult::SingleFileModule(
-                root.join("subdir/another_nested_module.py")
+                root.join("another_nested_module.py")
             ))
         );
     }
