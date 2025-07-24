@@ -1336,3 +1336,19 @@ while "":  # E: String literal used as condition. It's equivalent to `False`
 [x for x in range(42) if b"test"]  # E: Bytes literal used as condition
     "#,
 );
+
+testcase!(
+    test_redundant_condition_enum,
+    r#"
+import enum
+class E(enum.Enum):
+    A = 1
+    B = 2
+    C = 3
+if E.A:  # E: Enum literal `E.A` used as condition
+    ...
+while E.B:  # E: Enum literal `E.B` used as condition
+    ...
+[x for x in range(42) if E.C]  # E: Enum literal `E.C` used as condition
+    "#,
+);

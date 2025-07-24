@@ -108,17 +108,22 @@ enum ConditionRedundantReason {
     IntLiteral(bool),
     StrLiteral(bool),
     BytesLiteral(bool),
+    /// Class name + member name
+    EnumLiteral(Name, Name),
     Function(ModuleName, FuncId),
     Class(Name),
 }
 
 impl ConditionRedundantReason {
-    fn equivalent_boolean(&self) -> bool {
+    fn equivalent_boolean(&self) -> Option<bool> {
         match self {
-            ConditionRedundantReason::Function(..) | ConditionRedundantReason::Class(..) => true,
+            ConditionRedundantReason::Function(..) | ConditionRedundantReason::Class(..) => {
+                Some(true)
+            }
             ConditionRedundantReason::IntLiteral(b)
             | ConditionRedundantReason::StrLiteral(b)
-            | ConditionRedundantReason::BytesLiteral(b) => *b,
+            | ConditionRedundantReason::BytesLiteral(b) => Some(*b),
+            ConditionRedundantReason::EnumLiteral(..) => None,
         }
     }
 
@@ -132,6 +137,9 @@ impl ConditionRedundantReason {
             }
             ConditionRedundantReason::BytesLiteral(..) => {
                 "Bytes literal used as condition".to_owned()
+            }
+            ConditionRedundantReason::EnumLiteral(class_name, member_name) => {
+                format!("Enum literal `{class_name}.{member_name}` used as condition")
             }
             ConditionRedundantReason::Function(module_name, func_id) => {
                 format!(
@@ -150,12 +158,12 @@ impl Display for ConditionRedundantReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}. It's equivalent to `{}`",
+            "{}. It's equivalent to {}",
             self.description(),
-            if self.equivalent_boolean() {
-                "True"
-            } else {
-                "False"
+            match self.equivalent_boolean() {
+                Some(true) => "`True`",
+                Some(false) => "`False`",
+                None => "a boolean literal",
             }
         )
     }
@@ -1732,6 +1740,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Literal(Lit::Bytes(s)) => {
                 Some(ConditionRedundantReason::BytesLiteral(!s.is_empty()))
             }
+            Type::Literal(Lit::Enum(e)) => Some(ConditionRedundantReason::EnumLiteral(
+                e.class.class_object().name().clone(),
+                e.member.clone(),
+            )),
             Type::Function(f) => Some(ConditionRedundantReason::Function(
                 self.module().name(),
                 f.metadata.kind.as_func_id(),
