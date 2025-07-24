@@ -31,7 +31,6 @@ use crate::binding::binding::BindingFunction;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::report::glean::facts::*;
-use crate::report::glean::schema::python::Declaration;
 use crate::report::glean::schema::*;
 use crate::state::handle::Handle;
 use crate::state::state::Transaction;
@@ -66,21 +65,13 @@ fn to_span(range: TextRange) -> src::ByteSpan {
     }
 }
 
-fn docstring_fact(
-    docstring: &str,
-    range: TextRange,
-    declaration: Declaration,
-) -> python::DeclarationDocstring {
-    python::DeclarationDocstring::new(declaration, to_span(range), Docstring::clean(docstring))
-}
-
 struct DeclarationInfo {
     declaration: python::Declaration,
     decl_span: src::ByteSpan,
     definition: Option<python::Definition>,
     def_span: Option<src::ByteSpan>,
     top_level_decl: Option<python::Declaration>,
-    docstring: Option<python::DeclarationDocstring>,
+    docstring_range: Option<TextRange>,
 }
 
 impl Facts {
@@ -150,7 +141,7 @@ impl Facts {
             ));
 
         self.decl_locations.push(python::DeclarationLocation::new(
-            decl_info.declaration,
+            decl_info.declaration.clone(),
             self.file.clone(),
             decl_info.decl_span,
         ));
@@ -162,8 +153,13 @@ impl Facts {
             ));
         }
 
-        if let Some(declaration_docstring) = decl_info.docstring {
-            self.declaration_docstrings.push(declaration_docstring);
+        if let Some(docstring_range) = decl_info.docstring_range {
+            self.declaration_docstrings
+                .push(python::DeclarationDocstring::new(
+                    decl_info.declaration.clone(),
+                    to_span(docstring_range),
+                    Docstring::clean(self.module_info.code_at(docstring_range)),
+                ));
         }
     }
 
@@ -207,16 +203,8 @@ impl Facts {
 
         let declaration = python::Declaration::cls(cls_declaration.clone());
 
-        let cls_docstring_fact = match cls_binding {
-            BindingClass::ClassDef(class_binding) => {
-                class_binding.docstring_range.map(|docstring_range| {
-                    docstring_fact(
-                        self.module_info.code_at(docstring_range),
-                        docstring_range,
-                        declaration.clone(),
-                    )
-                })
-            }
+        let cls_docstring_range = match cls_binding {
+            BindingClass::ClassDef(class_binding) => class_binding.docstring_range,
             BindingClass::FunctionalClassDef(_, _, _) => None,
         };
 
@@ -234,7 +222,7 @@ impl Facts {
             definition: Some(python::Definition::cls(cls_definition)),
             def_span: Some(to_span(cls.range)),
             top_level_decl: None,
-            docstring: cls_docstring_fact,
+            docstring_range: cls_docstring_range,
         }
     }
 
@@ -308,7 +296,7 @@ impl Facts {
             definition: Some(python::Definition::variable(variable_definition)),
             def_span: Some(to_span(range)),
             top_level_decl,
-            docstring: None,
+            docstring_range: None,
         }
     }
 
@@ -364,13 +352,7 @@ impl Facts {
     ) -> Vec<DeclarationInfo> {
         let declaration = python::Declaration::func(func_declaration.clone());
 
-        let function_docstring_fact = binding_func.docstring_range.map(|docstring_range| {
-            docstring_fact(
-                self.module_info.code_at(docstring_range),
-                docstring_range,
-                declaration.clone(),
-            )
-        });
+        let function_docstring_range = binding_func.docstring_range;
 
         let params = &func.parameters;
 
@@ -422,7 +404,7 @@ impl Facts {
             definition: Some(python::Definition::func(func_definition)),
             def_span: Some(to_span(func.range)),
             top_level_decl: None,
-            docstring: function_docstring_fact,
+            docstring_range: function_docstring_range,
         });
 
         decl_infos
@@ -499,7 +481,7 @@ impl Facts {
                     definition: None,
                     def_span: None,
                     top_level_decl: None,
-                    docstring: None,
+                    docstring_range: None,
                 });
             }
         }
@@ -742,16 +724,7 @@ impl Glean {
         let file_lines = facts.file_lines_fact(module_info);
 
         let module_decl = python::Declaration::module(module_fact.clone());
-        let module_docstring_fact =
-            transaction
-                .get_module_docstring_range(handle)
-                .map(|docstring_range| {
-                    docstring_fact(
-                        module_info.lined_buffer().code_at(docstring_range),
-                        docstring_range,
-                        module_decl.clone(),
-                    )
-                });
+        let module_docstring_range = transaction.get_module_docstring_range(handle);
 
         let mod_decl_info = DeclarationInfo {
             declaration: module_decl,
@@ -761,7 +734,7 @@ impl Glean {
             ))),
             def_span: Some(to_span(ast.range)),
             top_level_decl: None,
-            docstring: module_docstring_fact,
+            docstring_range: module_docstring_range,
         };
 
         facts.declaration_facts(mod_decl_info, &top_level_decl);
@@ -855,8 +828,6 @@ impl Glean {
                 facts: facts.declaration_docstrings.into_iter().map(json).collect(),
             },
         ];
-
-        // TODO(@aahanaggarwal) Add DeclarationDocstring predicate
         // TODO(@rubmary) Add SName and NameToSName predicates
 
         Glean { entries }
