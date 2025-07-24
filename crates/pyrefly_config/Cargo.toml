@@ -10,7 +10,7 @@ license = "MIT"
 
 [dependencies]
 anyhow = "1.0.98"
-clap = { version = "4.5.38", features = ["derive", "env", "string", "unicode", "wrap_help"] }
+clap = { version = "4.5.41", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 configparser = { version = "3.0.3", features = ["indexmap"] }
 convert_case = "0.6"
 dupe = "0.9.1"
