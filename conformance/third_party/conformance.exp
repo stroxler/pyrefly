@@ -3274,46 +3274,6 @@
       "name": "bad-argument-count",
       "stop_column": 12,
       "stop_line": 53
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Dataclass field `c` without a default may not follow dataclass field with a default",
-      "description": "Dataclass field `c` without a default may not follow dataclass field with a default",
-      "line": 58,
-      "name": "bad-class-definition",
-      "stop_column": 6,
-      "stop_line": 58
-    },
-    {
-      "code": -2,
-      "column": 4,
-      "concise_description": "Missing argument `c` in function `DC4.__init__`",
-      "description": "Missing argument `c` in function `DC4.__init__`",
-      "line": 61,
-      "name": "missing-argument",
-      "stop_column": 18,
-      "stop_line": 61
-    },
-    {
-      "code": -2,
-      "column": 9,
-      "concise_description": "Argument `float` is not assignable to parameter `b` with type `int` in function `DC4.__init__`",
-      "description": "Argument `float` is not assignable to parameter `b` with type `int` in function `DC4.__init__`",
-      "line": 61,
-      "name": "bad-argument-type",
-      "stop_column": 12,
-      "stop_line": 61
-    },
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "Multiple values for argument `b` in function `DC4.__init__`",
-      "description": "Multiple values for argument `b` in function `DC4.__init__`",
-      "line": 61,
-      "name": "bad-keyword-argument",
-      "stop_column": 17,
-      "stop_line": 61
     }
   ],
   "dataclasses_order.py": [

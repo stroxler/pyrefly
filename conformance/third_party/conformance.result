@@ -139,10 +139,7 @@
   "dataclasses_frozen.py": [],
   "dataclasses_hash.py": [],
   "dataclasses_inheritance.py": [],
-  "dataclasses_kwonly.py": [
-    "Line 58: Unexpected errors ['Dataclass field `c` without a default may not follow dataclass field with a default']",
-    "Line 61: Unexpected errors ['Missing argument `c` in function `DC4.__init__`', 'Argument `float` is not assignable to parameter `b` with type `int` in function `DC4.__init__`', 'Multiple values for argument `b` in function `DC4.__init__`']"
-  ],
+  "dataclasses_kwonly.py": [],
   "dataclasses_order.py": [],
   "dataclasses_postinit.py": [],
   "dataclasses_slots.py": [

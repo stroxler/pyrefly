@@ -374,7 +374,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if keywords.kw_only.is_none() {
                         // kw_only hasn't been explicitly set on the field
                         keywords.kw_only = Some(
-                            seen_kw_only_marker || (cls_is_kw_only && field.defining_class == *cls),
+                            seen_kw_only_marker
+                                || if field.defining_class == *cls {
+                                    cls_is_kw_only
+                                } else {
+                                    self.get_metadata_for_class(&field.defining_class)
+                                        .dataclass_metadata()
+                                        .is_some_and(|m| m.kws.kw_only)
+                                },
                         );
                     };
                     if keywords.is_kw_only() {

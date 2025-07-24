@@ -1204,3 +1204,18 @@ c.x = 'cat'
 c.x = 42  # E: `Literal[42]` is not assignable to parameter `value` with type `str` in function `Desc.__set__`
     "#,
 );
+
+testcase!(
+    test_kwonly_mix,
+    r#"
+from dataclasses import dataclass, field
+@dataclass(kw_only=True)
+class C1:
+    a: str = field(kw_only=False)
+    b: int = 0
+@dataclass
+class C2(C1):
+    c: float
+C2('', 0.2, b=3)
+    "#,
+);
