@@ -417,7 +417,12 @@ struct RequireLevels {
 
 async fn get_watcher_events(watcher: &mut Watcher) -> anyhow::Result<CategorizedEvents> {
     loop {
-        let events = CategorizedEvents::new(watcher.wait().await?);
+        let events = CategorizedEvents::new(
+            watcher
+                .wait()
+                .await
+                .context("When waiting for watched files")?,
+        );
         if !events.is_empty() {
             return Ok(events);
         }
