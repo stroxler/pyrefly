@@ -24,6 +24,7 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use tracing::field;
 use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
@@ -1525,7 +1526,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn get_non_synthesized_field_from_current_class_only(
+    fn get_non_synthesized_field_from_current_class_only(
         &self,
         cls: &Class,
         name: &Name,
@@ -1537,6 +1538,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             None
         }
+    }
+
+    /// Only look up fields that are not synthesized. This is useful when synthesizing method signatures
+    /// for typeddict, named tuple, etc.
+    pub fn get_non_synthesized_class_member(
+        &self,
+        cls: &Class,
+        name: &Name,
+    ) -> Option<Arc<ClassField>> {
+        self.get_non_synthesized_field_from_current_class_only(cls, name)
+            .filter(|field| !field.is_init_var())
+            .or_else(|| {
+                self.get_mro_for_class(cls)
+                    .ancestors(self.stdlib)
+                    .find_map(|ancestor| {
+                        self.get_non_synthesized_field_from_current_class_only(
+                            ancestor.class_object(),
+                            name,
+                        )
+                        .filter(|field| !field.is_init_var())
+                    })
+            })
     }
 
     fn get_synthesized_field_from_current_class_only(

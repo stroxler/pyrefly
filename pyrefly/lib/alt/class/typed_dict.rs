@@ -208,20 +208,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // have the typed dict think a field exists that cannot be converted to a `TypedDictField`
         // (this can happen for any unannotated field - e.g. a classmethod or staticmethod).
         fields.iter().filter_map(|(name, is_total)| {
-            self.get_non_synthesized_field_from_current_class_only(cls, name)
-                .filter(|field| !field.is_init_var())
-                .or_else(|| {
-                    self.get_mro_for_class(cls)
-                        .ancestors(self.stdlib)
-                        .find_map(|ancestor| {
-                            // TODO(grievejia): Should we filter out non-typeddict bases here?
-                            self.get_non_synthesized_field_from_current_class_only(
-                                ancestor.class_object(),
-                                name,
-                            )
-                            .filter(|field| !field.is_init_var())
-                        })
-                })
+            self.get_non_synthesized_class_member(cls, name)
                 .and_then(|member| {
                     Arc::unwrap_or_clone(member)
                         .as_typed_dict_field_info(*is_total)
