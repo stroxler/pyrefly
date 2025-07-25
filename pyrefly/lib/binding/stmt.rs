@@ -173,8 +173,13 @@ impl<'a> BindingsBuilder<'a> {
             };
         let binding_key = self.insert_binding(key, binding);
 
-        self.scopes
-            .add_to_current_static(name.id.clone(), name.range, SymbolKind::Variable, None);
+        self.scopes.add_to_current_static(
+            name.id.clone(),
+            name.range,
+            SymbolKind::Variable,
+            None,
+            false,
+        );
 
         self.bind_name(&name.id, binding_key, FlowStyle::Other);
     }
@@ -195,8 +200,13 @@ impl<'a> BindingsBuilder<'a> {
             };
         let binding_key = self.insert_binding(key, binding);
 
-        self.scopes
-            .add_to_current_static(name.id.clone(), name.range, SymbolKind::Variable, None);
+        self.scopes.add_to_current_static(
+            name.id.clone(),
+            name.range,
+            SymbolKind::Variable,
+            None,
+            false,
+        );
 
         self.bind_name(&name.id, binding_key, FlowStyle::Other);
     }
