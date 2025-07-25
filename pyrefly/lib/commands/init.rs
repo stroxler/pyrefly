@@ -194,7 +194,7 @@ impl InitArgs {
             let (mut existing_config, _) = ConfigFile::from_file(root_config_path);
 
             // Update only the project_includes field
-            existing_config.project_includes = pyrefly_util::globs::Globs::new(include_patterns);
+            existing_config.project_includes = pyrefly_util::globs::Globs::new(include_patterns)?;
 
             // Handle differently based on config file type
             if root_config_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {

@@ -287,7 +287,7 @@ mypy_path = "a:b,c"
         let cfg = parse_pyproject_config(src)?;
         assert_eq!(
             cfg.project_includes,
-            Globs::new(vec!["a".to_owned(), "b".to_owned(), "c".to_owned()])
+            Globs::new(vec!["a".to_owned(), "b".to_owned(), "c".to_owned()]).unwrap()
         );
         assert_eq!(
             cfg.search_path_from_file,

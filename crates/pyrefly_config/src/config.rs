@@ -48,8 +48,9 @@ pub struct SubConfig {
 }
 
 impl SubConfig {
-    fn rewrite_with_path_to_config(&mut self, config_root: &Path) {
-        self.matches = self.matches.clone().from_root(config_root);
+    fn rewrite_with_path_to_config(&mut self, config_root: &Path) -> anyhow::Result<()> {
+        self.matches = self.matches.clone().from_root(config_root)?;
+        Ok(())
     }
 }
 
@@ -326,7 +327,10 @@ impl ConfigFile {
             import_root: Some(layout.get_import_root(Path::new(""))),
             ..Default::default()
         };
-        result.rewrite_with_path_to_config(root);
+        // ignore failures rewriting path to config, since we're trying to construct
+        // an ephemeral config for the user, and it's not fatal (but things might be
+        // a little weird)
+        let _ = result.rewrite_with_path_to_config(root);
         result
     }
 
@@ -340,7 +344,7 @@ impl ConfigFile {
                 .site_package_path()
                 // filter out project directory when editable installs add project path to PYTHONPATH
                 .filter(|p| self.import_root.as_ref().is_none_or(|r| !r.starts_with(p)))
-                .map(|pattern| Glob::new(pattern.to_string_lossy().to_string()))
+                .filter_map(|pattern| Glob::new(pattern.to_string_lossy().to_string()).ok())
                 .collect::<Vec<_>>(),
         );
         FilteredGlobs::new(self.project_includes.clone(), project_excludes)
@@ -368,7 +372,7 @@ impl ConfigFile {
     pub const ADDITIONAL_ROOT_FILE_NAMES: &[&str] = &["setup.py", "mypy.ini", "pyrightconfig.json"];
 
     pub fn default_project_includes() -> Globs {
-        Globs::new(vec!["**/*".to_owned()])
+        Globs::new(vec!["**/*".to_owned()]).unwrap_or_else(|_| Globs::empty())
     }
 
     pub fn default_project_excludes() -> Globs {
@@ -377,6 +381,7 @@ impl ConfigFile {
             "**/*venv/**".to_owned(),
             // Note: dot files are now excluded at the Glob::files() level
         ])
+        .unwrap_or_else(|_| Globs::empty())
     }
 
     pub fn default_true() -> bool {
@@ -606,9 +611,9 @@ impl ConfigFile {
     /// We do this as a step separate from `configure()` because CLI args may override some of these
     /// values, but CLI args will always be relative to CWD, whereas config values should be relative
     /// to the config root.
-    fn rewrite_with_path_to_config(&mut self, config_root: &Path) {
-        self.project_includes = self.project_includes.clone().from_root(config_root);
-        self.project_excludes = self.project_excludes.clone().from_root(config_root);
+    fn rewrite_with_path_to_config(&mut self, config_root: &Path) -> anyhow::Result<()> {
+        self.project_includes = self.project_includes.clone().from_root(config_root)?;
+        self.project_excludes = self.project_excludes.clone().from_root(config_root)?;
         self.search_path_from_file
             .iter_mut()
             .for_each(|search_root| {
@@ -632,7 +637,8 @@ impl ConfigFile {
             .map(|s| s.map(|i| i.absolutize_from(config_root)));
         self.sub_configs
             .iter_mut()
-            .for_each(|c| c.rewrite_with_path_to_config(config_root));
+            .try_for_each(|c| c.rewrite_with_path_to_config(config_root))?;
+        Ok(())
     }
 
     pub fn from_file(config_path: &Path) -> (ConfigFile, Vec<ConfigError>) {
@@ -664,7 +670,10 @@ impl ConfigFile {
                 Some(config_root) => {
                     let layout = ProjectLayout::new(config_root);
                     if let Some(mut config) = maybe_config {
-                        config.rewrite_with_path_to_config(config_root);
+                        let rewrite_error = config.rewrite_with_path_to_config(config_root);
+                        if let Err(error) = rewrite_error {
+                            errors.push(ConfigError::error(error));
+                        }
                         config.import_root = Some(layout.get_import_root(config_root));
                         config
                     } else {
@@ -813,8 +822,9 @@ mod tests {
                 project_includes: Globs::new(vec![
                     "tests".to_owned(),
                     "./implementation".to_owned()
-                ]),
-                project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]),
+                ])
+                .unwrap(),
+                project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]).unwrap(),
                 search_path_from_args: Vec::new(),
                 search_path_from_file: vec![PathBuf::from("../..")],
                 disable_search_path_heuristics: false,
@@ -850,7 +860,7 @@ mod tests {
                 },
                 custom_module_paths: Default::default(),
                 sub_configs: vec![SubConfig {
-                    matches: Glob::new("sub/project/**".to_owned()),
+                    matches: Glob::new("sub/project/**".to_owned()).unwrap(),
                     settings: ConfigBase {
                         extras: Default::default(),
                         errors: Some(ErrorDisplayConfig::new(HashMap::from_iter([
@@ -964,7 +974,8 @@ mod tests {
                 project_includes: Globs::new(vec![
                     "./tests".to_owned(),
                     "./implementation".to_owned()
-                ]),
+                ])
+                .unwrap(),
                 project_excludes: ConfigFile::default_project_excludes(),
                 python_environment: PythonEnvironment {
                     python_platform: Some(PythonPlatform::mac()),
@@ -1066,8 +1077,9 @@ mod tests {
         let interpreter = "venv/bin/python3".to_owned();
         let mut config = ConfigFile {
             source: ConfigSource::Synthetic,
-            project_includes: Globs::new(vec!["path1/**".to_owned(), "path2/path3".to_owned()]),
-            project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]),
+            project_includes: Globs::new(vec!["path1/**".to_owned(), "path2/path3".to_owned()])
+                .unwrap(),
+            project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]).unwrap(),
             search_path_from_args: Vec::new(),
             search_path_from_file: vec![PathBuf::from("../..")],
             disable_search_path_heuristics: false,
@@ -1082,7 +1094,7 @@ mod tests {
             root: Default::default(),
             custom_module_paths: Default::default(),
             sub_configs: vec![SubConfig {
-                matches: Glob::new("sub/project/**".to_owned()),
+                matches: Glob::new("sub/project/**".to_owned()).unwrap(),
                 settings: Default::default(),
             }],
             use_untyped_imports: false,
@@ -1113,14 +1125,15 @@ mod tests {
                 .join("sub/project/**")
                 .to_string_lossy()
                 .into_owned(),
-        );
+        )
+        .unwrap();
 
-        config.rewrite_with_path_to_config(&test_path);
+        config.rewrite_with_path_to_config(&test_path).unwrap();
 
         let expected_config = ConfigFile {
             source: ConfigSource::Synthetic,
-            project_includes: Globs::new(project_includes_vec),
-            project_excludes: Globs::new(project_excludes_vec),
+            project_includes: Globs::new(project_includes_vec).unwrap(),
+            project_excludes: Globs::new(project_excludes_vec).unwrap(),
             interpreters: Interpreters {
                 python_interpreter: Some(ConfigOrigin::config(test_path.join(interpreter))),
                 conda_environment: None,
@@ -1216,7 +1229,7 @@ mod tests {
             },
             sub_configs: vec![
                 SubConfig {
-                    matches: Glob::new("**/highest/**".to_owned()),
+                    matches: Glob::new("**/highest/**".to_owned()).unwrap(),
                     settings: ConfigBase {
                         replace_imports_with_any: Some(vec![
                             ModuleWildcard::new("highest").unwrap(),
@@ -1226,7 +1239,7 @@ mod tests {
                     },
                 },
                 SubConfig {
-                    matches: Glob::new("**/priority*".to_owned()),
+                    matches: Glob::new("**/priority*".to_owned()).unwrap(),
                     settings: ConfigBase {
                         replace_imports_with_any: Some(vec![
                             ModuleWildcard::new("second").unwrap(),
@@ -1369,7 +1382,7 @@ mod tests {
         // File contents should still be relative to the location of the config file, not src/.
         assert_eq!(
             config.project_includes,
-            Globs::new(vec![root.path().join("**/*").to_string_lossy().to_string()]),
+            Globs::new(vec![root.path().join("**/*").to_string_lossy().to_string()]).unwrap(),
         );
         assert_eq!(
             config.search_path().cloned().collect::<Vec<_>>(),
@@ -1401,11 +1414,14 @@ mod tests {
                         .into_iter()
                         .chain(site_package_path.clone())
                         .collect::<Vec<_>>()
-                ),
+                )
+                .unwrap(),
             )
         );
         assert_eq!(
-            config.get_filtered_globs(Some(Globs::new(vec!["custom_excludes".to_owned()]))),
+            config.get_filtered_globs(Some(
+                Globs::new(vec!["custom_excludes".to_owned()]).unwrap()
+            )),
             FilteredGlobs::new(
                 config.project_includes.clone(),
                 Globs::new(
@@ -1413,7 +1429,8 @@ mod tests {
                         .into_iter()
                         .chain(site_package_path)
                         .collect::<Vec<_>>()
-                ),
+                )
+                .unwrap(),
             )
         );
     }

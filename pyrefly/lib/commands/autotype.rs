@@ -218,8 +218,9 @@ mod test {
         fs_anyhow::write(&path, input).unwrap();
         let mut t = TestEnv::new();
         t.add(&path.display().to_string(), input);
-        let includes = Globs::new(vec![format!("{}/**/*", tdir.path().display()).to_owned()]);
-        let f_globs = FilteredGlobs::new(includes, Globs::new(vec![]));
+        let includes =
+            Globs::new(vec![format!("{}/**/*", tdir.path().display()).to_owned()]).unwrap();
+        let f_globs = FilteredGlobs::new(includes, Globs::empty());
         let config_finder = t.config_finder();
         let result = AutotypeArgs::run_inner(f_globs, config_finder);
         assert!(

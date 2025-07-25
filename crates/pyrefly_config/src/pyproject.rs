@@ -117,7 +117,7 @@ line-length = 88
         fs_anyhow::write(&pyproject_path, existing_content)?;
 
         let config = ConfigFile {
-            project_includes: Globs::new(vec!["new/path/**/*.py".to_owned()]),
+            project_includes: Globs::new(vec!["new/path/**/*.py".to_owned()]).unwrap(),
             ..Default::default()
         };
         PyProject::update(&pyproject_path, config)?;
@@ -165,7 +165,7 @@ build-backend = "setuptools.build_meta"
         fs_anyhow::write(&ordering_path, existing_content)?;
 
         let config = ConfigFile {
-            project_includes: Globs::new(vec!["ordering_test.py".to_owned()]),
+            project_includes: Globs::new(vec!["ordering_test.py".to_owned()]).unwrap(),
             ..Default::default()
         };
         PyProject::update(&ordering_path, config)?;

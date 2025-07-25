@@ -59,7 +59,7 @@ fn config_finder(args: ConfigOverrideArgs) -> ConfigFinder {
 }
 
 fn absolutize(globs: Globs) -> anyhow::Result<Globs> {
-    Ok(globs.from_root(&PathBuf::new().absolutize()))
+    globs.from_root(&PathBuf::new().absolutize())
 }
 
 fn get_explicit_config(
@@ -182,7 +182,7 @@ impl FilesArgs {
         config_override: &ConfigOverrideArgs,
     ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
         let project_excludes = if let Some(project_excludes) = self.project_excludes {
-            Some(absolutize(Globs::new(project_excludes))?)
+            Some(absolutize(Globs::new(project_excludes)?)?)
         } else {
             None
         };
@@ -191,7 +191,7 @@ impl FilesArgs {
         } else {
             get_globs_and_config_for_files(
                 self.config,
-                Globs::new(self.files),
+                Globs::new(self.files)?,
                 project_excludes,
                 config_override,
             )

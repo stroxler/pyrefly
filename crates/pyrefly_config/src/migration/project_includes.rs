@@ -34,7 +34,7 @@ impl ConfigOptionMigrater for ProjectIncludes {
             return Err(anyhow::anyhow!("No project includes found in mypy config"));
         }
 
-        pyrefly_cfg.project_includes = Globs::new(includes);
+        pyrefly_cfg.project_includes = Globs::new(includes)?;
         Ok(())
     }
 
@@ -87,7 +87,8 @@ mod tests {
             "package2".to_owned(),
             "module1".to_owned(),
             "module2".to_owned(),
-        ]);
+        ])
+        .unwrap();
         assert_eq!(pyrefly_cfg.project_includes, expected_includes);
     }
 
@@ -107,7 +108,7 @@ mod tests {
     #[test]
     fn test_migrate_from_pyright() {
         let project_includes_globs =
-            Globs::new(vec!["src/**/*.py".to_owned(), "test/**/*.py".to_owned()]);
+            Globs::new(vec!["src/**/*.py".to_owned(), "test/**/*.py".to_owned()]).unwrap();
         let mut pyright_cfg = default_pyright_config();
         pyright_cfg.project_includes = Some(project_includes_globs.clone());
 
@@ -137,7 +138,7 @@ mod tests {
     #[test]
     fn test_migrate_from_pyright_empty_globs() {
         let mut pyright_cfg = default_pyright_config();
-        pyright_cfg.project_includes = Some(Globs::new(vec![]));
+        pyright_cfg.project_includes = Some(Globs::empty());
 
         let mut pyrefly_cfg = ConfigFile::default();
         let default_includes = pyrefly_cfg.project_includes.clone();

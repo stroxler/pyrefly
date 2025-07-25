@@ -6,6 +6,7 @@
  */
 
 use configparser::ini::Ini;
+use itertools::Itertools as _;
 use pyrefly_util::globs::Glob;
 
 use crate::base::ConfigBase;
@@ -71,14 +72,16 @@ impl ConfigOptionMigrater for SubConfigs {
                     .into_iter()
                     .zip(std::iter::repeat(Some(errors)))
             })
-            .map(|(matches, errors)| SubConfig {
-                matches,
-                settings: ConfigBase {
-                    errors,
-                    ..Default::default()
-                },
+            .map(|(matches, errors)| -> anyhow::Result<SubConfig> {
+                Ok(SubConfig {
+                    matches: matches?,
+                    settings: ConfigBase {
+                        errors,
+                        ..Default::default()
+                    },
+                })
             })
-            .collect::<Vec<_>>();
+            .process_results(|i| i.collect::<Vec<_>>())?;
 
         if sub_configs_vec.is_empty() {
             return Err(anyhow::anyhow!("No valid sub configs found in mypy config"));
@@ -98,7 +101,7 @@ impl ConfigOptionMigrater for SubConfigs {
             .execution_environments
             .iter()
             .map(|env| env.clone().convert())
-            .collect();
+            .process_results(|i| i.collect())?;
 
         if sub_configs.is_empty() {
             return Err(anyhow::anyhow!(

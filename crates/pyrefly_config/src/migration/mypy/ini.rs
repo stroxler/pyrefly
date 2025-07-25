@@ -139,7 +139,8 @@ ignore_missing_imports = True
             "src".to_owned(),
             "other_src".to_owned(),
             "test/some_test.py".to_owned(),
-        ]);
+        ])
+        .unwrap();
         assert_eq!(cfg.project_includes, project_includes);
 
         assert_eq!(
@@ -155,7 +156,8 @@ ignore_missing_imports = True
             "**/src/include/".to_owned(),
             "**/other_src/include/".to_owned(),
             "**/src/specific/bad/file.py".to_owned(),
-        ]);
+        ])
+        .unwrap();
         assert_eq!(cfg.project_excludes, expected_excludes);
         assert_eq!(cfg.root.ignore_missing_imports.unwrap().len(), 5);
         assert_eq!(cfg.root.replace_imports_with_any.unwrap().len(), 0);

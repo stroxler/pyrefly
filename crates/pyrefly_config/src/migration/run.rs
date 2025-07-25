@@ -345,7 +345,10 @@ files = ["mypy.py"]
 "#;
         fs_anyhow::write(&original_config_path, pyproject)?;
         let cfg = Args::load_from_pyproject(&original_config_path)?;
-        assert_eq!(cfg.project_includes, Globs::new(vec!["mypy.py".to_owned()]));
+        assert_eq!(
+            cfg.project_includes,
+            Globs::new(vec!["mypy.py".to_owned()]).unwrap()
+        );
         Ok(())
     }
 

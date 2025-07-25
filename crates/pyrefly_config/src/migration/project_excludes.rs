@@ -37,7 +37,7 @@ impl ConfigOptionMigrater for ProjectExcludes {
             return Err(anyhow::anyhow!("No valid patterns found in exclude regex"));
         }
 
-        pyrefly_cfg.project_excludes = Globs::new(patterns);
+        pyrefly_cfg.project_excludes = Globs::new(patterns)?;
         Ok(())
     }
     fn migrate_from_pyright(
@@ -84,14 +84,15 @@ mod tests {
         let expected_excludes = Globs::new(vec![
             "**/src/include/".to_owned(),
             "**/other_src/include/".to_owned(),
-        ]);
+        ])
+        .unwrap();
         assert_eq!(pyrefly_cfg.project_excludes, expected_excludes);
     }
 
     #[test]
     fn test_migrate_from_pyright() {
         let project_excludes_globs =
-            Globs::new(vec!["src/**/*.py".to_owned(), "test/**/*.py".to_owned()]);
+            Globs::new(vec!["src/**/*.py".to_owned(), "test/**/*.py".to_owned()]).unwrap();
         let mut pyright_cfg = default_pyright_config();
         pyright_cfg.project_excludes = Some(project_excludes_globs.clone());
 
@@ -121,7 +122,7 @@ mod tests {
     #[test]
     fn test_migrate_from_pyright_empty_globs() {
         let mut pyright_cfg = default_pyright_config();
-        pyright_cfg.project_excludes = Some(Globs::new(vec![]));
+        pyright_cfg.project_excludes = Some(Globs::new(vec![]).unwrap());
 
         let mut pyrefly_cfg = ConfigFile::default();
         let default_excludes = pyrefly_cfg.project_excludes.clone();
