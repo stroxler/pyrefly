@@ -202,7 +202,10 @@ def foo():
     b
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
