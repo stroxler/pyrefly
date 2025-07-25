@@ -1394,6 +1394,8 @@ impl DisplayWith<Bindings> for Binding {
 }
 
 impl Binding {
+    /// Return the best guess for the kind of a symbol X, if this binding is pointed to by
+    /// a definition key of X.
     pub fn symbol_kind(&self) -> Option<SymbolKind> {
         match self {
             Binding::TypeVar(_, _, _)
@@ -1423,14 +1425,14 @@ impl Binding {
             Binding::LambdaParameter(_) | Binding::FunctionParameter(_) => {
                 Some(SymbolKind::Parameter)
             }
+            Binding::IterableValue(_, _, _) => Some(SymbolKind::Variable),
+            Binding::UnpackedValue(_, _, _, _) => Some(SymbolKind::Variable),
             Binding::Expr(_, _)
             | Binding::MultiTargetAssign(_, _, _)
             | Binding::ReturnExplicit(_)
             | Binding::ReturnImplicit(_)
             | Binding::ReturnType(_)
-            | Binding::IterableValue(_, _, _)
             | Binding::ContextValue(_, _, _, _)
-            | Binding::UnpackedValue(_, _, _, _)
             | Binding::AnnotatedType(_, _)
             | Binding::AugAssign(_, _)
             | Binding::Type(_)
