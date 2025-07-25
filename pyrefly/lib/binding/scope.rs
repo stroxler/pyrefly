@@ -71,7 +71,6 @@ pub struct StaticInfo {
     pub count: usize,
     pub style: DefinitionStyle,
     /// Is this just a name declaration (i.e. a global or a nonlocal)?
-    #[expect(unused)]
     pub is_declaration: bool,
 }
 
@@ -84,11 +83,16 @@ impl StaticInfo {
                 _ => {
                     // We are constructing an identifier, but it must have been one that we saw earlier
                     assert_ne!(self.loc, TextRange::default());
-                    Key::Definition(ShortIdentifier::new(&Identifier {
+                    let short_identifier = ShortIdentifier::new(&Identifier {
                         node_index: AtomicNodeIndex::dummy(),
                         id: name.clone(),
                         range: self.loc,
-                    }))
+                    });
+                    if self.is_declaration {
+                        Key::Declaration(short_identifier)
+                    } else {
+                        Key::Definition(short_identifier)
+                    }
                 }
             }
         } else {

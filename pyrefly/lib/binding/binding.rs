@@ -285,6 +285,8 @@ pub enum Key {
     Global(Name),
     /// I am defined in this module at this location.
     Definition(ShortIdentifier),
+    /// I am declared in this module at this location (for globals and nonlocals).
+    Declaration(ShortIdentifier),
     /// I am a name assignment that is also a first use of some other name assign.
     ///
     /// My raw definition contains unpinned placeholder types from both myself
@@ -343,6 +345,7 @@ impl Ranged for Key {
             Self::Import(_, r) => *r,
             Self::Global(_) => TextRange::default(),
             Self::Definition(x) => x.range(),
+            Self::Declaration(x) => x.range(),
             Self::UpstreamPinnedDefinition(x) => x.range(),
             Self::PinnedDefinition(x) => x.range(),
             Self::FacetAssign(x) => x.range(),
@@ -373,6 +376,7 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::Import(n, r) => write!(f, "Key::Import({n} {})", ctx.display(r)),
             Self::Global(n) => write!(f, "Key::Global({n})"),
             Self::Definition(x) => write!(f, "Key::Definition({})", short(x)),
+            Self::Declaration(x) => write!(f, "Key::Declaration({})", short(x)),
             Self::UpstreamPinnedDefinition(x) => {
                 write!(f, "Key::UpstreamPinnedDefinition({})", short(x))
             }

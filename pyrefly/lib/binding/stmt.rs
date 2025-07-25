@@ -157,8 +157,8 @@ impl<'a> BindingsBuilder<'a> {
         })
     }
 
-    fn define_nonlocal_name(&mut self, name: &Identifier) {
-        let key = Key::Definition(ShortIdentifier::new(name));
+    fn declare_nonlocal_name(&mut self, name: &Identifier) {
+        let key = Key::Declaration(ShortIdentifier::new(name));
         let binding =
             match self.lookup_mutable_captured_name(&name.id, MutableCaptureLookupKind::Nonlocal) {
                 Ok(found) => Binding::Forward(found),
@@ -178,14 +178,14 @@ impl<'a> BindingsBuilder<'a> {
             name.range,
             SymbolKind::Variable,
             None,
-            false,
+            true,
         );
 
         self.bind_name(&name.id, binding_key, FlowStyle::Other);
     }
 
-    fn define_global_name(&mut self, name: &Identifier) {
-        let key = Key::Definition(ShortIdentifier::new(name));
+    fn declare_global_name(&mut self, name: &Identifier) {
+        let key = Key::Declaration(ShortIdentifier::new(name));
         let binding =
             match self.lookup_mutable_captured_name(&name.id, MutableCaptureLookupKind::Global) {
                 Ok(found) => Binding::Forward(found),
@@ -205,7 +205,7 @@ impl<'a> BindingsBuilder<'a> {
             name.range,
             SymbolKind::Variable,
             None,
-            false,
+            true,
         );
 
         self.bind_name(&name.id, binding_key, FlowStyle::Other);
@@ -956,12 +956,12 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Global(x) => {
                 for name in x.names {
-                    self.define_global_name(&name);
+                    self.declare_global_name(&name);
                 }
             }
             Stmt::Nonlocal(x) => {
                 for name in x.names {
-                    self.define_nonlocal_name(&name);
+                    self.declare_nonlocal_name(&name);
                 }
             }
             Stmt::Expr(mut x) => {
