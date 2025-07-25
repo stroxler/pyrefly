@@ -14,7 +14,7 @@ use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
-fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String {
+fn get_test_report_ignoring_keywords(state: &State, handle: &Handle, position: TextSize) -> String {
     let mut report = "Completion Results:".to_owned();
     for CompletionItem {
         label,
@@ -57,7 +57,10 @@ bar = Bar()
 bar.
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -91,7 +94,10 @@ foo = Foo()
 foo.
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -121,7 +127,10 @@ foo = Foo()
 foo.
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -217,7 +226,10 @@ FileExistsOrNot = 1
 FileExist
 #        ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -260,7 +272,7 @@ class Foo:
 
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code), ("lib", lib)],
-        get_test_report,
+        get_test_report_ignoring_keywords,
     );
     assert_eq!(
         r#"
@@ -290,7 +302,7 @@ from foo imp
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report,
+        get_test_report_ignoring_keywords,
     );
     assert_eq!(
         r#"
@@ -331,7 +343,7 @@ from foo import
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report,
+        get_test_report_ignoring_keywords,
     );
     assert_eq!(
         r#"
@@ -359,7 +371,7 @@ from foo import imperial
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report,
+        get_test_report_ignoring_keywords,
     );
     assert_eq!(
         r#"
@@ -404,7 +416,7 @@ from .foo import imperial
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report,
+        get_test_report_ignoring_keywords,
     );
     assert_eq!(
         r#"
@@ -442,7 +454,10 @@ xyz = 5
 foo(x
 #    ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -465,7 +480,10 @@ def foo(a: int, b: str, c: bool): ...
 foo(1, 
 #      ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -491,7 +509,10 @@ foo = Foo()
 foo.method(
 #          ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -513,7 +534,10 @@ def foo(a: int, *, b: str, c: bool): ...
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -536,7 +560,10 @@ def foo(a: int, b: str = "default", *, c: bool, d: float = 1.0): ...
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -562,7 +589,10 @@ class Foo:
 Foo().test(
 #          ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -587,7 +617,10 @@ class Foo:
 Foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -608,7 +641,10 @@ def inner(b: str): ...
 outer(inner(
 #           ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -629,7 +665,10 @@ x = 42
 x(
 # ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -648,7 +687,10 @@ fn builtins_doesnt_autoimport() {
 isins
 #    ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -682,7 +724,10 @@ def foo(x: Literal['foo']): ...
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -705,7 +750,10 @@ x = {"a": 3, "b", 4}
 x["
 # ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -733,7 +781,10 @@ def foo(y: bool):
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
