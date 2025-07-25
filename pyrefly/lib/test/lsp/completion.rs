@@ -43,6 +43,37 @@ fn get_test_report_ignoring_keywords(state: &State, handle: &Handle, position: T
     report
 }
 
+fn get_test_report_including_keywords(
+    state: &State,
+    handle: &Handle,
+    position: TextSize,
+) -> String {
+    let mut report = "Completion Results:".to_owned();
+    for CompletionItem {
+        label,
+        detail,
+        kind,
+        insert_text,
+        ..
+    } in state.transaction().completion(handle, position)
+    {
+        report.push_str("\n- (");
+        report.push_str(&format!("{:?}", kind.unwrap()));
+        report.push_str(") ");
+        report.push_str(&label);
+        if let Some(detail) = detail {
+            report.push_str(": ");
+            report.push_str(&detail);
+        }
+        if let Some(insert_text) = insert_text {
+            report.push_str(" inserting `");
+            report.push_str(&insert_text);
+            report.push('`');
+        }
+    }
+    report
+}
+
 #[test]
 fn dot_complete_basic_test() {
     let code = r#"
@@ -791,6 +822,66 @@ foo(
 9 | foo(
         ^
 Completion Results:
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn no_keywords_on_dot_complete() {
+    let code = r#"
+class Foo: ...
+Foo.
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_including_keywords,
+    );
+    assert_eq!(
+        r#"
+# main.py
+3 | Foo.
+        ^
+Completion Results:
+- (Keyword) False
+- (Keyword) None
+- (Keyword) True
+- (Keyword) and
+- (Keyword) assert
+- (Keyword) async
+- (Keyword) await
+- (Keyword) break
+- (Keyword) case
+- (Keyword) class
+- (Keyword) continue
+- (Keyword) def
+- (Keyword) del
+- (Keyword) elif
+- (Keyword) else
+- (Keyword) except
+- (Keyword) finally
+- (Keyword) for
+- (Keyword) from
+- (Keyword) global
+- (Keyword) if
+- (Keyword) import
+- (Keyword) in
+- (Keyword) is
+- (Keyword) lambda
+- (Keyword) match
+- (Keyword) nonlocal
+- (Keyword) not
+- (Keyword) or
+- (Keyword) pass
+- (Keyword) raise
+- (Keyword) return
+- (Keyword) try
+- (Keyword) type
+- (Keyword) while
+- (Keyword) with
+- (Keyword) yield
 "#
         .trim(),
         report.trim(),
