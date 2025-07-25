@@ -1595,7 +1595,6 @@ impl<'a> Transaction<'a> {
 
     fn completion_unsorted_opt(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
         let mut result = Vec::new();
-        self.add_keyword_completions(handle, &mut result);
         self.add_kwargs_completions(handle, position, &mut result);
 
         match self.identifier_at(handle, position) {
@@ -1662,6 +1661,7 @@ impl<'a> Transaction<'a> {
                 }
             }
             Some(IdentifierWithContext { identifier, .. }) => {
+                self.add_keyword_completions(handle, &mut result);
                 if let Some(bindings) = self.get_bindings(handle)
                     && let Some(module_info) = self.get_module_info(handle)
                 {

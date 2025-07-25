@@ -406,18 +406,20 @@ fn test_module_completion() {
                 }),
             }),
         ],
-        expected_messages_from_language_server: vec![
-            make_sorted_completion_result_with_all_keywords(
-                2,
-                vec![CompletionItem {
-                    label: "bar".to_owned(),
-                    detail: Some("bar".to_owned()),
-                    kind: Some(CompletionItemKind::MODULE),
-                    sort_text: Some("0".to_owned()),
-                    ..Default::default()
-                }],
-            ),
-        ],
+        expected_messages_from_language_server: vec![Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(serde_json::json!({
+                "isIncomplete": false,
+                "items": vec![CompletionItem {
+                label: "bar".to_owned(),
+                detail: Some("bar".to_owned()),
+                kind: Some(CompletionItemKind::MODULE),
+                sort_text: Some("0".to_owned()),
+                ..Default::default()
+            }],
+            })),
+            error: None,
+        })],
         ..Default::default()
     });
 }
@@ -445,9 +447,14 @@ fn test_relative_module_completion() {
                 }),
             }),
         ],
-        expected_messages_from_language_server: vec![
-            make_sorted_completion_result_with_all_keywords(2, vec![]),
-        ],
+        expected_messages_from_language_server: vec![Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(serde_json::json!({
+                "isIncomplete": false,
+                "items": [],
+            })),
+            error: None,
+        })],
         ..Default::default()
     });
 }
