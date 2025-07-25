@@ -138,7 +138,7 @@ impl Glob {
         results: &mut Vec<PathBuf>,
         filter: &Globs,
     ) -> anyhow::Result<()> {
-        if filter.matches(&path)? {
+        if filter.matches(&path) {
             return Ok(());
         }
         if path.is_dir() {
@@ -172,24 +172,25 @@ impl Glob {
     /// Returns true if the given file matches any of the contained globs.
     /// We always attempt to append `**` in case
     /// the pattern is meant to be a directory wildcard.
-    pub fn matches(&self, file: &Path) -> anyhow::Result<bool> {
-        let pattern_path = &self.0;
-        // TODO(connernilsen): this shouldn't return a result
-        let mut pattern_str = pattern_path.as_str().to_owned();
-        let pattern = Pattern::new(&pattern_str)
-            .with_context(|| format!("When resolving pattern `{pattern_str}`"))?;
-        if pattern.matches_path(file) {
-            return Ok(true);
+    pub fn matches(&self, file: &Path) -> bool {
+        if self.0.matches_path(file) {
+            return true;
         }
+
+        // if we could match before, see if it's because of some matching semantics
+        // around the glob library we're using, where the end MUST be a wildcard
+        let pattern_path = &self.0;
+        let mut pattern_str = pattern_path.as_str().to_owned();
         if !pattern_str.ends_with(['/', '\\']) {
             pattern_str.push(MAIN_SEPARATOR);
         }
         pattern_str.push_str("**");
+
         // don't return an error if we fail to construct a glob here, since it's something
         // we automatically attempted and failed at. We should ignore failure here, since
         // we attempted to do this automatically, and the pattern we're constructing should be valid
         // (i.e. the previous pattern we constructed should have failed before we get to here).
-        Ok(glob::Pattern::new(&pattern_str).is_ok_and(|pattern| pattern.matches_path(file)))
+        glob::Pattern::new(&pattern_str).is_ok_and(|pattern| pattern.matches_path(file))
     }
 }
 
@@ -257,7 +258,7 @@ impl PartialEq for Glob {
 impl Glob {
     fn files(&self, filter: &Globs) -> anyhow::Result<Vec<PathBuf>> {
         let pattern = &self.0;
-        if filter.matches(self.as_path())? {
+        if filter.matches(self.as_path()) {
             return Err(anyhow::anyhow!(
                 "Pattern {} is matched by `project-excludes`.\n`project-excludes`: {}",
                 pattern.as_str(),
@@ -322,13 +323,8 @@ impl Globs {
     /// Returns true if the given file matches any of the contained globs.
     /// We always attempt to append `**` if a pattern ends in `/` in case
     /// the pattern is meant to be a directory wildcard.
-    fn matches(&self, file: &Path) -> anyhow::Result<bool> {
-        for pattern in &self.0 {
-            if pattern.matches(file)? {
-                return Ok(true);
-            }
-        }
-        Ok(false)
+    fn matches(&self, file: &Path) -> bool {
+        self.0.iter().any(|pattern| pattern.matches(file))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -404,7 +400,7 @@ impl Globs {
         let root = hg_root()?;
         let globs = self.0.try_map(|g| g.as_path().strip_prefix(&root))?;
         let mut result = eden_glob(root, globs)?;
-        result.retain(|p| filter.matches(p).is_ok_and(|matches| !matches));
+        result.retain(|p| !filter.matches(p));
         Ok(result)
     }
 
@@ -434,7 +430,7 @@ impl Globs {
     }
 
     pub fn covers(&self, path: &Path) -> bool {
-        self.matches(path).unwrap_or(false)
+        self.matches(path)
     }
 }
 
@@ -652,70 +648,59 @@ mod tests {
         ])
         .unwrap();
 
-        assert!(patterns.matches(Path::new("__pycache__/")).unwrap());
-        assert!(
-            patterns
-                .matches(Path::new("__pycache__/some/cached/file.pyc"))
-                .unwrap()
-        );
-        assert!(patterns.matches(Path::new("path/to/__pycache__/")).unwrap());
-        assert!(patterns.matches(Path::new(".hidden")).unwrap());
-        assert!(patterns.matches(Path::new("path/to/.hidden")).unwrap());
-        assert!(!patterns.matches(Path::new("./test")).unwrap());
-        assert!(!patterns.matches(Path::new("../test")).unwrap());
-        assert!(!patterns.matches(Path::new("a/.")).unwrap());
-        assert!(!patterns.matches(Path::new("a/..")).unwrap());
-        assert!(!patterns.matches(Path::new("a/./")).unwrap());
-        assert!(!patterns.matches(Path::new("a/../")).unwrap());
-        assert!(!patterns.matches(Path::new("a/./test")).unwrap());
-        assert!(!patterns.matches(Path::new("a/../test")).unwrap());
-        assert!(patterns.matches(Path::new("a/.a/")).unwrap());
-        assert!(patterns.matches(Path::new("a/.ab/")).unwrap());
-        assert!(patterns.matches(Path::new("a/.a/")).unwrap());
-        assert!(patterns.matches(Path::new("a/.ab/")).unwrap());
-        assert!(!patterns.matches(Path::new("just/a/regular.file")).unwrap());
-        assert!(!patterns.matches(Path::new("file/with/a.dot")).unwrap());
+        assert!(patterns.matches(Path::new("__pycache__/")));
+        assert!(patterns.matches(Path::new("__pycache__/some/cached/file.pyc")));
+        assert!(patterns.matches(Path::new("path/to/__pycache__/")));
+        assert!(patterns.matches(Path::new(".hidden")));
+        assert!(patterns.matches(Path::new("path/to/.hidden")));
+        assert!(!patterns.matches(Path::new("./test")));
+        assert!(!patterns.matches(Path::new("../test")));
+        assert!(!patterns.matches(Path::new("a/.")));
+        assert!(!patterns.matches(Path::new("a/..")));
+        assert!(!patterns.matches(Path::new("a/./")));
+        assert!(!patterns.matches(Path::new("a/../")));
+        assert!(!patterns.matches(Path::new("a/./test")));
+        assert!(!patterns.matches(Path::new("a/../test")));
+        assert!(patterns.matches(Path::new("a/.a/")));
+        assert!(patterns.matches(Path::new("a/.ab/")));
+        assert!(patterns.matches(Path::new("a/.a/")));
+        assert!(patterns.matches(Path::new("a/.ab/")));
+        assert!(!patterns.matches(Path::new("just/a/regular.file")));
+        assert!(!patterns.matches(Path::new("file/with/a.dot")));
         assert!(
             Globs::new(vec!["**/__pycache__".to_owned()])
                 .unwrap()
                 .matches(Path::new("__pycache__/some/file.pyc"))
-                .unwrap()
         );
         assert!(
             Globs::new(vec!["**/__pycache__/".to_owned()])
                 .unwrap()
                 .matches(Path::new("__pycache__/some/file.pyc"))
-                .unwrap()
         );
         assert!(
             Globs::new(vec!["**/__pycache__".to_owned()])
                 .unwrap()
                 .matches(Path::new("__pycache__/"))
-                .unwrap()
         );
         assert!(
             Globs::new(vec!["**/__pycache__".to_owned()])
                 .unwrap()
                 .matches(Path::new("__pycache__"))
-                .unwrap()
         );
         assert!(
             Globs::new(vec!["**/__pycache__/".to_owned()])
                 .unwrap()
                 .matches(Path::new("__pycache__/"))
-                .unwrap()
         );
         assert!(
             !Globs::new(vec!["**/__pycache__/".to_owned()])
                 .unwrap()
                 .matches(Path::new("__pycache__"))
-                .unwrap()
         );
         assert!(
             !Globs::new(vec!["**/__pycache__/**".to_owned()])
                 .unwrap()
                 .matches(Path::new("__pycache__"))
-                .unwrap()
         );
     }
 
@@ -731,7 +716,7 @@ mod tests {
 
             let glob = Glob::new_with_root(&root, pattern.to_owned()).unwrap();
             assert!(
-                glob.matches(file_to_match.as_ref()).unwrap() == equal,
+                glob.matches(file_to_match.as_ref()) == equal,
                 "glob `{}` failed (`{}` expanded, `{}` file)",
                 pattern,
                 glob,

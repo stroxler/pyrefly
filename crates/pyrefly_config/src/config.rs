@@ -520,7 +520,7 @@ impl ConfigFile {
         path: &Path,
     ) -> Option<T> {
         self.sub_configs.iter().find_map(|c| {
-            if c.matches.matches(path).ok()? {
+            if c.matches.matches(path) {
                 return getter(&c.settings);
             }
             None
