@@ -3,7 +3,7 @@
   "pass": 76,
   "fail": 60,
   "pass_rate": 0.56,
-  "differences": 274,
+  "differences": 273,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -121,7 +121,7 @@
     "generics_variance.py": 12,
     "literals_interactions.py": 2,
     "literals_literalstring.py": 3,
-    "overloads_consistency.py": 2,
+    "overloads_consistency.py": 1,
     "overloads_definitions.py": 8,
     "overloads_evaluation.py": 14,
     "protocols_class_objects.py": 7,

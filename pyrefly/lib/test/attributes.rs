@@ -1072,13 +1072,13 @@ assert_type(A.f(A[int](), ""), tuple[str, int]) # E: assert_type(tuple[str, Any]
 testcase!(
     test_access_overloaded_method_using_class_param_on_class,
     r#"
-from typing import assert_type, overload
+from typing import assert_type, overload, Any
 class A[T]:
     @overload
     def f(self) -> T: ...
     @overload
     def f(self, x: T | None) -> T: ...
-    def f(self, x=None): ...
+    def f(self, x=None) -> Any: ...
 assert_type(A.f(A[int]()), int)
     "#,
 );

@@ -123,11 +123,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     acc.reverse();
                     Type::Overload(Overload {
-                        signatures: self.extract_signatures(
-                            first.metadata.kind.as_func_id().func,
-                            acc,
-                            errors,
-                        ),
+                        signatures: self
+                            .extract_signatures(first.metadata.kind.as_func_id().func, acc, errors)
+                            .mapped(|(_, sig)| sig),
                         metadata: Box::new(first.metadata.clone()),
                     })
                 }
@@ -137,7 +135,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             let impl_is_deprecated = def.metadata.flags.is_deprecated;
             let mut acc = Vec::new();
-            let mut first = def;
+            let mut first = def.clone();
             while let Some(def) = self.step_pred(predecessor)
                 && def.metadata.flags.is_overload
             {
@@ -158,12 +156,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // TODO: merge the metadata properly.
                     let mut metadata = first.metadata.clone();
                     metadata.flags.is_deprecated = impl_is_deprecated;
+                    let sigs =
+                        self.extract_signatures(metadata.kind.as_func_id().func, defs, errors);
+                    self.check_consistency(&sigs, def, errors);
                     Type::Overload(Overload {
-                        signatures: self.extract_signatures(
-                            metadata.kind.as_func_id().func,
-                            defs,
-                            errors,
-                        ),
+                        signatures: sigs.mapped(|(_, sig)| sig),
                         metadata: Box::new(metadata),
                     })
                 }
@@ -652,28 +649,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn extract_signatures(
         &self,
         func: Name,
-        ts: Vec1<(TextRange, Type, FuncMetadata /* is_deprecated */)>,
+        ts: Vec1<(TextRange, Type, FuncMetadata)>,
         errors: &ErrorCollector,
-    ) -> Vec1<OverloadType> {
-        ts.mapped(|(range, t, metadata)| match t {
-            Type::Callable(callable) => OverloadType::Callable(Function {
-                signature: *callable,
-                metadata,
-            }),
-            Type::Function(function) => OverloadType::Callable(*function),
-            Type::Forall(box Forall {
-                tparams,
-                body: Forallable::Function(func),
-            }) => OverloadType::Forall(Forall {
-                tparams,
-                body: func,
-            }),
-            Type::Any(any_style) => OverloadType::Callable(Function {
-                signature: Callable::ellipsis(any_style.propagate()),
-                metadata,
-            }),
-            _ => {
-                self.error(
+    ) -> Vec1<(TextRange, OverloadType)> {
+        ts.mapped(|(range, t, metadata)| {
+            (
+                range,
+                match t {
+                    Type::Callable(callable) => OverloadType::Callable(Function {
+                        signature: *callable,
+                        metadata,
+                    }),
+                    Type::Function(function) => OverloadType::Callable(*function),
+                    Type::Forall(box Forall {
+                        tparams,
+                        body: Forallable::Function(func),
+                    }) => OverloadType::Forall(Forall {
+                        tparams,
+                        body: func,
+                    }),
+                    Type::Any(any_style) => OverloadType::Callable(Function {
+                        signature: Callable::ellipsis(any_style.propagate()),
+                        metadata,
+                    }),
+                    _ => {
+                        self.error(
                     errors,
                     range,
                     ErrorInfo::Kind(ErrorKind::InvalidOverload),
@@ -683,11 +683,50 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.for_display(t)
                     ),
                 );
-                OverloadType::Callable(Function {
-                    signature: Callable::ellipsis(Type::any_error()),
-                    metadata,
-                })
-            }
+                        OverloadType::Callable(Function {
+                            signature: Callable::ellipsis(Type::any_error()),
+                            metadata,
+                        })
+                    }
+                },
+            )
         })
+    }
+
+    fn check_consistency(
+        &self,
+        overloads: &Vec1<(TextRange, OverloadType)>,
+        def: Arc<DecoratedFunction>,
+        errors: &ErrorCollector,
+    ) {
+        let impl_tparams = match &def.ty {
+            Type::Forall(forall) => Some(&forall.tparams),
+            _ => None,
+        };
+        let Some(impl_return) = def.ty.callable_return_type() else {
+            return;
+        };
+        for (range, overload) in overloads.iter() {
+            let func = match overload {
+                OverloadType::Callable(func) => func,
+                OverloadType::Forall(forall) => {
+                    &self
+                        .fresh_quantified_function(&forall.tparams, forall.body.clone())
+                        .1
+                }
+            };
+            let want = match impl_tparams {
+                Some(tparams) => {
+                    &self
+                        .solver()
+                        .fresh_quantified(tparams, impl_return.clone(), self.uniques)
+                        .1
+                }
+                None => &impl_return,
+            };
+            self.check_type(want, &func.signature.ret, *range, errors, &|| {
+                TypeCheckContext::of_kind(TypeCheckKind::OverloadReturn)
+            });
+        }
     }
 }

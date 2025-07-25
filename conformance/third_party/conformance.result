@@ -318,7 +318,6 @@
   "narrowing_typeis.py": [],
   "overloads_basic.py": [],
   "overloads_consistency.py": [
-    "Lines 25, 28: Expected error (tag 'return_type')",
     "Lines 41, 44: Expected error (tag 'parameter_type')"
   ],
   "overloads_definitions.py": [

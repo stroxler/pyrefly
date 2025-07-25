@@ -164,6 +164,8 @@ pub enum TypeCheckKind {
     UnexpectedBareYield,
     /// Check on the type of the dataclass `__post_init__` method.
     PostInit,
+    /// Consistency check for overload return types.
+    OverloadReturn,
 }
 
 impl TypeCheckKind {
@@ -203,6 +205,7 @@ impl TypeCheckKind {
             Self::YieldFrom => ErrorKind::InvalidYield,
             Self::UnexpectedBareYield => ErrorKind::InvalidYield,
             Self::PostInit => ErrorKind::BadFunctionDefinition,
+            Self::OverloadReturn => ErrorKind::InvalidOverload,
         }
     }
 }

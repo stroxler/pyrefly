@@ -230,6 +230,9 @@ impl TypeCheckKind {
             Self::PostInit => format!(
                 "`__post_init__` type `{got}` is not assignable to expected type `{want}` generated from the dataclass's `InitVar` fields"
             ),
+            Self::OverloadReturn => format!(
+                "Overload return type `{got}` is not assignable to implementation return type `{want}`",
+            ),
         }
     }
 }

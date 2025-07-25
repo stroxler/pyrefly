@@ -129,7 +129,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         CallTarget::new(Target::Any(AnyStyle::Error))
     }
 
-    fn fresh_quantified_function(&self, tparams: &TParams, func: Function) -> (Vec<Var>, Function) {
+    pub fn fresh_quantified_function(
+        &self,
+        tparams: &TParams,
+        func: Function,
+    ) -> (Vec<Var>, Function) {
         let (qs, t) =
             self.solver()
                 .fresh_quantified(tparams, Type::Function(Box::new(func)), self.uniques);
