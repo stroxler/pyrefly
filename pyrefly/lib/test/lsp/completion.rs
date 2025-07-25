@@ -211,6 +211,28 @@ Completion Results:
 }
 
 #[test]
+fn variable_with_globals_complete_test() {
+    let code = r#"
+FileExistsOrNot = 1
+FileExist
+#        ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+3 | FileExist
+             ^
+Completion Results:
+- (Class) FileExistsError
+- (Variable) FileExistsOrNot: Literal[1]
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn complete_multi_module() {
     let code = r#"
 import lib

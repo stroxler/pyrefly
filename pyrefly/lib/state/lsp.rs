@@ -1689,6 +1689,34 @@ impl<'a> Transaction<'a> {
                             })
                         }
                     }
+                    if identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
+                        && let Ok(builtin_handle) =
+                            self.import_handle(handle, ModuleName::builtins(), None)
+                    {
+                        let builtin_exports = self.get_exports(&builtin_handle);
+                        for (name, location) in builtin_exports.iter() {
+                            if matcher
+                                .fuzzy_match(name.as_str(), identifier.as_str())
+                                .is_none()
+                            {
+                                continue;
+                            }
+                            let kind = match location {
+                                ExportLocation::OtherModule(_) => continue,
+                                ExportLocation::ThisModule(export) => export
+                                    .symbol_kind
+                                    .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                                        Some(k.to_lsp_completion_item_kind())
+                                    }),
+                            };
+                            result.push(CompletionItem {
+                                label: name.as_str().to_owned(),
+                                detail: None,
+                                kind,
+                                ..Default::default()
+                            });
+                        }
+                    }
                     // Auto-import can be slow. Let's only return results if there are no local
                     // results for now. TODO: re-enable it once we no longer have perf issues.
                     // We should not try to generate autoimport when the user has typed very few
@@ -1701,24 +1729,22 @@ impl<'a> Transaction<'a> {
                             self.search_exports_fuzzy(identifier.as_str())
                         {
                             // Using handle itself doesn't always work because handles can be made separately and have different hashes
-                            if handle_to_import_from.module() == handle.module() {
+                            if handle_to_import_from.module() == handle.module()
+                                || handle_to_import_from.module() == ModuleName::builtins()
+                            {
                                 continue;
                             }
-                            let (insert_text, additional_text_edits) =
-                                match handle_to_import_from.module().as_str() {
-                                    "builtins" => (None, None),
-                                    _ => {
-                                        let (position, insert_text) =
-                                            insert_import_edit(&ast, handle_to_import_from, &name);
-                                        let import_text_edit = TextEdit {
-                                            range: module_info.lined_buffer().to_lsp_range(
-                                                TextRange::at(position, TextSize::new(0)),
-                                            ),
-                                            new_text: insert_text.clone(),
-                                        };
-                                        (Some(insert_text), Some(vec![import_text_edit]))
-                                    }
+                            let (insert_text, additional_text_edits) = {
+                                let (position, insert_text) =
+                                    insert_import_edit(&ast, handle_to_import_from, &name);
+                                let import_text_edit = TextEdit {
+                                    range: module_info
+                                        .lined_buffer()
+                                        .to_lsp_range(TextRange::at(position, TextSize::new(0))),
+                                    new_text: insert_text.clone(),
                                 };
+                                (Some(insert_text), Some(vec![import_text_edit]))
+                            };
                             result.push(CompletionItem {
                                 label: name,
                                 detail: insert_text,
