@@ -40,7 +40,7 @@ fn get_all_builtin_completions() -> Vec<CompletionItem> {
 
 /// Creates a completion response message sorting the completion_items.
 /// completion_items is a Vec of CompletionItem to include in the response
-pub fn make_and_sort_completion_result(
+pub fn make_sorted_completion_result_with_all_keywords(
     request_id: i32,
     completion_items: Vec<CompletionItem>,
 ) -> Message {
@@ -134,7 +134,7 @@ fn test_completion() {
             }),
         ],
         expected_messages_from_language_server: vec![
-            make_and_sort_completion_result(
+            make_sorted_completion_result_with_all_keywords(
                 2,
                 vec![CompletionItem {
                     label: "Bar".to_owned(),
@@ -144,7 +144,7 @@ fn test_completion() {
                     ..Default::default()
                 }],
             ),
-            make_and_sort_completion_result(
+            make_sorted_completion_result_with_all_keywords(
                 3,
                 vec![CompletionItem {
                     label: "Bar".to_owned(),
@@ -195,7 +195,7 @@ fn test_completion_with_autoimport() {
                 }),
             }),
         ],
-        expected_messages_from_language_server: vec![make_and_sort_completion_result(
+        expected_messages_from_language_server: vec![make_sorted_completion_result_with_all_keywords(
             2,
             vec![
                 CompletionItem {
@@ -264,7 +264,7 @@ fn test_completion_with_autoimport_in_defined_module() {
             }),
         ],
         // This response should contain no textedits because it's defined locally in the module
-        expected_messages_from_language_server: vec![make_and_sort_completion_result(
+        expected_messages_from_language_server: vec![make_sorted_completion_result_with_all_keywords(
             2,
             vec![
                 CompletionItem {
@@ -305,71 +305,79 @@ fn test_completion_with_autoimport_duplicates() {
                 }),
             }),
         ],
-        expected_messages_from_language_server: vec![make_and_sort_completion_result(
-            2,
-            vec![
-                CompletionItem {
-                    label: "MutableMappingUnrelatedAfter".to_owned(),
-                    detail: Some("from typing import MutableMappingUnrelatedAfter\n".to_owned()),
-                    kind: Some(CompletionItemKind::CLASS),
-                    sort_text: Some("3".to_owned()),
-                    additional_text_edits: Some(vec![lsp_types::TextEdit {
-                        range: lsp_types::Range {
-                            start: lsp_types::Position {
-                                line: 5,
-                                character: 0,
+        expected_messages_from_language_server: vec![
+            make_sorted_completion_result_with_all_keywords(
+                2,
+                vec![
+                    CompletionItem {
+                        label: "MutableMappingUnrelatedAfter".to_owned(),
+                        detail: Some(
+                            "from typing import MutableMappingUnrelatedAfter\n".to_owned(),
+                        ),
+                        kind: Some(CompletionItemKind::CLASS),
+                        sort_text: Some("3".to_owned()),
+                        additional_text_edits: Some(vec![lsp_types::TextEdit {
+                            range: lsp_types::Range {
+                                start: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
+                                end: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
                             },
-                            end: lsp_types::Position {
-                                line: 5,
-                                character: 0,
+                            new_text: "from typing import MutableMappingUnrelatedAfter\n"
+                                .to_owned(),
+                        }]),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "MutableMapping".to_owned(),
+                        detail: Some("from typing import MutableMapping\n".to_owned()),
+                        kind: Some(CompletionItemKind::CLASS),
+                        sort_text: Some("3".to_owned()),
+                        additional_text_edits: Some(vec![lsp_types::TextEdit {
+                            range: lsp_types::Range {
+                                start: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
+                                end: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
                             },
-                        },
-                        new_text: "from typing import MutableMappingUnrelatedAfter\n".to_owned(),
-                    }]),
-                    ..Default::default()
-                },
-                CompletionItem {
-                    label: "MutableMapping".to_owned(),
-                    detail: Some("from typing import MutableMapping\n".to_owned()),
-                    kind: Some(CompletionItemKind::CLASS),
-                    sort_text: Some("3".to_owned()),
-                    additional_text_edits: Some(vec![lsp_types::TextEdit {
-                        range: lsp_types::Range {
-                            start: lsp_types::Position {
-                                line: 5,
-                                character: 0,
+                            new_text: "from typing import MutableMapping\n".to_owned(),
+                        }]),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "MutableMappingUnrelatedBefore".to_owned(),
+                        detail: Some(
+                            "from typing import MutableMappingUnrelatedBefore\n".to_owned(),
+                        ),
+                        kind: Some(CompletionItemKind::CLASS),
+                        sort_text: Some("3".to_owned()),
+                        additional_text_edits: Some(vec![lsp_types::TextEdit {
+                            range: lsp_types::Range {
+                                start: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
+                                end: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
                             },
-                            end: lsp_types::Position {
-                                line: 5,
-                                character: 0,
-                            },
-                        },
-                        new_text: "from typing import MutableMapping\n".to_owned(),
-                    }]),
-                    ..Default::default()
-                },
-                CompletionItem {
-                    label: "MutableMappingUnrelatedBefore".to_owned(),
-                    detail: Some("from typing import MutableMappingUnrelatedBefore\n".to_owned()),
-                    kind: Some(CompletionItemKind::CLASS),
-                    sort_text: Some("3".to_owned()),
-                    additional_text_edits: Some(vec![lsp_types::TextEdit {
-                        range: lsp_types::Range {
-                            start: lsp_types::Position {
-                                line: 5,
-                                character: 0,
-                            },
-                            end: lsp_types::Position {
-                                line: 5,
-                                character: 0,
-                            },
-                        },
-                        new_text: "from typing import MutableMappingUnrelatedBefore\n".to_owned(),
-                    }]),
-                    ..Default::default()
-                },
-            ],
-        )],
+                            new_text: "from typing import MutableMappingUnrelatedBefore\n"
+                                .to_owned(),
+                        }]),
+                        ..Default::default()
+                    },
+                ],
+            ),
+        ],
         indexing_mode: IndexingMode::LazyBlocking,
         workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
         ..Default::default()
@@ -398,16 +406,18 @@ fn test_module_completion() {
                 }),
             }),
         ],
-        expected_messages_from_language_server: vec![make_and_sort_completion_result(
-            2,
-            vec![CompletionItem {
-                label: "bar".to_owned(),
-                detail: Some("bar".to_owned()),
-                kind: Some(CompletionItemKind::MODULE),
-                sort_text: Some("0".to_owned()),
-                ..Default::default()
-            }],
-        )],
+        expected_messages_from_language_server: vec![
+            make_sorted_completion_result_with_all_keywords(
+                2,
+                vec![CompletionItem {
+                    label: "bar".to_owned(),
+                    detail: Some("bar".to_owned()),
+                    kind: Some(CompletionItemKind::MODULE),
+                    sort_text: Some("0".to_owned()),
+                    ..Default::default()
+                }],
+            ),
+        ],
         ..Default::default()
     });
 }
@@ -435,7 +445,9 @@ fn test_relative_module_completion() {
                 }),
             }),
         ],
-        expected_messages_from_language_server: vec![make_and_sort_completion_result(2, vec![])],
+        expected_messages_from_language_server: vec![
+            make_sorted_completion_result_with_all_keywords(2, vec![]),
+        ],
         ..Default::default()
     });
 }
@@ -512,7 +524,7 @@ fn test_empty_filepath_file_completion() {
             }),
         ],
         expected_messages_from_language_server: vec![
-            make_and_sort_completion_result(
+            make_sorted_completion_result_with_all_keywords(
                 2,
                 vec![CompletionItem {
                     label: "tear".to_owned(),
@@ -522,7 +534,7 @@ fn test_empty_filepath_file_completion() {
                     ..Default::default()
                 }],
             ),
-            make_and_sort_completion_result(
+            make_sorted_completion_result_with_all_keywords(
                 3,
                 vec![CompletionItem {
                     label: "tear".to_owned(),
