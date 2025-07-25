@@ -139,6 +139,7 @@ visit_nothing!(i64);
 visit_nothing!(i128);
 visit_nothing!(isize);
 visit_nothing!(());
+visit_nothing!(String);
 
 // We can't visit `str` on its own, so this is atomic.
 visit_nothing!(Box<str>);
