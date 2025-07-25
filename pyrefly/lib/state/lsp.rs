@@ -394,6 +394,12 @@ impl<'a> Transaction<'a> {
         Some(ans.for_display(ans.get_type_trace(range)?.arc_clone()))
     }
 
+    fn get_chosen_overload_trace(&self, handle: &Handle, range: TextRange) -> Option<Type> {
+        let ans = self.get_answers(handle)?;
+        let chosen_overload = ans.get_chosen_overload_trace(range)?;
+        Some(ans.for_display(Type::Callable(Box::new(chosen_overload))))
+    }
+
     fn identifier_at(&self, handle: &Handle, position: TextSize) -> Option<IdentifierWithContext> {
         let mod_module = self.get_ast(handle)?;
         let covering_nodes = Ast::locate_node(&mod_module, position);
@@ -517,6 +523,26 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    fn callee_at(&self, handle: &Handle, position: TextSize) -> Option<ExprCall> {
+        let mod_module = self.get_ast(handle)?;
+        fn f(x: &Expr, find: TextSize, res: &mut Option<ExprCall>) {
+            if let Expr::Call(call) = x
+                && call.func.range().contains_inclusive(find)
+            {
+                f(call.func.as_ref(), find, res);
+                if res.is_some() {
+                    return;
+                }
+                *res = Some(call.clone());
+            } else {
+                x.recurse(&mut |x| f(x, find, res));
+            }
+        }
+        let mut res = None;
+        mod_module.visit(&mut |x| f(x, position, &mut res));
+        res
+    }
+
     fn refine_param_location_for_callee(
         &self,
         ast: &ModModule,
@@ -556,25 +582,7 @@ impl<'a> Transaction<'a> {
         if let Some(key) = self.definition_at(handle, position) {
             return self.get_type(handle, &key);
         }
-        fn callee_at(mod_module: Arc<ModModule>, position: TextSize) -> Option<ExprCall> {
-            fn f(x: &Expr, find: TextSize, res: &mut Option<ExprCall>) {
-                if let Expr::Call(call) = x
-                    && call.func.range().contains_inclusive(find)
-                {
-                    f(call.func.as_ref(), find, res);
-                    if res.is_some() {
-                        return;
-                    }
-                    *res = Some(call.clone());
-                } else {
-                    x.recurse(&mut |x| f(x, find, res));
-                }
-            }
-            let mut res = None;
-            mod_module.visit(&mut |x| f(x, position, &mut res));
-            res
-        }
-        let callee = callee_at(self.get_ast(handle)?, position);
+
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
                 identifier: id,
@@ -587,13 +595,11 @@ impl<'a> Transaction<'a> {
                         range: _,
                         func,
                         arguments,
-                    }) = &callee
+                    }) = &self.callee_at(handle, position)
                         && func.range() == id.range
-                        && let Some(chosen_overload) = self
-                            .get_answers(handle)
-                            .and_then(|answers| answers.get_chosen_overload_trace(arguments.range))
+                        && let Some(ret) = self.get_chosen_overload_trace(handle, arguments.range)
                     {
-                        Some(Type::Callable(Box::new(chosen_overload)))
+                        Some(ret)
                     } else {
                         self.get_type(handle, &key)
                     }
@@ -679,13 +685,11 @@ impl<'a> Transaction<'a> {
                     range: _,
                     func,
                     arguments,
-                }) = &callee
+                }) = &self.callee_at(handle, position)
                     && func.range() == range
-                    && let Some(chosen_overload) = self
-                        .get_answers(handle)
-                        .and_then(|answers| answers.get_chosen_overload_trace(arguments.range))
+                    && let Some(ret) = self.get_chosen_overload_trace(handle, arguments.range)
                 {
-                    Some(Type::Callable(Box::new(chosen_overload)))
+                    Some(ret)
                 } else {
                     self.get_type_trace(handle, range)
                 }

@@ -393,3 +393,31 @@ Hover Result: `BoundMethod[Foo, Overload[(self: Self@Foo, a: str) -> bool, (self
         report.trim(),
     );
 }
+
+#[test]
+fn overloaded_generic_display_test() {
+    let code = r#"
+from typing import overload
+
+class C: ...
+
+@overload
+def foo[T](x: type[T]) -> T: ...
+@overload
+def foo(x: int) -> int: ...
+
+foo(C)
+# ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+11 | foo(C)
+       ^
+Hover Result: `(x: type[C]) -> C`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
