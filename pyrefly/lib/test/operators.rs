@@ -459,3 +459,35 @@ class C:
         return -self
     "#,
 );
+
+testcase!(
+    bug = "Mypy accepts this program and pyright rejects it wants quotes around the tensor type inside the callable. We should accept this program.",
+    test_tensor_type_lambda,
+    r#"
+from typing import Callable, cast, reveal_type
+
+class Tensor:
+    __pow__ = cast(Callable[[Tensor, int], Tensor], lambda x, y: x)
+
+def f(x: Tensor, i: int):
+    reveal_type(x ** i) # E: Argument `int` is not assignable to parameter with type `Tensor` # E: revealed type: Tensor # E: `**` is not supported between `Tensor` and `int`
+
+    "#,
+);
+
+testcase!(
+    test_tensor_type_method,
+    r#"
+from typing import reveal_type
+
+def power(x: "Tensor", i: int) -> "Tensor":
+    return x
+
+class Tensor:
+    __pow__ = power
+
+def f(x: Tensor, i: int):
+    reveal_type(x ** i) # E:  revealed type: Tensor
+
+    "#,
+);
