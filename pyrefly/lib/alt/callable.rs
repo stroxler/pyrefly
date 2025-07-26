@@ -676,7 +676,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if let Type::TypedDict(typed_dict) = ty {
                         for (name, field) in self.typed_dict_fields(&typed_dict).into_iter() {
                             let name = name_owner.push(name);
-                            let mut hint = kwargs.as_ref().map(|(_, ty)| ty.clone());
+                            let mut hint = kwargs.as_ref().map(|(_, ty)| *ty);
                             if let Some(ty) = seen_names.get(name) {
                                 error(
                                     call_errors,
@@ -684,9 +684,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     ErrorKind::BadKeywordArgument,
                                     format!("Multiple values for argument `{name}`"),
                                 );
-                                hint = Some(ty.clone());
+                                hint = Some(*ty);
                             } else if let Some((ty, required)) = kwparams.get(name) {
-                                seen_names.insert(name, ty.clone());
+                                seen_names.insert(name, *ty);
                                 if *required && !field.required {
                                     error(
                                         call_errors,
@@ -695,7 +695,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         format!("Expected key `{name}` to be required"),
                                     );
                                 }
-                                hint = Some(ty.clone())
+                                hint = Some(*ty)
                             } else if kwargs.is_none() && !kwargs_is_unpack {
                                 unexpected_keyword_error(name, kw.range);
                             }
@@ -759,7 +759,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 Some(id) => {
-                    let mut hint = kwargs.as_ref().map(|(_, ty)| ty.clone());
+                    let mut hint = kwargs.as_ref().map(|(_, ty)| *ty);
                     let mut has_matching_param = false;
                     if let Some(ty) = seen_names.get(&id.id) {
                         error(
@@ -768,11 +768,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ErrorKind::BadKeywordArgument,
                             format!("Multiple values for argument `{}`", id.id),
                         );
-                        hint = Some(ty.clone());
+                        hint = Some(*ty);
                         has_matching_param = true;
                     } else if let Some((ty, _)) = kwparams.get(&id.id) {
-                        seen_names.insert(&id.id, ty.clone());
-                        hint = Some(ty.clone());
+                        seen_names.insert(&id.id, *ty);
+                        hint = Some(*ty);
                         has_matching_param = true;
                     } else if kwargs.is_none() {
                         unexpected_keyword_error(&id.id, id.range);
