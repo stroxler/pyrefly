@@ -405,7 +405,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         call_errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) {
+        // We want to work mostly with references, but some things are taken from elsewhere,
+        // so have some owners to capture them.
         let param_list_owner = Owner::new();
+        let name_owner = Owner::new();
 
         let error = |errors, range, kind, msg: String| {
             self.error(
@@ -425,9 +428,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut rparams: Vec<&Param> = params.items().iter().rev().collect::<Vec<_>>();
         let mut num_positional_params: usize = 0;
         let mut extra_positional_args: Vec<TextRange> = Vec::new();
-        let mut seen_names: SmallMap<Name, Type> = SmallMap::new();
+        let mut seen_names: SmallMap<&Name, Type> = SmallMap::new();
         let mut extra_arg_pos: Option<TextRange> = None;
-        let mut unpacked_vararg: Option<(Option<Name>, Type)> = None;
+        let mut unpacked_vararg: Option<(Option<&Name>, Type)> = None;
         let mut unpacked_vararg_matched_args: Vec<CallArgPreEval<'_>> = Vec::new();
 
         let var_to_rparams = |var| {
@@ -479,7 +482,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         {
                             // Remember names of positional parameters to detect duplicates.
                             // We ignore positional-only parameters because they can't be passed in by name.
-                            seen_names.insert(name.clone(), ty.clone());
+                            seen_names.insert(name, ty.clone());
                         }
                         arg_pre.post_check(
                             self,
@@ -500,7 +503,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }) => {
                         // Store args that get matched to an unpacked *args param
                         // Matched args are typechecked separately later
-                        unpacked_vararg = Some((name.cloned(), ty.clone()));
+                        unpacked_vararg = Some((name, ty.clone()));
                         unpacked_vararg_matched_args.push(arg_pre.clone());
                         arg_pre.post_skip();
                     }
@@ -589,7 +592,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &|| TypeCheckContext {
                     kind: TypeCheckKind::CallVarArgs(
                         true,
-                        unpacked_name.clone(),
+                        unpacked_name.cloned(),
                         callable_name.clone(),
                     ),
                     context: context.map(|ctx| ctx()),
@@ -600,9 +603,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // in the callable have names. E.g., functions declared with `def` have named posonly
         // parameters and `typing.Callable`s have unnamed ones.
         let mut missing_unnamed_posonly: usize = 0;
-        let mut missing_named_posonly: SmallSet<Name> = SmallSet::new();
-        let mut kwparams: OrderedMap<Name, (Type, bool)> = OrderedMap::new();
-        let mut kwargs: Option<(Option<Name>, Type)> = None;
+        let mut missing_named_posonly: SmallSet<&Name> = SmallSet::new();
+        let mut kwparams: OrderedMap<&Name, (Type, bool)> = OrderedMap::new();
+        let mut kwargs: Option<(Option<&Name>, Type)> = None;
         let mut kwargs_is_unpack: bool = false;
         loop {
             let p = match rparams.pop() {
@@ -621,7 +624,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Param::PosOnly(name, _, required) => {
                     if required == &Required::Required {
                         if let Some(name) = name {
-                            missing_named_posonly.insert(name.clone());
+                            missing_named_posonly.insert(name);
                         } else {
                             missing_unnamed_posonly += 1;
                         }
@@ -629,18 +632,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 Param::VarArg(..) => {}
                 Param::Pos(name, ty, required) | Param::KwOnly(name, ty, required) => {
-                    kwparams.insert(name.clone(), (ty.clone(), required == &Required::Required));
+                    kwparams.insert(name, (ty.clone(), required == &Required::Required));
                 }
                 Param::Kwargs(_, Type::Unpack(box Type::TypedDict(typed_dict))) => {
                     self.typed_dict_fields(typed_dict)
                         .into_iter()
                         .for_each(|(name, field)| {
-                            kwparams.insert(name, (field.ty, field.required));
+                            kwparams.insert(name_owner.push(name), (field.ty, field.required));
                         });
                     kwargs_is_unpack = true;
                 }
                 Param::Kwargs(name, ty) => {
-                    kwargs = Some((name.clone(), ty.clone()));
+                    kwargs = Some((name.as_ref(), ty.clone()));
                 }
             }
         }
@@ -668,8 +671,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let ty = kw.value.infer(self, arg_errors);
                     if let Type::TypedDict(typed_dict) = ty {
                         for (name, field) in self.typed_dict_fields(&typed_dict).into_iter() {
+                            let name = name_owner.push(name);
                             let mut hint = kwargs.as_ref().map(|(_, ty)| ty.clone());
-                            if let Some(ty) = seen_names.get(&name) {
+                            if let Some(ty) = seen_names.get(name) {
                                 error(
                                     call_errors,
                                     kw.range,
@@ -677,8 +681,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     format!("Multiple values for argument `{name}`"),
                                 );
                                 hint = Some(ty.clone());
-                            } else if let Some((ty, required)) = kwparams.get(&name) {
-                                seen_names.insert(name.clone(), ty.clone());
+                            } else if let Some((ty, required)) = kwparams.get(name) {
+                                seen_names.insert(name, ty.clone());
                                 if *required && !field.required {
                                     error(
                                         call_errors,
@@ -689,7 +693,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 }
                                 hint = Some(ty.clone())
                             } else if kwargs.is_none() && !kwargs_is_unpack {
-                                unexpected_keyword_error(&name, kw.range);
+                                unexpected_keyword_error(name, kw.range);
                             }
                             if let Some(want) = &hint {
                                 self.check_type(want, &field.ty, kw.range, call_errors, &|| {
@@ -716,7 +720,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             &|| TypeCheckContext {
                                                 kind: TypeCheckKind::CallKwArgs(
                                                     None,
-                                                    name.clone(),
+                                                    name.cloned(),
                                                     callable_name.clone(),
                                                 ),
                                                 context: context.map(|ctx| ctx()),
@@ -763,7 +767,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         hint = Some(ty.clone());
                         has_matching_param = true;
                     } else if let Some((ty, _)) = kwparams.get(&id.id) {
-                        seen_names.insert(id.id.clone(), ty.clone());
+                        seen_names.insert(&id.id, ty.clone());
                         hint = Some(ty.clone());
                         has_matching_param = true;
                     } else if kwargs.is_none() {
@@ -775,7 +779,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         } else {
                             TypeCheckKind::CallKwArgs(
                                 Some(id.id.clone()),
-                                kwargs.as_ref().and_then(|(name, _)| name.clone()),
+                                kwargs.as_ref().and_then(|(name, _)| name.cloned()),
                                 callable_name.clone(),
                             )
                         },
@@ -856,7 +860,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 for (ty, range) in &splat_kwargs {
                     self.check_type(want, ty, *range, call_errors, &|| TypeCheckContext {
-                        kind: TypeCheckKind::CallUnpackKwArg(name.clone(), callable_name.clone()),
+                        kind: TypeCheckKind::CallUnpackKwArg(
+                            (*name).clone(),
+                            callable_name.clone(),
+                        ),
                         context: context.map(|ctx| ctx()),
                     });
                 }
