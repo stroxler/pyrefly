@@ -572,11 +572,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
             }
-            let unpacked_args_ty = match middle.as_slice() {
-                [] => Type::tuple(prefix),
-                [middle] => Type::Tuple(Tuple::unpacked(
+            let unpacked_args_ty = match middle.len() {
+                0 => Type::tuple(prefix),
+                1 => Type::Tuple(Tuple::unpacked(
                     prefix,
-                    Type::Tuple(Tuple::unbounded(middle.clone())),
+                    Type::Tuple(Tuple::unbounded(middle.pop().unwrap())),
                     suffix,
                 )),
                 _ => Type::Tuple(Tuple::unpacked(
