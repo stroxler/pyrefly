@@ -13,6 +13,9 @@ use itertools::Either;
 use pyrefly_python::dunder;
 use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_types::type_var::Restriction;
+use pyrefly_types::types::TParams;
+use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::StmtFunctionDef;
@@ -699,6 +702,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
+    fn subst_function(&self, tparams: &TParams, func: Function) -> Function {
+        let mp = tparams.as_vec().map(|p| {
+            (
+                &p.quantified,
+                match p.restriction() {
+                    Restriction::Bound(t) => t.clone(),
+                    Restriction::Constraints(ts) => self.unions(ts.clone()),
+                    Restriction::Unrestricted => self.stdlib.object().clone().to_type(),
+                },
+            )
+        });
+        match Type::Function(Box::new(func)).subst(&mp.iter().map(|(k, v)| (*k, v)).collect()) {
+            Type::Function(func) => *func,
+            // We passed a Function in, we must get a Function out
+            _ => unreachable!(),
+        }
+    }
+
     fn check_consistency(
         &self,
         overloads: &Vec1<(TextRange, OverloadType)>,
@@ -716,9 +737,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let func = match overload {
                 OverloadType::Callable(func) => func,
                 OverloadType::Forall(forall) => {
-                    &self
-                        .fresh_quantified_function(&forall.tparams, forall.body.clone())
-                        .1
+                    &self.subst_function(&forall.tparams, forall.body.clone())
                 }
             };
             let want = match impl_tparams {
