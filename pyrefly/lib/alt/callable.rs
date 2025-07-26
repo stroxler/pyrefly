@@ -405,6 +405,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         call_errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) {
+        let param_list_owner = Owner::new();
+
         let error = |errors, range, kind, msg: String| {
             self.error(
                 errors,
@@ -420,13 +422,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let iargs = self_arg.iter().chain(args.iter());
         // Creates a reversed copy of the parameters that we iterate through from back to front,
         // so that we can easily peek at and pop from the end.
-        let mut rparams: Vec<Param> = params.items().iter().cloned().rev().collect::<Vec<_>>();
+        let mut rparams: Vec<&Param> = params.items().iter().rev().collect::<Vec<_>>();
         let mut num_positional_params: usize = 0;
         let mut extra_positional_args: Vec<TextRange> = Vec::new();
         let mut seen_names: SmallMap<Name, Type> = SmallMap::new();
         let mut extra_arg_pos: Option<TextRange> = None;
         let mut unpacked_vararg: Option<(Option<Name>, Type)> = None;
         let mut unpacked_vararg_matched_args: Vec<CallArgPreEval<'_>> = Vec::new();
+
         let var_to_rparams = |var| {
             let ps = match self.solver().force_var(var) {
                 Type::ParamSpecValue(ps) => ps,
@@ -446,7 +449,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ParamList::everything()
                 }
             };
-            ps.items().iter().cloned().rev().collect()
+            param_list_owner.push(ps).items().iter().rev().collect()
         };
         for arg in iargs {
             let mut arg_pre = arg.pre_eval(self, arg_errors);
@@ -616,9 +619,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             };
             match p {
                 Param::PosOnly(name, _, required) => {
-                    if required == Required::Required {
+                    if required == &Required::Required {
                         if let Some(name) = name {
-                            missing_named_posonly.insert(name);
+                            missing_named_posonly.insert(name.clone());
                         } else {
                             missing_unnamed_posonly += 1;
                         }
@@ -626,10 +629,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 Param::VarArg(..) => {}
                 Param::Pos(name, ty, required) | Param::KwOnly(name, ty, required) => {
-                    kwparams.insert(name.clone(), (ty, required == Required::Required));
+                    kwparams.insert(name.clone(), (ty.clone(), required == &Required::Required));
                 }
                 Param::Kwargs(_, Type::Unpack(box Type::TypedDict(typed_dict))) => {
-                    self.typed_dict_fields(&typed_dict)
+                    self.typed_dict_fields(typed_dict)
                         .into_iter()
                         .for_each(|(name, field)| {
                             kwparams.insert(name, (field.ty, field.required));
@@ -637,7 +640,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     kwargs_is_unpack = true;
                 }
                 Param::Kwargs(name, ty) => {
-                    kwargs = Some((name, ty));
+                    kwargs = Some((name.clone(), ty.clone()));
                 }
             }
         }
