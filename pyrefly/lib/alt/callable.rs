@@ -667,9 +667,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None => {
                     let ty = kw.value.infer(self, arg_errors);
                     if let Type::TypedDict(typed_dict) = ty {
-                        for (name, field) in self.typed_dict_fields(&typed_dict).iter() {
+                        for (name, field) in self.typed_dict_fields(&typed_dict).into_iter() {
                             let mut hint = kwargs.as_ref().map(|(_, ty)| ty.clone());
-                            if let Some(ty) = seen_names.get(name) {
+                            if let Some(ty) = seen_names.get(&name) {
                                 error(
                                     call_errors,
                                     kw.range,
@@ -677,7 +677,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     format!("Multiple values for argument `{name}`"),
                                 );
                                 hint = Some(ty.clone());
-                            } else if let Some((ty, required)) = kwparams.get(name) {
+                            } else if let Some((ty, required)) = kwparams.get(&name) {
                                 seen_names.insert(name.clone(), ty.clone());
                                 if *required && !field.required {
                                     error(
@@ -689,7 +689,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 }
                                 hint = Some(ty.clone())
                             } else if kwargs.is_none() && !kwargs_is_unpack {
-                                unexpected_keyword_error(name, kw.range);
+                                unexpected_keyword_error(&name, kw.range);
                             }
                             if let Some(want) = &hint {
                                 self.check_type(want, &field.ty, kw.range, call_errors, &|| {
