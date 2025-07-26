@@ -332,33 +332,33 @@ enum PosParamKind {
 }
 
 /// Helps track matching of arguments against positional parameters in AnswersSolver::callable_infer_params.
-struct PosParam {
-    ty: Type,
-    name: Option<Name>,
+struct PosParam<'a> {
+    ty: &'a Type,
+    name: Option<&'a Name>,
     kind: PosParamKind,
 }
 
-impl PosParam {
-    fn new(p: &Param) -> Option<Self> {
+impl<'a> PosParam<'a> {
+    fn new(p: &'a Param) -> Option<Self> {
         match p {
             Param::PosOnly(name, ty, _required) => Some(Self {
-                ty: ty.clone(),
-                name: name.clone(),
+                ty,
+                name: name.as_ref(),
                 kind: PosParamKind::PositionalOnly,
             }),
             Param::Pos(name, ty, _required) => Some(Self {
-                ty: ty.clone(),
-                name: Some(name.clone()),
+                ty,
+                name: Some(name),
                 kind: PosParamKind::Positional,
             }),
             Param::VarArg(name, Type::Unpack(ty)) => Some(Self {
-                ty: (**ty).clone(),
-                name: name.clone(),
+                ty: &**ty,
+                name: name.as_ref(),
                 kind: PosParamKind::Unpacked,
             }),
             Param::VarArg(name, ty) => Some(Self {
-                ty: ty.clone(),
-                name: name.clone(),
+                ty,
+                name: name.as_ref(),
                 kind: PosParamKind::Variadic,
             }),
             Param::KwOnly(..) | Param::Kwargs(..) => None,
@@ -474,7 +474,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }) => {
                         num_positional_params += 1;
                         rparams.pop();
-                        if let Some(name) = &name
+                        if let Some(name) = name
                             && kind == PosParamKind::Positional
                         {
                             // Remember names of positional parameters to detect duplicates.
@@ -484,8 +484,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         arg_pre.post_check(
                             self,
                             callable_name.as_ref(),
-                            &ty,
-                            name.as_ref(),
+                            ty,
+                            name,
                             false,
                             arg.range(),
                             arg_errors,
@@ -500,7 +500,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }) => {
                         // Store args that get matched to an unpacked *args param
                         // Matched args are typechecked separately later
-                        unpacked_vararg = Some((name, ty));
+                        unpacked_vararg = Some((name.cloned(), ty.clone()));
                         unpacked_vararg_matched_args.push(arg_pre.clone());
                         arg_pre.post_skip();
                     }
@@ -511,8 +511,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }) => arg_pre.post_check(
                         self,
                         callable_name.as_ref(),
-                        &ty,
-                        name.as_ref(),
+                        ty,
+                        name,
                         true,
                         arg.range(),
                         arg_errors,
