@@ -200,7 +200,9 @@ pub struct FuncFlags {
     /// A `foo.setter` function, where `foo` is some `@property`-decorated function.
     /// When used to decorate a function, turns the decorated function into a property setter.
     pub is_property_setter_decorator: bool,
-    /// A function decorated with `@foo.setter`, where `foo` is some `@property`-decorated function.
+    /// If None, this is a function decorated with `@foo.setter`, where `foo` is
+    /// a property (i.e. a function decoratoed with `@property`)
+    ///
     /// The stored type is `foo` (the getter).
     pub is_property_setter_with_getter: Option<Type>,
     pub has_enum_member_decoration: bool,
