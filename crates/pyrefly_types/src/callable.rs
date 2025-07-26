@@ -15,7 +15,7 @@ use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::display::commas_iter;
-use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
 
@@ -46,8 +46,8 @@ impl ParamList {
     }
 
     /// Create a new ParamList from a list of types, as required position-only parameters.
-    pub fn new_types(xs: &[Type]) -> Self {
-        Self(xs.map(|t| Param::PosOnly(None, t.clone(), Required::Required)))
+    pub fn new_types(xs: Vec<Type>) -> Self {
+        Self(xs.into_map(|t| Param::PosOnly(None, t, Required::Required)))
     }
 
     /// Prepend some required position-only parameters.

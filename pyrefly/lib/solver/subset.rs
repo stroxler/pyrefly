@@ -523,7 +523,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         if got.len() < want_ts.len() {
             return false;
         }
-        let args = ParamList::new_types(want_ts);
+        let args = ParamList::new_types(want_ts.to_owned());
         let (pre, post) = got.items().split_at(args.len());
         if !self.is_subset_param_list(pre, args.items()) {
             return false;
@@ -543,7 +543,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         if want.len() < got_ts.len() {
             return false;
         }
-        let args = ParamList::new_types(got_ts);
+        let args = ParamList::new_types(got_ts.to_owned());
         let (pre, post) = want.items().split_at(args.len());
         if !self.is_subset_param_list(args.items(), pre) {
             return false;

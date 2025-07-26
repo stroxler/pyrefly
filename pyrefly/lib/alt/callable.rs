@@ -946,7 +946,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // Before we match an argument to `f`, we don't know what `P` is, so we don't have an answer for the Var yet.
                     Type::Var(var) => self.callable_infer_params(
                         callable_name,
-                        &ParamList::new_types(&concatenate),
+                        &ParamList::new_types(concatenate.into_vec()),
                         Some(var),
                         self_arg,
                         args,
@@ -977,7 +977,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         } else {
                             self.callable_infer_params(
                                 callable_name,
-                                &ParamList::new_types(&concatenate),
+                                &ParamList::new_types(concatenate.into_vec()),
                                 None,
                                 self_arg,
                                 &args[0..args.len() - 1],
