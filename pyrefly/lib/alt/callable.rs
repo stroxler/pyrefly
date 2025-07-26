@@ -420,13 +420,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let iargs = self_arg.iter().chain(args.iter());
         // Creates a reversed copy of the parameters that we iterate through from back to front,
         // so that we can easily peek at and pop from the end.
-        let mut rparams = params.items().iter().cloned().rev().collect::<Vec<_>>();
-        let mut num_positional_params = 0;
-        let mut extra_positional_args = Vec::new();
-        let mut seen_names = SmallMap::new();
-        let mut extra_arg_pos = None;
-        let mut unpacked_vararg = None;
-        let mut unpacked_vararg_matched_args = Vec::new();
+        let mut rparams: Vec<Param> = params.items().iter().cloned().rev().collect::<Vec<_>>();
+        let mut num_positional_params: usize = 0;
+        let mut extra_positional_args: Vec<TextRange> = Vec::new();
+        let mut seen_names: SmallMap<Name, Type> = SmallMap::new();
+        let mut extra_arg_pos: Option<TextRange> = None;
+        let mut unpacked_vararg: Option<(Option<Name>, Type)> = None;
+        let mut unpacked_vararg_matched_args: Vec<CallArgPreEval<'_>> = Vec::new();
         let var_to_rparams = |var| {
             let ps = match self.solver().force_var(var) {
                 Type::ParamSpecValue(ps) => ps,
@@ -596,11 +596,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Missing positional-only arguments, split by whether the corresponding parameters
         // in the callable have names. E.g., functions declared with `def` have named posonly
         // parameters and `typing.Callable`s have unnamed ones.
-        let mut missing_unnamed_posonly = 0;
-        let mut missing_named_posonly = SmallSet::new();
-        let mut kwparams = OrderedMap::new();
-        let mut kwargs = None;
-        let mut kwargs_is_unpack = false;
+        let mut missing_unnamed_posonly: usize = 0;
+        let mut missing_named_posonly: SmallSet<Name> = SmallSet::new();
+        let mut kwparams: OrderedMap<Name, (Type, bool)> = OrderedMap::new();
+        let mut kwargs: Option<(Option<Name>, Type)> = None;
+        let mut kwargs_is_unpack: bool = false;
         loop {
             let p = match rparams.pop() {
                 Some(p) => p,
