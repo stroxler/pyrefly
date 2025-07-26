@@ -367,12 +367,12 @@ impl PosParam {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    fn is_param_spec_args(&self, x: &CallArg, q: Quantified, errors: &ErrorCollector) -> bool {
+    fn is_param_spec_args(&self, x: &CallArg, q: &Quantified, errors: &ErrorCollector) -> bool {
         match x {
             CallArg::Star(x, _) => {
                 let mut ty = x.infer(self, errors);
                 self.expand_type_mut(&mut ty);
-                ty == Type::Args(q)
+                matches!(ty, Type::Args(q2) if &q2 == q)
             }
             _ => false,
         }
@@ -381,12 +381,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn is_param_spec_kwargs(
         &self,
         x: &CallKeyword,
-        q: Quantified,
+        q: &Quantified,
         errors: &ErrorCollector,
     ) -> bool {
         let mut ty = x.value.infer(self, errors);
         self.expand_type_mut(&mut ty);
-        ty == Type::Kwargs(q)
+        matches!(ty, Type::Kwargs(q2) if &q2 == q)
     }
 
     // See comment on `callable_infer` about `arg_errors` and `call_errors`.
@@ -959,10 +959,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Type::Quantified(q) => {
                         if !args
                             .last()
-                            .is_some_and(|x| self.is_param_spec_args(x, q.clone(), arg_errors))
-                            || !keywords.last().is_some_and(|x| {
-                                self.is_param_spec_kwargs(x, q.clone(), arg_errors)
-                            })
+                            .is_some_and(|x| self.is_param_spec_args(x, &q, arg_errors))
+                            || !keywords
+                                .last()
+                                .is_some_and(|x| self.is_param_spec_kwargs(x, &q, arg_errors))
                         {
                             self.error(
                                 call_errors,
