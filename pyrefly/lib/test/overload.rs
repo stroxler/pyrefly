@@ -361,7 +361,7 @@ class defaulty[K, V]:
     def __init__(self: defaulty[str, V], **kwargs: V) -> None: ...
     @overload
     def __init__(self, default_factory: Callable[[], V] | None, /) -> None: ...
-    def __init__() -> None:
+    def __init__(self, *args, **kwargs) -> None:
         return None
 badge: defaulty[bool, list[str]] = defaulty(list)
     "#,
@@ -515,6 +515,20 @@ def f(x: int) -> int: ...
 @overload
 def f(x: str) -> str: ...
 def f[T](x: T) -> T:
+    return x
+    "#,
+);
+
+testcase!(
+    test_param_consistency,
+    r#"
+from typing import overload
+
+@overload
+def f(x: int) -> int: ...
+@overload
+def f(x: str) -> int: ...  # E: Implementation signature `(x: int) -> int` does not accept all arguments that overload signature `(x: str) -> int` accepts
+def f(x: int) -> int:
     return x
     "#,
 );

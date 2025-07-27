@@ -730,28 +730,68 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Forall(forall) => Some(&forall.tparams),
             _ => None,
         };
-        let Some(impl_return) = def.ty.callable_return_type() else {
-            return;
+        let impl_sig = {
+            let sigs = def.ty.callable_signatures();
+            if sigs.len() != 1 {
+                // If this is somehow not a callable (len == 0), there's nothing to check.
+                // An overload's implementation can't be overloaded (len > 1).
+                return;
+            }
+            sigs[0]
+        };
+        let sig_for_input_check = |sig: &Callable| {
+            let mut sig = sig.clone();
+            // Set the return type to `Any` so that we check just the input signature.
+            sig.ret = Type::any_implicit();
+            sig
         };
         for (range, overload) in overloads.iter() {
-            let func = match overload {
-                OverloadType::Callable(func) => func,
-                OverloadType::Forall(forall) => {
-                    &self.subst_function(&forall.tparams, forall.body.clone())
+            let overload_func = {
+                let (tparams, func) = match overload {
+                    OverloadType::Callable(func) => (None, func),
+                    OverloadType::Forall(forall) => (Some(&forall.tparams), &forall.body),
+                };
+                if let Some(tparams) = tparams {
+                    self.subst_function(tparams, func.clone())
+                } else {
+                    func.clone()
                 }
             };
-            let want = match impl_tparams {
-                Some(tparams) => {
-                    &self
-                        .solver()
-                        .fresh_quantified(tparams, impl_return.clone(), self.uniques)
-                        .1
+            let impl_func = {
+                let func = Function {
+                    signature: impl_sig.clone(),
+                    metadata: def.metadata.clone(),
+                };
+                if let Some(tparams) = impl_tparams {
+                    self.fresh_quantified_function(tparams, func).1
+                } else {
+                    func
                 }
-                None => &impl_return,
             };
-            self.check_type(want, &func.signature.ret, *range, errors, &|| {
-                TypeCheckContext::of_kind(TypeCheckKind::OverloadReturn)
-            });
+            // See https://typing.python.org/en/latest/spec/overload.html#implementation-consistency.
+            // We check that the input signature of the implementation is assignable to the input
+            // signature of the overload and that the return type of the overload is assignable
+            // to the return type of the implementation. (Note that the two assignability checks
+            // are in opposite directions.)
+            self.check_type(
+                &Type::Callable(Box::new(sig_for_input_check(&overload_func.signature))),
+                &Type::Callable(Box::new(sig_for_input_check(&impl_func.signature))),
+                *range,
+                errors,
+                &|| {
+                    TypeCheckContext::of_kind(TypeCheckKind::OverloadInput(
+                        overload_func.signature.clone(),
+                        impl_func.signature.clone(),
+                    ))
+                },
+            );
+            self.check_type(
+                &impl_func.signature.ret,
+                &overload_func.signature.ret,
+                *range,
+                errors,
+                &|| TypeCheckContext::of_kind(TypeCheckKind::OverloadReturn),
+            );
         }
     }
 }

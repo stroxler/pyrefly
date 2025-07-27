@@ -704,7 +704,7 @@ assert_type(B[int, str, float](), B[int, str, float, [int, str]])
 );
 
 testcase!(
-    bug = "should raise an error on bad_curry",
+    bug = "should raise an error on bad_curry, should not error on overloads",
     test_functools_partial_pattern,
     r#"
 from typing import Any, Callable, Concatenate, Generic, ParamSpec, TypeVar, TypeVarTuple, overload
@@ -719,9 +719,9 @@ class partial(Generic[_P1, _P2, _T, _R_co, *_Ts]):
     @overload
     def __new__(cls, __func: Callable[_P1, _R_co]) -> partial[_P1, _P1, Any, _R_co]: ...
     @overload
-    def __new__(cls, __func: Callable[Concatenate[*_Ts, _P2], _R_co], *args: *_Ts) -> partial[Concatenate[*_Ts, _P2], _P2, Any, _R_co, *_Ts]: ...
+    def __new__(cls, __func: Callable[Concatenate[*_Ts, _P2], _R_co], *args: *_Ts) -> partial[Concatenate[*_Ts, _P2], _P2, Any, _R_co, *_Ts]: ...  # E: does not accept all arguments
     @overload
-    def __new__(cls, __func: Callable[_P1, _R_co], *args: *_Ts, **kwargs: _T) -> partial[_P1, ..., _T, _R_co, *_Ts]: ...
+    def __new__(cls, __func: Callable[_P1, _R_co], *args: *_Ts, **kwargs: _T) -> partial[_P1, ..., _T, _R_co, *_Ts]: ...  # E: does not accept all arguments
     def __new__(cls, __func, *args, **kwargs):
         return super().__new__(cls)
     def __call__(self, *args: _P2.args, **kwargs: _P2.kwargs) -> _R_co: ...
