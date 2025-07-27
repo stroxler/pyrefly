@@ -217,6 +217,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         return false;
                     }
                 }
+                (Some(Param::VarArg(_, Type::Any(_))), Some(Param::VarArg(_, Type::Unpack(_)))) => {
+                    l_arg = l_args.next();
+                    u_arg = u_args.next();
+                }
                 (Some(Param::VarArg(_, l)), Some(Param::VarArg(_, Type::Unpack(u)))) => {
                     if self.is_subset_eq(u, &Type::Tuple(Tuple::unbounded(l.clone()))) {
                         l_arg = l_args.next();

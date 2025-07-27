@@ -554,6 +554,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ty,
             metadata,
             stub_or_impl,
+            defining_cls,
         })
     }
 
@@ -739,6 +740,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             sigs[0]
         };
+        let all_tparams = |tparams: Option<&Arc<TParams>>| match (tparams, &def.defining_cls) {
+            (None, None) => None,
+            (Some(_), None) => tparams.cloned(),
+            (None, Some(cls)) => Some(self.get_class_tparams(cls)),
+            (Some(tparams), Some(cls)) => {
+                let mut all_tparams = (**tparams).clone();
+                all_tparams.extend(&self.get_class_tparams(cls));
+                Some(Arc::new(all_tparams))
+            }
+        };
         let sig_for_input_check = |sig: &Callable| {
             let mut sig = sig.clone();
             // Set the return type to `Any` so that we check just the input signature.
@@ -751,8 +762,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     OverloadType::Callable(func) => (None, func),
                     OverloadType::Forall(forall) => (Some(&forall.tparams), &forall.body),
                 };
-                if let Some(tparams) = tparams {
-                    self.subst_function(tparams, func.clone())
+                if let Some(tparams) = all_tparams(tparams) {
+                    self.subst_function(&tparams, func.clone())
                 } else {
                     func.clone()
                 }
@@ -762,8 +773,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     signature: impl_sig.clone(),
                     metadata: def.metadata.clone(),
                 };
-                if let Some(tparams) = impl_tparams {
-                    self.fresh_quantified_function(tparams, func).1
+                if let Some(tparams) = all_tparams(impl_tparams) {
+                    self.fresh_quantified_function(&tparams, func).1
                 } else {
                     func
                 }
