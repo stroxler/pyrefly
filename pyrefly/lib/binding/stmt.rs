@@ -770,7 +770,18 @@ impl<'a> BindingsBuilder<'a> {
                                 Binding::ExceptionHandler(type_, x.is_star),
                             );
                         }
-                        _ => {}
+                        (Some(name), None) => {
+                            // Must be a syntax error. But make sure we bind name to something.
+                            let handler = self
+                                .declare_current_idx(Key::Definition(ShortIdentifier::new(&name)));
+                            self.bind_definition_current(
+                                &name,
+                                handler,
+                                Binding::Type(Type::any_error()),
+                                FlowStyle::Other,
+                            );
+                        }
+                        (None, None) => {}
                     }
                     self.stmts(h.body);
                     self.scopes.swap_current_flow_with(&mut base);
