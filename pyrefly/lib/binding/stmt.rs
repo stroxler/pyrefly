@@ -750,25 +750,27 @@ impl<'a> BindingsBuilder<'a> {
                     base = self.scopes.clone_current_flow();
                     let range = h.range();
                     let h = h.except_handler().unwrap(); // Only one variant for now
-                    if let Some(name) = h.name
-                        && let Some(mut type_) = h.type_
-                    {
-                        let mut handler =
-                            self.declare_current_idx(Key::Definition(ShortIdentifier::new(&name)));
-                        self.ensure_expr(&mut type_, handler.usage());
-                        self.bind_definition_current(
-                            &name,
-                            handler,
-                            Binding::ExceptionHandler(type_, x.is_star),
-                            FlowStyle::Other,
-                        );
-                    } else if let Some(mut type_) = h.type_ {
-                        let mut handler = self.declare_current_idx(Key::Anon(range));
-                        self.ensure_expr(&mut type_, handler.usage());
-                        self.insert_binding_current(
-                            handler,
-                            Binding::ExceptionHandler(type_, x.is_star),
-                        );
+                    match (h.name, h.type_) {
+                        (Some(name), Some(mut type_)) => {
+                            let mut handler = self
+                                .declare_current_idx(Key::Definition(ShortIdentifier::new(&name)));
+                            self.ensure_expr(&mut type_, handler.usage());
+                            self.bind_definition_current(
+                                &name,
+                                handler,
+                                Binding::ExceptionHandler(type_, x.is_star),
+                                FlowStyle::Other,
+                            );
+                        }
+                        (None, Some(mut type_)) => {
+                            let mut handler = self.declare_current_idx(Key::Anon(range));
+                            self.ensure_expr(&mut type_, handler.usage());
+                            self.insert_binding_current(
+                                handler,
+                                Binding::ExceptionHandler(type_, x.is_star),
+                            );
+                        }
+                        _ => {}
                     }
                     self.stmts(h.body);
                     self.scopes.swap_current_flow_with(&mut base);
