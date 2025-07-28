@@ -159,13 +159,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let has_typed_dict_base_class = Self::find_has_typed_dict_base_class(bases.as_slice());
 
         let mut has_base_any = false;
-        // If this class inherits from a dataclass_transform-ed class, record the defaults that we
-        // should use for dataclass parameters.
-        let mut dataclass_defaults_from_base_class = None;
-        // This is set when a class is decorated with `@typing.dataclass_transform(...)`. Note that
-        // this does not turn the class into a dataclass! Instead, it becomes a special base class
-        // (or metaclass) that turns child classes into dataclasses.
-        let mut dataclass_transform_metadata = None;
         let bases_with_metadata = bases
             .iter()
             .filter_map(|x| {
@@ -247,15 +240,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     );
                                 }
                             }
-                            if let Some(m) = base_class_metadata.dataclass_transform_metadata() {
-                                dataclass_defaults_from_base_class = Some(m.clone());
-                                // When a class C is transformed into a dataclass via inheriting from a class decorated
-                                // with `@dataclass_transform(...)`, then C in turn causes classes inheriting from it
-                                // to be transformed (and so on). Note that this differs from dataclass transformation
-                                // via a decorator in that if you inherit from a class transformed via decorator, you
-                                // inherit its dataclass-ness but your own fields are *not* transformed.
-                                dataclass_transform_metadata = Some(m.clone());
-                            }
                             Some((c, base_class_metadata))
                         }
                         Some((Type::Tuple(tuple), _)) => {
@@ -311,6 +295,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 _ => Either::Right((n.clone(), self.expr_infer(x, errors))),
             });
 
+        // If this class inherits from a dataclass_transform-ed class, record the defaults that we
+        // should use for dataclass parameters.
+        let dataclass_defaults_from_base_class = bases_with_metadata
+            .iter()
+            .find_map(|(_, metadata)| metadata.dataclass_transform_metadata().cloned());
+        // This is set when a class is decorated with `@typing.dataclass_transform(...)`. Note that
+        // this does not turn the class into a dataclass! Instead, it becomes a special base class
+        // (or metaclass) that turns child classes into dataclasses.
+        let mut dataclass_transform_metadata = dataclass_defaults_from_base_class.clone();
         let mut dataclass_metadata = bases_with_metadata
             .iter()
             .find_map(|(_, metadata)| metadata.dataclass_metadata().cloned());
