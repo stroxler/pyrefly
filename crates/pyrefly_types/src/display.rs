@@ -196,7 +196,7 @@ impl<'a> TypeDisplayContext<'a> {
         &self,
         t: &'b Type,
         f: &mut fmt::Formatter<'_>,
-        _is_toplevel: bool,
+        is_toplevel: bool,
     ) -> fmt::Result {
         match t {
             // Things that have QName's and need qualifying
@@ -260,7 +260,13 @@ impl<'a> TypeDisplayContext<'a> {
             | Type::Function(box Function {
                 signature: c,
                 metadata: _,
-            }) => c.fmt_with_type(f, &|t| self.display_internal(t)),
+            }) => {
+                if self.hover && is_toplevel {
+                    c.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
+                } else {
+                    c.fmt_with_type(f, &|t| self.display(t))
+                }
+            }
             Type::Overload(overload) => {
                 write!(
                     f,
@@ -699,13 +705,41 @@ pub mod tests {
     }
 
     #[test]
+    fn test_display_single_param_callable() {
+        let param1 = Param::Pos(Name::new_static("hello"), Type::None, Required::Required);
+        let callable = Callable::list(ParamList::new(vec![param1]), Type::None);
+        let callable_type = Type::Callable(Box::new(callable));
+        let mut ctx = TypeDisplayContext::new(&[&callable_type]);
+        assert_eq!(
+            ctx.display(&callable_type).to_string(),
+            "(hello: None) -> None"
+        );
+        ctx.set_display_mode_to_hover();
+        assert_eq!(
+            ctx.display(&callable_type).to_string(),
+            "(hello: None) -> None"
+        );
+    }
+
+    #[test]
     fn test_display_callable() {
         let param1 = Param::Pos(Name::new_static("hello"), Type::None, Required::Required);
         let param2 = Param::KwOnly(Name::new_static("world"), Type::None, Required::Required);
         let callable = Callable::list(ParamList::new(vec![param1, param2]), Type::None);
+        let callable_type = Type::Callable(Box::new(callable));
+        let mut ctx = TypeDisplayContext::new(&[&callable_type]);
         assert_eq!(
-            Type::Callable(Box::new(callable)).to_string(),
+            ctx.display(&callable_type).to_string(),
             "(hello: None, *, world: None) -> None"
+        );
+        ctx.set_display_mode_to_hover();
+        assert_eq!(
+            ctx.display(&callable_type).to_string(),
+            r#"(
+    hello: None,
+    *,
+    world: None
+) -> None"#
         );
     }
 
@@ -714,9 +748,38 @@ pub mod tests {
         let args = Param::VarArg(Some(Name::new_static("my_args")), Type::any_implicit());
         let kwargs = Param::Kwargs(Some(Name::new_static("my_kwargs")), Type::any_implicit());
         let callable = Callable::list(ParamList::new(vec![args, kwargs]), Type::None);
+        let callable_type = Type::Callable(Box::new(callable));
+        let mut ctx = TypeDisplayContext::new(&[&callable_type]);
         assert_eq!(
-            Type::Callable(Box::new(callable)).to_string(),
+            ctx.display(&callable_type).to_string(),
             "(*my_args: Unknown, **my_kwargs: Unknown) -> None"
+        );
+        ctx.set_display_mode_to_hover();
+        assert_eq!(
+            ctx.display(&callable_type).to_string(),
+            r#"(
+    *my_args: Unknown,
+    **my_kwargs: Unknown
+) -> None"#
+        );
+    }
+
+    #[test]
+    fn test_display_callable_in_container() {
+        let param1 = Param::Pos(Name::new_static("hello"), Type::None, Required::Required);
+        let param2 = Param::KwOnly(Name::new_static("world"), Type::None, Required::Required);
+        let callable = Callable::list(ParamList::new(vec![param1, param2]), Type::None);
+        let callable_type = Type::Callable(Box::new(callable));
+        let tuple = Type::Tuple(Tuple::concrete(vec![callable_type.clone()]));
+        let mut ctx = TypeDisplayContext::new(&[&tuple]);
+        assert_eq!(
+            ctx.display(&tuple).to_string(),
+            "tuple[(hello: None, *, world: None) -> None]"
+        );
+        ctx.set_display_mode_to_hover();
+        assert_eq!(
+            ctx.display(&tuple).to_string(),
+            "tuple[(hello: None, *, world: None) -> None]"
         );
     }
 
@@ -738,9 +801,21 @@ pub mod tests {
             Required::Optional(Some(Type::None)),
         );
         let callable = Callable::list(ParamList::new(vec![param1, param2, param3]), Type::None);
+        let callable_type = Type::Callable(Box::new(callable));
+        let mut ctx = TypeDisplayContext::new(&[&callable_type]);
         assert_eq!(
-            Type::Callable(Box::new(callable)).to_string(),
+            ctx.display(&callable_type).to_string(),
             "(x: Any = ..., /, y: Any = True, z: Any = None) -> None"
+        );
+        ctx.set_display_mode_to_hover();
+        assert_eq!(
+            ctx.display(&callable_type).to_string(),
+            r#"(
+    x: Any = ...,
+    /,
+    y: Any = True,
+    z: Any = None
+) -> None"#
         );
     }
 
@@ -752,8 +827,15 @@ pub mod tests {
             Required::Required,
         );
         let callable = Callable::list(ParamList::new(vec![param]), Type::None);
+        let callable_type = Type::Callable(Box::new(callable));
+        let mut ctx = TypeDisplayContext::new(&[&callable_type]);
         assert_eq!(
-            Type::Callable(Box::new(callable)).to_string(),
+            ctx.display(&callable_type).to_string(),
+            "(x: Any, /) -> None"
+        );
+        ctx.set_display_mode_to_hover();
+        assert_eq!(
+            ctx.display(&callable_type).to_string(),
             "(x: Any, /) -> None"
         );
     }
@@ -763,9 +845,19 @@ pub mod tests {
         let param1 = Param::PosOnly(None, Type::any_explicit(), Required::Required);
         let param2 = Param::PosOnly(None, Type::any_explicit(), Required::Optional(None));
         let callable = Callable::list(ParamList::new(vec![param1, param2]), Type::None);
+        let callable_type = Type::Callable(Box::new(callable));
+        let mut ctx = TypeDisplayContext::new(&[&callable_type]);
         assert_eq!(
-            Type::Callable(Box::new(callable)).to_string(),
+            ctx.display(&callable_type).to_string(),
             "(Any, _: Any = ...) -> None"
+        );
+        ctx.set_display_mode_to_hover();
+        assert_eq!(
+            ctx.display(&callable_type).to_string(),
+            r#"(
+    Any,
+    _: Any = ...
+) -> None"#
         );
     }
 
