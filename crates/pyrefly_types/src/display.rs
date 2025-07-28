@@ -81,6 +81,8 @@ impl QNameInfo {
 #[derive(Debug, Default)]
 pub struct TypeDisplayContext<'a> {
     qnames: SmallMap<&'a Name, QNameInfo>,
+    /// Should we display for IDE Hover? This makes type names more readable but less precise.
+    hover: bool,
 }
 
 impl<'a> TypeDisplayContext<'a> {
@@ -116,6 +118,11 @@ impl<'a> TypeDisplayContext<'a> {
         for c in self.qnames.values_mut() {
             c.info.insert(fake_module, None);
         }
+    }
+
+    /// Set the context to display for hover. This makes type names more readable but less precise.
+    pub fn set_display_mode_to_hover(&mut self) {
+        self.hover = true;
     }
 
     pub fn display(&'a self, t: &'a Type) -> impl Display + 'a {
