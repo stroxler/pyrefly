@@ -254,3 +254,37 @@ def f(a: A):
     assert_type(A.h(), Coroutine[Any, Any, int])
     "#,
 );
+
+testcase!(
+    bug = "Should not have any errors",
+    test_inherit_annotated_descriptor,
+    r#"
+class D:
+    def __get__(self, obj, classobj) -> int: ...
+    def __set__(self, obj, value: str) -> None: ...
+class A:
+    d: D = D()
+    def f(self):
+        self.d = "ok"
+class B(A):
+    def f(self):
+        self.d = "ok"  # E: `Literal['ok']` is not assignable to attribute `d` with type `D`
+    "#,
+);
+
+testcase!(
+    bug = "Should not have any errors",
+    test_inherit_unannotated_descriptor,
+    r#"
+class D:
+    def __get__(self, obj, classobj) -> int: ...
+    def __set__(self, obj, value: str) -> None: ...
+class A:
+    d = D()
+    def f(self):
+        self.d = "ok"
+class B(A):
+    def f(self):
+        self.d = "ok"  # E: Class member `B.d` overrides parent class `A` in an inconsistent manner
+    "#,
+);
