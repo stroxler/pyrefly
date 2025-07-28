@@ -34,7 +34,7 @@ struct MergeItem {
     // The key at which we will bind the result of the merge. Unlike all other keys
     // in our data structure, this one does not refer to a pre-existing binding coming
     // from upstream but rather the *output* of the merge.
-    phi_key: Idx<Key>,
+    phi_idx: Idx<Key>,
     // Key of the default binding. This is only used in loops, where it is used
     // to say that when in doubt, the loop recursive Phi should solve to either
     // the binding lives at the top of the loop (if any) or the first assignment
@@ -43,17 +43,28 @@ struct MergeItem {
     // The set of bindings live at the end of each branch. This will not include
     // `merged_key` itself (which might be live if a branch of a loop does not
     // modify anything).
-    values: SmallSet<Idx<Key>>,
+    branch_idxs: SmallSet<Idx<Key>>,
     // The flow styles from each branch in the merge
     flow_styles: Vec<FlowStyle>,
 }
 
 impl MergeItem {
-    fn new(phi_key: Idx<Key>, info: FlowInfo, visible_branches_len: usize) -> Self {
+    fn new(
+        name: Name,
+        range: TextRange,
+        info: FlowInfo,
+        visible_branches_len: usize,
+        idx_for_promise: impl FnOnce(Key) -> Idx<Key>,
+    ) -> Self {
+        // We are promising to bind this key at the end of the merge (see `merged_flow_info`).
+        //
+        // Note that in loops, the speculative phi logic may have already inserted this key,
+        // in which case `idx_for_promise` will just give us back the idx we aready created.
+        let phi_idx = idx_for_promise(Key::Phi(name, range));
         let mut myself = Self {
-            phi_key,
+            phi_idx,
             default: info.default,
-            values: SmallSet::new(),
+            branch_idxs: SmallSet::new(),
             flow_styles: Vec::with_capacity(visible_branches_len),
         };
         myself.add_branch(info);
@@ -62,10 +73,10 @@ impl MergeItem {
 
     /// Add the flow info at the end of a branch to our merge item.
     fn add_branch(&mut self, info: FlowInfo) {
-        if info.key != self.phi_key {
+        if info.key != self.phi_idx {
             // Optimization: instead of x = phi(x, ...), we can skip the x.
             // Avoids a recursive solving step later.
-            self.values.insert(info.key);
+            self.branch_idxs.insert(info.key);
         }
         self.flow_styles.push(info.style);
     }
@@ -88,23 +99,23 @@ impl MergeItem {
         insert_binding_idx: impl FnOnce(Idx<Key>, Binding),
     ) -> FlowInfo {
         insert_binding_idx(
-            self.phi_key,
+            self.phi_idx,
             match () {
-                _ if self.values.len() == 1 => {
-                    Binding::Forward(self.values.into_iter().next().unwrap())
+                _ if self.branch_idxs.len() == 1 => {
+                    Binding::Forward(self.branch_idxs.into_iter().next().unwrap())
                 }
                 _ if current_is_loop => {
-                    Binding::Default(self.default, Box::new(Binding::Phi(self.values)))
+                    Binding::Default(self.default, Box::new(Binding::Phi(self.branch_idxs)))
                 }
-                _ => Binding::Phi(self.values),
+                _ => Binding::Phi(self.branch_idxs),
             },
         );
         FlowInfo {
-            key: self.phi_key,
+            key: self.phi_idx,
             default: if contained_in_loop {
                 self.default
             } else {
-                self.phi_key
+                self.phi_idx
             },
             style: FlowStyle::merged(self.flow_styles),
         }
@@ -137,13 +148,14 @@ impl<'a> BindingsBuilder<'a> {
                         merge_item_entry.get_mut().add_branch(info)
                     }
                     Entry::Vacant(e) => {
-                        // The promise is that the next block will create a binding for all names in `names`.
-                        //
-                        // Note that in some cases (e.g. variables defined above a loop) we already promised
-                        // a binding and this lookup will just give us back the same `Idx<Key::Phi(...)>` we
-                        // created initially.
-                        let phi_key = self.idx_for_promise(Key::Phi(e.key().clone(), range));
-                        e.insert(MergeItem::new(phi_key, info, visible_branches_len));
+                        let name = e.key().clone();
+                        e.insert(MergeItem::new(
+                            name,
+                            range,
+                            info,
+                            visible_branches_len,
+                            |key| self.idx_for_promise(key),
+                        ));
                     }
                 };
             }
