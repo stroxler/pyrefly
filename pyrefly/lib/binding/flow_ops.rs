@@ -87,12 +87,12 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         // Collect all the information that we care about from all branches
-        let mut names: SmallMap<Name, MergeItem> =
+        let mut merge_items: SmallMap<Name, MergeItem> =
             SmallMap::with_capacity(visible_branches.first().map_or(0, |x| x.info.len()));
         let visible_branches_len = visible_branches.len();
         for flow in visible_branches {
             for (name, info) in flow.info.into_iter_hashed() {
-                match names.entry_hashed(name) {
+                match merge_items.entry_hashed(name) {
                     Entry::Occupied(mut merge_item_entry) => {
                         merge_item_entry.get_mut().add_branch(info)
                     }
@@ -109,8 +109,8 @@ impl<'a> BindingsBuilder<'a> {
             }
         }
 
-        let mut res = SmallMap::with_capacity(names.len());
-        for (name, merge_item) in names.into_iter_hashed() {
+        let mut res = SmallMap::with_capacity(merge_items.len());
+        for (name, merge_item) in merge_items.into_iter_hashed() {
             let style = FlowStyle::merged(merge_item.flow_styles);
             self.insert_binding_idx(
                 merge_item.phi_key,
