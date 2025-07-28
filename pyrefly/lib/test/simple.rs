@@ -1704,3 +1704,14 @@ testcase!(
 [a for [a for # E: Could # E: Parse # E: Could # E: Parse # E: Parse
 "#,
 );
+
+// Added to stress test cases that at one point panicked from duplicate
+// first-use linkage keys due to overlapping ranges.
+testcase!(
+    test_overlapping_link_keys,
+    r#"
+def f():
+    del yield  # E: # E: 
+    assert False, yield  # E:
+    "#,
+);
