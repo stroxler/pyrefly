@@ -49,13 +49,25 @@ struct MergeItem {
 }
 
 impl MergeItem {
-    fn new(phi_key: Idx<Key>, default: Idx<Key>, visible_branches_len: usize) -> Self {
-        Self {
+    fn new(phi_key: Idx<Key>, info: FlowInfo, visible_branches_len: usize) -> Self {
+        let mut myself = Self {
             phi_key,
-            default,
+            default: info.default,
             values: SmallSet::new(),
             flow_styles: Vec::with_capacity(visible_branches_len),
+        };
+        myself.add_branch(info);
+        myself
+    }
+
+    /// Add the flow info at the end of a branch to our merge item.
+    fn add_branch(&mut self, info: FlowInfo) {
+        if info.key != self.phi_key {
+            // Optimization: instead of x = phi(x, ...), we can skip the x.
+            // Avoids a recursive solving step later.
+            self.values.insert(info.key);
         }
+        self.flow_styles.push(info.style);
     }
 }
 
@@ -80,17 +92,10 @@ impl<'a> BindingsBuilder<'a> {
         let visible_branches_len = visible_branches.len();
         for flow in visible_branches {
             for (name, info) in flow.info.into_iter_hashed() {
-                let f = |merge_item: &mut MergeItem| {
-                    if info.key != merge_item.phi_key {
-                        // Optimization: instead of x = phi(x, ...), we can skip the x.
-                        // Avoids a recursive solving step later.
-                        merge_item.values.insert(info.key);
-                    }
-                    merge_item.flow_styles.push(info.style);
-                };
-
                 match names.entry_hashed(name) {
-                    Entry::Occupied(mut e) => f(e.get_mut()),
+                    Entry::Occupied(mut merge_item_entry) => {
+                        merge_item_entry.get_mut().add_branch(info)
+                    }
                     Entry::Vacant(e) => {
                         // The promise is that the next block will create a binding for all names in `names`.
                         //
@@ -98,7 +103,7 @@ impl<'a> BindingsBuilder<'a> {
                         // a binding and this lookup will just give us back the same `Idx<Key::Phi(...)>` we
                         // created initially.
                         let phi_key = self.idx_for_promise(Key::Phi(e.key().clone(), range));
-                        f(e.insert(MergeItem::new(phi_key, info.default, visible_branches_len)));
+                        e.insert(MergeItem::new(phi_key, info, visible_branches_len));
                     }
                 };
             }
