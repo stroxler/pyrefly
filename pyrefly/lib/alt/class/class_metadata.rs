@@ -159,7 +159,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let has_generic_base_class = Self::find_has_generic_base_class(bases.as_slice());
         let has_typed_dict_base_class = Self::find_has_typed_dict_base_class(bases.as_slice());
 
-        let mut is_typed_dict = has_typed_dict_base_class;
         let mut has_base_any = false;
         // If this class inherits from a dataclass_transform-ed class, record the defaults that we
         // should use for dataclass parameters.
@@ -189,9 +188,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             let base_class_metadata = self.get_metadata_for_class(base_cls);
                             if base_class_metadata.has_base_any() {
                                 has_base_any = true;
-                            }
-                            if base_class_metadata.is_typed_dict() {
-                                is_typed_dict = true;
                             }
                             if base_class_metadata.is_final() {
                                 self.error(errors,
@@ -277,7 +273,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Some((class_ty, metadata))
                         }
                         Some((Type::TypedDict(typed_dict), _)) => {
-                            is_typed_dict = true;
                             let class_object = typed_dict.class_object();
                             let class_metadata = self.get_metadata_for_class(class_object);
                             // HACK HACK HACK - TypedDict instances behave very differently from instances of other
@@ -307,6 +302,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             })
             .collect::<Vec<_>>();
+
         if named_tuple_metadata.is_some() && bases_with_metadata.len() > 1 {
             self.error(
                 errors,
@@ -335,6 +331,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 defaults.field_specifiers,
             ));
         }
+        let is_typed_dict = has_typed_dict_base_class
+            || bases_with_metadata
+                .iter()
+                .any(|(_, metadata)| metadata.is_typed_dict());
         let typed_dict_metadata = if is_typed_dict {
             // Validate that only 'total' keyword is allowed for TypedDict and determine is_total
             let mut is_total = true;
