@@ -106,13 +106,8 @@ impl Facts {
     fn get_binding_key_at_position(
         &self,
         position: ruff_text_size::TextSize,
-    ) -> crate::binding::binding::Key {
-        self.bindings
-            .definition_at_position(position)
-            .unwrap_or_else(|| {
-                panic!("Glean error: Could not find binding at position {position:?}")
-            })
-            .clone()
+    ) -> Option<crate::binding::binding::Key> {
+        self.bindings.definition_at_position(position).cloned()
     }
 
     fn module_facts(
@@ -220,7 +215,7 @@ impl Facts {
     fn class_facts(
         &mut self,
         cls: &StmtClassDef,
-        cls_binding: BindingClass,
+        cls_binding: Option<BindingClass>,
         cls_declaration: python::ClassDeclaration,
         container: python::DeclarationContainer,
     ) -> DeclarationInfo {
@@ -240,8 +235,8 @@ impl Facts {
         let declaration = python::Declaration::cls(cls_declaration.clone());
 
         let cls_docstring_range = match cls_binding {
-            BindingClass::ClassDef(class_binding) => class_binding.docstring_range,
-            BindingClass::FunctionalClassDef(_, _, _) => None,
+            Some(BindingClass::ClassDef(class_binding)) => class_binding.docstring_range,
+            _ => None,
         };
 
         let cls_definition = python::ClassDefinition::new(
@@ -381,14 +376,14 @@ impl Facts {
     fn function_facts(
         &mut self,
         func: &StmtFunctionDef,
-        binding_func: &BindingFunction,
+        binding_func: Option<BindingFunction>,
         func_declaration: python::FunctionDeclaration,
         container: python::DeclarationContainer,
         params_top_level_decl: Option<&python::Declaration>,
     ) -> Vec<DeclarationInfo> {
         let declaration = python::Declaration::func(func_declaration.clone());
 
-        let function_docstring_range = binding_func.docstring_range;
+        let function_docstring_range = binding_func.and_then(|bf| bf.docstring_range);
 
         let params = &func.parameters;
 
@@ -617,11 +612,14 @@ impl Facts {
                     python::ClassDeclaration::new(self.make_fq_name(&cls.name.id, None), None);
 
                 let class_key = self.get_binding_key_at_position(cls.name.range.start());
-                let key_cls_idx = match self.bindings.get(self.bindings.key_to_idx(&class_key)) {
-                    Binding::ClassDef(key_cls_idx, _) => *key_cls_idx,
-                    _ => panic!("Glean error: Expected class binding for key: {class_key:?}"),
-                };
-                let cls_binding = self.bindings.get(key_cls_idx).clone();
+                let cls_binding = class_key.and_then(|key| {
+                    match self.bindings.get(self.bindings.key_to_idx(&key)) {
+                        Binding::ClassDef(key_cls_idx, _) => {
+                            Some(self.bindings.get(*key_cls_idx).clone())
+                        }
+                        _ => None,
+                    }
+                });
 
                 let decl_info =
                     self.class_facts(cls, cls_binding, cls_declaration.clone(), container.clone());
@@ -643,17 +641,17 @@ impl Facts {
                 }
 
                 let function_key = self.get_binding_key_at_position(func.name.range.start());
-
-                let key_function_idx =
-                    match self.bindings.get(self.bindings.key_to_idx(&function_key)) {
-                        Binding::Function(key_function_idx, _, _) => *key_function_idx,
-                        _ => panic!("Expected function binding for key: {function_key:?}"),
-                    };
-                let func_binding = self.bindings.get(key_function_idx).clone();
+                let key_function_idx = function_key.and_then(|key| {
+                    match self.bindings.get(self.bindings.key_to_idx(&key)) {
+                        Binding::Function(key_function_idx, _, _) => Some(*key_function_idx),
+                        _ => None,
+                    }
+                });
+                let func_binding = key_function_idx.map(|idx| self.bindings.get(idx).clone());
 
                 let mut func_decl_infos = self.function_facts(
                     func,
-                    &func_binding,
+                    func_binding,
                     func_declaration.clone(),
                     container.clone(),
                     new_top_level_decl.as_ref(),
@@ -809,7 +807,7 @@ impl Glean {
             },
             GleanEntry::Predicate {
                 predicate: python::Module::GLEAN_name(),
-                facts: vec![facts.modules.into_iter().map(json).collect()],
+                facts: facts.modules.into_iter().map(json).collect(),
             },
             GleanEntry::Predicate {
                 predicate: src::FileLanguage::GLEAN_name(),
