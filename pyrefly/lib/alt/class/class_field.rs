@@ -798,8 +798,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let inherited_annot = if direct_annotation.is_some() {
                     None
                 } else {
-                    let (found_field, annotation) = self.get_inherited_annotation(class, name);
-                    if !found_field {
+                    let (inherited_ty, annotation) =
+                        self.get_inherited_type_and_annotation(class, name);
+                    if inherited_ty.is_none() {
                         name_might_exist_in_inherited = false;
                     }
                     annotation
@@ -1102,17 +1103,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         None
     }
 
-    /// Return (did you find any fields, first one with an annotation)
-    fn get_inherited_annotation(&self, class: &Class, name: &Name) -> (bool, Option<Annotation>) {
-        let mut found_field = false;
+    /// Return (type of first inherited field, first inherited annotation). May not be from the same class!
+    /// For example, in:
+    ///   class A:
+    ///     x: int
+    ///   class B(A):
+    ///     x = 0
+    ///   class C(B):
+    ///     x = 1
+    /// `get_inherited_type_and_annotation(C, 'x')` will get the type from `B` and the annotation from `A`.
+    fn get_inherited_type_and_annotation(
+        &self,
+        class: &Class,
+        name: &Name,
+    ) -> (Option<Type>, Option<Annotation>) {
+        let mut found_field = None;
         let annotation = self
             .get_mro_for_class(class)
             .ancestors(self.stdlib)
             .find_map(|parent| {
                 let parent_field =
                     self.get_field_from_current_class_only(parent.class_object(), name)?;
-                found_field = true;
-                let ClassField(ClassFieldInner::Simple { annotation, .. }) = &*parent_field;
+                let ClassField(ClassFieldInner::Simple { ty, annotation, .. }) = &*parent_field;
+                if found_field.is_none() {
+                    found_field = Some(ty.clone());
+                }
                 annotation.clone()
             });
         (found_field, annotation)
@@ -1183,7 +1198,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             || field.is_class_var() // Class variables are not dataclass fields
             || (!field.has_explicit_annotation()
                 && self
-                    .get_inherited_annotation(cls, name)
+                    .get_inherited_type_and_annotation(cls, name)
                     .1
                     .is_some_and(|annot| annot.has_qualifier(&Qualifier::ClassVar)))
         {
