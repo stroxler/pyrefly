@@ -124,6 +124,10 @@ impl MergeItem {
 
 impl<'a> BindingsBuilder<'a> {
     fn merge_flow(&mut self, mut xs: Vec<Flow>, range: TextRange, is_loop: bool) -> Flow {
+        // Short circuit in the one case we know we safely can.
+        //
+        // Note that it is impossible to hit this in a loop, which is essential because we
+        // could panic due to unbound speculative Phi keys if we try to short circuit a loop.
         if xs.len() == 1 && xs[0].has_terminated {
             return xs.pop().unwrap();
         }
