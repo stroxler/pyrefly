@@ -48,6 +48,17 @@ struct MergeItem {
     flow_styles: Vec<FlowStyle>,
 }
 
+impl MergeItem {
+    fn new(phi_key: Idx<Key>, default: Idx<Key>, visible_branches_len: usize) -> Self {
+        Self {
+            phi_key,
+            default,
+            values: SmallSet::new(),
+            flow_styles: Vec::with_capacity(visible_branches_len),
+        }
+    }
+}
+
 impl<'a> BindingsBuilder<'a> {
     fn merge_flow(&mut self, mut xs: Vec<Flow>, range: TextRange, is_loop: bool) -> Flow {
         if xs.len() == 1 && xs[0].has_terminated {
@@ -87,12 +98,7 @@ impl<'a> BindingsBuilder<'a> {
                         // a binding and this lookup will just give us back the same `Idx<Key::Phi(...)>` we
                         // created initially.
                         let phi_key = self.idx_for_promise(Key::Phi(e.key().clone(), range));
-                        f(e.insert(MergeItem {
-                            phi_key,
-                            default: info.default,
-                            values: SmallSet::new(),
-                            flow_styles: Vec::with_capacity(visible_branches_len),
-                        }));
+                        f(e.insert(MergeItem::new(phi_key, info.default, visible_branches_len)));
                     }
                 };
             }
