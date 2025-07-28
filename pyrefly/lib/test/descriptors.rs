@@ -256,7 +256,6 @@ def f(a: A):
 );
 
 testcase!(
-    bug = "Should not have any errors",
     test_inherit_annotated_descriptor,
     r#"
 class D:
@@ -268,12 +267,11 @@ class A:
         self.d = "ok"
 class B(A):
     def f(self):
-        self.d = "ok"  # E: `Literal['ok']` is not assignable to attribute `d` with type `D`
+        self.d = "ok"
     "#,
 );
 
 testcase!(
-    bug = "Should not have any errors",
     test_inherit_unannotated_descriptor,
     r#"
 class D:
@@ -285,6 +283,6 @@ class A:
         self.d = "ok"
 class B(A):
     def f(self):
-        self.d = "ok"  # E: Class member `B.d` overrides parent class `A` in an inconsistent manner
+        self.d = "ok"
     "#,
 );

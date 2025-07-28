@@ -795,17 +795,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let (value_ty, inherited_annotation) = match value {
             ExprOrBinding::Expr(e) => {
-                let inherited_annot = if direct_annotation.is_some() {
-                    None
+                let (inherited_ty, inherited_annot) = if direct_annotation.is_some() {
+                    (None, None)
                 } else {
                     let (inherited_ty, annotation) =
                         self.get_inherited_type_and_annotation(class, name);
                     if inherited_ty.is_none() {
                         name_might_exist_in_inherited = false;
                     }
-                    annotation
+                    (inherited_ty, annotation)
                 };
-                let mut ty = if let Some(annot) = &inherited_annot {
+                let mut ty = if let Some(inherited_ty) = inherited_ty
+                    && matches!(initial_value, RawClassFieldInitialization::Method(_))
+                {
+                    // Inherit the previous type of the attribute if the only declaration-like
+                    // thing the current class does is assign to the attribute in a method.
+                    inherited_ty
+                } else if let Some(annot) = &inherited_annot {
                     let ctx: &dyn Fn() -> TypeCheckContext =
                         &|| TypeCheckContext::of_kind(TypeCheckKind::Attribute(name.clone()));
                     let hint = Some((annot.get_type(), ctx));

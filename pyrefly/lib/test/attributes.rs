@@ -1243,3 +1243,22 @@ def f(obj, g, field_type, my_type,):
                 )
     "#,
 );
+
+testcase!(
+    test_set_attr_in_child_class,
+    r#"
+from typing import assert_type
+
+class A:
+    def __init__(self):
+        self.x = 0
+
+class B(A):
+    def f(self):
+        self.x = ""  # E: `Literal['']` is not assignable to attribute `x` with type `int`
+
+class C(A):
+    def f(self):
+        self.x: str = ""  # E: Class member `C.x` overrides parent class `A` in an inconsistent manner
+    "#,
+);
