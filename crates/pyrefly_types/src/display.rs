@@ -129,6 +129,11 @@ impl<'a> TypeDisplayContext<'a> {
         Fmt(|f| self.fmt(t, f))
     }
 
+    // Private method for internal use
+    fn display_internal(&'a self, t: &'a Type) -> impl Display + 'a {
+        Fmt(|f| self.fmt_helper(t, f, false))
+    }
+
     fn fmt_targ(&self, param: &TParam, arg: &Type, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if param.quantified.is_type_var_tuple()
             && let Type::Tuple(tuple) = arg
@@ -137,7 +142,7 @@ impl<'a> TypeDisplayContext<'a> {
                 Tuple::Concrete(elts) if !elts.is_empty() => write!(
                     f,
                     "{}",
-                    commas_iter(|| elts.iter().map(|elt| self.display(elt)))
+                    commas_iter(|| elts.iter().map(|elt| self.display_internal(elt)))
                 ),
                 Tuple::Unpacked(box (prefix, middle, suffix)) => {
                     let unpacked_middle = Type::Unpack(Box::new(middle.clone()));
@@ -149,16 +154,16 @@ impl<'a> TypeDisplayContext<'a> {
                                 .iter()
                                 .chain(std::iter::once(&unpacked_middle))
                                 .chain(suffix.iter())
-                                .map(|elt| self.display(elt))
+                                .map(|elt| self.display_internal(elt))
                         })
                     )
                 }
                 _ => {
-                    write!(f, "*{}", self.display(arg))
+                    write!(f, "*{}", self.display_internal(arg))
                 }
             }
         } else {
-            write!(f, "{}", self.display(arg))
+            write!(f, "{}", self.display_internal(arg))
         }
     }
 
@@ -184,6 +189,15 @@ impl<'a> TypeDisplayContext<'a> {
     }
 
     fn fmt<'b>(&self, t: &'b Type, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_helper(t, f, true)
+    }
+
+    fn fmt_helper<'b>(
+        &self,
+        t: &'b Type,
+        f: &mut fmt::Formatter<'_>,
+        _is_toplevel: bool,
+    ) -> fmt::Result {
         match t {
             // Things that have QName's and need qualifying
             Type::ClassDef(cls) => {
@@ -200,7 +214,7 @@ impl<'a> TypeDisplayContext<'a> {
                 write!(
                     f,
                     "[{}, ...]",
-                    self.display(&class_type.targs().as_slice()[0])
+                    self.display_internal(&class_type.targs().as_slice()[0])
                 )
             }
             Type::ClassType(class_type) => {
@@ -246,32 +260,32 @@ impl<'a> TypeDisplayContext<'a> {
             | Type::Function(box Function {
                 signature: c,
                 metadata: _,
-            }) => c.fmt_with_type(f, &|t| self.display(t)),
+            }) => c.fmt_with_type(f, &|t| self.display_internal(t)),
             Type::Overload(overload) => {
                 write!(
                     f,
                     "Overload[{}",
-                    self.display(&overload.signatures.first().as_type())
+                    self.display_internal(&overload.signatures.first().as_type())
                 )?;
                 for sig in overload.signatures.iter().skip(1) {
-                    write!(f, ", {}", self.display(&sig.as_type()))?;
+                    write!(f, ", {}", self.display_internal(&sig.as_type()))?;
                 }
                 write!(f, "]")
             }
             Type::ParamSpecValue(x) => {
                 write!(f, "[")?;
-                x.fmt_with_type(f, &|t| self.display(t))?;
+                x.fmt_with_type(f, &|t| self.display_internal(t))?;
                 write!(f, "]")
             }
             Type::BoundMethod(box BoundMethod { obj, func }) => {
                 if self.hover {
-                    write!(f, "{}", self.display(&func.clone().as_type()))
+                    write!(f, "{}", self.display_internal(&func.clone().as_type()))
                 } else {
                     write!(
                         f,
                         "BoundMethod[{}, {}]",
-                        self.display(obj),
-                        self.display(&func.clone().as_type())
+                        self.display_internal(obj),
+                        self.display_internal(&func.clone().as_type())
                     )
                 }
             }
@@ -292,9 +306,9 @@ impl<'a> TypeDisplayContext<'a> {
                             literals.push(lit)
                         }
                         Type::Callable(_) | Type::Function(_) => {
-                            display_types.push(format!("({})", self.display(t)))
+                            display_types.push(format!("({})", self.display_internal(t)))
                         }
-                        _ => display_types.push(format!("{}", self.display(t))),
+                        _ => display_types.push(format!("{}", self.display_internal(t))),
                     }
                 }
                 if let Some(i) = literal_idx {
@@ -306,10 +320,10 @@ impl<'a> TypeDisplayContext<'a> {
                 write!(
                     f,
                     "Intersect[{}]",
-                    commas_iter(|| types.iter().map(|t| self.display(t)))
+                    commas_iter(|| types.iter().map(|t| self.display_internal(t)))
                 )
             }
-            Type::Tuple(t) => t.fmt_with_type(f, |t| self.display(t)),
+            Type::Tuple(t) => t.fmt_with_type(f, |t| self.display_internal(t)),
             Type::Forall(box Forall {
                 tparams,
                 body: body @ Forallable::Function(_),
@@ -318,18 +332,20 @@ impl<'a> TypeDisplayContext<'a> {
                     f,
                     "[{}]{}",
                     commas_iter(|| tparams.iter()),
-                    self.display(&body.clone().as_type()),
+                    self.display_internal(&body.clone().as_type()),
                 )
             }
             Type::Forall(box Forall {
                 tparams,
                 body: Forallable::TypeAlias(ta),
-            }) => ta.fmt_with_type(f, &|t| self.display(t), Some(tparams)),
-            Type::Type(ty) => write!(f, "type[{}]", self.display(ty)),
-            Type::TypeGuard(ty) => write!(f, "TypeGuard[{}]", self.display(ty)),
-            Type::TypeIs(ty) => write!(f, "TypeIs[{}]", self.display(ty)),
-            Type::Unpack(box ty @ Type::TypedDict(_)) => write!(f, "Unpack[{}]", self.display(ty)),
-            Type::Unpack(ty) => write!(f, "*{}", self.display(ty)),
+            }) => ta.fmt_with_type(f, &|t| self.display_internal(t), Some(tparams)),
+            Type::Type(ty) => write!(f, "type[{}]", self.display_internal(ty)),
+            Type::TypeGuard(ty) => write!(f, "TypeGuard[{}]", self.display_internal(ty)),
+            Type::TypeIs(ty) => write!(f, "TypeIs[{}]", self.display_internal(ty)),
+            Type::Unpack(box ty @ Type::TypedDict(_)) => {
+                write!(f, "Unpack[{}]", self.display_internal(ty))
+            }
+            Type::Unpack(ty) => write!(f, "*{}", self.display_internal(ty)),
             Type::Concatenate(args, pspec) => write!(
                 f,
                 "Concatenate[{}]",
@@ -350,7 +366,7 @@ impl<'a> TypeDisplayContext<'a> {
                 AnyStyle::Explicit => write!(f, "Any"),
                 AnyStyle::Implicit | AnyStyle::Error => write!(f, "Unknown"),
             },
-            Type::TypeAlias(ta) => ta.fmt_with_type(f, &|t| self.display(t), None),
+            Type::TypeAlias(ta) => ta.fmt_with_type(f, &|t| self.display_internal(t), None),
             Type::SuperInstance(box (cls, obj)) => {
                 write!(f, "super[")?;
                 self.fmt_qname(cls.qname(), f)?;
@@ -366,7 +382,7 @@ impl<'a> TypeDisplayContext<'a> {
                 }
                 write!(f, "]")
             }
-            Type::KwCall(call) => self.fmt(&call.return_ty, f),
+            Type::KwCall(call) => self.fmt_helper(&call.return_ty, f, false),
             Type::None => write!(f, "None"),
         }
     }
