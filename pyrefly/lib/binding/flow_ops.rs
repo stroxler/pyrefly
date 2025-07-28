@@ -69,6 +69,46 @@ impl MergeItem {
         }
         self.flow_styles.push(info.style);
     }
+
+    /// Get the flow info for an item in the merged flow, which is a combination
+    /// of the `phi_key` that will have the merged type information and the merged
+    /// flow styles.
+    ///
+    /// The binding for the phi key is typically a Phi, but if this merge is from a loop
+    /// we'll wrap that in a Default, and if all branches were the same we'll
+    /// just use a Forward instead.
+    ///
+    /// The default value will depend on whether we are still in a loop after the
+    /// current merge. If so, we preserve the existing default; if not, the
+    /// merged phi is the new default used for downstream loops.
+    fn merged_flow_info(
+        self,
+        current_is_loop: bool,
+        contained_in_loop: bool,
+        insert_binding_idx: impl FnOnce(Idx<Key>, Binding),
+    ) -> FlowInfo {
+        insert_binding_idx(
+            self.phi_key,
+            match () {
+                _ if self.values.len() == 1 => {
+                    Binding::Forward(self.values.into_iter().next().unwrap())
+                }
+                _ if current_is_loop => {
+                    Binding::Default(self.default, Box::new(Binding::Phi(self.values)))
+                }
+                _ => Binding::Phi(self.values),
+            },
+        );
+        FlowInfo {
+            key: self.phi_key,
+            default: if contained_in_loop {
+                self.default
+            } else {
+                self.phi_key
+            },
+            style: FlowStyle::merged(self.flow_styles),
+        }
+    }
 }
 
 impl<'a> BindingsBuilder<'a> {
@@ -111,31 +151,11 @@ impl<'a> BindingsBuilder<'a> {
 
         let mut res = SmallMap::with_capacity(merge_items.len());
         for (name, merge_item) in merge_items.into_iter_hashed() {
-            let style = FlowStyle::merged(merge_item.flow_styles);
-            self.insert_binding_idx(
-                merge_item.phi_key,
-                match () {
-                    _ if merge_item.values.len() == 1 => {
-                        Binding::Forward(merge_item.values.into_iter().next().unwrap())
-                    }
-                    _ if is_loop => Binding::Default(
-                        merge_item.default,
-                        Box::new(Binding::Phi(merge_item.values)),
-                    ),
-                    _ => Binding::Phi(merge_item.values),
-                },
-            );
             res.insert_hashed(
                 name,
-                FlowInfo {
-                    key: merge_item.phi_key,
-                    default: if self.scopes.loop_depth() > 0 {
-                        merge_item.default
-                    } else {
-                        merge_item.phi_key
-                    },
-                    style,
-                },
+                merge_item.merged_flow_info(is_loop, self.scopes.loop_depth() > 0, |key, value| {
+                    self.insert_binding_idx(key, value);
+                }),
             );
         }
         Flow {
