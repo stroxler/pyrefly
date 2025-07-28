@@ -6,6 +6,7 @@
  */
 
 use std::collections::HashMap;
+use std::env::current_dir;
 
 use num_traits::ToPrimitive;
 use pyrefly_python::docstring::Docstring;
@@ -746,10 +747,16 @@ impl Glean {
         let module_info = &transaction.get_module_info(handle).unwrap();
         let ast = &*transaction.get_ast(handle).unwrap();
         let bindings = &transaction.get_bindings(handle).unwrap();
+        let file_path = module_info.path().as_path();
+        let relative_path = file_path
+            .strip_prefix(current_dir().unwrap_or_default())
+            .unwrap_or(file_path)
+            .to_str()
+            .unwrap();
 
         let module_name = module_info.name();
         let module_fact = python::Module::new(python::Name::new(module_name.to_string()));
-        let file_fact = src::File::new(module_info.path().to_string());
+        let file_fact = src::File::new(relative_path.to_owned());
         let container = python::DeclarationContainer::module(module_fact.clone());
         let top_level_decl = python::Declaration::module(module_fact.clone());
         let file_language_fact = src::FileLanguage::new(file_fact.clone(), src::Language::Python);
