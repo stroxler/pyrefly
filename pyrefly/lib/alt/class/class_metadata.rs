@@ -149,7 +149,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> ClassMetadata {
         let mut named_tuple_metadata = None;
         let mut enum_metadata = None;
-        let mut dataclass_metadata = None;
         let mut tuple_base: Option<Tuple> = None;
         let mut bases: Vec<BaseClass> = bases.map(|x| self.base_class_of(x, errors));
         if let Some(special_base) = special_base {
@@ -248,11 +247,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     );
                                 }
                             }
-                            if dataclass_metadata.is_none() && let Some(base_dataclass) = base_class_metadata.dataclass_metadata() {
-                                // If we inherit from a dataclass, inherit its metadata. Note that if this class is
-                                // itself decorated with @dataclass, we'll compute new metadata and overwrite this.
-                                dataclass_metadata = Some(base_dataclass.clone());
-                            }
                             if let Some(m) = base_class_metadata.dataclass_transform_metadata() {
                                 dataclass_defaults_from_base_class = Some(m.clone());
                                 // When a class C is transformed into a dataclass via inheriting from a class decorated
@@ -316,6 +310,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "metaclass" => Either::Left(x),
                 _ => Either::Right((n.clone(), self.expr_infer(x, errors))),
             });
+
+        let mut dataclass_metadata = bases_with_metadata
+            .iter()
+            .find_map(|(_, metadata)| metadata.dataclass_metadata().cloned());
         // This is set when we should apply dataclass-like transformations to the class. The class
         // should be transformed if:
         // - it inherits from a base class decorated with `dataclass_transform(...)`, or
