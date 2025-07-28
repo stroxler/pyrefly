@@ -44,7 +44,7 @@ fn hash(x: &[u8]) -> String {
 struct Facts {
     file: src::File,
     module: python::Module,
-    module_name: String,
+    module_name: ModuleName,
     module_info: ModuleInfo,
     none_name: Name,
     bindings: Bindings,
@@ -86,7 +86,7 @@ impl Facts {
         Facts {
             file,
             module,
-            module_name: module_info.name().to_string(),
+            module_name: module_info.name(),
             module_info,
             none_name: "None".into(),
             bindings,
@@ -117,13 +117,12 @@ impl Facts {
 
     fn module_facts(
         &mut self,
-        module_name: ModuleName,
         module_fact: &python::Module,
         range: TextRange,
         top_level_decl: &python::Declaration,
         module_docstring_range: Option<TextRange>,
     ) {
-        let components = module_name.components();
+        let components = self.module_name.components();
         let mut module = None;
 
         for component in components.into_iter() {
@@ -469,14 +468,19 @@ impl Facts {
     fn import_facts(
         &mut self,
         imports: &Vec<Alias>,
-        from_module_id: &Option<Identifier>,
+        from_module_id: Option<&Identifier>,
+        level: u32,
     ) -> Vec<DeclarationInfo> {
-        //TODO(@rubmary) Handle level for imports. Ex from ..a import A
+        let from_module_name = from_module_id.map(|x| x.id());
+        let from_module = if level > 0 {
+            self.module_name
+                .new_maybe_relative(self.module_info.path().is_init(), level, from_module_name)
+                .map(|x| x.to_string())
+        } else {
+            from_module_name.map(|x| x.to_string())
+        };
 
-        let from_module = from_module_id.as_ref().map(|module| module.id());
-        let from_module_fact = from_module.map_or(python::Name::new("".to_owned()), |module| {
-            self.make_fq_name(module, None)
-        });
+        let from_module_fact = python::Name::new(from_module.clone().unwrap_or_default());
         if let Some(module) = from_module_id {
             self.add_xref(python::XRefViaName {
                 target: from_module_fact.clone(),
@@ -501,7 +505,7 @@ impl Facts {
             } else {
                 let as_name = import.asname.as_ref().map_or(from_name, |x| &x.id);
 
-                let from_name_fact = self.make_fq_name(from_name, from_module.map(|x| x.as_str()));
+                let from_name_fact = self.make_fq_name(from_name, from_module.as_deref());
                 self.add_xref(python::XRefViaName {
                     target: from_name_fact.clone(),
                     source: to_span(import.name.range()),
@@ -509,7 +513,7 @@ impl Facts {
 
                 let import_fact = python::ImportStatement::new(
                     from_name_fact,
-                    self.make_fq_name(as_name, Some(&self.module_name)),
+                    self.make_fq_name(as_name, Some(&self.module_name.to_string())),
                 );
 
                 decl_infos.push(DeclarationInfo {
@@ -682,11 +686,12 @@ impl Facts {
                 self.visit_exprs(&assign.value, container);
             }
             Stmt::Import(import) => {
-                let mut imp_decl_infos = self.import_facts(&import.names, &None);
+                let mut imp_decl_infos = self.import_facts(&import.names, None, 0);
                 decl_infos.append(&mut imp_decl_infos);
             }
             Stmt::ImportFrom(import) => {
-                let mut imp_decl_infos = self.import_facts(&import.names, &import.module);
+                let mut imp_decl_infos =
+                    self.import_facts(&import.names, import.module.as_ref(), import.level);
                 decl_infos.append(&mut imp_decl_infos);
             }
             Stmt::For(stmt_for) => {
@@ -764,7 +769,6 @@ impl Glean {
         let module_docstring_range = transaction.get_module_docstring_range(handle);
 
         facts.module_facts(
-            module_name,
             &module_fact,
             ast.range,
             &top_level_decl,
