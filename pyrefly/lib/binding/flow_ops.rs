@@ -134,8 +134,8 @@ impl<'a> BindingsBuilder<'a> {
         // we'll use the terminated branches.
         let (terminated_branches, live_branches): (Vec<_>, Vec<_>) =
             xs.into_iter().partition(|x| x.has_terminated);
-        let no_next = live_branches.is_empty();
-        let merge_branches = if live_branches.is_empty() {
+        let has_terminated = live_branches.is_empty();
+        let branches = if has_terminated {
             terminated_branches
         } else {
             live_branches
@@ -143,9 +143,9 @@ impl<'a> BindingsBuilder<'a> {
 
         // Collect all the branches into a `MergeItem` per name we need to merge
         let mut merge_items: SmallMap<Name, MergeItem> =
-            SmallMap::with_capacity(merge_branches.first().map_or(0, |x| x.info.len()));
-        let n_branches = merge_branches.len();
-        for flow in merge_branches {
+            SmallMap::with_capacity(branches.first().map_or(0, |x| x.info.len()));
+        let n_branches = branches.len();
+        for flow in branches {
             for (name, info) in flow.info.into_iter_hashed() {
                 match merge_items.entry_hashed(name) {
                     Entry::Occupied(mut merge_item_entry) => {
@@ -173,7 +173,7 @@ impl<'a> BindingsBuilder<'a> {
         }
         Flow {
             info: res,
-            has_terminated: no_next,
+            has_terminated,
         }
     }
 
