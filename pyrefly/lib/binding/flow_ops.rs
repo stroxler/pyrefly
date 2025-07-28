@@ -30,52 +30,6 @@ use crate::error::context::ErrorInfo;
 use crate::graph::index::Idx;
 
 impl<'a> BindingsBuilder<'a> {
-    /// Helper for loops, inserts a phi key for every name in the given flow.
-    fn insert_phi_keys(&mut self, mut flow: Flow, range: TextRange) -> Flow {
-        for (name, info) in flow.info.iter_mut() {
-            // The promise is that we will insert a Phi binding when the control flow merges.
-            info.key = self.idx_for_promise(Key::Phi(name.clone(), range));
-        }
-        flow
-    }
-
-    pub fn setup_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps) {
-        let base = mem::take(&mut self.scopes.current_mut().flow);
-        // To account for possible assignments to existing names in a loop, we
-        // speculatively insert phi keys upfront.
-        self.scopes.current_mut().flow = self.insert_phi_keys(base.clone(), range);
-        self.scopes
-            .current_mut()
-            .loops
-            .push(Loop(vec![(LoopExit::NeverRan, base)]));
-        self.bind_narrow_ops(narrow_ops, range);
-    }
-
-    pub fn teardown_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps, orelse: Vec<Stmt>) {
-        let done = self.scopes.finish_current_loop();
-        let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) =
-            done.0.into_iter().partition_map(|(exit, flow)| match exit {
-                LoopExit::Break => Either::Left(flow),
-                LoopExit::NeverRan | LoopExit::Continue => Either::Right(flow),
-            });
-        // We associate a range to the non-`break` exits from the loop; it doesn't matter much what
-        // it is as long as it's different from the loop's range.
-        let other_range = TextRange::new(range.start(), range.start());
-        if breaks.is_empty() {
-            // When there are no `break`s, the loop condition is always false once the body has exited,
-            // and any `orelse` always runs.
-            self.merge_loop_into_current(other_exits, range);
-            self.bind_narrow_ops(&narrow_ops.negate(), other_range);
-            self.stmts(orelse);
-        } else {
-            // Otherwise, we negate the loop condition and run the `orelse` only when we don't `break`.
-            self.merge_loop_into_current(other_exits, range);
-            self.bind_narrow_ops(&narrow_ops.negate(), other_range);
-            self.stmts(orelse);
-            self.merge_loop_into_current(breaks, other_range);
-        }
-    }
-
     fn merge_flow(&mut self, mut xs: Vec<Flow>, range: TextRange, is_loop: bool) -> Flow {
         if xs.len() == 1 && xs[0].has_terminated {
             return xs.pop().unwrap();
@@ -171,6 +125,52 @@ impl<'a> BindingsBuilder<'a> {
     pub fn set_current_flow_to_merged_branches(&mut self, branches: Vec<Flow>, range: TextRange) {
         let flow = self.merge_flow(branches, range, false);
         self.scopes.replace_current_flow(flow);
+    }
+
+    /// Helper for loops, inserts a phi key for every name in the given flow.
+    fn insert_phi_keys(&mut self, mut flow: Flow, range: TextRange) -> Flow {
+        for (name, info) in flow.info.iter_mut() {
+            // The promise is that we will insert a Phi binding when the control flow merges.
+            info.key = self.idx_for_promise(Key::Phi(name.clone(), range));
+        }
+        flow
+    }
+
+    pub fn setup_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps) {
+        let base = mem::take(&mut self.scopes.current_mut().flow);
+        // To account for possible assignments to existing names in a loop, we
+        // speculatively insert phi keys upfront.
+        self.scopes.current_mut().flow = self.insert_phi_keys(base.clone(), range);
+        self.scopes
+            .current_mut()
+            .loops
+            .push(Loop(vec![(LoopExit::NeverRan, base)]));
+        self.bind_narrow_ops(narrow_ops, range);
+    }
+
+    pub fn teardown_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps, orelse: Vec<Stmt>) {
+        let done = self.scopes.finish_current_loop();
+        let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) =
+            done.0.into_iter().partition_map(|(exit, flow)| match exit {
+                LoopExit::Break => Either::Left(flow),
+                LoopExit::NeverRan | LoopExit::Continue => Either::Right(flow),
+            });
+        // We associate a range to the non-`break` exits from the loop; it doesn't matter much what
+        // it is as long as it's different from the loop's range.
+        let other_range = TextRange::new(range.start(), range.start());
+        if breaks.is_empty() {
+            // When there are no `break`s, the loop condition is always false once the body has exited,
+            // and any `orelse` always runs.
+            self.merge_loop_into_current(other_exits, range);
+            self.bind_narrow_ops(&narrow_ops.negate(), other_range);
+            self.stmts(orelse);
+        } else {
+            // Otherwise, we negate the loop condition and run the `orelse` only when we don't `break`.
+            self.merge_loop_into_current(other_exits, range);
+            self.bind_narrow_ops(&narrow_ops.negate(), other_range);
+            self.stmts(orelse);
+            self.merge_loop_into_current(breaks, other_range);
+        }
     }
 
     pub fn add_loop_exitpoint(&mut self, exit: LoopExit, range: TextRange) {
