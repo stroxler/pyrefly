@@ -471,6 +471,22 @@ y = 42
 "#,
 );
 
+// https://github.com/facebook/pyrefly/issues/246
+testcase!(
+    test_declare_after_write_no_error,
+    r#"
+def foo():
+    x = 42
+    x: int
+    y = x
+
+def bar():
+    x = 42
+    x: int = -x
+    y = x
+"#,
+);
+
 // https://github.com/facebook/pyrefly/issues/154
 testcase!(
     test_exception_not_in_scope,
