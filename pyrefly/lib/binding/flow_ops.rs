@@ -53,7 +53,7 @@ impl MergeItem {
         name: Name,
         range: TextRange,
         info: FlowInfo,
-        visible_branches_len: usize,
+        n_branches: usize,
         idx_for_promise: impl FnOnce(Key) -> Idx<Key>,
     ) -> Self {
         // We are promising to bind this key at the end of the merge (see `merged_flow_info`).
@@ -65,7 +65,7 @@ impl MergeItem {
             phi_idx,
             default: info.default,
             branch_idxs: SmallSet::new(),
-            flow_styles: Vec::with_capacity(visible_branches_len),
+            flow_styles: Vec::with_capacity(n_branches),
         };
         myself.add_branch(info);
         myself
@@ -128,23 +128,24 @@ impl<'a> BindingsBuilder<'a> {
             return xs.pop().unwrap();
         }
 
-        // Hidden branches are branches where control flow terminates; visible ones are those
-        // that appear to flow into the merge.
-        //
-        // We normally only merge the visible branches, but if nothing is visible no one is going to
-        // fill in the Phi keys we promised. So just give up and use the hidden branches instead.
-        let (hidden_branches, mut visible_branches): (Vec<_>, Vec<_>) =
+        // We normally only merge the live branches (where control flow is not
+        // known to terminate), but if nothing is live we still need to fill in
+        // the Phi keys and potentially analyze downstream code, so in that case
+        // we'll use the terminated branches.
+        let (terminated_branches, live_branches): (Vec<_>, Vec<_>) =
             xs.into_iter().partition(|x| x.has_terminated);
-        let no_next = visible_branches.is_empty();
-        if visible_branches.is_empty() {
-            visible_branches = hidden_branches;
-        }
+        let no_next = live_branches.is_empty();
+        let merge_branches = if live_branches.is_empty() {
+            terminated_branches
+        } else {
+            live_branches
+        };
 
         // Collect all the branches into a `MergeItem` per name we need to merge
         let mut merge_items: SmallMap<Name, MergeItem> =
-            SmallMap::with_capacity(visible_branches.first().map_or(0, |x| x.info.len()));
-        let visible_branches_len = visible_branches.len();
-        for flow in visible_branches {
+            SmallMap::with_capacity(merge_branches.first().map_or(0, |x| x.info.len()));
+        let n_branches = merge_branches.len();
+        for flow in merge_branches {
             for (name, info) in flow.info.into_iter_hashed() {
                 match merge_items.entry_hashed(name) {
                     Entry::Occupied(mut merge_item_entry) => {
@@ -152,13 +153,9 @@ impl<'a> BindingsBuilder<'a> {
                     }
                     Entry::Vacant(e) => {
                         let name = e.key().clone();
-                        e.insert(MergeItem::new(
-                            name,
-                            range,
-                            info,
-                            visible_branches_len,
-                            |key| self.idx_for_promise(key),
-                        ));
+                        e.insert(MergeItem::new(name, range, info, n_branches, |key| {
+                            self.idx_for_promise(key)
+                        }));
                     }
                 };
             }
