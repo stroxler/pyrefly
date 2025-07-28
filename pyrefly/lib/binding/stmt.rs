@@ -755,7 +755,7 @@ impl<'a> BindingsBuilder<'a> {
                             let mut handler = self
                                 .declare_current_idx(Key::Definition(ShortIdentifier::new(&name)));
                             self.ensure_expr(&mut type_, handler.usage());
-                            self.bind_definition_current(
+                            self.bind_current_as(
                                 &name,
                                 handler,
                                 Binding::ExceptionHandler(type_, x.is_star),
@@ -774,7 +774,7 @@ impl<'a> BindingsBuilder<'a> {
                             // Must be a syntax error. But make sure we bind name to something.
                             let handler = self
                                 .declare_current_idx(Key::Definition(ShortIdentifier::new(&name)));
-                            self.bind_definition_current(
+                            self.bind_current_as(
                                 &name,
                                 handler,
                                 Binding::Type(Type::any_error()),
