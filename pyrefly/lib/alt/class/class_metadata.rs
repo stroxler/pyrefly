@@ -123,6 +123,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn find_has_generic_base_class(bases: &[BaseClass]) -> bool {
+        bases.iter().any(|x| match x {
+            BaseClass::Generic(ts) | BaseClass::Protocol(ts) if !ts.is_empty() => true,
+            _ => false,
+        })
+    }
+
+    fn find_has_typed_dict_base_class(bases: &[BaseClass]) -> bool {
+        bases.iter().any(|x| match x {
+            BaseClass::TypedDict => true,
+            _ => false,
+        })
+    }
+
     pub fn class_metadata_of(
         &self,
         cls: &Class,
@@ -133,7 +147,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         special_base: &Option<Box<BaseClass>>,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
-        let mut is_typed_dict = false;
         let mut named_tuple_metadata = None;
         let mut enum_metadata = None;
         let mut dataclass_metadata = None;
@@ -143,9 +156,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             bases.push((**special_base).clone());
         }
         let mut protocol_metadata = Self::protocol_metadata(cls, bases.as_slice());
+        let has_generic_base_class = Self::find_has_generic_base_class(bases.as_slice());
+        let has_typed_dict_base_class = Self::find_has_typed_dict_base_class(bases.as_slice());
 
+        let mut is_typed_dict = has_typed_dict_base_class;
         let mut has_base_any = false;
-        let mut has_generic_base_class = false;
         // If this class inherits from a dataclass_transform-ed class, record the defaults that we
         // should use for dataclass parameters.
         let mut dataclass_defaults_from_base_class = None;
@@ -158,20 +173,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .filter_map(|x| {
                 let base_type_and_range = match x {
                     BaseClass::Expr(x) => Some((self.expr_untype(x, TypeFormContext::BaseClassList, errors), x.range())),
-                    BaseClass::TypedDict => {
-                        is_typed_dict = true;
-                        None
-                    }
                     BaseClass::NamedTuple(range) => {
                         Some((self.stdlib.named_tuple_fallback().clone().to_type(), *range))
                     }
-                    BaseClass::Generic(ts) | BaseClass::Protocol(ts) if !ts.is_empty() => {
-                        has_generic_base_class = true;
-                        None
-                    }
                     // Skip over empty generic. Empty protocol is only relevant for `protocol_metadata`, defined
                     // above so we can skip it here.
-                    BaseClass::Generic(_) | BaseClass::Protocol(_) => None
+                    BaseClass::Generic(_) | BaseClass::Protocol(_) | BaseClass::TypedDict => None
                 };
                 if is_new_type {
                     self.new_type_base(base_type_and_range, cls.range(), errors)
