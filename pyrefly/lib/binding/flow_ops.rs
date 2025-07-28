@@ -127,17 +127,20 @@ impl<'a> BindingsBuilder<'a> {
         if xs.len() == 1 && xs[0].has_terminated {
             return xs.pop().unwrap();
         }
+
+        // Hidden branches are branches where control flow terminates; visible ones are those
+        // that appear to flow into the merge.
+        //
+        // We normally only merge the visible branches, but if nothing is visible no one is going to
+        // fill in the Phi keys we promised. So just give up and use the hidden branches instead.
         let (hidden_branches, mut visible_branches): (Vec<_>, Vec<_>) =
             xs.into_iter().partition(|x| x.has_terminated);
-
-        // We normally go through the visible branches, but if nothing is visible no one is going to
-        // fill in the Phi keys we promised. So just give up and use the hidden branches instead.
         let no_next = visible_branches.is_empty();
         if visible_branches.is_empty() {
             visible_branches = hidden_branches;
         }
 
-        // Collect all the information that we care about from all branches
+        // Collect all the branches into a `MergeItem` per name we need to merge
         let mut merge_items: SmallMap<Name, MergeItem> =
             SmallMap::with_capacity(visible_branches.first().map_or(0, |x| x.info.len()));
         let visible_branches_len = visible_branches.len();
@@ -161,6 +164,7 @@ impl<'a> BindingsBuilder<'a> {
             }
         }
 
+        // For each name and merge item, produce the merged FlowInfo for our new Flow
         let mut res = SmallMap::with_capacity(merge_items.len());
         for (name, merge_item) in merge_items.into_iter_hashed() {
             res.insert_hashed(
