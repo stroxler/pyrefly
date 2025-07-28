@@ -29,6 +29,25 @@ use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
 use crate::graph::index::Idx;
 
+// Represents a name we need to handle when merging flows.
+struct MergeItem {
+    // The key at which we will bind the result of the merge. Unlike all other keys
+    // in our data structure, this one does not refer to a pre-existing binding coming
+    // from upstream but rather the *output* of the merge.
+    phi_key: Idx<Key>,
+    // Key of the default binding. This is only used in loops, where it is used
+    // to say that when in doubt, the loop recursive Phi should solve to either
+    // the binding lives at the top of the loop (if any) or the first assignment
+    // in the first branch we encountered.
+    default: Idx<Key>,
+    // The set of bindings live at the end of each branch. This will not include
+    // `merged_key` itself (which might be live if a branch of a loop does not
+    // modify anything).
+    values: SmallSet<Idx<Key>>,
+    // The flow styles from each branch in the merge
+    flow_styles: Vec<FlowStyle>,
+}
+
 impl<'a> BindingsBuilder<'a> {
     fn merge_flow(&mut self, mut xs: Vec<Flow>, range: TextRange, is_loop: bool) -> Flow {
         if xs.len() == 1 && xs[0].has_terminated {
@@ -45,18 +64,18 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         // Collect all the information that we care about from all branches
-        let mut names: SmallMap<Name, (Idx<Key>, Idx<Key>, SmallSet<Idx<Key>>, Vec<FlowStyle>)> =
+        let mut names: SmallMap<Name, MergeItem> =
             SmallMap::with_capacity(visible_branches.first().map_or(0, |x| x.info.len()));
         let visible_branches_len = visible_branches.len();
         for flow in visible_branches {
             for (name, info) in flow.info.into_iter_hashed() {
-                let f = |v: &mut (Idx<Key>, Idx<Key>, SmallSet<Idx<Key>>, Vec<FlowStyle>)| {
-                    if info.key != v.0 {
+                let f = |merge_item: &mut MergeItem| {
+                    if info.key != merge_item.phi_key {
                         // Optimization: instead of x = phi(x, ...), we can skip the x.
                         // Avoids a recursive solving step later.
-                        v.2.insert(info.key);
+                        merge_item.values.insert(info.key);
                     }
-                    v.3.push(info.style);
+                    merge_item.flow_styles.push(info.style);
                 };
 
                 match names.entry_hashed(name) {
@@ -67,37 +86,42 @@ impl<'a> BindingsBuilder<'a> {
                         // Note that in some cases (e.g. variables defined above a loop) we already promised
                         // a binding and this lookup will just give us back the same `Idx<Key::Phi(...)>` we
                         // created initially.
-                        let key = self.idx_for_promise(Key::Phi(e.key().clone(), range));
-                        f(e.insert((
-                            key,
-                            info.default,
-                            SmallSet::new(),
-                            Vec::with_capacity(visible_branches_len),
-                        )));
+                        let phi_key = self.idx_for_promise(Key::Phi(e.key().clone(), range));
+                        f(e.insert(MergeItem {
+                            phi_key,
+                            default: info.default,
+                            values: SmallSet::new(),
+                            flow_styles: Vec::with_capacity(visible_branches_len),
+                        }));
                     }
                 };
             }
         }
 
         let mut res = SmallMap::with_capacity(names.len());
-        for (name, (key, default, values, styles)) in names.into_iter_hashed() {
-            let style = FlowStyle::merged(styles);
+        for (name, merge_item) in names.into_iter_hashed() {
+            let style = FlowStyle::merged(merge_item.flow_styles);
             self.insert_binding_idx(
-                key,
+                merge_item.phi_key,
                 match () {
-                    _ if values.len() == 1 => Binding::Forward(values.into_iter().next().unwrap()),
-                    _ if is_loop => Binding::Default(default, Box::new(Binding::Phi(values))),
-                    _ => Binding::Phi(values),
+                    _ if merge_item.values.len() == 1 => {
+                        Binding::Forward(merge_item.values.into_iter().next().unwrap())
+                    }
+                    _ if is_loop => Binding::Default(
+                        merge_item.default,
+                        Box::new(Binding::Phi(merge_item.values)),
+                    ),
+                    _ => Binding::Phi(merge_item.values),
                 },
             );
             res.insert_hashed(
                 name,
                 FlowInfo {
-                    key,
+                    key: merge_item.phi_key,
                     default: if self.scopes.loop_depth() > 0 {
-                        default
+                        merge_item.default
                     } else {
-                        key
+                        merge_item.phi_key
                     },
                     style,
                 },
