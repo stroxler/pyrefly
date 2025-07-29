@@ -96,7 +96,6 @@ use lsp_types::SignatureHelp;
 use lsp_types::SignatureHelpOptions;
 use lsp_types::SignatureHelpParams;
 use lsp_types::SymbolInformation;
-use lsp_types::TextDocumentContentChangeEvent;
 use lsp_types::TextDocumentPositionParams;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
@@ -153,9 +152,6 @@ use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
-use ruff_source_file::LineIndex;
-use ruff_source_file::OneIndexed;
-use ruff_source_file::SourceLocation;
 use serde::Deserialize;
 use starlark_map::small_map::SmallMap;
 
@@ -164,6 +160,7 @@ use crate::commands::lsp::LspArgs;
 use crate::config::config::ConfigFile;
 use crate::error::error::Error;
 use crate::lsp::features::hover::get_hover;
+use crate::lsp::lsp::apply_change_events;
 use crate::lsp::lsp::as_notification;
 use crate::lsp::lsp::as_request;
 use crate::lsp::lsp::as_request_response_pair;
@@ -954,24 +951,6 @@ impl Server {
         ide_transaction_manager: &mut IDETransactionManager<'a>,
         params: DidChangeTextDocumentParams,
     ) -> anyhow::Result<()> {
-        /// Convert lsp_types::Position to usize index for a given text.
-        fn position_to_usize(
-            position: lsp_types::Position,
-            index: &LineIndex,
-            source_text: &str,
-        ) -> usize {
-            let source_location = SourceLocation {
-                line: OneIndexed::from_zero_indexed(position.line as usize),
-                character_offset: OneIndexed::from_zero_indexed(position.character as usize),
-            };
-            let text_size = index.offset(
-                source_location,
-                source_text,
-                ruff_source_file::PositionEncoding::Utf16,
-            );
-            text_size.to_usize()
-        }
-
         let VersionedTextDocumentIdentifier { uri, version } = params.text_document;
         let file_path = uri.to_file_path().unwrap();
 
@@ -983,22 +962,13 @@ impl Server {
             ));
         }
         version_info.insert(file_path.clone(), version);
-        let mut new_text = String::from(self.open_files.read().get(&file_path).unwrap().as_ref());
-        for change in params.content_changes {
-            let TextDocumentContentChangeEvent { range, text, .. } = change;
-            // If no range is given, we can full text replace.
-            let Some(range) = range else {
-                new_text = text;
-                continue;
-            };
-            let index = LineIndex::from_source_text(&new_text);
-            let start = position_to_usize(range.start, &index, &new_text);
-            let end = position_to_usize(range.end, &index, &new_text);
-            new_text.replace_range(start..end, &text);
-        }
-        self.open_files
-            .write()
-            .insert(file_path.clone(), Arc::new(new_text));
+        let mut lock = self.open_files.write();
+        let original = lock.get_mut(&file_path).unwrap();
+        *original = Arc::new(apply_change_events(
+            original.as_str(),
+            params.content_changes,
+        ));
+        drop(lock);
         self.validate_in_memory(ide_transaction_manager)
     }
 
