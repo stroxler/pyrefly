@@ -152,8 +152,6 @@ use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
-use serde::Deserialize;
-use serde_json::Value;
 use starlark_map::small_map::SmallMap;
 
 use crate::commands::lsp::IndexingMode;
@@ -173,7 +171,6 @@ use crate::lsp::module_helpers::module_info_to_uri;
 use crate::lsp::module_helpers::to_lsp_location;
 use crate::lsp::module_helpers::to_real_path;
 use crate::lsp::transaction_manager::IDETransactionManager;
-use crate::lsp::workspace::PythonInfo;
 use crate::lsp::workspace::Workspace;
 use crate::lsp::workspace::Workspaces;
 use crate::module::from_path::module_from_path;
@@ -427,21 +424,6 @@ pub enum ProcessEvent {
 }
 
 const PYTHON_SECTION: &str = "python";
-
-#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PyreflyClientConfig {
-    disable_type_errors: Option<bool>,
-    disable_language_services: Option<bool>,
-    extra_paths: Option<Vec<PathBuf>>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LspConfig {
-    python_path: Option<String>,
-    pyrefly: Option<PyreflyClientConfig>,
-}
 
 impl Server {
     const FILEWATCHER_ID: &str = "FILEWATCHER";
@@ -1064,7 +1046,8 @@ impl Server {
 
         let mut modified = false;
         if let Some(python) = params.settings.get(PYTHON_SECTION) {
-            self.apply_client_configuration(&mut modified, &None, python.clone());
+            self.workspaces
+                .apply_client_configuration(&mut modified, &None, python.clone());
         }
 
         if modified {
@@ -1650,7 +1633,11 @@ impl Server {
             let mut modified = false;
             for (i, id) in request.items.iter().enumerate() {
                 if let Some(value) = response.get(i) {
-                    self.apply_client_configuration(&mut modified, &id.scope_uri, value.clone());
+                    self.workspaces.apply_client_configuration(
+                        &mut modified,
+                        &id.scope_uri,
+                        value.clone(),
+                    );
                 }
             }
             if modified {
@@ -1661,125 +1648,7 @@ impl Server {
         Ok(())
     }
 
-    /// Applies the LSP client configuration to the `scope_uri` (workspace) given.
-    ///
-    /// The `modified` flag is changed to `true` when the configuration gets applied to the
-    /// `scope_uri` matching a valid workspace
-    fn apply_client_configuration(
-        &self,
-        modified: &mut bool,
-        scope_uri: &Option<Url>,
-        config: Value,
-    ) {
-        let config = match serde_json::from_value::<LspConfig>(config) {
-            Err(_) => return,
-            Ok(x) => x,
-        };
-
-        if let Some(python_path) = config.python_path {
-            self.update_pythonpath(modified, scope_uri, &python_path);
-        }
-
-        if let Some(pyrefly) = config.pyrefly {
-            if let Some(extra_paths) = pyrefly.extra_paths {
-                self.update_search_paths(modified, scope_uri, extra_paths);
-            }
-            if let Some(disable_language_services) = pyrefly.disable_language_services {
-                self.update_disable_language_services(scope_uri, disable_language_services);
-            }
-            if let Some(disable_type_errors) = pyrefly.disable_type_errors {
-                self.update_disable_type_errors(modified, scope_uri, disable_type_errors);
-            }
-        }
-    }
-
-    /// Update disableLanguageServices setting for scope_uri, None if default workspace
-    fn update_disable_language_services(
-        &self,
-        scope_uri: &Option<Url>,
-        disable_language_services: bool,
-    ) {
-        let mut workspaces = self.workspaces.workspaces.write();
-        match scope_uri {
-            Some(scope_uri) => {
-                if let Some(workspace) = workspaces.get_mut(&scope_uri.to_file_path().unwrap()) {
-                    workspace.disable_language_services = disable_language_services;
-                }
-            }
-            None => {
-                self.workspaces.default.write().disable_language_services =
-                    disable_language_services
-            }
-        }
-    }
-
-    /// Update typeCheckingMode setting for scope_uri, None if default workspace
-    fn update_disable_type_errors(
-        &self,
-        modified: &mut bool,
-        scope_uri: &Option<Url>,
-        disable_type_errors: bool,
-    ) {
-        let mut workspaces = self.workspaces.workspaces.write();
-        match scope_uri {
-            Some(scope_uri) => {
-                if let Some(workspace) = workspaces.get_mut(&scope_uri.to_file_path().unwrap()) {
-                    *modified = true;
-                    workspace.disable_type_errors = disable_type_errors;
-                }
-            }
-            None => {
-                *modified = true;
-                self.workspaces.default.write().disable_type_errors = disable_type_errors
-            }
-        }
-    }
-
     fn invalidate_config(&self) {
         self.invalidate(|t| t.invalidate_config());
-    }
-
-    /// Updates pythonpath with specified python path
-    /// scope_uri = None for default workspace
-    fn update_pythonpath(&self, modified: &mut bool, scope_uri: &Option<Url>, python_path: &str) {
-        let mut workspaces = self.workspaces.workspaces.write();
-        let interpreter = PathBuf::from(python_path);
-        let python_info = Some(PythonInfo::new(interpreter));
-        match scope_uri {
-            Some(scope_uri) => {
-                let workspace_path = scope_uri.to_file_path().unwrap();
-                if let Some(workspace) = workspaces.get_mut(&workspace_path) {
-                    *modified = true;
-                    workspace.python_info = python_info;
-                }
-            }
-            None => {
-                *modified = true;
-                self.workspaces.default.write().python_info = python_info;
-            }
-        }
-    }
-
-    // Updates search paths for scope uri.
-    fn update_search_paths(
-        &self,
-        modified: &mut bool,
-        scope_uri: &Option<Url>,
-        search_paths: Vec<PathBuf>,
-    ) {
-        let mut workspaces = self.workspaces.workspaces.write();
-        match scope_uri {
-            Some(scope_uri) => {
-                let workspace_path = scope_uri.to_file_path().unwrap();
-                if let Some(workspace) = workspaces.get_mut(&workspace_path) {
-                    *modified = true;
-                    workspace.search_path = Some(search_paths);
-                }
-            }
-            None => {
-                *modified = true;
-                self.workspaces.default.write().search_path = Some(search_paths);
-            }
-        }
     }
 }
