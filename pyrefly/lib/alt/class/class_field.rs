@@ -214,14 +214,6 @@ impl ClassField {
         }
     }
 
-    /// Get the raw type. Only suitable for use in this module, this type may
-    /// not correspond to the type of any actual operations on the attribute.
-    fn raw_type(&self) -> &Type {
-        match &self.0 {
-            ClassFieldInner::Simple { ty, .. } => ty,
-        }
-    }
-
     pub fn new_synthesized(ty: Type) -> Self {
         ClassField(ClassFieldInner::Simple {
             ty,
@@ -925,15 +917,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let ty = match initial_value {
             RawClassFieldInitialization::ClassBody(_)
             | RawClassFieldInitialization::Uninitialized => ty,
-            RawClassFieldInitialization::Method(method) => self
-                .check_and_sanitize_method_scope_type_parameters(
-                    class,
-                    &method.method_name,
-                    ty,
-                    name,
-                    range,
-                    errors,
-                ),
+            RawClassFieldInitialization::Method(_) => {
+                self.check_and_sanitize_type_parameters(class, ty, name, range, errors)
+            }
         };
 
         // Enum handling:
@@ -1219,54 +1205,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn check_and_sanitize_method_scope_type_parameters(
+    fn check_and_sanitize_type_parameters(
         &self,
         class: &Class,
-        method_name: &Name,
         ty: Type,
         name: &Name,
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        if let Some(method_field) =
-            self.get_non_synthesized_field_from_current_class_only(class, method_name)
-            && !method_field.is_init_var()
-        {
-            match &method_field.raw_type() {
-                Type::Forall(box Forall { tparams, .. }) => {
-                    let mut qs = SmallSet::new();
-                    ty.collect_quantifieds(&mut qs);
-                    let ts = Owner::new();
-                    let gradual_fallbacks: SmallMap<_, _> = tparams
-                        .iter()
-                        .filter_map(|param| {
-                            let q = &param.quantified;
-                            if qs.contains(q) {
-                                self.error(
-                                    errors,
-                                    range,
-                                    ErrorInfo::Kind(ErrorKind::InvalidTypeVar,
-                            ),
-                                format!(
-                                        "Cannot initialize attribute `{}` to a value that depends on method-scoped type variable `{}`",
-                                        name,
-                                        param.name(),
-                                    ),
-                                );
-                                Some((q , ts.push(q.as_gradual_type())))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    drop(qs);
-                    ty.subst(&gradual_fallbacks)
-                }
-                _ => ty,
-            }
-        } else {
-            ty
+        let mut qs = SmallSet::new();
+        ty.collect_quantifieds(&mut qs);
+        if qs.is_empty() {
+            drop(qs);
+            return ty;
         }
+        let class_tparams = self.get_class_tparams(class);
+        let qs_owner = Owner::new();
+        let ts = Owner::new();
+        let gradual_fallbacks = qs
+            .difference(&class_tparams.quantifieds().collect())
+            .map(|q| {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::InvalidTypeVar),
+                    format!(
+                        "Attribute `{}` cannot depend on type variable `{}`, which is not in the scope of class `{}`",
+                        name,
+                        q.name(),
+                        class.name(),
+                    ),
+                );
+                (qs_owner.push((*q).clone()), ts.push(q.as_gradual_type()))
+            })
+            .collect::<SmallMap<_, _>>();
+        drop(qs);
+        ty.subst(&gradual_fallbacks)
     }
 
     fn as_instance_attribute(&self, field: &ClassField, instance: &Instance) -> Attribute {
