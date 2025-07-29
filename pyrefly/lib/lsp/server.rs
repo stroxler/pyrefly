@@ -997,18 +997,12 @@ impl Server {
         let mut unknown = Vec::new();
 
         for event in events {
-            match event.typ {
-                lsp_types::FileChangeType::CREATED => {
-                    created.push(event.uri.to_file_path().unwrap());
-                }
-                lsp_types::FileChangeType::CHANGED => {
-                    modified.push(event.uri.to_file_path().unwrap());
-                }
-                lsp_types::FileChangeType::DELETED => {
-                    removed.push(event.uri.to_file_path().unwrap());
-                }
-                _ => {
-                    unknown.push(event.uri.to_file_path().unwrap());
+            if let Ok(path) = event.uri.to_file_path() {
+                match event.typ {
+                    lsp_types::FileChangeType::CREATED => created.push(path),
+                    lsp_types::FileChangeType::CHANGED => modified.push(path),
+                    lsp_types::FileChangeType::DELETED => removed.push(path),
+                    _ => unknown.push(path),
                 }
             }
         }
