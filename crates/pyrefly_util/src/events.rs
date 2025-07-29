@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use notify::Event;
 use notify::EventKind;
 
+#[derive(Debug, Clone, Default)]
 pub struct CategorizedEvents {
     pub created: Vec<PathBuf>,
     pub modified: Vec<PathBuf>,
