@@ -1882,6 +1882,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.try_lookup_attr_from_class_type(class_type, name)
             .and_then(|attr| self.resolve_as_instance_method(attr))
     }
+
+    /// Return `__call__` as a bound method if instances of `cls` have `__call__`.
+    /// This is what the runtime automatically does when we try to call an instance.
+    pub fn instance_as_dunder_call(&self, cls: &ClassType) -> Option<Type> {
+        self.get_instance_attribute(cls, &dunder::CALL)
+            .and_then(|attr| self.resolve_as_instance_method(attr))
+    }
 }
 
 #[derive(Debug)]

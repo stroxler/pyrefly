@@ -48,7 +48,6 @@ use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Required;
 use crate::types::class::ClassKind;
-use crate::types::class::ClassType;
 use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::types::CalleeKind;
 use crate::types::types::Forall;
@@ -632,12 +631,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
             );
         }
-    }
-
-    /// If instances of this class are callable - that is, have a `__call__` method - return the method.
-    pub fn instance_as_dunder_call(&self, cls: &ClassType) -> Option<Type> {
-        self.get_instance_attribute(cls, &dunder::CALL)
-            .and_then(|attr| self.resolve_as_instance_method(attr))
     }
 
     // Given the index to a function binding, return the previous function binding, if any.
