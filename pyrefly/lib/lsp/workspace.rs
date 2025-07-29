@@ -6,7 +6,6 @@
  */
 
 use std::collections::HashSet;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -51,10 +50,8 @@ impl PythonInfo {
 }
 
 /// LSP workspace settings: this is all that is necessary to run an LSP at a given root.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Workspace {
-    #[expect(dead_code)]
-    pub root: PathBuf,
     pub python_info: Option<PythonInfo>,
     pub search_path: Option<Vec<PathBuf>>,
     pub disable_language_services: bool,
@@ -62,9 +59,8 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new(workspace_root: &Path, python_info: Option<PythonInfo>) -> Self {
+    pub fn new(python_info: Option<PythonInfo>) -> Self {
         Self {
-            root: workspace_root.to_path_buf(),
             python_info,
             search_path: None,
             disable_language_services: false,
@@ -72,20 +68,8 @@ impl Workspace {
         }
     }
 
-    pub fn new_with_default_env(workspace_root: &Path) -> Self {
-        Self::new(workspace_root, None)
-    }
-}
-
-impl Default for Workspace {
-    fn default() -> Self {
-        Self {
-            root: PathBuf::from("/"),
-            python_info: None,
-            search_path: None,
-            disable_language_services: Default::default(),
-            disable_type_errors: false,
-        }
+    pub fn new_with_default_env() -> Self {
+        Self::new(None)
     }
 }
 

@@ -1079,7 +1079,7 @@ impl Server {
         {
             let mut workspaces = self.workspaces.workspaces.write();
             for x in workspace_paths_added {
-                workspaces.insert(x.clone(), Workspace::new_with_default_env(x));
+                workspaces.insert(x.clone(), Workspace::new_with_default_env());
             }
             for x in workspace_paths_removed {
                 workspaces.shift_remove(x);
