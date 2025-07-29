@@ -49,59 +49,6 @@ use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    fn new_type_base(
-        &self,
-        base_type_and_range: (Type, TextRange),
-        errors: &ErrorCollector,
-    ) -> Result<(ClassType, TextRange, Arc<ClassMetadata>), ()> {
-        match base_type_and_range {
-            // TODO: raise an error for generic classes and other forbidden types such as hashable
-            (Type::ClassType(c), range) => {
-                let base_cls = c.class_object();
-                let base_class_metadata = self.get_metadata_for_class(base_cls);
-                if base_class_metadata.is_protocol() {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                        "Second argument to NewType cannot be a protocol".to_owned(),
-                    );
-                }
-                if c.targs().as_slice().iter().any(|ty| {
-                    ty.any(|ty| {
-                        matches!(
-                            ty,
-                            Type::TypeVar(_) | Type::TypeVarTuple(_) | Type::ParamSpec(_)
-                        )
-                    })
-                }) {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                        "Second argument to NewType cannot be an unbound generic".to_owned(),
-                    );
-                }
-                let metadata = self.get_metadata_for_class(c.class_object());
-                Ok((c, range, metadata))
-            }
-            (Type::Tuple(tuple), range) => {
-                let class_ty = self.erase_tuple_type(tuple);
-                let metadata = self.get_metadata_for_class(class_ty.class_object());
-                Ok((class_ty, range, metadata))
-            }
-            (_, range) => {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                    "Second argument to NewType is invalid".to_owned(),
-                );
-                Err(())
-            }
-        }
-    }
-
     fn protocol_metadata(cls: &Class, bases: &[BaseClass]) -> Option<ProtocolMetadata> {
         if bases.iter().any(|x| matches!(x, BaseClass::Protocol(..))) {
             Some(ProtocolMetadata {
@@ -182,32 +129,66 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ) = bases_with_range
             .into_iter()
             .map(|base_type_and_range| {
-                if is_new_type {
-                    self.new_type_base(base_type_and_range, errors)
-                } else {
-                    match base_type_and_range {
-                        (Type::ClassType(c), range) => {
-                            let base_cls = c.class_object();
-                            let base_class_metadata = self.get_metadata_for_class(base_cls);
-                            if base_class_metadata.is_new_type() {
+                // Return Ok() if the base class is valid, or Err() if it is not.
+                match base_type_and_range {
+                    (Type::ClassType(c), range) => {
+                        let base_cls = c.class_object();
+                        let base_class_metadata = self.get_metadata_for_class(base_cls);
+                        if is_new_type {
+                            if base_class_metadata.is_protocol() {
                                 self.error(
                                     errors,
                                     range,
-                                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                    "Subclassing a NewType not allowed".to_owned(),
+                                    ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                                    "Second argument to NewType cannot be a protocol".to_owned(),
                                 );
                             }
-                            Ok((c, range, base_class_metadata))
-                        }
-                        (Type::Tuple(tuple), range) => {
-                            if tuple_base.is_none() {
-                                tuple_base = Some(tuple.clone());
+                            if c.targs().as_slice().iter().any(|ty| {
+                                ty.any(|ty| {
+                                    matches!(
+                                        ty,
+                                        Type::TypeVar(_)
+                                            | Type::TypeVarTuple(_)
+                                            | Type::ParamSpec(_)
+                                    )
+                                })
+                            }) {
+                                self.error(
+                                    errors,
+                                    range,
+                                    ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                                    "Second argument to NewType cannot be an unbound generic"
+                                        .to_owned(),
+                                );
                             }
-                            let class_ty = self.erase_tuple_type(tuple);
-                            let metadata = self.get_metadata_for_class(class_ty.class_object());
-                            Ok((class_ty, range, metadata))
+                        } else if base_class_metadata.is_new_type() {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                "Subclassing a NewType not allowed".to_owned(),
+                            );
                         }
-                        (Type::TypedDict(typed_dict), range) => {
+                        Ok((c, range, base_class_metadata))
+                    }
+                    (Type::Tuple(tuple), range) => {
+                        if !is_new_type && tuple_base.is_none() {
+                            tuple_base = Some(tuple.clone());
+                        }
+                        let class_ty = self.erase_tuple_type(tuple);
+                        let metadata = self.get_metadata_for_class(class_ty.class_object());
+                        Ok((class_ty, range, metadata))
+                    }
+                    (Type::TypedDict(typed_dict), range) => {
+                        if is_new_type {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                                "Second argument to NewType is invalid".to_owned(),
+                            );
+                            Err(())
+                        } else {
                             let class_object = typed_dict.class_object();
                             let class_metadata = self.get_metadata_for_class(class_object);
                             // HACK HACK HACK - TypedDict instances behave very differently from instances of other
@@ -224,17 +205,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 class_metadata,
                             ))
                         }
-                        (t, range) => {
-                            if !t.is_any() {
-                                self.error(
-                                    errors,
-                                    range,
-                                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                    format!("Invalid base class: `{}`", self.for_display(t)),
-                                );
-                            }
-                            Err(())
+                    }
+                    (t, range) => {
+                        if is_new_type {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                                "Second argument to NewType is invalid".to_owned(),
+                            );
+                        } else if !t.is_any() {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                format!("Invalid base class: `{}`", self.for_display(t)),
+                            );
                         }
+                        Err(())
                     }
                 }
             })
