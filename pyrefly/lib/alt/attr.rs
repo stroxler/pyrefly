@@ -1251,7 +1251,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// A convenience function for callers who don't care about reasons a lookup failed and are
     /// only interested in simple, read-write attributes (in particular, this covers instance access to
     /// regular methods, and is useful for edge cases where we handle cases like `__call__` and `__new__`).
-    pub fn resolve_as_instance_method(&self, attr: Attribute) -> Option<Type> {
+    fn resolve_as_instance_method(&self, attr: Attribute) -> Option<Type> {
         self.resolve_as_instance_method_with_attribute_inner(attr.inner)
     }
 
@@ -1876,11 +1876,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
             );
         }
-    }
-
-    pub fn try_lookup_instance_method(&self, class_type: ClassType, name: &Name) -> Option<Type> {
-        self.try_lookup_attr_from_class_type(class_type, name)
-            .and_then(|attr| self.resolve_as_instance_method(attr))
     }
 
     /// Return `__call__` as a bound method if instances of `cls` have `__call__`.
