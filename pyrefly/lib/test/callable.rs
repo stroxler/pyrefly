@@ -868,3 +868,22 @@ def g(f: Callable[..., Any]):
 g(f)
     "#,
 );
+
+testcase!(
+    bug = "There should be no errors",
+    test_return_generic_callable,
+    r#"
+from typing import assert_type, Callable
+def f[T]() -> Callable[[T], T]:
+    return lambda x: x
+
+g = f()
+assert_type(g(0), int)
+assert_type(g(""), str)  # E: assert_type(int, str)  # E: `Literal['']` is not assignable to parameter with type `int`
+
+@f()
+def h(x: int) -> int:
+    return x
+assert_type(h(0), int)  # E: assert_type(Any, int)
+    "#,
+);
