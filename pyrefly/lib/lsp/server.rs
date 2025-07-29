@@ -1504,13 +1504,7 @@ impl Server {
     }
 
     fn setup_file_watcher_if_necessary(&self) {
-        let roots = self
-            .workspaces
-            .workspaces
-            .read()
-            .keys()
-            .cloned()
-            .collect::<Vec<_>>();
+        let roots = self.workspaces.roots();
         match self.initialize_params.capabilities.workspace {
             Some(WorkspaceClientCapabilities {
                 did_change_watched_files:

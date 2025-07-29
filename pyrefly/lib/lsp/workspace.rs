@@ -210,6 +210,10 @@ impl Workspaces {
         }))
     }
 
+    pub fn roots(&self) -> Vec<PathBuf> {
+        self.workspaces.read().keys().cloned().collect::<Vec<_>>()
+    }
+
     /// Applies the LSP client configuration to the `scope_uri` (workspace) given.
     ///
     /// The `modified` flag is changed to `true` when the configuration gets applied to the
