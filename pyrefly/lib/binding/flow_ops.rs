@@ -98,22 +98,32 @@ impl MergeItem {
         contained_in_loop: bool,
         insert_binding_idx: impl FnOnce(Idx<Key>, Binding),
     ) -> FlowInfo {
-        insert_binding_idx(
-            self.phi_idx,
+        let downstream_idx = {
             if self.branch_idxs.len() == 1 {
-                Binding::Forward(self.branch_idxs.into_iter().next().unwrap())
+                // There is only one key no matter the branch. Use a forward for the
+                // phi idx (which might be unused, but because of speculative phi if this
+                // is a loop we may have to put something at the phi) and use the original
+                // idx downstream.
+                let upstream_idx = self.branch_idxs.into_iter().next().unwrap();
+                insert_binding_idx(self.phi_idx, Binding::Forward(upstream_idx));
+                upstream_idx
             } else if current_is_loop {
-                Binding::Default(self.default, Box::new(Binding::Phi(self.branch_idxs)))
+                insert_binding_idx(
+                    self.phi_idx,
+                    Binding::Default(self.default, Box::new(Binding::Phi(self.branch_idxs))),
+                );
+                self.phi_idx
             } else {
-                Binding::Phi(self.branch_idxs)
-            },
-        );
+                insert_binding_idx(self.phi_idx, Binding::Phi(self.branch_idxs));
+                self.phi_idx
+            }
+        };
         FlowInfo {
-            key: self.phi_idx,
+            key: downstream_idx,
             default: if contained_in_loop {
                 self.default
             } else {
-                self.phi_idx
+                downstream_idx
             },
             style: FlowStyle::merged(self.flow_styles),
         }

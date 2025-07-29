@@ -1239,7 +1239,7 @@ def f(obj, g, field_type, my_type,):
         if isinstance(field_type, my_type) and g is not None:
             if g is None:
                 raise ValueError(
-                    f"{obj.__name__}." # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: @_ (trying to access __name__)
+                    f"{obj.__name__}."  # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: type[tuple[Unknown, ...]] (trying to access __name__)
                 )
     "#,
 );
