@@ -59,17 +59,8 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new(python_info: Option<PythonInfo>) -> Self {
-        Self {
-            python_info,
-            search_path: None,
-            disable_language_services: false,
-            disable_type_errors: false,
-        }
-    }
-
-    pub fn new_with_default_env() -> Self {
-        Self::new(None)
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
