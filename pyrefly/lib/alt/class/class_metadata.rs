@@ -53,7 +53,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         base_type_and_range: (Type, TextRange),
         errors: &ErrorCollector,
-    ) -> Option<(ClassType, Arc<ClassMetadata>)> {
+    ) -> Result<(ClassType, Arc<ClassMetadata>), ()> {
         match base_type_and_range {
             // TODO: raise an error for generic classes and other forbidden types such as hashable
             (Type::ClassType(c), range) => {
@@ -83,12 +83,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 let metadata = self.get_metadata_for_class(c.class_object());
-                Some((c, metadata))
+                Ok((c, metadata))
             }
             (Type::Tuple(tuple), _) => {
                 let class_ty = self.erase_tuple_type(tuple);
                 let metadata = self.get_metadata_for_class(class_ty.class_object());
-                Some((class_ty, metadata))
+                Ok((class_ty, metadata))
             }
             (_, range) => {
                 self.error(
@@ -97,7 +97,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ErrorInfo::Kind(ErrorKind::InvalidArgument),
                     "Second argument to NewType is invalid".to_owned(),
                 );
-                None
+                Err(())
             }
         }
     }
@@ -176,10 +176,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect::<Vec<_>>();
 
-        let mut has_base_any = false;
-        let bases_with_metadata = bases_with_range
+        let (bases_with_metadata, invalid_bases): (Vec<_>, Vec<_>) = bases_with_range
             .into_iter()
-            .filter_map(|base_type_and_range| {
+            .map(|base_type_and_range| {
                 if is_new_type {
                     self.new_type_base(base_type_and_range, errors)
                 } else {
@@ -187,9 +186,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         (Type::ClassType(c), range) => {
                             let base_cls = c.class_object();
                             let base_class_metadata = self.get_metadata_for_class(base_cls);
-                            if base_class_metadata.has_base_any() {
-                                has_base_any = true;
-                            }
                             if base_class_metadata.is_final() {
                                 self.error(errors,
                                     range,
@@ -238,7 +234,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     );
                                 }
                             }
-                            Some((c, base_class_metadata))
+                            Ok((c, base_class_metadata))
                         }
                         (Type::Tuple(tuple), _) => {
                             if tuple_base.is_none() {
@@ -246,7 +242,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             }
                             let class_ty = self.erase_tuple_type(tuple);
                             let metadata = self.get_metadata_for_class(class_ty.class_object());
-                            Some((class_ty, metadata))
+                            Ok((class_ty, metadata))
                         }
                         (Type::TypedDict(typed_dict), _) => {
                             let class_object = typed_dict.class_object();
@@ -256,27 +252,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             // class ancestors are represented as ClassType all over the code base, and changing this
                             // would be quite painful. So we convert TypedDict to ClassType in this one spot. Please do
                             // not do this anywhere else.
-                            Some((
+                            Ok((
                                 ClassType::new(typed_dict.class_object().dupe(), typed_dict.targs().clone()),
                                 class_metadata,
                             ))
                         }
-                        // todo zeina: Ideally, we can directly add this class to the list of base classes. Revisit this when fixing the "Any" representation.
-                        (Type::Any(_), _) => {
-                            has_base_any = true;
-                            None
-                        }
                         (t, range) => {
-                            self.error(
-                                errors, range, ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                format!("Invalid base class: `{}`", self.for_display(t)));
-                            has_base_any = true;
-                            None
+                            if !t.is_any() {
+                                self.error(
+                                    errors, range, ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                    format!("Invalid base class: `{}`", self.for_display(t))
+                                );
+                            }
+                            Err(())
                         }
                     }
                 }
-            })
-            .collect::<Vec<_>>();
+            }).partition_result();
+
+        let has_base_any = !invalid_bases.is_empty()
+            || bases_with_metadata
+                .iter()
+                .any(|(_, metadata)| metadata.has_base_any());
 
         let named_tuple_metadata = bases_with_metadata.iter().find_map(|(base_cls, metadata)| {
             let base_class_object = base_cls.class_object();
