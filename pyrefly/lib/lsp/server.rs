@@ -1583,12 +1583,10 @@ impl Server {
         if let Some(workspace) = &self.initialize_params.capabilities.workspace
             && workspace.configuration == Some(true)
         {
+            let roots = self.workspaces.roots();
             self.send_request::<WorkspaceConfiguration>(ConfigurationParams {
-                items: self
-                    .workspaces
-                    .workspaces
-                    .read()
-                    .keys()
+                items: roots
+                    .iter()
                     .map(|uri| Some(Url::from_file_path(uri).unwrap()))
                     // add default workspace
                     .chain(once(None))
