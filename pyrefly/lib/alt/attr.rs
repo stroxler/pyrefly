@@ -1320,6 +1320,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         attr_name: &Name,
     ) -> LookupResult {
         match base {
+            AttributeBase::Any(style) => LookupResult::found_type(style.propagate()),
+            AttributeBase::TypeAny(style) => {
+                let builtins_type_classtype = self.stdlib.builtins_type();
+                self.get_instance_attribute(builtins_type_classtype, attr_name)
+                    .and_then(|Attribute { inner }| {
+                        self.resolve_as_instance_method_with_attribute_inner(inner)
+                            .map(LookupResult::found_type)
+                    })
+                    .map_or_else(
+                        || LookupResult::found_type(style.propagate()),
+                        |result| result,
+                    )
+            }
+            AttributeBase::Never => LookupResult::found_type(Type::never()),
             AttributeBase::EnumLiteral(_, member, _)
                 if matches!(attr_name.as_str(), "name" | "_name_") =>
             {
@@ -1453,20 +1467,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
             },
-            AttributeBase::TypeAny(style) => {
-                let builtins_type_classtype = self.stdlib.builtins_type();
-                self.get_instance_attribute(builtins_type_classtype, attr_name)
-                    .and_then(|Attribute { inner }| {
-                        self.resolve_as_instance_method_with_attribute_inner(inner)
-                            .map(LookupResult::found_type)
-                    })
-                    .map_or_else(
-                        || LookupResult::found_type(style.propagate()),
-                        |result| result,
-                    )
-            }
-            AttributeBase::Any(style) => LookupResult::found_type(style.propagate()),
-            AttributeBase::Never => LookupResult::found_type(Type::never()),
             AttributeBase::Property(mut getter) => {
                 if attr_name == "setter" {
                     // When given a decorator `@some_property.setter`, instead of modeling the setter
