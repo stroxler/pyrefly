@@ -169,6 +169,7 @@ use crate::lsp::lsp::new_response;
 use crate::lsp::module_helpers::handle_from_module_path;
 use crate::lsp::module_helpers::make_open_handle;
 use crate::lsp::module_helpers::module_info_to_uri;
+use crate::lsp::module_helpers::to_lsp_location;
 use crate::lsp::module_helpers::to_real_path;
 use crate::lsp::transaction_manager::IDETransactionManager;
 use crate::lsp::workspace::PythonInfo;
@@ -1109,18 +1110,6 @@ impl Server {
         })
     }
 
-    fn to_lsp_location(&self, location: &TextRangeWithModule) -> Option<Location> {
-        let TextRangeWithModule {
-            module: definition_module_info,
-            range,
-        } = location;
-        let uri = module_info_to_uri(definition_module_info)?;
-        Some(Location {
-            uri,
-            range: definition_module_info.lined_buffer().to_lsp_range(*range),
-        })
-    }
-
     fn goto_definition(
         &self,
         transaction: &Transaction<'_>,
@@ -1134,8 +1123,8 @@ impl Server {
             .from_lsp_position(params.text_document_position_params.position);
         let targets = transaction.goto_definition(&handle, range);
         let mut lsp_targets = targets
-            .into_iter()
-            .filter_map(|t| self.to_lsp_location(&t))
+            .iter()
+            .filter_map(to_lsp_location)
             .collect::<Vec<_>>();
         if lsp_targets.is_empty() {
             None
@@ -1499,15 +1488,14 @@ impl Server {
             .unwrap_or_default()
             .into_iter()
             .filter_map(|(name, kind, location)| {
-                self.to_lsp_location(&location)
-                    .map(|location| SymbolInformation {
-                        name,
-                        kind,
-                        location,
-                        tags: None,
-                        deprecated: None,
-                        container_name: None,
-                    })
+                to_lsp_location(&location).map(|location| SymbolInformation {
+                    name,
+                    kind,
+                    location,
+                    tags: None,
+                    deprecated: None,
+                    container_name: None,
+                })
             })
             .collect()
     }
