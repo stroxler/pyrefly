@@ -336,6 +336,20 @@ pub fn initialize_connection(
     let (request_id, initialization_params) = connection.initialize_start()?;
     let initialization_params: InitializeParams =
         serde_json::from_value(initialization_params).unwrap();
+    let server_capabilities =
+        serde_json::to_value(capabilities(args.indexing_mode, &initialization_params)).unwrap();
+    let initialize_data = serde_json::json!({
+        "capabilities": server_capabilities,
+    });
+
+    connection.initialize_finish(request_id, initialize_data)?;
+    Ok(initialization_params)
+}
+
+pub fn capabilities(
+    indexing_mode: IndexingMode,
+    initialization_params: &InitializeParams,
+) -> ServerCapabilities {
     let augments_syntax_tokens = initialization_params
         .capabilities
         .text_document
@@ -343,8 +357,7 @@ pub fn initialize_connection(
         .and_then(|c| c.semantic_tokens.as_ref())
         .and_then(|c| c.augments_syntax_tokens)
         .unwrap_or(false);
-    // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
-    let server_capabilities = serde_json::to_value(&ServerCapabilities {
+    ServerCapabilities {
         position_encoding: Some(PositionEncodingKind::UTF16),
         text_document_sync: Some(TextDocumentSyncCapability::Kind(
             TextDocumentSyncKind::INCREMENTAL,
@@ -360,13 +373,13 @@ pub fn initialize_connection(
         }),
         document_highlight_provider: Some(OneOf::Left(true)),
         // Find references won't work properly if we don't know all the files.
-        references_provider: match args.indexing_mode {
+        references_provider: match indexing_mode {
             IndexingMode::None => None,
             IndexingMode::LazyNonBlockingBackground | IndexingMode::LazyBlocking => {
                 Some(OneOf::Left(true))
             }
         },
-        rename_provider: match args.indexing_mode {
+        rename_provider: match indexing_mode {
             IndexingMode::None => None,
             IndexingMode::LazyNonBlockingBackground | IndexingMode::LazyBlocking => {
                 Some(OneOf::Right(RenameOptions {
@@ -408,14 +421,7 @@ pub fn initialize_connection(
             file_operations: None,
         }),
         ..Default::default()
-    })
-    .unwrap();
-    let initialize_data = serde_json::json!({
-        "capabilities": server_capabilities,
-    });
-
-    connection.initialize_finish(request_id, initialize_data)?;
-    Ok(initialization_params)
+    }
 }
 
 pub enum ProcessEvent {
