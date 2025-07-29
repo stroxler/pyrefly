@@ -78,7 +78,6 @@ use crate::state::state::Transaction;
 use crate::types::callable::Param;
 use crate::types::callable::Params;
 use crate::types::module::ModuleType;
-use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
 
 const RESOLVE_EXPORT_INITIAL_GAS: Gas = Gas::new(100);
@@ -800,16 +799,7 @@ impl<'a> Transaction<'a> {
     }
 
     fn normalize_singleton_function_type_into_params(type_: Type) -> Option<Vec<Param>> {
-        let callable = match type_ {
-            Type::Callable(callable) => Some(*callable),
-            Type::Function(function) => Some(function.signature),
-            Type::BoundMethod(bound_method) => match bound_method.func {
-                BoundMethodType::Function(function) => Some(function.signature),
-                BoundMethodType::Forall(forall) => Some(forall.body.signature),
-                BoundMethodType::Overload(_) => None,
-            },
-            _ => None,
-        }?;
+        let callable = type_.to_callable()?;
         // We will drop the self parameter for signature help
         if let Params::List(params_list) = callable.params {
             if let Some(Param::PosOnly(Some(name), _, _) | Param::Pos(name, _, _)) =
