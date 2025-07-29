@@ -7,7 +7,6 @@
 
 use std::path::PathBuf;
 
-use notify::Event;
 use notify::EventKind;
 
 #[derive(Debug, Clone, Default)]
@@ -19,7 +18,7 @@ pub struct CategorizedEvents {
 }
 
 impl CategorizedEvents {
-    pub fn new(events: Vec<Event>) -> Self {
+    pub fn new_notify(events: Vec<notify::Event>) -> Self {
         let mut res = Self::default();
         for event in events {
             match event.kind {
