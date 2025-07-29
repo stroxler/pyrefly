@@ -157,7 +157,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     /// Instantiates a class or typed dictionary with fresh variables for its type parameters.
-    pub fn instantiate_fresh(&self, cls: &Class) -> Type {
+    pub fn instantiate_fresh_class(&self, cls: &Class) -> Type {
         self.solver()
             .fresh_quantified(
                 &self.get_class_tparams(cls),
@@ -167,12 +167,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .1
     }
 
-    pub fn instantiate_forall(&self, forall: Forall<Forallable>) -> (Vec<Var>, Type) {
+    pub fn instantiate_fresh_forall(&self, forall: Forall<Forallable>) -> (Vec<Var>, Type) {
         self.solver()
             .fresh_quantified(&forall.tparams, forall.body.as_type(), self.uniques)
     }
 
-    pub fn fresh_quantified_function(
+    pub fn instantiate_fresh_function(
         &self,
         tparams: &TParams,
         func: Function,

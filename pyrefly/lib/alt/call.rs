@@ -139,7 +139,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     OverloadType::Callable(function) => function,
                     OverloadType::Forall(forall) => {
                         let (qs2, func) =
-                            self.fresh_quantified_function(&forall.tparams, forall.body);
+                            self.instantiate_fresh_function(&forall.tparams, forall.body);
                         qs.extend(qs2);
                         func
                     }
@@ -174,7 +174,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Type::ClassDef(cls) => {
-                self.as_call_target(Type::type_form(self.instantiate_fresh(&cls)))
+                self.as_call_target(Type::type_form(self.instantiate_fresh_class(&cls)))
             }
             Type::Type(box Type::ClassType(cls)) | Type::Type(box Type::SelfType(cls)) => {
                 Some(CallTarget::new(Target::Class(cls)))
@@ -191,7 +191,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::Type(box Type::Any(style)) => Some(CallTarget::new(Target::Any(style))),
             Type::Forall(forall) => {
-                let (qs, t) = self.instantiate_forall(*forall);
+                let (qs, t) = self.instantiate_fresh_forall(*forall);
                 self.as_call_target(t)
                     .map(|x| CallTarget::forall(qs.into_iter().chain(x.qs).collect(), x.target))
             }

@@ -140,7 +140,7 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0.constructor_to_callable(cls)
     }
 
-    pub fn instantiate_forall(self, forall: Forall<Forallable>) -> (Vec<Var>, Type) {
-        self.0.instantiate_forall(forall)
+    pub fn instantiate_fresh_forall(self, forall: Forall<Forallable>) -> (Vec<Var>, Type) {
+        self.0.instantiate_fresh_forall(forall)
     }
 }

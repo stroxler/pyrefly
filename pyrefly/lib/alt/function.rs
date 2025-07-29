@@ -767,7 +767,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     metadata: def.metadata.clone(),
                 };
                 if let Some(tparams) = all_tparams(impl_tparams) {
-                    self.fresh_quantified_function(&tparams, func).1
+                    self.instantiate_fresh_function(&tparams, func).1
                 } else {
                     func
                 }
