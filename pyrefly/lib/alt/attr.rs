@@ -685,9 +685,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             LookupResult::Found(setattr_attr) => {
                 let result = self
                     .resolve_get_access(setattr_attr, range, errors, context)
-                    .map(|setattr_attr_ty| {
+                    .map(|setattr_ty| {
                         self.call_setattr(
-                            setattr_attr_ty,
+                            setattr_ty,
                             CallArg::Arg(got),
                             attr_name.clone(),
                             range,
@@ -732,9 +732,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             LookupResult::Found(delattr_attr) => {
                 let result = self
                     .resolve_get_access(delattr_attr, range, errors, context)
-                    .map(|delattr_attr_ty| {
+                    .map(|delattr_ty| {
                         self.call_getattr_or_delattr(
-                            delattr_attr_ty,
+                            delattr_ty,
                             attr_name.clone(),
                             range,
                             errors,
