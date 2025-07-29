@@ -1068,6 +1068,7 @@ impl Server {
         }
 
         if modified {
+            self.invalidate_config();
             self.validate_in_memory(ide_transaction_manager)?;
         }
         Ok(())
@@ -1656,7 +1657,8 @@ impl Server {
                 self.apply_client_configuration(&mut modified, &id.scope_uri, config);
             }
             if modified {
-                return self.validate_in_memory(ide_transaction_manager);
+                self.invalidate_config();
+                self.validate_in_memory(ide_transaction_manager)?;
             }
         }
         Ok(())
@@ -1754,7 +1756,6 @@ impl Server {
                 self.workspaces.default.write().python_info = python_info;
             }
         }
-        self.invalidate_config();
     }
 
     // Updates search paths for scope uri.
@@ -1778,6 +1779,5 @@ impl Server {
                 self.workspaces.default.write().search_path = Some(search_paths);
             }
         }
-        self.invalidate_config();
     }
 }
