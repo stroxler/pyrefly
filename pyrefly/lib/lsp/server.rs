@@ -21,7 +21,6 @@ use dupe::Dupe;
 use lsp_server::Connection;
 use lsp_server::ErrorCode;
 use lsp_server::Message;
-use lsp_server::ProtocolError;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
@@ -155,7 +154,6 @@ use pyrefly_util::thread_pool::ThreadPool;
 use starlark_map::small_map::SmallMap;
 
 use crate::commands::lsp::IndexingMode;
-use crate::commands::lsp::LspArgs;
 use crate::config::config::ConfigFile;
 use crate::error::error::Error;
 use crate::lsp::features::hover::get_hover;
@@ -327,23 +325,6 @@ pub fn dispatch_lsp_events(
             }
         }
     }
-}
-
-pub fn initialize_connection(
-    connection: &Connection,
-    args: &LspArgs,
-) -> Result<InitializeParams, ProtocolError> {
-    let (request_id, initialization_params) = connection.initialize_start()?;
-    let initialization_params: InitializeParams =
-        serde_json::from_value(initialization_params).unwrap();
-    let server_capabilities =
-        serde_json::to_value(capabilities(args.indexing_mode, &initialization_params)).unwrap();
-    let initialize_data = serde_json::json!({
-        "capabilities": server_capabilities,
-    });
-
-    connection.initialize_finish(request_id, initialize_data)?;
-    Ok(initialization_params)
 }
 
 pub fn capabilities(

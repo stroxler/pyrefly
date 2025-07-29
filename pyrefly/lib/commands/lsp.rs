@@ -13,12 +13,14 @@ use clap::ValueEnum;
 use crossbeam_channel::Select;
 use dupe::Dupe;
 use lsp_server::Connection;
+use lsp_server::ProtocolError;
+use lsp_types::InitializeParams;
 
 use crate::commands::util::CommandExitStatus;
 use crate::lsp::server::ProcessEvent;
 use crate::lsp::server::Server;
+use crate::lsp::server::capabilities;
 use crate::lsp::server::dispatch_lsp_events;
-use crate::lsp::server::initialize_connection;
 use crate::lsp::transaction_manager::IDETransactionManager;
 
 /// Pyrefly's indexing strategy for open projects when performing go-to-definition
@@ -114,6 +116,23 @@ pub fn run_lsp(
     // Shut down gracefully.
     eprintln!("shutting down server");
     Ok(CommandExitStatus::Success)
+}
+
+fn initialize_connection(
+    connection: &Connection,
+    args: &LspArgs,
+) -> Result<InitializeParams, ProtocolError> {
+    let (request_id, initialization_params) = connection.initialize_start()?;
+    let initialization_params: InitializeParams =
+        serde_json::from_value(initialization_params).unwrap();
+    let server_capabilities =
+        serde_json::to_value(capabilities(args.indexing_mode, &initialization_params)).unwrap();
+    let initialize_data = serde_json::json!({
+        "capabilities": server_capabilities,
+    });
+
+    connection.initialize_finish(request_id, initialize_data)?;
+    Ok(initialization_params)
 }
 
 impl LspArgs {
