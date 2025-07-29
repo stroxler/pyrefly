@@ -250,7 +250,7 @@ pub struct Server {
     workspaces: Arc<Workspaces>,
     outgoing_request_id: AtomicI32,
     outgoing_requests: Mutex<HashMap<RequestId, Request>>,
-    filewatcher_registered: Arc<AtomicBool>,
+    filewatcher_registered: AtomicBool,
     version_info: Mutex<HashMap<PathBuf, i32>>,
 }
 
@@ -680,7 +680,7 @@ impl Server {
             workspaces,
             outgoing_request_id: AtomicI32::new(1),
             outgoing_requests: Mutex::new(HashMap::new()),
-            filewatcher_registered: Arc::new(AtomicBool::new(false)),
+            filewatcher_registered: AtomicBool::new(false),
             version_info: Mutex::new(HashMap::new()),
         };
         s.configure(&folders, &[]);
