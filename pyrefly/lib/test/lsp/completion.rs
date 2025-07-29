@@ -689,7 +689,6 @@ Foo(
         ^
 Completion Results:
 - (Variable) a=: int
-- (Variable) cls=: Self@Meta
 "#
         .trim(),
         report.trim(),
