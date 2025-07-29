@@ -153,6 +153,7 @@ use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
 use serde::Deserialize;
+use serde_json::Value;
 use starlark_map::small_map::SmallMap;
 
 use crate::commands::lsp::IndexingMode;
@@ -1063,8 +1064,7 @@ impl Server {
 
         let mut modified = false;
         if let Some(python) = params.settings.get(PYTHON_SECTION) {
-            let config: LspConfig = serde_json::from_value(python.clone())?;
-            self.apply_client_configuration(&mut modified, &None, config);
+            self.apply_client_configuration(&mut modified, &None, python.clone());
         }
 
         if modified {
@@ -1649,12 +1649,9 @@ impl Server {
         {
             let mut modified = false;
             for (i, id) in request.items.iter().enumerate() {
-                let config: LspConfig = if let Some(value) = response.get(i) {
-                    serde_json::from_value(value.clone()).unwrap_or_default()
-                } else {
-                    continue;
-                };
-                self.apply_client_configuration(&mut modified, &id.scope_uri, config);
+                if let Some(value) = response.get(i) {
+                    self.apply_client_configuration(&mut modified, &id.scope_uri, value.clone());
+                }
             }
             if modified {
                 self.invalidate_config();
@@ -1672,8 +1669,13 @@ impl Server {
         &self,
         modified: &mut bool,
         scope_uri: &Option<Url>,
-        config: LspConfig,
+        config: Value,
     ) {
+        let config = match serde_json::from_value::<LspConfig>(config) {
+            Err(_) => return,
+            Ok(x) => x,
+        };
+
         if let Some(python_path) = config.python_path {
             self.update_pythonpath(modified, scope_uri, &python_path);
         }
