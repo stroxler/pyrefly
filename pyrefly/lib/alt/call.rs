@@ -458,7 +458,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let dunder_init_errors = self.error_collector();
             self.call_infer(
                 self.as_call_target_or_error(
-                    init_method,
+                    init_method.clone(),
                     CallStyle::Method(&dunder::INIT),
                     range,
                     errors,
@@ -475,6 +475,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if !dunder_new_has_errors {
                 errors.extend(dunder_init_errors);
             }
+            // Not quite an overload, but close enough
+            self.record_overload_trace_from_type(range, init_method);
         }
         if let Some(mut ret) = overall_ret {
             ret.subst_self_type_mut(&instance_ty, &|_, _| true);

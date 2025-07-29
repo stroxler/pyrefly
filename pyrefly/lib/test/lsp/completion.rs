@@ -696,7 +696,6 @@ Completion Results:
     );
 }
 
-// todo(kylei): completion on constructor
 #[test]
 fn kwargs_completion_constructor() {
     let code = r#"
@@ -716,6 +715,8 @@ Foo(
 5 | Foo(
         ^
 Completion Results:
+- (Variable) x=: int
+- (Variable) y=: str
 "#
         .trim(),
         report.trim(),
