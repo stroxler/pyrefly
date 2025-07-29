@@ -727,11 +727,12 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    pub fn get_signature_help_at(
+    /// Finds the callable(s) (multiple if overloads exist) at position in document, returning them, chosen overload index, and arg index
+    fn get_callables_from_call(
         &self,
         handle: &Handle,
         position: TextSize,
-    ) -> Option<SignatureHelp> {
+    ) -> Option<(Vec<Type>, usize, usize)> {
         let mod_module = self.get_ast(handle)?;
         let mut res = None;
         mod_module.visit(&mut |x| Self::visit_finding_signature_range(x, position, &mut res));
@@ -740,26 +741,34 @@ impl<'a> Transaction<'a> {
         if let Some((overloads, chosen_overload_index)) =
             answers.get_all_overload_trace(call_args_range)
         {
-            let signatures = overloads.into_map(|callable| {
-                Self::create_signature_information(Type::Callable(Box::new(callable)), arg_index)
-            });
-            Some(SignatureHelp {
-                signatures,
-                active_signature: chosen_overload_index.map(|i| i as u32),
-                active_parameter: Some(arg_index as u32),
-            })
+            let callables = overloads.into_map(|callable| Type::Callable(Box::new(callable)));
+            Some((
+                callables,
+                chosen_overload_index.unwrap_or_default(),
+                arg_index,
+            ))
         } else {
             answers
                 .get_type_trace(callee_range)
-                .map(|callee_type| SignatureHelp {
-                    signatures: vec![Self::create_signature_information(
-                        callee_type.arc_clone(),
-                        arg_index,
-                    )],
-                    active_signature: Some(0),
-                    active_parameter: Some(arg_index as u32),
-                })
+                .map(|t| (vec![t.arc_clone()], 0, arg_index))
         }
+    }
+
+    pub fn get_signature_help_at(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+    ) -> Option<SignatureHelp> {
+        self.get_callables_from_call(handle, position).map(
+            |(callables, chosen_overload_index, arg_index)| SignatureHelp {
+                signatures: callables
+                    .into_iter()
+                    .map(|t| Self::create_signature_information(t, arg_index))
+                    .collect_vec(),
+                active_signature: Some(chosen_overload_index as u32),
+                active_parameter: Some(arg_index as u32),
+            },
+        )
     }
 
     fn create_signature_information(type_: Type, arg_index: usize) -> SignatureInformation {
