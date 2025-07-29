@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::iter::once;
 use std::num::NonZero;
 use std::path::Path;
 use std::path::PathBuf;
@@ -17,7 +18,6 @@ use std::sync::atomic::Ordering;
 
 use crossbeam_channel::Sender;
 use dupe::Dupe;
-use itertools::__std_iter::once;
 use lsp_server::Connection;
 use lsp_server::ErrorCode;
 use lsp_server::Message;
