@@ -53,7 +53,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         base_type_and_range: (Type, TextRange),
         errors: &ErrorCollector,
-    ) -> Result<(ClassType, Arc<ClassMetadata>), ()> {
+    ) -> Result<(ClassType, TextRange, Arc<ClassMetadata>), ()> {
         match base_type_and_range {
             // TODO: raise an error for generic classes and other forbidden types such as hashable
             (Type::ClassType(c), range) => {
@@ -83,12 +83,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 let metadata = self.get_metadata_for_class(c.class_object());
-                Ok((c, metadata))
+                Ok((c, range, metadata))
             }
-            (Type::Tuple(tuple), _) => {
+            (Type::Tuple(tuple), range) => {
                 let class_ty = self.erase_tuple_type(tuple);
                 let metadata = self.get_metadata_for_class(class_ty.class_object());
-                Ok((class_ty, metadata))
+                Ok((class_ty, range, metadata))
             }
             (_, range) => {
                 self.error(
@@ -176,7 +176,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect::<Vec<_>>();
 
-        let (bases_with_metadata, invalid_bases): (Vec<_>, Vec<_>) = bases_with_range
+        let (bases_with_range_and_metadata, invalid_bases): (
+            Vec<(ClassType, TextRange, Arc<ClassMetadata>)>,
+            Vec<()>,
+        ) = bases_with_range
             .into_iter()
             .map(|base_type_and_range| {
                 if is_new_type {
@@ -186,14 +189,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         (Type::ClassType(c), range) => {
                             let base_cls = c.class_object();
                             let base_class_metadata = self.get_metadata_for_class(base_cls);
-                            if base_class_metadata.is_final() {
-                                self.error(errors,
-                                    range,
-                                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                    format!("Cannot extend final class `{}`", base_cls.name()),
-                                );
-                            }
-                           if base_class_metadata.is_new_type() {
+                            if base_class_metadata.is_new_type() {
                                 self.error(
                                     errors,
                                     range,
@@ -201,50 +197,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     "Subclassing a NewType not allowed".to_owned(),
                                 );
                             }
-                            if let Some(base_class_tuple_base) = base_class_metadata.tuple_base() {
-                                if let Some(existing_tuple_base) = &tuple_base {
-                                    if existing_tuple_base.is_any_tuple() {
-                                        tuple_base = Some(base_class_tuple_base.clone());
-                                    } else if !base_class_tuple_base.is_any_tuple()
-                                        && base_class_tuple_base != existing_tuple_base {
-                                            self.error(errors,
-                                                range,
-                                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                                format!("Cannot extend multiple incompatible tuples: `{}` and `{}`",
-                                                    self.for_display(Type::Tuple(existing_tuple_base.clone())),
-                                                    self.for_display(Type::Tuple(base_class_tuple_base.clone())),
-                                            ),
-                                            );
-                                        }
-                                } else {
-                                    tuple_base = Some(base_class_tuple_base.clone());
-                                }
-                            }
-                            if let Some(proto) = &mut protocol_metadata {
-                                if let Some(base_proto) = base_class_metadata.protocol_metadata() {
-                                    proto.members.extend(base_proto.members.iter().cloned());
-                                    if base_proto.is_runtime_checkable {
-                                        proto.is_runtime_checkable = true;
-                                    }
-                                } else {
-                                    self.error(errors,
-                                        range,
-                                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                        "If `Protocol` is included as a base class, all other bases must be protocols".to_owned(),
-                                    );
-                                }
-                            }
-                            Ok((c, base_class_metadata))
+                            Ok((c, range, base_class_metadata))
                         }
-                        (Type::Tuple(tuple), _) => {
+                        (Type::Tuple(tuple), range) => {
                             if tuple_base.is_none() {
                                 tuple_base = Some(tuple.clone());
                             }
                             let class_ty = self.erase_tuple_type(tuple);
                             let metadata = self.get_metadata_for_class(class_ty.class_object());
-                            Ok((class_ty, metadata))
+                            Ok((class_ty, range, metadata))
                         }
-                        (Type::TypedDict(typed_dict), _) => {
+                        (Type::TypedDict(typed_dict), range) => {
                             let class_object = typed_dict.class_object();
                             let class_metadata = self.get_metadata_for_class(class_object);
                             // HACK HACK HACK - TypedDict instances behave very differently from instances of other
@@ -253,22 +216,77 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             // would be quite painful. So we convert TypedDict to ClassType in this one spot. Please do
                             // not do this anywhere else.
                             Ok((
-                                ClassType::new(typed_dict.class_object().dupe(), typed_dict.targs().clone()),
+                                ClassType::new(
+                                    typed_dict.class_object().dupe(),
+                                    typed_dict.targs().clone(),
+                                ),
+                                range,
                                 class_metadata,
                             ))
                         }
                         (t, range) => {
                             if !t.is_any() {
                                 self.error(
-                                    errors, range, ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                    format!("Invalid base class: `{}`", self.for_display(t))
+                                    errors,
+                                    range,
+                                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                    format!("Invalid base class: `{}`", self.for_display(t)),
                                 );
                             }
                             Err(())
                         }
                     }
                 }
-            }).partition_result();
+            })
+            .partition_result();
+
+        let bases_with_metadata = bases_with_range_and_metadata
+            .into_iter()
+            .map(|(cls, range, metadata)| {
+                if metadata.is_final() {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                        format!("Cannot extend final class `{}`", cls.name()),
+                    );
+                }
+                if let Some(base_class_tuple_base) = metadata.tuple_base() {
+                    if let Some(existing_tuple_base) = &tuple_base {
+                        if existing_tuple_base.is_any_tuple() {
+                            tuple_base = Some(base_class_tuple_base.clone());
+                        } else if !base_class_tuple_base.is_any_tuple()
+                            && base_class_tuple_base != existing_tuple_base {
+                                self.error(errors,
+                                    range,
+                                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                    format!("Cannot extend multiple incompatible tuples: `{}` and `{}`",
+                                        self.for_display(Type::Tuple(existing_tuple_base.clone())),
+                                        self.for_display(Type::Tuple(base_class_tuple_base.clone())),
+                                ),
+                                );
+                            }
+                    } else {
+                        tuple_base = Some(base_class_tuple_base.clone());
+                    }
+                }
+                if let Some(proto) = &mut protocol_metadata {
+                    if let Some(base_proto) = metadata.protocol_metadata() {
+                        proto.members.extend(base_proto.members.iter().cloned());
+                        if base_proto.is_runtime_checkable {
+                            proto.is_runtime_checkable = true;
+                        }
+                    } else {
+                        self.error(errors,
+                            range,
+                            ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                            "If `Protocol` is included as a base class, all other bases must be protocols".to_owned(),
+                        );
+                    }
+                }
+                (cls, metadata)
+            })
+            .collect::<Vec<_>>();
 
         let has_base_any = !invalid_bases.is_empty()
             || bases_with_metadata
