@@ -668,6 +668,35 @@ Completion Results:
 }
 
 #[test]
+fn kwargs_completion_dunder_call_metaclass_constructor() {
+    let code = r#"
+class Meta(type):
+    def __call__(cls, a: int) -> None: ...
+class Foo(metaclass=Meta):
+    def __init__(self): ...
+
+Foo(
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
+    assert_eq!(
+        r#"
+# main.py
+7 | Foo(
+        ^
+Completion Results:
+- (Variable) a=: int
+- (Variable) cls=: Self@Meta
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn kwargs_completion_nested_call() {
     let code = r#"
 def outer(a: int): ...

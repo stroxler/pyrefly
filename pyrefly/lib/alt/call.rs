@@ -402,6 +402,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(ret) = self.call_metaclass(&cls, range, args, keywords, errors, context, hint)
             && !self.is_compatible_constructor_return(&ret, cls.class_object())
         {
+            if let Some(metaclass_dunder_call) = self.get_metaclass_dunder_call(&cls) {
+                // Not quite an overload, but close enough
+                self.record_overload_trace_from_type(range, metaclass_dunder_call);
+            }
             // Got something other than an instance of the class under construction.
             return ret;
         }
