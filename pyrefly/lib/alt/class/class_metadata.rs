@@ -44,7 +44,6 @@ use crate::types::keywords::DataclassKeywords;
 use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
-use crate::types::tuple::Tuple;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
@@ -85,7 +84,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         let mut enum_metadata = None;
-        let mut tuple_base: Option<Tuple> = None;
         let mut bases: Vec<BaseClass> = bases.map(|x| self.base_class_of(x, errors));
         if let Some(special_base) = special_base {
             bases.push((**special_base).clone());
@@ -123,6 +121,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect::<Vec<_>>();
 
+        let mut tuple_base = if is_new_type {
+            None
+        } else {
+            bases_with_range.iter().find_map(|(ty, _)| {
+                if let Type::Tuple(tuple) = ty {
+                    Some(tuple.clone())
+                } else {
+                    None
+                }
+            })
+        };
+
         let (bases_with_range_and_metadata, invalid_bases): (
             Vec<(ClassType, TextRange, Arc<ClassMetadata>)>,
             Vec<()>,
@@ -137,9 +147,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Ok((c, range, base_class_metadata))
                     }
                     (Type::Tuple(tuple), range) => {
-                        if !is_new_type && tuple_base.is_none() {
-                            tuple_base = Some(tuple.clone());
-                        }
                         let class_ty = self.erase_tuple_type(tuple);
                         let metadata = self.get_metadata_for_class(class_ty.class_object());
                         Ok((class_ty, range, metadata))
