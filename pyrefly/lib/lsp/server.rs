@@ -180,7 +180,7 @@ use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 
-pub enum ServerEvent {
+enum ServerEvent {
     // Part 1: Events that the server should try to handle first.
     /// Notify the server that recheck finishes, so server can revalidate all in-memory content
     /// based on the latest `State`.
@@ -232,7 +232,7 @@ impl ServerConnection {
     }
 }
 
-pub struct Server {
+struct Server {
     connection: ServerConnection,
     /// A thread pool of size one for heavy read operations on the State
     async_state_read_threads: ThreadPool,
@@ -260,7 +260,7 @@ pub struct Server {
 /// - priority_events includes those that should be handled as soon as possible (e.g. know that a
 ///   request is cancelled)
 /// - queued_events includes most of the other events.
-pub fn dispatch_lsp_events(
+fn dispatch_lsp_events(
     connection: &Connection,
     priority_events_sender: Arc<Sender<ServerEvent>>,
     queued_events_sender: Sender<ServerEvent>,
@@ -406,7 +406,7 @@ pub fn capabilities(
     }
 }
 
-pub enum ProcessEvent {
+enum ProcessEvent {
     Continue,
     Exit,
 }
@@ -472,7 +472,7 @@ impl Server {
     const FILEWATCHER_ID: &str = "FILEWATCHER";
 
     /// Process the event and return next step.
-    pub fn process_event<'a>(
+    fn process_event<'a>(
         &'a self,
         ide_transaction_manager: &mut IDETransactionManager<'a>,
         canceled_requests: &mut HashSet<RequestId>,
@@ -669,7 +669,7 @@ impl Server {
         Ok(ProcessEvent::Continue)
     }
 
-    pub fn new(
+    fn new(
         connection: Arc<Connection>,
         priority_events_sender: Arc<Sender<ServerEvent>>,
         initialize_params: InitializeParams,
@@ -990,7 +990,7 @@ impl Server {
         self.validate_in_memory(ide_transaction_manager)
     }
 
-    pub fn categorized_events(events: Vec<lsp_types::FileEvent>) -> CategorizedEvents {
+    fn categorized_events(events: Vec<lsp_types::FileEvent>) -> CategorizedEvents {
         let mut created = Vec::new();
         let mut modified = Vec::new();
         let mut removed = Vec::new();
