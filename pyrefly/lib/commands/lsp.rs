@@ -5,23 +5,17 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use clap::Parser;
 use clap::ValueEnum;
-use crossbeam_channel::Select;
-use dupe::Dupe;
 use lsp_server::Connection;
 use lsp_server::ProtocolError;
 use lsp_types::InitializeParams;
 
 use crate::commands::util::CommandExitStatus;
-use crate::lsp::server::ProcessEvent;
-use crate::lsp::server::Server;
 use crate::lsp::server::capabilities;
-use crate::lsp::server::dispatch_lsp_events;
-use crate::lsp::transaction_manager::IDETransactionManager;
+use crate::lsp::server::lsp_loop;
 
 /// Pyrefly's indexing strategy for open projects when performing go-to-definition
 /// requests.
@@ -60,53 +54,7 @@ pub fn run_lsp(connection: Arc<Connection>, args: LspArgs) -> anyhow::Result<()>
             return Err(e.into());
         }
     };
-    eprintln!("Reading messages");
-    let connection_for_dispatcher = connection.dupe();
-    let (queued_events_sender, queued_events_receiver) = crossbeam_channel::unbounded();
-    let (priority_events_sender, priority_events_receiver) = crossbeam_channel::unbounded();
-    let priority_events_sender = Arc::new(priority_events_sender);
-    let mut event_receiver_selector = Select::new_biased();
-    // Biased selector will pick the receiver with lower index over higher ones,
-    // so we register priority_events_receiver first.
-    let priority_receiver_index = event_receiver_selector.recv(&priority_events_receiver);
-    let queued_events_receiver_index = event_receiver_selector.recv(&queued_events_receiver);
-    let server = Server::new(
-        connection,
-        priority_events_sender.dupe(),
-        initialization_params,
-        args.indexing_mode,
-    );
-    std::thread::spawn(move || {
-        dispatch_lsp_events(
-            &connection_for_dispatcher,
-            priority_events_sender,
-            queued_events_sender,
-        );
-    });
-    let mut ide_transaction_manager = IDETransactionManager::default();
-    let mut canceled_requests = HashSet::new();
-    loop {
-        let selected = event_receiver_selector.select();
-        let received = match selected.index() {
-            i if i == priority_receiver_index => selected.recv(&priority_events_receiver),
-            i if i == queued_events_receiver_index => selected.recv(&queued_events_receiver),
-            _ => unreachable!(),
-        };
-        if let Ok(event) = received {
-            match server.process_event(
-                &mut ide_transaction_manager,
-                &mut canceled_requests,
-                event,
-            )? {
-                ProcessEvent::Continue => {}
-                ProcessEvent::Exit => break,
-            }
-        } else {
-            break;
-        }
-    }
-    eprintln!("waiting for connection to close");
-    drop(server); // close connection
+    lsp_loop(connection, initialization_params, args.indexing_mode)?;
     Ok(())
 }
 

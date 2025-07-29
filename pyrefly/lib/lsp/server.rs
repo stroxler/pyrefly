@@ -16,6 +16,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
 
+use crossbeam_channel::Select;
 use crossbeam_channel::Sender;
 use dupe::Dupe;
 use lsp_server::Connection;
@@ -411,6 +412,61 @@ pub enum ProcessEvent {
 }
 
 const PYTHON_SECTION: &str = "python";
+
+pub fn lsp_loop(
+    connection: Arc<Connection>,
+    initialization_params: InitializeParams,
+    indexing_mode: IndexingMode,
+) -> anyhow::Result<()> {
+    eprintln!("Reading messages");
+    let connection_for_dispatcher = connection.dupe();
+    let (queued_events_sender, queued_events_receiver) = crossbeam_channel::unbounded();
+    let (priority_events_sender, priority_events_receiver) = crossbeam_channel::unbounded();
+    let priority_events_sender = Arc::new(priority_events_sender);
+    let mut event_receiver_selector = Select::new_biased();
+    // Biased selector will pick the receiver with lower index over higher ones,
+    // so we register priority_events_receiver first.
+    let priority_receiver_index = event_receiver_selector.recv(&priority_events_receiver);
+    let queued_events_receiver_index = event_receiver_selector.recv(&queued_events_receiver);
+    let server = Server::new(
+        connection,
+        priority_events_sender.dupe(),
+        initialization_params,
+        indexing_mode,
+    );
+    std::thread::spawn(move || {
+        dispatch_lsp_events(
+            &connection_for_dispatcher,
+            priority_events_sender,
+            queued_events_sender,
+        );
+    });
+    let mut ide_transaction_manager = IDETransactionManager::default();
+    let mut canceled_requests = HashSet::new();
+    loop {
+        let selected = event_receiver_selector.select();
+        let received = match selected.index() {
+            i if i == priority_receiver_index => selected.recv(&priority_events_receiver),
+            i if i == queued_events_receiver_index => selected.recv(&queued_events_receiver),
+            _ => unreachable!(),
+        };
+        if let Ok(event) = received {
+            match server.process_event(
+                &mut ide_transaction_manager,
+                &mut canceled_requests,
+                event,
+            )? {
+                ProcessEvent::Continue => {}
+                ProcessEvent::Exit => break,
+            }
+        } else {
+            break;
+        }
+    }
+    eprintln!("waiting for connection to close");
+    drop(server); // close connection
+    Ok(())
+}
 
 impl Server {
     const FILEWATCHER_ID: &str = "FILEWATCHER";
