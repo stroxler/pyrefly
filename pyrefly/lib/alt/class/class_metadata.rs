@@ -134,41 +134,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     (Type::ClassType(c), range) => {
                         let base_cls = c.class_object();
                         let base_class_metadata = self.get_metadata_for_class(base_cls);
-                        if is_new_type {
-                            if base_class_metadata.is_protocol() {
-                                self.error(
-                                    errors,
-                                    range,
-                                    ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                    "Second argument to NewType cannot be a protocol".to_owned(),
-                                );
-                            }
-                            if c.targs().as_slice().iter().any(|ty| {
-                                ty.any(|ty| {
-                                    matches!(
-                                        ty,
-                                        Type::TypeVar(_)
-                                            | Type::TypeVarTuple(_)
-                                            | Type::ParamSpec(_)
-                                    )
-                                })
-                            }) {
-                                self.error(
-                                    errors,
-                                    range,
-                                    ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                    "Second argument to NewType cannot be an unbound generic"
-                                        .to_owned(),
-                                );
-                            }
-                        } else if base_class_metadata.is_new_type() {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                "Subclassing a NewType not allowed".to_owned(),
-                            );
-                        }
                         Ok((c, range, base_class_metadata))
                     }
                     (Type::Tuple(tuple), range) => {
@@ -237,6 +202,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         ErrorInfo::Kind(ErrorKind::InvalidInheritance),
                         format!("Cannot extend final class `{}`", cls.name()),
+                    );
+                }
+                if is_new_type {
+                    // TODO: raise an error for generic classes and other forbidden types such as hashable
+                    if metadata.is_protocol() {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                            "Second argument to NewType cannot be a protocol".to_owned(),
+                        );
+                    }
+                    if cls.targs().as_slice().iter().any(|ty| {
+                        ty.any(|ty| {
+                            matches!(
+                                ty,
+                                Type::TypeVar(_)
+                                    | Type::TypeVarTuple(_)
+                                    | Type::ParamSpec(_)
+                            )
+                        })
+                    }) {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                            "Second argument to NewType cannot be an unbound generic"
+                                .to_owned(),
+                        );
+                    }
+                } else if metadata.is_new_type() {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                        "Subclassing a NewType not allowed".to_owned(),
                     );
                 }
                 if let Some(base_class_tuple_base) = metadata.tuple_base() {
