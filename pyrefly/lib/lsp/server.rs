@@ -158,7 +158,6 @@ use pyrefly_util::thread_pool::ThreadPool;
 use ruff_source_file::LineIndex;
 use ruff_source_file::OneIndexed;
 use ruff_source_file::SourceLocation;
-use ruff_text_size::Ranged;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
@@ -166,7 +165,6 @@ use starlark_map::small_map::SmallMap;
 use crate::commands::lsp::IndexingMode;
 use crate::commands::lsp::LspArgs;
 use crate::config::config::ConfigFile;
-use crate::config::error_kind::Severity;
 use crate::error::error::Error;
 use crate::lsp::features::hover::get_hover;
 use crate::lsp::module_helpers::handle_from_module_path;
@@ -747,25 +745,7 @@ impl Server {
                     .workspaces
                     .get_with(path.to_path_buf(), |w| w.disable_type_errors)
             {
-                return Some((
-                    path.to_path_buf(),
-                    Diagnostic {
-                        range: e.lined_buffer().to_lsp_range(e.range()),
-                        severity: Some(match e.severity() {
-                            Severity::Error => lsp_types::DiagnosticSeverity::ERROR,
-                            Severity::Warn => lsp_types::DiagnosticSeverity::WARNING,
-                            Severity::Info => lsp_types::DiagnosticSeverity::INFORMATION,
-                            // Ignored errors shouldn't be here
-                            Severity::Ignore => lsp_types::DiagnosticSeverity::INFORMATION,
-                        }),
-                        source: Some("Pyrefly".to_owned()),
-                        message: e.msg().to_owned(),
-                        code: Some(lsp_types::NumberOrString::String(
-                            e.error_kind().to_name().to_owned(),
-                        )),
-                        ..Default::default()
-                    },
-                ));
+                return Some((path.to_path_buf(), e.to_diagnostic()));
             }
         }
         None
