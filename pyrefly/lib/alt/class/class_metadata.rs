@@ -137,7 +137,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         special_base: &Option<Box<BaseClass>>,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
-        let mut named_tuple_metadata = None;
         let mut enum_metadata = None;
         let mut tuple_base: Option<Tuple> = None;
         let mut bases: Vec<BaseClass> = bases.map(|x| self.base_class_of(x, errors));
@@ -205,17 +204,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     ErrorInfo::Kind(ErrorKind::InvalidInheritance),
                                     "Subclassing a NewType not allowed".to_owned(),
                                 );
-                            }
-                            if base_cls.has_qname(ModuleName::type_checker_internals().as_str(), "NamedTupleFallback")
-                            {
-                                if named_tuple_metadata.is_none() {
-                                    named_tuple_metadata = Some(NamedTupleMetadata {
-                                        elements: self.get_named_tuple_elements(cls, errors)
-                                    })
-                                }
-                            } else if let Some(base_named_tuple) = base_class_metadata.named_tuple_metadata() &&
-                                named_tuple_metadata.is_none() {
-                                    named_tuple_metadata = Some(base_named_tuple.clone());
                             }
                             if let Some(base_class_tuple_base) = base_class_metadata.tuple_base() {
                                 if let Some(existing_tuple_base) = &tuple_base {
@@ -290,6 +278,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect::<Vec<_>>();
 
+        let named_tuple_metadata = bases_with_metadata.iter().find_map(|(base_cls, metadata)| {
+            let base_class_object = base_cls.class_object();
+            if base_class_object.has_qname(
+                ModuleName::type_checker_internals().as_str(),
+                "NamedTupleFallback",
+            ) {
+                Some(NamedTupleMetadata {
+                    elements: self.get_named_tuple_elements(cls, errors),
+                })
+            } else {
+                metadata.named_tuple_metadata().cloned()
+            }
+        });
         if named_tuple_metadata.is_some() && bases_with_metadata.len() > 1 {
             self.error(
                 errors,
