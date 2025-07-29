@@ -526,7 +526,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .get_metadata_for_class(cls.class_object())
                         .is_protocol() =>
                 {
-                    let call_attr = self.instance_to_method(&cls).and_then(|call_attr| {
+                    let call_attr = self.instance_as_dunder_call(&cls).and_then(|call_attr| {
                         if let Type::BoundMethod(m) = call_attr {
                             let func = m.as_function();
                             Some(func.drop_first_param_of_unbound_callable().unwrap_or(func))
@@ -635,7 +635,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     /// If instances of this class are callable - that is, have a `__call__` method - return the method.
-    pub fn instance_to_method(&self, cls: &ClassType) -> Option<Type> {
+    pub fn instance_as_dunder_call(&self, cls: &ClassType) -> Option<Type> {
         self.get_instance_attribute(cls, &dunder::CALL)
             .and_then(|attr| self.resolve_as_instance_method(attr))
     }
