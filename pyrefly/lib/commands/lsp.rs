@@ -49,11 +49,7 @@ pub struct LspArgs {
     pub(crate) indexing_mode: IndexingMode,
 }
 
-pub fn run_lsp(
-    connection: Arc<Connection>,
-    wait_on_connection: impl FnOnce() -> anyhow::Result<()> + Send + 'static,
-    args: LspArgs,
-) -> anyhow::Result<CommandExitStatus> {
+pub fn run_lsp(connection: Arc<Connection>, args: LspArgs) -> anyhow::Result<()> {
     let initialization_params = match initialize_connection(&connection, &args) {
         Ok(it) => it,
         Err(e) => {
@@ -111,11 +107,7 @@ pub fn run_lsp(
     }
     eprintln!("waiting for connection to close");
     drop(server); // close connection
-    wait_on_connection()?;
-
-    // Shut down gracefully.
-    eprintln!("shutting down server");
-    Ok(CommandExitStatus::Success)
+    Ok(())
 }
 
 fn initialize_connection(
@@ -144,10 +136,10 @@ impl LspArgs {
         // also be implemented to use sockets or HTTP.
         let (connection, io_threads) = Connection::stdio();
 
-        run_lsp(
-            Arc::new(connection),
-            move || io_threads.join().map_err(anyhow::Error::from),
-            self,
-        )
+        run_lsp(Arc::new(connection), self)?;
+        io_threads.join()?;
+        // We have shut down gracefully.
+        eprintln!("shutting down server");
+        Ok(CommandExitStatus::Success)
     }
 }

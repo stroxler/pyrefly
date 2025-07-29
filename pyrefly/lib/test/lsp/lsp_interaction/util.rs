@@ -85,7 +85,7 @@ pub fn run_test_lsp(test_case: TestCase) {
     thread::scope(|scope| {
         // this thread runs the language server
         scope.spawn(move || {
-            run_lsp(Arc::new(connection), || Ok(()), args)
+            run_lsp(Arc::new(connection), args)
                 .map(|_| ())
                 .map_err(|e| std::io::Error::other(e.to_string()))
         });
