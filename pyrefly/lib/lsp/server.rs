@@ -885,13 +885,6 @@ impl Server {
         });
     }
 
-    fn validate_with_disk_invalidation(&self, invalidate_disk: Vec<PathBuf>) -> anyhow::Result<()> {
-        if !invalidate_disk.is_empty() {
-            self.invalidate(move |t| t.invalidate_disk(&invalidate_disk));
-        }
-        Ok(())
-    }
-
     /// Certain IDE features (e.g. find-references) require us to know the dependency graph of the
     /// entire project to work. This blocking function should be called when we know that a project
     /// file is opened and if we intend to provide features like find-references, and should be
@@ -934,8 +927,9 @@ impl Server {
     }
 
     fn did_save(&self, params: DidSaveTextDocumentParams) -> anyhow::Result<()> {
-        let uri = params.text_document.uri.to_file_path().unwrap();
-        self.validate_with_disk_invalidation(vec![uri])
+        let file = params.text_document.uri.to_file_path().unwrap();
+        self.invalidate(move |t| t.invalidate_disk(&[file]));
+        Ok(())
     }
 
     fn did_open<'a>(
