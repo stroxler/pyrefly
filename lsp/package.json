@@ -1,5 +1,6 @@
 {
-    "name": "Python Language Tools (Pyrefly)",
+    "name": "pyrefly",
+    "displayName": "Pyrefly - Python Language Tooling",
     "description": "Python autocomplete, typechecking, code navigation and more! Powered by Pyrefly, an open-source language server",
     "icon": "images/pyrefly-symbol.png",
     "extensionKind": [
