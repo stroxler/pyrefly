@@ -7,6 +7,7 @@
 
 use std::path::PathBuf;
 
+use lsp_types::FileChangeType;
 use notify::EventKind;
 
 #[derive(Debug, Clone, Default)]
@@ -27,6 +28,22 @@ impl CategorizedEvents {
                 EventKind::Remove(_) => res.removed.extend(event.paths),
                 EventKind::Any => res.unknown.extend(event.paths),
                 EventKind::Access(_) | EventKind::Other => {}
+            }
+        }
+        res
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new_lsp(events: Vec<lsp_types::FileEvent>) -> CategorizedEvents {
+        let mut res = CategorizedEvents::default();
+        for event in events {
+            if let Ok(path) = event.uri.to_file_path() {
+                match event.typ {
+                    FileChangeType::CREATED => res.created.push(path),
+                    FileChangeType::CHANGED => res.modified.push(path),
+                    FileChangeType::DELETED => res.removed.push(path),
+                    _ => res.unknown.push(path),
+                }
             }
         }
         res

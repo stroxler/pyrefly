@@ -990,25 +990,10 @@ impl Server {
         self.validate_in_memory(ide_transaction_manager)
     }
 
-    fn categorized_events(events: Vec<lsp_types::FileEvent>) -> CategorizedEvents {
-        let mut res = CategorizedEvents::default();
-        for event in events {
-            if let Ok(path) = event.uri.to_file_path() {
-                match event.typ {
-                    lsp_types::FileChangeType::CREATED => res.created.push(path),
-                    lsp_types::FileChangeType::CHANGED => res.modified.push(path),
-                    lsp_types::FileChangeType::DELETED => res.removed.push(path),
-                    _ => res.unknown.push(path),
-                }
-            }
-        }
-        res
-    }
-
     fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) -> anyhow::Result<()> {
         if !params.changes.is_empty() {
             self.invalidate(move |t| {
-                t.invalidate_events(&Self::categorized_events(params.changes))
+                t.invalidate_events(&CategorizedEvents::new_lsp(params.changes))
             });
         }
         // rewatch files in case we loaded or dropped any configs
