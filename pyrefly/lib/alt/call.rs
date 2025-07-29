@@ -42,7 +42,6 @@ use crate::types::typed_dict::TypedDict;
 use crate::types::types::AnyStyle;
 use crate::types::types::BoundMethod;
 use crate::types::types::OverloadType;
-use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::Var;
 
@@ -127,21 +126,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> CallTarget {
         self.error(errors, range, ErrorInfo::new(error_kind, context), msg);
         CallTarget::new(Target::Any(AnyStyle::Error))
-    }
-
-    pub fn fresh_quantified_function(
-        &self,
-        tparams: &TParams,
-        func: Function,
-    ) -> (Vec<Var>, Function) {
-        let (qs, t) =
-            self.solver()
-                .fresh_quantified(tparams, Type::Function(Box::new(func)), self.uniques);
-        match t {
-            Type::Function(func) => (qs, *func),
-            // We passed a Function to fresh_quantified(), so we know we get a Function back out.
-            _ => unreachable!(),
-        }
     }
 
     /// Return a pair of the quantified variables I had to instantiate, and the resulting call target.
