@@ -1230,8 +1230,8 @@ def g(ann) -> None:
 );
 
 testcase!(
-    bug = "PyTorch TODO: First error message can be improved and there should be  no error on obj.__name__",
-    test_attr,
+    bug = "PyTorch TODO: The first error message could be better, and hasattr narrowing would fix it. The second error message is incorrect, if `obj` is a class it should have a `__name__` attribute.",
+    test_tuple_attribute_example,
     r#"
 def f(obj, g, field_type, my_type,):
     assert issubclass(obj, tuple) and hasattr(obj, "_fields")
