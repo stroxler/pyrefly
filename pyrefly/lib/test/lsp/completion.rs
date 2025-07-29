@@ -641,6 +641,61 @@ Completion Results:
     );
 }
 
+#[test]
+fn kwargs_completion_dunder_new() {
+    let code = r#"
+from typing import Self
+class Foo:
+    def __new__(cls, x: int, y: str) -> Self: ...
+
+Foo(
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
+    assert_eq!(
+        r#"
+# main.py
+6 | Foo(
+        ^
+Completion Results:
+- (Variable) x=: int
+- (Variable) y=: str
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn kwargs_completion_dunder_new_incompatible() {
+    let code = r#"
+class Foo:
+    def __new__(cls, x: int, y: str) -> None: ...
+
+Foo(
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
+    assert_eq!(
+        r#"
+# main.py
+5 | Foo(
+        ^
+Completion Results:
+- (Variable) x=: int
+- (Variable) y=: str
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
 // todo(kylei): completion on constructor
 #[test]
 fn kwargs_completion_constructor() {

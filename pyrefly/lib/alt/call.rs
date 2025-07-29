@@ -418,7 +418,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let dunder_new_errors = self.error_collector();
                 let ret = self.call_infer(
                     self.as_call_target_or_error(
-                        new_method,
+                        new_method.clone(),
                         CallStyle::Method(&dunder::NEW),
                         range,
                         errors,
@@ -433,6 +433,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 let has_errors = !dunder_new_errors.is_empty();
                 errors.extend(dunder_new_errors);
+                // Not quite an overload, but close enough
+                self.record_overload_trace_from_type(range, new_method);
                 if self.is_compatible_constructor_return(&ret, cls.class_object()) {
                     overall_ret = Some(ret);
                 } else {
