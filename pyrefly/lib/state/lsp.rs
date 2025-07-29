@@ -1520,50 +1520,27 @@ impl<'a> Transaction<'a> {
         position: TextSize,
         completions: &mut Vec<CompletionItem>,
     ) {
-        let mod_module = match self.get_ast(handle) {
-            Some(module) => module,
-            None => return,
-        };
-
-        let mut call_context = None;
-        mod_module
-            .visit(&mut |x| Self::visit_finding_signature_range(x, position, &mut call_context));
-        let (callee_range, _call_args_range, _arg_index) = match call_context {
-            Some(context) => context,
-            None => return,
-        };
-
-        let answers = match self.get_answers(handle) {
-            Some(answers) => answers,
-            None => return,
-        };
-        let callee_type = match answers.get_type_trace(callee_range) {
-            Some(ty) => ty,
-            None => return,
-        };
-
-        let params =
-            match Self::normalize_singleton_function_type_into_params(callee_type.arc_clone()) {
-                Some(params) => params,
-                None => return,
-            };
-
-        for param in params {
-            match param {
-                Param::Pos(name, ty, _)
-                | Param::PosOnly(Some(name), ty, _)
-                | Param::KwOnly(name, ty, _)
-                | Param::VarArg(Some(name), ty) => {
-                    if name.as_str() != "self" {
-                        completions.push(CompletionItem {
-                            label: format!("{}=", name.as_str()),
-                            detail: Some(ty.to_string()),
-                            kind: Some(CompletionItemKind::VARIABLE),
-                            ..Default::default()
-                        });
+        if let Some((callables, overload_idx, _)) = self.get_callables_from_call(handle, position)
+            && let Some(callable) = callables.get(overload_idx).cloned()
+            && let Some(params) = Self::normalize_singleton_function_type_into_params(callable)
+        {
+            for param in params {
+                match param {
+                    Param::Pos(name, ty, _)
+                    | Param::PosOnly(Some(name), ty, _)
+                    | Param::KwOnly(name, ty, _)
+                    | Param::VarArg(Some(name), ty) => {
+                        if name.as_str() != "self" {
+                            completions.push(CompletionItem {
+                                label: format!("{}=", name.as_str()),
+                                detail: Some(ty.to_string()),
+                                kind: Some(CompletionItemKind::VARIABLE),
+                                ..Default::default()
+                            });
+                        }
                     }
+                    Param::VarArg(None, _) | Param::Kwargs(_, _) | Param::PosOnly(None, _, _) => {}
                 }
-                Param::VarArg(None, _) | Param::Kwargs(_, _) | Param::PosOnly(None, _, _) => {}
             }
         }
     }

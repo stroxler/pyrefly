@@ -801,9 +801,8 @@ Completion Results:
     );
 }
 
-// todo(kylei): kwarg completion on overload
 #[test]
-fn kwargs_completion_literal() {
+fn kwargs_completion_overload_basic() {
     let code = r#"
 from typing import Literal, overload
 @overload
@@ -825,6 +824,38 @@ foo(
 9 | foo(
         ^
 Completion Results:
+- (Variable) x=: int
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn kwargs_completion_overload_correct() {
+    let code = r#"
+from typing import Literal, overload
+@overload
+def foo(y: bool, z: bool):
+print(y)
+@overload
+def foo(x: int, y: str):
+    print(x)
+foo(1, 
+#      ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
+    assert_eq!(
+        r#"
+# main.py
+9 | foo(1, 
+           ^
+Completion Results:
+- (Variable) x=: int
+- (Variable) y=: str
 "#
         .trim(),
         report.trim(),
