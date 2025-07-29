@@ -646,8 +646,7 @@ impl Server {
 
         let workspaces = Arc::new(Workspaces::new(Workspace::default()));
 
-        let config_finder =
-            Workspaces::config_finder(&workspaces, workspaces.loaded_configs.clone());
+        let config_finder = Workspaces::config_finder(&workspaces);
         let s = Self {
             connection: ServerConnection(connection),
             async_state_read_threads: ThreadPool::with_thread_count(ThreadCount::NumThreads(

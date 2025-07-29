@@ -174,10 +174,7 @@ impl Workspaces {
         f(workspace.unwrap_or(&default_workspace))
     }
 
-    pub fn config_finder(
-        workspaces: &Arc<Workspaces>,
-        loaded_configs: Arc<WeakConfigCache>,
-    ) -> ConfigFinder {
+    pub fn config_finder(workspaces: &Arc<Workspaces>) -> ConfigFinder {
         let workspaces = workspaces.dupe();
         standard_config_finder(Arc::new(move |dir, mut config| {
             if let Some(dir) = dir
@@ -207,7 +204,7 @@ impl Workspaces {
             }
             let config = ArcId::new(config);
 
-            loaded_configs.insert(config.downgrade());
+            workspaces.loaded_configs.insert(config.downgrade());
 
             (config, Vec::new())
         }))
