@@ -100,14 +100,12 @@ impl MergeItem {
     ) -> FlowInfo {
         insert_binding_idx(
             self.phi_idx,
-            match () {
-                _ if self.branch_idxs.len() == 1 => {
-                    Binding::Forward(self.branch_idxs.into_iter().next().unwrap())
-                }
-                _ if current_is_loop => {
-                    Binding::Default(self.default, Box::new(Binding::Phi(self.branch_idxs)))
-                }
-                _ => Binding::Phi(self.branch_idxs),
+            if self.branch_idxs.len() == 1 {
+                Binding::Forward(self.branch_idxs.into_iter().next().unwrap())
+            } else if current_is_loop {
+                Binding::Default(self.default, Box::new(Binding::Phi(self.branch_idxs)))
+            } else {
+                Binding::Phi(self.branch_idxs)
             },
         );
         FlowInfo {
