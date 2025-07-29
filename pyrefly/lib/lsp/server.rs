@@ -991,28 +991,18 @@ impl Server {
     }
 
     fn categorized_events(events: Vec<lsp_types::FileEvent>) -> CategorizedEvents {
-        let mut created = Vec::new();
-        let mut modified = Vec::new();
-        let mut removed = Vec::new();
-        let mut unknown = Vec::new();
-
+        let mut res = CategorizedEvents::default();
         for event in events {
             if let Ok(path) = event.uri.to_file_path() {
                 match event.typ {
-                    lsp_types::FileChangeType::CREATED => created.push(path),
-                    lsp_types::FileChangeType::CHANGED => modified.push(path),
-                    lsp_types::FileChangeType::DELETED => removed.push(path),
-                    _ => unknown.push(path),
+                    lsp_types::FileChangeType::CREATED => res.created.push(path),
+                    lsp_types::FileChangeType::CHANGED => res.modified.push(path),
+                    lsp_types::FileChangeType::DELETED => res.removed.push(path),
+                    _ => res.unknown.push(path),
                 }
             }
         }
-
-        CategorizedEvents {
-            created,
-            modified,
-            removed,
-            unknown,
-        }
+        res
     }
 
     fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) -> anyhow::Result<()> {

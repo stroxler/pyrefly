@@ -20,35 +20,17 @@ pub struct CategorizedEvents {
 
 impl CategorizedEvents {
     pub fn new(events: Vec<Event>) -> Self {
-        let mut created = Vec::new();
-        let mut modified = Vec::new();
-        let mut removed = Vec::new();
-        let mut unknown = Vec::new();
-
+        let mut res = Self::default();
         for event in events {
             match event.kind {
-                EventKind::Create(_) => {
-                    created.extend(event.paths);
-                }
-                EventKind::Modify(_) => {
-                    modified.extend(event.paths);
-                }
-                EventKind::Remove(_) => {
-                    removed.extend(event.paths);
-                }
-                EventKind::Any => {
-                    unknown.extend(event.paths);
-                }
+                EventKind::Create(_) => res.created.extend(event.paths),
+                EventKind::Modify(_) => res.modified.extend(event.paths),
+                EventKind::Remove(_) => res.removed.extend(event.paths),
+                EventKind::Any => res.unknown.extend(event.paths),
                 EventKind::Access(_) | EventKind::Other => {}
             }
         }
-
-        CategorizedEvents {
-            created,
-            modified,
-            removed,
-            unknown,
-        }
+        res
     }
 
     pub fn is_empty(&self) -> bool {
