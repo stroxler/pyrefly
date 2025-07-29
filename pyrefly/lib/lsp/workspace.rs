@@ -55,8 +55,8 @@ impl PythonInfo {
 /// LSP workspace settings: this is all that is necessary to run an LSP at a given root.
 #[derive(Debug, Clone, Default)]
 pub struct Workspace {
-    pub python_info: Option<PythonInfo>,
-    pub search_path: Option<Vec<PathBuf>>,
+    python_info: Option<PythonInfo>,
+    search_path: Option<Vec<PathBuf>>,
     pub disable_language_services: bool,
     pub disable_type_errors: bool,
 }
@@ -146,7 +146,7 @@ struct LspConfig {
 
 pub struct Workspaces {
     /// If a workspace is not found, this one is used. It contains every possible file on the system but is lowest priority.
-    pub default: RwLock<Workspace>,
+    default: RwLock<Workspace>,
     pub workspaces: RwLock<SmallMap<PathBuf, Workspace>>,
     pub loaded_configs: Arc<WeakConfigCache>,
 }
