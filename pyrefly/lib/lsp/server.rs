@@ -917,15 +917,7 @@ impl Server {
         self.validate_in_memory(ide_transaction_manager)?;
         self.populate_project_files_if_necessary(config_to_populate_files);
         // rewatch files in case we loaded or dropped any configs
-        self.setup_file_watcher_if_necessary(
-            self.workspaces
-                .workspaces
-                .read()
-                .keys()
-                .cloned()
-                .collect::<Vec<_>>()
-                .as_slice(),
-        );
+        self.setup_file_watcher_if_necessary();
         Ok(())
     }
 
@@ -993,15 +985,7 @@ impl Server {
             });
         }
         // rewatch files in case we loaded or dropped any configs
-        self.setup_file_watcher_if_necessary(
-            self.workspaces
-                .workspaces
-                .read()
-                .keys()
-                .cloned()
-                .collect::<Vec<_>>()
-                .as_slice(),
-        );
+        self.setup_file_watcher_if_necessary();
         Ok(())
     }
 
@@ -1058,7 +1042,6 @@ impl Server {
 
     /// Configure the server with a new set of workspace folders
     fn configure(&self, workspace_paths_added: &[PathBuf], workspace_paths_removed: &[PathBuf]) {
-        let mut all_workspaces = Vec::new();
         {
             let mut workspaces = self.workspaces.workspaces.write();
             for x in workspace_paths_added {
@@ -1067,11 +1050,8 @@ impl Server {
             for x in workspace_paths_removed {
                 workspaces.shift_remove(x);
             }
-            workspaces
-                .keys()
-                .for_each(|uri| all_workspaces.push(uri.clone()));
         }
-        self.setup_file_watcher_if_necessary(all_workspaces.as_slice());
+        self.setup_file_watcher_if_necessary();
         self.request_settings_for_all_workspaces();
     }
 
@@ -1523,7 +1503,14 @@ impl Server {
         }
     }
 
-    fn setup_file_watcher_if_necessary(&self, roots: &[PathBuf]) {
+    fn setup_file_watcher_if_necessary(&self) {
+        let roots = self
+            .workspaces
+            .workspaces
+            .read()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
         match self.initialize_params.capabilities.workspace {
             Some(WorkspaceClientCapabilities {
                 did_change_watched_files:
@@ -1546,7 +1533,7 @@ impl Server {
                 // TODO(connernilsen): we need to dedup filewatcher patterns
                 // preferably by figuring out if they're under another wildcard pattern with the same suffix
                 let mut glob_patterns = Vec::new();
-                for root in roots {
+                for root in &roots {
                     PYTHON_EXTENSIONS.iter().for_each(|suffix| {
                         glob_patterns.push(Self::get_pattern_to_watch(
                             root,
