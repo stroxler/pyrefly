@@ -51,13 +51,12 @@ use crate::types::types::Type;
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn new_type_base(
         &self,
-        base_type_and_range: Option<(Type, TextRange)>,
-        fallback_range: TextRange,
+        base_type_and_range: (Type, TextRange),
         errors: &ErrorCollector,
     ) -> Option<(ClassType, Arc<ClassMetadata>)> {
         match base_type_and_range {
             // TODO: raise an error for generic classes and other forbidden types such as hashable
-            Some((Type::ClassType(c), range)) => {
+            (Type::ClassType(c), range) => {
                 let base_cls = c.class_object();
                 let base_class_metadata = self.get_metadata_for_class(base_cls);
                 if base_class_metadata.is_protocol() {
@@ -86,24 +85,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let metadata = self.get_metadata_for_class(c.class_object());
                 Some((c, metadata))
             }
-            Some((Type::Tuple(tuple), _)) => {
+            (Type::Tuple(tuple), _) => {
                 let class_ty = self.erase_tuple_type(tuple);
                 let metadata = self.get_metadata_for_class(class_ty.class_object());
                 Some((class_ty, metadata))
             }
-            Some((_, range)) => {
+            (_, range) => {
                 self.error(
                     errors,
                     range,
-                    ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                    "Second argument to NewType is invalid".to_owned(),
-                );
-                None
-            }
-            None => {
-                self.error(
-                    errors,
-                    fallback_range,
                     ErrorInfo::Kind(ErrorKind::InvalidArgument),
                     "Second argument to NewType is invalid".to_owned(),
                 );
@@ -158,24 +148,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let has_generic_base_class = Self::find_has_generic_base_class(bases.as_slice());
         let has_typed_dict_base_class = Self::find_has_typed_dict_base_class(bases.as_slice());
 
-        let mut has_base_any = false;
-        let bases_with_metadata = bases
+        let bases_with_range = bases
             .into_iter()
             .filter_map(|x| {
-                let base_type_and_range = match x {
-                    BaseClass::Expr(x) => Some((self.expr_untype(&x, TypeFormContext::BaseClassList, errors), x.range())),
-                    BaseClass::NamedTuple(range) => {
+                let range = x.range();
+                match x {
+                    BaseClass::Expr(x) => Some((
+                        self.expr_untype(&x, TypeFormContext::BaseClassList, errors),
+                        range,
+                    )),
+                    BaseClass::NamedTuple(..) => {
                         Some((self.stdlib.named_tuple_fallback().clone().to_type(), range))
                     }
                     // Skip over empty generic. Empty protocol is only relevant for `protocol_metadata`, defined
                     // above so we can skip it here.
-                    BaseClass::Generic(..) | BaseClass::Protocol(..) | BaseClass::TypedDict(..) => None
-                };
+                    BaseClass::Generic(..) | BaseClass::Protocol(..) | BaseClass::TypedDict(..) => {
+                        if is_new_type {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                                "Second argument to NewType is invalid".to_owned(),
+                            );
+                        }
+                        None
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let mut has_base_any = false;
+        let bases_with_metadata = bases_with_range
+            .into_iter()
+            .filter_map(|base_type_and_range| {
                 if is_new_type {
-                    self.new_type_base(base_type_and_range, cls.range(), errors)
+                    self.new_type_base(base_type_and_range, errors)
                 } else {
                     match base_type_and_range {
-                        Some((Type::ClassType(c), range)) => {
+                        (Type::ClassType(c), range) => {
                             let base_cls = c.class_object();
                             let base_class_metadata = self.get_metadata_for_class(base_cls);
                             if base_class_metadata.has_base_any() {
@@ -242,7 +252,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             }
                             Some((c, base_class_metadata))
                         }
-                        Some((Type::Tuple(tuple), _)) => {
+                        (Type::Tuple(tuple), _) => {
                             if tuple_base.is_none() {
                                 tuple_base = Some(tuple.clone());
                             }
@@ -250,7 +260,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             let metadata = self.get_metadata_for_class(class_ty.class_object());
                             Some((class_ty, metadata))
                         }
-                        Some((Type::TypedDict(typed_dict), _)) => {
+                        (Type::TypedDict(typed_dict), _) => {
                             let class_object = typed_dict.class_object();
                             let class_metadata = self.get_metadata_for_class(class_object);
                             // HACK HACK HACK - TypedDict instances behave very differently from instances of other
@@ -264,18 +274,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ))
                         }
                         // todo zeina: Ideally, we can directly add this class to the list of base classes. Revisit this when fixing the "Any" representation.
-                        Some((Type::Any(_), _)) => {
+                        (Type::Any(_), _) => {
                             has_base_any = true;
                             None
                         }
-                        Some((t, range)) => {
+                        (t, range) => {
                             self.error(
                                 errors, range, ErrorInfo::Kind(ErrorKind::InvalidInheritance),
                                 format!("Invalid base class: `{}`", self.for_display(t)));
                             has_base_any = true;
                             None
                         }
-                        None => None,
                     }
                 }
             })
