@@ -169,7 +169,7 @@ use crate::lsp::module_helpers::make_open_handle;
 use crate::lsp::module_helpers::module_info_to_uri;
 use crate::lsp::module_helpers::to_lsp_location;
 use crate::lsp::module_helpers::to_real_path;
-use crate::lsp::transaction_manager::IDETransactionManager;
+use crate::lsp::transaction_manager::TransactionManager;
 use crate::lsp::workspace::Workspace;
 use crate::lsp::workspace::Workspaces;
 use crate::module::from_path::module_from_path;
@@ -441,7 +441,7 @@ pub fn lsp_loop(
             queued_events_sender,
         );
     });
-    let mut ide_transaction_manager = IDETransactionManager::default();
+    let mut ide_transaction_manager = TransactionManager::default();
     let mut canceled_requests = HashSet::new();
     loop {
         let selected = event_receiver_selector.select();
@@ -474,7 +474,7 @@ impl Server {
     /// Process the event and return next step.
     fn process_event<'a>(
         &'a self,
-        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        ide_transaction_manager: &mut TransactionManager<'a>,
         canceled_requests: &mut HashSet<RequestId>,
         event: ServerEvent,
     ) -> anyhow::Result<ProcessEvent> {
@@ -778,7 +778,7 @@ impl Server {
 
     fn validate_in_memory<'a>(
         &'a self,
-        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        ide_transaction_manager: &mut TransactionManager<'a>,
     ) -> anyhow::Result<()> {
         let mut possibly_committable_transaction =
             ide_transaction_manager.get_possibly_committable_transaction(&self.state);
@@ -934,7 +934,7 @@ impl Server {
 
     fn did_open<'a>(
         &'a self,
-        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        ide_transaction_manager: &mut TransactionManager<'a>,
         params: DidOpenTextDocumentParams,
     ) -> anyhow::Result<()> {
         let uri = params.text_document.uri.to_file_path().unwrap();
@@ -960,7 +960,7 @@ impl Server {
 
     fn did_change<'a>(
         &'a self,
-        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        ide_transaction_manager: &mut TransactionManager<'a>,
         params: DidChangeTextDocumentParams,
     ) -> anyhow::Result<()> {
         let VersionedTextDocumentIdentifier { uri, version } = params.text_document;
@@ -1012,7 +1012,7 @@ impl Server {
 
     fn did_change_configuration<'a>(
         &'a self,
-        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        ide_transaction_manager: &mut TransactionManager<'a>,
         params: DidChangeConfigurationParams,
     ) -> anyhow::Result<()> {
         if let Some(workspace) = &self.initialize_params.capabilities.workspace
@@ -1167,7 +1167,7 @@ impl Server {
     fn async_find_references_helper<'a, V: serde::Serialize>(
         &'a self,
         request_id: RequestId,
-        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        ide_transaction_manager: &mut TransactionManager<'a>,
         uri: &Url,
         position: Position,
         map_result: impl FnOnce(Vec<(Url, Vec<Range>)>) -> V + Send + 'static,
@@ -1243,7 +1243,7 @@ impl Server {
     fn references<'a>(
         &'a self,
         request_id: RequestId,
-        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        ide_transaction_manager: &mut TransactionManager<'a>,
         params: ReferenceParams,
     ) {
         self.async_find_references_helper(
@@ -1269,7 +1269,7 @@ impl Server {
     fn rename<'a>(
         &'a self,
         request_id: RequestId,
-        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        ide_transaction_manager: &mut TransactionManager<'a>,
         params: RenameParams,
     ) {
         self.async_find_references_helper(
@@ -1581,7 +1581,7 @@ impl Server {
 
     fn handle_response<'a>(
         &'a self,
-        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        ide_transaction_manager: &mut TransactionManager<'a>,
         request: &Request,
         response: &Response,
     ) -> anyhow::Result<()> {
