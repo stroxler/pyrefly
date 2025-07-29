@@ -160,12 +160,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let mut has_base_any = false;
         let bases_with_metadata = bases
-            .iter()
+            .into_iter()
             .filter_map(|x| {
                 let base_type_and_range = match x {
-                    BaseClass::Expr(x) => Some((self.expr_untype(x, TypeFormContext::BaseClassList, errors), x.range())),
+                    BaseClass::Expr(x) => Some((self.expr_untype(&x, TypeFormContext::BaseClassList, errors), x.range())),
                     BaseClass::NamedTuple(range) => {
-                        Some((self.stdlib.named_tuple_fallback().clone().to_type(), *range))
+                        Some((self.stdlib.named_tuple_fallback().clone().to_type(), range))
                     }
                     // Skip over empty generic. Empty protocol is only relevant for `protocol_metadata`, defined
                     // above so we can skip it here.
