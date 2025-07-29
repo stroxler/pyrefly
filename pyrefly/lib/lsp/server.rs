@@ -644,7 +644,7 @@ impl Server {
             Vec::new()
         };
 
-        let workspaces = Arc::new(Workspaces::new(Workspace::default()));
+        let workspaces = Arc::new(Workspaces::new(Workspace::default(), &folders));
 
         let config_finder = Workspaces::config_finder(&workspaces);
         let s = Self {
@@ -665,8 +665,8 @@ impl Server {
             filewatcher_registered: AtomicBool::new(false),
             version_info: Mutex::new(HashMap::new()),
         };
-        s.configure(&folders, &[]);
-
+        s.setup_file_watcher_if_necessary();
+        s.request_settings_for_all_workspaces();
         s
     }
 
@@ -999,20 +999,9 @@ impl Server {
     }
 
     fn workspace_folders_changed(&self, params: DidChangeWorkspaceFoldersParams) {
-        let removed = params
-            .event
-            .removed
-            .iter()
-            .map(|x| x.uri.to_file_path().unwrap())
-            .collect::<Vec<_>>();
-        let added = params
-            .event
-            .added
-            .iter()
-            .map(|x| x.uri.to_file_path().unwrap())
-            .collect::<Vec<_>>();
-
-        self.configure(&added, &removed);
+        self.workspaces.changed(params.event);
+        self.setup_file_watcher_if_necessary();
+        self.request_settings_for_all_workspaces();
     }
 
     fn did_change_configuration<'a>(
@@ -1038,21 +1027,6 @@ impl Server {
             self.validate_in_memory(ide_transaction_manager)?;
         }
         Ok(())
-    }
-
-    /// Configure the server with a new set of workspace folders
-    fn configure(&self, workspace_paths_added: &[PathBuf], workspace_paths_removed: &[PathBuf]) {
-        {
-            let mut workspaces = self.workspaces.workspaces.write();
-            for x in workspace_paths_added {
-                workspaces.insert(x.clone(), Workspace::new());
-            }
-            for x in workspace_paths_removed {
-                workspaces.shift_remove(x);
-            }
-        }
-        self.setup_file_watcher_if_necessary();
-        self.request_settings_for_all_workspaces();
     }
 
     /// Create a handle. Return None if the workspace has language services disabled (and thus you shouldn't do anything).

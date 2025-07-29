@@ -12,6 +12,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use itertools::Itertools;
 use lsp_types::Url;
+use lsp_types::WorkspaceFoldersChangeEvent;
 use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::arc_id::WeakArcId;
@@ -152,10 +153,15 @@ pub struct Workspaces {
 }
 
 impl Workspaces {
-    pub fn new(default: Workspace) -> Self {
+    pub fn new(default: Workspace, folders: &[PathBuf]) -> Self {
         Self {
             default: RwLock::new(default),
-            workspaces: RwLock::new(SmallMap::new()),
+            workspaces: RwLock::new(
+                folders
+                    .iter()
+                    .map(|x| (x.clone(), Workspace::new()))
+                    .collect(),
+            ),
             loaded_configs: Arc::new(WeakConfigCache::new()),
         }
     }
@@ -212,6 +218,16 @@ impl Workspaces {
 
     pub fn roots(&self) -> Vec<PathBuf> {
         self.workspaces.read().keys().cloned().collect::<Vec<_>>()
+    }
+
+    pub fn changed(&self, event: WorkspaceFoldersChangeEvent) {
+        let mut workspaces = self.workspaces.write();
+        for x in event.removed {
+            workspaces.shift_remove(&x.uri.to_file_path().unwrap());
+        }
+        for x in event.added {
+            workspaces.insert(x.uri.to_file_path().unwrap(), Workspace::new());
+        }
     }
 
     /// Applies the LSP client configuration to the `scope_uri` (workspace) given.
