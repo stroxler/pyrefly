@@ -113,7 +113,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn protocol_metadata(cls: &Class, bases: &[BaseClass]) -> Option<ProtocolMetadata> {
-        if bases.iter().any(|x| matches!(x, BaseClass::Protocol(_))) {
+        if bases.iter().any(|x| matches!(x, BaseClass::Protocol(..))) {
             Some(ProtocolMetadata {
                 members: cls.fields().cloned().collect(),
                 is_runtime_checkable: false,
@@ -125,14 +125,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn find_has_generic_base_class(bases: &[BaseClass]) -> bool {
         bases.iter().any(|x| match x {
-            BaseClass::Generic(ts) | BaseClass::Protocol(ts) if !ts.is_empty() => true,
+            BaseClass::Generic(ts, ..) | BaseClass::Protocol(ts, ..) if !ts.is_empty() => true,
             _ => false,
         })
     }
 
     fn find_has_typed_dict_base_class(bases: &[BaseClass]) -> bool {
         bases.iter().any(|x| match x {
-            BaseClass::TypedDict => true,
+            BaseClass::TypedDict(..) => true,
             _ => false,
         })
     }
@@ -169,7 +169,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     // Skip over empty generic. Empty protocol is only relevant for `protocol_metadata`, defined
                     // above so we can skip it here.
-                    BaseClass::Generic(_) | BaseClass::Protocol(_) | BaseClass::TypedDict => None
+                    BaseClass::Generic(..) | BaseClass::Protocol(..) | BaseClass::TypedDict(..) => None
                 };
                 if is_new_type {
                     self.new_type_base(base_type_and_range, cls.range(), errors)
