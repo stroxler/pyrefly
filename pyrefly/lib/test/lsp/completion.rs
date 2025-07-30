@@ -968,3 +968,26 @@ Completion Results:
         report.trim(),
     );
 }
+
+// TODO(kylei): import completions on builtins
+#[test]
+fn import_completions_on_builtins() {
+    let code = r#"
+import typ
+#         ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_including_keywords,
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | import typ
+              ^
+Completion Results:
+"#
+        .trim(),
+        report.trim(),
+    );
+}
