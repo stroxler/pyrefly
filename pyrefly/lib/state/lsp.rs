@@ -1574,6 +1574,7 @@ impl<'a> Transaction<'a> {
                     label: name.as_str().to_owned(),
                     detail: None,
                     kind,
+                    data: Some(serde_json::json!("builtin")),
                     ..Default::default()
                 });
             }

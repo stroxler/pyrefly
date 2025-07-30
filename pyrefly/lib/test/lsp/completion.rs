@@ -14,64 +14,48 @@ use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
-fn get_test_report_ignoring_keywords(state: &State, handle: &Handle, position: TextSize) -> String {
-    let mut report = "Completion Results:".to_owned();
-    for CompletionItem {
-        label,
-        detail,
-        kind,
-        insert_text,
-        ..
-    } in state.transaction().completion(handle, position)
-    {
-        if kind != Some(CompletionItemKind::KEYWORD) {
-            report.push_str("\n- (");
-            report.push_str(&format!("{:?}", kind.unwrap()));
-            report.push_str(") ");
-            report.push_str(&label);
-            if let Some(detail) = detail {
-                report.push_str(": ");
-                report.push_str(&detail);
-            }
-            if let Some(insert_text) = insert_text {
-                report.push_str(" inserting `");
-                report.push_str(&insert_text);
-                report.push('`');
-            }
-        }
-    }
-    report
+#[derive(Default)]
+struct ResultsFilter {
+    include_keywords: bool,
+    include_builtins: bool,
 }
 
-fn get_test_report_including_keywords(
-    state: &State,
-    handle: &Handle,
-    position: TextSize,
-) -> String {
-    let mut report = "Completion Results:".to_owned();
-    for CompletionItem {
-        label,
-        detail,
-        kind,
-        insert_text,
-        ..
-    } in state.transaction().completion(handle, position)
-    {
-        report.push_str("\n- (");
-        report.push_str(&format!("{:?}", kind.unwrap()));
-        report.push_str(") ");
-        report.push_str(&label);
-        if let Some(detail) = detail {
-            report.push_str(": ");
-            report.push_str(&detail);
+fn get_default_test_report() -> impl Fn(&State, &Handle, TextSize) -> String {
+    get_test_report(ResultsFilter::default())
+}
+
+fn get_test_report(filter: ResultsFilter) -> impl Fn(&State, &Handle, TextSize) -> String {
+    move |state: &State, handle: &Handle, position: TextSize| {
+        let mut report = "Completion Results:".to_owned();
+        for CompletionItem {
+            label,
+            detail,
+            kind,
+            insert_text,
+            data,
+            ..
+        } in state.transaction().completion(handle, position)
+        {
+            if (filter.include_keywords || kind != Some(CompletionItemKind::KEYWORD))
+                && (filter.include_builtins || data != Some(serde_json::json!("builtin")))
+            {
+                report.push_str("\n- (");
+                report.push_str(&format!("{:?}", kind.unwrap()));
+                report.push_str(") ");
+                report.push_str(&label);
+                if let Some(detail) = detail {
+                    report.push_str(": ");
+                    report.push_str(&detail);
+                }
+                if let Some(insert_text) = insert_text {
+                    report.push_str(" inserting `");
+                    report.push_str(&insert_text);
+                    report.push('`');
+                }
+            }
         }
-        if let Some(insert_text) = insert_text {
-            report.push_str(" inserting `");
-            report.push_str(&insert_text);
-            report.push('`');
-        }
+        report
     }
-    report
 }
 
 #[test]
@@ -88,10 +72,8 @@ bar = Bar()
 bar.
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -125,10 +107,8 @@ foo = Foo()
 foo.
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -158,10 +138,8 @@ foo = Foo()
 foo.
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -202,10 +180,8 @@ def foo():
     b
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -262,7 +238,10 @@ FileExist
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code)],
-        get_test_report_ignoring_keywords,
+        get_test_report(ResultsFilter {
+            include_builtins: true,
+            ..Default::default()
+        }),
     );
     assert_eq!(
         r#"
@@ -306,7 +285,7 @@ class Foo:
 
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code), ("lib", lib)],
-        get_test_report_ignoring_keywords,
+        get_default_test_report(),
     );
     assert_eq!(
         r#"
@@ -336,7 +315,7 @@ from foo imp
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report_ignoring_keywords,
+        get_default_test_report(),
     );
     assert_eq!(
         r#"
@@ -377,7 +356,7 @@ from foo import
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report_ignoring_keywords,
+        get_default_test_report(),
     );
     assert_eq!(
         r#"
@@ -405,7 +384,7 @@ from foo import imperial
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report_ignoring_keywords,
+        get_default_test_report(),
     );
     assert_eq!(
         r#"
@@ -450,7 +429,7 @@ from .foo import imperial
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report_ignoring_keywords,
+        get_default_test_report(),
     );
     assert_eq!(
         r#"
@@ -488,10 +467,8 @@ xyz = 5
 foo(x
 #    ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -514,10 +491,8 @@ def foo(a: int, b: str, c: bool): ...
 foo(1, 
 #      ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -543,10 +518,8 @@ foo = Foo()
 foo.method(
 #          ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -568,10 +541,8 @@ def foo(a: int, *, b: str, c: bool): ...
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -594,10 +565,8 @@ def foo(a: int, b: str = "default", *, c: bool, d: float = 1.0): ...
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -623,10 +592,8 @@ class Foo:
 Foo().test(
 #          ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -651,10 +618,8 @@ class Foo:
 Foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -678,10 +643,8 @@ class Foo:
 Foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -705,10 +668,8 @@ class Foo:
 Foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -734,10 +695,8 @@ class Foo(metaclass=Meta):
 Foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -759,10 +718,8 @@ def inner(b: str): ...
 outer(inner(
 #           ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -783,10 +740,8 @@ x = 42
 x(
 # ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -807,7 +762,10 @@ isins
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code)],
-        get_test_report_ignoring_keywords,
+        get_test_report(ResultsFilter {
+            include_builtins: true,
+            ..Default::default()
+        }),
     );
     assert_eq!(
         r#"
@@ -842,10 +800,8 @@ def foo(x: Literal['foo']): ...
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -868,10 +824,8 @@ x = {"a": 3, "b", 4}
 x["
 # ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -898,10 +852,8 @@ def foo(y: bool):
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -928,10 +880,8 @@ def foo(x: int, y: str):
 foo(1, 
 #      ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(
-        &[("main", code)],
-        get_test_report_ignoring_keywords,
-    );
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
     assert_eq!(
         r#"
 # main.py
@@ -955,7 +905,10 @@ Foo.
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code)],
-        get_test_report_including_keywords,
+        get_test_report(ResultsFilter {
+            include_keywords: true,
+            ..Default::default()
+        }),
     );
     assert_eq!(
         r#"
@@ -977,7 +930,10 @@ import typ
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code)],
-        get_test_report_including_keywords,
+        get_test_report(ResultsFilter {
+            include_keywords: true,
+            ..Default::default()
+        }),
     );
     assert_eq!(
         r#"
@@ -1004,7 +960,10 @@ def test():
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code)],
-        get_test_report_including_keywords,
+        get_test_report(ResultsFilter {
+            include_keywords: true,
+            ..Default::default()
+        }),
     );
     assert_eq!(
         r#"
