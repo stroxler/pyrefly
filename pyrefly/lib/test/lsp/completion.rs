@@ -993,3 +993,28 @@ Completion Results:
         report.trim(),
     );
 }
+
+// TODO(kylei): we should show completions here
+#[test]
+fn completion_on_empty_line() {
+    let code = r#"
+def test():
+    xyz = 5
+    
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_including_keywords,
+    );
+    assert_eq!(
+        r#"
+# main.py
+4 |     
+        ^
+Completion Results:
+"#
+        .trim(),
+        report.trim(),
+    );
+}
