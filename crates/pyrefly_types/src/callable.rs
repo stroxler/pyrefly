@@ -506,7 +506,17 @@ impl Param {
         }
     }
 
-    pub fn param_to_type(&self) -> &Type {
+    pub fn as_type(&self) -> &Type {
+        match self {
+            Param::PosOnly(_, ty, _)
+            | Param::Pos(_, ty, _)
+            | Param::VarArg(_, ty)
+            | Param::KwOnly(_, ty, _)
+            | Param::Kwargs(_, ty) => ty,
+        }
+    }
+
+    pub fn as_type_mut(&mut self) -> &mut Type {
         match self {
             Param::PosOnly(_, ty, _)
             | Param::Pos(_, ty, _)

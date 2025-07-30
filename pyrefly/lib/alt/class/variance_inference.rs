@@ -190,7 +190,7 @@ fn on_class(
                 match &t.params {
                     Params::List(param_list) => {
                         for param in param_list.items().iter() {
-                            let ty = param.param_to_type();
+                            let ty = param.as_type();
                             on_type(variance.inv(), inj, ty, on_edge, on_var);
                         }
                     }

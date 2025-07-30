@@ -617,7 +617,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             params.first()
         };
         if let Some(ty_arg) = ty_arg
-            && !self.is_subset_eq(ty_narrow, ty_arg.param_to_type())
+            && !self.is_subset_eq(ty_narrow, ty_arg.as_type())
         {
             // If the narrowed type is not a subtype of the argument type, we report an error.
             self.error(
@@ -627,7 +627,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!(
                     "Return type `{}` must be assignable to the first argument type `{}`",
                     self.for_display(ty_narrow.clone()),
-                    self.for_display(ty_arg.param_to_type().clone())
+                    self.for_display(ty_arg.as_type().clone())
                 ),
             );
         }
