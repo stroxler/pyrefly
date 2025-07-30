@@ -45,9 +45,28 @@ pub enum LspEvent {
     Exit,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LspEventKind {
+    Priority,
+    Mutation,
+    Query,
+}
+
 impl LspEvent {
-    fn is_priority(&self) -> bool {
-        matches!(self, Self::CancelRequest(_) | Self::RecheckFinished)
+    fn kind(&self) -> LspEventKind {
+        match self {
+            Self::RecheckFinished | Self::CancelRequest(_) => LspEventKind::Priority,
+            Self::DidOpenTextDocument(_)
+            | Self::DidChangeTextDocument(_)
+            | Self::DidCloseTextDocument(_)
+            | Self::DidSaveTextDocument(_)
+            | Self::DidChangeWatchedFiles(_)
+            | Self::DidChangeWorkspaceFolders(_)
+            | Self::DidChangeConfiguration(_)
+            | Self::LspResponse(_)
+            | Self::Exit => LspEventKind::Mutation,
+            Self::LspRequest(_) => LspEventKind::Query,
+        }
     }
 }
 
@@ -69,7 +88,7 @@ impl LspQueue {
 
     #[allow(clippy::result_large_err)]
     pub fn send(&self, x: LspEvent) -> Result<(), SendError<LspEvent>> {
-        if x.is_priority() {
+        if x.kind() == LspEventKind::Priority {
             self.0.priority.0.send(x)
         } else {
             self.0.normal.0.send(x)
