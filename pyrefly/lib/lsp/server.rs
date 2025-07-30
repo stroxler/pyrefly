@@ -16,8 +16,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
 
-use crossbeam_channel::Select;
-use crossbeam_channel::Sender;
 use dupe::Dupe;
 use lsp_server::Connection;
 use lsp_server::ErrorCode;
@@ -169,6 +167,8 @@ use crate::lsp::module_helpers::make_open_handle;
 use crate::lsp::module_helpers::module_info_to_uri;
 use crate::lsp::module_helpers::to_lsp_location;
 use crate::lsp::module_helpers::to_real_path;
+use crate::lsp::queue::LspQueue;
+use crate::lsp::queue::ServerEvent;
 use crate::lsp::transaction_manager::TransactionManager;
 use crate::lsp::workspace::Workspace;
 use crate::lsp::workspace::Workspaces;
@@ -179,27 +179,6 @@ use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::State;
 use crate::state::state::Transaction;
-
-enum ServerEvent {
-    // Part 1: Events that the server should try to handle first.
-    /// Notify the server that recheck finishes, so server can revalidate all in-memory content
-    /// based on the latest `State`.
-    RecheckFinished,
-    /// Inform the server that a request is cancelled.
-    /// Server should know about this ASAP to avoid wasting time on cancelled requests.
-    CancelRequest(RequestId),
-    // Part 2: Events that can be queued in FIFO order and handled at a later time.
-    DidOpenTextDocument(DidOpenTextDocumentParams),
-    DidChangeTextDocument(DidChangeTextDocumentParams),
-    DidCloseTextDocument(DidCloseTextDocumentParams),
-    DidSaveTextDocument(DidSaveTextDocumentParams),
-    DidChangeWatchedFiles(DidChangeWatchedFilesParams),
-    DidChangeWorkspaceFolders(DidChangeWorkspaceFoldersParams),
-    DidChangeConfiguration(DidChangeConfigurationParams),
-    LspResponse(Response),
-    LspRequest(Request),
-    Exit,
-}
 
 #[derive(Clone, Dupe)]
 struct ServerConnection(Arc<Connection>);
@@ -236,7 +215,7 @@ struct Server {
     connection: ServerConnection,
     /// A thread pool of size one for heavy read operations on the State
     async_state_read_threads: ThreadPool,
-    priority_events_sender: Arc<Sender<ServerEvent>>,
+    lsp_queue: LspQueue,
     initialize_params: InitializeParams,
     indexing_mode: IndexingMode,
     state: Arc<State>,
@@ -260,11 +239,7 @@ struct Server {
 /// - priority_events includes those that should be handled as soon as possible (e.g. know that a
 ///   request is cancelled)
 /// - queued_events includes most of the other events.
-fn dispatch_lsp_events(
-    connection: &Connection,
-    priority_events_sender: Arc<Sender<ServerEvent>>,
-    queued_events_sender: Sender<ServerEvent>,
-) {
+fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
     for msg in &connection.receiver {
         match msg {
             Message::Request(x) => {
@@ -278,44 +253,38 @@ fn dispatch_lsp_events(
                         return;
                     }
                 }
-                if queued_events_sender
-                    .send(ServerEvent::LspRequest(x))
-                    .is_err()
-                {
+                if lsp_queue.send(ServerEvent::LspRequest(x)).is_err() {
                     return;
                 }
             }
             Message::Response(x) => {
-                if queued_events_sender
-                    .send(ServerEvent::LspResponse(x))
-                    .is_err()
-                {
+                if lsp_queue.send(ServerEvent::LspResponse(x)).is_err() {
                     return;
                 }
             }
             Message::Notification(x) => {
                 let send_result = if let Some(params) = as_notification::<DidOpenTextDocument>(&x) {
-                    queued_events_sender.send(ServerEvent::DidOpenTextDocument(params))
+                    lsp_queue.send(ServerEvent::DidOpenTextDocument(params))
                 } else if let Some(params) = as_notification::<DidChangeTextDocument>(&x) {
-                    queued_events_sender.send(ServerEvent::DidChangeTextDocument(params))
+                    lsp_queue.send(ServerEvent::DidChangeTextDocument(params))
                 } else if let Some(params) = as_notification::<DidCloseTextDocument>(&x) {
-                    queued_events_sender.send(ServerEvent::DidCloseTextDocument(params))
+                    lsp_queue.send(ServerEvent::DidCloseTextDocument(params))
                 } else if let Some(params) = as_notification::<DidSaveTextDocument>(&x) {
-                    queued_events_sender.send(ServerEvent::DidSaveTextDocument(params))
+                    lsp_queue.send(ServerEvent::DidSaveTextDocument(params))
                 } else if let Some(params) = as_notification::<DidChangeWatchedFiles>(&x) {
-                    queued_events_sender.send(ServerEvent::DidChangeWatchedFiles(params))
+                    lsp_queue.send(ServerEvent::DidChangeWatchedFiles(params))
                 } else if let Some(params) = as_notification::<DidChangeWorkspaceFolders>(&x) {
-                    queued_events_sender.send(ServerEvent::DidChangeWorkspaceFolders(params))
+                    lsp_queue.send(ServerEvent::DidChangeWorkspaceFolders(params))
                 } else if let Some(params) = as_notification::<DidChangeConfiguration>(&x) {
-                    queued_events_sender.send(ServerEvent::DidChangeConfiguration(params))
+                    lsp_queue.send(ServerEvent::DidChangeConfiguration(params))
                 } else if let Some(params) = as_notification::<Cancel>(&x) {
                     let id = match params.id {
                         NumberOrString::Number(i) => RequestId::from(i),
                         NumberOrString::String(s) => RequestId::from(s),
                     };
-                    priority_events_sender.send(ServerEvent::CancelRequest(id))
+                    lsp_queue.send_priority(ServerEvent::CancelRequest(id))
                 } else if as_notification::<Exit>(&x).is_some() {
-                    queued_events_sender.send(ServerEvent::Exit)
+                    lsp_queue.send(ServerEvent::Exit)
                 } else {
                     eprintln!("Unhandled notification: {x:?}");
                     Ok(())
@@ -420,47 +389,23 @@ pub fn lsp_loop(
 ) -> anyhow::Result<()> {
     eprintln!("Reading messages");
     let connection_for_dispatcher = connection.dupe();
-    let (queued_events_sender, queued_events_receiver) = crossbeam_channel::unbounded();
-    let (priority_events_sender, priority_events_receiver) = crossbeam_channel::unbounded();
-    let priority_events_sender = Arc::new(priority_events_sender);
-    let mut event_receiver_selector = Select::new_biased();
-    // Biased selector will pick the receiver with lower index over higher ones,
-    // so we register priority_events_receiver first.
-    let priority_receiver_index = event_receiver_selector.recv(&priority_events_receiver);
-    let queued_events_receiver_index = event_receiver_selector.recv(&queued_events_receiver);
+    let lsp_queue = LspQueue::new();
     let server = Server::new(
         connection,
-        priority_events_sender.dupe(),
+        lsp_queue.dupe(),
         initialization_params,
         indexing_mode,
     );
+    let lsp_queue2 = lsp_queue.dupe();
     std::thread::spawn(move || {
-        dispatch_lsp_events(
-            &connection_for_dispatcher,
-            priority_events_sender,
-            queued_events_sender,
-        );
+        dispatch_lsp_events(&connection_for_dispatcher, lsp_queue2);
     });
     let mut ide_transaction_manager = TransactionManager::default();
     let mut canceled_requests = HashSet::new();
-    loop {
-        let selected = event_receiver_selector.select();
-        let received = match selected.index() {
-            i if i == priority_receiver_index => selected.recv(&priority_events_receiver),
-            i if i == queued_events_receiver_index => selected.recv(&queued_events_receiver),
-            _ => unreachable!(),
-        };
-        if let Ok(event) = received {
-            match server.process_event(
-                &mut ide_transaction_manager,
-                &mut canceled_requests,
-                event,
-            )? {
-                ProcessEvent::Continue => {}
-                ProcessEvent::Exit => break,
-            }
-        } else {
-            break;
+    while let Ok(event) = lsp_queue.recv() {
+        match server.process_event(&mut ide_transaction_manager, &mut canceled_requests, event)? {
+            ProcessEvent::Continue => {}
+            ProcessEvent::Exit => break,
         }
     }
     eprintln!("waiting for connection to close");
@@ -671,7 +616,7 @@ impl Server {
 
     fn new(
         connection: Arc<Connection>,
-        priority_events_sender: Arc<Sender<ServerEvent>>,
+        lsp_queue: LspQueue,
         initialize_params: InitializeParams,
         indexing_mode: IndexingMode,
     ) -> Self {
@@ -695,7 +640,7 @@ impl Server {
             async_state_read_threads: ThreadPool::with_thread_count(ThreadCount::NumThreads(
                 NonZero::new(1).unwrap(),
             )),
-            priority_events_sender,
+            lsp_queue,
             initialize_params,
             indexing_mode,
             state: Arc::new(State::new(config_finder)),
@@ -838,13 +783,9 @@ impl Server {
                 IndexingMode::LazyNonBlockingBackground => {
                     if self.indexed_configs.lock().insert(config.dupe()) {
                         let state = self.state.dupe();
-                        let priority_events_sender = self.priority_events_sender.dupe();
+                        let lsp_queue = self.lsp_queue.dupe();
                         std::thread::spawn(move || {
-                            Self::populate_all_project_files_in_config(
-                                config,
-                                state,
-                                priority_events_sender,
-                            );
+                            Self::populate_all_project_files_in_config(config, state, lsp_queue);
                         });
                     }
                 }
@@ -853,7 +794,7 @@ impl Server {
                         Self::populate_all_project_files_in_config(
                             config,
                             self.state.dupe(),
-                            self.priority_events_sender.dupe(),
+                            self.lsp_queue.dupe(),
                         );
                     }
                 }
@@ -865,7 +806,7 @@ impl Server {
     /// Runs asynchronously. Returns immediately and may wait a while for a committable transaction.
     fn invalidate(&self, f: impl FnOnce(&mut Transaction) + Send + 'static) {
         let state = self.state.dupe();
-        let priority_events_sender = self.priority_events_sender.dupe();
+        let lsp_queue = self.lsp_queue.dupe();
         let cancellation_handles = self.cancellation_handles.dupe();
         std::thread::spawn(move || {
             let mut transaction = state.new_committable_transaction(Require::Indexing, None);
@@ -881,7 +822,7 @@ impl Server {
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
-            let _ = priority_events_sender.send(ServerEvent::RecheckFinished);
+            let _ = lsp_queue.send_priority(ServerEvent::RecheckFinished);
         });
     }
 
@@ -892,7 +833,7 @@ impl Server {
     fn populate_all_project_files_in_config(
         config: ArcId<ConfigFile>,
         state: Arc<State>,
-        priority_events_sender: Arc<Sender<ServerEvent>>,
+        lsp_queue: LspQueue,
     ) {
         let unknown = ModuleName::unknown();
 
@@ -922,7 +863,7 @@ impl Server {
         // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
         // the main event loop of the server. As a result, the server can do a revalidation of
         // all the in-memory files based on the fresh main State as soon as possible.
-        let _ = priority_events_sender.send(ServerEvent::RecheckFinished);
+        let _ = lsp_queue.send_priority(ServerEvent::RecheckFinished);
         eprintln!("Populated all files in the project path.");
     }
 
