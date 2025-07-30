@@ -781,7 +781,7 @@ impl<'a> Transaction<'a> {
 
     fn create_signature_information(type_: Type, arg_index: usize) -> SignatureInformation {
         let type_ = type_.deterministic_printing();
-        let label = format!("{type_}");
+        let label = type_.as_hover_string();
         let (parameters, active_parameter) =
             if let Some(params) = Self::normalize_singleton_function_type_into_params(type_) {
                 let active_parameter = if arg_index < params.len() {
@@ -1769,7 +1769,7 @@ impl<'a> Transaction<'a> {
                                 };
                                 result.push(CompletionItem {
                                     label: x.name.as_str().to_owned(),
-                                    detail: x.ty.clone().map(|t| t.to_string()),
+                                    detail: x.ty.clone().map(|t| t.as_hover_string()),
                                     kind,
                                     ..Default::default()
                                 });

@@ -115,8 +115,8 @@ foo.
 10 | foo.
          ^
 Completion Results:
-- (Method) class_method: BoundMethod[type[Foo], (cls: type[Self@Foo]) -> None]
-- (Method) method: BoundMethod[Foo, (self: Self@Foo) -> None]
+- (Method) class_method: (cls: type[Self@Foo]) -> None
+- (Method) method: (self: Self@Foo) -> None
 - (Function) static_method: () -> None
 - (Field) x: int
 "#
