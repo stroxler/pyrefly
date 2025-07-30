@@ -5,6 +5,5 @@
 
 from .config import ConfigDict
 from .main import BaseModel
-# add other exports as needed
 
-__all__ = ["BaseModel"]
+__all__ = ["BaseModel", "ConfigDict"]
