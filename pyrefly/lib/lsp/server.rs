@@ -1282,25 +1282,35 @@ impl Server {
         params: InlayHintParams,
     ) -> Option<Vec<InlayHint>> {
         let uri = &params.text_document.uri;
+        let range = &params.range;
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
         let t = transaction.inlay_hints(&handle)?;
-        Some(t.into_map(|x| {
-            let position = info.lined_buffer().to_lsp_position(x.0);
-            InlayHint {
-                position,
-                label: InlayHintLabel::String(x.1.clone()),
-                kind: None,
-                text_edits: Some(vec![TextEdit {
-                    range: Range::new(position, position),
-                    new_text: x.1,
-                }]),
-                tooltip: None,
-                padding_left: None,
-                padding_right: None,
-                data: None,
-            }
-        }))
+        let res = t
+            .into_iter()
+            .filter_map(|x| {
+                let position = info.lined_buffer().to_lsp_position(x.0);
+                // The range is half-open, so the end position is exclusive according to the spec.
+                if position >= range.start && position < range.end {
+                    Some(InlayHint {
+                        position,
+                        label: InlayHintLabel::String(x.1.clone()),
+                        kind: None,
+                        text_edits: Some(vec![TextEdit {
+                            range: Range::new(position, position),
+                            new_text: x.1,
+                        }]),
+                        tooltip: None,
+                        padding_left: None,
+                        padding_right: None,
+                        data: None,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Some(res)
     }
 
     fn semantic_tokens_full(
