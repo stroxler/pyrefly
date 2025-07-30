@@ -503,10 +503,20 @@ impl Server {
                 // we really don't want to implicitly cancel those.
                 const ONLY_ONCE: &[&str] = &[Completion::METHOD, SignatureHelpRequest::METHOD];
 
-                if canceled_requests.remove(&x.id)
+                let in_cancelled_requests = canceled_requests.remove(&x.id);
+                if in_cancelled_requests
                     || (subsequent_mutation && !ONLY_ONCE.contains(&x.method.as_str()))
                 {
-                    let message = format!("Request {} is canceled", &x.id);
+                    let message = format!(
+                        "Request {} ({}) is canceled due to {}",
+                        x.method,
+                        x.id,
+                        if in_cancelled_requests {
+                            "explicit cancellation"
+                        } else {
+                            "subsequent mutation"
+                        }
+                    );
                     eprintln!("{message}");
                     self.send_response(Response::new_err(
                         x.id,
