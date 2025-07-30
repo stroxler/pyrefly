@@ -126,3 +126,54 @@ fn test_initialize_with_python_path() {
         ..Default::default()
     });
 }
+
+// This test exists as a regression test for certain notebooks that mock a fake file in /tmp/.
+#[test]
+fn test_nonexistent_file() {
+    let root = get_test_files_root();
+    let nonexistent_filename = root.path().join("nonexistent_file.py");
+
+    run_test_lsp(TestCase {
+        messages_from_language_client: vec![
+            Message::from(Notification {
+                method: "textDocument/didOpen".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(&nonexistent_filename).unwrap().to_string(),
+                        "languageId": "python",
+                        "version": 1,
+                        "text": String::default(),
+                    }
+                }),
+            }),
+            Message::from(Request {
+                id: RequestId::from(2),
+                method: "textDocument/diagnostic".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(&nonexistent_filename).unwrap().to_string()
+                    },
+                }),
+            }),
+            Message::from(Notification {
+                method: "textDocument/didChange".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(&nonexistent_filename).unwrap().to_string(),
+                        "languageId": "python",
+                        "version": 2
+                    },
+                    "contentChanges": [{
+                        "text": format!("{}\n{}\n", std::fs::read_to_string(root.path().join("notebook.py")).unwrap(), "t")
+                    }],
+                }),
+            }),
+        ],
+        expected_messages_from_language_server: vec![Message::from(Response {
+            id: RequestId::from(2),
+            result: Some(serde_json::json!({"items":[],"kind":"full"})),
+            error: None,
+        })],
+        ..Default::default()
+    });
+}
