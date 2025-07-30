@@ -1363,3 +1363,15 @@ except as r: # E: Parse error: Expected one or more exception types
     pass
 "#,
 );
+
+testcase!(
+    bug = "Loop recursion is causing problems, see https://github.com/facebook/pyrefly/issues/778",
+    loop_with_sized_operation,
+    r#"
+intList: list[int] = [5, 6, 7, 8]
+for j in [1, 2, 3, 4]:
+    for i in range(len(intList)):  # E: `Sized | list[int]` is not assignable to `list[int]` (caused by inconsistent types when breaking cycles)
+        intList[i] *= 42
+print([value for value in intList])  # E: Type `Sized` is not iterable
+"#,
+);
