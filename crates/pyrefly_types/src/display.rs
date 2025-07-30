@@ -447,7 +447,6 @@ pub mod tests {
     use crate::class::ClassType;
     use crate::literal::Lit;
     use crate::quantified::Quantified;
-    use crate::quantified::QuantifiedInfo;
     use crate::quantified::QuantifiedKind;
     use crate::tuple::Tuple;
     use crate::type_var::PreInferenceVariance;
@@ -482,12 +481,10 @@ pub mod tests {
         TParam {
             quantified: Quantified::new(
                 uniques.fresh(),
-                QuantifiedInfo {
-                    name: Name::new(name),
-                    kind,
-                    restriction: Restriction::Unrestricted,
-                    default: None,
-                },
+                Name::new(name),
+                kind,
+                None,
+                Restriction::Unrestricted,
             ),
             variance: PreInferenceVariance::PInvariant,
         }

@@ -470,7 +470,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             let bound_attr_base = self.as_attribute_base_no_union(bound.clone());
                             if let Some(AttributeBase::ClassInstance(cls)) = bound_attr_base {
                                 bases.push(Some(AttributeBase::TypeVar(
-                                    quantified.clone(),
+                                    (**quantified).clone(),
                                     Some(cls),
                                 )));
                             } else {
@@ -478,7 +478,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             }
                         });
                         if use_fallback {
-                            bases.push(Some(AttributeBase::TypeVar(quantified.clone(), None)));
+                            bases.push(Some(AttributeBase::TypeVar((**quantified).clone(), None)));
                         }
                     }
                     Restriction::Constraints(constraints) => {
@@ -488,7 +488,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 self.as_attribute_base_no_union(constraint.clone());
                             if let Some(AttributeBase::ClassInstance(cls)) = constraint_attr_base {
                                 bases.push(Some(AttributeBase::TypeVar(
-                                    quantified.clone(),
+                                    (**quantified).clone(),
                                     Some(cls),
                                 )));
                             } else {
@@ -496,7 +496,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             }
                         }
                         if use_fallback {
-                            bases.push(Some(AttributeBase::TypeVar(quantified.clone(), None)));
+                            bases.push(Some(AttributeBase::TypeVar((**quantified).clone(), None)));
                         }
                     }
                     Restriction::Unrestricted => bases.push(Some(AttributeBase::ClassInstance(
@@ -1444,13 +1444,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // `T` is a type variable (the latter is illegal, but a user could write it). It is
                 // not for cases where `base` is a term with a quantified type.
                 (QuantifiedKind::ParamSpec, "args") => {
-                    LookupResult::found_type(Type::type_form(Type::Args(q)))
+                    LookupResult::found_type(Type::type_form(Type::Args(Box::new(q))))
                 }
                 (QuantifiedKind::ParamSpec, "kwargs") => {
-                    LookupResult::found_type(Type::type_form(Type::Kwargs(q)))
+                    LookupResult::found_type(Type::type_form(Type::Kwargs(Box::new(q))))
                 }
                 (QuantifiedKind::TypeVar, _) if let Some(upper_bound) = bound => {
-                    match self.get_bounded_type_var_attribute(q.clone(), &upper_bound, attr_name) {
+                    match self.get_bounded_type_var_attribute(q, &upper_bound, attr_name) {
                         Some(attr) => LookupResult::Found(attr),
                         None => LookupResult::NotFound(NotFound::Attribute(
                             upper_bound.class_object().dupe(),
@@ -1730,9 +1730,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Restriction::Bound(bound) => {
                     self.as_attribute_base_no_union(Type::type_form(bound.clone()))
                 }
-                _ => Some(AttributeBase::TypeVar(q, None)),
+                _ => Some(AttributeBase::TypeVar(*q, None)),
             },
-            Type::Type(box Type::Quantified(q)) => Some(AttributeBase::TypeVar(q, None)),
+            Type::Type(box Type::Quantified(q)) => Some(AttributeBase::TypeVar(*q, None)),
             Type::Type(box Type::Any(style)) => Some(AttributeBase::TypeAny(style)),
             Type::Module(module) => Some(AttributeBase::Module(module)),
             Type::TypeVar(_) | Type::Type(box Type::TypeVar(_)) => {

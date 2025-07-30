@@ -9,6 +9,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::mem;
 
+use pyrefly_types::quantified::Quantified;
 use pyrefly_util::gas::Gas;
 use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::SliceExt;
@@ -32,7 +33,6 @@ use crate::types::callable::Callable;
 use crate::types::callable::Function;
 use crate::types::callable::Params;
 use crate::types::module::ModuleType;
-use crate::types::quantified::QuantifiedInfo;
 use crate::types::simplify::simplify_tuples;
 use crate::types::simplify::unions;
 use crate::types::simplify::unions_with_literals;
@@ -54,8 +54,7 @@ enum Variable {
     /// A variable in a container with an unspecified element type, e.g. `[]: list[V]`
     Contained,
     /// A variable due to generic instantitation, `def f[T](x: T): T` with `f(1)`
-    /// The second value is the default value of the type parameter, if one exists
-    Quantified(QuantifiedInfo),
+    Quantified(Quantified),
     /// A variable caused by recursion, e.g. `x = f(); def f(): return x`.
     /// The second value is the default value of the Var, if one exists.
     Recursive(Option<Type>),
@@ -69,12 +68,12 @@ impl Display for Variable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Variable::Contained => write!(f, "Contained"),
-            Variable::Quantified(QuantifiedInfo {
+            Variable::Quantified(Quantified {
                 kind: k,
                 default: Some(t),
                 ..
             }) => write!(f, "Quantified({k}, default={t})"),
-            Variable::Quantified(QuantifiedInfo {
+            Variable::Quantified(Quantified {
                 kind: k,
                 default: None,
                 ..
@@ -349,15 +348,7 @@ impl Solver {
         let t = t.subst(&params.iter().map(|p| &p.quantified).zip(&ts).collect());
         let mut lock = self.variables.write();
         for (v, param) in vs.iter().zip(params.iter()) {
-            lock.insert(
-                *v,
-                Variable::Quantified(QuantifiedInfo {
-                    name: param.name().clone(),
-                    kind: param.quantified.kind(),
-                    default: param.default().cloned(),
-                    restriction: param.restriction().clone(),
-                }),
-            );
+            lock.insert(*v, Variable::Quantified(param.quantified.clone()));
         }
         (vs, t)
     }

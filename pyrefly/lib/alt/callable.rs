@@ -372,7 +372,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             CallArg::Star(x, _) => {
                 let mut ty = x.infer(self, errors);
                 self.expand_type_mut(&mut ty);
-                matches!(ty, Type::Args(q2) if &q2 == q)
+                matches!(ty, Type::Args(q2) if &*q2 == q)
             }
             _ => false,
         }
@@ -386,7 +386,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> bool {
         let mut ty = x.value.infer(self, errors);
         self.expand_type_mut(&mut ty);
-        matches!(ty, Type::Kwargs(q2) if &q2 == q)
+        matches!(ty, Type::Kwargs(q2) if &*q2 == q)
     }
 
     // See comment on `callable_infer` about `arg_errors` and `call_errors`.

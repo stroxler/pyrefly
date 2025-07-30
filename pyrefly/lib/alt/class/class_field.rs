@@ -537,7 +537,7 @@ impl<'a> Instance<'a> {
             InstanceKind::TypedDict => {
                 Type::TypedDict(TypedDict::new(self.class.dupe(), self.targs.clone()))
             }
-            InstanceKind::TypeVar(q) => Type::Quantified(q.clone()),
+            InstanceKind::TypeVar(q) => q.clone().to_type(),
         }
     }
 }

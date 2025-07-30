@@ -22,79 +22,15 @@ use crate::stdlib::Stdlib;
 use crate::type_var::Restriction;
 use crate::types::Type;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-#[derive(Visit, VisitMut, TypeEq)]
-pub struct QuantifiedInfo {
-    pub name: Name,
-    pub kind: QuantifiedKind,
-    pub default: Option<Type>,
-    pub restriction: Restriction,
-}
-impl QuantifiedInfo {
-    fn as_gradual_type_helper(kind: QuantifiedKind, default: Option<&Type>) -> Type {
-        default.map_or_else(
-            || kind.empty_value(),
-            |default| {
-                default.clone().transform(&mut |default| match default {
-                    Type::TypeVar(t) => {
-                        *default =
-                            Self::as_gradual_type_helper(QuantifiedKind::TypeVar, t.default())
-                    }
-                    Type::TypeVarTuple(t) => {
-                        *default =
-                            Self::as_gradual_type_helper(QuantifiedKind::TypeVarTuple, t.default())
-                    }
-                    Type::ParamSpec(p) => {
-                        *default =
-                            Self::as_gradual_type_helper(QuantifiedKind::ParamSpec, p.default())
-                    }
-                    Type::Quantified(q) => {
-                        *default = q.as_gradual_type();
-                    }
-                    _ => {}
-                })
-            },
-        )
-    }
-
-    pub fn as_gradual_type(&self) -> Type {
-        Self::as_gradual_type_helper(self.kind, self.default.as_ref())
-    }
-
-    fn type_var(name: Name, default: Option<Type>, restriction: Restriction) -> Self {
-        Self {
-            name,
-            kind: QuantifiedKind::TypeVar,
-            restriction,
-            default,
-        }
-    }
-
-    fn param_spec(name: Name, default: Option<Type>) -> Self {
-        Self {
-            name,
-            kind: QuantifiedKind::ParamSpec,
-            restriction: Restriction::Unrestricted,
-            default,
-        }
-    }
-
-    fn type_var_tuple(name: Name, default: Option<Type>) -> Self {
-        Self {
-            name,
-            kind: QuantifiedKind::TypeVarTuple,
-            restriction: Restriction::Unrestricted,
-            default,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct Quantified {
     /// Unique identifier
     unique: Unique,
-    info: Box<QuantifiedInfo>,
+    pub name: Name,
+    pub kind: QuantifiedKind,
+    pub default: Option<Type>,
+    pub restriction: Restriction,
 }
 
 impl Ord for Quantified {
@@ -110,8 +46,11 @@ impl Ord for Quantified {
         //
         // So we sort on unique last, which is slightly better, solves 2. but leaves
         // 1. as a partial problem.
-        self.info
-            .cmp(&other.info)
+        self.name
+            .cmp(&other.name)
+            .then_with(|| self.kind.cmp(&other.kind))
+            .then_with(|| self.default.cmp(&other.default))
+            .then_with(|| self.restriction.cmp(&other.restriction))
             .then_with(|| self.unique.cmp(&other.unique))
     }
 }
@@ -142,15 +81,24 @@ impl QuantifiedKind {
 
 impl Display for Quantified {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.info.name)
+        write!(f, "{}", self.name)
     }
 }
 
 impl Quantified {
-    pub fn new(unique: Unique, info: QuantifiedInfo) -> Self {
+    pub fn new(
+        unique: Unique,
+        name: Name,
+        kind: QuantifiedKind,
+        default: Option<Type>,
+        restriction: Restriction,
+    ) -> Self {
         Quantified {
             unique,
-            info: Box::new(info),
+            name,
+            kind,
+            default,
+            restriction,
         }
     }
 
@@ -162,27 +110,39 @@ impl Quantified {
     ) -> Self {
         Self::new(
             uniques.fresh(),
-            QuantifiedInfo::type_var(name, default, restriction),
+            name,
+            QuantifiedKind::TypeVar,
+            default,
+            restriction,
         )
     }
 
     pub fn param_spec(name: Name, uniques: &UniqueFactory, default: Option<Type>) -> Self {
-        Self::new(uniques.fresh(), QuantifiedInfo::param_spec(name, default))
+        Self::new(
+            uniques.fresh(),
+            name,
+            QuantifiedKind::ParamSpec,
+            default,
+            Restriction::Unrestricted,
+        )
     }
 
     pub fn type_var_tuple(name: Name, uniques: &UniqueFactory, default: Option<Type>) -> Self {
         Self::new(
             uniques.fresh(),
-            QuantifiedInfo::type_var_tuple(name, default),
+            name,
+            QuantifiedKind::TypeVarTuple,
+            default,
+            Restriction::Unrestricted,
         )
     }
 
     pub fn to_type(self) -> Type {
-        Type::Quantified(self)
+        Type::Quantified(Box::new(self))
     }
 
     pub fn as_value<'a>(&self, stdlib: &'a Stdlib) -> &'a ClassType {
-        match self.info.kind {
+        match self.kind {
             QuantifiedKind::TypeVar => stdlib.type_var(),
             QuantifiedKind::ParamSpec => stdlib.param_spec(),
             QuantifiedKind::TypeVarTuple => stdlib.type_var_tuple(),
@@ -190,34 +150,60 @@ impl Quantified {
     }
 
     pub fn name(&self) -> &Name {
-        &self.info.name
+        &self.name
     }
 
     pub fn kind(&self) -> QuantifiedKind {
-        self.info.kind
+        self.kind
     }
 
     pub fn default(&self) -> Option<&Type> {
-        self.info.default.as_ref()
+        self.default.as_ref()
     }
 
     pub fn restriction(&self) -> &Restriction {
-        &self.info.restriction
+        &self.restriction
     }
 
     pub fn is_type_var(&self) -> bool {
-        matches!(self.info.kind, QuantifiedKind::TypeVar)
+        matches!(self.kind, QuantifiedKind::TypeVar)
     }
 
     pub fn is_param_spec(&self) -> bool {
-        matches!(self.info.kind, QuantifiedKind::ParamSpec)
+        matches!(self.kind, QuantifiedKind::ParamSpec)
     }
 
     pub fn is_type_var_tuple(&self) -> bool {
-        matches!(self.info.kind, QuantifiedKind::TypeVarTuple)
+        matches!(self.kind, QuantifiedKind::TypeVarTuple)
+    }
+
+    fn as_gradual_type_helper(kind: QuantifiedKind, default: Option<&Type>) -> Type {
+        default.map_or_else(
+            || kind.empty_value(),
+            |default| {
+                default.clone().transform(&mut |default| match default {
+                    Type::TypeVar(t) => {
+                        *default =
+                            Self::as_gradual_type_helper(QuantifiedKind::TypeVar, t.default())
+                    }
+                    Type::TypeVarTuple(t) => {
+                        *default =
+                            Self::as_gradual_type_helper(QuantifiedKind::TypeVarTuple, t.default())
+                    }
+                    Type::ParamSpec(p) => {
+                        *default =
+                            Self::as_gradual_type_helper(QuantifiedKind::ParamSpec, p.default())
+                    }
+                    Type::Quantified(q) => {
+                        *default = q.as_gradual_type();
+                    }
+                    _ => {}
+                })
+            },
+        )
     }
 
     pub fn as_gradual_type(&self) -> Type {
-        self.info.as_gradual_type()
+        Self::as_gradual_type_helper(self.kind(), self.default())
     }
 }

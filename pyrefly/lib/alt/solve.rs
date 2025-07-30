@@ -98,7 +98,6 @@ use crate::types::literal::Lit;
 use crate::types::module::ModuleType;
 use crate::types::param_spec::ParamSpec;
 use crate::types::quantified::Quantified;
-use crate::types::quantified::QuantifiedInfo;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::special_form::SpecialForm;
 use crate::types::tuple::Tuple;
@@ -766,7 +765,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         q
                     }
                 };
-                *ty = Type::Quantified(q);
+                *ty = q.to_type();
             }
             Type::TypeVarTuple(ty_var_tuple) => {
                 let q = match seen_type_var_tuples.entry(ty_var_tuple.dupe()) {
@@ -785,7 +784,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         q
                     }
                 };
-                *ty = Type::Quantified(q);
+                *ty = q.to_type();
             }
             Type::ParamSpec(param_spec) => {
                 let q = match seen_param_specs.entry(param_spec.dupe()) {
@@ -804,7 +803,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         q
                     }
                 };
-                *ty = Type::Quantified(q);
+                *ty = q.to_type();
             }
             Type::Unpack(t) => self.tvars_to_tparams_for_type_alias(
                 t,
@@ -999,7 +998,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(x) => {
                 fn get_quantified(t: &Type) -> Quantified {
                     match t {
-                        Type::Type(box Type::Quantified(q)) => q.clone(),
+                        Type::Type(box Type::Quantified(q)) => (**q).clone(),
                         _ => unreachable!(),
                     }
                 }
@@ -2670,16 +2669,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ));
                 }
                 Type::type_form(
-                    Quantified::new(
-                        *unique,
-                        QuantifiedInfo {
-                            name: name.clone(),
-                            kind: *kind,
-                            default: default_ty,
-                            restriction,
-                        },
-                    )
-                    .to_type(),
+                    Quantified::new(*unique, name.clone(), *kind, default_ty, restriction)
+                        .to_type(),
                 )
             }
             Binding::Module(m, path, prev) => {

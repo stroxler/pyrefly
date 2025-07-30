@@ -617,7 +617,7 @@ pub enum Type {
     Module(ModuleType),
     Forall(Box<Forall<Forallable>>),
     Var(Var),
-    Quantified(Quantified),
+    Quantified(Box<Quantified>),
     TypeGuard(Box<Type>),
     TypeIs(Box<Type>),
     Unpack(Box<Type>),
@@ -629,8 +629,8 @@ pub enum Type {
     ParamSpecValue(ParamList),
     /// Used to represent `P.args`. The spec describes it as an annotation,
     /// but it's easier to think of it as a type that can't occur in nested positions.
-    Args(Quantified),
-    Kwargs(Quantified),
+    Args(Box<Quantified>),
+    Kwargs(Box<Quantified>),
     /// Used to represent a type that has a value representation, e.g. a class
     Type(Box<Type>),
     Ellipsis,
@@ -946,7 +946,7 @@ impl Type {
         // Therefore, to make sure we still get matches, work top-down (not using `transform`).
         fn f(ty: &mut Type, mp: &SmallMap<&Quantified, &Type>) {
             if let Type::Quantified(x) = ty {
-                if let Some(w) = mp.get(x) {
+                if let Some(w) = mp.get(&**x) {
                     *ty = (*w).clone();
                 }
             } else {
@@ -1309,7 +1309,7 @@ impl Type {
 
     pub fn as_quantified(&self) -> Option<Quantified> {
         match self {
-            Type::Quantified(q) => Some(q.clone()),
+            Type::Quantified(q) => Some((**q).clone()),
             _ => None,
         }
     }
