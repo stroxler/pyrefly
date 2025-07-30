@@ -27,3 +27,20 @@ u = User(name="Alice", age=30)
 print(u)
 "#,
 );
+
+testcase!(
+    bug = "we should raise an error that x is immutable",
+    test_model_config,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, ConfigDict
+
+class Model(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    x: int = 42
+
+
+m = Model()
+m.x = 10 
+"#,
+);
