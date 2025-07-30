@@ -461,10 +461,21 @@ pub fn find_import(
 
 /// Find all legitimate imports that start with `module`
 pub fn find_import_prefixes(config: &ConfigFile, module: ModuleName) -> Vec<ModuleName> {
-    find_module_prefixes(
+    let mut results = find_module_prefixes(
         module,
         config.search_path().chain(config.site_package_path()),
-    )
+    );
+
+    if let Ok(ts) = typeshed() {
+        let module_str = module.as_str();
+        let typeshed_modules = ts
+            .modules()
+            .filter(|m| module_str.is_empty() || m.as_str().starts_with(module_str));
+
+        results.extend(typeshed_modules);
+    }
+
+    results
 }
 
 #[cfg(test)]

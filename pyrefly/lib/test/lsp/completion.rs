@@ -969,7 +969,6 @@ Completion Results:
     );
 }
 
-// TODO(kylei): import completions on builtins
 #[test]
 fn import_completions_on_builtins() {
     let code = r#"
@@ -986,6 +985,9 @@ import typ
 2 | import typ
               ^
 Completion Results:
+- (Module) types: types
+- (Module) typing: typing
+- (Module) typing_extensions: typing_extensions
 "#
         .trim(),
         report.trim(),
