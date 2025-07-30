@@ -136,23 +136,97 @@ fn test_completion_basic() {
         expected_messages_from_language_server: vec![
             make_sorted_completion_result_with_all_keywords(
                 2,
-                vec![CompletionItem {
-                    label: "Bar".to_owned(),
-                    detail: Some("type[Bar]".to_owned()),
-                    kind: Some(CompletionItemKind::VARIABLE),
-                    sort_text: Some("0".to_owned()),
-                    ..Default::default()
-                }],
+                vec![
+                    CompletionItem {
+                        label: "Bar".to_owned(),
+                        detail: Some("type[Bar]".to_owned()),
+                        kind: Some(CompletionItemKind::VARIABLE),
+                        sort_text: Some("0".to_owned()),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "BaseExceptionGroup".into(),
+                        data: Some(serde_json::Value::String("builtin".to_owned())),
+                        sort_text: Some("0".to_owned()),
+                        kind: Some(CompletionItemKind::CLASS),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "BaseException".into(),
+                        data: Some(serde_json::Value::String("builtin".to_owned())),
+                        sort_text: Some("0".to_owned()),
+                        kind: Some(CompletionItemKind::CLASS),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "BytesWarning".into(),
+                        data: Some(serde_json::Value::String("builtin".to_owned())),
+                        sort_text: Some("0".to_owned()),
+                        kind: Some(CompletionItemKind::CLASS),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "_BaseExceptionT".into(),
+                        data: Some(serde_json::Value::String("builtin".to_owned())),
+                        sort_text: Some("1".to_owned()),
+                        kind: Some(CompletionItemKind::VARIABLE),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "_BaseExceptionT_co".into(),
+                        data: Some(serde_json::Value::String("builtin".to_owned())),
+                        sort_text: Some("1".to_owned()),
+                        kind: Some(CompletionItemKind::VARIABLE),
+                        ..Default::default()
+                    },
+                ],
             ),
             make_sorted_completion_result_with_all_keywords(
                 3,
-                vec![CompletionItem {
-                    label: "Bar".to_owned(),
-                    detail: Some("type[Bar]".to_owned()),
-                    kind: Some(CompletionItemKind::VARIABLE),
-                    sort_text: Some("0".to_owned()),
-                    ..Default::default()
-                }],
+                vec![
+                    CompletionItem {
+                        label: "Bar".to_owned(),
+                        detail: Some("type[Bar]".to_owned()),
+                        kind: Some(CompletionItemKind::VARIABLE),
+                        sort_text: Some("0".to_owned()),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "BaseExceptionGroup".into(),
+                        data: Some(serde_json::Value::String("builtin".to_owned())),
+                        sort_text: Some("0".to_owned()),
+                        kind: Some(CompletionItemKind::CLASS),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "BaseException".into(),
+                        data: Some(serde_json::Value::String("builtin".to_owned())),
+                        sort_text: Some("0".to_owned()),
+                        kind: Some(CompletionItemKind::CLASS),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "BytesWarning".into(),
+                        data: Some(serde_json::Value::String("builtin".to_owned())),
+                        sort_text: Some("0".to_owned()),
+                        kind: Some(CompletionItemKind::CLASS),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "_BaseExceptionT".into(),
+                        data: Some(serde_json::Value::String("builtin".to_owned())),
+                        sort_text: Some("1".to_owned()),
+                        kind: Some(CompletionItemKind::VARIABLE),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "_BaseExceptionT_co".into(),
+                        data: Some(serde_json::Value::String("builtin".to_owned())),
+                        sort_text: Some("1".to_owned()),
+                        kind: Some(CompletionItemKind::VARIABLE),
+                        ..Default::default()
+                    },
+                ],
             ),
         ],
         ..Default::default()

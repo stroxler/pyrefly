@@ -1550,9 +1550,7 @@ impl<'a> Transaction<'a> {
         identifier: &Identifier,
         completions: &mut Vec<CompletionItem>,
     ) {
-        if identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
-            && let Ok(builtin_handle) = self.import_handle(handle, ModuleName::builtins(), None)
-        {
+        if let Ok(builtin_handle) = self.import_handle(handle, ModuleName::builtins(), None) {
             let builtin_exports = self.get_exports(&builtin_handle);
             for (name, location) in builtin_exports.iter() {
                 if SkimMatcherV2::default()
