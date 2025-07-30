@@ -1065,6 +1065,33 @@ def f(cond: bool):
 );
 
 testcase!(
+    bug = "We don't properly restrict loop checks to the current scope",
+    test_nested_loop_increment,
+    r#"
+from typing import assert_type, Literal
+def f_toplevel(cond: bool):
+    n = "n"
+    if cond:
+        n = 1
+    else:
+        n = 1.5
+    while cond:
+        n += 1
+    assert_type(n, float | int)
+while True:
+    def f_in_loop(cond: bool):
+        n = "n"
+        if cond:
+            n = 1
+        else:
+            n = 1.5
+        while cond:  # E: `Literal[1] | float | Unknown` is not assignable to `str` (caused by inconsistent types when breaking cycles)
+            n += 1  # E: `+=` is not supported
+        assert_type(n, float | int)  # E: assert_type(Literal[1] | float | Any, float | int)
+"#,
+);
+
+testcase!(
     test_loop_test_and_increment_return,
     r#"
 from typing import assert_type, Literal
