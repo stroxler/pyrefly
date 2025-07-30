@@ -862,6 +862,22 @@ pub mod tests {
     }
 
     #[test]
+    fn test_optional_kwonly_parameter() {
+        let param = Param::KwOnly(
+            Name::new_static("x"),
+            Type::any_explicit(),
+            Required::Optional(None),
+        );
+        let callable = Callable::list(ParamList::new(vec![param]), Type::None);
+        let callable_type = Type::Callable(Box::new(callable));
+        let ctx = TypeDisplayContext::new(&[&callable_type]);
+        assert_eq!(
+            ctx.display(&callable_type).to_string(),
+            "(*, x: Any = ...) -> None"
+        );
+    }
+
+    #[test]
     fn test_display_generic_typeddict() {
         let uniques = UniqueFactory::new();
         let cls = fake_class("C", "test", 0);

@@ -491,16 +491,17 @@ impl Param {
                 write!(f, "_: {} = {}", wrap(ty), self.fmt_default(default))
             }
             Param::PosOnly(Some(name), ty, Required::Required)
-            | Param::Pos(name, ty, Required::Required) => {
+            | Param::Pos(name, ty, Required::Required)
+            | Param::KwOnly(name, ty, Required::Required) => {
                 write!(f, "{}: {}", name, wrap(ty),)
             }
             Param::PosOnly(Some(name), ty, Required::Optional(default))
-            | Param::Pos(name, ty, Required::Optional(default)) => {
+            | Param::Pos(name, ty, Required::Optional(default))
+            | Param::KwOnly(name, ty, Required::Optional(default)) => {
                 write!(f, "{}: {} = {}", name, wrap(ty), self.fmt_default(default))
             }
             Param::VarArg(Some(name), ty) => write!(f, "*{}: {}", name, wrap(ty)),
             Param::VarArg(None, ty) => write!(f, "*{}", wrap(ty)),
-            Param::KwOnly(name, ty, _required) => write!(f, "{}: {}", name, wrap(ty)),
             Param::Kwargs(Some(name), ty) => write!(f, "**{}: {}", name, wrap(ty)),
             Param::Kwargs(None, ty) => write!(f, "**{}", wrap(ty)),
         }
