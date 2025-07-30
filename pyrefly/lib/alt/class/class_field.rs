@@ -1118,9 +1118,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.get_field_from_current_class_only(parent.class_object(), name)?;
                 let ClassField(ClassFieldInner::Simple { ty, annotation, .. }) = &*parent_field;
                 if found_field.is_none() {
-                    found_field = Some(ty.clone());
+                    found_field = Some(parent.targs().substitution().substitute(ty.clone()));
                 }
-                annotation.clone()
+                annotation
+                    .clone()
+                    .map(|ann| ann.substitute(parent.targs().substitution()))
             });
         (found_field, annotation)
     }

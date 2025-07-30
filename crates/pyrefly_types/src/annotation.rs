@@ -17,6 +17,7 @@ use pyrefly_derive::VisitMut;
 use pyrefly_util::display::intersperse_iter;
 
 use crate::types::AnyStyle;
+use crate::types::Substitution;
 use crate::types::Type;
 
 #[derive(Debug, Clone, Default, VisitMut, TypeEq, PartialEq, Eq)]
@@ -68,6 +69,13 @@ impl Annotation {
 
     pub fn has_qualifier(&self, qualifier: &Qualifier) -> bool {
         self.qualifiers.iter().any(|q| q == qualifier)
+    }
+
+    pub fn substitute(self, substitution: Substitution) -> Self {
+        Self {
+            qualifiers: self.qualifiers,
+            ty: self.ty.map(|ty| substitution.substitute(ty)),
+        }
     }
 }
 

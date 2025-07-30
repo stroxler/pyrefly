@@ -1294,19 +1294,17 @@ class C(A):
 );
 
 testcase!(
-    bug = "We aren't handling methods setting inherited generic fields correctly.",
     test_method_sets_inherited_generic_field,
     r#"
+# Regression test for a bug tracked in https://github.com/facebook/pyrefly/issues/774
 from typing import assert_type, Any
 class A[T]:
     x: T
-class B0(A[int]):
+class B(A[int]):
     def __init__(self, x: int):
-        pass
-class B1(A[int]):
-    def __init__(self, x: int):
-        self.x = x  # E: Attribute `x` cannot depend on type variable `T`, which is not in the scope of class `B1`
-assert_type(B0(42).x, int)
-assert_type(B1(42).x, int)  # E: assert_type(Any, int)
+        # The test is primarily verifying that we handle this implicit definition
+        # correctly in the class field logic, when this is actually an inherited field.
+        self.x = x
+assert_type(B(42).x, int)
     "#,
 );
