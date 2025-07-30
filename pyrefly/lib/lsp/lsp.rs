@@ -18,37 +18,31 @@ use ruff_source_file::OneIndexed;
 use ruff_source_file::SourceLocation;
 use serde::de::DeserializeOwned;
 
-pub fn as_notification<T>(x: &Notification) -> Option<T::Params>
+pub fn as_notification<T>(x: &Notification) -> Option<Result<T::Params, serde_json::Error>>
 where
     T: lsp_types::notification::Notification,
     T::Params: DeserializeOwned,
 {
     if x.method == T::METHOD {
-        let params = serde_json::from_value(x.params.clone()).unwrap_or_else(|err| {
-            panic!(
-                "Invalid notification\nMethod: {}\n error: {}",
-                x.method, err
-            )
-        });
-        Some(params)
+        match serde_json::from_value(x.params.clone()) {
+            Ok(params) => Some(Ok(params)),
+            Err(err) => Some(Err(err)),
+        }
     } else {
         None
     }
 }
 
-pub fn as_request<T>(x: &Request) -> Option<T::Params>
+pub fn as_request<T>(x: &Request) -> Option<Result<T::Params, serde_json::Error>>
 where
     T: lsp_types::request::Request,
     T::Params: DeserializeOwned,
 {
     if x.method == T::METHOD {
-        let params = serde_json::from_value(x.params.clone()).unwrap_or_else(|err| {
-            panic!(
-                "Invalid request\n  method: {}\n  error: {}\n  request: {:?}\n",
-                x.method, err, x
-            )
-        });
-        Some(params)
+        match serde_json::from_value(x.params.clone()) {
+            Ok(params) => Some(Ok(params)),
+            Err(err) => Some(Err(err)),
+        }
     } else {
         None
     }
@@ -65,7 +59,7 @@ where
     if response.id != request.id {
         return None;
     }
-    let params = as_request::<T>(request)?;
+    let params = as_request::<T>(request)?.ok()?;
     let result = serde_json::from_value(response.result.clone()?).unwrap_or_else(|err| {
         panic!(
             "Invalid response\n  method: {}\n response:{:?}\n, response error:{:?}\n, error: {}\n",

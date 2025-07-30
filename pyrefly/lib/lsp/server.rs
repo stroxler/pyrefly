@@ -150,6 +150,7 @@ use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
+use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
 
 use crate::commands::lsp::IndexingMode;
@@ -263,21 +264,23 @@ fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
                 }
             }
             Message::Notification(x) => {
-                let send_result = if let Some(params) = as_notification::<DidOpenTextDocument>(&x) {
+                let send_result = if let Some(Ok(params)) =
+                    as_notification::<DidOpenTextDocument>(&x)
+                {
                     lsp_queue.send(LspEvent::DidOpenTextDocument(params))
-                } else if let Some(params) = as_notification::<DidChangeTextDocument>(&x) {
+                } else if let Some(Ok(params)) = as_notification::<DidChangeTextDocument>(&x) {
                     lsp_queue.send(LspEvent::DidChangeTextDocument(params))
-                } else if let Some(params) = as_notification::<DidCloseTextDocument>(&x) {
+                } else if let Some(Ok(params)) = as_notification::<DidCloseTextDocument>(&x) {
                     lsp_queue.send(LspEvent::DidCloseTextDocument(params))
-                } else if let Some(params) = as_notification::<DidSaveTextDocument>(&x) {
+                } else if let Some(Ok(params)) = as_notification::<DidSaveTextDocument>(&x) {
                     lsp_queue.send(LspEvent::DidSaveTextDocument(params))
-                } else if let Some(params) = as_notification::<DidChangeWatchedFiles>(&x) {
+                } else if let Some(Ok(params)) = as_notification::<DidChangeWatchedFiles>(&x) {
                     lsp_queue.send(LspEvent::DidChangeWatchedFiles(params))
-                } else if let Some(params) = as_notification::<DidChangeWorkspaceFolders>(&x) {
+                } else if let Some(Ok(params)) = as_notification::<DidChangeWorkspaceFolders>(&x) {
                     lsp_queue.send(LspEvent::DidChangeWorkspaceFolders(params))
-                } else if let Some(params) = as_notification::<DidChangeConfiguration>(&x) {
+                } else if let Some(Ok(params)) = as_notification::<DidChangeConfiguration>(&x) {
                     lsp_queue.send(LspEvent::DidChangeConfiguration(params))
-                } else if let Some(params) = as_notification::<Cancel>(&x) {
+                } else if let Some(Ok(params)) = as_notification::<Cancel>(&x) {
                     let id = match params.id {
                         NumberOrString::Number(i) => RequestId::from(i),
                         NumberOrString::String(s) => RequestId::from(s),
@@ -416,6 +419,28 @@ pub fn lsp_loop(
 impl Server {
     const FILEWATCHER_ID: &str = "FILEWATCHER";
 
+    fn extract_request_params_or_send_err_response<T>(
+        &self,
+        params: Result<T::Params, serde_json::Error>,
+        id: &RequestId,
+    ) -> Option<T::Params>
+    where
+        T: lsp_types::request::Request,
+        T::Params: DeserializeOwned,
+    {
+        match params {
+            Ok(params) => Some(params),
+            Err(err) => {
+                self.send_response(Response::new_err(
+                    id.clone(),
+                    ErrorCode::InvalidParams as i32,
+                    err.to_string(),
+                ));
+                None
+            }
+        }
+    }
+
     /// Process the event and return next step.
     fn process_event<'a>(
         &'a self,
@@ -467,7 +492,7 @@ impl Server {
             }
             LspEvent::LspRequest(x) => {
                 if canceled_requests.remove(&x.id) {
-                    let message = format!("Request {} is canceled", x.id);
+                    let message = format!("Request {} is canceled", &x.id);
                     eprintln!("{message}");
                     self.send_response(Response::new_err(
                         x.id,
@@ -476,8 +501,13 @@ impl Server {
                     ));
                     return Ok(ProcessEvent::Continue);
                 }
-                eprintln!("Handling non-canceled request {} ({})", x.method, x.id);
-                if let Some(params) = as_request::<GotoDefinition>(&x) {
+                eprintln!("Handling non-canceled request {} ({})", x.method, &x.id);
+                if let Some(params) = as_request::<GotoDefinition>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<GotoDefinition>(
+                            params, &x.id,
+                        )
+                {
                     let default_response = GotoDefinitionResponse::Array(Vec::new());
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
@@ -488,7 +518,12 @@ impl Server {
                             .unwrap_or(default_response)),
                     ));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<CodeActionRequest>(&x) {
+                } else if let Some(params) = as_request::<CodeActionRequest>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<CodeActionRequest>(
+                            params, &x.id,
+                        )
+                {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(
@@ -496,12 +531,20 @@ impl Server {
                         Ok(self.code_action(&transaction, params).unwrap_or_default()),
                     ));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<Completion>(&x) {
+                } else if let Some(params) = as_request::<Completion>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<Completion>(params, &x.id)
+                {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(x.id, self.completion(&transaction, params)));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<DocumentHighlightRequest>(&x) {
+                } else if let Some(params) = as_request::<DocumentHighlightRequest>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<DocumentHighlightRequest>(
+                            params, &x.id,
+                        )
+                {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(
@@ -509,9 +552,17 @@ impl Server {
                         Ok(self.document_highlight(&transaction, params)),
                     ));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<References>(&x) {
+                } else if let Some(params) = as_request::<References>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<References>(params, &x.id)
+                {
                     self.references(x.id, ide_transaction_manager, params);
-                } else if let Some(params) = as_request::<PrepareRenameRequest>(&x) {
+                } else if let Some(params) = as_request::<PrepareRenameRequest>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<PrepareRenameRequest>(
+                            params, &x.id,
+                        )
+                {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(
@@ -519,9 +570,17 @@ impl Server {
                         Ok(self.prepare_rename(&transaction, params)),
                     ));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<Rename>(&x) {
+                } else if let Some(params) = as_request::<Rename>(&x)
+                    && let Some(params) =
+                        self.extract_request_params_or_send_err_response::<Rename>(params, &x.id)
+                {
                     self.rename(x.id, ide_transaction_manager, params);
-                } else if let Some(params) = as_request::<SignatureHelpRequest>(&x) {
+                } else if let Some(params) = as_request::<SignatureHelpRequest>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<SignatureHelpRequest>(
+                            params, &x.id,
+                        )
+                {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(
@@ -529,7 +588,10 @@ impl Server {
                         Ok(self.signature_help(&transaction, params)),
                     ));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<HoverRequest>(&x) {
+                } else if let Some(params) = as_request::<HoverRequest>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<HoverRequest>(params, &x.id)
+                {
                     let default_response = Hover {
                         contents: HoverContents::Array(Vec::new()),
                         range: None,
@@ -541,7 +603,12 @@ impl Server {
                         Ok(self.hover(&transaction, params).unwrap_or(default_response)),
                     ));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<InlayHintRequest>(&x) {
+                } else if let Some(params) = as_request::<InlayHintRequest>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<InlayHintRequest>(
+                            params, &x.id,
+                        )
+                {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(
@@ -549,7 +616,12 @@ impl Server {
                         Ok(self.inlay_hints(&transaction, params).unwrap_or_default()),
                     ));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<SemanticTokensFullRequest>(&x) {
+                } else if let Some(params) = as_request::<SemanticTokensFullRequest>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<SemanticTokensFullRequest>(
+                            params, &x.id,
+                        )
+                {
                     let default_response = SemanticTokensResult::Tokens(SemanticTokens {
                         result_id: None,
                         data: Vec::new(),
@@ -563,7 +635,12 @@ impl Server {
                             .unwrap_or(default_response)),
                     ));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<SemanticTokensRangeRequest>(&x) {
+                } else if let Some(params) = as_request::<SemanticTokensRangeRequest>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<SemanticTokensRangeRequest>(
+                            params, &x.id,
+                        )
+                {
                     let default_response = SemanticTokensRangeResult::Tokens(SemanticTokens {
                         result_id: None,
                         data: Vec::new(),
@@ -577,7 +654,12 @@ impl Server {
                             .unwrap_or(default_response)),
                     ));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<DocumentSymbolRequest>(&x) {
+                } else if let Some(params) = as_request::<DocumentSymbolRequest>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<DocumentSymbolRequest>(
+                            params, &x.id,
+                        )
+                {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(
@@ -588,7 +670,12 @@ impl Server {
                         )),
                     ));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<WorkspaceSymbolRequest>(&x) {
+                } else if let Some(params) = as_request::<WorkspaceSymbolRequest>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<WorkspaceSymbolRequest>(
+                            params, &x.id,
+                        )
+                {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(
@@ -598,7 +685,12 @@ impl Server {
                         )),
                     ));
                     ide_transaction_manager.save(transaction);
-                } else if let Some(params) = as_request::<DocumentDiagnosticRequest>(&x) {
+                } else if let Some(params) = as_request::<DocumentDiagnosticRequest>(&x)
+                    && let Some(params) = self
+                        .extract_request_params_or_send_err_response::<DocumentDiagnosticRequest>(
+                            params, &x.id,
+                        )
+                {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(

@@ -12,6 +12,7 @@ use lsp_server::Message;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
+use lsp_server::ResponseError;
 use lsp_types::Url;
 use tempfile::TempDir;
 
@@ -185,4 +186,34 @@ fn definition_in_builtins() {
         result_file.exists(),
         "Expected pyrefly.toml to exist at {result_file:?}",
     );
+}
+
+#[test]
+fn malformed_missing_position() {
+    let root = get_test_files_root();
+    run_test_lsp(TestCase {
+        messages_from_language_client: vec![
+            Message::from(build_did_open_notification(root.path().join("foo.py"))),
+            Message::from(Request {
+                id: RequestId::from(2),
+                method: "textDocument/definition".to_owned(),
+                // Missing position
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
+                    },
+                }),
+            }),
+        ],
+        expected_messages_from_language_server: vec![Message::Response(Response {
+            id: RequestId::from(2),
+            result: None,
+            error: Some(ResponseError {
+                code: -32602,
+                message: "missing field `position`".to_owned(),
+                data: None,
+            }),
+        })],
+        ..Default::default()
+    });
 }
