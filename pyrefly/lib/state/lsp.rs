@@ -1547,16 +1547,17 @@ impl<'a> Transaction<'a> {
     fn add_builtins_autoimport_completions(
         &self,
         handle: &Handle,
-        identifier: &Identifier,
+        identifier: Option<&Identifier>,
         completions: &mut Vec<CompletionItem>,
     ) {
         if let Ok(builtin_handle) = self.import_handle(handle, ModuleName::builtins(), None) {
             let builtin_exports = self.get_exports(&builtin_handle);
             for (name, location) in builtin_exports.iter() {
-                if SkimMatcherV2::default()
-                    .smart_case()
-                    .fuzzy_match(name.as_str(), identifier.as_str())
-                    .is_none()
+                if let Some(identifier) = identifier
+                    && SkimMatcherV2::default()
+                        .smart_case()
+                        .fuzzy_match(name.as_str(), identifier.as_str())
+                        .is_none()
                 {
                     continue;
                 }
@@ -1785,12 +1786,13 @@ impl<'a> Transaction<'a> {
                 ) {
                     self.add_autoimport_completions(handle, &identifier, &mut result);
                 }
-                self.add_builtins_autoimport_completions(handle, &identifier, &mut result);
+                self.add_builtins_autoimport_completions(handle, Some(&identifier), &mut result);
             }
             None => {
                 if self.empty_line_at(handle, position) {
                     self.add_keyword_completions(handle, &mut result);
                     self.add_local_variable_completions(handle, None, position, &mut result);
+                    self.add_builtins_autoimport_completions(handle, None, &mut result);
                 }
             }
         }
