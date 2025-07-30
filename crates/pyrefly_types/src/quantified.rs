@@ -8,6 +8,8 @@
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use parse_display::Display;
 use pyrefly_derive::TypeEq;
@@ -22,7 +24,7 @@ use crate::stdlib::Stdlib;
 use crate::type_var::Restriction;
 use crate::types::Type;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Eq)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct Quantified {
     /// Unique identifier
@@ -31,6 +33,18 @@ pub struct Quantified {
     pub kind: QuantifiedKind,
     pub default: Option<Type>,
     pub restriction: Restriction,
+}
+
+impl PartialEq for Quantified {
+    fn eq(&self, other: &Self) -> bool {
+        self.unique == other.unique
+    }
+}
+
+impl Hash for Quantified {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.unique.hash(state);
+    }
 }
 
 impl Ord for Quantified {
