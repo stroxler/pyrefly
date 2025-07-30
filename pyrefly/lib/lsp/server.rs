@@ -131,6 +131,7 @@ use lsp_types::request::PrepareRenameRequest;
 use lsp_types::request::References;
 use lsp_types::request::RegisterCapability;
 use lsp_types::request::Rename;
+use lsp_types::request::Request as _;
 use lsp_types::request::SemanticTokensFullRequest;
 use lsp_types::request::SemanticTokensRangeRequest;
 use lsp_types::request::SignatureHelpRequest;
@@ -405,8 +406,13 @@ pub fn lsp_loop(
     });
     let mut ide_transaction_manager = TransactionManager::default();
     let mut canceled_requests = HashSet::new();
-    while let Ok(event) = lsp_queue.recv() {
-        match server.process_event(&mut ide_transaction_manager, &mut canceled_requests, event)? {
+    while let Ok((subsequent_mutation, event)) = lsp_queue.recv() {
+        match server.process_event(
+            &mut ide_transaction_manager,
+            &mut canceled_requests,
+            subsequent_mutation,
+            event,
+        )? {
             ProcessEvent::Continue => {}
             ProcessEvent::Exit => break,
         }
@@ -446,6 +452,8 @@ impl Server {
         &'a self,
         ide_transaction_manager: &mut TransactionManager<'a>,
         canceled_requests: &mut HashSet<RequestId>,
+        // After this event there is another mutation
+        subsequent_mutation: bool,
         event: LspEvent,
     ) -> anyhow::Result<ProcessEvent> {
         match event {
@@ -491,7 +499,13 @@ impl Server {
                 }
             }
             LspEvent::LspRequest(x) => {
-                if canceled_requests.remove(&x.id) {
+                // These are messages where VS Code will use results from previous document versions,
+                // we really don't want to implicitly cancel those.
+                const ONLY_ONCE: &[&str] = &[Completion::METHOD, SignatureHelpRequest::METHOD];
+
+                if canceled_requests.remove(&x.id)
+                    || (subsequent_mutation && !ONLY_ONCE.contains(&x.method.as_str()))
+                {
                     let message = format!("Request {} is canceled", &x.id);
                     eprintln!("{message}");
                     self.send_response(Response::new_err(
@@ -501,6 +515,14 @@ impl Server {
                     ));
                     return Ok(ProcessEvent::Continue);
                 }
+
+                if subsequent_mutation {
+                    // We probably didn't bother completing a previous check, but we are now answering a query that
+                    // really needs a previous check to be correct.
+                    // Validating sends out notifications, which isn't required, but this is the safest way.
+                    self.validate_in_memory(ide_transaction_manager);
+                }
+
                 eprintln!("Handling non-canceled request {} ({})", x.method, &x.id);
                 if let Some(params) = as_request::<GotoDefinition>(&x)
                     && let Some(params) = self
