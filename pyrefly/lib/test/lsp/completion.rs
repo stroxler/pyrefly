@@ -994,7 +994,6 @@ Completion Results:
     );
 }
 
-// TODO(kylei): we should show completions here
 #[test]
 fn completion_on_empty_line() {
     let code = r#"
@@ -1013,8 +1012,45 @@ def test():
 4 |     
         ^
 Completion Results:
-"#
-        .trim(),
+- (Keyword) False
+- (Keyword) None
+- (Keyword) True
+- (Keyword) and
+- (Keyword) assert
+- (Keyword) async
+- (Keyword) await
+- (Keyword) break
+- (Keyword) case
+- (Keyword) class
+- (Keyword) continue
+- (Keyword) def
+- (Keyword) del
+- (Keyword) elif
+- (Keyword) else
+- (Keyword) except
+- (Keyword) finally
+- (Keyword) for
+- (Keyword) from
+- (Keyword) global
+- (Keyword) if
+- (Keyword) import
+- (Keyword) in
+- (Keyword) is
+- (Keyword) lambda
+- (Keyword) match
+- (Keyword) nonlocal
+- (Keyword) not
+- (Keyword) or
+- (Keyword) pass
+- (Keyword) raise
+- (Keyword) return
+- (Function) test: () -> None
+- (Keyword) try
+- (Keyword) type
+- (Keyword) while
+- (Keyword) with
+- (Keyword) yield"#
+            .trim(),
         report.trim(),
     );
 }

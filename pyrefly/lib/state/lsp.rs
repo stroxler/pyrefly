@@ -399,6 +399,15 @@ impl<'a> Transaction<'a> {
         Some(ans.for_display(Type::Callable(Box::new(chosen_overload))))
     }
 
+    fn empty_line_at(&self, handle: &Handle, position: TextSize) -> bool {
+        if let Some(mod_module) = self.get_ast(handle)
+            && Ast::locate_node(&mod_module, position).is_empty()
+        {
+            return true;
+        }
+        false
+    }
+
     fn identifier_at(&self, handle: &Handle, position: TextSize) -> Option<IdentifierWithContext> {
         let mod_module = self.get_ast(handle)?;
         let covering_nodes = Ast::locate_node(&mod_module, position);
@@ -1620,10 +1629,11 @@ impl<'a> Transaction<'a> {
     }
 
     /// Adds completions for local variables and returns true if we have added any
+    /// If an identifier is present, filter matches
     fn add_local_variable_completions(
         &self,
         handle: &Handle,
-        identifier: &Identifier,
+        identifier: Option<&Identifier>,
         position: TextSize,
         completions: &mut Vec<CompletionItem>,
     ) -> bool {
@@ -1635,10 +1645,10 @@ impl<'a> Transaction<'a> {
                 let key = bindings.idx_to_key(idx);
                 if let Key::Definition(id) = key {
                     let label = module_info.code_at(id.range());
-                    if SkimMatcherV2::default()
-                        .smart_case()
-                        .fuzzy_match(label, identifier.as_str())
-                        .is_none()
+                    if let Some(identifier) = identifier
+                        && SkimMatcherV2::default()
+                            .fuzzy_match(label, identifier.as_str())
+                            .is_none()
                     {
                         continue;
                     }
@@ -1768,13 +1778,22 @@ impl<'a> Transaction<'a> {
             }
             Some(IdentifierWithContext { identifier, .. }) => {
                 self.add_keyword_completions(handle, &mut result);
-                if !self.add_local_variable_completions(handle, &identifier, position, &mut result)
-                {
+                if !self.add_local_variable_completions(
+                    handle,
+                    Some(&identifier),
+                    position,
+                    &mut result,
+                ) {
                     self.add_autoimport_completions(handle, &identifier, &mut result);
                 }
                 self.add_builtins_autoimport_completions(handle, &identifier, &mut result);
             }
-            None => {}
+            None => {
+                if self.empty_line_at(handle, position) {
+                    self.add_keyword_completions(handle, &mut result);
+                    self.add_local_variable_completions(handle, None, position, &mut result);
+                }
+            }
         }
         result
     }
