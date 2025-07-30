@@ -30,29 +30,23 @@ pub struct QuantifiedInfo {
     pub default: Option<Type>,
     pub restriction: Restriction,
 }
-
 impl QuantifiedInfo {
-    fn as_gradual_type_helper(&self, default: Option<&Type>) -> Type {
+    fn as_gradual_type_helper(kind: QuantifiedKind, default: Option<&Type>) -> Type {
         default.map_or_else(
-            || self.kind.empty_value(),
+            || kind.empty_value(),
             |default| {
                 default.clone().transform(&mut |default| match default {
                     Type::TypeVar(t) => {
-                        *default = Self::type_var(
-                            t.qname().id().clone(),
-                            t.default().cloned(),
-                            t.restriction().clone(),
-                        )
-                        .as_gradual_type();
+                        *default =
+                            Self::as_gradual_type_helper(QuantifiedKind::TypeVar, t.default())
                     }
                     Type::TypeVarTuple(t) => {
                         *default =
-                            Self::type_var_tuple(t.qname().id().clone(), t.default().cloned())
-                                .as_gradual_type();
+                            Self::as_gradual_type_helper(QuantifiedKind::TypeVarTuple, t.default())
                     }
                     Type::ParamSpec(p) => {
-                        *default = Self::param_spec(p.qname().id().clone(), p.default().cloned())
-                            .as_gradual_type();
+                        *default =
+                            Self::as_gradual_type_helper(QuantifiedKind::ParamSpec, p.default())
                     }
                     Type::Quantified(q) => {
                         *default = q.as_gradual_type();
@@ -64,7 +58,7 @@ impl QuantifiedInfo {
     }
 
     pub fn as_gradual_type(&self) -> Type {
-        self.as_gradual_type_helper(self.default.as_ref())
+        Self::as_gradual_type_helper(self.kind, self.default.as_ref())
     }
 
     fn type_var(name: Name, default: Option<Type>, restriction: Restriction) -> Self {
