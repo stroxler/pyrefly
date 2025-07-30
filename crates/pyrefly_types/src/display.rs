@@ -400,6 +400,14 @@ impl Display for Type {
     }
 }
 
+impl Type {
+    pub fn as_hover_string(&self) -> String {
+        let mut c = TypeDisplayContext::new(&[self]);
+        c.set_display_mode_to_hover();
+        c.display(self).to_string()
+    }
+}
+
 pub struct ClassDisplayContext<'a>(TypeDisplayContext<'a>);
 
 impl<'a> ClassDisplayContext<'a> {

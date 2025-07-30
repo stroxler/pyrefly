@@ -12,7 +12,6 @@ use lsp_types::MarkupKind;
 use lsp_types::Url;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::symbol_kind::SymbolKind;
-use pyrefly_types::display::TypeDisplayContext;
 use pyrefly_types::types::Type;
 use ruff_text_size::TextSize;
 use starlark_map::small_set::SmallSet;
@@ -76,8 +75,6 @@ impl HoverValue {
         let symbol_def_formatted =
             HoverValue::format_symbol_def_locations(&self.type_).unwrap_or("".to_owned());
 
-        let mut ctx = TypeDisplayContext::new(&[&self.type_]);
-        ctx.set_display_mode_to_hover();
         Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
@@ -85,7 +82,7 @@ impl HoverValue {
                     "```python\n{}{}{}\n```{}{}",
                     kind_formatted,
                     name_formatted,
-                    ctx.display(&self.type_),
+                    self.type_.as_hover_string(),
                     docstring_formatted,
                     symbol_def_formatted
                 ),
