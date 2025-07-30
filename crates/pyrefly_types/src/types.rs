@@ -941,7 +941,7 @@ impl Type {
         }
     }
 
-    pub fn subst(mut self, mp: &SmallMap<&Quantified, &Type>) -> Self {
+    pub fn subst_mut(&mut self, mp: &SmallMap<&Quantified, &Type>) {
         // We are looking up Quantified in a map, and Quantified may contain a Quantified within it.
         // Therefore, to make sure we still get matches, work top-down (not using `transform`).
         fn f(ty: &mut Type, mp: &SmallMap<&Quantified, &Type>) {
@@ -954,8 +954,12 @@ impl Type {
             }
         }
         if !mp.is_empty() {
-            f(&mut self, mp);
+            f(self, mp);
         }
+    }
+
+    pub fn subst(mut self, mp: &SmallMap<&Quantified, &Type>) -> Self {
+        self.subst_mut(mp);
         self
     }
 
