@@ -167,8 +167,8 @@ use crate::lsp::module_helpers::make_open_handle;
 use crate::lsp::module_helpers::module_info_to_uri;
 use crate::lsp::module_helpers::to_lsp_location;
 use crate::lsp::module_helpers::to_real_path;
+use crate::lsp::queue::LspEvent;
 use crate::lsp::queue::LspQueue;
-use crate::lsp::queue::ServerEvent;
 use crate::lsp::transaction_manager::TransactionManager;
 use crate::lsp::workspace::Workspace;
 use crate::lsp::workspace::Workspaces;
@@ -253,38 +253,38 @@ fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
                         return;
                     }
                 }
-                if lsp_queue.send(ServerEvent::LspRequest(x)).is_err() {
+                if lsp_queue.send(LspEvent::LspRequest(x)).is_err() {
                     return;
                 }
             }
             Message::Response(x) => {
-                if lsp_queue.send(ServerEvent::LspResponse(x)).is_err() {
+                if lsp_queue.send(LspEvent::LspResponse(x)).is_err() {
                     return;
                 }
             }
             Message::Notification(x) => {
                 let send_result = if let Some(params) = as_notification::<DidOpenTextDocument>(&x) {
-                    lsp_queue.send(ServerEvent::DidOpenTextDocument(params))
+                    lsp_queue.send(LspEvent::DidOpenTextDocument(params))
                 } else if let Some(params) = as_notification::<DidChangeTextDocument>(&x) {
-                    lsp_queue.send(ServerEvent::DidChangeTextDocument(params))
+                    lsp_queue.send(LspEvent::DidChangeTextDocument(params))
                 } else if let Some(params) = as_notification::<DidCloseTextDocument>(&x) {
-                    lsp_queue.send(ServerEvent::DidCloseTextDocument(params))
+                    lsp_queue.send(LspEvent::DidCloseTextDocument(params))
                 } else if let Some(params) = as_notification::<DidSaveTextDocument>(&x) {
-                    lsp_queue.send(ServerEvent::DidSaveTextDocument(params))
+                    lsp_queue.send(LspEvent::DidSaveTextDocument(params))
                 } else if let Some(params) = as_notification::<DidChangeWatchedFiles>(&x) {
-                    lsp_queue.send(ServerEvent::DidChangeWatchedFiles(params))
+                    lsp_queue.send(LspEvent::DidChangeWatchedFiles(params))
                 } else if let Some(params) = as_notification::<DidChangeWorkspaceFolders>(&x) {
-                    lsp_queue.send(ServerEvent::DidChangeWorkspaceFolders(params))
+                    lsp_queue.send(LspEvent::DidChangeWorkspaceFolders(params))
                 } else if let Some(params) = as_notification::<DidChangeConfiguration>(&x) {
-                    lsp_queue.send(ServerEvent::DidChangeConfiguration(params))
+                    lsp_queue.send(LspEvent::DidChangeConfiguration(params))
                 } else if let Some(params) = as_notification::<Cancel>(&x) {
                     let id = match params.id {
                         NumberOrString::Number(i) => RequestId::from(i),
                         NumberOrString::String(s) => RequestId::from(s),
                     };
-                    lsp_queue.send_priority(ServerEvent::CancelRequest(id))
+                    lsp_queue.send_priority(LspEvent::CancelRequest(id))
                 } else if as_notification::<Exit>(&x).is_some() {
-                    lsp_queue.send(ServerEvent::Exit)
+                    lsp_queue.send(LspEvent::Exit)
                 } else {
                     eprintln!("Unhandled notification: {x:?}");
                     Ok(())
@@ -421,51 +421,51 @@ impl Server {
         &'a self,
         ide_transaction_manager: &mut TransactionManager<'a>,
         canceled_requests: &mut HashSet<RequestId>,
-        event: ServerEvent,
+        event: LspEvent,
     ) -> anyhow::Result<ProcessEvent> {
         match event {
-            ServerEvent::Exit => {
+            LspEvent::Exit => {
                 return Ok(ProcessEvent::Exit);
             }
-            ServerEvent::RecheckFinished => {
+            LspEvent::RecheckFinished => {
                 self.validate_in_memory(ide_transaction_manager)?;
             }
-            ServerEvent::CancelRequest(id) => {
+            LspEvent::CancelRequest(id) => {
                 eprintln!("We should cancel request {id:?}");
                 if let Some(cancellation_handle) = self.cancellation_handles.lock().remove(&id) {
                     cancellation_handle.cancel();
                 }
                 canceled_requests.insert(id);
             }
-            ServerEvent::DidOpenTextDocument(params) => {
+            LspEvent::DidOpenTextDocument(params) => {
                 self.did_open(ide_transaction_manager, params)?;
             }
-            ServerEvent::DidChangeTextDocument(params) => {
+            LspEvent::DidChangeTextDocument(params) => {
                 self.did_change(ide_transaction_manager, params)?;
             }
-            ServerEvent::DidCloseTextDocument(params) => {
+            LspEvent::DidCloseTextDocument(params) => {
                 self.did_close(params)?;
             }
-            ServerEvent::DidSaveTextDocument(params) => {
+            LspEvent::DidSaveTextDocument(params) => {
                 self.did_save(params)?;
             }
-            ServerEvent::DidChangeWatchedFiles(params) => {
+            LspEvent::DidChangeWatchedFiles(params) => {
                 self.did_change_watched_files(params)?;
             }
-            ServerEvent::DidChangeWorkspaceFolders(params) => {
+            LspEvent::DidChangeWorkspaceFolders(params) => {
                 self.workspace_folders_changed(params);
             }
-            ServerEvent::DidChangeConfiguration(params) => {
+            LspEvent::DidChangeConfiguration(params) => {
                 self.did_change_configuration(ide_transaction_manager, params)?;
             }
-            ServerEvent::LspResponse(x) => {
+            LspEvent::LspResponse(x) => {
                 if let Some(request) = self.outgoing_requests.lock().remove(&x.id) {
                     self.handle_response(ide_transaction_manager, &request, &x)?;
                 } else {
                     eprintln!("Response for unknown request: {x:?}");
                 }
             }
-            ServerEvent::LspRequest(x) => {
+            LspEvent::LspRequest(x) => {
                 if canceled_requests.remove(&x.id) {
                     let message = format!("Request {} is canceled", x.id);
                     eprintln!("{message}");
@@ -822,7 +822,7 @@ impl Server {
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
-            let _ = lsp_queue.send_priority(ServerEvent::RecheckFinished);
+            let _ = lsp_queue.send_priority(LspEvent::RecheckFinished);
         });
     }
 
@@ -863,7 +863,7 @@ impl Server {
         // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
         // the main event loop of the server. As a result, the server can do a revalidation of
         // all the in-memory files based on the fresh main State as soon as possible.
-        let _ = lsp_queue.send_priority(ServerEvent::RecheckFinished);
+        let _ = lsp_queue.send_priority(LspEvent::RecheckFinished);
         eprintln!("Populated all files in the project path.");
     }
 

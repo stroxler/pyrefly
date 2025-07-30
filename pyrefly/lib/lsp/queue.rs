@@ -24,7 +24,7 @@ use lsp_types::DidCloseTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
 use lsp_types::DidSaveTextDocumentParams;
 
-pub enum ServerEvent {
+pub enum LspEvent {
     // Part 1: Events that the server should try to handle first.
     /// Notify the server that recheck finishes, so server can revalidate all in-memory content
     /// based on the latest `State`.
@@ -49,8 +49,8 @@ pub enum ServerEvent {
 pub struct LspQueue(Arc<LspQueueInner>);
 
 struct LspQueueInner {
-    normal: (Sender<ServerEvent>, Receiver<ServerEvent>),
-    priority: (Sender<ServerEvent>, Receiver<ServerEvent>),
+    normal: (Sender<LspEvent>, Receiver<LspEvent>),
+    priority: (Sender<LspEvent>, Receiver<LspEvent>),
 }
 
 impl LspQueue {
@@ -62,16 +62,16 @@ impl LspQueue {
     }
 
     #[allow(clippy::result_large_err)]
-    pub fn send(&self, x: ServerEvent) -> Result<(), SendError<ServerEvent>> {
+    pub fn send(&self, x: LspEvent) -> Result<(), SendError<LspEvent>> {
         self.0.normal.0.send(x)
     }
 
     #[allow(clippy::result_large_err)]
-    pub fn send_priority(&self, x: ServerEvent) -> Result<(), SendError<ServerEvent>> {
+    pub fn send_priority(&self, x: LspEvent) -> Result<(), SendError<LspEvent>> {
         self.0.priority.0.send(x)
     }
 
-    pub fn recv(&self) -> Result<ServerEvent, RecvError> {
+    pub fn recv(&self) -> Result<LspEvent, RecvError> {
         let mut event_receiver_selector = Select::new_biased();
         // Biased selector will pick the receiver with lower index over higher ones,
         // so we register priority_events_receiver first.
