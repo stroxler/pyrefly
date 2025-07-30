@@ -45,6 +45,12 @@ pub enum LspEvent {
     Exit,
 }
 
+impl LspEvent {
+    fn is_priority(&self) -> bool {
+        matches!(self, Self::CancelRequest(_) | Self::RecheckFinished)
+    }
+}
+
 #[derive(Clone, Dupe)]
 pub struct LspQueue(Arc<LspQueueInner>);
 
@@ -63,12 +69,11 @@ impl LspQueue {
 
     #[allow(clippy::result_large_err)]
     pub fn send(&self, x: LspEvent) -> Result<(), SendError<LspEvent>> {
-        self.0.normal.0.send(x)
-    }
-
-    #[allow(clippy::result_large_err)]
-    pub fn send_priority(&self, x: LspEvent) -> Result<(), SendError<LspEvent>> {
-        self.0.priority.0.send(x)
+        if x.is_priority() {
+            self.0.priority.0.send(x)
+        } else {
+            self.0.normal.0.send(x)
+        }
     }
 
     pub fn recv(&self) -> Result<LspEvent, RecvError> {

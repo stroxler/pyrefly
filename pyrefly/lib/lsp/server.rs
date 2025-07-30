@@ -282,7 +282,7 @@ fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
                         NumberOrString::Number(i) => RequestId::from(i),
                         NumberOrString::String(s) => RequestId::from(s),
                     };
-                    lsp_queue.send_priority(LspEvent::CancelRequest(id))
+                    lsp_queue.send(LspEvent::CancelRequest(id))
                 } else if as_notification::<Exit>(&x).is_some() {
                     lsp_queue.send(LspEvent::Exit)
                 } else {
@@ -822,7 +822,7 @@ impl Server {
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
-            let _ = lsp_queue.send_priority(LspEvent::RecheckFinished);
+            let _ = lsp_queue.send(LspEvent::RecheckFinished);
         });
     }
 
@@ -863,7 +863,7 @@ impl Server {
         // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
         // the main event loop of the server. As a result, the server can do a revalidation of
         // all the in-memory files based on the fresh main State as soon as possible.
-        let _ = lsp_queue.send_priority(LspEvent::RecheckFinished);
+        let _ = lsp_queue.send(LspEvent::RecheckFinished);
         eprintln!("Populated all files in the project path.");
     }
 
