@@ -815,6 +815,49 @@ zoo(partial(bar, b=99))
 );
 
 testcase!(
+    test_callable_class_substitute_self,
+    r#"
+from typing import Callable, Self, assert_type
+
+def ret[T](f: Callable[[], T]) -> T: ...
+
+class Meta(type):
+    def __call__(self, *args, **kwargs) -> Self: ... # TODO: error invalid Self
+
+# metaclass __call__
+class A(metaclass=Meta):
+    pass
+
+# __new__
+class B:
+    def __new__(cls, *args, **kwargs) -> Self: ...
+
+# __init__
+class C:
+    def __init__(self, *args, **kwargs) -> None: ...
+
+assert_type(ret(A), A) # mypy/pyright agree, but maybe Any since metaclass Self is illegal?
+assert_type(ret(B), B)
+assert_type(ret(C), C)
+"#,
+);
+
+testcase!(
+    test_callable_class_self_confusion,
+    r#"
+from typing import Callable, Self, assert_type
+
+class A:
+    def __new__(cls) -> Self: ...
+
+class B[T]:
+    def __new__(self, f: Callable[[], T]) -> Self: ...
+
+assert_type(B(A), B[A])
+"#,
+);
+
+testcase!(
     test_call_self,
     r#"
 from typing import assert_type
