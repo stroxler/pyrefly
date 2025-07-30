@@ -795,10 +795,8 @@ impl Scopes {
         false
     }
 
-    pub fn loop_depth(&self) -> u32 {
-        self.scopes
-            .iter()
-            .fold(0, |depth, node| depth + node.scope.loops.len() as u32)
+    pub fn loop_depth(&self) -> usize {
+        self.current().loops.len()
     }
 
     /// Set the flow info to bind `name` to `key`, maybe with `FlowStyle` `style`

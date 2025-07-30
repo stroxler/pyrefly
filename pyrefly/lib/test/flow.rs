@@ -1085,9 +1085,9 @@ while True:
             n = 1
         else:
             n = 1.5
-        while cond:  # E: `Literal[1] | float | Unknown` is not assignable to `str` (caused by inconsistent types when breaking cycles)
-            n += 1  # E: `+=` is not supported
-        assert_type(n, float | int)  # E: assert_type(Literal[1] | float | Any, float | int)
+        while cond:
+            n += 1
+        assert_type(n, float | int)
 "#,
 );
 
