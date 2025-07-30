@@ -1292,3 +1292,21 @@ class C(A):
         self.x: str = ""  # E: Class member `C.x` overrides parent class `A` in an inconsistent manner
     "#,
 );
+
+testcase!(
+    bug = "We aren't handling methods setting inherited generic fields correctly.",
+    test_method_sets_inherited_generic_field,
+    r#"
+from typing import assert_type, Any
+class A[T]:
+    x: T
+class B0(A[int]):
+    def __init__(self, x: int):
+        pass
+class B1(A[int]):
+    def __init__(self, x: int):
+        self.x = x  # E: Attribute `x` cannot depend on type variable `T`, which is not in the scope of class `B1`
+assert_type(B0(42).x, int)
+assert_type(B1(42).x, int)  # E: assert_type(Any, int)
+    "#,
+);
