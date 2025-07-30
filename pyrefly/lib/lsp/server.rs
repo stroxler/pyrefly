@@ -453,7 +453,7 @@ impl Server {
                 return Ok(ProcessEvent::Exit);
             }
             LspEvent::RecheckFinished => {
-                self.validate_in_memory(ide_transaction_manager)?;
+                self.validate_in_memory(ide_transaction_manager);
             }
             LspEvent::CancelRequest(id) => {
                 eprintln!("We should cancel request {id:?}");
@@ -463,29 +463,29 @@ impl Server {
                 canceled_requests.insert(id);
             }
             LspEvent::DidOpenTextDocument(params) => {
-                self.did_open(ide_transaction_manager, params)?;
+                self.did_open(ide_transaction_manager, params);
             }
             LspEvent::DidChangeTextDocument(params) => {
                 self.did_change(ide_transaction_manager, params)?;
             }
             LspEvent::DidCloseTextDocument(params) => {
-                self.did_close(params)?;
+                self.did_close(params);
             }
             LspEvent::DidSaveTextDocument(params) => {
-                self.did_save(params)?;
+                self.did_save(params);
             }
             LspEvent::DidChangeWatchedFiles(params) => {
-                self.did_change_watched_files(params)?;
+                self.did_change_watched_files(params);
             }
             LspEvent::DidChangeWorkspaceFolders(params) => {
                 self.workspace_folders_changed(params);
             }
             LspEvent::DidChangeConfiguration(params) => {
-                self.did_change_configuration(ide_transaction_manager, params)?;
+                self.did_change_configuration(ide_transaction_manager, params);
             }
             LspEvent::LspResponse(x) => {
                 if let Some(request) = self.outgoing_requests.lock().remove(&x.id) {
-                    self.handle_response(ide_transaction_manager, &request, &x)?;
+                    self.handle_response(ide_transaction_manager, &request, &x);
                 } else {
                     eprintln!("Response for unknown request: {x:?}");
                 }
@@ -813,10 +813,7 @@ impl Server {
         None
     }
 
-    fn validate_in_memory<'a>(
-        &'a self,
-        ide_transaction_manager: &mut TransactionManager<'a>,
-    ) -> anyhow::Result<()> {
+    fn validate_in_memory<'a>(&'a self, ide_transaction_manager: &mut TransactionManager<'a>) {
         let mut possibly_committable_transaction =
             ide_transaction_manager.get_possibly_committable_transaction(&self.state);
         let transaction = match &mut possibly_committable_transaction {
@@ -861,8 +858,6 @@ impl Server {
                 ide_transaction_manager.save(transaction);
             }
         }
-
-        Ok(())
     }
 
     fn populate_project_files_if_necessary(
@@ -959,17 +954,16 @@ impl Server {
         eprintln!("Populated all files in the project path.");
     }
 
-    fn did_save(&self, params: DidSaveTextDocumentParams) -> anyhow::Result<()> {
+    fn did_save(&self, params: DidSaveTextDocumentParams) {
         let file = params.text_document.uri.to_file_path().unwrap();
         self.invalidate(move |t| t.invalidate_disk(&[file]));
-        Ok(())
     }
 
     fn did_open<'a>(
         &'a self,
         ide_transaction_manager: &mut TransactionManager<'a>,
         params: DidOpenTextDocumentParams,
-    ) -> anyhow::Result<()> {
+    ) {
         let uri = params.text_document.uri.to_file_path().unwrap();
         let config_to_populate_files = if self.indexing_mode != IndexingMode::None
             && let Some(directory) = uri.as_path().parent()
@@ -984,11 +978,10 @@ impl Server {
         self.open_files
             .write()
             .insert(uri, Arc::new(params.text_document.text));
-        self.validate_in_memory(ide_transaction_manager)?;
+        self.validate_in_memory(ide_transaction_manager);
         self.populate_project_files_if_necessary(config_to_populate_files);
         // rewatch files in case we loaded or dropped any configs
         self.setup_file_watcher_if_necessary();
-        Ok(())
     }
 
     fn did_change<'a>(
@@ -1014,10 +1007,11 @@ impl Server {
             params.content_changes,
         ));
         drop(lock);
-        self.validate_in_memory(ide_transaction_manager)
+        self.validate_in_memory(ide_transaction_manager);
+        Ok(())
     }
 
-    fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) -> anyhow::Result<()> {
+    fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
         if !params.changes.is_empty() {
             self.invalidate(move |t| {
                 t.invalidate_events(&CategorizedEvents::new_lsp(params.changes))
@@ -1025,16 +1019,14 @@ impl Server {
         }
         // rewatch files in case we loaded or dropped any configs
         self.setup_file_watcher_if_necessary();
-        Ok(())
     }
 
-    fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
+    fn did_close(&self, params: DidCloseTextDocumentParams) {
         let uri = params.text_document.uri.to_file_path().unwrap();
         self.version_info.lock().remove(&uri);
         self.open_files.write().remove(&uri);
         self.connection
             .publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
-        Ok(())
     }
 
     fn workspace_folders_changed(&self, params: DidChangeWorkspaceFoldersParams) {
@@ -1047,12 +1039,12 @@ impl Server {
         &'a self,
         ide_transaction_manager: &mut TransactionManager<'a>,
         params: DidChangeConfigurationParams,
-    ) -> anyhow::Result<()> {
+    ) {
         if let Some(workspace) = &self.initialize_params.capabilities.workspace
             && workspace.configuration == Some(true)
         {
             self.request_settings_for_all_workspaces();
-            return Ok(());
+            return;
         }
 
         let mut modified = false;
@@ -1063,9 +1055,8 @@ impl Server {
 
         if modified {
             self.invalidate_config();
-            self.validate_in_memory(ide_transaction_manager)?;
+            self.validate_in_memory(ide_transaction_manager);
         }
-        Ok(())
     }
 
     /// Create a handle. Return None if the workspace has language services disabled (and thus you shouldn't do anything).
@@ -1627,7 +1618,7 @@ impl Server {
         ide_transaction_manager: &mut TransactionManager<'a>,
         request: &Request,
         response: &Response,
-    ) -> anyhow::Result<()> {
+    ) {
         if let Some((request, response)) =
             as_request_response_pair::<WorkspaceConfiguration>(request, response)
         {
@@ -1643,10 +1634,9 @@ impl Server {
             }
             if modified {
                 self.invalidate_config();
-                self.validate_in_memory(ide_transaction_manager)?;
+                self.validate_in_memory(ide_transaction_manager);
             }
         }
-        Ok(())
     }
 
     fn invalidate_config(&self) {
