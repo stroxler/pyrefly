@@ -461,7 +461,9 @@ impl Server {
                 return Ok(ProcessEvent::Exit);
             }
             LspEvent::RecheckFinished => {
-                self.validate_in_memory(ide_transaction_manager);
+                // We pass false even if there is a future mutation - we did a commit and want to get
+                // back to a stable state.
+                self.validate_in_memory(ide_transaction_manager, false);
             }
             LspEvent::CancelRequest(id) => {
                 eprintln!("We should cancel request {id:?}");
@@ -471,10 +473,10 @@ impl Server {
                 canceled_requests.insert(id);
             }
             LspEvent::DidOpenTextDocument(params) => {
-                self.did_open(ide_transaction_manager, params);
+                self.did_open(ide_transaction_manager, subsequent_mutation, params);
             }
             LspEvent::DidChangeTextDocument(params) => {
-                self.did_change(ide_transaction_manager, params)?;
+                self.did_change(ide_transaction_manager, subsequent_mutation, params)?;
             }
             LspEvent::DidCloseTextDocument(params) => {
                 self.did_close(params);
@@ -489,11 +491,16 @@ impl Server {
                 self.workspace_folders_changed(params);
             }
             LspEvent::DidChangeConfiguration(params) => {
-                self.did_change_configuration(ide_transaction_manager, params);
+                self.did_change_configuration(ide_transaction_manager, subsequent_mutation, params);
             }
             LspEvent::LspResponse(x) => {
                 if let Some(request) = self.outgoing_requests.lock().remove(&x.id) {
-                    self.handle_response(ide_transaction_manager, &request, &x);
+                    self.handle_response(
+                        ide_transaction_manager,
+                        subsequent_mutation,
+                        &request,
+                        &x,
+                    );
                 } else {
                     eprintln!("Response for unknown request: {x:?}");
                 }
@@ -530,7 +537,7 @@ impl Server {
                     // We probably didn't bother completing a previous check, but we are now answering a query that
                     // really needs a previous check to be correct.
                     // Validating sends out notifications, which isn't required, but this is the safest way.
-                    self.validate_in_memory(ide_transaction_manager);
+                    self.validate_in_memory(ide_transaction_manager, false);
                 }
 
                 eprintln!("Handling non-canceled request {} ({})", x.method, &x.id);
@@ -804,6 +811,7 @@ impl Server {
         state: &State,
         open_files: &RwLock<HashMap<PathBuf, Arc<String>>>,
         transaction: &mut Transaction<'_>,
+        subsequent_mutation: bool,
     ) -> Vec<(Handle, Require)> {
         let handles = open_files
             .read()
@@ -817,7 +825,9 @@ impl Server {
                 .map(|x| (x.0.clone(), Some(x.1.dupe())))
                 .collect::<Vec<_>>(),
         );
-        transaction.run(&handles);
+        if !subsequent_mutation {
+            transaction.run(&handles);
+        }
         handles
     }
 
@@ -845,15 +855,23 @@ impl Server {
         None
     }
 
-    fn validate_in_memory<'a>(&'a self, ide_transaction_manager: &mut TransactionManager<'a>) {
+    fn validate_in_memory<'a>(
+        &'a self,
+        ide_transaction_manager: &mut TransactionManager<'a>,
+        subsequent_mutation: bool,
+    ) {
         let mut possibly_committable_transaction =
             ide_transaction_manager.get_possibly_committable_transaction(&self.state);
         let transaction = match &mut possibly_committable_transaction {
             Ok(transaction) => transaction.as_mut(),
             Err(transaction) => transaction,
         };
-        let handles =
-            Self::validate_in_memory_for_transaction(&self.state, &self.open_files, transaction);
+        let handles = Self::validate_in_memory_for_transaction(
+            &self.state,
+            &self.open_files,
+            transaction,
+            subsequent_mutation,
+        );
 
         let publish = |transaction: &Transaction| {
             let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
@@ -994,6 +1012,7 @@ impl Server {
     fn did_open<'a>(
         &'a self,
         ide_transaction_manager: &mut TransactionManager<'a>,
+        subsequent_mutation: bool,
         params: DidOpenTextDocumentParams,
     ) {
         let uri = params.text_document.uri.to_file_path().unwrap();
@@ -1010,7 +1029,7 @@ impl Server {
         self.open_files
             .write()
             .insert(uri, Arc::new(params.text_document.text));
-        self.validate_in_memory(ide_transaction_manager);
+        self.validate_in_memory(ide_transaction_manager, subsequent_mutation);
         self.populate_project_files_if_necessary(config_to_populate_files);
         // rewatch files in case we loaded or dropped any configs
         self.setup_file_watcher_if_necessary();
@@ -1019,6 +1038,7 @@ impl Server {
     fn did_change<'a>(
         &'a self,
         ide_transaction_manager: &mut TransactionManager<'a>,
+        subsequent_mutation: bool,
         params: DidChangeTextDocumentParams,
     ) -> anyhow::Result<()> {
         let VersionedTextDocumentIdentifier { uri, version } = params.text_document;
@@ -1039,7 +1059,7 @@ impl Server {
             params.content_changes,
         ));
         drop(lock);
-        self.validate_in_memory(ide_transaction_manager);
+        self.validate_in_memory(ide_transaction_manager, subsequent_mutation);
         Ok(())
     }
 
@@ -1070,6 +1090,7 @@ impl Server {
     fn did_change_configuration<'a>(
         &'a self,
         ide_transaction_manager: &mut TransactionManager<'a>,
+        subsequent_mutation: bool,
         params: DidChangeConfigurationParams,
     ) {
         if let Some(workspace) = &self.initialize_params.capabilities.workspace
@@ -1087,7 +1108,7 @@ impl Server {
 
         if modified {
             self.invalidate_config();
-            self.validate_in_memory(ide_transaction_manager);
+            self.validate_in_memory(ide_transaction_manager, subsequent_mutation);
         }
     }
 
@@ -1262,7 +1283,12 @@ impl Server {
             cancellation_handles
                 .lock()
                 .insert(request_id.clone(), transaction.get_cancellation_handle());
-            Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
+            Self::validate_in_memory_for_transaction(
+                &state,
+                &open_files,
+                transaction.as_mut(),
+                false,
+            );
             match transaction.find_global_references_from_definition(
                 handle.sys_info(),
                 metadata,
@@ -1648,6 +1674,7 @@ impl Server {
     fn handle_response<'a>(
         &'a self,
         ide_transaction_manager: &mut TransactionManager<'a>,
+        subsequent_mutation: bool,
         request: &Request,
         response: &Response,
     ) {
@@ -1666,7 +1693,7 @@ impl Server {
             }
             if modified {
                 self.invalidate_config();
-                self.validate_in_memory(ide_transaction_manager);
+                self.validate_in_memory(ide_transaction_manager, subsequent_mutation);
             }
         }
     }
