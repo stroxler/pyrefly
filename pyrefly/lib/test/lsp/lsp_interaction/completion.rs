@@ -70,7 +70,7 @@ pub fn make_sorted_completion_result_with_all_keywords(
 }
 
 #[test]
-fn test_completion() {
+fn test_completion_basic() {
     let root = get_test_files_root();
 
     run_test_lsp(TestCase {
