@@ -1535,6 +1535,132 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    fn add_builtins_autoimport_completions(
+        &self,
+        handle: &Handle,
+        identifier: &Identifier,
+        completions: &mut Vec<CompletionItem>,
+    ) {
+        if identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
+            && let Ok(builtin_handle) = self.import_handle(handle, ModuleName::builtins(), None)
+        {
+            let builtin_exports = self.get_exports(&builtin_handle);
+            for (name, location) in builtin_exports.iter() {
+                if SkimMatcherV2::default()
+                    .smart_case()
+                    .fuzzy_match(name.as_str(), identifier.as_str())
+                    .is_none()
+                {
+                    continue;
+                }
+                let kind = match location {
+                    ExportLocation::OtherModule(_) => continue,
+                    ExportLocation::ThisModule(export) => export
+                        .symbol_kind
+                        .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                            Some(k.to_lsp_completion_item_kind())
+                        }),
+                };
+                completions.push(CompletionItem {
+                    label: name.as_str().to_owned(),
+                    detail: None,
+                    kind,
+                    ..Default::default()
+                });
+            }
+        }
+    }
+    fn add_autoimport_completions(
+        &self,
+        handle: &Handle,
+        identifier: &Identifier,
+        completions: &mut Vec<CompletionItem>,
+    ) {
+        // Auto-import can be slow. Let's only return results if there are no local
+        // results for now. TODO: re-enable it once we no longer have perf issues.
+        // We should not try to generate autoimport when the user has typed very few
+        // characters. It's unhelpful to narrow down suggestions.
+        if identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
+            && let Some(ast) = self.get_ast(handle)
+            && let Some(module_info) = self.get_module_info(handle)
+        {
+            for (handle_to_import_from, name, export) in
+                self.search_exports_fuzzy(identifier.as_str())
+            {
+                // Using handle itself doesn't always work because handles can be made separately and have different hashes
+                if handle_to_import_from.module() == handle.module()
+                    || handle_to_import_from.module() == ModuleName::builtins()
+                {
+                    continue;
+                }
+                let (insert_text, additional_text_edits) = {
+                    let (position, insert_text) =
+                        insert_import_edit(&ast, handle_to_import_from, &name);
+                    let import_text_edit = TextEdit {
+                        range: module_info
+                            .lined_buffer()
+                            .to_lsp_range(TextRange::at(position, TextSize::new(0))),
+                        new_text: insert_text.clone(),
+                    };
+                    (Some(insert_text), Some(vec![import_text_edit]))
+                };
+                completions.push(CompletionItem {
+                    label: name,
+                    detail: insert_text,
+                    kind: export
+                        .symbol_kind
+                        .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                            Some(k.to_lsp_completion_item_kind())
+                        }),
+                    additional_text_edits,
+                    ..Default::default()
+                });
+            }
+        }
+    }
+
+    /// Adds completions for local variables and returns true if we have added any
+    fn add_local_variable_completions(
+        &self,
+        handle: &Handle,
+        identifier: &Identifier,
+        position: TextSize,
+        completions: &mut Vec<CompletionItem>,
+    ) -> bool {
+        let mut has_added_any = false;
+        if let Some(bindings) = self.get_bindings(handle)
+            && let Some(module_info) = self.get_module_info(handle)
+        {
+            for idx in bindings.available_definitions(position) {
+                let key = bindings.idx_to_key(idx);
+                if let Key::Definition(id) = key {
+                    let label = module_info.code_at(id.range());
+                    if SkimMatcherV2::default()
+                        .smart_case()
+                        .fuzzy_match(label, identifier.as_str())
+                        .is_none()
+                    {
+                        continue;
+                    }
+                    let binding = bindings.get(idx);
+                    let detail = self.get_type(handle, key).map(|t| t.to_string());
+                    has_added_any = true;
+                    completions.push(CompletionItem {
+                        label: label.to_owned(),
+                        detail,
+                        kind: binding
+                            .symbol_kind()
+                            .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                                Some(k.to_lsp_completion_item_kind())
+                            }),
+                        ..Default::default()
+                    })
+                }
+            }
+        }
+        has_added_any
+    }
+
     fn add_keyword_completions(&self, handle: &Handle, completions: &mut Vec<CompletionItem>) {
         get_keywords(handle.sys_info().version())
             .iter()
@@ -1642,103 +1768,11 @@ impl<'a> Transaction<'a> {
             }
             Some(IdentifierWithContext { identifier, .. }) => {
                 self.add_keyword_completions(handle, &mut result);
-                if let Some(bindings) = self.get_bindings(handle)
-                    && let Some(module_info) = self.get_module_info(handle)
+                if !self.add_local_variable_completions(handle, &identifier, position, &mut result)
                 {
-                    let mut has_local_variable_results = false;
-                    let matcher = SkimMatcherV2::default().smart_case();
-                    for idx in bindings.available_definitions(position) {
-                        let key = bindings.idx_to_key(idx);
-                        if let Key::Definition(id) = key {
-                            let label = module_info.code_at(id.range());
-                            if matcher.fuzzy_match(label, identifier.as_str()).is_none() {
-                                continue;
-                            }
-                            let binding = bindings.get(idx);
-                            let detail = self.get_type(handle, key).map(|t| t.to_string());
-                            has_local_variable_results = true;
-                            result.push(CompletionItem {
-                                label: label.to_owned(),
-                                detail,
-                                kind: binding
-                                    .symbol_kind()
-                                    .map_or(Some(CompletionItemKind::VARIABLE), |k| {
-                                        Some(k.to_lsp_completion_item_kind())
-                                    }),
-                                ..Default::default()
-                            })
-                        }
-                    }
-                    if identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
-                        && let Ok(builtin_handle) =
-                            self.import_handle(handle, ModuleName::builtins(), None)
-                    {
-                        let builtin_exports = self.get_exports(&builtin_handle);
-                        for (name, location) in builtin_exports.iter() {
-                            if matcher
-                                .fuzzy_match(name.as_str(), identifier.as_str())
-                                .is_none()
-                            {
-                                continue;
-                            }
-                            let kind = match location {
-                                ExportLocation::OtherModule(_) => continue,
-                                ExportLocation::ThisModule(export) => export
-                                    .symbol_kind
-                                    .map_or(Some(CompletionItemKind::VARIABLE), |k| {
-                                        Some(k.to_lsp_completion_item_kind())
-                                    }),
-                            };
-                            result.push(CompletionItem {
-                                label: name.as_str().to_owned(),
-                                detail: None,
-                                kind,
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    // Auto-import can be slow. Let's only return results if there are no local
-                    // results for now. TODO: re-enable it once we no longer have perf issues.
-                    // We should not try to generate autoimport when the user has typed very few
-                    // characters. It's unhelpful to narrow down suggestions.
-                    if !has_local_variable_results
-                        && identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
-                        && let Some(ast) = self.get_ast(handle)
-                    {
-                        for (handle_to_import_from, name, export) in
-                            self.search_exports_fuzzy(identifier.as_str())
-                        {
-                            // Using handle itself doesn't always work because handles can be made separately and have different hashes
-                            if handle_to_import_from.module() == handle.module()
-                                || handle_to_import_from.module() == ModuleName::builtins()
-                            {
-                                continue;
-                            }
-                            let (insert_text, additional_text_edits) = {
-                                let (position, insert_text) =
-                                    insert_import_edit(&ast, handle_to_import_from, &name);
-                                let import_text_edit = TextEdit {
-                                    range: module_info
-                                        .lined_buffer()
-                                        .to_lsp_range(TextRange::at(position, TextSize::new(0))),
-                                    new_text: insert_text.clone(),
-                                };
-                                (Some(insert_text), Some(vec![import_text_edit]))
-                            };
-                            result.push(CompletionItem {
-                                label: name,
-                                detail: insert_text,
-                                kind: export
-                                    .symbol_kind
-                                    .map_or(Some(CompletionItemKind::VARIABLE), |k| {
-                                        Some(k.to_lsp_completion_item_kind())
-                                    }),
-                                additional_text_edits,
-                                ..Default::default()
-                            });
-                        }
-                    }
+                    self.add_autoimport_completions(handle, &identifier, &mut result);
                 }
+                self.add_builtins_autoimport_completions(handle, &identifier, &mut result);
             }
             None => {}
         }
