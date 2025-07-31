@@ -6,6 +6,7 @@
  */
 
 pub mod all;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod autotype;
 pub mod buck_check;
 pub mod check;

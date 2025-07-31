@@ -179,6 +179,10 @@ impl Error {
             ..Default::default()
         }
     }
+
+    pub fn module(&self) -> &Module {
+        &self.module
+    }
 }
 
 #[cfg(test)]

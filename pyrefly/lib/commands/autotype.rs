@@ -14,11 +14,17 @@ use pyrefly_config::finder::ConfigFinder;
 use pyrefly_util::forgetter::Forgetter;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::globs::FilteredGlobs;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextSize;
+use tracing::error;
 
+use crate::commands::check;
 use crate::commands::check::Handles;
 use crate::commands::files::FilesArgs;
 use crate::commands::util::CommandExitStatus;
+use crate::config::error_kind::ErrorKind;
+use crate::lsp::module_helpers::handle_from_module_path;
+use crate::state::ide::insert_import_edit;
 use crate::state::lsp::AnnotationKind;
 use crate::state::lsp::ParameterAnnotation;
 use crate::state::require::Require;
@@ -181,6 +187,43 @@ impl AutotypeArgs {
                 Self::add_annotations_to_file(file_path, sorted)?;
             }
         }
+        // Add imports, if needed
+        let check_args = check::CheckArgs::parse_from(["check", "--output-format", "omit-errors"]);
+        let (_, config_finder) = FilesArgs::get(Vec::new(), None, &check_args.config_override)?;
+        let state = holder.as_ref();
+        match check_args.run_once(files_to_check, config_finder, true) {
+            Ok((_, errors)) => {
+                for error in errors {
+                    match error.error_kind() {
+                        ErrorKind::UnknownName => {
+                            let module_info = error.module();
+                            let handle = handle_from_module_path(state, module_info.path().clone());
+                            if let Some(ast) = transaction.get_ast(&handle) {
+                                let error_range = error.range();
+                                let unknown_name = module_info.code_at(error_range);
+                                let imports: Vec<(TextSize, String)> = transaction
+                                    .search_exports_exact(unknown_name)
+                                    .into_iter()
+                                    .map(|handle_to_import_from| {
+                                        insert_import_edit(
+                                            &ast,
+                                            handle_to_import_from.clone(),
+                                            unknown_name,
+                                        )
+                                    })
+                                    .collect();
+                                let path = error.path();
+                                Self::add_imports_to_file(path.as_path(), imports)?;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Failed to run pyrefly check: {}", e);
+            }
+        };
         Ok(CommandExitStatus::Success)
     }
 
@@ -196,6 +239,21 @@ impl AutotypeArgs {
             let offset = (position).into();
             if offset <= result.len() {
                 result.insert_str(offset, &hint);
+            }
+        }
+        fs_anyhow::write(file_path, result)
+    }
+
+    fn add_imports_to_file(
+        file_path: &Path,
+        imports: Vec<(TextSize, String)>,
+    ) -> anyhow::Result<()> {
+        let file_content = fs_anyhow::read_to_string(file_path)?;
+        let mut result = file_content;
+        for (position, import) in imports {
+            let offset = (position).into();
+            if !result.contains(&import) {
+                result.insert_str(offset, &import);
             }
         }
         fs_anyhow::write(file_path, result)
@@ -230,6 +288,40 @@ mod test {
         );
 
         let got_file = fs_anyhow::read_to_string(&path).unwrap();
+        assert_str_eq!(
+            output,
+            got_file,
+            "File content after autotype doesn't match expected output"
+        );
+    }
+
+    fn assert_imports_and_annotations(file_one: &str, file_two: &str, output: &str) {
+        let configuration = r#"
+        project_includes = [
+            "file_one.py",
+            "file_two.py",
+        ]
+        "#;
+        let tdir = tempfile::tempdir().unwrap();
+        let file_one_path = tdir.path().join("file_one.py");
+        fs_anyhow::write(&file_one_path, file_one).unwrap();
+        let file_two_path = tdir.path().join("file_two.py");
+        fs_anyhow::write(&file_two_path, file_two).unwrap();
+        let config_path = tdir.path().join("pyrefly.toml");
+        fs_anyhow::write(&config_path, configuration).unwrap();
+        let mut t = TestEnv::new();
+        t.add(&file_one_path.display().to_string(), file_one);
+        t.add(&file_two_path.display().to_string(), file_two);
+        t.add(&config_path.display().to_string(), configuration);
+        let args = AutotypeArgs::parse_from(["autotype", &tdir.path().display().to_string()]);
+        let result = args.run();
+        assert!(
+            result.is_ok(),
+            "autotype command failed: {:?}",
+            result.err()
+        );
+
+        let got_file = fs_anyhow::read_to_string(&file_one_path).unwrap();
         assert_str_eq!(
             output,
             got_file,
@@ -460,6 +552,60 @@ def foo() -> str:
         x["a"] = 1
     "#,
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_imports() -> anyhow::Result<()> {
+        let file_one = r#"
+        from file_two import get_a
+        def foo():
+            return get_a()
+        "#;
+        let file_two = r#"
+        class ExampleA:
+            pass 
+        def get_a():
+            return ExampleA()
+        "#;
+        let output = r#"
+        from file_two import ExampleA
+from file_two import get_a
+        def foo() -> ExampleA:
+            return get_a()
+        "#;
+        assert_imports_and_annotations(file_one, file_two, output);
+        Ok(())
+    }
+    #[test]
+    fn test_multiple_imports() -> anyhow::Result<()> {
+        let file_one = r#"
+        from file_two import get_a, get_b
+        def foo():
+            return get_a()
+        def bar():
+            return get_b()
+        "#;
+        let file_two = r#"
+        class ExampleA:
+            pass 
+        class ExampleB:
+            pass
+        def get_a():
+            return ExampleA()
+        def get_b():
+            return ExampleB()
+        "#;
+        let output = r#"
+        from file_two import ExampleB
+from file_two import ExampleA
+from file_two import get_a, get_b
+        def foo() -> ExampleA:
+            return get_a()
+        def bar() -> ExampleB:
+            return get_b()
+        "#;
+        assert_imports_and_annotations(file_one, file_two, output);
         Ok(())
     }
 }
