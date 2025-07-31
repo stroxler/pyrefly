@@ -126,14 +126,19 @@ fn test_multiple_path() {
 
 #[test]
 fn test_change_require() {
-    let t = TestEnv::one("foo", "x: str = 1");
-    let state = State::new(t.config_finder());
+    let env = TestEnv::one("foo", "x: str = 1\ny: int = 'x'");
+    let state = State::new(env.config_finder());
     let handle = Handle::new(
         ModuleName::from_str("foo"),
-        ModulePath::memory(PathBuf::from("foo")),
-        t.sys_info(),
+        ModulePath::memory(PathBuf::from("foo.py")),
+        env.sys_info(),
     );
-    state.run(&[(handle.dupe(), Require::Exports)], Require::Exports, None);
+
+    let mut t = state.new_committable_transaction(Require::Exports, None);
+    t.as_mut().set_memory(env.get_memory());
+    t.as_mut().run(&[(handle.dupe(), Require::Exports)]);
+    state.commit_transaction(t);
+
     assert_eq!(
         state
             .transaction()
@@ -152,7 +157,7 @@ fn test_change_require() {
             .collect_errors()
             .shown
             .len(),
-        1
+        2
     );
     assert!(state.transaction().get_bindings(&handle).is_none());
     state.run(
@@ -167,7 +172,7 @@ fn test_change_require() {
             .collect_errors()
             .shown
             .len(),
-        1
+        2
     );
     assert!(state.transaction().get_bindings(&handle).is_some());
 }
