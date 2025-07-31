@@ -1096,57 +1096,30 @@ impl<'a> Transaction<'a> {
     }
 
     fn invalidate_rdeps(&mut self, changed: &[ArcId<ModuleDataMut>]) {
-        // We need to invalidate all modules that depend on anything in changed, including transitively.
-        fn f(
-            state: &Transaction,
-            dirty_handles: &mut SmallMap<Handle, Option<ArcId<ModuleDataMut>>>,
-            stack: &mut HashSet<Handle>,
-            x: &ModuleData,
-        ) -> bool {
-            if let Some(res) = dirty_handles.get(&x.handle) {
-                res.is_some()
-            } else if stack.contains(&x.handle) {
-                // Recursive hypothesis - do not write to dirty
-                false
-            } else {
-                stack.insert(x.handle.dupe());
-                let res = x.deps.values().flatten().any(|y| {
-                    f(
-                        state,
-                        dirty_handles,
-                        stack,
-                        state.readable.modules.get(y).unwrap(),
-                    )
-                });
-                stack.remove(&x.handle);
-                dirty_handles.insert(
-                    x.handle.dupe(),
-                    if res {
-                        Some(state.get_module(&x.handle))
-                    } else {
-                        None
-                    },
-                );
-                res
-            }
-        }
-
-        let mut dirty_handles = changed
+        // Those that I have yet to follow
+        let mut follow: Vec<ArcId<ModuleDataMut>> = changed.iter().map(|x| x.dupe()).collect();
+        // Those that I know are dirty
+        let mut dirty: SmallMap<Handle, ArcId<ModuleDataMut>> = changed
             .iter()
-            .map(|x| (x.handle.dupe(), Some(self.get_module(&x.handle))))
-            .collect::<SmallMap<_, _>>();
-        let mut stack = HashSet::new();
-        for x in self.readable.modules.values() {
-            f(self, &mut dirty_handles, &mut stack, x);
+            .map(|x| (x.handle.dupe(), x.dupe()))
+            .collect();
+
+        while let Some(x) = follow.pop() {
+            for rdep in x.rdeps.lock().iter() {
+                let hashed_rdep = Hashed::new(rdep);
+                if !dirty.contains_key_hashed(hashed_rdep) {
+                    let m = self.get_module(rdep);
+                    dirty.insert_hashed(hashed_rdep.cloned(), m.dupe());
+                    follow.push(m);
+                }
+            }
         }
 
         let mut dirty_set: std::sync::MutexGuard<'_, SmallSet<ArcId<ModuleDataMut>>> =
             self.data.dirty.lock();
-        for (_, dirty_module_data) in dirty_handles {
-            if let Some(x) = dirty_module_data {
-                x.state.write(Step::Load).unwrap().dirty.deps = true;
-                dirty_set.insert(x);
-            }
+        for x in dirty.into_values() {
+            x.state.write(Step::Load).unwrap().dirty.deps = true;
+            dirty_set.insert(x);
         }
     }
 
