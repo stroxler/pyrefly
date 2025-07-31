@@ -26,7 +26,7 @@ From this directory, you can run:
 - Run a single test: `buck2 test pyrefly -- NAME_OF_THE_TEST`
 - Run the end-to-end tests: `buck2 test test:`
 - Run `arc pyre` (a.k.a. per-target type checking) with Pyrefly:
-  `arc pyre check <targets_to_check> -c python.type_checker=fbcode//pyrefly:pyrefly_for_buck`
+  `arc pyre check <targets_to_check> -c python.type_checker=fbcode//pyrefly:pyrefly_for_buck -c python.typeshed_stubs=fbcode//python/typeshed_internal:typeshed_internal`
 - Debug a file: `buck2 run pyrefly -- check <filename> --debug-info=debug.js`,
   then open `debug.html` in your browser
 - Fetch Typeshed from upstream
