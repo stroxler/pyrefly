@@ -1717,7 +1717,7 @@ impl State {
                             state: _,
                             todo: _,
                             changed: _,
-                            dirty: _,
+                            dirty,
                             subscriber: _,
                         },
                 },
@@ -1725,6 +1725,12 @@ impl State {
         } = transaction;
         // Drop the read lock the transaction holds.
         drop(readable);
+
+        // If you make a transaction dirty, e.g. by calling an invalidate method,
+        // you must subsequently call `run` to drain the dirty queue.
+        // We could relax this restriction by storing `dirty` in the `State`,
+        // but no one wants to do this, so don't bother.
+        assert!(dirty.into_inner().is_empty(), "Transaction is dirty");
 
         let mut state = self.state.write();
         state.stdlib = stdlib;

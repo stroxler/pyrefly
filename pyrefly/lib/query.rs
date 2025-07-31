@@ -66,6 +66,7 @@ impl Query {
             .new_committable_transaction(Require::Everything, None);
         let new_transaction_mut = transaction.as_mut();
         new_transaction_mut.invalidate_events(events);
+        new_transaction_mut.run(&[]);
         self.state.commit_transaction(transaction);
         let all_files = self.files.lock().iter().cloned().collect::<Vec<_>>();
         self.add_files(all_files);

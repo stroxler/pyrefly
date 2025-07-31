@@ -191,6 +191,7 @@ fn test_crash_on_search() {
         PathBuf::from("foo.py"),
         Some(Arc::new("x = 3".to_owned())),
     )]);
+    t.as_mut().run(&[]); // This run breaks reproduction (but is now required)
     state.commit_transaction(t);
 
     // Now we need to increment the step counter.
