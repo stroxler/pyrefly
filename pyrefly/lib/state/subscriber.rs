@@ -27,12 +27,12 @@ use crate::state::load::Load;
 pub trait Subscriber: Sync {
     /// We are starting work on a `Handle`, with the intention to computing at
     /// least some of its steps.
-    fn start_work(&self, handle: Handle);
+    fn start_work(&self, handle: &Handle);
 
     /// We have finished work on a `Handle`, having computed its solutions.
     /// While we have computed the solutions, we return the `Load` as that contains
     /// the `ErrorCollector` and `Module` which are useful context for the completion.
-    fn finish_work(&self, handle: Handle, result: Arc<Load>);
+    fn finish_work(&self, handle: &Handle, result: &Arc<Load>);
 }
 
 /// A subscriber that validates all start/finish are paired and returns the final load states.
@@ -40,9 +40,9 @@ pub trait Subscriber: Sync {
 pub struct TestSubscriber(Arc<Mutex<SmallMap<Handle, (usize, Option<Arc<Load>>)>>>);
 
 impl Subscriber for TestSubscriber {
-    fn start_work(&self, handle: Handle) {
+    fn start_work(&self, handle: &Handle) {
         let mut value = self.0.lock();
-        match value.entry(handle) {
+        match value.entry(handle.dupe()) {
             Entry::Vacant(e) => {
                 e.insert((1, None));
             }
@@ -58,13 +58,13 @@ impl Subscriber for TestSubscriber {
         }
     }
 
-    fn finish_work(&self, handle: Handle, result: Arc<Load>) {
+    fn finish_work(&self, handle: &Handle, result: &Arc<Load>) {
         let mut value = self.0.lock();
         match value.entry(handle.dupe()) {
             Entry::Vacant(_) => panic!("Handle finished but never started: {handle:?}"),
             Entry::Occupied(mut e) => {
                 assert!(e.get().1.is_none());
-                e.get_mut().1 = Some(result);
+                e.get_mut().1 = Some(result.dupe());
             }
         }
     }
@@ -148,11 +148,11 @@ impl ProgressBarSubscriber {
 }
 
 impl Subscriber for ProgressBarSubscriber {
-    fn start_work(&self, _: Handle) {
+    fn start_work(&self, _: &Handle) {
         self.event(|x| x.started += 1);
     }
 
-    fn finish_work(&self, _: Handle, _: Arc<Load>) {
+    fn finish_work(&self, _: &Handle, _: &Arc<Load>) {
         self.event(|x| x.finished += 1);
     }
 }

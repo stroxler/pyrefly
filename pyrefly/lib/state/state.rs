@@ -614,7 +614,7 @@ impl<'a> Transaction<'a> {
             // Do not clear solutions, since we can use that for equality
             w.epochs.computed = self.data.now;
             if let Some(subscriber) = &self.data.subscriber {
-                subscriber.start_work(module_data.handle.dupe());
+                subscriber.start_work(&module_data.handle);
             }
             let mut deps_lock = module_data.deps.write();
             let deps = mem::take(&mut *deps_lock);
@@ -830,7 +830,7 @@ impl<'a> Transaction<'a> {
                 if let Some(load) = load_result
                     && let Some(subscriber) = &self.data.subscriber
                 {
-                    subscriber.finish_work(module_data.handle.dupe(), load);
+                    subscriber.finish_work(&module_data.handle, &load);
                 }
             }
             if todo == step {
@@ -900,7 +900,7 @@ impl<'a> Transaction<'a> {
         // Figure out if we won the race, and thus are the person who actually did the creation.
         let created = Some(&res) == created.as_ref();
         if created && let Some(subscriber) = &self.data.subscriber {
-            subscriber.start_work(handle.dupe());
+            subscriber.start_work(handle);
         }
         (res, created)
     }
@@ -1376,7 +1376,7 @@ impl<'a> Transaction<'a> {
         if let Some(subscriber) = &self.data.subscriber {
             // Start everything so we have the right size progress bar.
             for h in self.data.updated_modules.keys() {
-                subscriber.start_work(h.dupe());
+                subscriber.start_work(h);
             }
         }
         let mut timings: SmallMap<String, f32> = SmallMap::new();
@@ -1439,7 +1439,7 @@ impl<'a> Transaction<'a> {
                 }
             }
             if let Some(subscriber) = &self.data.subscriber {
-                subscriber.finish_work(m.handle.dupe(), alt.load.unwrap().dupe());
+                subscriber.finish_work(&m.handle, &alt.load.unwrap());
             }
         }
         self.data.subscriber = None; // Finalise the progress bar before printing to stderr
