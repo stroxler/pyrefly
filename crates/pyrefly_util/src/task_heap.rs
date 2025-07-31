@@ -136,13 +136,11 @@ impl<K: Ord, V> TaskHeap<K, V> {
     }
 
     /// Push a task into the heap. For equal values of `K`, the task will be processed in LIFO order.
-    #[allow(dead_code)]
     pub fn push_lifo(&self, k: K, v: V) {
         self.push(k, v, true)
     }
 
     /// Push a task into the heap. For equal values of `K`, the task will be processed in FIFO order.
-    #[allow(dead_code)]
     pub fn push_fifo(&self, k: K, v: V) {
         self.push(k, v, false)
     }
@@ -156,7 +154,6 @@ impl<K: Ord, V> TaskHeap<K, V> {
     ///
     /// This method can be called from multiple threads simultaneously, and the callback `f`
     /// can safely call `push_fifo` or `push_lifo` on this `TaskHeap`.
-    #[allow(dead_code)]
     pub fn work(&self, mut f: impl FnMut(K, V)) -> Result<(), Cancelled> {
         // Create a guard struct to ensure we cleanup even on panic
         struct Unwind<'a, K, V>(&'a TaskHeap<K, V>);
