@@ -1075,6 +1075,17 @@ impl Server {
         self.open_files.write().remove(&uri);
         self.connection
             .publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
+        let state = self.state.dupe();
+        let open_files = self.open_files.dupe();
+        std::thread::spawn(move || {
+            // Clear out the memory associated with this file.
+            // Not a race condition because we immediately call validate_in_memory to put back the open files as they are now.
+            // Having the extra file hanging around doesn't harm anything, but does use extra memory.
+            let mut transaction = state.new_committable_transaction(Require::Indexing, None);
+            transaction.as_mut().set_memory(vec![(uri, None)]);
+            Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
+            state.commit_transaction(transaction);
+        });
     }
 
     fn workspace_folders_changed(&self, params: DidChangeWorkspaceFoldersParams) {
