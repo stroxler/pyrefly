@@ -653,7 +653,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (l, Type::Union(us)) => us.iter().any(|u| self.is_subset_eq(l, u)),
             (Type::Intersect(ls), u) => ls.iter().any(|l| self.is_subset_eq(l, u)),
             (Type::Quantified(q), u) if let Restriction::Unrestricted = q.restriction() => {
-                self.is_subset_eq_impl(&self.type_order.stdlib().object().clone().to_type(), u)
+                self.is_subset_eq(&self.type_order.stdlib().object().clone().to_type(), u)
             }
             (Type::Module(_), Type::ClassType(cls)) if cls.has_qname("types", "ModuleType") => true,
             (
@@ -677,18 +677,18 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::BoundMethod(method), Type::Callable(_) | Type::Function(_))
                 if let Some(l_no_self) = method.drop_self() =>
             {
-                self.is_subset_eq_impl(&l_no_self, want)
+                self.is_subset_eq(&l_no_self, want)
             }
             (Type::Callable(_) | Type::Function(_), Type::BoundMethod(method))
                 if let Some(u_no_self) = method.drop_self() =>
             {
-                self.is_subset_eq_impl(got, &u_no_self)
+                self.is_subset_eq(got, &u_no_self)
             }
             (Type::BoundMethod(l), Type::BoundMethod(u))
                 if let Some(l_no_self) = l.drop_self()
                     && let Some(u_no_self) = u.drop_self() =>
             {
-                self.is_subset_eq_impl(&l_no_self, &u_no_self)
+                self.is_subset_eq(&l_no_self, &u_no_self)
             }
             (
                 Type::Callable(box l)
@@ -1018,7 +1018,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 self.is_subset_eq(&got, want)
             }
             (Type::TypeAlias(ta), _) => {
-                self.is_subset_eq_impl(&ta.as_value(self.type_order.stdlib()), want)
+                self.is_subset_eq(&ta.as_value(self.type_order.stdlib()), want)
             }
             _ => false,
         }
