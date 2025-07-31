@@ -176,3 +176,33 @@ fn test_change_require() {
     );
     assert!(state.transaction().get_bindings(&handle).is_some());
 }
+
+#[test]
+#[should_panic]
+fn test_crash_on_search() {
+    const REQUIRE: Require = Require::Everything; // Doesn't matter for the test
+
+    let mut t = TestEnv::new();
+    t.add("foo", "x = 1");
+    let (state, _) = t.to_state();
+
+    // Now we dirty the module `foo`
+    let mut t = state.new_committable_transaction(REQUIRE, None);
+    t.as_mut().set_memory(vec![(
+        PathBuf::from("foo.py"),
+        Some(Arc::new("x = 3".to_owned())),
+    )]);
+    state.commit_transaction(t);
+
+    // Now we need to increment the step counter.
+    let mut t = state.new_committable_transaction(REQUIRE, None);
+    t.as_mut().run(&[]);
+    state.commit_transaction(t);
+
+    // Now we run two searches, this used to crash
+    let t = state.new_transaction(REQUIRE, None);
+    eprintln!("First search");
+    t.search_exports_exact("x");
+    eprintln!("Second search");
+    t.search_exports_exact("x");
+}
