@@ -36,6 +36,7 @@ struct IncrementalData(Arc<Mutex<SmallMap<ModuleName, Arc<String>>>>);
 /// Helper for writing incrementality tests.
 struct Incremental {
     data: IncrementalData,
+    require: Option<Require>,
     state: State,
     to_set: Vec<(String, String)>,
 }
@@ -86,6 +87,7 @@ impl Incremental {
 
         Self {
             data: data.dupe(),
+            require: None,
             state: State::new(ConfigFinder::new_constant(config)),
             to_set: Vec::new(),
         }
@@ -106,9 +108,10 @@ impl Incremental {
 
     fn unchecked(&mut self, want: &[&str]) -> IncrementalResult {
         let subscriber = TestSubscriber::new();
-        let mut transaction = self
-            .state
-            .new_committable_transaction(Require::Errors, Some(Box::new(subscriber.dupe())));
+        let mut transaction = self.state.new_committable_transaction(
+            self.require.unwrap_or(Require::Errors),
+            Some(Box::new(subscriber.dupe())),
+        );
         for (file, contents) in mem::take(&mut self.to_set) {
             let contents = Arc::new(contents.to_owned());
             self.data
@@ -123,7 +126,7 @@ impl Incremental {
         let handles = want.map(|x| self.handle(x));
         self.state.run_with_committing_transaction(
             transaction,
-            &handles.map(|x| (x.dupe(), Require::Everything)),
+            &handles.map(|x| (x.dupe(), self.require.unwrap_or(Require::Everything))),
         );
         let loaded = Self::USER_FILES.map(|x| self.handle(x));
         let errors = self.state.transaction().get_errors(&loaded);
@@ -462,4 +465,19 @@ def f(c: C):
 "#,
     );
     i.unchecked(&["foo"]); // Used to panic
+}
+
+#[test]
+fn test_incremental_rdeps() {
+    // Make sure we hit the rdeps case
+    let mut i = Incremental::new();
+    i.require = Some(Require::Everything); // So we don't invalidate based on require
+    i.set("foo", "import bar\nclass C: pass\nx = bar.z");
+    i.set("bar", "import foo\nz = foo.C\nq: type[foo.C] = foo.x");
+    i.check(&["foo"], &["foo", "bar"]);
+
+    i.set("foo", "import bar\nclass Q: pass\nx = bar.z\nclass C: pass");
+    i.check(&["foo"], &["bar", "bar", "foo", "foo", "foo"]);
+
+    i.check(&["foo", "bar"], &[]); // Nothing appears dirty
 }
