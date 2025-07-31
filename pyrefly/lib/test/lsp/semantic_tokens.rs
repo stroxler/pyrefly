@@ -109,6 +109,52 @@ token-type: variable, token-modifiers: [readonly]
 }
 
 #[test]
+fn branch_with_pinning_test() {
+    let code = r#"
+def test(flag: bool, x: str | None) -> None:
+    if flag:
+        y = "derp"
+        x = y
+    x
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 4, length: 4, text: test
+token-type: function
+
+line: 1, column: 9, length: 4, text: flag
+token-type: parameter
+
+line: 1, column: 15, length: 4, text: bool
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 1, column: 21, length: 1, text: x
+token-type: parameter
+
+line: 1, column: 24, length: 3, text: str
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 2, column: 7, length: 4, text: flag
+token-type: parameter
+
+line: 3, column: 8, length: 1, text: y
+token-type: variable
+
+line: 4, column: 8, length: 1, text: x
+token-type: variable
+
+line: 4, column: 12, length: 1, text: y
+token-type: variable
+
+line: 5, column: 4, length: 1, text: x
+token-type: variable
+"#,
+    );
+}
+
+#[test]
 fn function_test() {
     let code = r#"
 def foo(v: int) -> int: ...
