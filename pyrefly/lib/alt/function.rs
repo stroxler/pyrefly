@@ -513,40 +513,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
         .forall(self.validated_tparams(def.range, tparams, errors));
         for x in decorators.into_iter().rev() {
-            ty = match self.apply_decorator(*x, ty, errors) {
-                // Preserve function metadata, so things like method binding still work.
-                Type::Callable(c) => Type::Function(Box::new(Function {
-                    signature: *c,
-                    metadata: metadata.clone(),
-                })),
-                // Callback protocol. We convert it to a function so we can add function metadata.
-                Type::ClassType(cls)
-                    if self
-                        .get_metadata_for_class(cls.class_object())
-                        .is_protocol() =>
-                {
-                    let call_attr = self.instance_as_dunder_call(&cls).and_then(|call_attr| {
-                        if let Type::BoundMethod(m) = call_attr {
-                            let func = m.as_function();
-                            Some(func.drop_first_param_of_unbound_callable().unwrap_or(func))
-                        } else {
-                            None
-                        }
-                    });
-                    if let Some(mut call_attr) = call_attr {
-                        call_attr.transform_toplevel_func_metadata(|m| {
-                            *m = FuncMetadata {
-                                kind: FunctionKind::CallbackProtocol(Box::new(cls.clone())),
-                                flags: metadata.flags.clone(),
-                            };
-                        });
-                        call_attr
-                    } else {
-                        cls.to_type()
-                    }
-                }
-                t => t,
-            }
+            // Preserve function metadata, so things like method binding still work.
+            ty = self.apply_metadata(self.apply_decorator(*x, ty, errors), &metadata);
         }
         Arc::new(DecoratedFunction {
             id_range: def.name.range,
@@ -555,6 +523,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             stub_or_impl,
             defining_cls,
         })
+    }
+
+    fn apply_metadata(&self, ty: Type, metadata: &FuncMetadata) -> Type {
+        match ty {
+            Type::Callable(c) => Type::Function(Box::new(Function {
+                signature: *c,
+                metadata: metadata.clone(),
+            })),
+            // Callback protocol. We convert it to a function so we can add function metadata.
+            Type::ClassType(cls)
+                if self
+                    .get_metadata_for_class(cls.class_object())
+                    .is_protocol() =>
+            {
+                let call_attr = self.instance_as_dunder_call(&cls).and_then(|call_attr| {
+                    if let Type::BoundMethod(m) = call_attr {
+                        let func = m.as_function();
+                        Some(func.drop_first_param_of_unbound_callable().unwrap_or(func))
+                    } else {
+                        None
+                    }
+                });
+                if let Some(mut call_attr) = call_attr {
+                    call_attr.transform_toplevel_func_metadata(|m| {
+                        *m = FuncMetadata {
+                            kind: FunctionKind::CallbackProtocol(Box::new(cls.clone())),
+                            flags: metadata.flags.clone(),
+                        };
+                    });
+                    call_attr
+                } else {
+                    cls.to_type()
+                }
+            }
+            t => t,
+        }
     }
 
     /// For a type guard function, validate whether it has at least one
