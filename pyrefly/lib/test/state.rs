@@ -178,7 +178,6 @@ fn test_change_require() {
 }
 
 #[test]
-#[should_panic]
 fn test_crash_on_search() {
     const REQUIRE: Require = Require::Everything; // Doesn't matter for the test
 

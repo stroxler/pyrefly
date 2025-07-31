@@ -416,58 +416,37 @@ impl<'a> Transaction<'a> {
         &self,
         searcher: impl Fn(&Handle, Arc<SmallMap<Name, ExportLocation>>) -> Vec<V> + Sync,
     ) -> Vec<V> {
+        // Make sure all the modules are in updated_modules.
+        // We have to get a mutable module data to do the lookup we need anyway.
+        for x in self.readable.modules.keys() {
+            self.get_module(x);
+        }
+
         let all_results = Mutex::new(Vec::new());
-        {
-            let tasks = TaskHeap::new();
-            // It's very fast to find whether a module contains an export, but the cost will
-            // add up for a large codebase. Therefore, we will parallelize the work. The work is
-            // distributed in the task heap above.
-            // To avoid too much lock contention, we chunk the work into size of 1000 modules.
-            for chunk in &self.data.updated_modules.iter_unordered().chunks(1000) {
-                tasks.push((), chunk.collect_vec(), false);
-            }
-            self.data.state.threads.spawn_many(|| {
-                tasks.work_without_cancellation(|_, modules| {
-                    let mut thread_local_results = Vec::new();
-                    for (handle, module_data) in modules {
-                        let exports = self
-                            .lookup_export(module_data)
-                            .exports(&self.lookup(module_data.dupe()));
-                        thread_local_results.extend(searcher(handle, exports));
-                    }
-                    if !thread_local_results.is_empty() {
-                        all_results.lock().push(thread_local_results);
-                    }
-                });
-            });
+
+        let tasks = TaskHeap::new();
+        // It's very fast to find whether a module contains an export, but the cost will
+        // add up for a large codebase. Therefore, we will parallelize the work. The work is
+        // distributed in the task heap above.
+        // To avoid too much lock contention, we chunk the work into size of 1000 modules.
+        for chunk in &self.data.updated_modules.iter_unordered().chunks(1000) {
+            tasks.push((), chunk.collect_vec(), false);
         }
-        {
-            let tasks = TaskHeap::new();
-            for chunk in &self
-                .readable
-                .modules
-                .iter()
-                .filter(|(handle, _)| self.data.updated_modules.get(handle).is_none())
-                .chunks(1000)
-            {
-                tasks.push((), chunk.collect_vec(), false);
-            }
-            self.data.state.threads.spawn_many(|| {
-                tasks.work_without_cancellation(|_, modules| {
-                    let mut thread_local_results = Vec::new();
-                    for (handle, module_data) in modules {
-                        let module_data = ArcId::new(module_data.clone_for_mutation());
-                        let exports = self
-                            .lookup_export(&module_data)
-                            .exports(&self.lookup(module_data));
-                        thread_local_results.extend(searcher(handle, exports));
-                    }
-                    if !thread_local_results.is_empty() {
-                        all_results.lock().push(thread_local_results);
-                    }
-                });
+        self.data.state.threads.spawn_many(|| {
+            tasks.work_without_cancellation(|_, modules| {
+                let mut thread_local_results = Vec::new();
+                for (handle, module_data) in modules {
+                    let exports = self
+                        .lookup_export(module_data)
+                        .exports(&self.lookup(module_data.dupe()));
+                    thread_local_results.extend(searcher(handle, exports));
+                }
+                if !thread_local_results.is_empty() {
+                    all_results.lock().push(thread_local_results);
+                }
             });
-        }
+        });
+
         all_results.into_inner().into_iter().flatten().collect()
     }
 
