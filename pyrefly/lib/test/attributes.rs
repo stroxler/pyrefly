@@ -1308,3 +1308,18 @@ class B(A[int]):
 assert_type(B(42).x, int)
     "#,
 );
+
+testcase!(
+    test_crtp_example, // CRTP = Curiously recurring template pattern
+    r#"
+from typing import Any, assert_type
+class Node[T: "Node[Any]"]:
+    children : tuple[T, ...]
+class Expr(Node["Expr"]):
+    ...
+class Singleton(Expr):
+    def __init__(self, v: Expr):
+        self.children = (v,)
+assert_type(Singleton(Expr()).children, tuple[Expr, ...])
+    "#,
+);
