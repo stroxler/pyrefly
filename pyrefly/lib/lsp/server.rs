@@ -1304,6 +1304,7 @@ impl Server {
                             ));
                         };
                     }
+                    cancellation_handles.lock().remove(&request_id);
                     connection.send(Message::Response(new_response(
                         request_id,
                         Ok(Some(map_result(locations))),
