@@ -462,9 +462,8 @@ impl Server {
                 return Ok(ProcessEvent::Exit);
             }
             LspEvent::RecheckFinished => {
-                // We pass false even if there is a future mutation - we did a commit and want to get
-                // back to a stable state.
-                self.validate_in_memory(ide_transaction_manager, false);
+                // We did a commit and want to get back to a stable state.
+                self.validate_in_memory(ide_transaction_manager);
             }
             LspEvent::CancelRequest(id) => {
                 eprintln!("We should cancel request {id:?}");
@@ -541,7 +540,7 @@ impl Server {
                     // We probably didn't bother completing a previous check, but we are now answering a query that
                     // really needs a previous check to be correct.
                     // Validating sends out notifications, which isn't required, but this is the safest way.
-                    self.validate_in_memory(ide_transaction_manager, false);
+                    self.validate_in_memory(ide_transaction_manager);
                 }
 
                 eprintln!("Handling non-canceled request {} ({})", x.method, &x.id);
@@ -815,7 +814,6 @@ impl Server {
         state: &State,
         open_files: &RwLock<HashMap<PathBuf, Arc<String>>>,
         transaction: &mut Transaction<'_>,
-        subsequent_mutation: bool,
     ) -> Vec<(Handle, Require)> {
         let handles = open_files
             .read()
@@ -829,9 +827,7 @@ impl Server {
                 .map(|x| (x.0.clone(), Some(x.1.dupe())))
                 .collect::<Vec<_>>(),
         );
-        if !subsequent_mutation {
-            transaction.run(&handles);
-        }
+        transaction.run(&handles);
         handles
     }
 
@@ -859,23 +855,15 @@ impl Server {
         None
     }
 
-    fn validate_in_memory<'a>(
-        &'a self,
-        ide_transaction_manager: &mut TransactionManager<'a>,
-        subsequent_mutation: bool,
-    ) {
+    fn validate_in_memory<'a>(&'a self, ide_transaction_manager: &mut TransactionManager<'a>) {
         let mut possibly_committable_transaction =
             ide_transaction_manager.get_possibly_committable_transaction(&self.state);
         let transaction = match &mut possibly_committable_transaction {
             Ok(transaction) => transaction.as_mut(),
             Err(transaction) => transaction,
         };
-        let handles = Self::validate_in_memory_for_transaction(
-            &self.state,
-            &self.open_files,
-            transaction,
-            subsequent_mutation,
-        );
+        let handles =
+            Self::validate_in_memory_for_transaction(&self.state, &self.open_files, transaction);
 
         let publish = |transaction: &Transaction| {
             let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
@@ -1033,7 +1021,9 @@ impl Server {
         self.open_files
             .write()
             .insert(uri, Arc::new(params.text_document.text));
-        self.validate_in_memory(ide_transaction_manager, subsequent_mutation);
+        if !subsequent_mutation {
+            self.validate_in_memory(ide_transaction_manager);
+        }
         self.populate_project_files_if_necessary(config_to_populate_files);
         // rewatch files in case we loaded or dropped any configs
         self.setup_file_watcher_if_necessary();
@@ -1063,7 +1053,9 @@ impl Server {
             params.content_changes,
         ));
         drop(lock);
-        self.validate_in_memory(ide_transaction_manager, subsequent_mutation);
+        if !subsequent_mutation {
+            self.validate_in_memory(ide_transaction_manager);
+        }
         Ok(())
     }
 
@@ -1110,10 +1102,10 @@ impl Server {
         }
 
         if modified {
+            // Once the config finishes changing, we'll recheck
             self.invalidate_config();
-            // We expect infrequent config changes so the subsequent mutation optimization is not necessary.
             // If disable_type_errors has changed, we want that to take effect immediately.
-            self.validate_in_memory(ide_transaction_manager, false);
+            self.validate_in_memory(ide_transaction_manager);
         }
     }
 
@@ -1135,9 +1127,8 @@ impl Server {
         }
         if modified {
             self.invalidate_config();
-            // We expect infrequent config changes so the subsequent mutation optimization is not necessary.
             // If disable_type_errors has changed, we want that to take effect immediately.
-            self.validate_in_memory(ide_transaction_manager, false);
+            self.validate_in_memory(ide_transaction_manager);
         }
     }
 
@@ -1312,12 +1303,7 @@ impl Server {
             cancellation_handles
                 .lock()
                 .insert(request_id.clone(), transaction.get_cancellation_handle());
-            Self::validate_in_memory_for_transaction(
-                &state,
-                &open_files,
-                transaction.as_mut(),
-                false,
-            );
+            Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
             match transaction.find_global_references_from_definition(
                 handle.sys_info(),
                 metadata,
