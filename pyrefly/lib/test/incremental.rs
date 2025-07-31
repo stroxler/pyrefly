@@ -481,3 +481,22 @@ fn test_incremental_rdeps() {
 
     i.check(&["foo", "bar"], &[]); // Nothing appears dirty
 }
+
+#[test]
+fn test_incremental_rdeps_with_new() {
+    // Make sure we hit the rdeps case
+    let mut i = Incremental::new();
+    i.require = Some(Require::Everything); // So we don't invalidate based on require
+    i.set("foo", "import bar\nclass C: pass\nx = bar.z");
+    i.set("bar", "import foo\nz = foo.C\nq: type[foo.C] = foo.x");
+    i.check(&["foo"], &["foo", "bar"]);
+
+    i.set(
+        "foo",
+        "import bar\nimport baz\nclass Q: pass\nx = bar.z\nclass C: pass",
+    );
+    i.set("baz", "import bar");
+    i.unchecked(&["foo"]);
+
+    i.check(&["foo", "bar", "baz"], &[]); // Nothing appears dirty
+}
