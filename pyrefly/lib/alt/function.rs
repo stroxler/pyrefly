@@ -513,8 +513,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
         .forall(self.validated_tparams(def.range, tparams, errors));
         for x in decorators.into_iter().rev() {
-            // Preserve function metadata, so things like method binding still work.
-            ty = self.apply_metadata(self.apply_decorator(*x, ty, errors), &metadata);
+            ty = self.apply_function_decorator(*x, ty, &metadata, errors);
         }
         Arc::new(DecoratedFunction {
             id_range: def.name.range,
@@ -525,8 +524,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
-    fn apply_metadata(&self, ty: Type, metadata: &FuncMetadata) -> Type {
-        match ty {
+    fn apply_function_decorator(
+        &self,
+        decorator: Idx<Key>,
+        decoratee: Type,
+        metadata: &FuncMetadata,
+        errors: &ErrorCollector,
+    ) -> Type {
+        // Preserve function metadata, so things like method binding still work.
+        match self.apply_decorator(decorator, decoratee, errors) {
             Type::Callable(c) => Type::Function(Box::new(Function {
                 signature: *c,
                 metadata: metadata.clone(),
