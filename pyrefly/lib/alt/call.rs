@@ -883,7 +883,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             (closest_overload.return_type, closest_overload.signature)
         } else {
-            dbg!(args);
             let mut msg = vec1![
                 format!(
                     "No matching overload found for function `{}`",
