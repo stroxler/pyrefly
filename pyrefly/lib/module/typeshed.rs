@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::env;
+use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -33,6 +34,13 @@ use crate::config::error_kind::Severity;
 pub struct BundledTypeshed {
     find: SmallMap<ModuleName, PathBuf>,
     load: SmallMap<PathBuf, Arc<String>>,
+}
+
+fn set_readonly(path: &Path, value: bool) -> anyhow::Result<()> {
+    let mut permissions = fs::metadata(path)?.permissions();
+    permissions.set_readonly(value);
+    fs::set_permissions(path, permissions)?;
+    Ok(())
 }
 
 impl BundledTypeshed {
@@ -109,7 +117,13 @@ impl BundledTypeshed {
                 fs_anyhow::create_dir_all(parent)?;
             }
 
-            fs_anyhow::write(&file_path, contents.as_bytes())?;
+            // Write the file and set it as read-only in a single logical operation
+            let _ = set_readonly(&file_path, false); // Might fail (e.g. file doesn't exist)
+            fs::write(&file_path, contents.as_bytes())
+                .with_context(|| format!("When writing file `{}`", file_path.display()))?;
+
+            // We try and make the files read-only, since editing them in the IDE won't update.
+            let _ = set_readonly(&file_path, true); // If this fails, not a big deal
         }
 
         BundledTypeshed::config()
