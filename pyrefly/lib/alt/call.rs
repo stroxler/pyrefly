@@ -612,25 +612,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }) => {
                 // Most instances of typing.Self are replaced in as_call_target, but __new__ is a
                 // staticmethod, so we don't have access to the first argument until we get here.
-                let id = metadata.kind.as_func_id();
-                let first_arg_type = if id.func == dunder::NEW {
-                    self.first_arg_type(args, errors)
-                } else {
-                    None
-                };
-                let self_obj = match first_arg_type {
-                    Some(Type::Type(box Type::ClassType(c))) => Some(c.to_type()),
-                    Some(Type::ClassDef(class)) => {
-                        Some(self.as_class_type_unchecked(&class).to_type())
-                    }
-                    _ => None,
-                };
-                if let Some(self_obj) = self_obj {
+                if let Some(self_obj) =
+                    self.get_self_obj_from_dunder_new_args(args, errors, &metadata)
+                {
                     callable.subst_self_type_mut(&self_obj, &|a, b| self.is_subset_eq(a, b));
                 }
                 self.callable_infer(
                     callable,
-                    Some(id),
+                    Some(metadata.kind.as_func_id()),
                     None,
                     args,
                     keywords,
@@ -641,9 +630,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     hint,
                 )
             }
-            Target::FunctionOverload(overloads, meta) => {
+            Target::FunctionOverload(mut overloads, metadata) => {
+                // As with the Target::Function case, we need to substitute the type of `self` here.
+                if let Some(self_obj) =
+                    self.get_self_obj_from_dunder_new_args(args, errors, &metadata)
+                {
+                    for func in overloads.iter_mut() {
+                        func.signature
+                            .subst_self_type_mut(&self_obj, &|a, b| self.is_subset_eq(a, b));
+                    }
+                }
                 self.call_overloads(
-                    overloads, meta, None, args, keywords, range, errors, context, hint,
+                    overloads, metadata, None, args, keywords, range, errors, context, hint,
                 )
                 .0
             }
@@ -707,6 +705,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }))
         } else {
             res
+        }
+    }
+
+    // TODO: This is buggy. For constructor calls, `C()` we insert the first argument ourselves, and it
+    // has the correct type of the receiver. For calls like `A.__new__(B)`, we should use the receiver (A)
+    // as the self type, not the argument (B). See `test_self_type_subst_use_receiver`
+    fn get_self_obj_from_dunder_new_args(
+        &self,
+        args: &[CallArg<'_>],
+        errors: &ErrorCollector,
+        metadata: &FuncMetadata,
+    ) -> Option<Type> {
+        if metadata.kind.as_func_id().func == dunder::NEW {
+            self.first_arg_type(args, errors).and_then(|ty| match ty {
+                Type::Type(box Type::ClassType(c)) => Some(c.to_type()),
+                Type::ClassDef(class) => Some(self.as_class_type_unchecked(&class).to_type()),
+                _ => None,
+            })
+        } else {
+            None
         }
     }
 

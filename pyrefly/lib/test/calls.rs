@@ -58,7 +58,6 @@ assert_type(o.__new__(C[int]), Self) # E: Argument `type[C[int]]` is not assigna
 );
 
 testcase!(
-    bug = "Self type is not specialized in overloaded `__new__` calls",
     test_self_type_subst_overloaded_dunder_new,
     r#"
 from typing import Self, assert_type, overload
@@ -70,8 +69,8 @@ class C:
     def __new__(cls, x: int | str) -> Self:
         return super().__new__(cls)
 
-assert_type(C.__new__(C, 0), C) # E: assert_type(Self, C) failed
-assert_type(C.__new__(C, ""), C) # E: assert_type(Self, C) failed
+assert_type(C.__new__(C, 0), C)
+assert_type(C.__new__(C, ""), C)
     "#,
 );
 

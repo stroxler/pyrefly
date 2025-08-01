@@ -148,3 +148,23 @@ assert_type(A.x.y, int)
 assert_type(B.x.y, int)
     "#,
 );
+
+testcase!(
+    test_inherit_overloaded_dunder_new_with_self,
+    r#"
+from typing import Self, overload
+
+class A:
+    @overload
+    def __new__(cls, x: int) -> Self: ...
+    @overload
+    def __new__(cls, x: str) -> Self: ...
+    def __new__(cls, x: int | str) -> Self:
+        return super().__new__(cls)
+
+class B(A):
+    pass
+
+x: B = B(1)
+"#,
+);
