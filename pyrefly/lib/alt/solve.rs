@@ -424,6 +424,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::FString(..) => "f-string",
             Expr::TString(..) => "t-string",
             Expr::UnaryOp(..) => "unary operation",
+            Expr::BinOp(ExprBinOp { op, .. }) => &format!("binary operation `{}`", op.as_str()),
             // There are many Expr variants. Not all of them are likely to be used
             // in annotations, even accidentally. We can add branches for specific
             // expression constructs if desired.
