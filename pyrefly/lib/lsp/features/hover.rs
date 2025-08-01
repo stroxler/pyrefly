@@ -52,7 +52,7 @@ impl HoverValue {
         if linked_names.is_empty() {
             None
         } else {
-            Some(format!("\n---\nGo to {linked_names}"))
+            Some(format!("\n\nGo to {linked_names}"))
         }
     }
 
