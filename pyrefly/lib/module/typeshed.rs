@@ -91,14 +91,18 @@ impl BundledTypeshed {
         let temp_dir = env::temp_dir().join("pyrefly_bundled_typeshed");
 
         let mut written = WRITTEN_TO_DISK.lock();
-        if *written {
-            return Ok(temp_dir);
+        if !*written {
+            self.write(&temp_dir)?;
+            *written = true;
         }
+        Ok(temp_dir)
+    }
 
-        fs_anyhow::create_dir_all(&temp_dir)?;
+    fn write(&self, temp_dir: &Path) -> anyhow::Result<()> {
+        fs_anyhow::create_dir_all(temp_dir)?;
 
         for (relative_path, contents) in &self.load {
-            let mut file_path = temp_dir.clone();
+            let mut file_path = temp_dir.to_owned();
             file_path.push(relative_path);
 
             if let Some(parent) = file_path.parent() {
@@ -110,14 +114,11 @@ impl BundledTypeshed {
 
         BundledTypeshed::config()
             .as_ref()
-            .write_to_toml_in_directory(&temp_dir)
+            .write_to_toml_in_directory(temp_dir)
             .with_context(|| {
-                format!("Failed to write pyrefly config at {:?}", temp_dir.to_str())
+                format!("Failed to write pyrefly config at {:?}", temp_dir.display())
             })?;
-
-        *written = true;
-
-        Ok(temp_dir)
+        Ok(())
     }
 }
 
