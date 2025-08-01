@@ -2,7 +2,6 @@
 {
   "aliases_explicit.py": [],
   "aliases_implicit.py": [
-    "Line 81: Expected 1 errors",
     "Line 106: Expected 1 errors",
     "Line 111: Expected 1 errors",
     "Line 112: Expected 1 errors",
@@ -32,8 +31,6 @@
   "aliases_type_statement.py": [
     "Line 26: Expected 1 errors",
     "Line 56: Expected 1 errors",
-    "Line 77: Expected 1 errors",
-    "Line 79: Expected 1 errors",
     "Line 82: Expected 1 errors",
     "Line 84: Expected 1 errors",
     "Lines 51, 52: Expected error (tag 'TA14')",

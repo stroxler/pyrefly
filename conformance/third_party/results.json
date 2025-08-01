@@ -3,7 +3,7 @@
   "pass": 77,
   "fail": 59,
   "pass_rate": 0.57,
-  "differences": 268,
+  "differences": 265,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -84,9 +84,9 @@
     "typeddicts_usage.py"
   ],
   "failing": {
-    "aliases_implicit.py": 6,
+    "aliases_implicit.py": 5,
     "aliases_recursive.py": 17,
-    "aliases_type_statement.py": 8,
+    "aliases_type_statement.py": 6,
     "aliases_typealiastype.py": 26,
     "aliases_variance.py": 4,
     "annotations_forward_refs.py": 7,

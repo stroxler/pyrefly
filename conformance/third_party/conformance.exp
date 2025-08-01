@@ -286,6 +286,16 @@
     {
       "code": -2,
       "column": 9,
+      "concise_description": "Type `str` is not assignable to upper bound `float` of type variable `TFloat`",
+      "description": "Type `str` is not assignable to upper bound `float` of type variable `TFloat`",
+      "line": 81,
+      "name": "bad-specialization",
+      "stop_column": 29,
+      "stop_line": 81
+    },
+    {
+      "code": -2,
+      "column": 9,
       "concise_description": "Expected a type form, got instance of `list[type[int] | type[str]]`",
       "description": "Expected a type form, got instance of `list[type[int] | type[str]]`",
       "line": 107,
@@ -848,6 +858,26 @@
       "name": "invalid-type-var",
       "stop_column": 20,
       "stop_line": 67
+    },
+    {
+      "code": -2,
+      "column": 7,
+      "concise_description": "Type `str` is not assignable to upper bound `int` of type variable `S`",
+      "description": "Type `str` is not assignable to upper bound `int` of type variable `S`",
+      "line": 77,
+      "name": "bad-specialization",
+      "stop_column": 41,
+      "stop_line": 77
+    },
+    {
+      "code": -2,
+      "column": 7,
+      "concise_description": "Type `int` is not assignable to upper bound `str` of type variable `T`",
+      "description": "Type `int` is not assignable to upper bound `str` of type variable `T`",
+      "line": 79,
+      "name": "bad-specialization",
+      "stop_column": 41,
+      "stop_line": 79
     }
   ],
   "aliases_typealiastype.py": [

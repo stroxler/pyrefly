@@ -238,6 +238,11 @@ impl TypeCheckKind {
                     "Implementation signature `{impl_sig}` does not accept all arguments that overload signature `{overload_sig}` accepts"
                 )
             }
+            Self::TypeVarSpecialization(name) => {
+                format!(
+                    "Type `{got}` is not assignable to upper bound `{want}` of type variable `{name}`"
+                )
+            }
         }
     }
 }

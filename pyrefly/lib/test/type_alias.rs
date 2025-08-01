@@ -581,7 +581,6 @@ def f(y1: Y | None, y2: Y[int] | None):
 );
 
 testcase!(
-    bug = "Missing check of type argument against TypeVar bound",
     test_implicit_alias_of_typevar_type,
     r#"
 from typing import TypeVar
@@ -591,7 +590,7 @@ def f(x: X[bool]) -> bool:
     return x()
 def g(x: type[T][int]):  # E: invalid subscript expression
     pass
-def h(x: X[str]):  # should be an error about str not matching int
+def h(x: X[str]):  # E: `str` is not assignable to upper bound `int`
     pass
     "#,
 );
@@ -605,5 +604,58 @@ Ts = TypeVarTuple('Ts')
 Error1 = type[P]  # E: `ParamSpec[P]` is not allowed
 Error2 = type[Ts]  # E: `TypeVarTuple` is not allowed
 Error3 = type[Unpack[Ts]]  # E: `Unpack` is not allowed
+    "#,
+);
+
+testcase!(
+    test_bound_mismatch,
+    r#"
+from typing import TypeAlias, TypeVar
+
+T = TypeVar('T', bound=int)
+
+ImplicitAlias = list[T]
+ExplicitAlias: TypeAlias = list[T]
+type ScopedAlias[S: int] = list[S]
+
+def f(
+    x: ImplicitAlias[str],  # E: Type `str` is not assignable to upper bound `int` of type variable `T`
+    y: ExplicitAlias[str],  # E: `str` is not assignable to upper bound `int`
+    z: ScopedAlias[str],  # E: `str` is not assignable to upper bound `int`
+): ...
+    "#,
+);
+
+testcase!(
+    test_constraint_mismatch,
+    r#"
+from typing import TypeAlias, TypeVar
+
+T = TypeVar('T', int, bytes)
+
+ImplicitAlias = list[T]
+ExplicitAlias: TypeAlias = list[T]
+type ScopedAlias[S: (int, bytes)] = list[S]
+
+def f(
+    x: ImplicitAlias[str],  # E: Type `str` is not assignable to upper bound `bytes | int` of type variable `T`
+    y: ExplicitAlias[str],  # E: `str` is not assignable to upper bound `bytes | int`
+    z: ScopedAlias[str],  # E: `str` is not assignable to upper bound `bytes | int`
+): ...
+    "#,
+);
+
+testcase!(
+    test_specialize_typevar_with_typevar,
+    r#"
+from typing import TypeAlias, TypeVar
+
+T = TypeVar('T', bound=int)
+S = TypeVar('S', bound=bool)
+U = TypeVar('U', bound=str)
+
+X: TypeAlias = list[T]
+Y: TypeAlias = X[S]
+Z: TypeAlias = X[U]  # E: `str` is not assignable to upper bound `int`
     "#,
 );
