@@ -11,7 +11,6 @@ use dupe::Dupe;
 use itertools::Either;
 use itertools::Itertools;
 use pyrefly_python::module_name::ModuleName;
-use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Expr;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -76,7 +75,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn class_metadata_of(
         &self,
         cls: &Class,
-        bases: &[Expr],
+        bases: &[BaseClass],
         keywords: &[(Name, Expr)],
         decorators: &[(Idx<Key>, TextRange)],
         is_new_type: bool,
@@ -84,7 +83,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         let mut enum_metadata = None;
-        let mut bases: Vec<BaseClass> = bases.map(|x| self.base_class_of(x, errors));
+        let mut bases: Vec<BaseClass> = bases.to_vec();
         if let Some(special_base) = special_base {
             bases.push((**special_base).clone());
         }

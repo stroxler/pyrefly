@@ -1617,7 +1617,7 @@ impl DisplayWith<Bindings> for BindingClass {
 pub struct BindingTParams {
     pub name: Identifier,
     pub scoped_type_params: Option<Box<TypeParams>>,
-    pub bases: Box<[Expr]>,
+    pub bases: Box<[BaseClass]>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
 }
 
@@ -1766,7 +1766,7 @@ impl DisplayWith<Bindings> for BindingVariance {
 pub struct BindingClassMetadata {
     pub class_idx: Idx<KeyClass>,
     /// The base class list, as expressions.
-    pub bases: Box<[Expr]>,
+    pub bases: Box<[BaseClass]>,
     /// The class keywords (these are keyword args that appear in the base class list, the
     /// Python runtime will dispatch most of them to the metaclass, but the metaclass
     /// itself can also potentially be one of these).

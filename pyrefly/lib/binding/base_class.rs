@@ -5,9 +5,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_python::ast::Ast;
 use ruff_python_ast::Expr;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+
+use crate::binding::bindings::BindingsBuilder;
+use crate::export::special::SpecialExport;
 
 /// Private helper type used to share part of the logic needed for the
 /// binding-level work of finding legacy type parameters versus the type-level
@@ -21,21 +25,6 @@ pub enum BaseClass {
     NamedTuple(TextRange),
 }
 
-impl BaseClass {
-    pub fn can_apply(&self) -> bool {
-        matches!(self, BaseClass::Generic(..) | BaseClass::Protocol(..))
-    }
-
-    pub fn apply(&mut self, args: Vec<Expr>) {
-        match self {
-            BaseClass::Generic(xs, ..) | BaseClass::Protocol(xs, ..) => {
-                xs.extend(args);
-            }
-            _ => panic!("cannot apply base class"),
-        }
-    }
-}
-
 impl Ranged for BaseClass {
     fn range(&self) -> TextRange {
         match self {
@@ -44,6 +33,39 @@ impl Ranged for BaseClass {
             BaseClass::Protocol(_, range) => *range,
             BaseClass::Expr(expr) => expr.range(),
             BaseClass::NamedTuple(range) => *range,
+        }
+    }
+}
+
+impl<'a> BindingsBuilder<'a> {
+    pub fn base_class_of(&self, base_expr: Expr) -> BaseClass {
+        match self.as_special_export(&base_expr) {
+            Some(SpecialExport::TypedDict) => BaseClass::TypedDict(base_expr.range()),
+            Some(SpecialExport::TypingNamedTuple) | Some(SpecialExport::CollectionsNamedTuple) => {
+                BaseClass::NamedTuple(base_expr.range())
+            }
+            Some(SpecialExport::Protocol) => BaseClass::Protocol(Vec::new(), base_expr.range()),
+            Some(SpecialExport::Generic) => BaseClass::Generic(Vec::new(), base_expr.range()),
+            _ => {
+                if let Expr::Subscript(subscript) = &base_expr {
+                    match self.as_special_export(&subscript.value) {
+                        Some(SpecialExport::Protocol) => {
+                            return BaseClass::Protocol(
+                                Ast::unpack_slice(&subscript.slice).to_owned(),
+                                base_expr.range(),
+                            );
+                        }
+                        Some(SpecialExport::Generic) => {
+                            return BaseClass::Generic(
+                                Ast::unpack_slice(&subscript.slice).to_owned(),
+                                base_expr.range(),
+                            );
+                        }
+                        _ => {}
+                    }
+                }
+                BaseClass::Expr(base_expr)
+            }
         }
     }
 }

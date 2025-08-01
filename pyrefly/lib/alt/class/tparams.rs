@@ -9,8 +9,6 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use pyrefly_util::prelude::SliceExt;
-use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::TypeParams;
 use starlark_map::small_map::SmallMap;
@@ -48,11 +46,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         name: &Identifier,
         scoped_type_params: Option<&TypeParams>,
-        bases: &[Expr],
+        bases: &[BaseClass],
         legacy: &[Idx<KeyLegacyTypeParam>],
         errors: &ErrorCollector,
     ) -> Arc<TParams> {
-        let bases = bases.map(|x| self.base_class_of(x, errors));
         let scoped_tparams = self.scoped_type_params(scoped_type_params, errors);
         let legacy_tparams = legacy
             .iter()

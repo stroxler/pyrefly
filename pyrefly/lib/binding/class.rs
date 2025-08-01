@@ -160,7 +160,7 @@ impl<'a> BindingsBuilder<'a> {
                 &mut legacy
             };
             self.ensure_type(&mut base, legacy);
-            base
+            self.base_class_of(base)
         });
 
         let mut keywords = Vec::new();
@@ -439,6 +439,7 @@ impl<'a> BindingsBuilder<'a> {
                 bases: base
                     .clone()
                     .into_iter()
+                    .map(|base| self.base_class_of(base))
                     .collect::<Vec<_>>()
                     .into_boxed_slice(),
                 keywords,
