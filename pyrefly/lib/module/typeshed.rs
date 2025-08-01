@@ -140,3 +140,17 @@ pub fn typeshed() -> anyhow::Result<&'static BundledTypeshed> {
 pub fn stdlib_search_path() -> Option<PathBuf> {
     env::var_os("PYREFLY_STDLIB_SEARCH_PATH").map(|path| Path::new(&path).to_path_buf())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_typeshed_materialize() {
+        let typeshed = typeshed().unwrap();
+        let path = typeshed.materialized_path_on_disk().unwrap();
+        // Do it twice, to check that works.
+        typeshed.materialized_path_on_disk().unwrap();
+        typeshed.write(&path).unwrap();
+    }
+}
