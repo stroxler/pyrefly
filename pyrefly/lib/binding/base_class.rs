@@ -19,8 +19,8 @@ use crate::export::special::SpecialExport;
 #[derive(Debug, Clone)]
 pub enum BaseClass {
     TypedDict(TextRange),
-    Generic(Vec<Expr>, TextRange),
-    Protocol(Vec<Expr>, TextRange),
+    Generic(Box<[Expr]>, TextRange),
+    Protocol(Box<[Expr]>, TextRange),
     Expr(Expr),
     NamedTuple(TextRange),
 }
@@ -44,20 +44,20 @@ impl<'a> BindingsBuilder<'a> {
             Some(SpecialExport::TypingNamedTuple) | Some(SpecialExport::CollectionsNamedTuple) => {
                 BaseClass::NamedTuple(base_expr.range())
             }
-            Some(SpecialExport::Protocol) => BaseClass::Protocol(Vec::new(), base_expr.range()),
-            Some(SpecialExport::Generic) => BaseClass::Generic(Vec::new(), base_expr.range()),
+            Some(SpecialExport::Protocol) => BaseClass::Protocol(Box::new([]), base_expr.range()),
+            Some(SpecialExport::Generic) => BaseClass::Generic(Box::new([]), base_expr.range()),
             _ => {
                 if let Expr::Subscript(subscript) = &base_expr {
                     match self.as_special_export(&subscript.value) {
                         Some(SpecialExport::Protocol) => {
                             return BaseClass::Protocol(
-                                Ast::unpack_slice(&subscript.slice).to_owned(),
+                                Ast::unpack_slice(&subscript.slice).into(),
                                 base_expr.range(),
                             );
                         }
                         Some(SpecialExport::Generic) => {
                             return BaseClass::Generic(
-                                Ast::unpack_slice(&subscript.slice).to_owned(),
+                                Ast::unpack_slice(&subscript.slice).into(),
                                 base_expr.range(),
                             );
                         }
