@@ -1254,7 +1254,7 @@ impl LegacyTParamBuilder {
                     // tparams, and we only want to do that once (which we do in
                     // the binding created by `forward_lookup`).
                     Binding::CheckLegacyTypeParam(*idx, None),
-                    FlowStyle::Other,
+                    builder.scopes.get_flow_style(&name.id, true).clone(),
                 );
             }
         }

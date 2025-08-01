@@ -53,15 +53,14 @@ def f(x: str | None):
 );
 
 testcase!(
-    bug = "We don't identify bool() as builtins.bool if it's used elsewhere as a type annotation, instead the special exports system thinks it's defined by the current file (main.bool)",
     test_bool_special_exports_bug,
     r#"
-from typing import assert_type
+from typing import assert_type, Literal
 def f(x: bool):
     if bool(x):
-        assert_type(x, bool)  # should be Literal[True]
+        assert_type(x, Literal[True])
     else:
-        assert_type(x, bool)  # should be Literal[False]
+        assert_type(x, Literal[False])
     "#,
 );
 
