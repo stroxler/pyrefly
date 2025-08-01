@@ -318,3 +318,52 @@ Data(x="42")
 Data(x=NotConvertibleToInt())  # E: `NotConvertibleToInt` is not assignable to parameter `x`
     "#,
 );
+
+testcase!(
+    test_existing_init_decorator,
+    r#"
+from typing import dataclass_transform, reveal_type
+@dataclass_transform()
+def build[T](cls: type[T]) -> type[T]: ...
+
+@build
+class A:
+    def __init__(self, x: int) -> None: ...
+    y: str
+# `__init__` is not synthesized when one already exists
+reveal_type(A.__init__)  # E: (self: Self@A, x: int) -> None
+
+class B(A): ...
+# inheriting from `A` still does not synthesize an `__init__`
+reveal_type(B.__init__)  # E: (self: Self@A, x: int) -> None
+
+@build
+class C(A): ...
+# inheriting from `A` and reapplying `@build` synthesizes an `__init__`
+reveal_type(C.__init__)  # E: (self: C, y: str) -> None
+    "#,
+);
+
+testcase!(
+    test_existing_init_base_class,
+    r#"
+from typing import dataclass_transform, reveal_type
+@dataclass_transform()
+class Base:
+    def __init__(self, x: int) -> None: ...
+
+class A(Base): ...
+# __init__ in `Base` is ignored
+reveal_type(A.__init__)  # E: (self: A) -> None
+
+class B(Base):
+    def __init__(self, y: str) -> None: ...
+    z: bool
+# __init__ is not synthesized when one already exists
+reveal_type(B.__init__)  # E: (self: Self@B, y: str) -> None
+
+class C(B): ...
+# inheriting from `B` synthesizes an `__init__`
+reveal_type(C.__init__)  # E: (self: C, z: bool) -> None
+    "#,
+);

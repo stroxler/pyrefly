@@ -351,9 +351,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // this does not turn the class into a dataclass! Instead, it becomes a special base class
         // (or metaclass) that turns child classes into dataclasses.
         let mut dataclass_transform_metadata = dataclass_defaults_from_base_class.clone();
-        let mut dataclass_metadata = bases_with_metadata
-            .iter()
-            .find_map(|(_, metadata)| metadata.dataclass_metadata().cloned());
+        // If we inherit from a dataclass, inherit its metadata. Note that if this class is
+        // itself decorated with @dataclass, we'll compute new metadata and overwrite this.
+        let mut dataclass_metadata = bases_with_metadata.iter().find_map(|(_, metadata)| {
+            let mut m = metadata.dataclass_metadata().cloned()?;
+            // Avoid accidentally overwriting a non-synthesized `__init__`.
+            m.kws.init = false;
+            Some(m)
+        });
         // This is set when we should apply dataclass-like transformations to the class. The class
         // should be transformed if:
         // - it inherits from a base class decorated with `dataclass_transform(...)`, or
