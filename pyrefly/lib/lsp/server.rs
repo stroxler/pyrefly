@@ -733,6 +733,7 @@ impl Server {
                             params, &x.id,
                         )
                 {
+                    self.validate_in_memory(ide_transaction_manager);
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
                     self.send_response(new_response(

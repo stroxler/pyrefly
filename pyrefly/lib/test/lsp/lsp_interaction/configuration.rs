@@ -393,7 +393,6 @@ fn test_disable_type_errors_language_services_still_work() {
     });
 }
 
-#[ignore] // TODO: Fix this!
 #[test]
 fn test_disable_type_errors_workspace_folder() {
     let test_files_root = get_test_files_root();
