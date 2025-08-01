@@ -31,9 +31,9 @@ impl TypedDictField {
         self.read_only_reason.is_some()
     }
 
-    pub fn substitute(self, substitution: &Substitution) -> Self {
+    pub fn substitute_with(self, substitution: &Substitution) -> Self {
         Self {
-            ty: substitution.substitute(self.ty),
+            ty: substitution.substitute_into(self.ty),
             required: self.required,
             read_only_reason: self.read_only_reason,
         }

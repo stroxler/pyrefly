@@ -71,10 +71,10 @@ impl Annotation {
         self.qualifiers.iter().any(|q| q == qualifier)
     }
 
-    pub fn substitute(self, substitution: Substitution) -> Self {
+    pub fn substitute_with(self, substitution: Substitution) -> Self {
         Self {
             qualifiers: self.qualifiers,
-            ty: self.ty.map(|ty| substitution.substitute(ty)),
+            ty: self.ty.map(|ty| substitution.substitute_into(ty)),
         }
     }
 }

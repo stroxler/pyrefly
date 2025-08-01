@@ -160,7 +160,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.get_class_member(class, name).and_then(|member| {
             Arc::unwrap_or_clone(member.value)
                 .as_typed_dict_field_info(is_total)
-                .map(|field| field.substitute(substitution))
+                .map(|field| field.substitute_with(substitution))
         })
     }
 

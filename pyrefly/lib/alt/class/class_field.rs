@@ -526,7 +526,7 @@ impl<'a> Instance<'a> {
     /// Instantiate a type that is relative to the class type parameters
     /// by substituting in the type arguments.
     fn instantiate_member(&self, raw_member: Type) -> Type {
-        self.targs.substitute(raw_member)
+        self.targs.substitute_into(raw_member)
     }
 
     fn to_type(&self) -> Type {
@@ -1118,11 +1118,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.get_field_from_current_class_only(parent.class_object(), name)?;
                 let ClassField(ClassFieldInner::Simple { ty, annotation, .. }) = &*parent_field;
                 if found_field.is_none() {
-                    found_field = Some(parent.targs().substitution().substitute(ty.clone()));
+                    found_field = Some(parent.targs().substitution().substitute_into(ty.clone()));
                 }
                 annotation
                     .clone()
-                    .map(|ann| ann.substitute(parent.targs().substitution()))
+                    .map(|ann| ann.substitute_with(parent.targs().substitution()))
             });
         (found_field, annotation)
     }

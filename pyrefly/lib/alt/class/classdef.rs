@@ -159,7 +159,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(class.clone())
         } else {
             self.get_ancestor(class.class_object(), want)
-                .map(|ancestor| ancestor.substitute(&class.substitution()))
+                .map(|ancestor| ancestor.substitute_with(&class.substitution()))
         }
     }
 

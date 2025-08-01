@@ -25,7 +25,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .tuple_base()
             .cloned()
             .map(Type::Tuple)
-            .map(|ty| cls.targs().substitute(ty))
+            .map(|ty| cls.targs().substitute_into(ty))
         {
             return Some(tuple);
         }

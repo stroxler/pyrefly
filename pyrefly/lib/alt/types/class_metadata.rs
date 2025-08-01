@@ -497,7 +497,7 @@ impl Linearization {
                 ClassMro::Resolved(ancestors) => {
                     let ancestors_through_base = ancestors
                         .iter()
-                        .map(|ancestor| ancestor.substitute(&base.substitution()))
+                        .map(|ancestor| ancestor.substitute_with(&base.substitution()))
                         .rev()
                         .collect::<Vec<_>>();
                     ancestor_chains.push(AncestorChain::from_base_and_ancestors(
