@@ -22,6 +22,8 @@ use ruff_python_ast::Identifier;
 use crate::equality::TypeEq;
 use crate::equality::TypeEqCtx;
 use crate::qname::QName;
+use crate::simplify::unions;
+use crate::stdlib::Stdlib;
 use crate::types::Type;
 
 /// Used to represent TypeVar calls. Each TypeVar is unique, so use the ArcId to separate them.
@@ -51,6 +53,20 @@ pub enum Restriction {
     Constraints(Vec<Type>),
     Bound(Type),
     Unrestricted,
+}
+
+impl Restriction {
+    pub fn is_restricted(&self) -> bool {
+        matches!(self, Self::Bound(_) | Self::Constraints(_))
+    }
+
+    pub fn as_type(&self, stdlib: &Stdlib) -> Type {
+        match self {
+            Self::Bound(t) => t.clone(),
+            Self::Constraints(ts) => unions(ts.clone()),
+            Self::Unrestricted => stdlib.object().clone().to_type(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]

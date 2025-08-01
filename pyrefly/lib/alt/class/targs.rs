@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use pyrefly_types::callable::Function;
-use pyrefly_types::type_var::Restriction;
 use pyrefly_util::display::count;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::name::Name;
@@ -470,41 +469,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         "`ParamSpec` cannot be used for type parameter".to_owned(),
                     )
                 } else {
-                    let tcc = &|| {
-                        TypeCheckContext::of_kind(TypeCheckKind::TypeVarSpecialization(
-                            param.name().clone(),
-                        ))
-                    };
-                    // In a legacy type alias, one old-style TypeVar can be specialized with
-                    // another, which we handle by checking their upper bounds against each other.
-                    let arg_for_check = || {
-                        let arg = arg.clone();
-                        arg.transform(&mut |x| {
-                            if let Type::TypeVar(tv) = x {
-                                *x = match tv.restriction() {
-                                    Restriction::Bound(t) => t.clone(),
-                                    Restriction::Constraints(ts) => self.unions(ts.clone()),
-                                    Restriction::Unrestricted => {
-                                        self.stdlib.object().clone().to_type()
-                                    }
-                                };
-                            }
-                        })
-                    };
-                    match param.restriction() {
-                        Restriction::Bound(t) => {
-                            self.check_type(t, &arg_for_check(), range, errors, tcc);
-                        }
-                        Restriction::Constraints(ts) => {
-                            self.check_type(
-                                &self.unions(ts.clone()),
-                                &arg_for_check(),
-                                range,
-                                errors,
-                                tcc,
-                            );
-                        }
-                        Restriction::Unrestricted => {}
+                    let restriction = param.restriction();
+                    if restriction.is_restricted() {
+                        let tcc = &|| {
+                            TypeCheckContext::of_kind(TypeCheckKind::TypeVarSpecialization(
+                                param.name().clone(),
+                            ))
+                        };
+                        // In a legacy type alias, one old-style TypeVar can be specialized with
+                        // another, which we handle by checking their upper bounds against each other.
+                        let arg_for_check = {
+                            let arg = arg.clone();
+                            arg.transform(&mut |x| {
+                                if let Type::TypeVar(tv) = x {
+                                    *x = tv.restriction().as_type(self.stdlib);
+                                }
+                            })
+                        };
+                        self.check_type(
+                            &restriction.as_type(self.stdlib),
+                            &arg_for_check,
+                            range,
+                            errors,
+                            tcc,
+                        );
                     }
                     arg.clone()
                 }
