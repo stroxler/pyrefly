@@ -42,6 +42,8 @@ pub enum SpecialExport {
     Overload,
     AbstractMethod,
     SelfType,
+    Generic,
+    Protocol,
 }
 
 impl SpecialExport {
@@ -64,6 +66,8 @@ impl SpecialExport {
             "NewType" => Some(Self::NewType),
             "Union" => Some(Self::Union),
             "Optional" => Some(Self::Optional),
+            "Generic" => Some(Self::Generic),
+            "Protocol" => Some(Self::Protocol),
             "cast" => Some(Self::Cast),
             "super" => Some(Self::Super),
             "exit" => Some(Self::Exit),
@@ -96,7 +100,9 @@ impl SpecialExport {
             | Self::NoTypeCheck
             | Self::Overload
             | Self::SelfType
-            | Self::Cast => {
+            | Self::Cast
+            | Self::Generic
+            | Self::Protocol => {
                 matches!(m.as_str(), "typing" | "typing_extensions")
             }
             Self::CollectionsNamedTuple => matches!(m.as_str(), "collections"),
