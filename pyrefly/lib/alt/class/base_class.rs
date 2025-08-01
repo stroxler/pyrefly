@@ -8,52 +8,13 @@
 use pyrefly_python::ast::Ast;
 use ruff_python_ast::Expr;
 use ruff_text_size::Ranged;
-use ruff_text_size::TextRange;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::binding::base_class::BaseClass;
 use crate::error::collector::ErrorCollector;
 use crate::types::special_form::SpecialForm;
 use crate::types::types::Type;
-
-/// Private helper type used to share part of the logic needed for the
-/// binding-level work of finding legacy type parameters versus the type-level
-/// work of computing inheritance information and the MRO.
-#[derive(Debug, Clone)]
-pub enum BaseClass {
-    TypedDict(TextRange),
-    Generic(Vec<Expr>, TextRange),
-    Protocol(Vec<Expr>, TextRange),
-    Expr(Expr),
-    NamedTuple(TextRange),
-}
-
-impl BaseClass {
-    pub fn can_apply(&self) -> bool {
-        matches!(self, BaseClass::Generic(..) | BaseClass::Protocol(..))
-    }
-
-    pub fn apply(&mut self, args: Vec<Expr>) {
-        match self {
-            BaseClass::Generic(xs, ..) | BaseClass::Protocol(xs, ..) => {
-                xs.extend(args);
-            }
-            _ => panic!("cannot apply base class"),
-        }
-    }
-}
-
-impl Ranged for BaseClass {
-    fn range(&self) -> TextRange {
-        match self {
-            BaseClass::TypedDict(range) => *range,
-            BaseClass::Generic(_, range) => *range,
-            BaseClass::Protocol(_, range) => *range,
-            BaseClass::Expr(expr) => expr.range(),
-            BaseClass::NamedTuple(range) => *range,
-        }
-    }
-}
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// This helper deals with special cases where we want to intercept an `Expr`

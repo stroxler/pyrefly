@@ -18,8 +18,8 @@ use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::class::base_class::BaseClass;
 use crate::alt::solve::TypeFormContext;
+use crate::binding::base_class::BaseClass;
 use crate::binding::binding::KeyLegacyTypeParam;
 use crate::binding::binding::KeyTParams;
 use crate::config::error_kind::ErrorKind;
