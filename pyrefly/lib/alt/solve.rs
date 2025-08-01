@@ -382,7 +382,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn is_valid_annotation(&self, x: &Expr, errors: &ErrorCollector) -> bool {
+    fn has_valid_annotation_syntax(&self, x: &Expr, errors: &ErrorCollector) -> bool {
         // Note that this function only checks for correct syntax.
         // Semantic validation (e.g. that `typing.Self` is used in a class
         // context, or that a string evaluates to a proper type expression) is
@@ -445,7 +445,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         type_form_context: TypeFormContext,
         errors: &ErrorCollector,
     ) -> Annotation {
-        if !self.is_valid_annotation(x, errors) {
+        if !self.has_valid_annotation_syntax(x, errors) {
             return Annotation::new_type(Type::any_error());
         }
         match x {
@@ -834,7 +834,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         let range = expr.range();
-        if !self.is_valid_annotation(expr, errors) {
+        if !self.has_valid_annotation_syntax(expr, errors) {
             return Type::any_error();
         }
         let untyped = self.untype_opt(ty.clone(), range);
@@ -2161,7 +2161,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     (None, ty_ref)
                         if Self::may_be_implicit_type_alias(ty_ref)
-                            && self.is_valid_annotation(expr, &self.error_swallower()) =>
+                            && self.has_valid_annotation_syntax(expr, &self.error_swallower()) =>
                     {
                         self.as_type_alias(name, TypeAliasStyle::LegacyImplicit, ty, expr, errors)
                     }
