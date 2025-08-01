@@ -17,6 +17,7 @@ use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::TypeParam;
 use ruff_python_ast::TypeParams;
@@ -389,7 +390,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // See https://typing.readthedocs.io/en/latest/spec/annotations.html#type-and-annotation-expressions
         let problem = match x {
             Expr::Name(..)
-            | Expr::BinOp(ruff_python_ast::ExprBinOp {
+            | Expr::BinOp(ExprBinOp {
                 op: ruff_python_ast::Operator::BitOr,
                 ..
             })
@@ -400,7 +401,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | Expr::Starred(..) => return true,
             Expr::Subscript(s) => match *s.value {
                 Expr::Name(..)
-                | Expr::BinOp(ruff_python_ast::ExprBinOp {
+                | Expr::BinOp(ExprBinOp {
                     op: ruff_python_ast::Operator::BitOr,
                     ..
                 })
