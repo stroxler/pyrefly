@@ -208,3 +208,28 @@ References:
         report.trim(),
     );
 }
+
+// TODO: references on constructors
+#[test]
+fn dunder_init() {
+    let code = r#"
+class Foo:
+    def __init__(self): ...
+    #   ^
+    
+Foo()
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+3 |     def __init__(self): ...
+            ^
+References:
+3 |     def __init__(self): ...
+            ^^^^^^^^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
