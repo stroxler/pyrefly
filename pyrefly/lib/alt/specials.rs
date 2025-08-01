@@ -231,7 +231,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     {
                         literals.push(e.to_type())
                     }
-                    Type::Any(AnyStyle::Error) => literals.push(Type::any_error()),
+                    ty @ Type::Any(AnyStyle::Error) => literals.push(ty),
                     _ => {
                         self.error(
                             errors,
@@ -251,7 +251,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let ty = self.expr_infer(x, errors);
                 self.map_over_union(&ty, |ty| match ty {
                     Type::Type(box lit @ Type::Literal(_)) => literals.push(lit.clone()),
-                    Type::Any(AnyStyle::Error) => literals.push(Type::any_error()),
+                    ty @ Type::Any(AnyStyle::Error) => literals.push(ty.clone()),
                     _ => {
                         self.error(
                             errors,

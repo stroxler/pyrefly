@@ -25,7 +25,6 @@ use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
 use crate::graph::index::Idx;
 use crate::types::class::Class;
-use crate::types::types::AnyStyle;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 
@@ -64,7 +63,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Type::Unpack(t) => (t.as_quantified(), "TypeVarTuple"),
                 _ => (t.as_quantified(), "type variable"),
             };
-            if q.is_none() && !matches!(t, Type::Any(AnyStyle::Error)) {
+            if q.is_none() && !t.is_error() {
                 self.error(
                     errors,
                     name.range,
