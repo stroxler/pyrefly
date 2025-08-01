@@ -19,6 +19,8 @@ import fs from "fs";
 
 const BasePath = 'en/docs';
 
+const baseUrl = process.env.DOCUSAURUS_BASE_URL || '/';
+
 function getNavBarItems() {
     return [
         {
@@ -103,7 +105,7 @@ const config: Config = {
     title: 'Pyrefly',
     tagline: 'A Static Type Checker for Python',
     url: 'https://pyrefly.org',
-    baseUrl: process.env.DOCUSAURUS_BASE_URL || '/',
+    baseUrl: baseUrl,
     onBrokenLinks: 'throw',
     onBrokenMarkdownLinks: 'warn',
     // This is used instead of favicon to get the right icon based on light vs dark mode in google chrome. Note that this currently doesn't work in
@@ -114,7 +116,7 @@ const config: Config = {
           tagName: "link",
           attributes: {
             rel: "icon",
-            href: "img/Pyrefly-Symbol.svg",
+            href: baseUrl + "img/Pyrefly-Symbol.svg",
             type: "image/svg",
             sizes: "32x32",
             media: "(prefers-color-scheme: light)",
@@ -124,7 +126,7 @@ const config: Config = {
           tagName: "link",
           attributes: {
             rel: "icon",
-            href: "img/Pyrefly-Symbol-Invert.svg",
+            href: baseUrl + "img/Pyrefly-Symbol-Invert.svg",
             type: "image/svg",
             sizes: "32x32",
             media: "(prefers-color-scheme: dark)",
