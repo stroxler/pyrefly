@@ -2155,13 +2155,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None => (None, self.expr(expr, None, errors)),
                 };
                 // Then, handle the possibility that we need to treat the type as a type alias
-                match (has_type_alias_qualifier, &ty) {
-                    (Some(true), _) => {
+                match has_type_alias_qualifier {
+                    Some(true) => {
                         self.as_type_alias(name, TypeAliasStyle::LegacyExplicit, ty, expr, errors)
                     }
-                    (None, ty_ref)
-                        if Self::may_be_implicit_type_alias(ty_ref)
-                            && self.has_valid_annotation_syntax(expr, &self.error_swallower()) =>
+                    None if Self::may_be_implicit_type_alias(&ty)
+                        && self.has_valid_annotation_syntax(expr, &self.error_swallower()) =>
                     {
                         self.as_type_alias(name, TypeAliasStyle::LegacyImplicit, ty, expr, errors)
                     }
