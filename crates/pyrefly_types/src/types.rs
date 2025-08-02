@@ -1204,6 +1204,7 @@ impl Type {
     pub fn promote_literals(self, stdlib: &Stdlib) -> Type {
         self.transform(&mut |ty| match &ty {
             Type::Literal(lit) => *ty = lit.general_class_type(stdlib).clone().to_type(),
+            Type::LiteralString => *ty = stdlib.str().clone().to_type(),
             _ => {}
         })
     }

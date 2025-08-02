@@ -6970,6 +6970,16 @@
     },
     {
       "code": -2,
+      "column": 16,
+      "concise_description": "assert_type(str, LiteralString) failed",
+      "description": "assert_type(str, LiteralString) failed",
+      "line": 116,
+      "name": "assert-type",
+      "stop_column": 35,
+      "stop_line": 116
+    },
+    {
+      "code": -2,
       "column": 51,
       "concise_description": "Argument `str` is not assignable to parameter `value` with type `LiteralString` in function `Container.__init__`",
       "description": "Argument `str` is not assignable to parameter `value` with type `LiteralString` in function `Container.__init__`",

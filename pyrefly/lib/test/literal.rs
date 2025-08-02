@@ -119,7 +119,7 @@ testcase!(
 from typing import LiteralString, assert_type
 def f(x: LiteralString):
     assert_type(["foo"], list[str])
-    assert_type([x], list[LiteralString])
+    assert_type([x], list[str])
     xs: list[str] = [x]
 "#,
 );
@@ -218,5 +218,15 @@ testcase!(
 # This used to crash, see https://github.com/facebook/pyrefly/issues/453
 0x_fffffffffffffffff
 1_23
+"#,
+);
+
+testcase!(
+    test_promote_literal,
+    r#"
+from typing import assert_type, Literal
+
+x = list("abcdefg")
+assert_type(x, list[str])
 "#,
 );
