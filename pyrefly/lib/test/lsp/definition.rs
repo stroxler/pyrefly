@@ -217,6 +217,33 @@ Definition Result:
 }
 
 #[test]
+fn branch_with_pinning_test() {
+    let code = r#"
+def test(flag: bool, x: str | None) -> None:
+    if flag:
+        y = "derp"
+        x = y
+    x
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    // Why didn't it go to the parameter `x`? That's because we don't explore all branches of Phi nodes
+    // in gotodef yet
+    assert_eq!(
+        r#"
+# main.py
+6 |     x
+        ^
+Definition Result:
+5 |         x = y
+            ^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn shadowed_def_test0() {
     let code = r#"
 def test() -> None:
