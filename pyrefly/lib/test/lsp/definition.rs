@@ -912,6 +912,42 @@ Definition Result: None
 }
 
 #[test]
+fn legacy_typevar_test() {
+    let code = r#"
+from pathlib import Path
+
+class A[T, U]:
+    pass
+
+class B:
+    pass
+    
+def f(x: A[B, Path]) -> None:
+#          ^  ^
+    pass
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+10 | def f(x: A[B, Path]) -> None:
+                ^
+Definition Result:
+7 | class B:
+          ^
+
+10 | def f(x: A[B, Path]) -> None:
+                   ^
+Definition Result:
+107 | class Path(PurePath):
+            ^^^^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn multi_definition_test() {
     let code = r#"
 if True:
