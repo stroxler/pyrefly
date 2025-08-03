@@ -81,8 +81,6 @@
     "Line 96: Unexpected errors ['assert_type(Any, int) failed']"
   ],
   "annotations_generators.py": [
-    "Line 87: Expected 1 errors",
-    "Line 92: Expected 1 errors",
     "Line 190: Unexpected errors ['Expected to yield a value of type `int`, but a bare `yield` gives `None` instead']"
   ],
   "annotations_methods.py": [],
@@ -99,7 +97,7 @@
   "callables_subtyping.py": [],
   "classes_classvar.py": [],
   "classes_override.py": [
-    "Lines 56, 64, 65: Expected error (tag 'method4')"
+    "Lines 56, 57, 64, 65: Expected error (tag 'method4')"
   ],
   "constructors_call_init.py": [
     "Line 107: Expected 1 errors"
