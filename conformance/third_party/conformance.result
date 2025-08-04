@@ -96,9 +96,7 @@
   "callables_protocol.py": [],
   "callables_subtyping.py": [],
   "classes_classvar.py": [],
-  "classes_override.py": [
-    "Lines 56, 57, 64, 65: Expected error (tag 'method4')"
-  ],
+  "classes_override.py": [],
   "constructors_call_init.py": [
     "Line 107: Expected 1 errors"
   ],
@@ -316,9 +314,9 @@
     "Lines 121, 123, 127: Expected error (tag 'invalid_final')",
     "Lines 135, 136, 137, 141, 142: Expected error (tag 'invalid_final_2+')",
     "Lines 170, 175, 181, 183: Expected error (tag 'override-final')",
-    "Lines 190, 191, 197, 198: Expected error (tag 'bad_override')",
     "Lines 220, 221, 222, 225, 226: Expected error (tag 'override_impl+')",
-    "Line 49: Unexpected errors ['Overloaded function must have an implementation']"
+    "Line 49: Unexpected errors ['Overloaded function must have an implementation']",
+    "Line 176: Unexpected errors ['`final_method` is declared as final in parent class `Base`']"
   ],
   "overloads_evaluation.py": [
     "Line 105: Unexpected errors ['No matching overload found for function `example2`\\n  Possible overloads:\\n  (x: int, y: str, z: int) -> str [closest match]\\n  (x: int, y: int, z: int) -> int']",
@@ -411,7 +409,6 @@
     "Line 133: Unexpected errors ['Unexpected keyword argument `x` in function `N.__new__`', 'Unexpected keyword argument `y` in function `N.__new__`']"
   ],
   "qualifiers_final_decorator.py": [
-    "Lines 67, 68, 75: Expected error (tag 'method4')",
     "Lines 84, 85, 86: Expected error (tag 'Derived3-2')",
     "Lines 125, 126: Expected error (tag 'func')"
   ],

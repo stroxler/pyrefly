@@ -253,7 +253,6 @@ class ChildA(ParentA):
 );
 
 testcase!(
-    bug = "TODO: method4 should be marked as an error since it doesn't exist in the parent class",
     test_overload_override_error,
     r#"
 
@@ -264,7 +263,7 @@ class ParentA:
 
 class ChildA(ParentA):
     @overload
-    def method4(self, x: int) -> int:
+    def method4(self, x: int) -> int:  # E: no parent class has a matching attribute
         ...
 
     @overload

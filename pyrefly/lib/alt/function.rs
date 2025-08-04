@@ -127,6 +127,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         signatures: self
                             .extract_signatures(first.metadata.kind.as_func_id().func, acc, errors)
                             .mapped(|(_, sig)| sig),
+                        // When an overloaded function doesn't have a implementation, all decorators are present on the first overload:
+                        // https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
                         metadata: Box::new(first.metadata.clone()),
                     })
                 }
@@ -134,7 +136,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ty
             }
         } else {
-            let impl_is_deprecated = def.metadata.flags.is_deprecated;
             let mut acc = Vec::new();
             while let Some(def) = self.step_pred(predecessor)
                 && def.metadata.flags.is_overload
@@ -152,9 +153,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                     defs.split_off_first().0.1
                 } else {
-                    // TODO: merge the metadata properly.
-                    let mut metadata = defs.first().2.clone();
-                    metadata.flags.is_deprecated = impl_is_deprecated;
+                    let metadata = self.merge_metadata(&defs, &def);
                     let sigs =
                         self.extract_signatures(metadata.kind.as_func_id().func, defs, errors);
                     self.check_consistency(&sigs, def, errors);
@@ -701,6 +700,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 },
             )
         })
+    }
+
+    fn merge_metadata(
+        &self,
+        overloads: &Vec1<(TextRange, Type, FuncMetadata)>,
+        implementation: &DecoratedFunction,
+    ) -> FuncMetadata {
+        // `@dataclass_transform()` can be on any of the overloads or the implementation but not
+        // more than one: https://typing.python.org/en/latest/spec/dataclasses.html#specification.
+        let dataclass_transform_metadata = overloads
+            .iter()
+            .find_map(|(_, _, metadata)| metadata.flags.dataclass_transform_metadata.as_ref());
+        // All other decorators must be present on the implementation:
+        // https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
+        let mut metadata = implementation.metadata.clone();
+        if dataclass_transform_metadata.is_some() {
+            metadata.flags.dataclass_transform_metadata = dataclass_transform_metadata.cloned();
+        }
+        metadata
     }
 
     fn subst_function(&self, tparams: &TParams, func: Function) -> Function {
