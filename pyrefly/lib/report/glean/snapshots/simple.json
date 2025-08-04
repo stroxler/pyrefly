@@ -61,7 +61,7 @@
               "key": {
                 "name": {
                   "id": 0,
-                  "key": "hello_world"
+                  "key": "simple.hello_world"
                 }
               }
             }
@@ -163,7 +163,7 @@
               "key": {
                 "name": {
                   "id": 0,
-                  "key": "hello_world"
+                  "key": "simple.hello_world"
                 }
               }
             }
@@ -278,7 +278,7 @@
                   "key": {
                     "name": {
                       "id": 0,
-                      "key": "hello_world"
+                      "key": "simple.hello_world"
                     }
                   }
                 },

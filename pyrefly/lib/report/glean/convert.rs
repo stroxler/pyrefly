@@ -115,8 +115,8 @@ impl Facts {
     fn get_binding_key_at_position(
         &self,
         position: ruff_text_size::TextSize,
-    ) -> Option<crate::binding::binding::Key> {
-        self.bindings.definition_at_position(position).cloned()
+    ) -> Option<&crate::binding::binding::Key> {
+        self.bindings.definition_at_position(position)
     }
 
     fn module_facts(
@@ -211,6 +211,20 @@ impl Facts {
             name.to_string()
         };
         python::Name::new(fq_name)
+    }
+
+    fn make_fq_name_for_declaration(
+        &self,
+        name: &Name,
+        container: &python::DeclarationContainer,
+    ) -> python::Name {
+        let scope = match container {
+            python::DeclarationContainer::module(module) => module.key.name.key.to_string(),
+            python::DeclarationContainer::cls(cls) => cls.key.name.key.to_string(),
+            python::DeclarationContainer::func(func) => func.key.name.key.to_string() + ".<locals>",
+        };
+
+        python::Name::new(scope.to_owned() + "." + name)
     }
 
     fn make_decorators(&self, decorators: &[Decorator]) -> Vec<String> {
@@ -316,14 +330,13 @@ impl Facts {
 
     fn variable_info(
         &self,
-        name: &Name,
+        name: python::Name,
         range: TextRange,
         container: Option<&python::DeclarationContainer>,
         type_info: Option<python::TypeInfo>,
         top_level_decl: Option<python::Declaration>,
     ) -> DeclarationInfo {
-        let fqname = self.make_fq_name(name, None);
-        let variable_declaration = python::VariableDeclaration::new(fqname);
+        let variable_declaration = python::VariableDeclaration::new(name);
         let variable_definition = python::VariableDefinition::new(
             variable_declaration.clone(),
             type_info,
@@ -344,13 +357,14 @@ impl Facts {
         &self,
         param: &Parameter,
         value: Option<String>,
+        container: &python::DeclarationContainer,
         top_level_declaration: Option<&python::Declaration>,
         decl_infos: &mut Vec<DeclarationInfo>,
     ) -> python::Parameter {
         let type_info: Option<python::TypeInfo> = self.type_info(param.annotation());
 
         decl_infos.push(self.variable_info(
-            param.name.id(),
+            self.make_fq_name_for_declaration(param.name.id(), container),
             param.range(),
             None,
             type_info.clone(),
@@ -367,6 +381,7 @@ impl Facts {
         &self,
         parameter_with_default: &ParameterWithDefault,
         top_level_declaration: Option<&python::Declaration>,
+        container: &python::DeclarationContainer,
         decl_infos: &mut Vec<DeclarationInfo>,
     ) -> python::Parameter {
         let lined_buffer = self.module_info.lined_buffer();
@@ -377,6 +392,7 @@ impl Facts {
         self.parameter_info(
             &parameter_with_default.parameter,
             value,
+            container,
             top_level_declaration,
             decl_infos,
         )
@@ -387,7 +403,7 @@ impl Facts {
         func: &StmtFunctionDef,
         binding_func: Option<BindingFunction>,
         func_declaration: python::FunctionDeclaration,
-        container: python::DeclarationContainer,
+        container: &python::DeclarationContainer,
         params_top_level_decl: Option<&python::Declaration>,
     ) -> Vec<DeclarationInfo> {
         let declaration = python::Declaration::func(func_declaration.clone());
@@ -400,30 +416,61 @@ impl Facts {
         let args = params
             .args
             .iter()
-            .map(|x| self.parameter_with_default_info(x, params_top_level_decl, &mut decl_infos))
+            .map(|x| {
+                self.parameter_with_default_info(
+                    x,
+                    params_top_level_decl,
+                    container,
+                    &mut decl_infos,
+                )
+            })
             .collect();
 
         let pos_only_args = params
             .posonlyargs
             .iter()
-            .map(|x| self.parameter_with_default_info(x, params_top_level_decl, &mut decl_infos))
+            .map(|x| {
+                self.parameter_with_default_info(
+                    x,
+                    params_top_level_decl,
+                    container,
+                    &mut decl_infos,
+                )
+            })
             .collect();
 
         let kwonly_args = params
             .kwonlyargs
             .iter()
-            .map(|x| self.parameter_with_default_info(x, params_top_level_decl, &mut decl_infos))
+            .map(|x| {
+                self.parameter_with_default_info(
+                    x,
+                    params_top_level_decl,
+                    container,
+                    &mut decl_infos,
+                )
+            })
             .collect();
 
-        let star_arg = params
-            .vararg
-            .as_ref()
-            .map(|x| self.parameter_info(x.as_ref(), None, params_top_level_decl, &mut decl_infos));
+        let star_arg = params.vararg.as_ref().map(|x| {
+            self.parameter_info(
+                x.as_ref(),
+                None,
+                container,
+                params_top_level_decl,
+                &mut decl_infos,
+            )
+        });
 
-        let star_kwarg = params
-            .kwarg
-            .as_ref()
-            .map(|x| self.parameter_info(x.as_ref(), None, params_top_level_decl, &mut decl_infos));
+        let star_kwarg = params.kwarg.as_ref().map(|x| {
+            self.parameter_info(
+                x.as_ref(),
+                None,
+                container,
+                params_top_level_decl,
+                &mut decl_infos,
+            )
+        });
 
         let func_definition = python::FunctionDefinition::new(
             func_declaration,
@@ -435,7 +482,7 @@ impl Facts {
             star_arg,
             star_kwarg,
             Some(self.make_decorators(&func.decorator_list)),
-            Some(container),
+            Some(container.clone()),
         );
 
         decl_infos.push(DeclarationInfo {
@@ -460,7 +507,7 @@ impl Facts {
     ) {
         if let Some(name) = expr.as_name_expr() {
             def_infos.push(self.variable_info(
-                &name.id,
+                self.make_fq_name(&name.id, None),
                 range,
                 Some(container),
                 self.type_info(annotation),
@@ -621,12 +668,12 @@ impl Facts {
         let mut decl_infos = vec![];
         match stmt {
             Stmt::ClassDef(cls) => {
-                let cls_declaration =
-                    python::ClassDeclaration::new(self.make_fq_name(&cls.name.id, None), None);
+                let cls_fq_name = self.make_fq_name_for_declaration(&cls.name.id, container);
+                let cls_declaration = python::ClassDeclaration::new(cls_fq_name, None);
 
                 let class_key = self.get_binding_key_at_position(cls.name.range.start());
                 let cls_binding = class_key.and_then(|key| {
-                    match self.bindings.get(self.bindings.key_to_idx(&key)) {
+                    match self.bindings.get(self.bindings.key_to_idx(key)) {
                         Binding::ClassDef(key_cls_idx, _) => {
                             Some(self.bindings.get(*key_cls_idx).clone())
                         }
@@ -647,15 +694,15 @@ impl Facts {
                 decl_infos.push(decl_info);
             }
             Stmt::FunctionDef(func) => {
-                let func_declaration =
-                    python::FunctionDeclaration::new(self.make_fq_name(&func.name.id, None));
+                let func_fq_name = self.make_fq_name_for_declaration(&func.name.id, container);
+                let func_declaration = python::FunctionDeclaration::new(func_fq_name);
                 if let python::Declaration::module(_) = top_level_decl {
                     new_top_level_decl = Some(python::Declaration::func(func_declaration.clone()));
                 }
 
                 let function_key = self.get_binding_key_at_position(func.name.range.start());
                 let key_function_idx = function_key.and_then(|key| {
-                    match self.bindings.get(self.bindings.key_to_idx(&key)) {
+                    match self.bindings.get(self.bindings.key_to_idx(key)) {
                         Binding::Function(key_function_idx, _, _) => Some(*key_function_idx),
                         _ => None,
                     }
@@ -666,7 +713,7 @@ impl Facts {
                     func,
                     func_binding,
                     func_declaration.clone(),
-                    container.clone(),
+                    container,
                     new_top_level_decl.as_ref(),
                 );
                 self.visit_exprs(&func.decorator_list, container);
