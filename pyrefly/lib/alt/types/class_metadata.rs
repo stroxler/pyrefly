@@ -47,7 +47,7 @@ pub struct ClassMetadata {
     protocol_metadata: Option<ProtocolMetadata>,
     dataclass_metadata: Option<DataclassMetadata>,
     tuple_base: Option<Tuple>,
-    bases_with_metadata: Vec<(ClassType, Arc<ClassMetadata>)>,
+    bases: Vec<ClassType>,
     has_base_any: bool,
     is_new_type: bool,
     is_final: bool,
@@ -75,7 +75,7 @@ impl Display for ClassMetadata {
 
 impl ClassMetadata {
     pub fn new(
-        bases_with_metadata: Vec<(ClassType, Arc<ClassMetadata>)>,
+        bases: Vec<ClassType>,
         metaclass: Option<ClassType>,
         keywords: Vec<(Name, Type)>,
         typed_dict_metadata: Option<TypedDictMetadata>,
@@ -100,7 +100,7 @@ impl ClassMetadata {
             protocol_metadata,
             dataclass_metadata,
             tuple_base,
-            bases_with_metadata,
+            bases,
             has_base_any,
             is_new_type,
             is_final,
@@ -120,7 +120,7 @@ impl ClassMetadata {
             protocol_metadata: None,
             dataclass_metadata: None,
             tuple_base: None,
-            bases_with_metadata: Vec::new(),
+            bases: Vec::new(),
             has_base_any: false,
             is_new_type: false,
             is_final: false,
@@ -171,8 +171,8 @@ impl ClassMetadata {
         self.enum_metadata.as_ref()
     }
 
-    pub fn bases_with_metadata(&self) -> &[(ClassType, Arc<ClassMetadata>)] {
-        &self.bases_with_metadata
+    pub fn base_class_types(&self) -> &[ClassType] {
+        &self.bases
     }
 
     pub fn is_protocol(&self) -> bool {

@@ -475,9 +475,9 @@ fn get_all_classes(
                 class_id: ClassId::from_class(&class),
                 name: class.qname().id().to_string(),
                 bases: metadata
-                    .bases_with_metadata()
+                    .base_class_types()
                     .iter()
-                    .map(|(class_type, _)| {
+                    .map(|class_type| {
                         let base_class = class_type.class_object();
                         ClassRef {
                             module_id: module_ids

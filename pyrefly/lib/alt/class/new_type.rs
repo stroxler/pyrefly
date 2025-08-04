@@ -55,11 +55,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_new_type_synthesized_fields(&self, cls: &Class) -> Option<ClassSynthesizedFields> {
         let metadata = self.get_metadata_for_class(cls);
 
-        let base_type = metadata.bases_with_metadata();
+        let base_type = metadata.base_class_types();
         let is_new_type = metadata.is_new_type();
 
         if is_new_type && base_type.len() == 1 {
-            let (base_class, _) = &base_type[0];
+            let base_class = &base_type[0];
             Some(ClassSynthesizedFields::new(smallmap! {
                 dunder::NEW => self.get_new_type_new(cls, base_class.clone()),
                 dunder::INIT => self.get_new_type_init(cls, base_class.clone()),

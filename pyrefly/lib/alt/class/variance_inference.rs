@@ -214,13 +214,13 @@ fn on_class(
     }
 
     let metadata = get_metadata(class);
-    let base_types = metadata.bases_with_metadata();
+    let base_types = metadata.base_class_types();
 
     for base_type in base_types {
         on_type(
             Variance::Covariant,
             true,
-            &base_type.0.clone().to_type(),
+            &base_type.clone().to_type(),
             on_edge,
             on_var,
         );

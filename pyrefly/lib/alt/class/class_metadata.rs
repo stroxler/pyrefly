@@ -592,7 +592,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
         ClassMetadata::new(
-            bases_with_metadata,
+            bases_with_metadata
+                .into_iter()
+                .map(|(base, _)| base)
+                .collect(),
             metaclass,
             keywords,
             typed_dict_metadata,
@@ -738,9 +741,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn calculate_class_mro(&self, cls: &Class, errors: &ErrorCollector) -> ClassMro {
         let metadata = self.get_metadata_for_class(cls);
         let bases_with_mros = metadata
-            .bases_with_metadata()
+            .base_class_types()
             .iter()
-            .map(|(base, _)| {
+            .map(|base| {
                 let mro = self.get_mro_for_class(base.class_object());
                 (base, mro)
             })
