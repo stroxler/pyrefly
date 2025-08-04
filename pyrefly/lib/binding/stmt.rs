@@ -972,11 +972,7 @@ impl<'a> BindingsBuilder<'a> {
                             }
                         }
                         Err(FindError::Ignored) => self.bind_unimportable_names(&x, false),
-                        Err(
-                            err @ (FindError::NoPyTyped
-                            | FindError::NoSource(_)
-                            | FindError::NotFound(..)),
-                        ) => {
+                        Err(err @ (FindError::NoSource(_) | FindError::NotFound(..))) => {
                             let (ctx, msg) = err.display();
                             self.error_multiline(
                                 x.range,

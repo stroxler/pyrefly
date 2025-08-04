@@ -649,7 +649,7 @@ impl<'a> BindingsBuilder<'a> {
                     msg,
                 );
             }
-            Err(FindError::Ignored | FindError::NoPyTyped | FindError::NoSource(_)) => (),
+            Err(FindError::Ignored | FindError::NoSource(_)) => (),
         }
     }
 

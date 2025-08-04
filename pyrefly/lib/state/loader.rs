@@ -29,9 +29,6 @@ pub enum FindError {
     NotFound(ModuleName, Arc<Vec1<String>>),
     /// This import could not be found, but the user configured it to be ignored
     Ignored,
-    /// This site package path entry was found, but does not have a py.typed entry
-    /// and use_untyped_imports is disabled
-    NoPyTyped,
     /// We found stubs, but no source files were found. This means it's likely stubs
     /// are installed for a project, but the library is not actually importable
     NoSource(ModuleName),
@@ -87,16 +84,6 @@ impl FindError {
                 (**err).clone(),
             ),
             Self::Ignored => (None, vec1!["Ignored import".to_owned()]),
-            Self::NoPyTyped => (
-                None,
-                vec1![
-                    "Imported package does not contain a py.typed file, \
-                and therefore cannot be typed. Try installing a `<package name>-stubs` version
-                of your package to get the released stubs, or enable `use-untyped-imports` to
-                disable this error."
-                        .to_owned()
-                ],
-            ),
             Self::NoSource(module) => (
                 None,
                 vec1![format!(
