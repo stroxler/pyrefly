@@ -13,3 +13,13 @@ testcase!(
 dict(x = 1, y = "test") # E:  No matching overload found for function `dict.__init__`
     "#,
 );
+
+testcase!(
+    test_unpack_empty,
+    r#"
+from typing import assert_type
+x = {**{}}
+x['x'] = 0
+assert_type(x, dict[str, int])
+    "#,
+);

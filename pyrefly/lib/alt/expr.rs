@@ -473,7 +473,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     let (key_hint, value_hint) =
                         hint.map_or((None, None), |ty| self.decompose_dict(ty));
-                    if x.is_empty() {
+                    if flattened_items.is_empty() {
                         let key_ty = key_hint.unwrap_or_else(|| {
                             self.solver().fresh_contained(self.uniques).to_type()
                         });
