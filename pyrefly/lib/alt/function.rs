@@ -559,7 +559,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     cls.to_type()
                 }
             }
-            t => t,
+            // See `make_generic_return` - sometimes we manually convert a Callable return type
+            // into a Function with dummy metadata, which we need to overwrite.
+            mut t => {
+                t.transform_toplevel_func_metadata(&mut |m: &mut FuncMetadata| {
+                    *m = metadata.clone();
+                });
+                t
+            }
         }
     }
 
