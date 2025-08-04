@@ -96,9 +96,40 @@ impl FindResult {
     }
 }
 
-/// Finds the first package (regular, single file, or namespace) in search roots. Returns None if no module is found.
-/// name: module name
-/// roots: search roots
+/// In the given root, attempt to find a match for the given [`Name`].
+fn find_one_part_in_root(name: &Name, root: &Path) -> Option<FindResult> {
+    let candidate_dir = root.join(name.as_str());
+    // First check if `name` corresponds to a regular package.
+    for candidate_init_suffix in ["__init__.pyi", "__init__.py"] {
+        let init_path = candidate_dir.join(candidate_init_suffix);
+        if init_path.exists() {
+            return Some(FindResult::RegularPackage(init_path, candidate_dir));
+        }
+    }
+    // Second check if `name` corresponds to a single-file module.
+    for candidate_file_suffix in ["pyi", "py"] {
+        let candidate_path = root.join(format!("{name}.{candidate_file_suffix}"));
+        if candidate_path.exists() {
+            return Some(FindResult::SingleFileModule(candidate_path));
+        }
+    }
+    // Check if `name` corresponds to a compiled module.
+    for candidate_compiled_suffix in ["pyc", "pyx", "pyd"] {
+        let candidate_path = root.join(format!("{name}.{candidate_compiled_suffix}"));
+        if candidate_path.exists() {
+            return Some(FindResult::CompiledModule(candidate_path));
+        }
+    }
+    // Finally check if `name` corresponds to a namespace package.
+    if candidate_dir.is_dir() {
+        return Some(FindResult::NamespacePackage(Vec1::new(candidate_dir)));
+    }
+    None
+}
+
+/// Finds the first package (regular, single file, or namespace) in all search roots.
+/// Returns None if no module is found. If `name` is `__pycache__`, we always
+/// return `None`.
 fn find_one_part<'a>(name: &Name, roots: impl Iterator<Item = &'a PathBuf>) -> Option<FindResult> {
     // skip looking in `__pycache__`, since those modules are not accessible
     if name == &Name::new_static("__pycache__") {
@@ -106,31 +137,13 @@ fn find_one_part<'a>(name: &Name, roots: impl Iterator<Item = &'a PathBuf>) -> O
     }
     let mut namespace_roots = Vec::new();
     for root in roots {
-        let candidate_dir = root.join(name.as_str());
-        // First check if `name` corresponds to a regular package.
-        for candidate_init_suffix in ["__init__.pyi", "__init__.py"] {
-            let init_path = candidate_dir.join(candidate_init_suffix);
-            if init_path.exists() {
-                return Some(FindResult::RegularPackage(init_path, candidate_dir));
+        match find_one_part_in_root(name, root) {
+            None => (),
+            Some(FindResult::NamespacePackage(package)) => {
+                namespace_roots.push(package.first().clone())
             }
-        }
-        // Second check if `name` corresponds to a single-file module.
-        for candidate_file_suffix in ["pyi", "py"] {
-            let candidate_path = root.join(format!("{name}.{candidate_file_suffix}"));
-            if candidate_path.exists() {
-                return Some(FindResult::SingleFileModule(candidate_path));
-            }
-        }
-        // Check if `name` corresponds to a compiled module.
-        for candidate_compiled_suffix in ["pyc", "pyx", "pyd"] {
-            let candidate_path = root.join(format!("{name}.{candidate_compiled_suffix}"));
-            if candidate_path.exists() {
-                return Some(FindResult::CompiledModule(candidate_path));
-            }
-        }
-        // Finally check if `name` corresponds to a namespace package.
-        if candidate_dir.is_dir() {
-            namespace_roots.push(candidate_dir);
+            result @ Some(FindResult::RegularPackage(..)) => return result,
+            result @ Some(_) => return result,
         }
     }
     match Vec1::try_from_vec(namespace_roots) {
@@ -139,8 +152,8 @@ fn find_one_part<'a>(name: &Name, roots: impl Iterator<Item = &'a PathBuf>) -> O
     }
 }
 
-/// Finds all packages (regular, single file, or namespace) in search roots where the name starts with the given prefix.
-/// prefix: module name prefix
+/// Finds the first package (regular, single file, or namespace) in search roots. Returns None if no module is found.
+/// name: module name
 /// roots: search roots
 fn find_one_part_prefix<'a>(
     prefix: &Name,
