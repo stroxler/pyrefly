@@ -136,26 +136,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             let impl_is_deprecated = def.metadata.flags.is_deprecated;
             let mut acc = Vec::new();
-            let mut first = def.clone();
             while let Some(def) = self.step_pred(predecessor)
                 && def.metadata.flags.is_overload
             {
                 acc.push((def.id_range, def.ty.clone(), def.metadata.clone()));
-                first = def;
             }
             acc.reverse();
             if let Ok(defs) = Vec1::try_from_vec(acc) {
                 if defs.len() == 1 {
                     self.error(
                         errors,
-                        first.id_range,
+                        defs.first().0,
                         ErrorInfo::Kind(ErrorKind::InvalidOverload),
                         "Overloaded function needs at least two @overload declarations".to_owned(),
                     );
                     defs.split_off_first().0.1
                 } else {
                     // TODO: merge the metadata properly.
-                    let mut metadata = first.metadata.clone();
+                    let mut metadata = defs.first().2.clone();
                     metadata.flags.is_deprecated = impl_is_deprecated;
                     let sigs =
                         self.extract_signatures(metadata.kind.as_func_id().func, defs, errors);
@@ -166,7 +164,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             } else {
-                first.ty.clone()
+                def.ty.clone()
             }
         }
     }
