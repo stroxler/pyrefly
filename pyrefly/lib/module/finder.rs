@@ -36,10 +36,14 @@ enum PyTyped {
 
 #[derive(Debug, PartialEq)]
 enum FindResult {
-    /// Found a single-file module. The path must not point to an __init__ file.
-    SingleFileModule(PathBuf),
-    /// Found a regular package. First path must point to an __init__ file.
+    /// Found a single-file .pyi module. The path must not point to an __init__ file.
+    SingleFilePyiModule(PathBuf),
+    /// Found a single-file .py module. The path must not point to an __init__ file.
+    SingleFilePyModule(PathBuf),
+    /// Found regular packages. First path must point to an __init__ file.
     /// Second path indicates where to continue search next. It should always point to the parent of the __init__ file.
+    /// The ordering of packages should be the same as the order they're found
+    /// in the `includes`.
     RegularPackage(PathBuf, PathBuf),
     /// Found a namespace package.
     /// The path component indicates where to continue search next. It may contain more than one directories as the namespace package
@@ -53,6 +57,14 @@ enum FindResult {
 }
 
 impl FindResult {
+    fn single_file(path: PathBuf, ext: &str) -> Self {
+        if ext == "pyi" {
+            Self::SingleFilePyiModule(path)
+        } else {
+            Self::SingleFilePyModule(path)
+        }
+    }
+
     fn py_typed(&self) -> PyTyped {
         /// Finds a `py.typed` file for the given path, if it exists, and
         /// returns a boolean representing if it is partial or not.
@@ -83,9 +95,9 @@ impl FindResult {
                 .dupe()
         }
         match self {
-            Self::SingleFileModule(candidate_path) | Self::RegularPackage(_, candidate_path) => {
-                py_typed_cached(candidate_path)
-            }
+            Self::SingleFilePyiModule(candidate_path)
+            | Self::SingleFilePyModule(candidate_path)
+            | Self::RegularPackage(_, candidate_path) => py_typed_cached(candidate_path),
             Self::NamespacePackage(paths) => paths
                 .iter()
                 .map(|path| py_typed_cached(path))
@@ -110,7 +122,10 @@ fn find_one_part_in_root(name: &Name, root: &Path) -> Option<FindResult> {
     for candidate_file_suffix in ["pyi", "py"] {
         let candidate_path = root.join(format!("{name}.{candidate_file_suffix}"));
         if candidate_path.exists() {
-            return Some(FindResult::SingleFileModule(candidate_path));
+            return Some(FindResult::single_file(
+                candidate_path,
+                candidate_file_suffix,
+            ));
         }
     }
     // Check if `name` corresponds to a compiled module.
@@ -200,7 +215,7 @@ fn find_one_part_prefix<'a>(
                             && path.is_file()
                         {
                             results.push((
-                                FindResult::SingleFileModule(path.clone()),
+                                FindResult::single_file(path.clone(), ext),
                                 ModuleName::from_str(stem),
                             ));
                         }
@@ -233,7 +248,9 @@ fn continue_find_module(
                 // Nothing has been found in the previous round. No point keep looking.
                 break;
             }
-            Some(FindResult::SingleFileModule(_)) | Some(FindResult::CompiledModule(_)) => {
+            Some(FindResult::SingleFilePyiModule(_))
+            | Some(FindResult::SingleFilePyModule(_))
+            | Some(FindResult::CompiledModule(_)) => {
                 // We've already reached leaf nodes. Cannot keep searching
                 current_result = None;
                 break;
@@ -247,9 +264,9 @@ fn continue_find_module(
         }
     }
     current_result.map_or(Ok(None), |x| match x {
-        FindResult::SingleFileModule(path) | FindResult::RegularPackage(path, _) => {
-            Ok(Some(ModulePath::filesystem(path)))
-        }
+        FindResult::SingleFilePyiModule(path)
+        | FindResult::SingleFilePyModule(path)
+        | FindResult::RegularPackage(path, _) => Ok(Some(ModulePath::filesystem(path))),
         FindResult::NamespacePackage(roots) => {
             // TODO(grievejia): Preserving all info in the list instead of dropping all but the first one.
             Ok(Some(ModulePath::namespace(roots.first().clone())))
@@ -398,7 +415,11 @@ fn find_module_prefixes<'a>(
                 None => {
                     break;
                 }
-                Some(FindResult::SingleFileModule(_) | FindResult::CompiledModule(_)) => {
+                Some(
+                    FindResult::SingleFilePyiModule(_)
+                    | FindResult::SingleFilePyModule(_)
+                    | FindResult::CompiledModule(_),
+                ) => {
                     break;
                 }
                 Some(FindResult::RegularPackage(_, next_root)) => {
@@ -1265,7 +1286,7 @@ mod tests {
         );
         assert_eq!(
             result,
-            Some(FindResult::SingleFileModule(
+            Some(FindResult::SingleFilePyModule(
                 root.join("another_nested_module.py")
             ))
         );
