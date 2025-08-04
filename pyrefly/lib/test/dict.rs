@@ -23,3 +23,13 @@ x['x'] = 0
 assert_type(x, dict[str, int])
     "#,
 );
+
+testcase!(
+    test_typeddict_interaction,
+    r#"
+from typing import TypedDict
+class C(TypedDict):
+    x: int
+x: C | dict[str, int] = {"y": 0}
+    "#,
+);

@@ -10416,16 +10416,6 @@
       "name": "typed-dict-key-error",
       "stop_column": 57,
       "stop_line": 126
-    },
-    {
-      "code": -2,
-      "column": 29,
-      "concise_description": "`dict[str, int]` is not assignable to TypedDict key `z` with type `Literal[''] | TypedDict[Inner3]`",
-      "description": "`dict[str, int]` is not assignable to TypedDict key `z` with type `Literal[''] | TypedDict[Inner3]`",
-      "line": 151,
-      "name": "typed-dict-key-error",
-      "stop_column": 37,
-      "stop_line": 151
     }
   ],
   "typeddicts_usage.py": [

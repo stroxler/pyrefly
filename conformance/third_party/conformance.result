@@ -452,8 +452,6 @@
     "Line 62: Expected 1 errors",
     "Line 74: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveMovie']`\"]"
   ],
-  "typeddicts_type_consistency.py": [
-    "Line 151: Unexpected errors [\"`dict[str, int]` is not assignable to TypedDict key `z` with type `Literal[''] | TypedDict[Inner3]`\"]"
-  ],
+  "typeddicts_type_consistency.py": [],
   "typeddicts_usage.py": []
 }

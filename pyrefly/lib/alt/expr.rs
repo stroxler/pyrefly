@@ -697,27 +697,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn dict_infer(&self, x: &ExprDict, hint: Option<&Type>, errors: &ErrorCollector) -> Type {
         let flattened_items = Ast::flatten_dict_items(&x.items);
-        if let Some(hint @ Type::TypedDict(typed_dict)) = hint {
+        let hints = match hint {
+            Some(Type::Union(ts)) => ts.iter().collect(),
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        for hint in hints.iter() {
+            let (typed_dict, is_update) = match hint {
+                Type::TypedDict(td) => (td, false),
+                Type::PartialTypedDict(td) => (td, true),
+                _ => continue,
+            };
+            let check_errors = self.error_collector();
+            let item_errors = self.error_collector();
             self.check_dict_items_against_typed_dict(
-                flattened_items,
+                &flattened_items,
                 typed_dict,
-                false,
+                is_update,
                 x.range,
-                errors,
+                &check_errors,
+                &item_errors,
             );
-            hint.clone()
-        } else if let Some(hint @ Type::PartialTypedDict(typed_dict)) = hint {
-            self.check_dict_items_against_typed_dict(
-                flattened_items,
-                typed_dict,
-                true,
-                x.range,
-                errors,
-            );
-            hint.clone()
-        } else {
-            self.dict_items_infer(flattened_items, hint, errors)
+            // We use the TypedDict hint if it is the only one or if it is successfully matched.
+            if hints.len() == 1 || check_errors.is_empty() {
+                errors.extend(check_errors);
+                errors.extend(item_errors);
+                return (*hint).clone();
+            }
         }
+        // Note that we don't need to filter out the TypedDict options here; any non-`dict` options
+        // are ignored when decomposing the hint.
+        self.dict_items_infer(flattened_items, hint, errors)
     }
 
     /// Infers a `dict` type for dictionary items. Note: does not handle TypedDict!

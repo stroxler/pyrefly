@@ -499,3 +499,29 @@ class Identity(Protocol):
 x: Identity = lambda x: x  # E: `(x: Unknown) -> Unknown` is not assignable to `Identity`
     "#,
 );
+
+testcase!(
+    test_typeddict_union,
+    r#"
+from typing import TypedDict
+class TD(TypedDict):
+    x: int
+x: TD | None = {'x': 0}
+    "#,
+);
+
+testcase!(
+    test_union_with_nonmatching_typeddict,
+    r#"
+from typing import TypedDict
+class A: ...
+class B(A): ...
+class TD(TypedDict):
+    xs: list[A]
+    y: int
+x: TD | dict[str, list[A] | str] = {
+    "xs": [B()],
+    "y": "foo",
+}
+    "#,
+);

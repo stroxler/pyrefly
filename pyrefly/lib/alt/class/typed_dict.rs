@@ -59,44 +59,49 @@ const UPDATE_METHOD: Name = Name::new_static("update");
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn check_dict_items_against_typed_dict(
         &self,
-        dict_items: Vec<&DictItem>,
+        dict_items: &Vec<&DictItem>,
         typed_dict: &TypedDict,
         // Check whether `typed_dict` can be updated with `dict_items`
         is_update: bool,
         range: TextRange,
-        errors: &ErrorCollector,
+        check_errors: &ErrorCollector,
+        item_errors: &ErrorCollector,
     ) {
         let fields = self.typed_dict_fields(typed_dict);
         let mut has_expansion = false;
         let mut keys: SmallSet<Name> = SmallSet::new();
         dict_items.iter().for_each(|x| match &x.key {
             Some(key) => {
-                let key_type = self.expr_infer(key, errors);
+                let key_type = self.expr_infer(key, item_errors);
                 if let Type::Literal(Lit::Str(name)) = key_type {
                     let key_name = Name::new(name);
                     match fields.get(&key_name) {
                         Some(field) if is_update && field.is_read_only() => {
                             self.error(
-                                errors,
+                                check_errors,
                                 key.range(),
                                 ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
                                 format!("Cannot update read-only field `{key_name}`"),
                             );
                         }
                         Some(field) => {
-                            self.expr(
+                            self.expr_with_separate_check_errors(
                                 &x.value,
-                                Some((&field.ty, &|| {
-                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
-                                        key_name.clone(),
-                                    ))
-                                })),
-                                errors,
+                                Some((
+                                    &field.ty,
+                                    &|| {
+                                        TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
+                                            key_name.clone(),
+                                        ))
+                                    },
+                                    check_errors,
+                                )),
+                                item_errors,
                             );
                         }
                         None => {
                             self.error(
-                                errors,
+                                check_errors,
                                 key.range(),
                                 ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
                                 format!(
@@ -110,7 +115,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     keys.insert(key_name);
                 } else {
                     self.error(
-                        errors,
+                        check_errors,
                         key.range(),
                         ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
                         format!(
@@ -122,12 +127,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             None => {
                 has_expansion = true;
-                self.expr(
+                self.expr_with_separate_check_errors(
                     &x.value,
-                    Some((&Type::TypedDict(typed_dict.clone()), &|| {
-                        TypeCheckContext::of_kind(TypeCheckKind::TypedDictUnpacking)
-                    })),
-                    errors,
+                    Some((
+                        &Type::TypedDict(typed_dict.clone()),
+                        &|| TypeCheckContext::of_kind(TypeCheckKind::TypedDictUnpacking),
+                        check_errors,
+                    )),
+                    item_errors,
                 );
             }
         });
@@ -136,7 +143,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             for (key, field) in &fields {
                 if field.required && !keys.contains(key) {
                     self.error(
-                        errors,
+                        check_errors,
                         range,
                         ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
                         format!(

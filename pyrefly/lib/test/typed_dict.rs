@@ -1016,3 +1016,14 @@ b: B = {'x': ''}
 a: A = b
     "#,
 );
+
+testcase!(
+    test_value_error,
+    r#"
+from typing import TypedDict
+class A(TypedDict):
+    x: int
+# Test that the dict literal still matches `A` despite the error in `int(oops)`.
+a: A | dict[int, str] = {'x': int(oops)}  # E: Could not find name `oops`
+    "#,
+);
