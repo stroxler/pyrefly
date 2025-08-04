@@ -21,7 +21,6 @@ use crate::migration::python_interpreter::PythonInterpreter;
 use crate::migration::python_version::PythonVersionConfig;
 use crate::migration::search_path::SearchPath;
 use crate::migration::sub_configs::SubConfigs;
-use crate::migration::use_untyped_imports::UseUntypedImports;
 
 // A pyproject.toml Mypy config differs a bit from the INI format:
 // - The [mypy] section is written as [tool.mypy]
@@ -37,8 +36,6 @@ struct ModuleSection {
     module: Vec<String>,
     #[serde(default)]
     ignore_missing_imports: bool,
-    #[serde(default)]
-    follow_untyped_imports: bool,
     #[serde(default)]
     follow_imports: Option<String>,
     #[serde_as(as = "Option<OneOrMany<_>>")]
@@ -78,8 +75,6 @@ struct MypySection {
     #[serde_as(as = "Option<OneOrMany<_>>")]
     #[serde(default)]
     enable_error_code: Option<Vec<String>>,
-    #[serde(default)]
-    follow_untyped_imports: Option<bool>,
     #[serde(default)]
     ignore_missing_imports: Option<bool>,
     #[serde(default)]
@@ -154,13 +149,6 @@ fn pyproject_to_ini(raw_file: &str) -> anyhow::Result<Ini> {
             Some(join_strings(&enable_error_code)),
         );
     }
-    if let Some(follow_untyped_imports) = mypy.follow_untyped_imports {
-        ini.set(
-            "mypy",
-            "follow_untyped_imports",
-            Some(follow_untyped_imports.to_string()),
-        );
-    }
     if let Some(ignore_missing_imports) = mypy.ignore_missing_imports {
         ini.set(
             "mypy",
@@ -181,13 +169,6 @@ fn pyproject_to_ini(raw_file: &str) -> anyhow::Result<Ini> {
                 ini.set(
                     &section_name,
                     "ignore_missing_imports",
-                    Some("True".to_owned()),
-                );
-            }
-            if module_section.follow_untyped_imports {
-                ini.set(
-                    &section_name,
-                    "follow_untyped_imports",
                     Some("True".to_owned()),
                 );
             }
@@ -232,7 +213,6 @@ pub fn parse_pyproject_config(raw_file: &str) -> anyhow::Result<ConfigFile> {
         Box::new(ProjectExcludes),
         Box::new(PythonInterpreter),
         Box::new(PythonVersionConfig),
-        Box::new(UseUntypedImports),
         Box::new(IgnoreMissingImports),
         Box::new(SearchPath),
         Box::new(ErrorCodes),
@@ -362,24 +342,6 @@ module = [
         );
         assert_eq!(cfg.root.replace_imports_with_any, Some(vec![]),);
 
-        Ok(())
-    }
-
-    #[test]
-    fn test_use_untyped_imports() -> anyhow::Result<()> {
-        let src = r#"[tool.mypy]
-packages = ["cake"]
-follow_untyped_imports = false
-
-[[tool.mypy.overrides]]
-module = "a"
-follow_untyped_imports = true
-"#;
-        let cfg = parse_pyproject_config(src)?;
-        assert!(!cfg.use_untyped_imports);
-
-        let cfg = parse_pyproject_config("[tool.mypy]\n")?;
-        assert!(cfg.use_untyped_imports);
         Ok(())
     }
 

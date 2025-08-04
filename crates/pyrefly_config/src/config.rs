@@ -276,15 +276,10 @@ pub struct ConfigFile {
              )]
     pub sub_configs: Vec<SubConfig>,
 
+    // TODO(connernilsen): fully deprecate this
     /// Skips any `py.typed` checks we do when resolving `site_package_path` imports.
-    #[serde(
-                     default = "ConfigFile::default_true",
-                     skip_serializing_if = "crate::util::skip_default_true",
-                     // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
-                     // alias while we migrate existing fields from snake case to kebab case.
-                     alias = "use_untyped_imports",
-                 )]
-    pub use_untyped_imports: bool,
+    #[serde(default, skip_serializing, alias = "use_untyped_imports")]
+    pub use_untyped_imports: Option<bool>,
 
     /// Completely custom module to path mappings. Currently not exposed to the user.
     #[serde(skip)]
@@ -323,7 +318,7 @@ impl Default for ConfigFile {
             root: Default::default(),
             sub_configs: Default::default(),
             custom_module_paths: Default::default(),
-            use_untyped_imports: true,
+            use_untyped_imports: None,
             ignore_missing_source: true,
             typeshed_path: None,
         }
@@ -610,6 +605,12 @@ impl ConfigFile {
              ));
         }
 
+        if self.use_untyped_imports.is_some() {
+            configure_errors.push(anyhow::anyhow!(
+                    "Configuration option `use-untyped-imports` is deprecated and will be removed in a future update."
+            ));
+        }
+
         if let ConfigSource::File(path) = &self.source {
             configure_errors
                 .into_map(|e| ConfigError::warn(e.context(format!("{}", path.display()))))
@@ -804,7 +805,6 @@ mod tests {
              replace-imports-with-any = ["fibonacci"]
              ignore-missing-imports = ["sprout"]
              ignore-errors-in-generated-code = true
-             use-untyped-imports = true
              ignore-missing-source = true
 
              [errors]
@@ -882,7 +882,7 @@ mod tests {
                         permissive_ignores: None,
                     }
                 }],
-                use_untyped_imports: true,
+                use_untyped_imports: None,
                 ignore_missing_source: true,
                 typeshed_path: None,
             }
@@ -902,7 +902,6 @@ mod tests {
              python_interpreter = "venv/my/python"
              replace_imports_with_any = ["fibonacci"]
              ignore_errors_in_generated_code = true
-             use_untyped_imports = true
              ignore_missing_source = true
 
              [errors]
@@ -1105,7 +1104,7 @@ mod tests {
                 matches: Glob::new("sub/project/**".to_owned()).unwrap(),
                 settings: Default::default(),
             }],
-            use_untyped_imports: false,
+            use_untyped_imports: None,
             ignore_missing_source: false,
             typeshed_path: None,
         };
@@ -1159,7 +1158,7 @@ mod tests {
                 matches: sub_config_matches,
                 settings: Default::default(),
             }],
-            use_untyped_imports: false,
+            use_untyped_imports: None,
             ignore_missing_source: false,
             typeshed_path: None,
         };

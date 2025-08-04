@@ -79,9 +79,6 @@ pub struct ConfigOverrideArgs {
     #[arg(long)]
     typeshed_path: Option<PathBuf>,
 
-    /// Whether to search imports in `site-package-path` that do not have a `py.typed` file unconditionally.
-    #[arg(long)]
-    use_untyped_imports: Option<bool>,
     /// Always replace specified imports with typing.Any, suppressing related import errors even if the module is found.
     #[arg(long)]
     replace_imports_with_any: Option<Vec<String>>,
@@ -184,9 +181,6 @@ impl ConfigOverrideArgs {
         if let Some(x) = &self.python_interpreter {
             config.interpreters.python_interpreter = Some(ConfigOrigin::cli(x.clone()));
             config.interpreters.conda_environment = None;
-        }
-        if let Some(x) = &self.use_untyped_imports {
-            config.use_untyped_imports = *x;
         }
         if let Some(x) = &self.ignore_missing_source {
             config.ignore_missing_source = *x;

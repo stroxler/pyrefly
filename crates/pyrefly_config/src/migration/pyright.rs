@@ -74,7 +74,6 @@ use crate::migration::python_platform::PythonPlatformConfig;
 use crate::migration::python_version::PythonVersionConfig;
 use crate::migration::search_path::SearchPath;
 use crate::migration::sub_configs::SubConfigs;
-use crate::migration::use_untyped_imports::UseUntypedImports;
 
 impl PyrightConfig {
     pub fn parse(text: &str) -> anyhow::Result<Self> {
@@ -92,7 +91,6 @@ impl PyrightConfig {
             Box::new(PythonVersionConfig),
             Box::new(PythonPlatformConfig),
             Box::new(SearchPath),
-            Box::new(UseUntypedImports),
             Box::new(IgnoreMissingImports),
             Box::new(ErrorCodes),
             Box::new(SubConfigs),

@@ -19,7 +19,6 @@ pub mod run;
 pub(crate) mod search_path;
 pub(crate) mod sub_configs;
 pub(crate) mod untyped_def_behavior;
-pub(crate) mod use_untyped_imports;
 
 #[cfg(test)]
 pub(crate) mod test_util;

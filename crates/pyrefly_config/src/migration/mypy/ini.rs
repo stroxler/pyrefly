@@ -25,7 +25,6 @@ use crate::migration::python_version::PythonVersionConfig;
 use crate::migration::search_path::SearchPath;
 use crate::migration::sub_configs::SubConfigs;
 use crate::migration::untyped_def_behavior::UntypedDefBehaviorConfig;
-use crate::migration::use_untyped_imports::UseUntypedImports;
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct MypyConfig {
@@ -42,11 +41,6 @@ pub struct MypyConfig {
     python_version: Option<PythonVersion>,
     #[serde(rename = "python_executable")]
     python_interpreter: Option<PathBuf>,
-    #[serde(
-        rename = "follow_untyped_imports",
-        default = "ConfigFile::default_true"
-    )]
-    use_untyped_imports: bool,
     disable_error_code: Option<Vec<String>>,
     enable_error_code: Option<Vec<String>>,
     check_untyped_defs: Option<bool>,
@@ -73,7 +67,6 @@ impl MypyConfig {
             Box::new(ProjectExcludes),
             Box::new(PythonInterpreter),
             Box::new(PythonVersionConfig),
-            Box::new(UseUntypedImports),
             Box::new(IgnoreMissingImports),
             Box::new(SearchPath),
             Box::new(ErrorCodes),
@@ -126,9 +119,6 @@ ignore_missing_imports = True
 [mypy-stricter.on.this.*]
 check_untyped_defs = True
 
-[mypy-do.follow.*]
-follow_untyped_imports = True
-
 [mypy-comma,separated,projects]
 ignore_missing_imports = True
  "#;
@@ -161,7 +151,6 @@ ignore_missing_imports = True
         assert_eq!(cfg.project_excludes, expected_excludes);
         assert_eq!(cfg.root.ignore_missing_imports.unwrap().len(), 5);
         assert_eq!(cfg.root.replace_imports_with_any.unwrap().len(), 0);
-        assert!(cfg.use_untyped_imports);
         Ok(())
     }
 
