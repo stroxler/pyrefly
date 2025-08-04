@@ -23,6 +23,7 @@ use ruff_python_ast::BoolOp;
 use ruff_python_ast::Comprehension;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::ExprDict;
 use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::ExprSlice;
 use ruff_python_ast::ExprStarred;
@@ -450,102 +451,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.stdlib.list(self.unions(elem_tys)).to_type()
                 }
             }
-            Expr::Dict(x) => {
-                let flattened_items = Ast::flatten_dict_items(&x.items);
-                if let Some(hint @ Type::TypedDict(typed_dict)) = hint {
-                    self.check_dict_items_against_typed_dict(
-                        flattened_items,
-                        typed_dict,
-                        false,
-                        x.range,
-                        errors,
-                    );
-                    hint.clone()
-                } else if let Some(hint @ Type::PartialTypedDict(typed_dict)) = hint {
-                    self.check_dict_items_against_typed_dict(
-                        flattened_items,
-                        typed_dict,
-                        true,
-                        x.range,
-                        errors,
-                    );
-                    hint.clone()
-                } else {
-                    let (key_hint, value_hint) =
-                        hint.map_or((None, None), |ty| self.decompose_dict(ty));
-                    if flattened_items.is_empty() {
-                        let key_ty = key_hint.unwrap_or_else(|| {
-                            self.solver().fresh_contained(self.uniques).to_type()
-                        });
-                        let value_ty = value_hint.unwrap_or_else(|| {
-                            self.solver().fresh_contained(self.uniques).to_type()
-                        });
-                        self.stdlib.dict(key_ty, value_ty).to_type()
-                    } else {
-                        let mut key_tys = Vec::new();
-                        let mut value_tys = Vec::new();
-                        flattened_items.iter().for_each(|x| match &x.key {
-                            Some(key) => {
-                                let key_t = self.expr_infer_with_hint_promote(
-                                    key,
-                                    key_hint.as_ref(),
-                                    errors,
-                                );
-                                let value_t = self.expr_infer_with_hint_promote(
-                                    &x.value,
-                                    value_hint.as_ref(),
-                                    errors,
-                                );
-                                if !key_t.is_error() {
-                                    key_tys.push(key_t);
-                                }
-                                if !value_t.is_error() {
-                                    value_tys.push(value_t);
-                                }
-                            }
-                            None => {
-                                let ty = self.expr_infer(&x.value, errors);
-                                if let Some((key_t, value_t)) = self.unwrap_mapping(&ty) {
-                                    if !key_t.is_error() {
-                                        if let Some(key_hint) = &key_hint
-                                            && self.is_subset_eq(&key_t, key_hint)
-                                        {
-                                            key_tys.push(key_hint.clone());
-                                        } else {
-                                            key_tys.push(key_t);
-                                        }
-                                    }
-                                    if !value_t.is_error() {
-                                        if let Some(value_hint) = &value_hint
-                                            && self.is_subset_eq(&value_t, value_hint)
-                                        {
-                                            value_tys.push(value_hint.clone());
-                                        } else {
-                                            value_tys.push(value_t);
-                                        }
-                                    }
-                                } else {
-                                    self.error(
-                                        errors,
-                                        x.value.range(),
-                                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                        format!("Expected a mapping, got {}", self.for_display(ty)),
-                                    );
-                                }
-                            }
-                        });
-                        if key_tys.is_empty() {
-                            key_tys.push(Type::any_error())
-                        }
-                        if value_tys.is_empty() {
-                            value_tys.push(Type::any_error())
-                        }
-                        let key_ty = self.unions(key_tys);
-                        let value_ty = self.unions(value_tys);
-                        self.stdlib.dict(key_ty, value_ty).to_type()
-                    }
-                }
-            }
+            Expr::Dict(x) => self.dict_infer(x, hint, errors),
             Expr::Set(x) => {
                 let elem_hint = hint.and_then(|ty| self.decompose_set(ty));
                 if x.is_empty() {
@@ -785,6 +691,97 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             want.clone()
         } else {
             ty.promote_literals(self.stdlib)
+        }
+    }
+
+    fn dict_infer(&self, x: &ExprDict, hint: Option<&Type>, errors: &ErrorCollector) -> Type {
+        let flattened_items = Ast::flatten_dict_items(&x.items);
+        if let Some(hint @ Type::TypedDict(typed_dict)) = hint {
+            self.check_dict_items_against_typed_dict(
+                flattened_items,
+                typed_dict,
+                false,
+                x.range,
+                errors,
+            );
+            hint.clone()
+        } else if let Some(hint @ Type::PartialTypedDict(typed_dict)) = hint {
+            self.check_dict_items_against_typed_dict(
+                flattened_items,
+                typed_dict,
+                true,
+                x.range,
+                errors,
+            );
+            hint.clone()
+        } else {
+            let (key_hint, value_hint) = hint.map_or((None, None), |ty| self.decompose_dict(ty));
+            if flattened_items.is_empty() {
+                let key_ty = key_hint
+                    .unwrap_or_else(|| self.solver().fresh_contained(self.uniques).to_type());
+                let value_ty = value_hint
+                    .unwrap_or_else(|| self.solver().fresh_contained(self.uniques).to_type());
+                self.stdlib.dict(key_ty, value_ty).to_type()
+            } else {
+                let mut key_tys = Vec::new();
+                let mut value_tys = Vec::new();
+                flattened_items.iter().for_each(|x| match &x.key {
+                    Some(key) => {
+                        let key_t =
+                            self.expr_infer_with_hint_promote(key, key_hint.as_ref(), errors);
+                        let value_t = self.expr_infer_with_hint_promote(
+                            &x.value,
+                            value_hint.as_ref(),
+                            errors,
+                        );
+                        if !key_t.is_error() {
+                            key_tys.push(key_t);
+                        }
+                        if !value_t.is_error() {
+                            value_tys.push(value_t);
+                        }
+                    }
+                    None => {
+                        let ty = self.expr_infer(&x.value, errors);
+                        if let Some((key_t, value_t)) = self.unwrap_mapping(&ty) {
+                            if !key_t.is_error() {
+                                if let Some(key_hint) = &key_hint
+                                    && self.is_subset_eq(&key_t, key_hint)
+                                {
+                                    key_tys.push(key_hint.clone());
+                                } else {
+                                    key_tys.push(key_t);
+                                }
+                            }
+                            if !value_t.is_error() {
+                                if let Some(value_hint) = &value_hint
+                                    && self.is_subset_eq(&value_t, value_hint)
+                                {
+                                    value_tys.push(value_hint.clone());
+                                } else {
+                                    value_tys.push(value_t);
+                                }
+                            }
+                        } else {
+                            self.error(
+                                errors,
+                                x.value.range(),
+                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                                format!("Expected a mapping, got {}", self.for_display(ty)),
+                            );
+                        }
+                    }
+                });
+                if key_tys.is_empty() {
+                    key_tys.push(Type::any_error())
+                }
+                if value_tys.is_empty() {
+                    value_tys.push(Type::any_error())
+                }
+                let key_ty = self.unions(key_tys);
+                let value_ty = self.unions(value_tys);
+                self.stdlib.dict(key_ty, value_ty).to_type()
+            }
         }
     }
 
