@@ -28,10 +28,6 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
-use crate::binding::binding::Binding;
-use crate::binding::binding::BindingClass;
-use crate::binding::binding::BindingFunction;
-use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::report::glean::facts::*;
 use crate::report::glean::schema::*;
@@ -95,7 +91,6 @@ struct Facts {
 struct GleanState<'a> {
     transaction: &'a Transaction<'a>,
     handle: &'a Handle,
-    bindings: Bindings,
     module: ModuleInfo,
     module_name: ModuleName,
     facts: Facts,
@@ -123,11 +118,9 @@ impl Facts {
 impl GleanState<'_> {
     fn new<'a>(transaction: &'a Transaction<'a>, handle: &'a Handle) -> GleanState<'a> {
         let module_info = &transaction.get_module_info(handle).unwrap();
-        let bindings = &transaction.get_bindings(handle).unwrap();
         GleanState {
             transaction,
             handle,
-            bindings: bindings.clone(),
             module: module_info.clone(),
             module_name: module_info.name(),
             facts: Facts::new(
@@ -151,13 +144,6 @@ impl GleanState<'_> {
             size: self.module.contents().len() as u64,
         };
         digest::FileDigest::new(self.file_fact(), digest)
-    }
-
-    fn get_binding_key_at_position(
-        &self,
-        position: ruff_text_size::TextSize,
-    ) -> Option<&crate::binding::binding::Key> {
-        self.bindings.definition_at_position(position)
     }
 
     fn module_facts(&mut self, range: TextRange, top_level_decl: &python::Declaration) {
@@ -281,7 +267,6 @@ impl GleanState<'_> {
     fn class_facts(
         &mut self,
         cls: &StmtClassDef,
-        cls_binding: Option<BindingClass>,
         cls_declaration: python::ClassDeclaration,
         container: python::DeclarationContainer,
     ) -> DeclarationInfo {
@@ -300,10 +285,7 @@ impl GleanState<'_> {
 
         let declaration = python::Declaration::cls(cls_declaration.clone());
 
-        let cls_docstring_range = match cls_binding {
-            Some(BindingClass::ClassDef(class_binding)) => class_binding.docstring_range,
-            _ => None,
-        };
+        let cls_docstring_range = Docstring::range_from_stmts(&cls.body);
 
         let cls_definition = python::ClassDefinition::new(
             cls_declaration.clone(),
@@ -446,15 +428,11 @@ impl GleanState<'_> {
     fn function_facts(
         &mut self,
         func: &StmtFunctionDef,
-        binding_func: Option<BindingFunction>,
         func_declaration: python::FunctionDeclaration,
         container: &python::DeclarationContainer,
         params_top_level_decl: Option<&python::Declaration>,
     ) -> Vec<DeclarationInfo> {
         let declaration = python::Declaration::func(func_declaration.clone());
-
-        let function_docstring_range = binding_func.and_then(|bf| bf.docstring_range);
-
         let params = &func.parameters;
 
         let mut decl_infos = vec![];
@@ -536,7 +514,7 @@ impl GleanState<'_> {
             definition: Some(python::Definition::func(func_definition)),
             def_span: Some(to_span(func.range)),
             top_level_decl: None,
-            docstring_range: function_docstring_range,
+            docstring_range: Docstring::range_from_stmts(&func.body),
         });
 
         decl_infos
@@ -719,19 +697,7 @@ impl GleanState<'_> {
             Stmt::ClassDef(cls) => {
                 let cls_fq_name = self.make_fq_name_for_declaration(&cls.name.id, container);
                 let cls_declaration = python::ClassDeclaration::new(cls_fq_name, None);
-
-                let class_key = self.get_binding_key_at_position(cls.name.range.start());
-                let cls_binding = class_key.and_then(|key| {
-                    match self.bindings.get(self.bindings.key_to_idx(key)) {
-                        Binding::ClassDef(key_cls_idx, _) => {
-                            Some(self.bindings.get(*key_cls_idx).clone())
-                        }
-                        _ => None,
-                    }
-                });
-
-                let decl_info =
-                    self.class_facts(cls, cls_binding, cls_declaration.clone(), container.clone());
+                let decl_info = self.class_facts(cls, cls_declaration.clone(), container.clone());
                 self.visit_exprs(&cls.decorator_list, container);
                 self.visit_exprs(&cls.type_params, container);
                 self.visit_exprs(&cls.arguments, container);
@@ -748,19 +714,8 @@ impl GleanState<'_> {
                 if let python::Declaration::module(_) = top_level_decl {
                     new_top_level_decl = Some(python::Declaration::func(func_declaration.clone()));
                 }
-
-                let function_key = self.get_binding_key_at_position(func.name.range.start());
-                let key_function_idx = function_key.and_then(|key| {
-                    match self.bindings.get(self.bindings.key_to_idx(key)) {
-                        Binding::Function(key_function_idx, _, _) => Some(*key_function_idx),
-                        _ => None,
-                    }
-                });
-                let func_binding = key_function_idx.map(|idx| self.bindings.get(idx).clone());
-
                 let mut func_decl_infos = self.function_facts(
                     func,
-                    func_binding,
                     func_declaration.clone(),
                     container,
                     new_top_level_decl.as_ref(),
