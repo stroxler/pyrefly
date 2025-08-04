@@ -593,9 +593,9 @@ impl ConfigFile {
             })
         }
         if let Some(site_package_path) = &self.python_environment.site_package_path {
-            configure_errors.extend(validate(site_package_path.as_ref(), "site_package_path"));
+            configure_errors.extend(validate(site_package_path.as_ref(), "site-package-path"));
         }
-        configure_errors.extend(validate(&self.search_path_from_file, "search_path"));
+        configure_errors.extend(validate(&self.search_path_from_file, "search-path"));
 
         if self.interpreters.python_interpreter.is_some()
             && self.interpreters.conda_environment.is_some()
