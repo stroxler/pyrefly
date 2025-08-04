@@ -20,7 +20,6 @@ use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_types::class::Class;
-use pyrefly_types::types::Type;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::visit::Visit;
@@ -28,13 +27,13 @@ use rayon::prelude::*;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprContext;
 use ruff_python_ast::Stmt;
-use ruff_python_ast::StmtClassDef;
 use ruff_text_size::Ranged;
 use serde::Serialize;
 use tracing::debug;
 use tracing::info;
 
 use crate::alt::answers::Answers;
+use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
@@ -183,13 +182,11 @@ struct VisitorContext<'a> {
     handle: &'a Handle,
     module_ids: &'a ModuleIds,
     module_info: &'a ModuleInfo,
-    bindings: &'a Bindings,
     answers: &'a Answers,
     stdlib: &'a Stdlib,
     transaction: &'a Transaction<'a>,
     type_of_expression: &'a mut HashMap<String, String>,
     definitions_of_expression: &'a mut HashMap<String, Vec<DefinitionRef>>,
-    class_definitions: &'a mut HashMap<String, ClassDefinition>,
 }
 
 fn add_expression_definitions(
@@ -307,56 +304,6 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
     e.recurse(&mut |e| visit_expression(e, context));
 }
 
-fn visit_class_definition(class_def: &StmtClassDef, context: &mut VisitorContext) {
-    let class = context
-        .bindings
-        .definition_at_position(class_def.name.range().start())
-        .map(|k| context.bindings.key_to_idx(k))
-        .and_then(|idx| context.answers.get_idx(idx))
-        .and_then(|type_info| match type_info.ty() {
-            Type::ClassDef(class) => Some(class.clone()),
-            _ => None,
-        });
-
-    if let Some(class) = class {
-        let display_range = context.module_info.display_range(class_def.range());
-        let class_index = class.index();
-        let metadata = context
-            .answers
-            .get_idx(context.bindings.key_to_idx(&KeyClassMetadata(class_index)))
-            .unwrap();
-
-        let class_definition = ClassDefinition {
-            class_id: ClassId::from_class(&class),
-            name: class.qname().id().to_string(),
-            bases: metadata
-                .bases_with_metadata()
-                .iter()
-                .map(|(class_type, _)| {
-                    let base_class = class_type.class_object();
-                    ClassRef {
-                        module_id: context
-                            .module_ids
-                            .get(ModuleKey::from_module(base_class.module()))
-                            .unwrap(),
-                        module_name: base_class.module_name().to_string(),
-                        class_id: ClassId::from_class(base_class),
-                        class_name: base_class.qname().id().to_string(),
-                    }
-                })
-                .collect::<Vec<_>>(),
-        };
-
-        assert!(
-            context
-                .class_definitions
-                .insert(location_key(&display_range), class_definition)
-                .is_none(),
-            "Found class definitions with the same location"
-        );
-    }
-}
-
 fn visit_statement(stmt: &Stmt, context: &mut VisitorContext) {
     match stmt {
         Stmt::FunctionDef(function_def) => {
@@ -394,7 +341,6 @@ fn visit_statement(stmt: &Stmt, context: &mut VisitorContext) {
             visit_statements(function_def.body.iter(), context);
         }
         Stmt::ClassDef(class_def) => {
-            visit_class_definition(class_def, context);
             visit_expressions(
                 class_def
                     .decorator_list
@@ -507,6 +453,55 @@ fn visit_statements<'a>(statements: impl Iterator<Item = &'a Stmt>, context: &mu
     }
 }
 
+fn get_all_classes(
+    module_info: &Module,
+    bindings: &Bindings,
+    answers: &Answers,
+    module_ids: &ModuleIds,
+) -> HashMap<String, ClassDefinition> {
+    let mut class_definitions = HashMap::new();
+
+    bindings
+        .keys::<KeyClass>()
+        .filter_map(|idx| answers.get_idx(idx).unwrap().0.clone())
+        .for_each(|class| {
+            let display_range = module_info.display_range(class.qname().range());
+            let class_index = class.index();
+            let metadata = answers
+                .get_idx(bindings.key_to_idx(&KeyClassMetadata(class_index)))
+                .unwrap();
+
+            let class_definition = ClassDefinition {
+                class_id: ClassId::from_class(&class),
+                name: class.qname().id().to_string(),
+                bases: metadata
+                    .bases_with_metadata()
+                    .iter()
+                    .map(|(class_type, _)| {
+                        let base_class = class_type.class_object();
+                        ClassRef {
+                            module_id: module_ids
+                                .get(ModuleKey::from_module(base_class.module()))
+                                .unwrap(),
+                            module_name: base_class.module_name().to_string(),
+                            class_id: ClassId::from_class(base_class),
+                            class_name: base_class.qname().id().to_string(),
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            };
+
+            assert!(
+                class_definitions
+                    .insert(location_key(&display_range), class_definition)
+                    .is_none(),
+                "Found class definitions with the same location"
+            );
+        });
+
+    class_definitions
+}
+
 fn get_module_file(
     handle: &Handle,
     module_id: ModuleId,
@@ -522,7 +517,6 @@ fn get_module_file(
 
     let mut type_of_expression = HashMap::new();
     let mut definitions_of_expression = HashMap::new();
-    let mut class_definitions = HashMap::new();
 
     for stmt in &ast.body {
         visit_statement(
@@ -531,16 +525,16 @@ fn get_module_file(
                 handle,
                 module_ids,
                 module_info,
-                bindings,
                 answers,
                 stdlib,
                 transaction,
                 type_of_expression: &mut type_of_expression,
                 definitions_of_expression: &mut definitions_of_expression,
-                class_definitions: &mut class_definitions,
             },
         );
     }
+
+    let class_definitions = get_all_classes(module_info, bindings, answers, module_ids);
 
     PysaModuleFile {
         format_version: 1,
