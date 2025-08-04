@@ -496,17 +496,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     value_hint.as_ref(),
                                     errors,
                                 );
-                                if key_t != Type::any_error() {
+                                if !key_t.is_error() {
                                     key_tys.push(key_t);
                                 }
-                                if value_t != Type::any_error() {
+                                if !value_t.is_error() {
                                     value_tys.push(value_t);
                                 }
                             }
                             None => {
                                 let ty = self.expr_infer(&x.value, errors);
                                 if let Some((key_t, value_t)) = self.unwrap_mapping(&ty) {
-                                    if key_t != Type::any_error() {
+                                    if !key_t.is_error() {
                                         if let Some(key_hint) = &key_hint
                                             && self.is_subset_eq(&key_t, key_hint)
                                         {
@@ -515,7 +515,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             key_tys.push(key_t);
                                         }
                                     }
-                                    if value_t != Type::any_error() {
+                                    if !value_t.is_error() {
                                         if let Some(value_hint) = &value_hint
                                             && self.is_subset_eq(&value_t, value_hint)
                                         {
