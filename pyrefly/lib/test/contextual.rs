@@ -478,3 +478,24 @@ x1: list[A] = reveal_type([B()]) # E: revealed type: list[A]
 x2: list[A] = assert_type([B()], list[A])
     "#,
 );
+
+testcase!(
+    test_lambda,
+    r#"
+from typing import Callable, reveal_type
+def f[T]() -> Callable[[T], T]:
+    return reveal_type(lambda x: x)  # E: revealed type: (x: T) -> T
+    "#,
+);
+
+testcase!(
+    bug = "This assignment should work",
+    test_assign_lambda_to_protocol,
+    r#"
+from typing import Protocol, reveal_type
+class Identity(Protocol):
+    def __call__[T](self, x: T) -> T:
+        return x
+x: Identity = lambda x: x  # E: `(x: Unknown) -> Unknown` is not assignable to `Identity`
+    "#,
+);

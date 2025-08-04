@@ -913,7 +913,6 @@ g(f)
 );
 
 testcase!(
-    bug = "There should be no errors",
     test_return_generic_callable,
     r#"
 from typing import assert_type, Callable
@@ -922,11 +921,62 @@ def f[T]() -> Callable[[T], T]:
 
 g = f()
 assert_type(g(0), int)
-assert_type(g(""), str)  # E: assert_type(int, str)  # E: `Literal['']` is not assignable to parameter with type `int`
+assert_type(g(""), str)
 
 @f()
 def h(x: int) -> int:
     return x
-assert_type(h(0), int)  # E: assert_type(Any, int)
+assert_type(h(0), int)
+    "#,
+);
+
+testcase!(
+    test_generic_callable_union,
+    r#"
+from typing import assert_type, Callable
+def f[T]() -> Callable[[T], T] | Callable[[T], list[T]]: ...
+g = f()
+assert_type(g(0), int | list[int])
+assert_type(g(""), str | list[str])
+    "#,
+);
+
+testcase!(
+    test_callable_returns_callable_returns_callable,
+    r#"
+from typing import assert_type, Callable
+
+def f[T]() -> Callable[[], Callable[[T], T]]:
+    def f():
+        return lambda x: x
+    return f
+
+g = f()()
+assert_type(g(0), int)
+assert_type(g(""), str)
+
+    "#,
+);
+
+testcase!(
+    test_return_substituted_callable,
+    r#"
+from typing import assert_type, Callable
+def f[T](x: T) -> Callable[[T], T]: ...
+g = f(0)
+assert_type(g(0), int)
+assert_type(g(""), int)  # E: `Literal['']` is not assignable to parameter with type `int`
+    "#,
+);
+
+testcase!(
+    test_generic_callable_or_none,
+    r#"
+from typing import assert_type, Callable
+def f[T]() -> Callable[[T], T] | None: ...
+g = f()
+if g:
+    assert_type(g(0), int)
+    assert_type(g(""), str)
     "#,
 );

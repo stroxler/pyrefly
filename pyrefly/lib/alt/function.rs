@@ -13,13 +13,17 @@ use itertools::Either;
 use pyrefly_python::dunder;
 use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_types::callable::Params;
+use pyrefly_types::types::TParam;
 use pyrefly_types::types::TParams;
 use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::visit::Visit;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
+use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
 use crate::alt::answers::LookupAnswer;
@@ -508,6 +512,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             metadata: metadata.clone(),
         })
         .forall(self.validated_tparams(def.range, tparams, errors));
+        ty = self.move_return_tparams(ty);
         for x in decorators.into_iter().rev() {
             ty = self.apply_function_decorator(*x, ty, &metadata, errors);
         }
@@ -517,6 +522,83 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             metadata,
             stub_or_impl,
             defining_cls,
+        })
+    }
+
+    /// Check if `ty` is a generic function whose return type is a callable that contains type
+    /// parameters that appear nowhere else in `ty`'s signature. If so, we make the return type
+    /// generic in those type parameters and remove them from `ty`'s tparams. For example, we turn:
+    ///   [T1, T2](x: T1, y: T1) -> ((T2) -> T2)
+    /// into:
+    ///   [T1](x: T1, y: T1) -> ([T2](T2) -> T2)
+    fn move_return_tparams(&self, ty: Type) -> Type {
+        let returns_callable = |func: &Function| match &func.signature.ret {
+            Type::Callable(_) => true,
+            Type::Union(ts) => ts.iter().any(|t| matches!(t, Type::Callable(_))),
+            _ => false,
+        };
+        match ty {
+            Type::Forall(box Forall {
+                tparams,
+                body: Forallable::Function(mut func),
+            }) if returns_callable(&func) => {
+                let (param_tparams, ret_tparams) =
+                    self.split_tparams(&tparams, &func.signature.params);
+                if ret_tparams.is_empty() {
+                    Forallable::Function(func).forall(tparams)
+                } else {
+                    let make_tparams = |tparams: Vec<&TParam>| {
+                        Arc::new(TParams::new(tparams.into_iter().cloned().collect()))
+                    };
+                    // Recursively move type parameters in the return type so that
+                    // things like `[T]() -> (() -> (T) -> T)` get rewritten properly.
+                    let ret = self.move_return_tparams(self.make_generic_return(
+                        func.signature.ret,
+                        make_tparams(ret_tparams),
+                        &func.metadata.kind,
+                    ));
+                    func.signature.ret = ret;
+                    Forallable::Function(func).forall(make_tparams(param_tparams))
+                }
+            }
+            _ => ty,
+        }
+    }
+
+    /// Split `tparams` by whether they appear in `params`.
+    fn split_tparams<'b>(
+        &self,
+        tparams: &'b TParams,
+        params: &Params,
+    ) -> (Vec<&'b TParam>, Vec<&'b TParam>) {
+        let mut param_qs = SmallSet::new();
+        params.visit(&mut |ty| {
+            ty.collect_quantifieds(&mut param_qs);
+        });
+        tparams
+            .iter()
+            .partition(|tparam| param_qs.contains(&tparam.quantified))
+    }
+
+    /// Turn any top-level Type::Callable(callable) in `ret` into Forall[tparams, callable].
+    fn make_generic_return(&self, ret: Type, tparams: Arc<TParams>, kind: &FunctionKind) -> Type {
+        self.distribute_over_union(&ret, |ret| match ret {
+            Type::Callable(callable) => {
+                // Generate some dummy function metadata to turn this callable into a Forallable::Function.
+                // TODO(rechen): Add Forallable::Callable so we don't need dummy metadata.
+                let mut ret_id = kind.as_func_id();
+                ret_id.func = Name::new(format!("{}.<return>", ret_id.func));
+                let ret_metadata = FuncMetadata {
+                    kind: FunctionKind::Def(Box::new(ret_id)),
+                    flags: FuncFlags::default(),
+                };
+                Forallable::Function(Function {
+                    signature: (**callable).clone(),
+                    metadata: ret_metadata,
+                })
+                .forall(tparams.clone())
+            }
+            t => t.clone(),
         })
     }
 

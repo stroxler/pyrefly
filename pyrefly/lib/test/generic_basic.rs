@@ -902,3 +902,48 @@ def f(x: T, y: TT):
     reveal_type([a]) # E: revealed type: list[T | T]
 "#,
 );
+
+testcase!(
+    bug = "We should error on out-of-scope typevars",
+    test_out_of_scope_old_typevar,
+    r#"
+from typing import Any, Callable, TypeVar
+T = TypeVar('T')
+def f() -> Any: ...
+def g():
+    x: T = f()  # this should be an error
+def h() -> Callable[[T], T]:
+    # This should be an error. Note that we treat `[T]() -> ((T) -> T)` as `() -> ([T](T) -> T)`,
+    # which makes `T` out-of-scope in the body.
+    x: T = f()
+    return lambda x: x
+    "#,
+);
+
+testcase!(
+    bug = "We should error on out-of-scope typevars",
+    test_out_of_scope_new_typevar,
+    r#"
+from typing import Any, Callable
+def f() -> Any: ...
+def g[T]() -> Callable[[T], T]:
+    # This should be an error. Note that we treat `[T]() -> ((T) -> T)` as `() -> ([T](T) -> T)`,
+    # which makes `T` out-of-scope in the body.
+    x: T = f()
+    return lambda x: x
+    "#,
+);
+
+testcase!(
+    bug = "This assignment should work",
+    test_forall_matches_forall,
+    r#"
+from typing import Callable, Protocol
+class Identity(Protocol):
+    def __call__[T](self, x: T, /) -> T:
+        return x
+def f[T]() -> Callable[[T], T]:
+    return lambda x: x
+x: Identity = f()  # E: `[T](T) -> T` is not assignable to `Identity`
+    "#,
+);

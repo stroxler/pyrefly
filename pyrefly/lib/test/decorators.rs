@@ -259,7 +259,29 @@ class C:
     @decorate
     def f(self): ...
 
-assert_type(C().f(0), Any)
+assert_type(C().f(0), int)
+    "#,
+);
+
+// Test that `@decorate` doesn't interfere with reading other decorators, by verifying that an
+// override error is still reported.
+testcase!(
+    test_override_error_with_generic_callable_decorator,
+    r#"
+from typing import Any, Callable, TypeVar, assert_type, override
+T = TypeVar('T')
+
+def decorate(f) -> Callable[[Any, T], T]:
+    return lambda _, x: x
+
+class C:
+    @override
+    @decorate
+    def f(self): ...  # E: no parent class has a matching attribute
+
+    @decorate
+    @override
+    def g(self): ...  # E: no parent class has a matching attribute
     "#,
 );
 
