@@ -12,6 +12,7 @@ use pyrefly_util::display::count;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
+use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Keyword;
@@ -926,19 +927,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.solver().freshen_class_targs(targs, self.uniques);
             let substitution = targs.substitution();
             let mp = substitution.as_map();
-            match &mut callable.params {
-                Params::List(params) => {
-                    params
-                        .items_mut()
-                        .iter_mut()
-                        .for_each(|p| p.as_type_mut().subst_mut(mp));
-                }
-                Params::ParamSpec(prefix, param_spec) => {
-                    prefix.iter_mut().for_each(|t| t.subst_mut(mp));
-                    param_spec.subst_mut(mp);
-                }
-                Params::Ellipsis => {}
-            }
+            callable.params.visit_mut(&mut |t| t.subst_mut(mp));
             if let Some(obj) = self_obj.as_mut() {
                 obj.subst_mut(mp);
             } else if let Some(id) = callable_name.as_ref()

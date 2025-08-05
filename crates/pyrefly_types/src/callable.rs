@@ -16,6 +16,7 @@ use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::display::commas_iter;
 use pyrefly_util::prelude::VecExt;
+use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
 
@@ -453,21 +454,7 @@ impl Callable {
         replacement: &Type,
         is_subset: &dyn Fn(&Type, &Type) -> bool,
     ) {
-        match &mut self.params {
-            Params::List(params) => {
-                for param in params.0.iter_mut() {
-                    param.subst_self_type_mut(replacement, is_subset);
-                }
-            }
-            Params::Ellipsis => {}
-            Params::ParamSpec(ts, t) => {
-                for t in ts.iter_mut() {
-                    t.subst_self_type_mut(replacement, is_subset);
-                }
-                t.subst_self_type_mut(replacement, is_subset);
-            }
-        }
-        self.ret.subst_self_type_mut(replacement, is_subset);
+        self.visit_mut(&mut |t: &mut Type| t.subst_self_type_mut(replacement, is_subset));
     }
 }
 
@@ -534,20 +521,6 @@ impl Param {
             | Param::Pos(_, _, Required::Required)
             | Param::KwOnly(_, _, Required::Required) => true,
             _ => false,
-        }
-    }
-
-    fn subst_self_type_mut(
-        &mut self,
-        replacement: &Type,
-        is_subset: &dyn Fn(&Type, &Type) -> bool,
-    ) {
-        match self {
-            Param::PosOnly(_, ty, _)
-            | Param::Pos(_, ty, _)
-            | Param::VarArg(_, ty)
-            | Param::KwOnly(_, ty, _)
-            | Param::Kwargs(_, ty) => ty.subst_self_type_mut(replacement, is_subset),
         }
     }
 }
