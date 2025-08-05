@@ -198,22 +198,24 @@ def f(b: B):
 // dealing with C extensions.
 
 testcase!(
+    bug = "We probably need to be able to handle `type(...)` as a base class better than we do.",
     test_type_function_in_base_class_list_v0,
     r#"
 class A:
     pass
 a = A()
-class B(type(a)):
+class B(type(a)):  # E: Invalid expression form for base class: `type(a)`
     pass
     "#,
 );
 
 testcase!(
+    bug = "We probably need to be able to handle `type(...)` as a base class better than we do.",
     test_type_function_in_base_class_list_v1,
     r#"
 class A:
     pass
-class B(type(A)):
+class B(type(A)):  # E: Invalid expression form for base class: `type(A)`
     pass
     "#,
 );
@@ -227,7 +229,7 @@ class M(type):
     x: ClassVar[int] = 42
 class A(metaclass=M):
     pass
-class B(type(A)):
+class B(type(A)):  # E: Invalid expression form for base class: `type(A)`
     pass
 assert_type(B.x, int)
     "#,

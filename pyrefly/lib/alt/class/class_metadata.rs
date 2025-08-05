@@ -11,6 +11,8 @@ use dupe::Dupe;
 use itertools::Either;
 use itertools::Itertools;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_util::display::DisplayWithCtx;
 use ruff_python_ast::Expr;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -58,6 +60,8 @@ struct ParsedBaseClass {
 enum BaseClassParseResult {
     /// We can successfully extract the class object and metadata from the base class
     Parsed(ParsedBaseClass),
+    /// We can't parse the base class because its expression is not recognized to be a valid base class expression
+    InvalidExpr(Expr),
     /// We can't parse the base class because its type is not valid to be put in the base class list
     InvalidType(Type, TextRange),
     /// We can't parse the base class but we also don't want to error on it for some reason (e.g. the error
@@ -70,7 +74,9 @@ enum BaseClassParseResult {
 impl BaseClassParseResult {
     fn is_any(&self) -> bool {
         match self {
-            BaseClassParseResult::InvalidType(..) | BaseClassParseResult::AnyType => true,
+            BaseClassParseResult::InvalidExpr(..)
+            | BaseClassParseResult::InvalidType(..)
+            | BaseClassParseResult::AnyType => true,
             _ => false,
         }
     }
@@ -85,6 +91,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
         } else {
             None
+        }
+    }
+
+    // To avoid circular computation on targs, we have a special version of `expr_infer` that only recognize a small
+    // subset of syntactical forms, and does not look into any subscript of any expr
+    fn base_class_expr_infer(&self, expr: &Expr, errors: &ErrorCollector) -> Option<Type> {
+        match expr {
+            Expr::Name(x) => Some(
+                self.get(&Key::BoundName(ShortIdentifier::expr_name(x)))
+                    .arc_clone_ty(),
+            ),
+            Expr::Attribute(x) => {
+                let base = self.base_class_expr_infer(&x.value, errors)?;
+                Some(self.attr_infer_for_type(&base, &x.attr.id, x.range, errors, None))
+            }
+            Expr::Subscript(x) => self.base_class_expr_infer(&x.value, errors),
+            _ => None,
         }
     }
 
@@ -142,7 +165,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BaseClass::Expr(x) => {
                 // Ignore all type errors here since they'll be reported in `class_bases_of` anyway
                 let errors = ErrorCollector::new(self.module().dupe(), ErrorStyle::Never);
-                parse_base_class_type(self.expr_untype(&x, TypeFormContext::BaseClassList, &errors))
+                match self.base_class_expr_infer(&x, &errors) {
+                    None => BaseClassParseResult::InvalidExpr(x),
+                    Some(ty) => match self.untype_opt(ty.clone(), x.range()) {
+                        None => BaseClassParseResult::InvalidType(ty, x.range()),
+                        Some(ty) => parse_base_class_type(ty),
+                    },
+                }
             }
             BaseClass::NamedTuple(..) => {
                 parse_base_class_type(self.stdlib.named_tuple_fallback().clone().to_type())
@@ -178,6 +207,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let contains_base_class_any = parsed_results.iter().any(|x| x.is_any());
         let bases_with_metadata = parsed_results.into_iter().filter_map(|x| match x {
             BaseClassParseResult::Ignored | BaseClassParseResult::AnyType => None,
+            BaseClassParseResult::InvalidExpr(expr) => {
+                self.error(
+                    errors,
+                    expr.range(),
+                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                    format!(
+                        "Invalid expression form for base class: `{}`",
+                        expr.display_with(self.module())
+                    ),
+                );
+                None
+            }
             BaseClassParseResult::InvalidType(ty, range) => {
                 self.error(
                     errors,

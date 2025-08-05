@@ -47,7 +47,7 @@ testcase!(
     r#"
 from typing import NewType, TypeVar, Hashable, Literal
 
-BadNewType1 = NewType("BadNewType1", int | str) # E: Second argument to NewType is invalid
+BadNewType1 = NewType("BadNewType1", int | str) # E: Invalid expression form for base class: `int | str` # E: Invalid expression form for base class: `int | str`
 
 T = TypeVar("T")
 BadNewType2 = NewType("BadNewType2", list[T])  # E: Second argument to NewType cannot be an unbound generic

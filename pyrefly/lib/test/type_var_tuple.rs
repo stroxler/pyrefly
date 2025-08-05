@@ -34,7 +34,7 @@ testcase!(
     r#"
 from typing import Unpack
 x: Unpack[int] = 1  # E: `Unpack` is not allowed in this context
-class X(Unpack[int]): ...  # E: `Unpack` is not allowed in this context
+class X(Unpack[int]): ...  # E: `Unpack` is not allowed in this context  # E: Invalid base class: `Unpack`
 y: tuple[Unpack[tuple[int, str]]] = (1, "2")  # OK
 "#,
 );
@@ -78,7 +78,7 @@ class B[*Ts]:
     def test5(self) -> tuple[*Ts]: ...
     def test6(self) -> tuple[Unpack[Ts]]: ...
 Ts = TypeVarTuple('Ts')
-class C(Ts): ...  # E: `TypeVarTuple` is not allowed in this context
+class C(Ts): ...  # E: `TypeVarTuple` is not allowed in this context  # E: Invalid base class: `TypeVarTuple[Ts]`
 class D(Generic[Ts]): ...  # E: `TypeVarTuple` must be unpacked
 "#,
 );

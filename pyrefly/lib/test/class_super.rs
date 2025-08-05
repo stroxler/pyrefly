@@ -255,7 +255,7 @@ testcase!(
 import types
 class Alias(types.GenericAlias):
     def __mro_entries__(self, bases: tuple[type, ...]) -> tuple[type]:
-        class C(*super().__mro_entries__(bases)): # E: # E:
+        class C(*super().__mro_entries__(bases)): # E: # E: # E:
             pass
         return (C,)
     "#,
