@@ -46,6 +46,7 @@ use starlark_map::small_set::SmallSet;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
 use crate::alt::solve::TypeFormContext;
+use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
@@ -77,6 +78,7 @@ assert_words!(KeyExpect, 1);
 assert_words!(KeyExport, 3);
 assert_words!(KeyClass, 1);
 assert_bytes!(KeyTParams, 4);
+assert_bytes!(KeyClassBaseType, 4);
 assert_words!(KeyClassField, 4);
 assert_bytes!(KeyClassSynthesizedFields, 4);
 assert_bytes!(KeyAnnotation, 12);
@@ -92,6 +94,7 @@ assert_words!(BindingExpect, 11);
 assert_words!(BindingAnnotation, 15);
 assert_words!(BindingClass, 22);
 assert_words!(BindingTParams, 10);
+assert_words!(BindingClassBaseType, 3);
 assert_words!(BindingClassMetadata, 8);
 assert_bytes!(BindingClassMro, 4);
 assert_words!(BindingClassField, 21);
@@ -107,6 +110,7 @@ pub enum AnyIdx {
     KeyExpect(Idx<KeyExpect>),
     KeyClass(Idx<KeyClass>),
     KeyTParams(Idx<KeyTParams>),
+    KeyClassBaseType(Idx<KeyClassBaseType>),
     KeyClassField(Idx<KeyClassField>),
     KeyVariance(Idx<KeyVariance>),
     KeyClassSynthesizedFields(Idx<KeyClassSynthesizedFields>),
@@ -127,6 +131,7 @@ impl DisplayWith<Bindings> for AnyIdx {
             Self::KeyExpect(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClass(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyTParams(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyClassBaseType(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassField(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyVariance(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassSynthesizedFields(idx) => write!(f, "{}", ctx.display(*idx)),
@@ -183,6 +188,15 @@ impl Keyed for KeyTParams {
     }
 }
 impl Exported for KeyTParams {}
+impl Keyed for KeyClassBaseType {
+    const EXPORTED: bool = true;
+    type Value = BindingClassBaseType;
+    type Answer = ClassBases;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyClassBaseType(idx)
+    }
+}
+impl Exported for KeyClassBaseType {}
 impl Keyed for KeyClassField {
     const EXPORTED: bool = true;
     type Value = BindingClassField;
@@ -617,6 +631,22 @@ impl Ranged for KeyTParams {
 impl DisplayWith<ModuleInfo> for KeyTParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _: &ModuleInfo) -> fmt::Result {
         write!(f, "KeyTParams({})", self.0)
+    }
+}
+
+/// A reference to a class.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyClassBaseType(pub ClassDefIndex);
+
+impl Ranged for KeyClassBaseType {
+    fn range(&self) -> TextRange {
+        TextRange::default()
+    }
+}
+
+impl DisplayWith<ModuleInfo> for KeyClassBaseType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _: &ModuleInfo) -> fmt::Result {
+        write!(f, "KeyClassBaseType({})", self.0)
     }
 }
 
@@ -1624,6 +1654,30 @@ pub struct BindingTParams {
 impl DisplayWith<Bindings> for BindingTParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _: &Bindings) -> fmt::Result {
         write!(f, "BindingTParams({})", self.name)
+    }
+}
+
+/// Binding for the base class types of a class.
+#[derive(Clone, Debug)]
+pub struct BindingClassBaseType {
+    /// The base class list, as expressions.
+    pub bases: Box<[BaseClass]>,
+    /// May contain a base class to directly inject into the base class list. This is needed
+    /// for some synthesized classes, which have no actual class body and therefore usually have no
+    /// base class expressions, but may have a known base class for the synthesized class.
+    pub special_base: Option<Box<BaseClass>>,
+}
+
+impl DisplayWith<Bindings> for BindingClassBaseType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, bindings: &Bindings) -> fmt::Result {
+        write!(
+            f,
+            "BindingClassBaseType({})",
+            commas_iter(|| self
+                .bases
+                .iter()
+                .map(|b| format!("{}", b.range().display_with(bindings.module()))))
+        )
     }
 }
 

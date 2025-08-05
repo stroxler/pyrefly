@@ -30,6 +30,7 @@ macro_rules! table {
             $($vis)* functions: $t<$crate::binding::binding::KeyFunction>,
             $($vis)* classes: $t<$crate::binding::binding::KeyClass>,
             $($vis)* tparams: $t<$crate::binding::binding::KeyTParams>,
+            $($vis)* class_base_types: $t<$crate::binding::binding::KeyClassBaseType>,
             $($vis)* class_fields: $t<$crate::binding::binding::KeyClassField>,
             $($vis)* class_synthesized_fields: $t<$crate::binding::binding::KeyClassSynthesizedFields>,
             $($vis)* variance: $t<$crate::binding::binding::KeyVariance>,
@@ -75,6 +76,12 @@ macro_rules! table {
             type Value = $t<$crate::binding::binding::KeyTParams>;
             fn get(&self) -> &Self::Value { &self.tparams }
             fn get_mut(&mut self) -> &mut Self::Value { &mut self.tparams }
+        }
+
+        impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyClassBaseType> for $name {
+            type Value = $t<$crate::binding::binding::KeyClassBaseType>;
+            fn get(&self) -> &Self::Value { &self.class_base_types }
+            fn get_mut(&mut self) -> &mut Self::Value { &mut self.class_base_types }
         }
 
         impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyClassField> for $name {
@@ -160,6 +167,7 @@ macro_rules! table_for_each(
         $f(&($e).functions);
         $f(&($e).classes);
         $f(&($e).tparams);
+        $f(&($e).class_base_types);
         $f(&($e).class_fields);
         $f(&($e).class_synthesized_fields);
         $f(&($e).variance);
@@ -181,6 +189,7 @@ macro_rules! table_mut_for_each(
         $f(&mut ($e).functions);
         $f(&mut ($e).classes);
         $f(&mut ($e).tparams);
+        $f(&mut ($e).class_base_types);
         $f(&mut ($e).class_fields);
         $f(&mut ($e).class_synthesized_fields);
         $f(&mut ($e).variance);
@@ -202,6 +211,7 @@ macro_rules! table_try_for_each(
         $f(&($e).functions)?;
         $f(&($e).classes)?;
         $f(&($e).tparams)?;
+        $f(&($e).class_base_types)?;
         $f(&($e).class_fields)?;
         $f(&($e).class_synthesized_fields)?;
         $f(&($e).variance)?;

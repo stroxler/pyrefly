@@ -14,6 +14,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
+use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
@@ -26,6 +27,7 @@ use crate::binding::binding::AnnotationWithTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingClass;
+use crate::binding::binding::BindingClassBaseType;
 use crate::binding::binding::BindingClassField;
 use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
@@ -43,6 +45,7 @@ use crate::binding::binding::Initialized;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
+use crate::binding::binding::KeyClassBaseType;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
@@ -208,6 +211,20 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyTParams {
 
     fn promote_recursive(_: Var) -> Self::Answer {
         TParams::default()
+    }
+}
+
+impl<Ans: LookupAnswer> Solve<Ans> for KeyClassBaseType {
+    fn solve(
+        answers: &AnswersSolver<Ans>,
+        binding: &BindingClassBaseType,
+        errors: &ErrorCollector,
+    ) -> Arc<ClassBases> {
+        answers.solve_class_base_type(binding, errors)
+    }
+
+    fn promote_recursive(_: Var) -> Self::Answer {
+        ClassBases::default()
     }
 }
 

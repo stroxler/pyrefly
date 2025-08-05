@@ -34,6 +34,7 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::callable::CallArg;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
+use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
@@ -47,6 +48,7 @@ use crate::binding::binding::AnnotationWithTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingClass;
+use crate::binding::binding::BindingClassBaseType;
 use crate::binding::binding::BindingClassField;
 use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
@@ -1329,6 +1331,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &binding.legacy_tparams,
             errors,
         )
+    }
+
+    pub fn solve_class_base_type(
+        &self,
+        binding: &BindingClassBaseType,
+        errors: &ErrorCollector,
+    ) -> Arc<ClassBases> {
+        Arc::new(self.class_bases_of(&binding.bases, &binding.special_base, errors))
     }
 
     pub fn solve_class_field(
