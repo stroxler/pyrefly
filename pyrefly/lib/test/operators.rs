@@ -461,6 +461,21 @@ class C:
 );
 
 testcase!(
+    test_dunder_bool_short_circuit_and_discard,
+    r#"
+from typing import assert_type, Literal
+class Falsey:
+    def __bool__(self) -> Literal[False]:
+        return False
+class Truthy:
+    def __bool__(self) -> Literal[True]:
+        return True
+assert_type(Falsey() or int(), int)
+assert_type(Truthy() or int(), Truthy)
+"#,
+);
+
+testcase!(
     bug = "Mypy accepts this program and pyright rejects it wants quotes around the tensor type inside the callable. We should accept this program.",
     test_tensor_type_lambda,
     r#"

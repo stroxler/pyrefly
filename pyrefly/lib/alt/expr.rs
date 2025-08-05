@@ -802,27 +802,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn as_bool(&self, ty: &Type, range: TextRange, errors: &ErrorCollector) -> Option<bool> {
+        ty.as_bool().or_else(|| {
+            // If the object defines `__bool__`, we can check if it returns a statically known value
+            if self
+                .type_of_magic_dunder_attr(ty, &dunder::BOOL, range, errors, None, "as_bool")?
+                .is_never()
+            {
+                return None;
+            };
+            self.call_method_or_error(ty, &dunder::BOOL, range, &[], &[], errors, None)
+                .as_bool()
+        })
+    }
+
     // Helper method for inferring the type of a boolean operation over a sequence of values.
     fn boolop(&self, values: &[Expr], op: BoolOp, errors: &ErrorCollector) -> Type {
         let target = match op {
             BoolOp::And => false,
             BoolOp::Or => true,
         };
-        let should_shortcircuit = |t: &Type| t.as_bool() == Some(target);
-        let should_discard = |t: &Type| t.as_bool() == Some(!target);
+        let should_shortcircuit =
+            |t: &Type, r: TextRange| self.as_bool(t, r, errors) == Some(target);
+        let should_discard = |t: &Type, r: TextRange| self.as_bool(t, r, errors) == Some(!target);
 
         let mut types = Vec::new();
         let last_index = values.len() - 1;
         for (i, value) in values.iter().enumerate() {
             let mut t = self.expr_infer(value, errors);
             self.expand_type_mut(&mut t);
-            if should_shortcircuit(&t) {
+            if should_shortcircuit(&t, value.range()) {
                 types.push(t);
                 break;
             }
             for t in t.into_unions() {
                 // If we reach the last value, we should always keep it.
-                if i == last_index || !should_discard(&t) {
+                if i == last_index || !should_discard(&t, value.range()) {
                     if i != last_index && t == self.stdlib.bool().clone().to_type() {
                         types.push(Lit::Bool(target).to_type());
                     } else if i != last_index && t == self.stdlib.int().clone().to_type() && !target
