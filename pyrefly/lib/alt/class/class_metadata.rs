@@ -96,7 +96,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .collect::<Vec<_>>();
 
         let (bases_with_range_and_metadata, invalid_bases): (
-            Vec<(ClassType, TextRange, Arc<ClassMetadata>)>,
+            Vec<(Class, TextRange, Arc<ClassMetadata>)>,
             Vec<()>,
         ) = bases_with_range
             .into_iter()
@@ -106,12 +106,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     (Type::ClassType(c), range) => {
                         let base_cls = c.class_object();
                         let base_class_metadata = self.get_metadata_for_class(base_cls);
-                        Ok((c, range, base_class_metadata))
+                        Ok((base_cls.dupe(), range, base_class_metadata))
                     }
-                    (Type::Tuple(tuple), range) => {
-                        let class_ty = self.erase_tuple_type(tuple);
-                        let metadata = self.get_metadata_for_class(class_ty.class_object());
-                        Ok((class_ty, range, metadata))
+                    (Type::Tuple(_), range) => {
+                        let tuple_obj = self.stdlib.tuple_object();
+                        let metadata = self.get_metadata_for_class(tuple_obj);
+                        Ok((tuple_obj.dupe(), range, metadata))
                     }
                     (Type::TypedDict(typed_dict), range) => {
                         if is_new_type {
@@ -119,19 +119,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         } else {
                             let class_object = typed_dict.class_object();
                             let class_metadata = self.get_metadata_for_class(class_object);
-                            // HACK HACK HACK - TypedDict instances behave very differently from instances of other
-                            // classes, so we don't represent them as ClassType in normal typechecking logic. However,
-                            // class ancestors are represented as ClassType all over the code base, and changing this
-                            // would be quite painful. So we convert TypedDict to ClassType in this one spot. Please do
-                            // not do this anywhere else.
-                            Ok((
-                                ClassType::new(
-                                    typed_dict.class_object().dupe(),
-                                    typed_dict.targs().clone(),
-                                ),
-                                range,
-                                class_metadata,
-                            ))
+                            Ok((class_object.dupe(), range, class_metadata))
                         }
                     }
                     (t, range) => {
@@ -201,19 +189,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .iter()
                 .any(|(_, metadata)| metadata.has_base_any());
 
-        let named_tuple_metadata = bases_with_metadata.iter().find_map(|(base_cls, metadata)| {
-            let base_class_object = base_cls.class_object();
-            if base_class_object.has_qname(
-                ModuleName::type_checker_internals().as_str(),
-                "NamedTupleFallback",
-            ) {
-                Some(NamedTupleMetadata {
-                    elements: self.get_named_tuple_elements(cls, errors),
-                })
-            } else {
-                metadata.named_tuple_metadata().cloned()
-            }
-        });
+        let named_tuple_metadata =
+            bases_with_metadata
+                .iter()
+                .find_map(|(base_class_object, metadata)| {
+                    if base_class_object.has_qname(
+                        ModuleName::type_checker_internals().as_str(),
+                        "NamedTupleFallback",
+                    ) {
+                        Some(NamedTupleMetadata {
+                            elements: self.get_named_tuple_elements(cls, errors),
+                        })
+                    } else {
+                        metadata.named_tuple_metadata().cloned()
+                    }
+                });
         if named_tuple_metadata.is_some() && bases_with_metadata.len() > 1 {
             self.error(
                 errors,
@@ -333,12 +323,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 enum_metadata = Some(EnumMetadata {
                     // A generic enum is an error, but we create Any type args anyway to handle it gracefully.
                     cls: self.promote_nontypeddict_silently_to_classtype(cls),
-                    has_value: bases_with_metadata.iter().any(|(base, _)| {
-                        base.class_object().contains(&Name::new_static("_value_"))
-                    }),
+                    has_value: bases_with_metadata
+                        .iter()
+                        .any(|(base, _)| base.contains(&Name::new_static("_value_"))),
                     is_flag: bases_with_metadata.iter().any(|(base, _)| {
                         self.is_subset_eq(
-                            &Type::ClassType(base.clone()),
+                            &Type::ClassType(self.promote_nontypeddict_silently_to_classtype(base)),
                             &Type::ClassType(self.stdlib.enum_flag().clone()),
                         )
                     }),
@@ -470,7 +460,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             bases_with_metadata
                 .into_iter()
-                .map(|(base, _)| base.into_class_object())
+                .map(|(base, _)| base)
                 .collect::<Vec<_>>()
         };
         ClassMetadata::new(
@@ -493,7 +483,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn calculate_typed_dict_metadata_fields(
         &self,
         cls: &Class,
-        bases_with_metadata: &[(ClassType, Arc<ClassMetadata>)],
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
         is_total: bool,
     ) -> SmallMap<Name, bool> {
         let mut all_fields = SmallMap::new();

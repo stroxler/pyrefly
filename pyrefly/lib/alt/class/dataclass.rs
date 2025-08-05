@@ -39,7 +39,6 @@ use crate::types::callable::ParamList;
 use crate::types::callable::Params;
 use crate::types::callable::Required;
 use crate::types::class::Class;
-use crate::types::class::ClassType;
 use crate::types::display::ClassDisplayContext;
 use crate::types::keywords::DataclassFieldKeywords;
 use crate::types::keywords::TypeMap;
@@ -53,7 +52,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_dataclass_fields(
         &self,
         cls: &Class,
-        bases_with_metadata: &[(ClassType, Arc<ClassMetadata>)],
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
     ) -> SmallSet<Name> {
         let mut all_fields = SmallSet::new();
         for (_, metadata) in bases_with_metadata.iter().rev() {
@@ -129,10 +128,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         dataclass_metadata: &DataclassMetadata,
-        bases_with_metadata: &[(ClassType, Arc<ClassMetadata>)],
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
         errors: &ErrorCollector,
     ) {
-        for (base_type, base_metadata) in bases_with_metadata {
+        for (base, base_metadata) in bases_with_metadata {
             if let Some(base_dataclass_metadata) = base_metadata.dataclass_metadata() {
                 let is_base_frozen = base_dataclass_metadata.kws.frozen;
                 let is_current_frozen = dataclass_metadata.kws.frozen;
@@ -149,7 +148,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         "non-frozen"
                     };
 
-                    let base = base_type.class_object();
                     let ctx = ClassDisplayContext::new(&[cls, base]);
                     self.error(
                         errors,
