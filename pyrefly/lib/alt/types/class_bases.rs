@@ -91,26 +91,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.stdlib.named_tuple_fallback().clone().to_type(),
                     x.range(),
                 )),
-                BaseClass::TypedDict(..) => {
-                    if is_new_type {
-                        self.error(
-                            errors,
-                            x.range(),
-                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                            "Second argument to NewType is invalid".to_owned(),
-                        );
-                    }
-                    None
-                }
+                BaseClass::TypedDict(..) => None,
                 BaseClass::Generic(args, _) | BaseClass::Protocol(args, _) => {
-                    if is_new_type {
-                        self.error(
-                            errors,
-                            x.range(),
-                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                            "Second argument to NewType is invalid".to_owned(),
-                        );
-                    } else {
+                    if !is_new_type {
                         let mut type_var_tuple_count = 0;
                         args.iter().for_each(|x| {
                             let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
@@ -163,12 +146,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     (Type::TypedDict(typed_dict), range) => {
                         if is_new_type {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                "Second argument to NewType is invalid".to_owned(),
-                            );
+                            // Error will be reported in `class_metadata_of`
                             None
                         } else {
                             // HACK HACK HACK - TypedDict instances behave very differently from instances of other
@@ -186,17 +164,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ))
                         }
                     }
-                    (_, range) => {
-                        if is_new_type {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                "Second argument to NewType is invalid".to_owned(),
-                            );
-                        }
-                        None
-                    }
+                    (_, _) => None,
                 }
             })
             .collect::<Vec<_>>();

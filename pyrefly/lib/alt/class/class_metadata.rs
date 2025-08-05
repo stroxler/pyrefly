@@ -60,6 +60,9 @@ struct ParsedBaseClass {
 enum BaseClassParseResult {
     /// We can successfully extract the class object and metadata from the base class
     Parsed(ParsedBaseClass),
+    /// We can't parse the base class because its correpsponding `BaseClass` is not valid (e.g. base is a `TypedDict`
+    /// when is_new_type is true)
+    InvalidBase(TextRange),
     /// We can't parse the base class because its expression is not recognized to be a valid base class expression
     InvalidExpr(Expr),
     /// We can't parse the base class because its type is not valid to be put in the base class list
@@ -74,7 +77,8 @@ enum BaseClassParseResult {
 impl BaseClassParseResult {
     fn is_any(&self) -> bool {
         match self {
-            BaseClassParseResult::InvalidExpr(..)
+            BaseClassParseResult::InvalidBase(..)
+            | BaseClassParseResult::InvalidExpr(..)
             | BaseClassParseResult::InvalidType(..)
             | BaseClassParseResult::AnyType => true,
             _ => false,
@@ -138,8 +142,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::TypedDict(typed_dict) => {
                 if is_new_type {
-                    // Error will be reported in `class_bases_of`
-                    BaseClassParseResult::AnyType
+                    BaseClassParseResult::InvalidType(typed_dict.to_type(), range)
                 } else {
                     let class_object = typed_dict.class_object();
                     let class_metadata = self.get_metadata_for_class(class_object);
@@ -153,7 +156,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             _ => {
-                if !is_new_type && !ty.is_any() {
+                if is_new_type || !ty.is_any() {
                     BaseClassParseResult::InvalidType(ty, range)
                 } else {
                     BaseClassParseResult::AnyType
@@ -177,7 +180,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 parse_base_class_type(self.stdlib.named_tuple_fallback().clone().to_type())
             }
             BaseClass::TypedDict(..) | BaseClass::Generic(..) | BaseClass::Protocol(..) => {
-                BaseClassParseResult::Ignored
+                if is_new_type {
+                    BaseClassParseResult::InvalidBase(base.range())
+                } else {
+                    BaseClassParseResult::Ignored
+                }
             }
         }
     }
@@ -207,25 +214,54 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let contains_base_class_any = parsed_results.iter().any(|x| x.is_any());
         let bases_with_metadata = parsed_results.into_iter().filter_map(|x| match x {
             BaseClassParseResult::Ignored | BaseClassParseResult::AnyType => None,
+            BaseClassParseResult::InvalidBase(range) => {
+                if is_new_type {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                        "Second argument to NewType is invalid".to_owned(),
+                    );
+                }
+                None
+            }
             BaseClassParseResult::InvalidExpr(expr) => {
-                self.error(
-                    errors,
-                    expr.range(),
-                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                    format!(
-                        "Invalid expression form for base class: `{}`",
-                        expr.display_with(self.module())
-                    ),
-                );
+                if is_new_type {
+                    self.error(
+                        errors,
+                        expr.range(),
+                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                        "Second argument to NewType is invalid".to_owned(),
+                    );
+                } else {
+                    self.error(
+                        errors,
+                        expr.range(),
+                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                        format!(
+                            "Invalid expression form for base class: `{}`",
+                            expr.display_with(self.module())
+                        ),
+                    );
+                }
                 None
             }
             BaseClassParseResult::InvalidType(ty, range) => {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                    format!("Invalid base class: `{}`", self.for_display(ty)),
-                );
+                if is_new_type {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                        "Second argument to NewType is invalid".to_owned(),
+                    );
+                } else {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                        format!("Invalid base class: `{}`", self.for_display(ty)),
+                    );
+                }
                 None
             }
             BaseClassParseResult::Parsed(ParsedBaseClass { class_object, range, metadata }) => {

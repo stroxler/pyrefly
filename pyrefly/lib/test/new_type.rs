@@ -47,7 +47,7 @@ testcase!(
     r#"
 from typing import NewType, TypeVar, Hashable, Literal
 
-BadNewType1 = NewType("BadNewType1", int | str) # E: Invalid expression form for base class: `int | str` # E: Invalid expression form for base class: `int | str`
+BadNewType1 = NewType("BadNewType1", int | str) # E: Second argument to NewType is invalid
 
 T = TypeVar("T")
 BadNewType2 = NewType("BadNewType2", list[T])  # E: Second argument to NewType cannot be an unbound generic
@@ -71,14 +71,22 @@ userId = NewType() # E: Missing argument `name` # E: Missing argument `tp`
 testcase!(
     test_new_type_not_allowed,
     r#"
-from typing import NewType , TypedDict, Any
+from typing import NewType, Generic, Protocol, TypedDict, TypeVar, Any
 
 class TD1(TypedDict):
     a: int
 
+T = TypeVar("T")
+
 BadNewType1 = NewType("BadNewType1", TD1)  # E: Second argument to NewType is invalid
 
-BadNewType2 = NewType("BadNewType2", Any)  # E: Second argument to NewType is invalid
+BadNewType2 = NewType("BadNewType2", TypedDict)  # E: Second argument to NewType is invalid
+
+BadNewType3 = NewType("BadNewType3", Protocol)  # E: Second argument to NewType is invalid
+
+BadNewType4 = NewType("BadNewType4", Generic[T])  # E: Second argument to NewType is invalid
+
+BadNewType5 = NewType("BadNewType5", Any)  # E: Second argument to NewType is invalid
      "#,
 );
 

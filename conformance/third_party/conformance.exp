@@ -488,16 +488,6 @@
     {
       "code": -2,
       "column": 38,
-      "concise_description": "Invalid expression form for base class: `int | str`",
-      "description": "Invalid expression form for base class: `int | str`",
-      "line": 47,
-      "name": "invalid-inheritance",
-      "stop_column": 47,
-      "stop_line": 47
-    },
-    {
-      "code": -2,
-      "column": 38,
       "concise_description": "Second argument to NewType cannot be an unbound generic",
       "description": "Second argument to NewType cannot be an unbound generic",
       "line": 50,
