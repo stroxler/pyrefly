@@ -1014,9 +1014,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }) = initial_value
         {
             let mut defined_in_parent = false;
-            let parents = metadata.base_class_types();
+            let parents = metadata.base_class_objects();
             for parent in parents {
-                if self.get_class_member(parent.class_object(), name).is_some() {
+                if self.get_class_member(parent, name).is_some() {
                     defined_in_parent = true;
                     break;
                 };
@@ -1423,7 +1423,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         for parent in self.get_base_types_for_class(class).iter() {
-            let parent_metadata = self.get_metadata_for_class(parent.class_object());
+            let parent_cls = parent.class_object();
+            let parent_metadata = self.get_metadata_for_class(parent_cls);
             parent_has_any = parent_has_any || parent_metadata.has_base_any();
             // Don't allow overriding a namedtuple element
             if let Some(named_tuple_metadata) = parent_metadata.named_tuple_metadata()
@@ -1436,7 +1437,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     format!("Cannot override named tuple element `{name}`"),
                 );
             }
-            let Some(want_member) = self.get_class_member(parent.class_object(), name) else {
+            let Some(want_member) = self.get_class_member(parent_cls, name) else {
                 continue;
             };
             parent_attr_found = true;

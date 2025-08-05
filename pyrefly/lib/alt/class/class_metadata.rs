@@ -476,7 +476,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassMetadata::new(
             bases_with_metadata
                 .into_iter()
-                .map(|(base, _)| base)
+                .map(|(base, _)| base.class_object().clone())
                 .collect(),
             metaclass,
             keywords,

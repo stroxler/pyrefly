@@ -567,18 +567,15 @@ fn get_all_classes(
                 name: class.qname().id().to_string(),
                 parent,
                 bases: metadata
-                    .base_class_types()
+                    .base_class_objects()
                     .iter()
-                    .map(|class_type| {
-                        let base_class = class_type.class_object();
-                        ClassRef {
-                            module_id: module_ids
-                                .get(ModuleKey::from_module(base_class.module()))
-                                .unwrap(),
-                            module_name: base_class.module_name().to_string(),
-                            class_id: ClassId::from_class(base_class),
-                            class_name: base_class.qname().id().to_string(),
-                        }
+                    .map(|base_class| ClassRef {
+                        module_id: module_ids
+                            .get(ModuleKey::from_module(base_class.module()))
+                            .unwrap(),
+                        module_name: base_class.module_name().to_string(),
+                        class_id: ClassId::from_class(base_class),
+                        class_name: base_class.qname().id().to_string(),
                     })
                     .collect::<Vec<_>>(),
             };

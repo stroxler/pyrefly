@@ -45,7 +45,7 @@ pub struct ClassMetadata {
     enum_metadata: Option<EnumMetadata>,
     protocol_metadata: Option<ProtocolMetadata>,
     dataclass_metadata: Option<DataclassMetadata>,
-    bases: Vec<ClassType>,
+    bases: Vec<Class>,
     has_base_any: bool,
     is_new_type: bool,
     is_final: bool,
@@ -70,7 +70,7 @@ impl Display for ClassMetadata {
 
 impl ClassMetadata {
     pub fn new(
-        bases: Vec<ClassType>,
+        bases: Vec<Class>,
         metaclass: Option<ClassType>,
         keywords: Vec<(Name, Type)>,
         typed_dict_metadata: Option<TypedDictMetadata>,
@@ -152,7 +152,7 @@ impl ClassMetadata {
         self.enum_metadata.as_ref()
     }
 
-    pub fn base_class_types(&self) -> &[ClassType] {
+    pub fn base_class_objects(&self) -> &[Class] {
         &self.bases
     }
 
