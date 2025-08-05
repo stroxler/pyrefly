@@ -588,6 +588,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .map(|(base, _)| base)
                 .collect::<Vec<_>>()
         };
+
+        // TODO Zeina: Populate the metadata based on the qualified name of the class
+        // which will tell if a class is imported from Pydantic
+        let pydantic_metadata = None;
         ClassMetadata::new(
             bases,
             metaclass,
@@ -602,6 +606,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_final,
             total_ordering_metadata,
             dataclass_transform_metadata,
+            pydantic_metadata,
         )
     }
 
