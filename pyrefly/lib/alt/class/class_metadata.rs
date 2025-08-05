@@ -264,6 +264,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             || bases_with_metadata
                 .iter()
                 .any(|(_, metadata)| metadata.is_typed_dict());
+        if is_typed_dict
+            && let Some(bad) = bases_with_metadata.iter().find(|x| !x.1.is_typed_dict())
+        {
+            self.error(errors,
+                cls.range(),
+                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                format!("`{}` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.", bad.0),
+            );
+        }
         let typed_dict_metadata = if is_typed_dict {
             // Validate that only 'total' keyword is allowed for TypedDict and determine is_total
             let mut is_total = true;
@@ -448,14 +457,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 field_specifiers,
             });
         }
-        if is_typed_dict
-            && let Some(bad) = bases_with_metadata.iter().find(|x| !x.1.is_typed_dict())
-        {
-            self.error(errors,
-                cls.range(),
-                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                format!("`{}` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.", bad.0),
-            );
+        if let Some(dm) = dataclass_metadata.as_ref() {
+            self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
         let bases_with_metadata = if is_typed_dict && bases_with_metadata.is_empty() {
             // This is a "fallback" class that contains attributes that are available on all TypedDict subclasses.
@@ -470,9 +473,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             bases_with_metadata
         };
-        if let Some(dm) = dataclass_metadata.as_ref() {
-            self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
-        }
         ClassMetadata::new(
             bases_with_metadata
                 .into_iter()
