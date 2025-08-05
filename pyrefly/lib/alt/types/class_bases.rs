@@ -197,7 +197,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect::<Vec<_>>();
 
-        let base_class_types = base_type_base_and_range
+        let mut base_class_types = base_type_base_and_range
             .into_iter()
             .map(|(base_class_type, base_class_bases, range)| {
                 if is_new_type
@@ -242,8 +242,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 base_class_type
             })
             .collect::<Vec<_>>();
+
+        let metadata = self.get_metadata_for_class(cls);
+        if metadata.is_typed_dict() && base_class_types.is_empty() {
+            // This is a "fallback" class that contains attributes that are available on all TypedDict subclasses.
+            // Note that this also makes those attributes available on *instances* of said subclasses; this is
+            // desirable for methods but problematic for fields like `__total__` that should be available on the class
+            // but not the instance. For now, we make all fields available on both classes and instances.
+            base_class_types.push(self.stdlib.typed_dict_fallback().clone());
+        }
+
         let empty_tparams = self.get_class_tparams(cls).is_empty();
-        let has_base_any = self.get_metadata_for_class(cls).has_base_any();
+        let has_base_any = metadata.has_base_any();
         // We didn't find any type parameters for this class, but it may have ones we don't know about if:
         // - the class inherits from Any, or
         // - the class inherits from Generic[...] or Protocol [...]. We probably dropped the type
