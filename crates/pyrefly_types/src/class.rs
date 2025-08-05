@@ -306,6 +306,10 @@ impl ClassType {
         &self.0
     }
 
+    pub fn into_class_object(self) -> Class {
+        self.0
+    }
+
     pub fn tparams(&self) -> &TParams {
         self.1.tparams()
     }
