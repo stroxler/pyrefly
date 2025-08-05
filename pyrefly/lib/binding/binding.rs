@@ -94,7 +94,7 @@ assert_words!(BindingExpect, 11);
 assert_words!(BindingAnnotation, 15);
 assert_words!(BindingClass, 22);
 assert_words!(BindingTParams, 10);
-assert_words!(BindingClassBaseType, 3);
+assert_words!(BindingClassBaseType, 4);
 assert_words!(BindingClassMetadata, 8);
 assert_bytes!(BindingClassMro, 4);
 assert_words!(BindingClassField, 21);
@@ -1666,6 +1666,7 @@ pub struct BindingClassBaseType {
     /// for some synthesized classes, which have no actual class body and therefore usually have no
     /// base class expressions, but may have a known base class for the synthesized class.
     pub special_base: Option<Box<BaseClass>>,
+    pub is_new_type: bool,
 }
 
 impl DisplayWith<Bindings> for BindingClassBaseType {

@@ -10,12 +10,15 @@ use std::fmt;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_util::display::commas_iter;
+use ruff_text_size::Ranged;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
 use crate::binding::base_class::BaseClass;
+use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
+use crate::error::context::ErrorInfo;
 use crate::types::types::Type;
 
 /// The bases of a class, in type form.
@@ -42,6 +45,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         bases: &[BaseClass],
         special_base: &Option<Box<BaseClass>>,
+        is_new_type: bool,
         errors: &ErrorCollector,
     ) -> ClassBases {
         let mut bases: Vec<BaseClass> = bases.to_vec();
@@ -57,8 +61,47 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 BaseClass::NamedTuple(..) => {
                     Some(self.stdlib.named_tuple_fallback().clone().to_type())
                 }
-                BaseClass::TypedDict(..) => None,
-                BaseClass::Generic(..) | BaseClass::Protocol(..) => None,
+                BaseClass::TypedDict(..) => {
+                    if is_new_type {
+                        self.error(
+                            errors,
+                            x.range(),
+                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                            "Second argument to NewType is invalid".to_owned(),
+                        );
+                    }
+                    None
+                }
+                BaseClass::Generic(args, _) | BaseClass::Protocol(args, _) => {
+                    if is_new_type {
+                        self.error(
+                            errors,
+                            x.range(),
+                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                            "Second argument to NewType is invalid".to_owned(),
+                        );
+                    } else {
+                        let mut type_var_tuple_count = 0;
+                        args.iter().for_each(|x| {
+                            let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
+                            if let Type::Unpack(unpacked) = &ty
+                                && unpacked.is_kind_type_var_tuple()
+                            {
+                                if type_var_tuple_count == 1 {
+                                    self.error(
+                                        errors,
+                                        x.range(),
+                                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                        "There cannot be more than one TypeVarTuple type parameter"
+                                            .to_owned(),
+                                    );
+                                }
+                                type_var_tuple_count += 1;
+                            }
+                        });
+                    }
+                    None
+                }
             })
             .collect::<Vec<_>>();
         ClassBases::new(base_types)

@@ -185,6 +185,7 @@ impl<'a> BindingsBuilder<'a> {
         self.insert_binding_idx(
             class_indices.base_type_idx,
             BindingClassBaseType {
+                is_new_type: false,
                 bases: bases.clone().into_boxed_slice(),
                 special_base: None,
             },
@@ -438,9 +439,11 @@ impl<'a> BindingsBuilder<'a> {
             .into_iter()
             .map(|base| self.base_class_of(base))
             .collect::<Vec<_>>();
+        let is_new_type = class_kind == SynthesizedClassKind::NewType;
         self.insert_binding_idx(
             class_indices.base_type_idx,
             BindingClassBaseType {
+                is_new_type,
                 bases: base_classes.clone().into_boxed_slice(),
                 special_base: special_base.clone(),
             },
@@ -452,7 +455,7 @@ impl<'a> BindingsBuilder<'a> {
                 bases: base_classes.into_boxed_slice(),
                 keywords,
                 decorators: Box::new([]),
-                is_new_type: class_kind == SynthesizedClassKind::NewType,
+                is_new_type,
                 special_base,
             },
         );
