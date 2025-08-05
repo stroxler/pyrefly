@@ -54,6 +54,10 @@ impl ClassBases {
     pub fn has_unknown_tparams(&self) -> bool {
         self.has_unknown_tparams
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &ClassType> {
+        self.base_types.iter()
+    }
 }
 
 impl fmt::Display for ClassBases {

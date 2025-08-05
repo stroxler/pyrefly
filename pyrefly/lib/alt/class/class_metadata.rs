@@ -619,9 +619,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn calculate_class_mro(&self, cls: &Class, errors: &ErrorCollector) -> ClassMro {
-        let metadata = self.get_metadata_for_class(cls);
-        let bases_with_mros = metadata
-            .base_class_types()
+        let bases = self.get_base_types_for_class(cls);
+        let bases_with_mros = bases
             .iter()
             .map(|base| {
                 let mro = self.get_mro_for_class(base.class_object());
