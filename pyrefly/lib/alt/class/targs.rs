@@ -63,7 +63,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        let targs = if !targs.is_empty() && self.get_metadata_for_class(cls).has_unknown_tparams() {
+        let targs = if !targs.is_empty() && self.get_base_types_for_class(cls).has_unknown_tparams()
+        {
             // Accept any number of arguments (by ignoring them).
             TArgs::default()
         } else {

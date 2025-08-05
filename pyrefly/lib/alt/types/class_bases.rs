@@ -21,6 +21,7 @@ use crate::binding::base_class::BaseClass;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
+use crate::types::class::Class;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 
@@ -32,25 +33,26 @@ use crate::types::types::Type;
 pub struct ClassBases {
     base_types: Box<[ClassType]>,
     tuple_base: Option<Tuple>,
+    /// Is it possible for this class to have type parameters that we don't know about?
+    /// This can happen if, e.g., a class inherits from Any.
+    has_unknown_tparams: bool,
 }
 
 impl ClassBases {
-    pub fn new(base_types: Vec<ClassType>, tuple_base: Option<Tuple>) -> Self {
-        Self {
-            base_types: base_types.into_boxed_slice(),
-            tuple_base,
-        }
-    }
-
     pub fn recursive() -> Self {
         Self {
             base_types: Box::new([]),
             tuple_base: None,
+            has_unknown_tparams: false,
         }
     }
 
     pub fn tuple_base(&self) -> Option<&Tuple> {
         self.tuple_base.as_ref()
+    }
+
+    pub fn has_unknown_tparams(&self) -> bool {
+        self.has_unknown_tparams
     }
 }
 
@@ -63,6 +65,7 @@ impl fmt::Display for ClassBases {
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn class_bases_of(
         &self,
+        cls: &Class,
         bases: &[BaseClass],
         special_base: &Option<Box<BaseClass>>,
         is_new_type: bool,
@@ -72,6 +75,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(special_base) = special_base {
             bases.push((**special_base).clone());
         }
+        let has_generic_base_class = bases.iter().any(|x| x.is_generic());
         let base_types_with_ranges = bases
             .iter()
             .filter_map(|x| match x {
@@ -192,6 +196,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             })
             .collect::<Vec<_>>();
+
         let base_class_types = base_type_base_and_range
             .into_iter()
             .map(|(base_class_type, base_class_bases, range)| {
@@ -237,6 +242,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 base_class_type
             })
             .collect::<Vec<_>>();
-        ClassBases::new(base_class_types, tuple_base)
+        let empty_tparams = self.get_class_tparams(cls).is_empty();
+        let has_base_any = self.get_metadata_for_class(cls).has_base_any();
+        // We didn't find any type parameters for this class, but it may have ones we don't know about if:
+        // - the class inherits from Any, or
+        // - the class inherits from Generic[...] or Protocol [...]. We probably dropped the type
+        //   arguments because we found an error in them.
+        let has_unknown_tparams = empty_tparams && (has_base_any || has_generic_base_class);
+
+        ClassBases {
+            base_types: base_class_types.into_boxed_slice(),
+            tuple_base,
+            has_unknown_tparams,
+        }
     }
 }

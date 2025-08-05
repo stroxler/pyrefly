@@ -1660,6 +1660,7 @@ impl DisplayWith<Bindings> for BindingTParams {
 /// Binding for the base class types of a class.
 #[derive(Clone, Debug)]
 pub struct BindingClassBaseType {
+    pub class_idx: Idx<KeyClass>,
     /// The base class list, as expressions.
     pub bases: Box<[BaseClass]>,
     /// May contain a base class to directly inject into the base class list. This is needed
@@ -1674,10 +1675,7 @@ impl DisplayWith<Bindings> for BindingClassBaseType {
         write!(
             f,
             "BindingClassBaseType({})",
-            commas_iter(|| self
-                .bases
-                .iter()
-                .map(|b| format!("{}", b.range().display_with(bindings.module()))))
+            bindings.display(self.class_idx)
         )
     }
 }

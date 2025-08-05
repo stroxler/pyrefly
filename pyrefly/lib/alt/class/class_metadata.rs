@@ -74,7 +74,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             bases.push((**special_base).clone());
         }
         let mut protocol_metadata = Self::protocol_metadata(cls, bases.as_slice());
-        let has_generic_base_class = bases.iter().any(|x| x.is_generic());
         let has_typed_dict_base_class = bases.iter().any(|x| x.is_typed_dict());
 
         let bases_with_range = bases
@@ -306,14 +305,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             dataclass_transform_metadata = Some(m.clone());
         }
-        let empty_tparams = self.get_class_tparams(cls).is_empty();
         if let Some(metaclass) = &metaclass {
             self.check_base_class_metaclasses(cls, metaclass, &base_metaclasses, errors);
             if self
                 .as_superclass(metaclass, self.stdlib.enum_meta().class_object())
                 .is_some()
             {
-                if !empty_tparams {
+                // NOTE(grievejia): This may create potential cycle if metaclass is generic. Need to look into
+                // whether it can be removed or not.
+                if !self.get_class_tparams(cls).is_empty() {
                     self.error(
                         errors,
                         cls.range(),
@@ -470,11 +470,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             bases_with_metadata
         };
-        // We didn't find any type parameters for this class, but it may have ones we don't know about if:
-        // - the class inherits from Any, or
-        // - the class inherits from Generic[...] or Protocol [...]. We probably dropped the type
-        //   arguments because we found an error in them.
-        let has_unknown_tparams = empty_tparams && (has_base_any || has_generic_base_class);
         if let Some(dm) = dataclass_metadata.as_ref() {
             self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
@@ -493,7 +488,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             has_base_any,
             is_new_type,
             is_final,
-            has_unknown_tparams,
             total_ordering_metadata,
             dataclass_transform_metadata,
         )

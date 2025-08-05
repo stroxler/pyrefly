@@ -49,9 +49,6 @@ pub struct ClassMetadata {
     has_base_any: bool,
     is_new_type: bool,
     is_final: bool,
-    /// Is it possible for this class to have type parameters that we don't know about?
-    /// This can happen if, e.g., a class inherits from Any.
-    has_unknown_tparams: bool,
     total_ordering_metadata: Option<TotalOrderingMetadata>,
     /// If this class is decorated with `typing.dataclass_transform(...)`, the keyword arguments
     /// that were passed to the `dataclass_transform` call.
@@ -84,7 +81,6 @@ impl ClassMetadata {
         has_base_any: bool,
         is_new_type: bool,
         is_final: bool,
-        has_unknown_tparams: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
         dataclass_transform_metadata: Option<DataclassTransformKeywords>,
     ) -> ClassMetadata {
@@ -100,7 +96,6 @@ impl ClassMetadata {
             has_base_any,
             is_new_type,
             is_final,
-            has_unknown_tparams,
             total_ordering_metadata,
             dataclass_transform_metadata,
         }
@@ -119,7 +114,6 @@ impl ClassMetadata {
             has_base_any: false,
             is_new_type: false,
             is_final: false,
-            has_unknown_tparams: false,
             total_ordering_metadata: None,
             dataclass_transform_metadata: None,
         }
@@ -144,10 +138,6 @@ impl ClassMetadata {
 
     pub fn has_base_any(&self) -> bool {
         self.has_base_any
-    }
-
-    pub fn has_unknown_tparams(&self) -> bool {
-        self.has_unknown_tparams
     }
 
     pub fn typed_dict_metadata(&self) -> Option<&TypedDictMetadata> {

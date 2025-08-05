@@ -185,6 +185,7 @@ impl<'a> BindingsBuilder<'a> {
         self.insert_binding_idx(
             class_indices.base_type_idx,
             BindingClassBaseType {
+                class_idx: class_indices.class_idx,
                 is_new_type: false,
                 bases: bases.clone().into_boxed_slice(),
                 special_base: None,
@@ -443,6 +444,7 @@ impl<'a> BindingsBuilder<'a> {
         self.insert_binding_idx(
             class_indices.base_type_idx,
             BindingClassBaseType {
+                class_idx: class_indices.class_idx,
                 is_new_type,
                 bases: base_classes.clone().into_boxed_slice(),
                 special_base: special_base.clone(),

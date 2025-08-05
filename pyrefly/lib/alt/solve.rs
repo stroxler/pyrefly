@@ -1338,12 +1338,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         binding: &BindingClassBaseType,
         errors: &ErrorCollector,
     ) -> Arc<ClassBases> {
-        Arc::new(self.class_bases_of(
-            &binding.bases,
-            &binding.special_base,
-            binding.is_new_type,
-            errors,
-        ))
+        let class_bases = match &self.get_idx(binding.class_idx).0 {
+            None => ClassBases::recursive(),
+            Some(cls) => self.class_bases_of(
+                cls,
+                &binding.bases,
+                &binding.special_base,
+                binding.is_new_type,
+                errors,
+            ),
+        };
+        Arc::new(class_bases)
     }
 
     pub fn solve_class_field(
