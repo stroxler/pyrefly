@@ -142,12 +142,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     (Type::TypedDict(typed_dict), range) => {
                         if is_new_type {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                "Second argument to NewType is invalid".to_owned(),
-                            );
                             Err(())
                         } else {
                             let class_object = typed_dict.class_object();
@@ -168,14 +162,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                     (t, range) => {
-                        if is_new_type {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                "Second argument to NewType is invalid".to_owned(),
-                            );
-                        } else if !t.is_any() {
+                        if !is_new_type && !t.is_any() {
                             self.error(
                                 errors,
                                 range,
@@ -208,24 +195,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             range,
                             ErrorInfo::Kind(ErrorKind::InvalidArgument),
                             "Second argument to NewType cannot be a protocol".to_owned(),
-                        );
-                    }
-                    if cls.targs().as_slice().iter().any(|ty| {
-                        ty.any(|ty| {
-                            matches!(
-                                ty,
-                                Type::TypeVar(_)
-                                    | Type::TypeVarTuple(_)
-                                    | Type::ParamSpec(_)
-                            )
-                        })
-                    }) {
-                        self.error(
-                            errors,
-                            range,
-                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                            "Second argument to NewType cannot be an unbound generic"
-                                .to_owned(),
                         );
                     }
                 } else if metadata.is_new_type() {
