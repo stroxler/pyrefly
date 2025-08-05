@@ -1412,8 +1412,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) {
         let mut got_attr = None;
-        let metadata = self.get_metadata_for_class(class);
-        let parents = metadata.base_class_types();
         let mut parent_attr_found = false;
         let mut parent_has_any = false;
 
@@ -1424,7 +1422,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return;
         }
 
-        for parent in parents {
+        for parent in self.get_base_types_for_class(class).iter() {
             let parent_metadata = self.get_metadata_for_class(parent.class_object());
             parent_has_any = parent_has_any || parent_metadata.has_base_any();
             // Don't allow overriding a namedtuple element
