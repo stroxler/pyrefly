@@ -32,6 +32,7 @@ use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingClass;
+use crate::binding::binding::BindingClassBaseType;
 use crate::binding::binding::BindingClassField;
 use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
@@ -44,6 +45,7 @@ use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
+use crate::binding::binding::KeyClassBaseType;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
@@ -91,6 +93,7 @@ impl<'a> BindingsBuilder<'a> {
         let class_indices = ClassIndices {
             def_index,
             class_idx: self.idx_for_promise(KeyClass(ShortIdentifier::new(class_name))),
+            base_type_idx: self.idx_for_promise(KeyClassBaseType(def_index)),
             metadata_idx: self.idx_for_promise(KeyClassMetadata(def_index)),
             mro_idx: self.idx_for_promise(KeyClassMro(def_index)),
             synthesized_fields_idx: self.idx_for_promise(KeyClassSynthesizedFields(def_index)),
@@ -179,6 +182,13 @@ impl<'a> BindingsBuilder<'a> {
             });
         }
 
+        self.insert_binding_idx(
+            class_indices.base_type_idx,
+            BindingClassBaseType {
+                bases: bases.clone().into_boxed_slice(),
+                special_base: None,
+            },
+        );
         self.insert_binding_idx(
             class_indices.metadata_idx,
             BindingClassMetadata {
@@ -424,16 +434,22 @@ impl<'a> BindingsBuilder<'a> {
         class_kind: SynthesizedClassKind,
         special_base: Option<Box<BaseClass>>,
     ) {
+        let base_classes = base
+            .into_iter()
+            .map(|base| self.base_class_of(base))
+            .collect::<Vec<_>>();
+        self.insert_binding_idx(
+            class_indices.base_type_idx,
+            BindingClassBaseType {
+                bases: base_classes.clone().into_boxed_slice(),
+                special_base: special_base.clone(),
+            },
+        );
         self.insert_binding_idx(
             class_indices.metadata_idx,
             BindingClassMetadata {
                 class_idx: class_indices.class_idx,
-                bases: base
-                    .clone()
-                    .into_iter()
-                    .map(|base| self.base_class_of(base))
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
+                bases: base_classes.into_boxed_slice(),
                 keywords,
                 decorators: Box::new([]),
                 is_new_type: class_kind == SynthesizedClassKind::NewType,
