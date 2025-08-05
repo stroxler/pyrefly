@@ -34,6 +34,7 @@ use crate::binding::binding::Key;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
+use crate::error::style::ErrorStyle;
 use crate::graph::index::Idx;
 use crate::types::callable::FunctionKind;
 use crate::types::class::Class;
@@ -46,6 +47,35 @@ use crate::types::literal::Lit;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
+#[derive(Debug, Clone)]
+struct ParsedBaseClass {
+    class_object: Class,
+    range: TextRange,
+    metadata: Arc<ClassMetadata>,
+}
+
+#[derive(Debug, Clone)]
+enum BaseClassParseResult {
+    /// We can successfully extract the class object and metadata from the base class
+    Parsed(ParsedBaseClass),
+    /// We can't parse the base class because its type is not valid to be put in the base class list
+    InvalidType(Type, TextRange),
+    /// We can't parse the base class but we also don't want to error on it for some reason (e.g. the error
+    /// will be reported elsewhere, or the base class literally just has the `Any` type)
+    AnyType,
+    /// This base class does not participate in inheritance related computation (e.g. `Generic`, `Protocol`, etc.)
+    Ignored,
+}
+
+impl BaseClassParseResult {
+    fn is_any(&self) -> bool {
+        match self {
+            BaseClassParseResult::InvalidType(..) | BaseClassParseResult::AnyType => true,
+            _ => false,
+        }
+    }
+}
+
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn protocol_metadata(cls: &Class, bases: &[BaseClass]) -> Option<ProtocolMetadata> {
         if bases.iter().any(|x| matches!(x, BaseClass::Protocol(..))) {
@@ -55,6 +85,71 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
         } else {
             None
+        }
+    }
+
+    fn parse_base_class(&self, base: BaseClass, is_new_type: bool) -> BaseClassParseResult {
+        let range = base.range();
+        let parse_base_class_type = |ty| match ty {
+            Type::ClassType(c) => {
+                let base_cls = c.class_object();
+                let base_class_metadata = self.get_metadata_for_class(base_cls);
+                BaseClassParseResult::Parsed({
+                    ParsedBaseClass {
+                        class_object: base_cls.dupe(),
+                        range,
+                        metadata: base_class_metadata,
+                    }
+                })
+            }
+            Type::Tuple(_) => {
+                let tuple_obj = self.stdlib.tuple_object();
+                let metadata = self.get_metadata_for_class(tuple_obj);
+                BaseClassParseResult::Parsed({
+                    ParsedBaseClass {
+                        class_object: tuple_obj.dupe(),
+                        range,
+                        metadata,
+                    }
+                })
+            }
+            Type::TypedDict(typed_dict) => {
+                if is_new_type {
+                    // Error will be reported in `class_bases_of`
+                    BaseClassParseResult::AnyType
+                } else {
+                    let class_object = typed_dict.class_object();
+                    let class_metadata = self.get_metadata_for_class(class_object);
+                    BaseClassParseResult::Parsed({
+                        ParsedBaseClass {
+                            class_object: class_object.dupe(),
+                            range,
+                            metadata: class_metadata,
+                        }
+                    })
+                }
+            }
+            _ => {
+                if !is_new_type && !ty.is_any() {
+                    BaseClassParseResult::InvalidType(ty, range)
+                } else {
+                    BaseClassParseResult::AnyType
+                }
+            }
+        };
+
+        match base {
+            BaseClass::Expr(x) => {
+                // Ignore all type errors here since they'll be reported in `class_bases_of` anyway
+                let errors = ErrorCollector::new(self.module().dupe(), ErrorStyle::Never);
+                parse_base_class_type(self.expr_untype(&x, TypeFormContext::BaseClassList, &errors))
+            }
+            BaseClass::NamedTuple(..) => {
+                parse_base_class_type(self.stdlib.named_tuple_fallback().clone().to_type())
+            }
+            BaseClass::TypedDict(..) | BaseClass::Generic(..) | BaseClass::Protocol(..) => {
+                BaseClassParseResult::Ignored
+            }
         }
     }
 
@@ -76,76 +171,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut protocol_metadata = Self::protocol_metadata(cls, bases.as_slice());
         let has_typed_dict_base_class = bases.iter().any(|x| x.is_typed_dict());
 
-        let bases_with_range = bases
+        let parsed_results = bases
             .into_iter()
-            .filter_map(|x| {
-                let range = x.range();
-                match x {
-                    BaseClass::Expr(x) => Some((
-                        self.expr_untype(&x, TypeFormContext::BaseClassList, errors),
-                        range,
-                    )),
-                    BaseClass::NamedTuple(..) => {
-                        Some((self.stdlib.named_tuple_fallback().clone().to_type(), range))
-                    }
-                    BaseClass::TypedDict(..) | BaseClass::Generic(..) | BaseClass::Protocol(..) => {
-                        None
-                    }
-                }
-            })
+            .map(|x| self.parse_base_class(x, is_new_type))
             .collect::<Vec<_>>();
-
-        let (bases_with_range_and_metadata, invalid_bases): (
-            Vec<(Class, TextRange, Arc<ClassMetadata>)>,
-            Vec<()>,
-        ) = bases_with_range
-            .into_iter()
-            .map(|base_type_and_range| {
-                // Return Ok() if the base class is valid, or Err() if it is not.
-                match base_type_and_range {
-                    (Type::ClassType(c), range) => {
-                        let base_cls = c.class_object();
-                        let base_class_metadata = self.get_metadata_for_class(base_cls);
-                        Ok((base_cls.dupe(), range, base_class_metadata))
-                    }
-                    (Type::Tuple(_), range) => {
-                        let tuple_obj = self.stdlib.tuple_object();
-                        let metadata = self.get_metadata_for_class(tuple_obj);
-                        Ok((tuple_obj.dupe(), range, metadata))
-                    }
-                    (Type::TypedDict(typed_dict), range) => {
-                        if is_new_type {
-                            Err(())
-                        } else {
-                            let class_object = typed_dict.class_object();
-                            let class_metadata = self.get_metadata_for_class(class_object);
-                            Ok((class_object.dupe(), range, class_metadata))
-                        }
-                    }
-                    (t, range) => {
-                        if !is_new_type && !t.is_any() {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                format!("Invalid base class: `{}`", self.for_display(t)),
-                            );
-                        }
-                        Err(())
-                    }
-                }
-            })
-            .partition_result();
-
-        let bases_with_metadata = bases_with_range_and_metadata
-            .into_iter()
-            .map(|(cls, range, metadata)| {
+        let contains_base_class_any = parsed_results.iter().any(|x| x.is_any());
+        let bases_with_metadata = parsed_results.into_iter().filter_map(|x| match x {
+            BaseClassParseResult::Ignored | BaseClassParseResult::AnyType => None,
+            BaseClassParseResult::InvalidType(ty, range) => {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                    format!("Invalid base class: `{}`", self.for_display(ty)),
+                );
+                None
+            }
+            BaseClassParseResult::Parsed(ParsedBaseClass { class_object, range, metadata }) => {
                 if metadata.is_final() {
                     self.error(
                         errors,
                         range,
                         ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                        format!("Cannot extend final class `{}`", cls.name()),
+                        format!("Cannot extend final class `{}`", class_object.name()),
                     );
                 }
                 if is_new_type {
@@ -180,11 +228,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         );
                     }
                 }
-                (cls, metadata)
-            })
-            .collect::<Vec<_>>();
+                Some((class_object, metadata))
+            }
+        }).collect::<Vec<_>>();
 
-        let has_base_any = !invalid_bases.is_empty()
+        let has_base_any = contains_base_class_any
             || bases_with_metadata
                 .iter()
                 .any(|(_, metadata)| metadata.has_base_any());
