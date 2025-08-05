@@ -25,6 +25,22 @@ pub enum BaseClass {
     NamedTuple(TextRange),
 }
 
+impl BaseClass {
+    pub fn is_generic(&self) -> bool {
+        match self {
+            BaseClass::Generic(ts, ..) | BaseClass::Protocol(ts, ..) if !ts.is_empty() => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_typed_dict(&self) -> bool {
+        match self {
+            BaseClass::TypedDict(_) => true,
+            _ => false,
+        }
+    }
+}
+
 impl Ranged for BaseClass {
     fn range(&self) -> TextRange {
         match self {

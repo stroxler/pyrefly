@@ -58,20 +58,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn find_has_generic_base_class(bases: &[BaseClass]) -> bool {
-        bases.iter().any(|x| match x {
-            BaseClass::Generic(ts, ..) | BaseClass::Protocol(ts, ..) if !ts.is_empty() => true,
-            _ => false,
-        })
-    }
-
-    fn find_has_typed_dict_base_class(bases: &[BaseClass]) -> bool {
-        bases.iter().any(|x| match x {
-            BaseClass::TypedDict(..) => true,
-            _ => false,
-        })
-    }
-
     pub fn class_metadata_of(
         &self,
         cls: &Class,
@@ -88,8 +74,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             bases.push((**special_base).clone());
         }
         let mut protocol_metadata = Self::protocol_metadata(cls, bases.as_slice());
-        let has_generic_base_class = Self::find_has_generic_base_class(bases.as_slice());
-        let has_typed_dict_base_class = Self::find_has_typed_dict_base_class(bases.as_slice());
+        let has_generic_base_class = bases.iter().any(|x| x.is_generic());
+        let has_typed_dict_base_class = bases.iter().any(|x| x.is_typed_dict());
 
         let bases_with_range = bases
             .into_iter()
