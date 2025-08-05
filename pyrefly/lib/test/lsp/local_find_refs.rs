@@ -235,12 +235,12 @@ References:
 }
 
 #[test]
-fn narrowing_keys() {
+fn narrowing() {
     let code = r#"
 xyz = "test"
 # ^
-if len(xyz) < 5:
-    ...
+if isinstance(xyz, int):
+    print(xyz)
 "#;
     let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
     assert_eq!(
@@ -251,8 +251,10 @@ if len(xyz) < 5:
 References:
 2 | xyz = "test"
     ^^^
-4 | if len(xyz) < 5:
-           ^^^
+4 | if isinstance(xyz, int):
+                  ^^^
+5 |     print(xyz)
+              ^^^
 "#
         .trim(),
         report.trim(),
