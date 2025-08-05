@@ -35,6 +35,7 @@ use tracing::info;
 use crate::alt::answers::Answers;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
+use crate::binding::binding::KeyFunction;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
@@ -77,6 +78,11 @@ struct PysaProjectFile {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct FunctionDefinition {
+    name: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct DefinitionRef {
     module_id: ModuleId,
     module_name: String, // For debugging purposes only. Reader should use the module id.
@@ -109,6 +115,7 @@ struct PysaModuleFile {
     source_path: ModulePathDetails,
     type_of_expression: HashMap<String, String>,
     goto_definitions_of_expression: HashMap<String, Vec<DefinitionRef>>,
+    function_definitions: HashMap<String, FunctionDefinition>,
     class_definitions: HashMap<String, ClassDefinition>,
 }
 
@@ -453,6 +460,30 @@ fn visit_statements<'a>(statements: impl Iterator<Item = &'a Stmt>, context: &mu
     }
 }
 
+fn get_all_functions(
+    module_info: &Module,
+    bindings: &Bindings,
+    answers: &Answers,
+) -> HashMap<String, FunctionDefinition> {
+    let mut function_definitions = HashMap::new();
+
+    bindings
+        .keys::<KeyFunction>()
+        .map(|idx| answers.get_idx(idx).unwrap().clone())
+        .for_each(|function| {
+            let display_range = module_info.display_range(function.id_range);
+            let name = function.metadata.kind.as_func_id().func.to_string();
+            assert!(
+                function_definitions
+                    .insert(location_key(&display_range), FunctionDefinition { name })
+                    .is_none(),
+                "Found function definitions with the same location"
+            );
+        });
+
+    function_definitions
+}
+
 fn get_all_classes(
     module_info: &Module,
     bindings: &Bindings,
@@ -534,6 +565,7 @@ fn get_module_file(
         );
     }
 
+    let function_definitions = get_all_functions(module_info, bindings, answers);
     let class_definitions = get_all_classes(module_info, bindings, answers, module_ids);
 
     PysaModuleFile {
@@ -543,6 +575,7 @@ fn get_module_file(
         source_path: module_info.path().details().clone(),
         type_of_expression,
         goto_definitions_of_expression: definitions_of_expression,
+        function_definitions,
         class_definitions,
     }
 }
