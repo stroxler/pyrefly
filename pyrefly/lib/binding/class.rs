@@ -26,7 +26,6 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
-use starlark_map::small_set::SmallSet;
 
 use crate::binding::base_class::BaseClass;
 use crate::binding::binding::AnnotationTarget;
@@ -62,7 +61,6 @@ use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
-use crate::graph::index::Idx;
 use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassFieldProperties;
 use crate::types::types::Type;
@@ -118,7 +116,6 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         let (mut class_object, class_indices) = self.class_object_and_indices(&x.name);
-        let mut key_class_fields: SmallSet<Idx<KeyClassField>> = SmallSet::new();
 
         let docstring_range = Docstring::range_from_stmts(x.body.as_slice());
         let body = mem::take(&mut x.body);
@@ -273,7 +270,6 @@ impl<'a> BindingsBuilder<'a> {
                     ),
                 );
                 let key_field = KeyClassField(class_indices.def_index, name.into_key().clone());
-                key_class_fields.insert(self.idx_for_promise(key_field.clone()));
                 self.insert_binding(key_field, binding);
             }
         }
@@ -288,8 +284,6 @@ impl<'a> BindingsBuilder<'a> {
                     );
 
                     let key_field = KeyClassField(class_indices.def_index, name.key().clone());
-                    key_class_fields.insert(self.idx_for_promise(key_field.clone()));
-
                     self.insert_binding(
                         key_field,
                         BindingClassField {
@@ -430,8 +424,6 @@ impl<'a> BindingsBuilder<'a> {
         class_kind: SynthesizedClassKind,
         special_base: Option<Box<BaseClass>>,
     ) {
-        let mut key_class_fields: SmallSet<Idx<KeyClassField>> = SmallSet::new();
-
         self.insert_binding_idx(
             class_indices.metadata_idx,
             BindingClassMetadata {
@@ -540,7 +532,7 @@ impl<'a> BindingsBuilder<'a> {
                     None => ClassFieldDefinition::DeclaredWithoutAnnotation,
                 },
             };
-            let idx = self.insert_binding(
+            self.insert_binding(
                 KeyClassField(class_indices.def_index, member_name.clone()),
                 BindingClassField {
                     class_idx: class_indices.class_idx,
@@ -549,7 +541,6 @@ impl<'a> BindingsBuilder<'a> {
                     definition,
                 },
             );
-            key_class_fields.insert(idx);
         }
         self.bind_current_as(
             &class_name,
