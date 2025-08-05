@@ -562,6 +562,24 @@ def f(x: str | int):
 );
 
 testcase!(
+    test_dunder_bool_truthy_narrow,
+    r#"
+from typing import assert_type, Literal
+class Falsey:
+    def __bool__(self) -> Literal[False]:
+        return False
+class Truthy:
+    def __bool__(self) -> Literal[True]:
+        return True
+def f(x: Falsey | Truthy):
+    if x:
+        assert_type(x, Truthy)
+    else:
+        assert_type(x, Falsey)
+    "#,
+);
+
+testcase!(
     test_type_eq,
     r#"
 from typing import assert_type

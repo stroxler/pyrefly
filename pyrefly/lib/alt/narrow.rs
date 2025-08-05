@@ -28,6 +28,7 @@ use crate::alt::callable::CallKeyword;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOp;
 use crate::error::collector::ErrorCollector;
+use crate::error::style::ErrorStyle;
 use crate::types::callable::FunctionKind;
 use crate::types::class::ClassType;
 use crate::types::facet::FacetChain;
@@ -517,7 +518,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AtomicNarrowOp::IsTruthy | AtomicNarrowOp::IsFalsy => {
                 self.distribute_over_union(ty, |t| {
                     let boolval = matches!(op, AtomicNarrowOp::IsTruthy);
-                    if t.as_bool() == Some(!boolval) {
+                    // Do not emit errors here: the narrowed range doesn't always correspond to a valid expression
+                    // For example, narrowing generated for implicit else branches.
+                    if self.as_bool(
+                        t,
+                        range,
+                        &ErrorCollector::new(errors.module().clone(), ErrorStyle::Never),
+                    ) == Some(!boolval)
+                    {
                         Type::never()
                     } else if matches!(t, Type::ClassType(cls) if cls.is_builtin("bool")) {
                         Type::Literal(Lit::Bool(boolval))
