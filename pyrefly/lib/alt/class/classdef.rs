@@ -16,9 +16,11 @@ use starlark_map::small_map::SmallMap;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
+use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::EnumMetadata;
+use crate::binding::binding::KeyClassBaseType;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
@@ -92,6 +94,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_metadata_for_class(&self, cls: &Class) -> Arc<ClassMetadata> {
         self.get_from_class(cls, &KeyClassMetadata(cls.index()))
             .unwrap_or_else(|| Arc::new(ClassMetadata::recursive()))
+    }
+
+    pub fn get_base_types_for_class(&self, cls: &Class) -> Arc<ClassBases> {
+        self.get_from_class(cls, &KeyClassBaseType(cls.index()))
+            .unwrap_or_else(|| Arc::new(ClassBases::recursive()))
     }
 
     pub fn get_mro_for_class(&self, cls: &Class) -> Arc<ClassMro> {

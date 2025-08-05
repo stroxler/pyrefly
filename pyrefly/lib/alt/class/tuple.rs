@@ -20,8 +20,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let tuple_targ: Type = cls.targs().as_slice()[0].clone();
             return Some(Tuple::Unbounded(Box::new(tuple_targ)));
         }
-        let class_metadata = self.get_metadata_for_class(cls.class_object());
-        if let Some(Type::Tuple(tuple)) = class_metadata
+        let class_bases = self.get_base_types_for_class(cls.class_object());
+        if let Some(Type::Tuple(tuple)) = class_bases
             .tuple_base()
             .cloned()
             .map(Type::Tuple)

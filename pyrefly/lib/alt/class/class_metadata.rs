@@ -110,18 +110,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect::<Vec<_>>();
 
-        let mut tuple_base = if is_new_type {
-            None
-        } else {
-            bases_with_range.iter().find_map(|(ty, _)| {
-                if let Type::Tuple(tuple) = ty {
-                    Some(tuple.clone())
-                } else {
-                    None
-                }
-            })
-        };
-
         let (bases_with_range_and_metadata, invalid_bases): (
             Vec<(ClassType, TextRange, Arc<ClassMetadata>)>,
             Vec<()>,
@@ -204,25 +192,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorInfo::Kind(ErrorKind::InvalidInheritance),
                         "Subclassing a NewType not allowed".to_owned(),
                     );
-                }
-                if let Some(base_class_tuple_base) = metadata.tuple_base() {
-                    if let Some(existing_tuple_base) = &tuple_base {
-                        if existing_tuple_base.is_any_tuple() {
-                            tuple_base = Some(base_class_tuple_base.clone());
-                        } else if !base_class_tuple_base.is_any_tuple()
-                            && base_class_tuple_base != existing_tuple_base {
-                                self.error(errors,
-                                    range,
-                                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                    format!("Cannot extend multiple incompatible tuples: `{}` and `{}`",
-                                        self.for_display(Type::Tuple(existing_tuple_base.clone())),
-                                        self.for_display(Type::Tuple(base_class_tuple_base.clone())),
-                                ),
-                                );
-                            }
-                    } else {
-                        tuple_base = Some(base_class_tuple_base.clone());
-                    }
                 }
                 if let Some(proto) = &mut protocol_metadata {
                     if let Some(base_proto) = metadata.protocol_metadata() {
@@ -535,7 +504,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             enum_metadata,
             protocol_metadata,
             dataclass_metadata,
-            tuple_base,
             has_base_any,
             is_new_type,
             is_final,

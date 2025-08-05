@@ -21,6 +21,7 @@ use crate::binding::base_class::BaseClass;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
+use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 
 /// The bases of a class, in type form.
@@ -28,17 +29,34 @@ use crate::types::types::Type;
 /// (in particular, the targs of generic bases) of the bases of a class. If only the class objects are
 /// needed, query `ClassMetadata` instead since that one doesn't require calculating the full types.
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut, Default)]
-pub struct ClassBases(Box<[ClassType]>);
+pub struct ClassBases {
+    base_types: Box<[ClassType]>,
+    tuple_base: Option<Tuple>,
+}
 
 impl ClassBases {
-    pub fn new(base_types: Vec<ClassType>) -> Self {
-        Self(base_types.into_boxed_slice())
+    pub fn new(base_types: Vec<ClassType>, tuple_base: Option<Tuple>) -> Self {
+        Self {
+            base_types: base_types.into_boxed_slice(),
+            tuple_base,
+        }
+    }
+
+    pub fn recursive() -> Self {
+        Self {
+            base_types: Box::new([]),
+            tuple_base: None,
+        }
+    }
+
+    pub fn tuple_base(&self) -> Option<&Tuple> {
+        self.tuple_base.as_ref()
     }
 }
 
 impl fmt::Display for ClassBases {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", commas_iter(|| self.0.iter()))
+        write!(f, "ClassBases({})", commas_iter(|| self.base_types.iter()))
     }
 }
 
@@ -108,15 +126,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             })
             .collect::<Vec<_>>();
-        let base_class_types_with_range = base_types_with_ranges
+
+        let mut tuple_base = if is_new_type {
+            None
+        } else {
+            base_types_with_ranges.iter().find_map(|(ty, _)| {
+                if let Type::Tuple(tuple) = ty {
+                    Some(tuple.clone())
+                } else {
+                    None
+                }
+            })
+        };
+
+        let base_type_base_and_range = base_types_with_ranges
             .into_iter()
             .filter_map(|base_type_and_range| {
                 // Return Ok() if the base class is valid, or Err() if it is not.
                 match base_type_and_range {
-                    (Type::ClassType(c), range) => Some((c, range)),
+                    (Type::ClassType(c), range) => {
+                        let bases = self.get_base_types_for_class(c.class_object());
+                        Some((c, bases, range))
+                    }
                     (Type::Tuple(tuple), range) => {
                         let class_ty = self.erase_tuple_type(tuple);
-                        Some((class_ty, range))
+                        let bases = self.get_base_types_for_class(class_ty.class_object());
+                        Some((class_ty, bases, range))
                     }
                     (Type::TypedDict(typed_dict), range) => {
                         if is_new_type {
@@ -138,6 +173,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     typed_dict.class_object().dupe(),
                                     typed_dict.targs().clone(),
                                 ),
+                                self.get_base_types_for_class(typed_dict.class_object()),
                                 range,
                             ))
                         }
@@ -156,9 +192,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             })
             .collect::<Vec<_>>();
-        let base_class_types = base_class_types_with_range
+        let base_class_types = base_type_base_and_range
             .into_iter()
-            .map(|(base_class_type, range)| {
+            .map(|(base_class_type, base_class_bases, range)| {
                 if is_new_type
                     && base_class_type.targs().as_slice().iter().any(|ty| {
                         ty.any(|ty| {
@@ -176,9 +212,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         "Second argument to NewType cannot be an unbound generic".to_owned(),
                     );
                 }
+                if let Some(base_class_tuple_base) = base_class_bases.tuple_base() {
+                    if let Some(existing_tuple_base) = &tuple_base {
+                        if existing_tuple_base.is_any_tuple() {
+                            tuple_base = Some(base_class_tuple_base.clone());
+                        } else if !base_class_tuple_base.is_any_tuple()
+                            && base_class_tuple_base != existing_tuple_base
+                        {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                format!(
+                                    "Cannot extend multiple incompatible tuples: `{}` and `{}`",
+                                    self.for_display(Type::Tuple(existing_tuple_base.clone())),
+                                    self.for_display(Type::Tuple(base_class_tuple_base.clone())),
+                                ),
+                            );
+                        }
+                    } else {
+                        tuple_base = Some(base_class_tuple_base.clone());
+                    }
+                }
                 base_class_type
             })
             .collect::<Vec<_>>();
-        ClassBases::new(base_class_types)
+        ClassBases::new(base_class_types, tuple_base)
     }
 }
