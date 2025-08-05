@@ -305,7 +305,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let orelse_type = self.expr_infer_type_no_trace(&x.orelse, hint, errors);
                 self.check_dunder_bool_is_callable(&condition_type, x.range(), errors);
                 self.check_redundant_condition(&condition_type, x.range(), errors);
-                match condition_type.as_bool() {
+                match self.as_bool(&condition_type, x.test.range(), errors) {
                     Some(true) => body_type,
                     Some(false) => orelse_type,
                     None => self.union(body_type, orelse_type),

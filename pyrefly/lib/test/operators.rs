@@ -472,6 +472,8 @@ class Truthy:
         return True
 assert_type(Falsey() or int(), int)
 assert_type(Truthy() or int(), Truthy)
+assert_type(int() if Truthy() else str(), int)
+assert_type(int() if Falsey() else str(), str)
 "#,
 );
 
