@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufWriter;
+use std::ops::Not;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -91,6 +92,16 @@ enum ScopeParent {
 struct FunctionDefinition {
     name: String,
     parent: ScopeParent,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_overload: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_staticmethod: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_classmethod: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_property_getter: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_property_setter: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -509,7 +520,19 @@ fn get_all_functions(
                 function_definitions
                     .insert(
                         location_key(&display_range),
-                        FunctionDefinition { name, parent }
+                        FunctionDefinition {
+                            name,
+                            parent,
+                            is_overload: function.metadata.flags.is_overload,
+                            is_staticmethod: function.metadata.flags.is_staticmethod,
+                            is_classmethod: function.metadata.flags.is_classmethod,
+                            is_property_getter: function.metadata.flags.is_property_getter,
+                            is_property_setter: function
+                                .metadata
+                                .flags
+                                .is_property_setter_with_getter
+                                .is_some(),
+                        }
                     )
                     .is_none(),
                 "Found function definitions with the same location"
