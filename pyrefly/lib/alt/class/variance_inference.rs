@@ -20,7 +20,7 @@ use starlark_map::small_map::SmallMap;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
-use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_bases::ClassBases;
 use crate::types::callable::Params;
 use crate::types::class::Class;
 use crate::types::tuple::Tuple;
@@ -89,7 +89,7 @@ fn on_class(
     class: &Class,
     on_edge: &mut impl FnMut(&Class) -> TParamArray,
     on_var: &mut impl FnMut(&Name, Variance, Injectivity),
-    get_metadata: &impl Fn(&Class) -> Arc<ClassMetadata>,
+    get_class_bases: &impl Fn(&Class) -> Arc<ClassBases>,
     get_fields: &impl Fn(&Class) -> SmallMap<Name, Arc<ClassField>>,
 ) {
     fn is_private_field(name: &Name) -> bool {
@@ -213,10 +213,7 @@ fn on_class(
         }
     }
 
-    let metadata = get_metadata(class);
-    let base_types = metadata.base_class_types();
-
-    for base_type in base_types {
+    for base_type in get_class_bases(class).iter() {
         on_type(
             Variance::Covariant,
             true,
@@ -330,7 +327,7 @@ fn loop_fn<'a>(
     class: &'a Class,
     environment: &mut VarianceEnv,
     contains_bivariant: &mut bool,
-    get_metadata: &impl Fn(&Class) -> Arc<ClassMetadata>,
+    get_class_bases: &impl Fn(&Class) -> Arc<ClassBases>,
     get_fields: &impl Fn(&Class) -> SmallMap<Name, Arc<ClassField>>,
     get_tparams: &impl Fn(&Class) -> Arc<TParams>,
 ) -> TParamArray {
@@ -350,13 +347,19 @@ fn loop_fn<'a>(
             c,
             environment,
             contains_bivariant,
-            get_metadata,
+            get_class_bases,
             get_fields,
             get_tparams,
         )
     };
 
-    on_class(class, &mut on_edge, &mut on_var, get_metadata, get_fields);
+    on_class(
+        class,
+        &mut on_edge,
+        &mut on_var,
+        get_class_bases,
+        get_fields,
+    );
 
     params
 }
@@ -418,7 +421,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     my_class,
                     &mut on_edge,
                     &mut on_var,
-                    &|c| solver.get_metadata_for_class(c),
+                    &|c| solver.get_base_types_for_class(c),
                     &|c| solver.get_class_field_map(c),
                 );
 
@@ -445,7 +448,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 class,
                 &mut environment,
                 &mut contains_bivariant,
-                &|c| self.get_metadata_for_class(c),
+                &|c| self.get_base_types_for_class(c),
                 &|c| self.get_class_field_map(c),
                 &|c| self.get_class_tparams(c),
             );
