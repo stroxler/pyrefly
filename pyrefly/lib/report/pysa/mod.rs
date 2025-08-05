@@ -24,10 +24,13 @@ use pyrefly_util::fs_anyhow;
 use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::visit::Visit;
 use rayon::prelude::*;
+use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprContext;
+use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_text_size::Ranged;
+use ruff_text_size::TextRange;
 use serde::Serialize;
 use tracing::debug;
 use tracing::info;
@@ -78,8 +81,16 @@ struct PysaProjectFile {
 }
 
 #[derive(Debug, Clone, Serialize)]
+enum ScopeParent {
+    Function { location: String },
+    Class { location: String },
+    TopLevel,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct FunctionDefinition {
     name: String,
+    parent: ScopeParent,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -103,6 +114,7 @@ struct ClassDefinition {
     class_id: ClassId,
     name: String,
     bases: Vec<ClassRef>,
+    parent: ScopeParent,
 }
 
 /// Format of a module file `my.module:id.json`
@@ -460,7 +472,26 @@ fn visit_statements<'a>(statements: impl Iterator<Item = &'a Stmt>, context: &mu
     }
 }
 
+fn get_scope_parent(ast: &ModModule, module_info: &Module, range: TextRange) -> ScopeParent {
+    Ast::locate_node(ast, range.start())
+        .iter()
+        .find_map(|node| match node {
+            AnyNodeRef::Identifier(id) if id.range() == range => None,
+            AnyNodeRef::StmtClassDef(class_def) if class_def.name.range() == range => None,
+            AnyNodeRef::StmtFunctionDef(fun_def) if fun_def.name.range() == range => None,
+            AnyNodeRef::StmtClassDef(class_def) => Some(ScopeParent::Class {
+                location: location_key(&module_info.display_range(class_def.name.range())),
+            }),
+            AnyNodeRef::StmtFunctionDef(fun_def) => Some(ScopeParent::Function {
+                location: location_key(&module_info.display_range(fun_def.name.range())),
+            }),
+            _ => None,
+        })
+        .unwrap_or(ScopeParent::TopLevel)
+}
+
 fn get_all_functions(
+    ast: &ModModule,
     module_info: &Module,
     bindings: &Bindings,
     answers: &Answers,
@@ -473,9 +504,13 @@ fn get_all_functions(
         .for_each(|function| {
             let display_range = module_info.display_range(function.id_range);
             let name = function.metadata.kind.as_func_id().func.to_string();
+            let parent = get_scope_parent(ast, module_info, function.id_range);
             assert!(
                 function_definitions
-                    .insert(location_key(&display_range), FunctionDefinition { name })
+                    .insert(
+                        location_key(&display_range),
+                        FunctionDefinition { name, parent }
+                    )
                     .is_none(),
                 "Found function definitions with the same location"
             );
@@ -485,6 +520,7 @@ fn get_all_functions(
 }
 
 fn get_all_classes(
+    ast: &ModModule,
     module_info: &Module,
     bindings: &Bindings,
     answers: &Answers,
@@ -498,6 +534,7 @@ fn get_all_classes(
         .for_each(|class| {
             let display_range = module_info.display_range(class.qname().range());
             let class_index = class.index();
+            let parent = get_scope_parent(ast, module_info, class.qname().range());
             let metadata = answers
                 .get_idx(bindings.key_to_idx(&KeyClassMetadata(class_index)))
                 .unwrap();
@@ -505,6 +542,7 @@ fn get_all_classes(
             let class_definition = ClassDefinition {
                 class_id: ClassId::from_class(&class),
                 name: class.qname().id().to_string(),
+                parent,
                 bases: metadata
                     .base_class_types()
                     .iter()
@@ -565,8 +603,8 @@ fn get_module_file(
         );
     }
 
-    let function_definitions = get_all_functions(module_info, bindings, answers);
-    let class_definitions = get_all_classes(module_info, bindings, answers, module_ids);
+    let function_definitions = get_all_functions(ast, module_info, bindings, answers);
+    let class_definitions = get_all_classes(ast, module_info, bindings, answers, module_ids);
 
     PysaModuleFile {
         format_version: 1,
