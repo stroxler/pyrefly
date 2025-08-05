@@ -9904,8 +9904,8 @@
     {
       "code": -2,
       "column": 7,
-      "concise_description": "`class NonTypedDict: ...\n` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.",
-      "description": "`class NonTypedDict: ...\n` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.",
+      "concise_description": "`NonTypedDict` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.",
+      "description": "`NonTypedDict` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.",
       "line": 44,
       "name": "invalid-inheritance",
       "stop_column": 19,

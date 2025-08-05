@@ -385,7 +385,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(errors,
                 cls.range(),
                 ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                format!("`{}` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.", bad.0),
+                format!("`{}` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.", bad.0.name()),
             );
         }
         let typed_dict_metadata = if is_typed_dict {
