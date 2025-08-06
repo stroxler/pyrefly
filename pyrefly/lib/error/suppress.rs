@@ -143,21 +143,28 @@ pub fn find_unused_ignores<'a>(
 }
 
 pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<LineNumber>>) {
+    // TODO: right now we only remove pyrefly ignores, but we should have options to clean up
+    // other comment based ignores as well
     let regex = Regex::new(r"# pyrefly: ignore.*$").unwrap();
     let mut removed_ignores: SmallMap<&PathBuf, usize> = SmallMap::new();
     for (path, ignores) in path_ignores {
         let mut unused_ignore_count = 0;
-        let zero_index_ignores: SmallSet<usize> = ignores
-            .iter()
-            .map(|i| i.to_zero_indexed() as usize)
-            .collect();
+        let mut ignore_locations: SmallSet<usize> = SmallSet::new();
+        for ignore in ignores {
+            let above_line = ignore
+                .decrement()
+                .expect("Invalid error suppression location")
+                .to_zero_indexed() as usize;
+            let same_line = ignore.to_zero_indexed() as usize;
+            ignore_locations.insert(above_line);
+            ignore_locations.insert(same_line);
+        }
         if let Ok(file) = read_and_validate_file(path) {
             let mut buf = String::with_capacity(file.len());
             let lines = file.lines();
             for (idx, line) in lines.enumerate() {
-                if zero_index_ignores.contains(&idx) {
+                if ignore_locations.contains(&idx) {
                     unused_ignore_count += 1;
-                    // TODO: Expand support of what we remove and thoroughly test
                     let new_string = regex.replace_all(line, "");
                     if !new_string.trim().is_empty() {
                         buf.push_str(new_string.trim_end());
@@ -419,7 +426,7 @@ pass
 
     #[test]
     fn test_remove_suppression_above() {
-        let lines = SmallSet::from_iter([LineNumber::new(3).unwrap()]);
+        let lines = SmallSet::from_iter([LineNumber::new(4).unwrap()]);
         let input = r#"
 def f() -> int:
     # pyrefly: ignore # bad-return
@@ -435,7 +442,7 @@ def f() -> int:
 
     #[test]
     fn test_remove_suppression_above_two() {
-        let lines = SmallSet::from_iter([LineNumber::new(3).unwrap()]);
+        let lines = SmallSet::from_iter([LineNumber::new(4).unwrap()]);
         let input = r#"
 def g() -> str:
     # pyrefly: ignore # bad-return
@@ -451,7 +458,7 @@ def g() -> str:
 
     #[test]
     fn test_remove_suppression_inline() {
-        let lines = SmallSet::from_iter([LineNumber::new(3).unwrap()]);
+        let lines = SmallSet::from_iter([LineNumber::new(4).unwrap()]);
         let input = r#"
 def g() -> str:
     return "hello" # pyrefly: ignore # bad-return
@@ -465,7 +472,7 @@ def g() -> str:
 
     #[test]
     fn test_remove_suppression_multiple() {
-        let lines = SmallSet::from_iter([LineNumber::new(3).unwrap(), LineNumber::new(5).unwrap()]);
+        let lines = SmallSet::from_iter([LineNumber::new(4).unwrap(), LineNumber::new(6).unwrap()]);
         let input = r#"
 def g() -> str:
     return "hello" # pyrefly: ignore # bad-return
