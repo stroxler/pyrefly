@@ -108,6 +108,7 @@ assert_words!(BindingFunction, 23);
 pub enum AnyIdx {
     Key(Idx<Key>),
     KeyExpect(Idx<KeyExpect>),
+    KeyConsistentOverrideCheck(Idx<KeyConsistentOverrideCheck>),
     KeyClass(Idx<KeyClass>),
     KeyTParams(Idx<KeyTParams>),
     KeyClassBaseType(Idx<KeyClassBaseType>),
@@ -129,6 +130,7 @@ impl DisplayWith<Bindings> for AnyIdx {
         match self {
             Self::Key(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyExpect(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyConsistentOverrideCheck(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClass(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyTParams(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassBaseType(idx) => write!(f, "{}", ctx.display(*idx)),
@@ -170,6 +172,13 @@ impl Keyed for KeyExpect {
     type Answer = EmptyAnswer;
     fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
         AnyIdx::KeyExpect(idx)
+    }
+}
+impl Keyed for KeyConsistentOverrideCheck {
+    type Value = BindingConsistentOverrideCheck;
+    type Answer = EmptyAnswer;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyConsistentOverrideCheck(idx)
     }
 }
 impl Keyed for KeyClass {
@@ -697,6 +706,22 @@ impl Ranged for KeyVariance {
 impl DisplayWith<ModuleInfo> for KeyVariance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &ModuleInfo) -> fmt::Result {
         write!(f, "KeyVariance(class{})", self.0)
+    }
+}
+
+// An expectation that attributes in this class need checking for inconsistent override
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyConsistentOverrideCheck(pub ClassDefIndex);
+
+impl Ranged for KeyConsistentOverrideCheck {
+    fn range(&self) -> TextRange {
+        TextRange::default()
+    }
+}
+
+impl DisplayWith<ModuleInfo> for KeyConsistentOverrideCheck {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &ModuleInfo) -> fmt::Result {
+        write!(f, "KeyConsistentOverrideCheck(class{})", self.0)
     }
 }
 
@@ -1810,6 +1835,21 @@ pub struct BindingVariance {
 impl DisplayWith<Bindings> for BindingVariance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         write!(f, "BindingVariance({})", ctx.display(self.class_key))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BindingConsistentOverrideCheck {
+    pub class_key: Idx<KeyClass>,
+}
+
+impl DisplayWith<Bindings> for BindingConsistentOverrideCheck {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
+        write!(
+            f,
+            "BindingConsistentOverrideCheck({})",
+            ctx.display(self.class_key)
+        )
     }
 }
 

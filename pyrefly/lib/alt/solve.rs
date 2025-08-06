@@ -53,6 +53,7 @@ use crate::binding::binding::BindingClassField;
 use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
 use crate::binding::binding::BindingClassSynthesizedFields;
+use crate::binding::binding::BindingConsistentOverrideCheck;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingFunction;
 use crate::binding::binding::BindingLegacyTypeParam;
@@ -1300,6 +1301,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
         }
+        Arc::new(EmptyAnswer)
+    }
+
+    pub fn solve_consistent_override_check(
+        &self,
+        _binding: &BindingConsistentOverrideCheck,
+        _errors: &ErrorCollector,
+    ) -> Arc<EmptyAnswer> {
         Arc::new(EmptyAnswer)
     }
 

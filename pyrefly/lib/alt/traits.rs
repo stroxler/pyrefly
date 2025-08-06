@@ -32,6 +32,7 @@ use crate::binding::binding::BindingClassField;
 use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
 use crate::binding::binding::BindingClassSynthesizedFields;
+use crate::binding::binding::BindingConsistentOverrideCheck;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingExport;
 use crate::binding::binding::BindingFunction;
@@ -50,6 +51,7 @@ use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
+use crate::binding::binding::KeyConsistentOverrideCheck;
 use crate::binding::binding::KeyExpect;
 use crate::binding::binding::KeyExport;
 use crate::binding::binding::KeyFunction;
@@ -135,6 +137,20 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyExpect {
         errors: &ErrorCollector,
     ) -> Arc<EmptyAnswer> {
         answers.solve_expectation(binding, errors)
+    }
+
+    fn promote_recursive(_: Var) -> Self::Answer {
+        EmptyAnswer
+    }
+}
+
+impl<Ans: LookupAnswer> Solve<Ans> for KeyConsistentOverrideCheck {
+    fn solve(
+        answers: &AnswersSolver<Ans>,
+        binding: &BindingConsistentOverrideCheck,
+        errors: &ErrorCollector,
+    ) -> Arc<EmptyAnswer> {
+        answers.solve_consistent_override_check(binding, errors)
     }
 
     fn promote_recursive(_: Var) -> Self::Answer {

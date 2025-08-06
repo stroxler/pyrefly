@@ -26,6 +26,7 @@ macro_rules! table {
         pub struct $name {
             $($vis)* types: $t<$crate::binding::binding::Key>,
             $($vis)* expectations: $t<$crate::binding::binding::KeyExpect>,
+            $($vis)* consistent_override_checks: $t<$crate::binding::binding::KeyConsistentOverrideCheck>,
             $($vis)* exports: $t<$crate::binding::binding::KeyExport>,
             $($vis)* functions: $t<$crate::binding::binding::KeyFunction>,
             $($vis)* classes: $t<$crate::binding::binding::KeyClass>,
@@ -52,6 +53,12 @@ macro_rules! table {
             type Value = $t<$crate::binding::binding::KeyExpect>;
             fn get(&self) -> &Self::Value { &self.expectations }
             fn get_mut(&mut self) -> &mut Self::Value { &mut self.expectations }
+        }
+
+        impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyConsistentOverrideCheck> for $name {
+            type Value = $t<$crate::binding::binding::KeyConsistentOverrideCheck>;
+            fn get(&self) -> &Self::Value { &self.consistent_override_checks }
+            fn get_mut(&mut self) -> &mut Self::Value { &mut self.consistent_override_checks }
         }
 
         impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyExport> for $name {
@@ -163,6 +170,7 @@ macro_rules! table_for_each(
     ($e:expr, $f:expr) => {
         $f(&($e).types);
         $f(&($e).expectations);
+        $f(&($e).consistent_override_checks);
         $f(&($e).exports);
         $f(&($e).functions);
         $f(&($e).classes);
@@ -185,6 +193,7 @@ macro_rules! table_mut_for_each(
     ($e:expr, $f:expr) => {
         $f(&mut ($e).types);
         $f(&mut ($e).expectations);
+        $f(&mut ($e).consistent_override_checks);
         $f(&mut ($e).exports);
         $f(&mut ($e).functions);
         $f(&mut ($e).classes);
@@ -207,6 +216,7 @@ macro_rules! table_try_for_each(
     ($e:expr, $f:expr) => {
         $f(&($e).types)?;
         $f(&($e).expectations)?;
+        $f(&($e).consistent_override_checks)?;
         $f(&($e).exports)?;
         $f(&($e).functions)?;
         $f(&($e).classes)?;
