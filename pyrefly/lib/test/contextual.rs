@@ -320,17 +320,14 @@ reveal_type(x2) # E: revealed type: (x: int, y: str) -> None
 );
 
 testcase!(
-    bug = "Push expected return type context through generic function call",
     test_context_return,
     r#"
-from typing import Callable
-
 class A: ...
 class B(A): ...
 
 def f[T](x: T) -> T: ...
 
-x: list[A] = f([B()]) # TODO # E: `list[B]` is not assignable to `list[A]`
+x: list[A] = f([B()])
 
 y = f([B()])
 z: list[A] = y # E: `list[B]` is not assignable to `list[A]`

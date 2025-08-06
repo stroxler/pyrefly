@@ -912,7 +912,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // for overload matching.
     pub fn callable_infer(
         &self,
-        mut callable: Callable,
+        callable: Callable,
         callable_name: Option<FuncId>,
         tparams: Option<&TParams>,
         mut self_obj: Option<Type>,
@@ -922,13 +922,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         arg_errors: &ErrorCollector,
         call_errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
-        _hint: Option<&Type>,
+        hint: Option<&Type>,
         mut ctor_targs: Option<&mut TArgs>,
     ) -> Type {
-        let mut qs = Vec::new();
-        if let Some(tparams) = tparams {
-            (qs, callable) = self.instantiate_fresh_callable(tparams, callable);
-        }
+        let (qs, mut callable) = if let Some(tparams) = tparams {
+            // If we have a hint, we want to try to instantiate against it first, so we cancontextually type
+            // arguments. If we don't match the hint, we need to throw away any instantiations we might have made.
+            // By invariant, hint will be None if we are calling a constructor.
+            if let Some(hint) = hint {
+                let (qs_, callable_) = self.instantiate_fresh_callable(tparams, callable.clone());
+                if self
+                    .solver()
+                    .is_subset_eq(&callable_.ret, hint, self.type_order())
+                {
+                    (qs_, callable_)
+                } else {
+                    self.instantiate_fresh_callable(tparams, callable)
+                }
+            } else {
+                self.instantiate_fresh_callable(tparams, callable)
+            }
+        } else {
+            (Vec::new(), callable)
+        };
         if let Some(targs) = ctor_targs.as_mut() {
             self.solver().freshen_class_targs(targs, self.uniques);
             let substitution = targs.substitution();

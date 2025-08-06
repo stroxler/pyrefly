@@ -369,6 +369,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.is_subset_eq(&cls.clone().to_type(), hint);
             self.solver().generalize_class_targs(cls.targs_mut());
         }
+        let hint = None; // discard hint
         if let Some(ret) = self.call_metaclass(&cls, range, args, keywords, errors, context, hint)
             && !self.is_compatible_constructor_return(&ret, cls.class_object())
         {
@@ -482,6 +483,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.is_subset_eq(&typed_dict.clone().to_type(), hint);
             self.solver().generalize_class_targs(typed_dict.targs_mut());
         }
+        let hint = None; // discard hint
         let init_method = self.get_typed_dict_dunder_init(&typed_dict).unwrap();
         self.call_infer(
             self.as_call_target_or_error(
@@ -757,25 +759,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut closest_overload: Option<CalledOverload> = None;
         for callable in overloads.iter() {
             let mut ctor_targs_ = ctor_targs.as_ref().map(|x| (**x).clone());
-            let arg_errors = self.error_collector();
-            let call_errors = self.error_collector();
-            let res = self.callable_infer(
-                callable.1.signature.clone(),
-                Some(metadata.kind.as_func_id()),
-                callable.0.as_deref(),
-                self_obj.clone(),
-                &args,
-                &keywords,
-                range,
-                &arg_errors,
-                &call_errors,
-                // We intentionally drop the context here, as arg errors don't need it,
-                // and if there are any call errors, we'll log a "No matching overloads"
-                // error with the necessary context.
-                None,
-                hint,
-                ctor_targs_.as_mut(),
-            );
+            let tparams = callable.0.as_deref();
+
+            let mut try_call = |hint| {
+                let arg_errors = self.error_collector();
+                let call_errors = self.error_collector();
+                let res = self.callable_infer(
+                    callable.1.signature.clone(),
+                    Some(metadata.kind.as_func_id()),
+                    tparams,
+                    self_obj.clone(),
+                    &args,
+                    &keywords,
+                    range,
+                    &arg_errors,
+                    &call_errors,
+                    // We intentionally drop the context here, as arg errors don't need it,
+                    // and if there are any call errors, we'll log a "No matching overloads"
+                    // error with the necessary context.
+                    None,
+                    hint,
+                    ctor_targs_.as_mut(),
+                );
+                (arg_errors, call_errors, res)
+            };
+
+            // We want to use our hint to contextually type the arguments, but errors resulting
+            // from the hint should not influence overload selection. If there are call errors, we
+            // try again without a hint in case we can still match this overload.
+            let (arg_errors, call_errors, res) = try_call(hint);
+            let (arg_errors, call_errors, res) =
+                if tparams.is_some() && hint.is_some() && !call_errors.is_empty() {
+                    try_call(None)
+                } else {
+                    (arg_errors, call_errors, res)
+                };
+
             if arg_errors.is_empty() && call_errors.is_empty() {
                 // An overload is chosen, we should record it to power IDE services.
                 self.record_overload_trace(
