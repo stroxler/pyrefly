@@ -57,6 +57,7 @@ use crate::alt::types::yields::YieldResult;
 use crate::binding::base_class::BaseClass;
 use crate::binding::bindings::Bindings;
 use crate::binding::narrow::NarrowOp;
+use crate::binding::pydantic::PydanticMetadataBinding;
 use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::types::annotation::Annotation;
@@ -1872,6 +1873,8 @@ pub struct BindingClassMetadata {
     /// for some synthesized classes, which have no actual class body and therefore usually have no
     /// base class expressions, but may have a known base class for the synthesized class.
     pub special_base: Option<Box<BaseClass>>,
+    #[allow(dead_code)]
+    pub pydantic_metadata: Option<PydanticMetadataBinding>,
 }
 
 impl DisplayWith<Bindings> for BindingClassMetadata {

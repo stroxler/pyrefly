@@ -204,6 +204,7 @@ impl<'a> BindingsBuilder<'a> {
                 decorators: decorators_with_ranges.clone().into_boxed_slice(),
                 is_new_type: false,
                 special_base: None,
+                pydantic_metadata: None, // TODO Zeina: add pydantic metadata
             },
         );
         self.insert_binding_idx(
@@ -469,6 +470,7 @@ impl<'a> BindingsBuilder<'a> {
                 decorators: Box::new([]),
                 is_new_type,
                 special_base,
+                pydantic_metadata: None, // This is a synthesized class, so no pydantic metadata
             },
         );
         self.insert_binding_idx(

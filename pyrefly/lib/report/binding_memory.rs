@@ -162,6 +162,7 @@ mod tests {
             decorators: Default::default(),
             is_new_type: false,
             special_base: None,
+            pydantic_metadata: None,
         };
         assert_eq!(
             ReportKey::new(module, &v),
