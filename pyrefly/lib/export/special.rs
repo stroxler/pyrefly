@@ -44,6 +44,7 @@ pub enum SpecialExport {
     SelfType,
     Generic,
     Protocol,
+    PydanticConfigDict,
 }
 
 impl SpecialExport {
@@ -79,6 +80,7 @@ impl SpecialExport {
             "no_type_check" => Some(Self::NoTypeCheck),
             "overload" => Some(Self::Overload),
             "abstractmethod" => Some(Self::AbstractMethod),
+            "ConfigDict" => Some(Self::PydanticConfigDict),
             _ => None,
         }
     }
@@ -113,6 +115,7 @@ impl SpecialExport {
             Self::Exit => matches!(m.as_str(), "sys" | "builtins"),
             Self::OsExit => matches!(m.as_str(), "os"),
             Self::AbstractMethod => matches!(m.as_str(), "abc"),
+            Self::PydanticConfigDict => matches!(m.as_str(), "pydantic"),
         }
     }
 }
