@@ -39,7 +39,7 @@ echo "finished copying wasm files"
 # Run yarn start with appropriate environment variables
 if [ "$INTERNAL_DOCS" = true ]; then
   echo "Starting with internal documentation enabled"
-  yarn start-internal-docs --port 3000
+  yarn start-internal --port 3000
 else
   yarn start --port 3000
 fi

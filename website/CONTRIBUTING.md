@@ -1,6 +1,6 @@
 # Contributing to Pyrefly Website
 
-Please see CONTRIBUTING.md in the root of the repository for more details on contributing.
+Please see `CONTRIBUTING.md` in the root of the repository for more details on contributing.
 This file shows details on how to develop the Website locally, as well as deployment instructions.
 
 ## Development
@@ -9,34 +9,49 @@ This file shows details on how to develop the Website locally, as well as deploy
 
 - Website development isn't currently supported on Windows, please use Linux or Mac or WSL (Windows Subsystem for Linux) for development.
 - Ensure you have clang installed:
-    - For mac: `brew install llvm` ([source](https://github.com/briansmith/ring/issues/1824))
+    - For mac:
+        - Install [homebrew](https://brew.sh/`)
+        - `brew install llvm` ([source](https://github.com/briansmith/ring/issues/1824))
     - For CentOS: `sudo dnf install clang`
-- Install Mercurial: `sudo apt install mercurial`
+- Install [nodejs](https://nodejs.org/en/download)
+- Install yarn:
+    - For mac: `brew install yarn`
+    - Folr CentOS `sudo dnf install yarn`
 
-Install dependencies:
+### Install dependencies:
+
+If you just want to install dependencies for work on the static docs site (i.e. not including the Sandbox), you can use the following command:
+
+```bash
+yarn install
+```
+
+If you need to do development work on the Sandbox feature, you will need to install the wasm dependencies as well, so use this command instead:
 
 ```bash
 yarn install-with-wasm-deps
 ```
 
 This builds the wasm dependencies and installs the yarn dependencies.
-If you run into any issues with "SSL peer certificate or SSH remote key was not OK (SSL certificate problem: unable to get local issuer certificate)", double check your `~/.gitconfig` that you aren't setting a proxy, as this will override the proxy override set in `setup_cargo.sh`.
-If you are running into issues with compiling zstd on your mac when running `build.sh` or `start.sh`, see `pyrefly_wasm/README.md` for more details.
 
-### Running the Website
+#### Troubleshooting
 
-**Running the External Site**
+- If you run into any issues with "SSL peer certificate or SSH remote key was not OK (SSL certificate problem: unable to get local issuer certificate)", double check your `~/.gitconfig` that you aren't setting a proxy, as this will override the proxy override set in `setup_cargo.sh`.
+
+### Run the Website
 
 Please ignore the flags for `unset FB_INTERNAL` and `INTERNAL_DOCS=0` in the following commands, these are commands used to hide information meant to be shown in the internal site.
 
-```bash
-yarn start-with-wasm
-```
-
-If you don't need to rebuild the wasm, you can use the following command instead:
+For work on the static docs site (i.e. not including the Sandbox), you can use the following command:
 
 ```bash
 yarn start
+```
+
+If you need to rebuild the wasm, you can use the following command instead:
+
+```bash
+yarn start-with-wasm
 ```
 
 To see the website, go to the following URI in your browser:
@@ -47,19 +62,12 @@ localhost:3000
 
 Most changes are reflected live without having to restart the server.
 
-**Running the Internal Docs Site (for Meta Employees)**
+#### Troubleshooting
 
-If you want to run the static docs website, run the following command:
-
-```bash
-yarn start-internal
-```
-
-Similar to above, if you don't need to rebuild the wasm, you can use the following command instead:
-
-```bash
-yarn start-internal-with-wasm
-```
+- If you are running into errors with compiling zstd on your mac (typically when running `build.sh` or `start.sh`), check that the llvm you installed with homebrew is actually being used [source](https://github.com/briansmith/ring/issues/1824#issuecomment-2059955073):
+    - run `llvm-config --version`
+    - if you don't see anything, run `export PATH="/opt/homebrew/opt/llvm/bin:$PATH"`
+    - restart your terminal and try again
 
 ## Writing Docs
 
