@@ -584,6 +584,26 @@ fn function_last_expressions<'a>(
                 }
                 f(sys_info, &x.body, res)?;
             }
+            Stmt::While(x) => {
+                // Infinite loops with no breaks cannot fall through
+                if sys_info.evaluate_bool(&x.test) != Some(true) {
+                    return None;
+                }
+                let mut has_break = false;
+                fn f(stmt: &Stmt, res: &mut bool) {
+                    match stmt {
+                        Stmt::Break(_) => {
+                            *res = true;
+                        }
+                        Stmt::While(_) | Stmt::For(_) => {}
+                        _ => stmt.recurse(&mut |stmt| f(stmt, res)),
+                    }
+                }
+                x.body.visit(&mut |stmt| f(stmt, &mut has_break));
+                if has_break {
+                    return None;
+                }
+            }
             Stmt::If(x) => {
                 let mut last_test = None;
                 for (test, body) in sys_info.pruned_if_branches(x) {

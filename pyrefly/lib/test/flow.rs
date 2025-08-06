@@ -182,6 +182,21 @@ else:
 );
 
 testcase!(
+    test_while_infinite_implicit_return,
+    r#"
+def f1(b) -> int:
+    while True:
+        if b():
+            return 1
+
+def f2(b) -> int:  # E: Function declared to return `int` but is missing an explicit `return`
+    while True:
+        if b():
+            break
+    "#,
+);
+
+testcase!(
     test_while_reassignment_with_annotation,
     r#"
 from typing import assert_type, Literal
