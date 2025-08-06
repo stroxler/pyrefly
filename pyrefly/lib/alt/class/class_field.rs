@@ -154,6 +154,7 @@ enum ClassFieldInner {
         // Descriptor setter method, if there is one. `None` indicates no setter.
         descriptor_setter: Option<Type>,
         is_function_without_return_annotation: bool,
+        name_might_exist_in_inherited: bool,
     },
 }
 
@@ -176,6 +177,7 @@ impl ClassField {
         descriptor_getter: Option<Type>,
         descriptor_setter: Option<Type>,
         is_function_without_return_annotation: bool,
+        name_might_exist_in_inherited: bool,
     ) -> Self {
         Self(ClassFieldInner::Simple {
             ty,
@@ -185,6 +187,7 @@ impl ClassField {
             descriptor_getter,
             descriptor_setter,
             is_function_without_return_annotation,
+            name_might_exist_in_inherited,
         })
     }
 
@@ -223,6 +226,7 @@ impl ClassField {
             descriptor_getter: None,
             descriptor_setter: None,
             is_function_without_return_annotation: false,
+            name_might_exist_in_inherited: true,
         })
     }
 
@@ -235,6 +239,7 @@ impl ClassField {
             descriptor_getter: None,
             descriptor_setter: None,
             is_function_without_return_annotation: false,
+            name_might_exist_in_inherited: true,
         })
     }
 
@@ -254,6 +259,7 @@ impl ClassField {
                 descriptor_getter,
                 descriptor_setter,
                 is_function_without_return_annotation,
+                name_might_exist_in_inherited,
             } => Self(ClassFieldInner::Simple {
                 ty: instance.instantiate_member(ty.clone()),
                 annotation: annotation.clone(),
@@ -266,6 +272,7 @@ impl ClassField {
                     .as_ref()
                     .map(|ty| instance.instantiate_member(ty.clone())),
                 is_function_without_return_annotation: *is_function_without_return_annotation,
+                name_might_exist_in_inherited: *name_might_exist_in_inherited,
             }),
         }
     }
@@ -441,6 +448,16 @@ impl ClassField {
             ClassFieldInner::Simple {
                 read_only_reason, ..
             } => read_only_reason.is_some(),
+        }
+    }
+
+    #[expect(dead_code)]
+    pub fn name_might_exist_in_inherited(&self) -> bool {
+        match &self.0 {
+            ClassFieldInner::Simple {
+                name_might_exist_in_inherited,
+                ..
+            } => *name_might_exist_in_inherited,
         }
     }
 
@@ -996,6 +1013,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             descriptor_getter,
             descriptor_setter,
             is_function_without_return_annotation,
+            name_might_exist_in_inherited,
         );
         if name_might_exist_in_inherited || is_override {
             self.check_class_field_for_override_mismatch(
