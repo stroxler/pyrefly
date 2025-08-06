@@ -315,21 +315,39 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::BinOp(x) => self.binop_infer(x, hint, errors),
             Expr::UnaryOp(x) => self.unop_infer(x, errors),
             Expr::Lambda(lambda) => {
-                let mut param_vars = Vec::new();
-                if let Some(parameters) = &lambda.parameters {
-                    param_vars.reserve(parameters.len());
-                    for x in parameters {
-                        param_vars.push((&x.name().id, self.bindings().get_lambda_param(x.name())));
-                    }
-                }
+                let param_vars = if let Some(parameters) = &lambda.parameters {
+                    parameters
+                        .iter_non_variadic_params()
+                        .map(|x| (&x.name().id, self.bindings().get_lambda_param(x.name())))
+                        .collect()
+                } else {
+                    Vec::new()
+                };
                 let return_hint = hint.and_then(|ty| self.decompose_lambda(ty, &param_vars));
-                let params = param_vars.into_map(|(name, var)| {
+
+                let mut params = param_vars.into_map(|(name, var)| {
                     Param::Pos(
                         name.clone(),
                         self.solver().force_var(var),
                         Required::Required,
                     )
                 });
+                if let Some(parameters) = &lambda.parameters {
+                    params.extend(parameters.vararg.iter().map(|x| {
+                        Param::VarArg(
+                            Some(x.name.id.clone()),
+                            self.solver()
+                                .force_var(self.bindings().get_lambda_param(&x.name)),
+                        )
+                    }));
+                    params.extend(parameters.kwarg.iter().map(|x| {
+                        Param::Kwargs(
+                            Some(x.name.id.clone()),
+                            self.solver()
+                                .force_var(self.bindings().get_lambda_param(&x.name)),
+                        )
+                    }));
+                }
                 let params = Params::List(ParamList::new(params));
                 let ret = self.expr_infer_type_no_trace(&lambda.body, return_hint.as_ref(), errors);
                 Type::Callable(Box::new(Callable { params, ret }))
