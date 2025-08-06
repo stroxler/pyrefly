@@ -27,6 +27,7 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
+use starlark_map::small_set::SmallSet;
 
 use crate::module::module_info::ModuleInfo;
 use crate::report::glean::facts::*;
@@ -63,6 +64,29 @@ fn file_fact(module_info: &ModuleInfo) -> src::File {
         .unwrap();
 
     src::File::new(relative_path.to_owned())
+}
+
+fn gather_nonlocal_variables(
+    body: &[Stmt],
+    globals: &mut SmallSet<Name>,
+    nonlocals: &mut SmallSet<Name>,
+) {
+    for stmt in body {
+        match stmt {
+            Stmt::Global(stmt_global) => {
+                globals.extend(stmt_global.names.iter().map(|name| name.id.clone()))
+            }
+            Stmt::Nonlocal(stmt_nonlocal) => {
+                nonlocals.extend(stmt_nonlocal.names.iter().map(|name| name.id.clone()))
+            }
+            _ => {}
+        }
+    }
+}
+enum ScopeType {
+    Global,
+    Nonlocal,
+    Local,
 }
 struct DeclarationInfo {
     declaration: python::Declaration,
@@ -246,11 +270,28 @@ impl GleanState<'_> {
         &self,
         name: &Name,
         container: &python::DeclarationContainer,
+        scope_type: ScopeType,
     ) -> python::Name {
-        let scope = match container {
-            python::DeclarationContainer::module(module) => module.key.name.key.to_string(),
-            python::DeclarationContainer::cls(cls) => cls.key.name.key.to_string(),
-            python::DeclarationContainer::func(func) => func.key.name.key.to_string() + ".<locals>",
+        let container_name = match container {
+            python::DeclarationContainer::module(module) => &module.key.name,
+            python::DeclarationContainer::cls(cls) => &cls.key.name,
+            python::DeclarationContainer::func(func) => &func.key.name,
+        };
+        let container_str = container_name.key.as_str();
+        let scope = match scope_type {
+            ScopeType::Global => self.module_name.to_string(),
+            ScopeType::Nonlocal => {
+                let mut parts: Vec<&str> = container_str.split(".").collect();
+                parts.pop();
+                parts.join(".")
+            }
+            ScopeType::Local => {
+                if let python::DeclarationContainer::func(_) = container {
+                    container_str.to_owned() + ".<locals>"
+                } else {
+                    container_str.to_owned()
+                }
+            }
         };
 
         python::Name::new(scope.to_owned() + "." + name)
@@ -391,7 +432,7 @@ impl GleanState<'_> {
         let type_info: Option<python::TypeInfo> = self.type_info(param.annotation());
 
         decl_infos.push(self.variable_info(
-            self.make_fq_name_for_declaration(param.name.id(), container),
+            self.make_fq_name_for_declaration(param.name.id(), container, ScopeType::Local),
             param.range(),
             None,
             type_info.clone(),
@@ -526,11 +567,20 @@ impl GleanState<'_> {
         range: TextRange,
         annotation: Option<&Expr>,
         container: &python::DeclarationContainer,
+        globals: &SmallSet<Name>,
+        nonlocals: &SmallSet<Name>,
         def_infos: &mut Vec<DeclarationInfo>,
     ) {
         if let Some(name) = expr.as_name_expr() {
+            let scope_type = if globals.contains(&name.id) {
+                ScopeType::Global
+            } else if nonlocals.contains(&name.id) {
+                ScopeType::Nonlocal
+            } else {
+                ScopeType::Local
+            };
             def_infos.push(self.variable_info(
-                self.make_fq_name(&name.id, None),
+                self.make_fq_name_for_declaration(&name.id, container, scope_type),
                 range,
                 Some(container),
                 self.type_info(annotation),
@@ -538,7 +588,9 @@ impl GleanState<'_> {
             ));
         }
         expr.recurse(&mut |expr| {
-            self.variable_facts(expr, range, annotation, container, def_infos)
+            self.variable_facts(
+                expr, range, annotation, container, globals, nonlocals, def_infos,
+            )
         });
     }
 
@@ -689,13 +741,19 @@ impl GleanState<'_> {
         stmt: &Stmt,
         container: &python::DeclarationContainer,
         top_level_decl: &python::Declaration,
+        globals: &SmallSet<Name>,
+        nonlocals: &SmallSet<Name>,
     ) {
         let mut new_container = None;
         let mut new_top_level_decl = None;
+        let mut child_globals = SmallSet::new();
+        let mut child_nonlocals = SmallSet::new();
+        let mut is_new_local_scope = false;
         let mut decl_infos = vec![];
         match stmt {
             Stmt::ClassDef(cls) => {
-                let cls_fq_name = self.make_fq_name_for_declaration(&cls.name.id, container);
+                let cls_fq_name =
+                    self.make_fq_name_for_declaration(&cls.name.id, container, ScopeType::Local);
                 let cls_declaration = python::ClassDeclaration::new(cls_fq_name, None);
                 let decl_info = self.class_facts(cls, cls_declaration.clone(), container.clone());
                 self.visit_exprs(&cls.decorator_list, container);
@@ -707,9 +765,12 @@ impl GleanState<'_> {
 
                 new_container = Some(python::DeclarationContainer::cls(cls_declaration));
                 decl_infos.push(decl_info);
+                is_new_local_scope = true;
+                gather_nonlocal_variables(&cls.body, &mut child_globals, &mut child_nonlocals);
             }
             Stmt::FunctionDef(func) => {
-                let func_fq_name = self.make_fq_name_for_declaration(&func.name.id, container);
+                let func_fq_name =
+                    self.make_fq_name_for_declaration(&func.name.id, container, ScopeType::Local);
                 let func_declaration = python::FunctionDeclaration::new(func_fq_name);
                 if let python::Declaration::module(_) = top_level_decl {
                     new_top_level_decl = Some(python::Declaration::func(func_declaration.clone()));
@@ -726,10 +787,20 @@ impl GleanState<'_> {
                 self.visit_exprs(&func.returns, container);
                 new_container = Some(python::DeclarationContainer::func(func_declaration));
                 decl_infos.append(&mut func_decl_infos);
+                is_new_local_scope = true;
+                gather_nonlocal_variables(&func.body, &mut child_globals, &mut child_nonlocals);
             }
             Stmt::Assign(assign) => {
                 assign.targets.visit(&mut |target| {
-                    self.variable_facts(target, assign.range(), None, container, &mut decl_infos)
+                    self.variable_facts(
+                        target,
+                        assign.range(),
+                        None,
+                        container,
+                        globals,
+                        nonlocals,
+                        &mut decl_infos,
+                    )
                 });
                 self.visit_exprs(&assign.value, container);
             }
@@ -739,6 +810,8 @@ impl GleanState<'_> {
                     assign.range(),
                     Some(&assign.annotation),
                     container,
+                    globals,
+                    nonlocals,
                     &mut decl_infos,
                 );
                 self.visit_exprs(&assign.annotation, container);
@@ -750,6 +823,8 @@ impl GleanState<'_> {
                     assign.range(),
                     None,
                     container,
+                    globals,
+                    nonlocals,
                     &mut decl_infos,
                 );
                 self.visit_exprs(&assign.value, container);
@@ -769,7 +844,15 @@ impl GleanState<'_> {
             }
             Stmt::For(stmt_for) => {
                 stmt_for.target.visit(&mut |target| {
-                    self.variable_facts(target, target.range(), None, container, &mut decl_infos)
+                    self.variable_facts(
+                        target,
+                        target.range(),
+                        None,
+                        container,
+                        globals,
+                        nonlocals,
+                        &mut decl_infos,
+                    )
                 });
                 self.visit_exprs(&stmt_for.iter, container);
             }
@@ -789,6 +872,8 @@ impl GleanState<'_> {
                             target.range(),
                             None,
                             container,
+                            globals,
+                            nonlocals,
                             &mut decl_infos,
                         )
                     });
@@ -811,11 +896,20 @@ impl GleanState<'_> {
         for decl_info in decl_infos {
             self.declaration_facts(decl_info, top_level_decl);
         }
+
+        let mut new_scope_globals = globals;
+        let mut new_scope_locals = nonlocals;
+        if is_new_local_scope {
+            new_scope_globals = &child_globals;
+            new_scope_locals = &child_nonlocals;
+        }
         stmt.recurse(&mut |x| {
             self.generate_facts(
                 x,
                 new_container.as_ref().unwrap_or(container),
                 new_top_level_decl.as_ref().unwrap_or(top_level_decl),
+                new_scope_globals,
+                new_scope_locals,
             )
         });
     }
@@ -835,7 +929,13 @@ impl Glean {
         let top_level_decl = python::Declaration::module(glean_state.module_fact());
         glean_state.module_facts(ast.range, &top_level_decl);
         ast.body.visit(&mut |stmt: &Stmt| {
-            glean_state.generate_facts(stmt, &container, &top_level_decl)
+            glean_state.generate_facts(
+                stmt,
+                &container,
+                &top_level_decl,
+                &SmallSet::new(),
+                &SmallSet::new(),
+            )
         });
 
         let file_fact = glean_state.file_fact();

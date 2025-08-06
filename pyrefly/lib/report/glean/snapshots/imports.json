@@ -113,60 +113,6 @@
               "key": {
                 "name": {
                   "id": 0,
-                  "key": "count"
-                }
-              }
-            }
-          }
-        }
-      },
-      {
-        "id": 0,
-        "key": {
-          "container": {
-            "func": {
-              "id": 0,
-              "key": {
-                "name": {
-                  "id": 0,
-                  "key": "imports.process_files"
-                }
-              }
-            }
-          },
-          "declaration": {
-            "variable": {
-              "id": 0,
-              "key": {
-                "name": {
-                  "id": 0,
-                  "key": "count"
-                }
-              }
-            }
-          }
-        }
-      },
-      {
-        "id": 0,
-        "key": {
-          "container": {
-            "func": {
-              "id": 0,
-              "key": {
-                "name": {
-                  "id": 0,
-                  "key": "imports.process_files"
-                }
-              }
-            }
-          },
-          "declaration": {
-            "variable": {
-              "id": 0,
-              "key": {
-                "name": {
-                  "id": 0,
                   "key": "imports.paths"
                 }
               }
@@ -194,7 +140,61 @@
               "key": {
                 "name": {
                   "id": 0,
-                  "key": "path"
+                  "key": "imports.process_files.<locals>.count"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "container": {
+            "func": {
+              "id": 0,
+              "key": {
+                "name": {
+                  "id": 0,
+                  "key": "imports.process_files"
+                }
+              }
+            }
+          },
+          "declaration": {
+            "variable": {
+              "id": 0,
+              "key": {
+                "name": {
+                  "id": 0,
+                  "key": "imports.process_files.<locals>.count"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "container": {
+            "func": {
+              "id": 0,
+              "key": {
+                "name": {
+                  "id": 0,
+                  "key": "imports.process_files"
+                }
+              }
+            }
+          },
+          "declaration": {
+            "variable": {
+              "id": 0,
+              "key": {
+                "name": {
+                  "id": 0,
+                  "key": "imports.process_files.<locals>.path"
                 }
               }
             }
@@ -368,7 +368,7 @@
               "key": {
                 "name": {
                   "id": 0,
-                  "key": "greeting"
+                  "key": "imports.greeting"
                 }
               }
             }
@@ -395,7 +395,7 @@
               "key": {
                 "name": {
                   "id": 0,
-                  "key": "result"
+                  "key": "imports.result"
                 }
               }
             }
@@ -548,55 +548,7 @@
               "key": {
                 "name": {
                   "id": 0,
-                  "key": "count"
-                }
-              }
-            }
-          },
-          "file": {
-            "id": 0,
-            "key": "imports.py"
-          },
-          "span": {
-            "length": 10,
-            "start": 231
-          }
-        }
-      },
-      {
-        "id": 0,
-        "key": {
-          "declaration": {
-            "variable": {
-              "id": 0,
-              "key": {
-                "name": {
-                  "id": 0,
-                  "key": "count"
-                }
-              }
-            }
-          },
-          "file": {
-            "id": 0,
-            "key": "imports.py"
-          },
-          "span": {
-            "length": 9,
-            "start": 153
-          }
-        }
-      },
-      {
-        "id": 0,
-        "key": {
-          "declaration": {
-            "variable": {
-              "id": 0,
-              "key": {
-                "name": {
-                  "id": 0,
-                  "key": "greeting"
+                  "key": "imports.greeting"
                 }
               }
             }
@@ -644,7 +596,55 @@
               "key": {
                 "name": {
                   "id": 0,
-                  "key": "path"
+                  "key": "imports.process_files.<locals>.count"
+                }
+              }
+            }
+          },
+          "file": {
+            "id": 0,
+            "key": "imports.py"
+          },
+          "span": {
+            "length": 10,
+            "start": 231
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "declaration": {
+            "variable": {
+              "id": 0,
+              "key": {
+                "name": {
+                  "id": 0,
+                  "key": "imports.process_files.<locals>.count"
+                }
+              }
+            }
+          },
+          "file": {
+            "id": 0,
+            "key": "imports.py"
+          },
+          "span": {
+            "length": 9,
+            "start": 153
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "declaration": {
+            "variable": {
+              "id": 0,
+              "key": {
+                "name": {
+                  "id": 0,
+                  "key": "imports.process_files.<locals>.path"
                 }
               }
             }
@@ -668,7 +668,7 @@
               "key": {
                 "name": {
                   "id": 0,
-                  "key": "result"
+                  "key": "imports.result"
                 }
               }
             }
@@ -864,7 +864,7 @@
                   "key": {
                     "name": {
                       "id": 0,
-                      "key": "count"
+                      "key": "imports.process_files.<locals>.count"
                     }
                   }
                 }
@@ -904,7 +904,7 @@
                   "key": {
                     "name": {
                       "id": 0,
-                      "key": "count"
+                      "key": "imports.process_files.<locals>.count"
                     }
                   }
                 }
@@ -944,7 +944,7 @@
                   "key": {
                     "name": {
                       "id": 0,
-                      "key": "path"
+                      "key": "imports.process_files.<locals>.path"
                     }
                   }
                 }
@@ -984,7 +984,7 @@
                   "key": {
                     "name": {
                       "id": 0,
-                      "key": "greeting"
+                      "key": "imports.greeting"
                     }
                   }
                 }
@@ -1024,7 +1024,7 @@
                   "key": {
                     "name": {
                       "id": 0,
-                      "key": "result"
+                      "key": "imports.result"
                     }
                   }
                 }
