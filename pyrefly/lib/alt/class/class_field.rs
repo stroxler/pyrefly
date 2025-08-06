@@ -1191,7 +1191,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_dataclass_member(&self, cls: &Class, name: &Name) -> DataclassMember {
         // Even though we check that the class member exists before calling this function,
         // it can be None if the class has an invalid MRO.
-        let Some(member) = self.get_class_member_impl(cls, name) else {
+        let Some(member) = self.get_non_synthesized_dataclass_member_impl(cls, name) else {
             return DataclassMember::NotAField;
         };
         let field = &*member.value;
@@ -1626,6 +1626,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
                             defining_class: ancestor.class_object().dupe(),
                         })
+                })
+        }
+    }
+
+    fn get_non_synthesized_dataclass_member_impl(
+        &self,
+        cls: &Class,
+        name: &Name,
+    ) -> Option<WithDefiningClass<Arc<ClassField>>> {
+        if let Some(field) = self.get_non_synthesized_field_from_current_class_only(cls, name) {
+            Some(WithDefiningClass {
+                value: field,
+                defining_class: cls.dupe(),
+            })
+        } else {
+            self.get_mro_for_class(cls)
+                .ancestors(self.stdlib)
+                .find_map(|ancestor| {
+                    self.get_non_synthesized_field_from_current_class_only(
+                        ancestor.class_object(),
+                        name,
+                    )
+                    .map(|field| WithDefiningClass {
+                        value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
+                        defining_class: ancestor.class_object().dupe(),
+                    })
                 })
         }
     }
