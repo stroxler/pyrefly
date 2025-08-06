@@ -1972,7 +1972,12 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    pub fn inferred_types(&self, handle: &Handle) -> Option<Vec<(TextSize, Type, AnnotationKind)>> {
+    pub fn inferred_types(
+        &self,
+        handle: &Handle,
+        return_types: bool,
+        containers: bool,
+    ) -> Option<Vec<(TextSize, Type, AnnotationKind)>> {
         let is_interesting_type = |x: &Type| !x.is_error();
         let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
         let bindings = self.get_bindings(handle)?;
@@ -1980,7 +1985,7 @@ impl<'a> Transaction<'a> {
         for idx in bindings.keys::<Key>() {
             match bindings.idx_to_key(idx) {
                 // Return Annotation
-                key @ Key::ReturnType(id) => {
+                key @ Key::ReturnType(id) if return_types => {
                     match bindings.get(bindings.key_to_idx(&Key::Definition(id.clone()))) {
                         Binding::Function(x, _pred, _class_meta) => {
                             if matches!(&bindings.get(idx), Binding::ReturnType(ret) if !ret.kind.has_return_annotation())
@@ -1999,32 +2004,34 @@ impl<'a> Transaction<'a> {
                     }
                 }
                 // Only annotate empty containers for now
-                key @ Key::Definition(_) if let Some(ty) = self.get_type(handle, key) => {
-                    let e = match bindings.get(idx) {
-                        Binding::NameAssign(_, None, e) => match &**e {
-                            Expr::List(ExprList { elts, .. }) => {
-                                if elts.is_empty() {
-                                    Some(&**e)
-                                } else {
-                                    None
+                key @ Key::Definition(_) if containers => {
+                    if let Some(ty) = self.get_type(handle, key) {
+                        let e = match bindings.get(idx) {
+                            Binding::NameAssign(_, None, e) => match &**e {
+                                Expr::List(ExprList { elts, .. }) => {
+                                    if elts.is_empty() {
+                                        Some(&**e)
+                                    } else {
+                                        None
+                                    }
                                 }
-                            }
-                            Expr::Dict(ExprDict { items, .. }) => {
-                                if items.is_empty() {
-                                    Some(&**e)
-                                } else {
-                                    None
+                                Expr::Dict(ExprDict { items, .. }) => {
+                                    if items.is_empty() {
+                                        Some(&**e)
+                                    } else {
+                                        None
+                                    }
                                 }
-                            }
+                                _ => None,
+                            },
                             _ => None,
-                        },
-                        _ => None,
-                    };
-                    if let Some(e) = e
-                        && is_interesting_expr(e)
-                        && is_interesting_type(&ty)
-                    {
-                        res.push((key.range().end(), ty, AnnotationKind::Variable));
+                        };
+                        if let Some(e) = e
+                            && is_interesting_expr(e)
+                            && is_interesting_type(&ty)
+                        {
+                            res.push((key.range().end(), ty, AnnotationKind::Variable));
+                        }
                     }
                 }
                 _ => {}

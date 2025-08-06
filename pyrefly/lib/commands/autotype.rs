@@ -34,6 +34,52 @@ use crate::types::simplify::unions_with_literals;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::Type;
 
+#[deny(clippy::missing_docs_in_private_items)]
+/// Flags for controlling the behavior of the autotype command
+#[derive(Debug, Clone, Parser)]
+pub struct AutotypeFlags {
+    // Default should be false for all of them and then we can override to easily customize
+    /// Whether to add type annotations to container types like lists and dictionaries
+    #[arg(long, value_parser = clap::value_parser!(bool))]
+    pub containers: Option<bool>,
+    /// Whether to add return type annotations to functions
+    #[arg(long, value_parser = clap::value_parser!(bool))]
+    pub return_types: Option<bool>,
+    /// Whether to add type annotations to function parameters
+    #[arg(long, value_parser = clap::value_parser!(bool))]
+    pub parameter_types: Option<bool>,
+    /// Whether to automatically add imports for types used in annotations
+    #[arg(long, value_parser = clap::value_parser!(bool))]
+    pub imports: Option<bool>,
+}
+
+impl AutotypeFlags {
+    pub fn default() -> Self {
+        Self {
+            containers: Some(false),
+            return_types: Some(true),
+            parameter_types: Some(true),
+            imports: Some(true),
+        }
+    }
+
+    pub fn containers(&self) -> bool {
+        self.containers.unwrap_or(false)
+    }
+
+    pub fn return_types(&self) -> bool {
+        self.return_types.unwrap_or(true)
+    }
+
+    pub fn parameter_types(&self) -> bool {
+        self.parameter_types.unwrap_or(true)
+    }
+
+    pub fn imports(&self) -> bool {
+        self.imports.unwrap_or(true)
+    }
+}
+
 /// Arguments for the autotype command which automatically adds type annotations to Python code
 #[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Parser, Clone)]
@@ -45,6 +91,10 @@ pub struct AutotypeArgs {
     /// Type checking arguments and configuration
     #[command(flatten)]
     config_override: ConfigOverrideArgs,
+
+    /// Flags controlling the behavior of the autotype command
+    #[command(flatten)]
+    flags: AutotypeFlags,
 }
 
 impl ParameterAnnotation {
@@ -137,12 +187,13 @@ impl AutotypeArgs {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         self.config_override.validate()?;
         let (files_to_check, config_finder) = self.files.resolve(&self.config_override)?;
-        Self::run_inner(files_to_check, config_finder)
+        Self::run_inner(files_to_check, config_finder, self.flags)
     }
 
     pub fn run_inner(
         files_to_check: FilteredGlobs,
         config_finder: ConfigFinder,
+        flags: AutotypeFlags,
     ) -> anyhow::Result<CommandExitStatus> {
         let expanded_file_list = config_finder.checkpoint(files_to_check.files())?;
         let state = State::new(config_finder);
@@ -160,9 +211,12 @@ impl AutotypeArgs {
             transaction.run(&[(handle.dupe(), Require::Everything)]);
             let stdlib = transaction.get_stdlib(&handle);
             let inferred_types: Option<Vec<(ruff_text_size::TextSize, Type, AnnotationKind)>> =
-                transaction.inferred_types(&handle);
-            let parameter_annotations =
-                transaction.infer_parameter_annotations(&handle, &mut cancellable_transaction);
+                transaction.inferred_types(&handle, flags.return_types(), flags.containers());
+            let parameter_annotations = if flags.parameter_types() {
+                transaction.infer_parameter_annotations(&handle, &mut cancellable_transaction)
+            } else {
+                Vec::new()
+            };
             // Map them to the inferred_types pattern
             let mut parameter_types: Vec<(TextSize, Type, AnnotationKind)> = parameter_annotations
                 .into_iter()
@@ -270,7 +324,8 @@ mod test {
     use super::*;
     use crate::test::util::TestEnv;
 
-    fn assert_annotations(input: &str, output: &str) {
+    fn assert_annotations(input: &str, output: &str, flags: Option<AutotypeFlags>) {
+        let flags = flags.unwrap_or_else(AutotypeFlags::default);
         let tdir = tempfile::tempdir().unwrap();
         let path = tdir.path().join("test.py");
         fs_anyhow::write(&path, input).unwrap();
@@ -280,7 +335,7 @@ mod test {
             Globs::new(vec![format!("{}/**/*", tdir.path().display()).to_owned()]).unwrap();
         let f_globs = FilteredGlobs::new(includes, Globs::empty());
         let config_finder = t.config_finder();
-        let result = AutotypeArgs::run_inner(f_globs, config_finder);
+        let result = AutotypeArgs::run_inner(f_globs, config_finder, flags);
         assert!(
             result.is_ok(),
             "autotype command failed: {:?}",
@@ -341,6 +396,7 @@ def foo():
 def foo() -> int:
     return 1
 "#,
+            None,
         );
         Ok(())
     }
@@ -357,6 +413,7 @@ def foo():
 def foo() -> str:
     return ""
 "#,
+            None,
         );
         Ok(())
     }
@@ -373,6 +430,7 @@ def foo() -> str:
     def is_valid() -> bool:
         return True
     "#,
+            None,
         );
         Ok(())
     }
@@ -391,6 +449,7 @@ def foo() -> str:
         return c
     example(1, 2, 3)
     "#,
+            None,
         );
         Ok(())
     }
@@ -413,6 +472,7 @@ def foo() -> str:
     x = 2
     example("a", "b", x)
     "#,
+            None,
         );
         Ok(())
     }
@@ -435,6 +495,7 @@ def foo() -> str:
     x = 2
     example("a", "b", x)
     "#,
+            None,
         );
         Ok(())
     }
@@ -453,6 +514,7 @@ def foo() -> str:
         return c
     example("a")
     "#,
+            None,
         );
         Ok(())
     }
@@ -468,6 +530,7 @@ def foo() -> str:
     def example(c) -> None:
         c + 1
     "#,
+            None,
         );
         Ok(())
     }
@@ -485,6 +548,7 @@ def foo() -> str:
         pass
     example(None)
     "#,
+            None,
         );
         Ok(())
     }
@@ -500,12 +564,15 @@ def foo() -> str:
     def foo(a: int=2) -> None:
         pass
     "#,
+            None,
         );
         Ok(())
     }
 
     #[test]
     fn test_empty_container() -> anyhow::Result<()> {
+        let mut flags = AutotypeFlags::default();
+        flags.containers = Some(true);
         assert_annotations(
             r#"
     def foo() -> None:
@@ -517,12 +584,15 @@ def foo() -> str:
         x: list[int] = [] 
         x.append(1)
     "#,
+            Some(flags),
         );
         Ok(())
     }
 
     #[test]
     fn test_empty_dictionary() -> anyhow::Result<()> {
+        let mut flags = AutotypeFlags::default();
+        flags.containers = Some(true);
         assert_annotations(
             r#"
     def foo() -> None:
@@ -534,12 +604,16 @@ def foo() -> str:
         x: dict[str, int] = {}
         x["a"] = 1
     "#,
+            Some(flags),
         );
         Ok(())
     }
 
     #[test]
     fn test_non_empty_dictionary() -> anyhow::Result<()> {
+        let mut flags = AutotypeFlags::default();
+        flags.containers = Some(true);
+
         assert_annotations(
             r#"
     def foo() -> None:
@@ -551,6 +625,68 @@ def foo() -> str:
         x = {"a": 1}
         x["a"] = 1
     "#,
+            Some(flags),
+        );
+        Ok(())
+    }
+
+    // TEST FLAGS
+    #[test]
+    fn test_no_parameter_flag() -> anyhow::Result<()> {
+        let mut flags = AutotypeFlags::default();
+        flags.parameter_types = Some(false);
+        assert_annotations(
+            r#"
+    def example(c = 1):
+        return c
+    example("a")
+    "#,
+            r#"
+    def example(c = 1):
+        return c
+    example("a")
+    "#,
+            Some(flags),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_containers_empty_dictionary() -> anyhow::Result<()> {
+        let mut flags = AutotypeFlags::default();
+        flags.containers = Some(false);
+        assert_annotations(
+            r#"
+    def foo() -> None:
+        x = {}
+        x["a"] = 1
+    "#,
+            r#"
+    def foo() -> None:
+        x = {}
+        x["a"] = 1
+    "#,
+            Some(flags),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_return_literal_string() -> anyhow::Result<()> {
+        // Test return type annotation for integer literal
+        let mut flags = AutotypeFlags::default();
+        flags.return_types = Some(false);
+
+        assert_annotations(
+            r#"
+def foo():
+    return ""
+"#,
+            r#"
+def foo():
+    return ""
+"#,
+            Some(flags),
         );
         Ok(())
     }
