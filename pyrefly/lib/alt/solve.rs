@@ -1306,9 +1306,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn solve_consistent_override_check(
         &self,
-        _binding: &BindingConsistentOverrideCheck,
-        _errors: &ErrorCollector,
+        binding: &BindingConsistentOverrideCheck,
+        errors: &ErrorCollector,
     ) -> Arc<EmptyAnswer> {
+        if let Some(cls) = &self.get_idx(binding.class_key).0 {
+            let class_bases = self.get_base_types_for_class(cls);
+            for (name, field) in self.get_class_field_map(cls).iter() {
+                self.check_consistent_override_for_field(
+                    cls,
+                    name,
+                    field.as_ref(),
+                    class_bases.as_ref(),
+                    errors,
+                );
+            }
+        }
         Arc::new(EmptyAnswer)
     }
 
