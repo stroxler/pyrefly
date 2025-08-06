@@ -42,6 +42,7 @@ use crate::binding::binding::KeyClassBaseType;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
+use crate::binding::binding::KeyConsistentOverrideCheck;
 use crate::binding::binding::KeyFunction;
 use crate::binding::binding::KeyVariance;
 use crate::binding::binding::KeyYield;
@@ -371,6 +372,7 @@ pub struct ClassIndices {
     pub mro_idx: Idx<KeyClassMro>,
     pub synthesized_fields_idx: Idx<KeyClassSynthesizedFields>,
     pub variance_idx: Idx<KeyVariance>,
+    pub consistent_override_check_idx: Idx<KeyConsistentOverrideCheck>,
 }
 
 #[derive(Clone, Debug)]

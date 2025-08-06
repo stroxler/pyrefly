@@ -37,6 +37,7 @@ use crate::binding::binding::BindingClassField;
 use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
 use crate::binding::binding::BindingClassSynthesizedFields;
+use crate::binding::binding::BindingConsistentOverrideCheck;
 use crate::binding::binding::BindingTParams;
 use crate::binding::binding::BindingVariance;
 use crate::binding::binding::ClassBinding;
@@ -50,6 +51,7 @@ use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
+use crate::binding::binding::KeyConsistentOverrideCheck;
 use crate::binding::binding::KeyTParams;
 use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingsBuilder;
@@ -98,6 +100,8 @@ impl<'a> BindingsBuilder<'a> {
             mro_idx: self.idx_for_promise(KeyClassMro(def_index)),
             synthesized_fields_idx: self.idx_for_promise(KeyClassSynthesizedFields(def_index)),
             variance_idx: self.idx_for_promise(KeyVariance(def_index)),
+            consistent_override_check_idx: self
+                .idx_for_promise(KeyConsistentOverrideCheck(def_index)),
         };
         // The user - used for first-usage tracking of any expressions we analyze in a class definition -
         // is the `Idx<Key>` of the class object bound to the class name.
@@ -360,6 +364,12 @@ impl<'a> BindingsBuilder<'a> {
                 class_key: class_indices.class_idx,
             },
         );
+        self.insert_binding_idx(
+            class_indices.consistent_override_check_idx,
+            BindingConsistentOverrideCheck {
+                class_key: class_indices.class_idx,
+            },
+        );
     }
 
     fn extract_string_literals(
@@ -577,6 +587,12 @@ impl<'a> BindingsBuilder<'a> {
         self.insert_binding_idx(
             class_indices.variance_idx,
             BindingVariance {
+                class_key: class_indices.class_idx,
+            },
+        );
+        self.insert_binding_idx(
+            class_indices.consistent_override_check_idx,
+            BindingConsistentOverrideCheck {
                 class_key: class_indices.class_idx,
             },
         );
