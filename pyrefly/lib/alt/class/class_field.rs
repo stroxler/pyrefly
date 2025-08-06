@@ -884,9 +884,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
 
-        // Determine whether this is an explicit `@override`.
-        let is_override = value_ty.is_override();
-
         let annotation = direct_annotation.as_ref().or(inherited_annotation.as_ref());
         let read_only_reason =
             self.determine_read_only_reason(class, name, annotation, &value_ty, &initialization);
@@ -987,6 +984,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // TODO(stroxler): Ideally we would implement some simple heuristics, similar to
         // first-use based inference we use with assignments, to get more useful types here.
         let ty = self.solver().deep_force(ty);
+        // Determine whether this is an explicit `@override`.
+        let is_override = ty.is_override();
 
         // Create the resulting field and check for override inconsistencies before returning
         let class_field = ClassField::new(
