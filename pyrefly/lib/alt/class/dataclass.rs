@@ -18,6 +18,7 @@ use vec1::Vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::alt::call::FunctionTarget;
 use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
 use crate::alt::class::class_field::ClassField;
@@ -260,10 +261,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             && let Type::Overload(overload) = func
         {
             // Overloaded function. Call it to see which signature is actually used.
+            // TODO: sigs could contain unbound type parameters, because `callable_signatures`
+            // looks through foralls. Overload selection might fail spuriously.
             self.call_overloads(
-                Vec1::try_from_vec(sigs.map(|x| Function {
-                    signature: ((*x).clone()),
-                    metadata: *overload.metadata.clone(),
+                Vec1::try_from_vec(sigs.map(|x| {
+                    FunctionTarget(
+                        None,
+                        Function {
+                            signature: ((*x).clone()),
+                            metadata: *overload.metadata.clone(),
+                        },
+                    )
                 }))
                 .unwrap(),
                 (*overload.metadata).clone(),

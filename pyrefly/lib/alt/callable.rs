@@ -8,6 +8,7 @@
 use itertools::Itertools;
 use pyrefly_python::dunder;
 use pyrefly_types::types::TArgs;
+use pyrefly_types::types::TParams;
 use pyrefly_util::display::count;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::SliceExt;
@@ -913,6 +914,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         mut callable: Callable,
         callable_name: Option<FuncId>,
+        tparams: Option<&TParams>,
         mut self_obj: Option<Type>,
         mut args: &[CallArg],
         keywords: &[CallKeyword],
@@ -923,6 +925,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         _hint: Option<&Type>,
         mut ctor_targs: Option<&mut TArgs>,
     ) -> Type {
+        let mut qs = Vec::new();
+        if let Some(tparams) = tparams {
+            (qs, callable) = self.instantiate_fresh_callable(tparams, callable);
+        }
         if let Some(targs) = ctor_targs.as_mut() {
             self.solver().freshen_class_targs(targs, self.uniques);
             let substitution = targs.substitution();
@@ -1040,6 +1046,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(targs) = ctor_targs {
             self.solver().generalize_class_targs(targs);
         }
+        self.solver().finish_quantified(&qs);
         self.solver().expand(callable.ret)
     }
 }
