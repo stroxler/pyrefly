@@ -2043,6 +2043,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.expr(e, None, errors)
                 }
             },
+            Binding::StmtExpr(e, is_assert_type) => {
+                let result = self.expr(e, None, errors);
+                if !is_assert_type
+                    && let Type::ClassType(cls) = &result
+                    && self.is_coroutine(&result)
+                    && !self.extends_any(cls.class_object())
+                {
+                    self.error(
+                        errors,
+                        e.range(),
+                        ErrorInfo::Kind(ErrorKind::UnusedCoroutine),
+                        "Result of async function call is unused. Did you forget to `await`?"
+                            .to_owned(),
+                    );
+                }
+                result
+            }
             Binding::MultiTargetAssign(ann, idx, range) => {
                 let type_info = self.get_idx(*idx);
                 let ty = type_info.ty();

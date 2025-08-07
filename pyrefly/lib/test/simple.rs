@@ -1502,6 +1502,22 @@ t: "õ" # E: Could not find name `õ`
 );
 
 testcase!(
+    test_unused_coroutine,
+    r#"
+from typing import Any
+def not_async() -> Any:
+    pass
+async def foo():
+    return 1
+async def bar():
+    foo()  # E: Result of async function call is unused. Did you forget to `await`?
+    await foo()  # ok
+    x = foo()  # ok
+    not_async()  # ok
+"#,
+);
+
+testcase!(
     test_loop_forever,
     r#"
 # Used to loop forever, https://github.com/facebook/pyrefly/issues/519

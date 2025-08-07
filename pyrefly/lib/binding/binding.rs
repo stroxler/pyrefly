@@ -1075,6 +1075,12 @@ pub enum Binding {
     /// An expression, optionally with a Key saying what the type must be.
     /// The Key must be a type of types, e.g. `Type::Type`.
     Expr(Option<Idx<KeyAnnotation>>, Expr),
+    // This binding is created specifically for stand-alone `Stmt::Expr` statements.
+    // Unlike the general `Expr` binding above, this separate binding allows us to
+    // perform additional checks that are only relevant for expressions in `Stmt::Expr`,
+    // such as verifying for unused awaitables.
+    // The boolean is whether the expression is a call to `assert_type()`
+    StmtExpr(Expr, bool),
     /// Propagate a type to a new binding. Takes an optional annotation to
     /// check against (which will override the computed type if they disagree).
     MultiTargetAssign(Option<Idx<KeyAnnotation>>, Idx<Key>, TextRange),
@@ -1216,6 +1222,7 @@ impl DisplayWith<Bindings> for Binding {
         };
         match self {
             Self::Expr(a, x) => write!(f, "Expr({}, {})", ann(a), m.display(x)),
+            Self::StmtExpr(x, _) => write!(f, "StmtExpr({})", m.display(x)),
             Self::MultiTargetAssign(a, idx, range) => {
                 write!(
                     f,
@@ -1488,6 +1495,7 @@ impl Binding {
             Binding::IterableValue(_, _, _) => Some(SymbolKind::Variable),
             Binding::UnpackedValue(_, _, _, _) => Some(SymbolKind::Variable),
             Binding::Expr(_, _)
+            | Binding::StmtExpr(_, _)
             | Binding::MultiTargetAssign(_, _, _)
             | Binding::ReturnExplicit(_)
             | Binding::ReturnImplicit(_)

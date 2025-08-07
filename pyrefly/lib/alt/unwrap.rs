@@ -89,6 +89,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    pub fn is_coroutine(&self, ty: &Type) -> bool {
+        let var1 = self.fresh_var();
+        let var2 = self.fresh_var();
+        let var3 = self.fresh_var();
+        let coroutine_ty = self
+            .stdlib
+            .coroutine(var1.to_type(), var2.to_type(), var3.to_type())
+            .to_type();
+        self.is_subset_eq(ty, &coroutine_ty)
+    }
+
     pub fn unwrap_generator(&self, ty: &Type) -> Option<(Type, Type, Type)> {
         let yield_ty = self.fresh_var();
         let send_ty = self.fresh_var();

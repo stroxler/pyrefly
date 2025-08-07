@@ -218,6 +218,8 @@ pub enum ErrorKind {
     Unsupported,
     /// Attempting to apply an operation to arguments that do not support it.
     UnsupportedOperation,
+    /// Result of async function call is never used or awaited
+    UnusedCoroutine,
 }
 
 impl std::str::FromStr for ErrorKind {
