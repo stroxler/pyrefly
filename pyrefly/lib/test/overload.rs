@@ -574,3 +574,23 @@ def g(x: int, y=None) -> int:
     return x
     "#,
 );
+
+testcase!(
+    bug = "The call to foo should be 'no overload found'",
+    test_overload_typeddict_errors,
+    r#"
+from typing import TypedDict, overload
+
+class TD(TypedDict):
+    x: int
+
+@overload
+def foo(d: TD) -> None: ...
+@overload
+def foo(d: int) -> None: ...
+def foo(d: TD | int) -> None:
+    pass
+
+foo({ "x": "foo" }) # E: `Literal['foo']` is not assignable to TypedDict key `x` with type `int`
+    "#,
+);
