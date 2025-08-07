@@ -776,7 +776,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
             // We use the TypedDict hint if it is the only one or if it is successfully matched.
             if hints.len() == 1 || check_errors.is_empty() {
-                errors.extend(check_errors);
+                hint.errors().extend(check_errors);
                 errors.extend(item_errors);
                 return (*hint.ty()).clone();
             }

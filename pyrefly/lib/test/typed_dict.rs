@@ -152,7 +152,7 @@ from typing import ReadOnly, TypedDict
 class A(TypedDict):
     x: ReadOnly[int]
 a: A = {'x': 1}
-a.update({'x': 2})  # E: Cannot update read-only field `x`
+a.update({'x': 2})  # E: No matching overload found for function `A.update`
     "#,
 );
 
@@ -830,7 +830,7 @@ def f(c1: C, c2: C, c3: dict[str, int], d: D, e: E, f: F):
     c1.update(f) # E: No matching overload found for function `C.update`
     c1.update({"x": 1, "y": 1})
     c1.update({"x": 1})  
-    c1.update({"z": 1})  # E: Key `z` is not defined in TypedDict `C`
+    c1.update({"z": 1})  # E: No matching overload found for function `C.update`
     c1.update([("x", 1), ("y", 2)])
     c1.update([("z", 3)]) # E: No matching overload found for function `C.update`
     c1.update(x=1, y=2)
@@ -850,7 +850,7 @@ def f(x: X[int], y: dict[str, int]):
     x.update(y)  # E: No matching overload found for function `X.update`
     x.update(x) 
     x.update({"a": 1})
-    x.update({"b": 1}) # E: Key `b` is not defined in TypedDict `X`
+    x.update({"b": 1}) # E: No matching overload found for function `X.update`
     "#,
 );
 
