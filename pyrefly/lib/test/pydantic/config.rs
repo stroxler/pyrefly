@@ -44,3 +44,55 @@ m = Model()
 m.x = 10 
 "#,
 );
+
+// This won't freeze the model. We must directly assign a ConfigDict to model_config.
+testcase!(
+    test_model_config_alias,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, ConfigDict
+
+class Model(BaseModel):
+    y: ConfigDict = ConfigDict(frozen=True)
+    model_config = y
+    x: int = 42
+
+m = Model()
+m.x = 10
+
+"#,
+);
+
+// Not a model config. The field must specifically be called model_config.
+testcase!(
+    test_model_config_y,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, ConfigDict
+
+class Model(BaseModel):
+    y = ConfigDict(frozen=True)
+    x: int = 42
+
+m = Model()
+m.x = 10 
+"#,
+);
+
+// Only the last config is considered
+testcase!(
+    test_model_two_config,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, ConfigDict
+
+class Model(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=False)
+    x: int = 42
+
+
+m = Model()
+m.x = 10 
+"#,
+);
