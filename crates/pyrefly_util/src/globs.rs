@@ -15,10 +15,13 @@ use std::path::MAIN_SEPARATOR_STR;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::Arc;
 
 use anyhow::Context;
 use bstr::ByteSlice;
 use glob::Pattern;
+use ignore::Match;
+use ignore::gitignore::Gitignore;
 use itertools::Itertools;
 use serde::Deserialize;
 use serde::Serialize;
@@ -438,7 +441,101 @@ impl Globs {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
+/// A struct which allows filtering by matching a high-priority [`Globs`] of excludes
+/// and several ignore files. The first positive (ignore) or negative (allowlist)
+/// match that's found from the following order is what's used.
+/// 1. `excludes`: user-provied paths, either from a config or CLI.
+/// 2. `.gitignore`: if one exists from an upward search from `root`, the first
+///    positive or negative match (`!`) is used
+/// 3. `.ignore`: if it exists, behaves similar to `.gitignore`
+/// 4. `.git/excludes`: if it exists, behaves similar to `.gitignore`
+#[derive(Debug, Clone)]
+pub struct GlobFilter {
+    excludes: Globs,
+    ignores: Vec<Gitignore>,
+    ignore_paths: SmallSet<PathBuf>,
+    errors: Arc<Vec<anyhow::Error>>,
+}
+
+impl Display for GlobFilter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "`project-excludes`: {}, ignore files [{}]",
+            self.excludes,
+            self.ignore_paths.iter().map(|p| p.display()).join(", ")
+        )?;
+        Ok(())
+    }
+}
+
+impl PartialEq for GlobFilter {
+    fn eq(&self, other: &Self) -> bool {
+        self.excludes == other.excludes && self.ignore_paths == other.ignore_paths
+    }
+}
+
+impl Eq for GlobFilter {}
+
+impl Hash for GlobFilter {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.excludes.hash(state);
+        self.ignore_paths.hash_ordered(state);
+    }
+}
+
+impl GlobFilter {
+    /// Create a new `GlobFilter` with the given `Globs` as highest-priority excludes.
+    /// If `ignore_file_search_start` is provided, it is where the upward search for
+    /// ignore files will originate from. Typically, this should be your project root.
+    pub fn new(excludes: Globs, ignore_file_search_start: Option<&Path>) -> Self {
+        let (ignores, errors, ignore_paths) = if let Some(_root) = ignore_file_search_start {
+            (vec![], vec![], vec![])
+        } else {
+            (vec![], vec![], vec![])
+        };
+
+        Self {
+            excludes,
+            ignores,
+            ignore_paths: SmallSet::from_iter(ignore_paths),
+            errors: Arc::new(errors),
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            excludes: Globs::empty(),
+            ignores: vec![],
+            ignore_paths: SmallSet::new(),
+            errors: Arc::new(vec![]),
+        }
+    }
+
+    // Does this path match (either positively or negatively), the `excludes` or ignore
+    // files found.
+    pub fn is_excluded(&self, path: &Path) -> bool {
+        if self.excludes.matches(path) {
+            return true;
+        }
+
+        for ignore in &self.ignores {
+            match ignore.matched_path_or_any_parents(path, path.is_dir()) {
+                Match::None => (),
+                Match::Whitelist(_) => return false,
+                Match::Ignore(_) => return true,
+            }
+        }
+        false
+    }
+
+    /// Get the errors from this glob, replacing them with an empty list.
+    pub fn errors(&self) -> &[anyhow::Error] {
+        &self.errors
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FilteredGlobs {
     includes: Globs,
     excludes: Globs,
