@@ -94,10 +94,7 @@ impl CallTarget {
 
 struct CalledOverload {
     signature: Callable,
-    arg_errors: ErrorCollector,
     call_errors: ErrorCollector,
-    return_type: Type,
-    is_deprecated: bool,
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -763,7 +760,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let tparams = callable.0.as_deref();
 
             let mut try_call = |hint| {
-                let arg_errors = self.error_collector();
                 let call_errors = self.error_collector();
                 let res = self.callable_infer(
                     callable.1.signature.clone(),
@@ -773,7 +769,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &args,
                     &keywords,
                     range,
-                    &arg_errors,
+                    errors,
                     &call_errors,
                     // We intentionally drop the context here, as arg errors don't need it,
                     // and if there are any call errors, we'll log a "No matching overloads"
@@ -782,21 +778,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     hint,
                     ctor_targs_.as_mut(),
                 );
-                (arg_errors, call_errors, res)
+                (call_errors, res)
             };
 
             // We want to use our hint to contextually type the arguments, but errors resulting
             // from the hint should not influence overload selection. If there are call errors, we
             // try again without a hint in case we can still match this overload.
-            let (arg_errors, call_errors, res) = try_call(hint);
-            let (arg_errors, call_errors, res) =
+            let (call_errors, res) = try_call(hint);
+            let (call_errors, res) =
                 if tparams.is_some() && hint.is_some() && !call_errors.is_empty() {
                     try_call(None)
                 } else {
-                    (arg_errors, call_errors, res)
+                    (call_errors, res)
                 };
 
-            if arg_errors.is_empty() && call_errors.is_empty() {
+            if call_errors.is_empty() {
                 // An overload is chosen, we should record it to power IDE services.
                 self.record_overload_trace(
                     range,
@@ -804,10 +800,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &callable.1.signature,
                     true,
                 );
-                // It's only safe to return immediately if both arg_errors and call_errors are
-                // empty, as parameter types from the overload signature may be used as hints when
-                // evaluating arguments, producing arg_errors for some overloads but not others.
-                // See test::overload::test_pass_generic_class_to_overload for an example.
 
                 // If the selected overload is deprecated, we log a deprecation error.
                 if callable.1.metadata.flags.is_deprecated {
@@ -825,10 +817,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             let called_overload = CalledOverload {
                 signature: callable.1.signature.clone(),
-                arg_errors,
                 call_errors,
-                return_type: res,
-                is_deprecated: callable.1.metadata.flags.is_deprecated,
             };
             match &closest_overload {
                 Some(overload)
@@ -846,68 +835,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &closest_overload.signature,
             false,
         );
-        errors.extend(closest_overload.arg_errors);
-        if closest_overload.call_errors.is_empty() {
-            // No overload evaluated completely successfully, but we still say we found a match if
-            // there were only arg_errors, since they may be unrelated. For example, in:
-            //
-            //   @overload
-            //   def f(x: int) -> int: ...
-            //   @overload
-            //   def f(x: int, y: str) -> str: ...
-            //
-            //   f(1+"2")
-            //
-            // the call to f should match the first overload, even though `1 + "2"` generates an
-            // arg error for both overloads.
 
-            // If the closest overload is deprecated, we log a deprecation error.
-            if closest_overload.is_deprecated {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::Deprecated, context),
-                    format!("Call to deprecated overload `{method_name}`"),
-                );
-            }
-            (closest_overload.return_type, closest_overload.signature)
-        } else {
-            let mut msg = vec1![
-                format!(
-                    "No matching overload found for function `{}`",
-                    metadata.kind.as_func_id().format(self.module().name())
-                ),
-                "Possible overloads:".to_owned(),
-            ];
-            for overload in overloads {
-                let suffix = if overload.1.signature == closest_overload.signature {
-                    " [closest match]"
-                } else {
-                    ""
-                };
-                let signature = match self_obj {
-                    Some(_) => overload
-                        .1
-                        .signature
-                        .drop_first_param()
-                        .unwrap_or(overload.1.signature),
-                    None => overload.1.signature,
-                };
-                let signature = self
-                    .solver()
-                    .for_display(Type::Callable(Box::new(signature)));
-                msg.push(format!("{signature}{suffix}"));
-            }
-            // We intentionally discard closest_overload.call_errors. When no overload matches,
-            // there's a high likelihood that the "closest" one by our heuristic isn't the right
-            // one, in which case the call errors are just noise.
-            errors.add(
-                range,
-                ErrorInfo::new(ErrorKind::NoMatchingOverload, context),
-                msg,
-            );
-            (Type::any_error(), closest_overload.signature)
+        let mut msg = vec1![
+            format!(
+                "No matching overload found for function `{}`",
+                metadata.kind.as_func_id().format(self.module().name())
+            ),
+            "Possible overloads:".to_owned(),
+        ];
+        for overload in overloads {
+            let suffix = if overload.1.signature == closest_overload.signature {
+                " [closest match]"
+            } else {
+                ""
+            };
+            let signature = match self_obj {
+                Some(_) => overload
+                    .1
+                    .signature
+                    .drop_first_param()
+                    .unwrap_or(overload.1.signature),
+                None => overload.1.signature,
+            };
+            let signature = self
+                .solver()
+                .for_display(Type::Callable(Box::new(signature)));
+            msg.push(format!("{signature}{suffix}"));
         }
+        // We intentionally discard closest_overload.call_errors. When no overload matches,
+        // there's a high likelihood that the "closest" one by our heuristic isn't the right
+        // one, in which case the call errors are just noise.
+        errors.add(
+            range,
+            ErrorInfo::new(ErrorKind::NoMatchingOverload, context),
+            msg,
+        );
+        (Type::any_error(), closest_overload.signature)
     }
 
     /// Helper function hide details of call synthesis from the attribute resolution code.
