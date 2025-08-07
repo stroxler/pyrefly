@@ -300,6 +300,8 @@ fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
             }
         }
     }
+    // when the connection closes, make sure we send an exit to the other thread
+    let _ = lsp_queue.send(LspEvent::Exit);
 }
 
 pub fn capabilities(

@@ -57,7 +57,7 @@ enum LspEventKind {
 impl LspEvent {
     fn kind(&self) -> LspEventKind {
         match self {
-            Self::RecheckFinished | Self::CancelRequest(_) | Self::Exit => LspEventKind::Priority,
+            Self::RecheckFinished | Self::CancelRequest(_) => LspEventKind::Priority,
             Self::DidOpenTextDocument(_)
             | Self::DidChangeTextDocument(_)
             | Self::DidCloseTextDocument(_)
@@ -65,7 +65,8 @@ impl LspEvent {
             | Self::DidChangeWatchedFiles(_)
             | Self::DidChangeWorkspaceFolders(_)
             | Self::DidChangeConfiguration(_)
-            | Self::LspResponse(_) => LspEventKind::Mutation,
+            | Self::LspResponse(_)
+            | Self::Exit => LspEventKind::Mutation,
             Self::LspRequest(_) => LspEventKind::Query,
         }
     }
