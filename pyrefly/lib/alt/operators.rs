@@ -23,6 +23,7 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
 use crate::alt::solve::Iterable;
+use crate::alt::unwrap::HintRef;
 use crate::binding::binding::KeyAnnotation;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
@@ -200,7 +201,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn binop_infer(&self, x: &ExprBinOp, hint: Option<&Type>, errors: &ErrorCollector) -> Type {
+    pub fn binop_infer(
+        &self,
+        x: &ExprBinOp,
+        hint: Option<HintRef>,
+        errors: &ErrorCollector,
+    ) -> Type {
         let binop_call = |op: Operator, lhs: &Type, rhs: &Type, range: TextRange| -> Type {
             let context = || {
                 ErrorContext::BinaryOp(

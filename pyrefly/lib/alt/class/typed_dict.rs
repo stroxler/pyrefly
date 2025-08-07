@@ -22,6 +22,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
+use crate::alt::unwrap::HintRef;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -87,15 +88,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Some(field) => {
                             self.expr_with_separate_check_errors(
                                 &x.value,
-                                Some((
-                                    &field.ty,
-                                    &|| {
-                                        TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
-                                            key_name.clone(),
-                                        ))
-                                    },
-                                    check_errors,
-                                )),
+                                Some((HintRef::new(&field.ty, check_errors), &|| {
+                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
+                                        key_name.clone(),
+                                    ))
+                                })),
                                 item_errors,
                             );
                         }
@@ -130,9 +127,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.expr_with_separate_check_errors(
                     &x.value,
                     Some((
-                        &Type::TypedDict(typed_dict.clone()),
+                        HintRef::new(&Type::TypedDict(typed_dict.clone()), check_errors),
                         &|| TypeCheckContext::of_kind(TypeCheckKind::TypedDictUnpacking),
-                        check_errors,
                     )),
                     item_errors,
                 );

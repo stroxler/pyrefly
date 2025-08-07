@@ -9,12 +9,57 @@ use ruff_python_ast::name::Name;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::error::collector::ErrorCollector;
 use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::ClassType;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 use crate::types::types::Var;
+
+pub struct Hint<'a>(Type, &'a ErrorCollector);
+
+#[derive(Clone, Copy)]
+pub struct HintRef<'a, 'b>(&'b Type, &'a ErrorCollector);
+
+impl<'a> Hint<'a> {
+    pub fn as_ref<'b>(&'a self) -> HintRef<'a, 'b>
+    where
+        'a: 'b,
+    {
+        HintRef(&self.0, self.1)
+    }
+
+    pub fn ty(&self) -> &Type {
+        &self.0
+    }
+
+    pub fn to_type(self) -> Type {
+        self.0
+    }
+}
+
+impl<'a, 'b> HintRef<'a, 'b> {
+    pub fn new(hint: &'b Type, errors: &'a ErrorCollector) -> Self {
+        Self(hint, errors)
+    }
+
+    pub fn ty(&self) -> &Type {
+        self.0
+    }
+
+    pub fn errors(&self) -> &ErrorCollector {
+        self.1
+    }
+
+    pub fn map_ty(&self, f: impl FnOnce(&Type) -> Type) -> Hint<'a> {
+        Hint(f(self.0), self.1)
+    }
+
+    pub fn map_ty_opt(&self, f: impl FnOnce(&Type) -> Option<Type>) -> Option<Hint<'a>> {
+        f(self.0).map(|ty| Hint(ty, self.1))
+    }
+}
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn fresh_var(&self) -> Var {
@@ -138,40 +183,47 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn decompose_dict(&self, ty: &Type) -> (Option<Type>, Option<Type>) {
+    pub fn decompose_dict<'b>(
+        &self,
+        hint: HintRef<'b, '_>,
+    ) -> (Option<Hint<'b>>, Option<Hint<'b>>) {
         let key = self.fresh_var();
         let value = self.fresh_var();
         let dict_type = self.stdlib.dict(key.to_type(), value.to_type()).to_type();
-        if self.is_subset_eq(&dict_type, ty) {
-            let key = self.resolve_var_opt(ty, key);
-            let value = self.resolve_var_opt(ty, value);
+        if self.is_subset_eq(&dict_type, hint.ty()) {
+            let key = hint.map_ty_opt(|ty| self.resolve_var_opt(ty, key));
+            let value = hint.map_ty_opt(|ty| self.resolve_var_opt(ty, value));
             (key, value)
         } else {
             (None, None)
         }
     }
 
-    pub fn decompose_set(&self, ty: &Type) -> Option<Type> {
+    pub fn decompose_set<'b>(&self, hint: HintRef<'b, '_>) -> Option<Hint<'b>> {
         let elem = self.fresh_var();
         let set_type = self.stdlib.set(elem.to_type()).to_type();
-        if self.is_subset_eq(&set_type, ty) {
-            self.resolve_var_opt(ty, elem)
+        if self.is_subset_eq(&set_type, hint.ty()) {
+            hint.map_ty_opt(|ty| self.resolve_var_opt(ty, elem))
         } else {
             None
         }
     }
 
-    pub fn decompose_list(&self, ty: &Type) -> Option<Type> {
+    pub fn decompose_list<'b>(&self, hint: HintRef<'b, '_>) -> Option<Hint<'b>> {
         let elem = self.fresh_var();
         let list_type = self.stdlib.list(elem.to_type()).to_type();
-        if self.is_subset_eq(&list_type, ty) {
-            self.resolve_var_opt(ty, elem)
+        if self.is_subset_eq(&list_type, hint.ty()) {
+            hint.map_ty_opt(|ty| self.resolve_var_opt(ty, elem))
         } else {
             None
         }
     }
 
-    pub fn decompose_lambda(&self, ty: &Type, param_vars: &[(&Name, Var)]) -> Option<Type> {
+    pub fn decompose_lambda<'b>(
+        &self,
+        hint: HintRef<'b, '_>,
+        param_vars: &[(&Name, Var)],
+    ) -> Option<Hint<'b>> {
         let return_ty = self.fresh_var();
         let params = param_vars
             .iter()
@@ -179,14 +231,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .collect::<Vec<_>>();
         let callable_ty = Type::callable(params, return_ty.to_type());
 
-        if self.is_subset_eq(&callable_ty, ty) {
-            self.resolve_var_opt(ty, return_ty)
+        if self.is_subset_eq(&callable_ty, hint.ty()) {
+            hint.map_ty_opt(|ty| self.resolve_var_opt(ty, return_ty))
         } else {
             None
         }
     }
 
-    pub fn decompose_generator_yield(&self, ty: &Type) -> Option<Type> {
+    pub fn decompose_generator_yield<'b>(&self, hint: HintRef<'b, '_>) -> Option<Hint<'b>> {
         let yield_ty = self.fresh_var();
         let generator_ty = self
             .stdlib
@@ -196,8 +248,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.fresh_var().to_type(),
             )
             .to_type();
-        if self.is_subset_eq(&generator_ty, ty) {
-            self.resolve_var_opt(ty, yield_ty)
+        if self.is_subset_eq(&generator_ty, hint.ty()) {
+            hint.map_ty_opt(|ty| self.resolve_var_opt(ty, yield_ty))
         } else {
             None
         }

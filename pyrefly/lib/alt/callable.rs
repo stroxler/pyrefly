@@ -28,6 +28,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::expr::TypeOrExpr;
 use crate::alt::solve::Iterable;
+use crate::alt::unwrap::HintRef;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -284,7 +285,7 @@ impl CallArgPreEval<'_> {
                 *done = true;
                 solver.expr_with_separate_check_errors(
                     x,
-                    Some((hint, tcc, call_errors)),
+                    Some((HintRef::new(hint, call_errors), tcc)),
                     arg_errors,
                 );
             }
@@ -797,7 +798,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         TypeOrExpr::Expr(x) => {
                             self.expr_with_separate_check_errors(
                                 x,
-                                hint.map(|ty| (ty, tcc, call_errors)),
+                                hint.map(|ty| (HintRef::new(ty, call_errors), tcc)),
                                 arg_errors,
                             );
                         }
@@ -922,7 +923,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         arg_errors: &ErrorCollector,
         call_errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
-        hint: Option<&Type>,
+        hint: Option<HintRef>,
         mut ctor_targs: Option<&mut TArgs>,
     ) -> Type {
         let (qs, mut callable) = if let Some(tparams) = tparams {
@@ -933,7 +934,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let (qs_, callable_) = self.instantiate_fresh_callable(tparams, callable.clone());
                 if self
                     .solver()
-                    .is_subset_eq(&callable_.ret, hint, self.type_order())
+                    .is_subset_eq(&callable_.ret, hint.ty(), self.type_order())
                 {
                     (qs_, callable_)
                 } else {

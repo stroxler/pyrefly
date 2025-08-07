@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::cell::LazyCell;
 use std::fmt;
 use std::fmt::Display;
 
@@ -44,6 +45,8 @@ use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
 use crate::alt::callable::CallWithTypes;
 use crate::alt::solve::TypeFormContext;
+use crate::alt::unwrap::Hint;
+use crate::alt::unwrap::HintRef;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
@@ -187,7 +190,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn expr_with_separate_check_errors(
         &self,
         x: &Expr,
-        check: Option<(&Type, &dyn Fn() -> TypeCheckContext, &ErrorCollector)>,
+        check: Option<(HintRef, &dyn Fn() -> TypeCheckContext)>,
         errors: &ErrorCollector,
     ) -> Type {
         self.expr_type_info_with_separate_check_errors(x, check, errors)
@@ -205,7 +208,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn expr_infer_with_hint(
         &self,
         x: &Expr,
-        hint: Option<&Type>,
+        hint: Option<HintRef>,
         errors: &ErrorCollector,
     ) -> Type {
         self.expr_infer_type_info_with_hint(x, hint, errors)
@@ -216,7 +219,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn expr_infer_type_info_with_hint(
         &self,
         x: &Expr,
-        hint: Option<&Type>,
+        hint: Option<HintRef>,
         errors: &ErrorCollector,
     ) -> TypeInfo {
         if let Some(self_type_annotation) = self.intercept_typing_self_use(x) {
@@ -263,7 +266,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> TypeInfo {
         self.expr_type_info_with_separate_check_errors(
             x,
-            check.map(|(ty, tcc)| (ty, tcc, errors)),
+            check.map(|(ty, tcc)| (HintRef::new(ty, errors), tcc)),
             errors,
         )
     }
@@ -271,13 +274,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn expr_type_info_with_separate_check_errors(
         &self,
         x: &Expr,
-        check: Option<(&Type, &dyn Fn() -> TypeCheckContext, &ErrorCollector)>,
+        check: Option<(HintRef, &dyn Fn() -> TypeCheckContext)>,
         errors: &ErrorCollector,
     ) -> TypeInfo {
         match check {
-            Some((want, tcc, check_errors)) if !want.is_any() => {
-                let got = self.expr_infer_type_info_with_hint(x, Some(want), errors);
-                self.check_and_return_type_info(want, got, x.range(), check_errors, tcc)
+            Some((hint, tcc)) if !hint.ty().is_any() => {
+                let got = self.expr_infer_type_info_with_hint(x, Some(hint), errors);
+                self.check_and_return_type_info(hint.ty(), got, x.range(), hint.errors(), tcc)
             }
             _ => self.expr_infer_type_info_with_hint(x, None, errors),
         }
@@ -289,7 +292,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn expr_infer_type_no_trace(
         &self,
         x: &Expr,
-        hint: Option<&Type>,
+        hint: Option<HintRef>,
         errors: &ErrorCollector,
     ) -> Type {
         match x {
@@ -323,7 +326,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     Vec::new()
                 };
-                let return_hint = hint.and_then(|ty| self.decompose_lambda(ty, &param_vars));
+                let return_hint = hint.and_then(|hint| self.decompose_lambda(hint, &param_vars));
 
                 let mut params = param_vars.into_map(|(name, var)| {
                     Param::Pos(
@@ -349,24 +352,38 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }));
                 }
                 let params = Params::List(ParamList::new(params));
-                let ret = self.expr_infer_type_no_trace(&lambda.body, return_hint.as_ref(), errors);
+                let ret = self.expr_infer_type_no_trace(
+                    &lambda.body,
+                    return_hint.as_ref().map(|hint| hint.as_ref()),
+                    errors,
+                );
                 Type::Callable(Box::new(Callable { params, ret }))
             }
             Expr::Tuple(x) => {
-                // These hints could be more precise
-                let hint_ts = match hint {
-                    Some(Type::Tuple(Tuple::Concrete(elts))) => elts.as_slice(),
-                    Some(Type::Tuple(Tuple::Unpacked(box (prefix, _, _)))) => prefix.as_slice(),
-                    _ => &[],
-                };
-                let default_hint = match hint {
-                    Some(Type::Tuple(Tuple::Unbounded(elt))) => Some(&**elt),
-                    _ => None,
+                let (hint_ts, default_hint) = if let Some(hint) = &hint
+                    && let Type::Tuple(tup) = hint.ty()
+                {
+                    match tup {
+                        Tuple::Concrete(elts) => {
+                            let elt_hints = elts.map(|ty| HintRef::new(ty, hint.errors()));
+                            (elt_hints, None)
+                        }
+                        Tuple::Unpacked(box (prefix, _, _)) => {
+                            // TODO: We should also contextually type based on the middle and suffix
+                            let prefix_hints = prefix.map(|ty| HintRef::new(ty, hint.errors()));
+                            (prefix_hints, None)
+                        }
+                        Tuple::Unbounded(elt) => {
+                            (Vec::new(), Some(HintRef::new(elt, hint.errors())))
+                        }
+                    }
+                } else {
+                    (Vec::new(), None)
                 };
                 let mut prefix = Vec::new();
                 let mut unbounded = Vec::new();
                 let mut suffix = Vec::new();
-                let mut hint_ts_idx: usize = 0;
+                let mut hint_ts_iter = hint_ts.into_iter();
                 let mut encountered_invalid_star = false;
                 for elt in x.elts.iter() {
                     match elt {
@@ -375,7 +392,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             match ty {
                                 Type::Tuple(Tuple::Concrete(elts)) => {
                                     if unbounded.is_empty() {
-                                        hint_ts_idx = hint_ts_idx.saturating_add(elts.len());
+                                        hint_ts_iter.nth(elts.len() - 1);
                                         prefix.extend(elts);
                                     } else {
                                         suffix.extend(elts)
@@ -387,7 +404,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     prefix.extend(pre);
                                     suffix.extend(suff);
                                     unbounded.push(middle);
-                                    hint_ts_idx = usize::MAX;
+                                    hint_ts_iter.nth(usize::MAX);
                                 }
                                 _ => {
                                     if let Some(iterable_ty) = self.unwrap_iterable(&ty) {
@@ -398,7 +415,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             suffix = Vec::new();
                                         }
                                         unbounded.push(Type::Tuple(Tuple::unbounded(iterable_ty)));
-                                        hint_ts_idx = usize::MAX;
+                                        hint_ts_iter.nth(usize::MAX);
                                     } else {
                                         self.error(
                                             errors,
@@ -410,6 +427,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             ),
                                         );
                                         encountered_invalid_star = true;
+                                        hint_ts_iter.nth(usize::MAX); // TODO: missing test
                                     }
                                 }
                             }
@@ -418,13 +436,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             let ty = self.expr_infer_type_no_trace(
                                 elt,
                                 if unbounded.is_empty() {
-                                    hint_ts.get(hint_ts_idx).or(default_hint)
+                                    hint_ts_iter.next().or(default_hint)
                                 } else {
                                     None
                                 },
                                 errors,
                             );
-                            hint_ts_idx = hint_ts_idx.saturating_add(1);
                             if unbounded.is_empty() {
                                 prefix.push(ty)
                             } else {
@@ -474,8 +491,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::Set(x) => {
                 let elem_hint = hint.and_then(|ty| self.decompose_set(ty));
                 if x.is_empty() {
-                    let elem_ty = elem_hint
-                        .unwrap_or_else(|| self.solver().fresh_contained(self.uniques).to_type());
+                    let elem_ty = elem_hint.map_or_else(
+                        || self.solver().fresh_contained(self.uniques).to_type(),
+                        |hint| hint.to_type(),
+                    );
                     self.stdlib.set(elem_ty).to_type()
                 } else {
                     let elem_tys = self.elts_infer(&x.elts, elem_hint, errors);
@@ -485,30 +504,49 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::ListComp(x) => {
                 let elem_hint = hint.and_then(|ty| self.decompose_list(ty));
                 self.ifs_infer(&x.generators, errors);
-                let elem_ty = self.expr_infer_with_hint_promote(&x.elt, elem_hint.as_ref(), errors);
+                let elem_ty = self.expr_infer_with_hint_promote(
+                    &x.elt,
+                    elem_hint.as_ref().map(|hint| hint.as_ref()),
+                    errors,
+                );
                 self.stdlib.list(elem_ty).to_type()
             }
             Expr::SetComp(x) => {
                 let elem_hint = hint.and_then(|ty| self.decompose_set(ty));
                 self.ifs_infer(&x.generators, errors);
                 self.ifs_infer(&x.generators, errors);
-                let elem_ty = self.expr_infer_with_hint_promote(&x.elt, elem_hint.as_ref(), errors);
+                let elem_ty = self.expr_infer_with_hint_promote(
+                    &x.elt,
+                    elem_hint.as_ref().map(|hint| hint.as_ref()),
+                    errors,
+                );
                 self.stdlib.set(elem_ty).to_type()
             }
             Expr::DictComp(x) => {
                 let (key_hint, value_hint) =
                     hint.map_or((None, None), |ty| self.decompose_dict(ty));
                 self.ifs_infer(&x.generators, errors);
-                let key_ty = self.expr_infer_with_hint_promote(&x.key, key_hint.as_ref(), errors);
-                let value_ty =
-                    self.expr_infer_with_hint_promote(&x.value, value_hint.as_ref(), errors);
+                let key_ty = self.expr_infer_with_hint_promote(
+                    &x.key,
+                    key_hint.as_ref().map(|hint| hint.as_ref()),
+                    errors,
+                );
+                let value_ty = self.expr_infer_with_hint_promote(
+                    &x.value,
+                    value_hint.as_ref().map(|hint| hint.as_ref()),
+                    errors,
+                );
                 self.stdlib.dict(key_ty, value_ty).to_type()
             }
             Expr::Generator(x) => {
-                let yield_hint = hint.and_then(|ty| self.decompose_generator_yield(ty));
+                let yield_hint = hint.and_then(|hint| self.decompose_generator_yield(hint));
                 self.ifs_infer(&x.generators, errors);
                 let yield_ty = self
-                    .expr_infer_type_info_with_hint(&x.elt, yield_hint.as_ref(), errors)
+                    .expr_infer_type_info_with_hint(
+                        &x.elt,
+                        yield_hint.as_ref().map(|hint| hint.as_ref()),
+                        errors,
+                    )
                     .into_ty();
                 self.stdlib
                     .generator(yield_ty, Type::None, Type::None)
@@ -698,30 +736,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn expr_infer_with_hint_promote(
         &self,
         x: &Expr,
-        hint: Option<&Type>,
+        hint: Option<HintRef>,
         errors: &ErrorCollector,
     ) -> Type {
-        let ty = self
-            .expr_infer_type_info_with_hint(x, hint, errors)
-            .into_ty();
+        let ty = self.expr_infer_with_hint(x, hint, errors);
         if let Some(want) = hint
-            && self.is_subset_eq(&ty, want)
+            && self.is_subset_eq(&ty, want.ty())
         {
-            want.clone()
+            want.ty().clone()
         } else {
             ty.promote_literals(self.stdlib)
         }
     }
 
-    fn dict_infer(&self, x: &ExprDict, hint: Option<&Type>, errors: &ErrorCollector) -> Type {
+    fn dict_infer(&self, x: &ExprDict, hint: Option<HintRef>, errors: &ErrorCollector) -> Type {
         let flattened_items = Ast::flatten_dict_items(&x.items);
-        let hints = match hint {
-            Some(Type::Union(ts)) => ts.iter().collect(),
-            Some(t) => vec![t],
-            None => Vec::new(),
-        };
+        let hints = hint.as_ref().map_or(Vec::new(), |hint| match hint.ty() {
+            Type::Union(ts) => ts
+                .iter()
+                .map(|ty| HintRef::new(ty, hint.errors()))
+                .collect(),
+            _ => vec![*hint],
+        });
         for hint in hints.iter() {
-            let (typed_dict, is_update) = match hint {
+            let (typed_dict, is_update) = match hint.ty() {
                 Type::TypedDict(td) => (td, false),
                 Type::PartialTypedDict(td) => (td, true),
                 _ => continue,
@@ -740,7 +778,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if hints.len() == 1 || check_errors.is_empty() {
                 errors.extend(check_errors);
                 errors.extend(item_errors);
-                return (*hint).clone();
+                return (*hint.ty()).clone();
             }
         }
         // Note that we don't need to filter out the TypedDict options here; any non-`dict` options
@@ -752,24 +790,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn dict_items_infer(
         &self,
         items: Vec<&DictItem>,
-        hint: Option<&Type>,
+        hint: Option<HintRef>,
         errors: &ErrorCollector,
     ) -> Type {
         let (key_hint, value_hint) = hint.map_or((None, None), |ty| self.decompose_dict(ty));
         if items.is_empty() {
-            let key_ty =
-                key_hint.unwrap_or_else(|| self.solver().fresh_contained(self.uniques).to_type());
-            let value_ty =
-                value_hint.unwrap_or_else(|| self.solver().fresh_contained(self.uniques).to_type());
+            let key_ty = key_hint.map_or_else(
+                || self.solver().fresh_contained(self.uniques).to_type(),
+                |ty| ty.to_type(),
+            );
+            let value_ty = value_hint.map_or_else(
+                || self.solver().fresh_contained(self.uniques).to_type(),
+                |ty| ty.to_type(),
+            );
             self.stdlib.dict(key_ty, value_ty).to_type()
         } else {
             let mut key_tys = Vec::new();
             let mut value_tys = Vec::new();
             items.iter().for_each(|x| match &x.key {
                 Some(key) => {
-                    let key_t = self.expr_infer_with_hint_promote(key, key_hint.as_ref(), errors);
-                    let value_t =
-                        self.expr_infer_with_hint_promote(&x.value, value_hint.as_ref(), errors);
+                    let key_t = self.expr_infer_with_hint_promote(
+                        key,
+                        key_hint.as_ref().map(|hint| hint.as_ref()),
+                        errors,
+                    );
+                    let value_t = self.expr_infer_with_hint_promote(
+                        &x.value,
+                        value_hint.as_ref().map(|hint| hint.as_ref()),
+                        errors,
+                    );
                     if !key_t.is_error() {
                         key_tys.push(key_t);
                     }
@@ -782,18 +831,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if let Some((key_t, value_t)) = self.unwrap_mapping(&ty) {
                         if !key_t.is_error() {
                             if let Some(key_hint) = &key_hint
-                                && self.is_subset_eq(&key_t, key_hint)
+                                && self.is_subset_eq(&key_t, key_hint.ty())
                             {
-                                key_tys.push(key_hint.clone());
+                                key_tys.push(key_hint.ty().clone());
                             } else {
                                 key_tys.push(key_t);
                             }
                         }
                         if !value_t.is_error() {
                             if let Some(value_hint) = &value_hint
-                                && self.is_subset_eq(&value_t, value_hint)
+                                && self.is_subset_eq(&value_t, value_hint.ty())
                             {
-                                value_tys.push(value_hint.clone());
+                                value_tys.push(value_hint.ty().clone());
                             } else {
                                 value_tys.push(value_t);
                             }
@@ -1382,15 +1431,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn elts_infer(
         &self,
         elts: &[Expr],
-        elt_hint: Option<Type>,
+        elt_hint: Option<Hint>,
         errors: &ErrorCollector,
     ) -> Vec<Type> {
+        let star_hint = LazyCell::new(|| {
+            elt_hint.as_ref().map(|hint| {
+                hint.as_ref()
+                    .map_ty(|ty| self.stdlib.iterable(ty.clone()).to_type())
+            })
+        });
         elts.map(|x| match x {
             Expr::Starred(ExprStarred { value, .. }) => {
-                let hint = elt_hint
-                    .as_ref()
-                    .map(|ty| self.stdlib.iterable(ty.clone()).to_type());
-                let unpacked_ty = self.expr_infer_with_hint_promote(value, hint.as_ref(), errors);
+                let unpacked_ty = self.expr_infer_with_hint_promote(
+                    value,
+                    star_hint.as_ref().map(|hint| hint.as_ref()),
+                    errors,
+                );
                 if let Some(iterable_ty) = self.unwrap_iterable(&unpacked_ty) {
                     iterable_ty
                 } else {
@@ -1405,7 +1461,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )
                 }
             }
-            _ => self.expr_infer_with_hint_promote(x, elt_hint.as_ref(), errors),
+            _ => self.expr_infer_with_hint_promote(
+                x,
+                elt_hint.as_ref().map(|hint| hint.as_ref()),
+                errors,
+            ),
         })
     }
 

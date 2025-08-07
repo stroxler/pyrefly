@@ -22,6 +22,7 @@ use ruff_text_size::TextRange;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
+use crate::alt::unwrap::HintRef;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -41,7 +42,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         args: &[Expr],
         keywords: &[Keyword],
         range: TextRange,
-        hint: Option<&Type>,
+        hint: Option<HintRef>,
         errors: &ErrorCollector,
     ) -> Type {
         let ret = if args.len() == 2 {
@@ -114,7 +115,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         args: &[Expr],
         keywords: &[Keyword],
         range: TextRange,
-        hint: Option<&Type>,
+        hint: Option<HintRef>,
         errors: &ErrorCollector,
     ) -> Type {
         let ret = if args.len() == 1 {
