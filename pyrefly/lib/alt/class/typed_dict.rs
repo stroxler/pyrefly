@@ -257,7 +257,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let full_typed_dict = self.as_typed_dict_unchecked(cls);
         let partial_typed_dict_ty = Type::PartialTypedDict(full_typed_dict);
 
-        let partial_overload = OverloadType::Callable(Function {
+        let partial_overload = OverloadType::Function(Function {
             signature: Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
@@ -286,7 +286,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let iterable_ty = self.stdlib.iterable(self.unions(tuple_types)).to_type();
 
-        let tuple_overload = OverloadType::Callable(Function {
+        let tuple_overload = OverloadType::Function(Function {
             signature: Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
@@ -310,7 +310,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect();
 
-        let overload_kwargs = OverloadType::Callable(Function {
+        let overload_kwargs = OverloadType::Function(Function {
             signature: Callable::list(
                 ParamList::new(
                     std::iter::once(self_param.clone())
@@ -348,7 +348,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
             if field.required {
                 // (self, key: Literal["key"], default: object = ...) -> ValueType
-                literal_signatures.push(OverloadType::Callable(Function {
+                literal_signatures.push(OverloadType::Function(Function {
                     signature: Callable::list(
                         ParamList::new(vec![
                             self_param.clone(),
@@ -365,7 +365,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }));
             } else {
                 // (self, key: Literal["key"]) -> ValueType | None
-                literal_signatures.push(OverloadType::Callable(Function {
+                literal_signatures.push(OverloadType::Function(Function {
                     signature: Callable::list(
                         ParamList::new(vec![self_param.clone(), key_param.clone()]),
                         Type::optional(field.ty.clone()),
@@ -407,7 +407,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         let signatures = Vec1::from_vec_push(
             literal_signatures,
-            OverloadType::Callable(Function {
+            OverloadType::Function(Function {
                 signature: Callable::list(
                     ParamList::new(vec![
                         self_param.clone(),
@@ -466,7 +466,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }];
 
                 // 1) no default: (self, key: Literal["field_name"]) -> Optional[FieldType]
-                literal_signatures.push(OverloadType::Callable(Function {
+                literal_signatures.push(OverloadType::Function(Function {
                     signature: Callable::list(
                         ParamList::new(vec![self_param.clone(), key_param.clone()]),
                         Type::optional(field.ty.clone()),
@@ -528,7 +528,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
 
             // Construct an an overload of the form: (self, key: Literal["field_name"]) -> None
-            literal_signatures.push(OverloadType::Callable(Function {
+            literal_signatures.push(OverloadType::Function(Function {
                 signature: Callable::list(
                     ParamList::new(vec![self_param.clone(), key_param]),
                     Type::None,
@@ -559,7 +559,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if field.is_read_only() {
                 None
             } else {
-                Some(OverloadType::Callable(Function {
+                Some(OverloadType::Function(Function {
                     signature: Callable::list(
                         ParamList::new(vec![
                             self_param.clone(),

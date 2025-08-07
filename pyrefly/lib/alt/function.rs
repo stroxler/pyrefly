@@ -754,11 +754,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             (
                 range,
                 match t {
-                    Type::Callable(callable) => OverloadType::Callable(Function {
+                    Type::Callable(callable) => OverloadType::Function(Function {
                         signature: *callable,
                         metadata,
                     }),
-                    Type::Function(function) => OverloadType::Callable(*function),
+                    Type::Function(function) => OverloadType::Function(*function),
                     Type::Forall(box Forall {
                         tparams,
                         body: Forallable::Function(func),
@@ -766,7 +766,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         tparams,
                         body: func,
                     }),
-                    Type::Any(any_style) => OverloadType::Callable(Function {
+                    Type::Any(any_style) => OverloadType::Function(Function {
                         signature: Callable::ellipsis(any_style.propagate()),
                         metadata,
                     }),
@@ -781,7 +781,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.for_display(t)
                     ),
                 );
-                        OverloadType::Callable(Function {
+                        OverloadType::Function(Function {
                             signature: Callable::ellipsis(Type::any_error()),
                             metadata,
                         })
@@ -859,7 +859,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         for (range, overload) in overloads.iter() {
             let overload_func = {
                 let (tparams, func) = match overload {
-                    OverloadType::Callable(func) => (None, func),
+                    OverloadType::Function(func) => (None, func),
                     OverloadType::Forall(forall) => (Some(&forall.tparams), &forall.body),
                 };
                 if let Some(tparams) = all_tparams(tparams) {

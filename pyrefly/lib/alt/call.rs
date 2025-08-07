@@ -117,7 +117,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Function(func) => Some(CallTarget::Function(FunctionTarget(None, *func))),
             Type::Overload(overload) => {
                 let funcs = overload.signatures.mapped(|ty| match ty {
-                    OverloadType::Callable(function) => FunctionTarget(None, function),
+                    OverloadType::Function(function) => FunctionTarget(None, function),
                     OverloadType::Forall(forall) => {
                         FunctionTarget(Some(forall.tparams), forall.body)
                     }

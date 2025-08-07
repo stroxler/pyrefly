@@ -1384,7 +1384,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 metadata,
             }) => {
                 let new_signatures = signatures.clone().mapped(|sig| match sig {
-                    OverloadType::Callable(function) => OverloadType::Forall(Forall {
+                    OverloadType::Function(function) => OverloadType::Forall(Forall {
                         tparams: self.get_class_tparams(cls),
                         body: Function {
                             signature: function.signature,
