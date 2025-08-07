@@ -202,6 +202,45 @@ html[data-theme='dark'] {
     --ifm-footer-background-color: var(--ifm-navbar-background-color);
 }
 
+/* CUSTOM CSS FOR BLOG */
+
+/* add outline to blog tiles */
+article.margin-bottom--xl {
+    margin-bottom: 5rem !important;
+    padding: 1rem;
+    border: 1px solid var(--ifm-color-emphasis-300);
+    border-radius: var(--ifm-pagination-nav-border-radius);
+}
+
+/* reduce blog title font size */
+article h2.title_f1Hy {
+    font-size: 2.5rem;
+}
+
+/* remove author title and socials */
+article .authorTitle_nd0D,
+article .authorSocials_rSDt {
+    display: none
+}
+
+/* reformat author list */
+.col.col--6.authorCol_Hf19 {
+    width: unset;
+    flex: unset
+}
+
+/* article header {
+    border-bottom: 1px solid var(--ifm-color-emphasis-300);
+    margin-bottom: 1rem;
+} */
+
+/* reduce margin for tags at bottom of tile */
+.row .docusaurus-mt-lg {
+    margin-top: 1rem
+}
+
+/* END OF CUSTOM CSS FOR BLOG */
+
 .docusaurus-highlight-code-line {
     background-color: rgb(72, 77, 91);
     display: block;

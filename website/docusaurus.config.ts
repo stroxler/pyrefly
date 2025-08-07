@@ -55,6 +55,7 @@ function getNavBarItems() {
             label: 'Install',
             position: 'left' as const,
         },
+        {to: 'blog', label: 'Blog', position: 'left'},
         // Please keep GitHub link to the right for consistency.
         {
             href: 'https://github.com/facebook/pyrefly',
@@ -378,6 +379,10 @@ const config: Config = {
                     process.env.INTERNAL_STATIC_DOCS === '1'
                         ? undefined
                         : { trackingID: 'G-GSX14JC495', anonymizeIP: true },
+                blog: {
+                    blogSidebarTitle: 'All posts',
+                    blogSidebarCount: 'ALL',
+                },
             },
         ],
     ],

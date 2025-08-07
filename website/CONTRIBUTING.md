@@ -73,6 +73,48 @@ Most changes are reflected live without having to restart the server.
 
 The docs are written in markdown (with JSX) and are located in the `docs` directory. Note that you should not explicitly add H1 headers to the docs, because docusaurus does not support this by default (https://github.com/facebook/docusaurus/issues/5036).
 
+## Writing Blogs
+
+The Pyrefly website uses Docusaurus v2, which has a built in blog feature. The blogs are written in markdown and are located in the `website/blog` directory. See the [Docusaurus blog documentation](https://docusaurus.io/docs/blog) for more details.
+
+### Add a new blog post
+
+1. create a new file in the `website/blog` directory using this file format: `YYYY-MM-DD-blog-post-title.md`. This will be the file where you write your blog post.
+2. If you are a new author, also add yourself to the `authors.yml` file, then use your unique author name in the `author:` metadata in the blog file itself.
+3. Go to your new blog file and write your content in markdown, adding appropriate metadata. Your blog file should look something like this:
+
+    ```markdown
+    ---
+    title: My Blog # the title of your blog post
+    description: This is my first blog! # a short description of your blog post
+    slug: my-first-blog # what you want to url to be
+    authors: jmarcey # your author name from the authors.yml file, for multiple authors, use a comma separated list [author1, author2]
+    tags: [hello, python] # a list of tags for your blog post
+    image: https://i.imgur.com/mErPwqL.png #the image to be used for preview links
+    hide_table_of_contents: false # set to true to hide the table of contents
+    ---
+
+    ![image](path/to/image.png) # your blog header image
+
+    The first line/paragraph of your blog post
+
+    <!-- truncate -->
+
+    the rest of your blog post.
+    ```
+
+4. Save your file and run `yarn start` to see your blog post in the website. Check that everything renders correctly.
+
+### Adding a canonical url
+
+If your blog was originally posted on another site, you can add a canonical url to the metadata of your blog post. This will allow search engines to know that this is a duplicate of the original post, and will help with SEO. To do this you need to manually add a `<head>` tag into your blog post file ([source](https://github.com/facebook/docusaurus/issues/2603)). For example:
+
+```
+   <head>
+    <link rel="canonical" href="<url-to-original-blog-post>" />
+   </head>
+```
+
 ## Deployment
 
 The website is currently deployed on a daily basis (14 UTC) to pyrefly.org. You can also choose to manually run this if needed.
