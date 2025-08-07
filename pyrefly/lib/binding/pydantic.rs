@@ -13,5 +13,5 @@
 #[derive(Debug, Clone, Default)]
 pub struct PydanticMetadataBinding {
     #[allow(dead_code)]
-    pub frozen: Option<bool>,
+    pub frozen: bool,
 }
