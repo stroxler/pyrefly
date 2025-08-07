@@ -763,16 +763,7 @@ impl CheckArgs {
             fs_anyhow::write(path, report::trace::trace(transaction))?;
         }
         if self.behavior.suppress_errors {
-            let mut errors_to_suppress: SmallMap<PathBuf, Vec<Error>> = SmallMap::new();
-            let shown_errors = errors.shown.clone();
-            for e in shown_errors {
-                if e.severity() >= Severity::Warn
-                    && let ModulePathDetails::FileSystem(path) = e.path().details()
-                {
-                    errors_to_suppress.entry(path.clone()).or_default().push(e);
-                }
-            }
-            suppress::suppress_errors(&errors_to_suppress);
+            suppress::suppress_errors(errors.shown.clone());
         }
         if self.behavior.remove_unused_ignores {
             let mut all_ignores: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
