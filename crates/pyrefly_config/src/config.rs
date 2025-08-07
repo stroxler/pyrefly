@@ -281,6 +281,13 @@ pub struct ConfigFile {
     #[serde(default, skip_serializing, alias = "use_untyped_imports")]
     pub use_untyped_imports: Option<bool>,
 
+    /// Whether to respect ignore files (.gitignore, .ignore, .git/exclude).
+    #[serde(
+        default = "ConfigFile::default_true",
+        skip_serializing_if = "crate::util::skip_default_true"
+    )]
+    pub use_ignore_files: bool,
+
     /// Completely custom module to path mappings. Currently not exposed to the user.
     #[serde(skip)]
     pub custom_module_paths: SmallMap<ModuleName, ModulePath>,
@@ -319,6 +326,7 @@ impl Default for ConfigFile {
             sub_configs: Default::default(),
             custom_module_paths: Default::default(),
             use_untyped_imports: None,
+            use_ignore_files: true,
             ignore_missing_source: true,
             typeshed_path: None,
         }
@@ -806,6 +814,7 @@ mod tests {
              ignore-missing-imports = ["sprout"]
              ignore-errors-in-generated-code = true
              ignore-missing-source = true
+             use-ignore-files = true
 
              [errors]
              assert-type = true
@@ -837,6 +846,7 @@ mod tests {
                 search_path_from_file: vec![PathBuf::from("../..")],
                 disable_search_path_heuristics: false,
                 import_root: None,
+                use_ignore_files: true,
                 fallback_search_path: Vec::new(),
                 python_environment: PythonEnvironment {
                     python_platform: Some(PythonPlatform::mac()),
@@ -1091,6 +1101,7 @@ mod tests {
             search_path_from_file: vec![PathBuf::from("../..")],
             disable_search_path_heuristics: false,
             import_root: None,
+            use_ignore_files: true,
             fallback_search_path: Vec::new(),
             python_environment: python_environment.clone(),
             interpreters: Interpreters {
@@ -1149,6 +1160,7 @@ mod tests {
             search_path_from_args: Vec::new(),
             search_path_from_file: search_path,
             disable_search_path_heuristics: false,
+            use_ignore_files: true,
             import_root: None,
             fallback_search_path: Vec::new(),
             python_environment,

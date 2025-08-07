@@ -92,6 +92,9 @@ pub struct ConfigOverrideArgs {
     /// Whether to ignore type errors in generated code.
     #[arg(long)]
     ignore_errors_in_generated_code: Option<bool>,
+    /// Whether to respect ignore files (.gitignore, .ignore, .git/exclude).
+    #[arg(long)]
+    use_ignore_files: Option<bool>,
     /// Controls how Pyrefly analyzes function definitions that lack type annotations on parameters and return values.
     #[arg(long)]
     untyped_def_behavior: Option<UntypedDefBehavior>,
@@ -181,6 +184,9 @@ impl ConfigOverrideArgs {
         if let Some(x) = &self.python_interpreter {
             config.interpreters.python_interpreter = Some(ConfigOrigin::cli(x.clone()));
             config.interpreters.conda_environment = None;
+        }
+        if let Some(x) = &self.use_ignore_files {
+            config.use_ignore_files = *x;
         }
         if let Some(x) = &self.ignore_missing_source {
             config.ignore_missing_source = *x;
