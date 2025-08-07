@@ -31,8 +31,10 @@ use crate::alt::types::class_metadata::NamedTupleMetadata;
 use crate::alt::types::class_metadata::ProtocolMetadata;
 use crate::alt::types::class_metadata::TotalOrderingMetadata;
 use crate::alt::types::class_metadata::TypedDictMetadata;
+use crate::alt::types::pydantic::PydanticMetadata;
 use crate::binding::base_class::BaseClass;
 use crate::binding::binding::Key;
+use crate::binding::pydantic::PydanticMetadataBinding;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -197,6 +199,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         decorators: &[(Idx<Key>, TextRange)],
         is_new_type: bool,
         special_base: &Option<Box<BaseClass>>,
+        pydantic_metadata_binding: &Option<PydanticMetadataBinding>,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         let mut enum_metadata = None;
@@ -589,9 +592,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .collect::<Vec<_>>()
         };
 
-        // TODO Zeina: Populate the metadata based on the qualified name of the class
-        // which will tell if a class is imported from Pydantic
-        let pydantic_metadata = None;
+        let pydantic_metadata =
+            if let Some(PydanticMetadataBinding { frozen }) = pydantic_metadata_binding {
+                Some(PydanticMetadata { frozen: *frozen })
+            } else {
+                None
+            };
+
         ClassMetadata::new(
             bases,
             metaclass,

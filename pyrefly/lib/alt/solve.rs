@@ -253,7 +253,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             decorators,
             is_new_type,
             special_base,
-            pydantic_metadata: _, // TODO Zeina: Convert to PydanticMetadata
+            pydantic_metadata,
         } = binding;
         let metadata = match &self.get_idx(*k).0 {
             None => ClassMetadata::recursive(),
@@ -264,6 +264,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 decorators,
                 *is_new_type,
                 special_base,
+                pydantic_metadata,
                 errors,
             ),
         };

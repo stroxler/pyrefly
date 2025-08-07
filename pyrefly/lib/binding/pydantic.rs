@@ -12,6 +12,5 @@
 // but this will likely change as we add more fields.
 #[derive(Debug, Clone, Default)]
 pub struct PydanticMetadataBinding {
-    #[allow(dead_code)]
     pub frozen: bool,
 }
