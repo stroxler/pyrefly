@@ -6,13 +6,13 @@
  */
 
 pub mod all;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod autotype;
 pub mod buck_check;
 pub mod check;
 pub mod config_finder;
 pub mod dump_config;
 pub mod files;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod infer;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod init;
 #[cfg(not(target_arch = "wasm32"))]

@@ -7,11 +7,11 @@
 
 use clap::Subcommand;
 
-use crate::commands::autotype::AutotypeArgs;
 use crate::commands::buck_check::BuckCheckArgs;
 use crate::commands::check::FullCheckArgs;
 use crate::commands::check::SnippetCheckArgs;
 use crate::commands::dump_config::DumpConfigArgs;
+use crate::commands::infer::InferArgs;
 use crate::commands::init::InitArgs;
 use crate::commands::lsp::LspArgs;
 use crate::commands::util::CommandExitStatus;
@@ -40,7 +40,7 @@ pub enum Command {
     Lsp(LspArgs),
 
     /// Automatically add type annotations to a file or directory.
-    Autotype(AutotypeArgs),
+    Infer(InferArgs),
 }
 
 impl Command {
@@ -51,7 +51,7 @@ impl Command {
             Command::BuckCheck(args) => args.run(),
             Command::Lsp(args) => args.run(),
             Command::Init(args) => args.run(),
-            Command::Autotype(args) => args.run(),
+            Command::Infer(args) => args.run(),
             Command::DumpConfig(args) => args.run(),
         }
     }

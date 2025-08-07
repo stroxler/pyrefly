@@ -37,7 +37,7 @@ use crate::types::types::Type;
 #[deny(clippy::missing_docs_in_private_items)]
 /// Flags for controlling the behavior of the autotype command
 #[derive(Debug, Clone, Parser)]
-pub struct AutotypeFlags {
+pub struct InferFlags {
     // Default should be false for all of them and then we can override to easily customize
     /// Whether to add type annotations to container types like lists and dictionaries
     #[arg(long, value_parser = clap::value_parser!(bool))]
@@ -53,7 +53,7 @@ pub struct AutotypeFlags {
     pub imports: Option<bool>,
 }
 
-impl AutotypeFlags {
+impl InferFlags {
     pub fn default() -> Self {
         Self {
             containers: Some(false),
@@ -83,7 +83,7 @@ impl AutotypeFlags {
 /// Arguments for the autotype command which automatically adds type annotations to Python code
 #[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Parser, Clone)]
-pub struct AutotypeArgs {
+pub struct InferArgs {
     /// Which files to check.
     #[command(flatten)]
     files: FilesArgs,
@@ -94,7 +94,7 @@ pub struct AutotypeArgs {
 
     /// Flags controlling the behavior of the autotype command
     #[command(flatten)]
-    flags: AutotypeFlags,
+    flags: InferFlags,
 }
 
 impl ParameterAnnotation {
@@ -183,7 +183,7 @@ fn hint_to_string(
     hint.to_string()
 }
 
-impl AutotypeArgs {
+impl InferArgs {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         self.config_override.validate()?;
         let (files_to_check, config_finder) = self.files.resolve(&self.config_override)?;
@@ -193,7 +193,7 @@ impl AutotypeArgs {
     pub fn run_inner(
         files_to_check: FilteredGlobs,
         config_finder: ConfigFinder,
-        flags: AutotypeFlags,
+        flags: InferFlags,
     ) -> anyhow::Result<CommandExitStatus> {
         let expanded_file_list = config_finder.checkpoint(files_to_check.files())?;
         let state = State::new(config_finder);
@@ -324,8 +324,8 @@ mod test {
     use super::*;
     use crate::test::util::TestEnv;
 
-    fn assert_annotations(input: &str, output: &str, flags: Option<AutotypeFlags>) {
-        let flags = flags.unwrap_or_else(AutotypeFlags::default);
+    fn assert_annotations(input: &str, output: &str, flags: Option<InferFlags>) {
+        let flags = flags.unwrap_or_else(InferFlags::default);
         let tdir = tempfile::tempdir().unwrap();
         let path = tdir.path().join("test.py");
         fs_anyhow::write(&path, input).unwrap();
@@ -335,7 +335,7 @@ mod test {
             Globs::new(vec![format!("{}/**/*", tdir.path().display()).to_owned()]).unwrap();
         let f_globs = FilteredGlobs::new(includes, Globs::empty());
         let config_finder = t.config_finder();
-        let result = AutotypeArgs::run_inner(f_globs, config_finder, flags);
+        let result = InferArgs::run_inner(f_globs, config_finder, flags);
         assert!(
             result.is_ok(),
             "autotype command failed: {:?}",
@@ -368,19 +368,15 @@ mod test {
         t.add(&file_one_path.display().to_string(), file_one);
         t.add(&file_two_path.display().to_string(), file_two);
         t.add(&config_path.display().to_string(), configuration);
-        let args = AutotypeArgs::parse_from(["autotype", &tdir.path().display().to_string()]);
+        let args = InferArgs::parse_from(["infer", &tdir.path().display().to_string()]);
         let result = args.run();
-        assert!(
-            result.is_ok(),
-            "autotype command failed: {:?}",
-            result.err()
-        );
+        assert!(result.is_ok(), "infer command failed: {:?}", result.err());
 
         let got_file = fs_anyhow::read_to_string(&file_one_path).unwrap();
         assert_str_eq!(
             output,
             got_file,
-            "File content after autotype doesn't match expected output"
+            "File content after infer doesn't match expected output"
         );
     }
 
@@ -571,7 +567,7 @@ def foo() -> str:
 
     #[test]
     fn test_empty_container() -> anyhow::Result<()> {
-        let mut flags = AutotypeFlags::default();
+        let mut flags = InferFlags::default();
         flags.containers = Some(true);
         assert_annotations(
             r#"
@@ -591,7 +587,7 @@ def foo() -> str:
 
     #[test]
     fn test_empty_dictionary() -> anyhow::Result<()> {
-        let mut flags = AutotypeFlags::default();
+        let mut flags = InferFlags::default();
         flags.containers = Some(true);
         assert_annotations(
             r#"
@@ -611,7 +607,7 @@ def foo() -> str:
 
     #[test]
     fn test_non_empty_dictionary() -> anyhow::Result<()> {
-        let mut flags = AutotypeFlags::default();
+        let mut flags = InferFlags::default();
         flags.containers = Some(true);
 
         assert_annotations(
@@ -633,7 +629,7 @@ def foo() -> str:
     // TEST FLAGS
     #[test]
     fn test_no_parameter_flag() -> anyhow::Result<()> {
-        let mut flags = AutotypeFlags::default();
+        let mut flags = InferFlags::default();
         flags.parameter_types = Some(false);
         assert_annotations(
             r#"
@@ -653,7 +649,7 @@ def foo() -> str:
 
     #[test]
     fn test_no_containers_empty_dictionary() -> anyhow::Result<()> {
-        let mut flags = AutotypeFlags::default();
+        let mut flags = InferFlags::default();
         flags.containers = Some(false);
         assert_annotations(
             r#"
@@ -674,7 +670,7 @@ def foo() -> str:
     #[test]
     fn test_no_return_literal_string() -> anyhow::Result<()> {
         // Test return type annotation for integer literal
-        let mut flags = AutotypeFlags::default();
+        let mut flags = InferFlags::default();
         flags.return_types = Some(false);
 
         assert_annotations(
