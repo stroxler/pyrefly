@@ -173,6 +173,7 @@ use crate::lsp::module_helpers::to_real_path;
 use crate::lsp::queue::LspEvent;
 use crate::lsp::queue::LspQueue;
 use crate::lsp::transaction_manager::TransactionManager;
+use crate::lsp::workspace::LspAnalysisConfig;
 use crate::lsp::workspace::Workspace;
 use crate::lsp::workspace::Workspaces;
 use crate::module::from_path::module_from_path;
@@ -1146,8 +1147,12 @@ impl Server {
         }
     }
 
-    /// Create a handle. Return None if the workspace has language services disabled (and thus you shouldn't do anything).
-    fn make_handle_if_enabled(&self, uri: &Url) -> Option<Handle> {
+    /// Create a handle with analysis config that decides language service behavior.
+    /// Return None if the workspace has language services disabled (and thus you shouldn't do anything).
+    fn make_handle_with_lsp_analysis_config_if_enabled(
+        &self,
+        uri: &Url,
+    ) -> Option<(Handle, Option<LspAnalysisConfig>)> {
         let path = uri.to_file_path().unwrap();
         self.workspaces.get_with(path.clone(), |workspace| {
             if workspace.disable_language_services {
@@ -1159,9 +1164,17 @@ impl Server {
                 } else {
                     ModulePath::filesystem(path)
                 };
-                Some(handle_from_module_path(&self.state, module_path))
+                Some((
+                    handle_from_module_path(&self.state, module_path),
+                    workspace.lsp_analysis_config,
+                ))
             }
         })
+    }
+
+    fn make_handle_if_enabled(&self, uri: &Url) -> Option<Handle> {
+        self.make_handle_with_lsp_analysis_config_if_enabled(uri)
+            .map(|(handle, _)| handle)
     }
 
     fn goto_definition(
@@ -1454,9 +1467,15 @@ impl Server {
     ) -> Option<Vec<InlayHint>> {
         let uri = &params.text_document.uri;
         let range = &params.range;
-        let handle = self.make_handle_if_enabled(uri)?;
+        let (handle, lsp_analysis_config) =
+            self.make_handle_with_lsp_analysis_config_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
-        let t = transaction.inlay_hints(&handle)?;
+        let t = transaction.inlay_hints(
+            &handle,
+            lsp_analysis_config
+                .and_then(|c| c.inlay_hints)
+                .unwrap_or_default(),
+        )?;
         let res = t
             .into_iter()
             .filter_map(|x| {

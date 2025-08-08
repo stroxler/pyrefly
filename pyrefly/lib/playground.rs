@@ -258,7 +258,7 @@ impl Playground {
         let transaction = self.state.transaction();
         transaction
             .get_module_info(&self.handle)
-            .zip(transaction.inlay_hints(&self.handle))
+            .zip(transaction.inlay_hints(&self.handle, Default::default()))
             .map(|(info, hints)| {
                 hints.into_map(|(position, label)| {
                     let position = Position::from_display_pos(info.display_pos(position));

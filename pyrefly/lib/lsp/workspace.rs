@@ -29,6 +29,7 @@ use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
+use crate::state::lsp::InlayHintConfig;
 
 /// Information about the Python environment p
 #[derive(Debug, Clone)]
@@ -155,38 +156,6 @@ pub enum ImportFormat {
     Relative,
 }
 
-fn default_true() -> bool {
-    true
-}
-
-#[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InlayHintConfig {
-    #[serde(default)]
-    #[expect(unused)]
-    pub call_argument_names: bool,
-    #[serde(default = "default_true")]
-    #[expect(unused)]
-    pub function_return_types: bool,
-    #[serde(default)]
-    #[expect(unused)]
-    pub pytest_parameters: bool,
-    #[serde(default = "default_true")]
-    #[expect(unused)]
-    pub variable_types: bool,
-}
-
-impl Default for InlayHintConfig {
-    fn default() -> Self {
-        Self {
-            call_argument_names: false,
-            function_return_types: true,
-            pytest_parameters: false,
-            variable_types: true,
-        }
-    }
-}
-
 /// https://code.visualstudio.com/docs/python/settings-reference#_pylance-language-server
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -195,7 +164,6 @@ pub struct LspAnalysisConfig {
     pub diagnostic_mode: Option<DiagnosticMode>,
     #[expect(unused)]
     pub import_format: Option<ImportFormat>,
-    #[expect(unused)]
     pub inlay_hints: Option<InlayHintConfig>,
 }
 

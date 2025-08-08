@@ -14,6 +14,7 @@ mod definition;
 mod diagnostic;
 mod did_change;
 mod hover;
+mod inlay_hint;
 mod io;
 mod references;
 mod rename;
