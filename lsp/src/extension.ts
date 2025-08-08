@@ -179,9 +179,10 @@ async function triggerMsPythonRefreshLanguageServers() {
     await config.update(setting, previousSetting, vscode.ConfigurationTarget.Global);
 }
 
-export function deactivate(): Thenable<void> | undefined {
+export async function deactivate(): Promise<void> | undefined {
     if (!client) {
         return undefined;
     }
-    return client.stop();
+    // todo(kylei): understand why this is needed
+    return await client.stop();
 }
