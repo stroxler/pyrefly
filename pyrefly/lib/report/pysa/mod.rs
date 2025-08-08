@@ -80,6 +80,10 @@ struct PysaProjectModule {
     info_path: Option<PathBuf>,     // Path to the PysaModuleFile
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_test: bool, // Uses a set of heuristics to determine if the module is a test file.
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_interface: bool, // Is this a .pyi file?
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_init: bool, // Is this a __init__.py(i) file?
 }
 
 /// Format of the index file `pyrefly.pysa.json`
@@ -765,6 +769,8 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                         source_path: handle.path().details().clone(),
                         info_path: info_path.clone(),
                         is_test: false,
+                        is_interface: handle.path().is_interface(),
+                        is_init: handle.path().is_init(),
                     }
                 )
                 .is_none(),
