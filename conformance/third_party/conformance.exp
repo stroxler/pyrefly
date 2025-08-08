@@ -4634,6 +4634,16 @@
       "name": "bad-specialization",
       "stop_column": 34,
       "stop_line": 61
+    },
+    {
+      "code": -2,
+      "column": 28,
+      "concise_description": "Duplicated type parameter declaration `T`",
+      "description": "Duplicated type parameter declaration `T`",
+      "line": 68,
+      "name": "invalid-inheritance",
+      "stop_column": 29,
+      "stop_line": 68
     }
   ],
   "generics_basic.py": [
@@ -4736,6 +4746,16 @@
       "name": "bad-argument-type",
       "stop_column": 16,
       "stop_line": 69
+    },
+    {
+      "code": -2,
+      "column": 24,
+      "concise_description": "Duplicated type parameter declaration `T`",
+      "description": "Duplicated type parameter declaration `T`",
+      "line": 121,
+      "name": "invalid-inheritance",
+      "stop_column": 25,
+      "stop_line": 121
     },
     {
       "code": -2,

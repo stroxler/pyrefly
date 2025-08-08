@@ -174,12 +174,10 @@
     "Line 57: Unexpected errors ['assert_type(str, int | str) failed']"
   ],
   "generics_base_class.py": [
-    "Line 68: Expected 1 errors",
     "Line 98: Expected 1 errors"
   ],
   "generics_basic.py": [
     "Line 49: Expected 1 errors",
-    "Line 121: Expected 1 errors",
     "Line 34: Unexpected errors ['`+` is not supported between `AnyStr` and `AnyStr`\\n  Argument `AnyStr` is not assignable to parameter `self` with type `Self@bytes` in function `bytes.__add__`', '`+` is not supported between `AnyStr` and `AnyStr`\\n  No matching overload found for function `str.__add__`\\n  Possible overloads:\\n  (value: LiteralString, /) -> LiteralString [closest match]\\n  (value: str, /) -> str', 'Returned type `bytes | Unknown` is not assignable to declared return type `AnyStr`']",
     "Line 67: Unexpected errors ['assert_type(MyStr, str) failed']",
     "Line 68: Unexpected errors ['assert_type(MyStr, str) failed', 'Argument `str` is not assignable to parameter `y` with type `MyStr` in function `concat`']"

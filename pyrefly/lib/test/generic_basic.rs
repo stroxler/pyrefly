@@ -169,6 +169,30 @@ class C(B[str]):
 );
 
 testcase!(
+    test_legacy_generic_syntax_duplicated_names,
+    r#"
+from typing import Any, Generic, Protocol, TypeVar, TypeVarTuple, ParamSpec
+T = TypeVar('T')
+Ts = TypeVarTuple('Ts')
+P = ParamSpec('P')
+
+class A(Generic[T, T]):  # E: Duplicated type parameter declaration
+    pass
+class B(Generic[*Ts, *Ts]):  # E: Duplicated type parameter declaration
+    pass
+class C(Generic[P, P]):  # E: Duplicated type parameter declaration
+    pass
+
+class D(Protocol[T, T]):  # E: Duplicated type parameter declaration
+    pass
+class E(Protocol[*Ts, *Ts]):  # E: Duplicated type parameter declaration
+    pass
+class F(Protocol[P, P]):  # E: Duplicated type parameter declaration
+    pass
+    "#,
+);
+
+testcase!(
     bug = "The TODO here is because we implemented but have temporarily disabled a check for the use of a generic class without type arguments as a type annotation; this check needs to be configurable and we don't have the plumbing yet.",
     test_legacy_generic_syntax_implicit_targs,
     r#"

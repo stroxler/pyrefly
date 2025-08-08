@@ -11,6 +11,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::TypeParams;
+use ruff_text_size::Ranged;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
@@ -95,16 +96,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 BaseClass::Generic(xs, ..) => {
                     for x in xs {
                         let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
-                        if let Some(p) = lookup_tparam(&ty) {
-                            generic_tparams.insert(p);
+                        if let Some(p) = lookup_tparam(&ty)
+                            && !generic_tparams.insert(p)
+                        {
+                            self.error(
+                                errors,
+                                x.range(),
+                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                format!(
+                                    "Duplicated type parameter declaration `{}`",
+                                    self.module().display(x)
+                                ),
+                            );
                         }
                     }
                 }
                 BaseClass::Protocol(xs, ..) => {
                     for x in xs {
                         let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
-                        if let Some(p) = lookup_tparam(&ty) {
-                            protocol_tparams.insert(p);
+                        if let Some(p) = lookup_tparam(&ty)
+                            && !protocol_tparams.insert(p)
+                        {
+                            self.error(
+                                errors,
+                                x.range(),
+                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                format!(
+                                    "Duplicated type parameter declaration `{}`",
+                                    self.module().display(x),
+                                ),
+                            );
                         }
                     }
                 }
